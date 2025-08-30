@@ -12,7 +12,6 @@ train_list = [NodePath("CJ6-Mc-1"), NodePath("CJ6-Tp1"), NodePath("CJ6-Tp2"), No
 true_train_truck = [NodePath("CJ6-Mc-1/Forward"), NodePath("CJ6-Mc-1/Back"), NodePath("CJ6-Tp1/Forward"), NodePath("CJ6-Tp1/Back"), NodePath("CJ6-Tp2/Forward"), NodePath("CJ6-Tp2/Back"), NodePath("CJ6-Mc-2/Forward"), NodePath("CJ6-Mc-2/Back")]
 
 [node name="CJ6-Mc-1" type="Sprite2D" parent="."]
-modulate = Color(1, 0, 1, 1)
 rotation = 3.14159
 scale = Vector2(0.01, 0.01)
 texture = ExtResource("5_2nkmy")
@@ -25,7 +24,6 @@ position = Vector2(0, -750)
 position = Vector2(0, 750)
 
 [node name="CJ6-Tp1" type="Sprite2D" parent="."]
-modulate = Color(1, 1, 0, 1)
 position = Vector2(0, 26)
 scale = Vector2(0.01, 0.01)
 texture = ExtResource("4_5f4fx")

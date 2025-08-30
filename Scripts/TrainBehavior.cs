@@ -19,11 +19,13 @@ public partial class TrainBehavior : Node2D
     [Export(PropertyHint.None, "suffix:m/s\u00b2")] public float max_acceleration = 0.8f;
     [Export(PropertyHint.None, "suffix:m/s\u00b2")] public float max_braking = 1.0f;
     [Export(PropertyHint.None, "suffix:m/s\u00b2")] public float emergency_braking = 1.4f;
-    [Export(PropertyHint.None, "suffix:km/s")] public float operation_speed = 160f;
-    [Export(PropertyHint.None, "suffix:km/s")] public float max_speed = 180f;
+    [Export(PropertyHint.None, "suffix:km/h")] public float operation_speed = 160f;
+    [Export(PropertyHint.None, "suffix:km/h")] public float max_speed = 180f;
+    [Export(PropertyHint.None, "suffix:km/h")] private float current_speed = 0f;
 
     private float operation_speed_mps => operation_speed / 3.6f; // Convert km/h to m/s
     private float max_speed_mps => max_speed / 3.6f; // Convert km/h to m/s
+    private float current_speed_mps => current_speed / 3.6f; // Convert km/h to m/s
 
     [ExportGroup("Train Settings")]
     [Export] public string train_model = "CJ6";
@@ -65,5 +67,10 @@ public partial class TrainBehavior : Node2D
             train_list[i].Rotation = angle;
         }
 
+    }
+
+    public void Initialize(Path2D path)
+    {
+        this.path = path;
     }
 }
