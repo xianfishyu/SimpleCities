@@ -30,9 +30,10 @@ script = ExtResource("4_321ql")
 train_scene = ExtResource("3_ybmw1")
 train_path = NodePath("../Path2D")
 
-[node name="MainCamera" type="Camera2D" parent="."]
-position = Vector2(0, 100)
-rotation = 3.14159
+[node name="CJ6" parent="." node_paths=PackedStringArray("path") instance=ExtResource("3_ybmw1")]
+path = NodePath("../Path2D")
+
+[node name="MainCamera" type="Camera2D" parent="CJ6"]
 script = ExtResource("3_yprpe")
 maxScale = 16.0
 metadata/_edit_lock_ = true

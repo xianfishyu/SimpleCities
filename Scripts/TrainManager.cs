@@ -30,6 +30,6 @@ public partial class TrainManager : Node2D
 
     public override void _Ready()
     {
-        TrainGenerate();
+        // TrainGenerate();
     }
 }
