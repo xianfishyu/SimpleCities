@@ -2,8 +2,9 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using static Godot.GD;
+using System.Text.Json;
 
-public partial class RailwayParser : Node
+public partial class RailwayParser
 {
     //选择任意一个你认为简单的Samples文件夹里面的文件进行解析
     //输出一个dictionary,key是id,value是一个包含所有geometry信息的数组
@@ -11,7 +12,7 @@ public partial class RailwayParser : Node
     //默认使用godot类型
 
     public string Path { get; private set; }
-    private RailwayFileType FileType { get; set; }
+    private FileType FileType { get; set; }
     public Dictionary<int, RailwayData> RailwayData { get; private set; }
 
 
@@ -21,21 +22,29 @@ public partial class RailwayParser : Node
         Error type = json.Parse(json.Data.ToString());
         Variant data = json.Data;
 
-        FileType = RailwayFileType.Json;
+        Print("this json is " + type);
+        Print(data);
+
+        FileType = FileType.Json;
+    }
+
+    public RailwayParser(string path)
+    {
+        Path = path;
+        JsonParser(Path);
     }
 
     public string GetFileType => FileType.ToString();
-    
-    enum RailwayFileType
-    {
-        Geojson,
-        Gpx,
-        Json,
-        Kml,
-    }
+
 }
 
-
+public enum FileType
+{
+    Geojson,
+    Gpx,
+    Json,
+    Kml,
+}
 
 public partial class RailwayData : GodotObject
 {
