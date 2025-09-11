@@ -31,6 +31,5 @@ public partial class TrainManager : Node2D
     public override void _Ready()
     {
         // TrainGenerate();
-        // RailwayParser parser = new RailwayParser("res://Samples/example.json");
     }
 }
