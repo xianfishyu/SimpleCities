@@ -12,6 +12,8 @@ public partial class RailwayParser
     //即Dictionary<id,Array<Vector2>>
     //默认使用godot类型
 
+    //已完成
+
     public string Path;
     public FileType FileType;
 
@@ -37,7 +39,7 @@ public partial class RailwayParser
         {
             Array<Vector2> geometryArray = [];
             for (int i = 0; i < element.geometry.Count; i++)
-                geometryArray.Add(new Vector2((element.geometry[i].lon - 116.5132943f) * 80000, (element.geometry[i].lat - 39.9981266f) * 110000)); //经纬反转 参数一经度 参数二纬度
+                geometryArray.Add(new Vector2((element.geometry[i].lon - 116.5132943f) * 80000, -(element.geometry[i].lat - 39.9981266f) * 110000)); //经纬反转 纬度取反,因为坐标系问题 参数一经度 参数二纬度
 
 
             RailwayDataDic.Add
@@ -56,7 +58,7 @@ public partial class RailwayParser
 
     }
 
-    public Dictionary<int, RailwayData> GetRailwayDataDic => RailwayDataDic;
+    public Dictionary<int, RailwayData> GetRailwayDataDic() => RailwayDataDic;
 
     public RailwayParser(string path)
     {

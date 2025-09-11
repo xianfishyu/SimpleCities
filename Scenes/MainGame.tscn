@@ -17,6 +17,7 @@ train_scene = ExtResource("3_ybmw1")
 [node name="TrackManager" type="Node2D" parent="Manager"]
 script = ExtResource("3_321ql")
 TrackInfoPath = "res://Samples/export.json"
+highLight = Array[String](["大环线"])
 
 [node name="MainCamera" type="Camera2D" parent="."]
 position = Vector2(0, 100)
