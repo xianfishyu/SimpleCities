@@ -26,12 +26,6 @@ public partial class RailwayParser
         Error error = json.Parse(json.Data.ToString());
         string data = json.Data.ToString();
 
-        if (error == Error.ParseError)
-        {
-            Print($"{path} is not a json");
-            return;
-        }
-
 
 
         Root root = JsonSerializer.Deserialize<Root>(data);
@@ -39,7 +33,7 @@ public partial class RailwayParser
         {
             Array<Vector2> geometryArray = [];
             for (int i = 0; i < element.geometry.Count; i++)
-                geometryArray.Add(new Vector2((element.geometry[i].lon - 116.5132943f) * 80000, -(element.geometry[i].lat - 39.9981266f) * 110000)); //经纬反转 纬度取反,因为坐标系问题 参数一经度 参数二纬度
+                geometryArray.Add(new Vector2((element.geometry[i].lon - 116.5132943f) * 86414.25f, -(element.geometry[i].lat - 39.9981266f) * 111194.93f)); //经纬反转 纬度取反,因为坐标系问题 参数一经度 参数二纬度
 
 
             RailwayDataDic.Add

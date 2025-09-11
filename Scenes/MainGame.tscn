@@ -13,11 +13,13 @@ metadata/_edit_lock_ = true
 [node name="TrainManager" type="Node2D" parent="Manager"]
 script = ExtResource("4_321ql")
 train_scene = ExtResource("3_ybmw1")
+metadata/_edit_lock_ = true
 
 [node name="TrackManager" type="Node2D" parent="Manager"]
 script = ExtResource("3_321ql")
 TrackInfoPath = "res://Samples/export.json"
-highLight = Array[String](["大环线"])
+highLight = Array[String](["城轨试验线"])
+metadata/_edit_lock_ = true
 
 [node name="MainCamera" type="Camera2D" parent="."]
 position = Vector2(0, 100)
