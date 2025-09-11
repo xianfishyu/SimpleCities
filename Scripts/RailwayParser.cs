@@ -5,6 +5,8 @@ using Godot.Collections;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+
+[Tool]
 public partial class RailwayParser
 {
     //选择任意一个你认为简单的Samples文件夹里面的文件进行解析
@@ -14,12 +16,20 @@ public partial class RailwayParser
 
     //已完成
 
-    public string Path;
-    public FileType FileType;
+
+
+    public RailwayParser(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            throw new ArgumentException("Path cannot be null or empty.", nameof(path));
+        }
+        JsonParser(path);
+    }
 
     public Dictionary<int, RailwayData> RailwayDataDic = [];
 
-
+    
     private void JsonParser(string path)
     {
         Json json = Load<Json>(path);
@@ -53,48 +63,6 @@ public partial class RailwayParser
     }
 
     public Dictionary<int, RailwayData> GetRailwayDataDic() => RailwayDataDic;
-
-    public RailwayParser(string path)
-    {
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            throw new ArgumentException("Path cannot be null or empty.", nameof(path));
-        }
-
-        Path = path;
-        FileType = FileTypeCheck(path);
-        switch (FileType)
-        {
-            case FileType.Json:
-                JsonParser(path);
-                break;
-            case FileType.Geojson:
-                // GeojsonParser(path);
-                break;
-            case FileType.Gpx:
-                // GpxParser(path);
-                break;
-            case FileType.Kml:
-                // KmlParser(path);
-                break;
-            default:
-                throw new NotSupportedException($"this file type is not supported , Path :{path}  {path.GetType()}");
-        }
-    }
-
-    public static FileType FileTypeCheck(string path)
-    {
-        return path switch
-        {
-            var p when p.EndsWith(".geojson") => FileType.Geojson,
-            var p when p.EndsWith(".gpx") => FileType.Gpx,
-            var p when p.EndsWith(".json") => FileType.Json,
-            var p when p.EndsWith(".kml") => FileType.Kml,
-            _ => throw new NotSupportedException($"this file type is not supported , Path :{path}  {path.GetType()}"),
-        };
-    }
-
-    public string GetFileType => FileType.ToString();
 
 
 
