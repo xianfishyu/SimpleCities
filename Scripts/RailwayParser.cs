@@ -37,7 +37,7 @@ public partial class RailwayParser
 
         if (error == Error.ParseError)
         {
-            Print($"{path} is not a json");
+            PrintErr($"{path} json ERROR!");
             Print(json.GetErrorLine());
             Print(json.GetErrorMessage());
             return;
