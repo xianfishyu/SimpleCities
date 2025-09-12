@@ -7,16 +7,11 @@ using System.Text.Json.Serialization;
 using System.IO;
 
 
-[Tool]
+
 public partial class RailwayParser
 {
-    //选择任意一个你认为简单的Samples文件夹里面的文件进行解析
-    //输出一个dictionary,key是id,value是一个包含所有geometry信息的数组
-    //即Dictionary<id,Array<Vector2>>
-    //默认使用godot类型
-
-    //已完成
     private Vector2 basePoint = Vector2.Zero;
+    private Dictionary<int, RailwayData> RailwayDataDic = [];
 
     public RailwayParser(string path)
     {
@@ -26,9 +21,6 @@ public partial class RailwayParser
         }
         JsonParser(path);
     }
-
-    public Dictionary<int, RailwayData> RailwayDataDic = [];
-
 
     private void JsonParser(string path)
     {
@@ -136,26 +128,16 @@ public partial class RailwayParser
     }
 }
 
-public partial class RailwayData : GodotObject
+public partial class RailwayData(string type, string name, int id, (Vector2 minBounds, Vector2 maxBounds) bounds, Array<double> nodes, Array<Vector2> geometry, string passengerLines) : GodotObject
 {
-    public RailwayData(string type, string name, int id, (Vector2 minBounds, Vector2 maxBounds) bounds, Array<double> nodes, Array<Vector2> geometry, string passengerLines)
-    {
-        Type = type;
-        Name = name is not null ? name : null;
-        ID = id;
-        RailwayBounds = new Bounds(bounds.minBounds, bounds.maxBounds);
-        Nodes = nodes;
-        Geometry = geometry;
-        PassengerLines = passengerLines;
-    }
 
-    public string Type { get; set; }
-    public string Name { get; set; }
-    public int ID { get; set; }
-    public Bounds RailwayBounds { get; set; }
-    public Array<double> Nodes { get; set; }
-    public Array<Vector2> Geometry { get; set; }
-    public string PassengerLines { get; set; }
+    public string Type { get; set; } = type;
+    public string Name { get; set; } = name is not null ? name : null;
+    public int ID { get; set; } = id;
+    public Bounds RailwayBounds { get; set; } = new Bounds(bounds.minBounds, bounds.maxBounds);
+    public Array<double> Nodes { get; set; } = nodes;
+    public Array<Vector2> Geometry { get; set; } = geometry;
+    public string PassengerLines { get; set; } = passengerLines;
 
     public class Bounds(Vector2 min, Vector2 max)
     {
