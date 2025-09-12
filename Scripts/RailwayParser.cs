@@ -4,18 +4,14 @@ using static Godot.GD;
 using Godot.Collections;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.IO;
 
 
-[Tool]
+
 public partial class RailwayParser
 {
-    //选择任意一个你认为简单的Samples文件夹里面的文件进行解析
-    //输出一个dictionary,key是id,value是一个包含所有geometry信息的数组
-    //即Dictionary<id,Array<Vector2>>
-    //默认使用godot类型
-
-    //已完成
     private Vector2 basePoint = Vector2.Zero;
+    private Dictionary<int, RailwayData> RailwayDataDic = [];
 
     public RailwayParser(string path)
     {
@@ -26,30 +22,22 @@ public partial class RailwayParser
         JsonParser(path);
     }
 
-    public Dictionary<int, RailwayData> RailwayDataDic = [];
-
-
     private void JsonParser(string path)
     {
-        Json json = Load<Json>(path);
-        string data = json.Data.ToString();
-        Error error = json.Parse(data);
+        string absPath = ProjectSettings.GlobalizePath(path);
+        string jsonString = File.ReadAllText(absPath);
 
-        if (error == Error.ParseError)
-        {
-            PrintErr($"{path} json ERROR!");
-            Print(json.GetErrorLine());
-            Print(json.GetErrorMessage());
-            return;
-        }
-
-        Root root = JsonSerializer.Deserialize<Root>(data);
+        Root root = JsonSerializer.Deserialize<Root>(jsonString);
         basePoint = new Vector2(root.elements[0].geometry[0].lon, root.elements[0].geometry[0].lat);
         foreach (Element element in root.elements)
         {
             Array<Vector2> geometryArray = [];
             for (int i = 0; i < element.geometry.Count; i++)
-                geometryArray.Add(new Vector2((element.geometry[i].lon - basePoint.X) * 86414.25f, -(element.geometry[i].lat - basePoint.Y) * 111194.93f)); //经纬反转 纬度取反,因为坐标系问题 参数一经度 参数二纬度
+            {
+                geometryArray.Add(new Vector2(
+                    x: (element.geometry[i].lon - basePoint.X) * 86414.25f, y: -(element.geometry[i].lat - basePoint.Y) * 111194.93f));
+                //经纬反转 纬度取反,因为坐标系问题 参数一经度 参数二纬度
+            }
 
 
             RailwayDataDic.Add
@@ -140,26 +128,16 @@ public partial class RailwayParser
     }
 }
 
-public partial class RailwayData : GodotObject
+public partial class RailwayData(string type, string name, int id, (Vector2 minBounds, Vector2 maxBounds) bounds, Array<double> nodes, Array<Vector2> geometry, string passengerLines) : GodotObject
 {
-    public RailwayData(string type, string name, int id, (Vector2 minBounds, Vector2 maxBounds) bounds, Array<double> nodes, Array<Vector2> geometry, string passengerLines)
-    {
-        Type = type;
-        Name = name is not null ? name : null;
-        ID = id;
-        RailwayBounds = new Bounds(bounds.minBounds, bounds.maxBounds);
-        Nodes = nodes;
-        Geometry = geometry;
-        PassengerLines = passengerLines;
-    }
 
-    public string Type { get; set; }
-    public string Name { get; set; }
-    public int ID { get; set; }
-    public Bounds RailwayBounds { get; set; }
-    public Array<double> Nodes { get; set; }
-    public Array<Vector2> Geometry { get; set; }
-    public string PassengerLines { get; set; }
+    public string Type { get; set; } = type;
+    public string Name { get; set; } = name is not null ? name : null;
+    public int ID { get; set; } = id;
+    public Bounds RailwayBounds { get; set; } = new Bounds(bounds.minBounds, bounds.maxBounds);
+    public Array<double> Nodes { get; set; } = nodes;
+    public Array<Vector2> Geometry { get; set; } = geometry;
+    public string PassengerLines { get; set; } = passengerLines;
 
     public class Bounds(Vector2 min, Vector2 max)
     {
