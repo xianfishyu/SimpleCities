@@ -33,6 +33,8 @@ public partial class TrackManager : Node2D
         QueueRedraw();
     }
 
+    private Dictionary<int, Vector2> drawPointDic = [];
+
     public override void _Draw()
     {
         Camera2D camera = GetViewport().GetCamera2D();
@@ -56,11 +58,24 @@ public partial class TrackManager : Node2D
                 {
                     if (worldRect2.HasPoint(nodePosition[i]))
                     {
-                        DrawCircle(nodePosition[i], 2f, Colors.White);
+                        if (!drawPointDic.ContainsKey(i)) {
+                            DrawCircle(nodePosition[i], 2f, Colors.White);
+                            drawPointDic.Add(i, nodePosition[i]);
+                        }
+                        else
+                            continue;
                     }
+                }
+                for (var i = 0; i < drawPointDic.Count; i++)
+                {
+                    // if (!worldRect2.HasPoint(drawPointDic[i]))
+                    // {
+                    //     drawPointDic.Remove(i);
+                    // }
                 }
             }
         }
+        Print(drawPointDic.Count);
     }
 
 
