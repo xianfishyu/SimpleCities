@@ -17,7 +17,7 @@ metadata/_edit_lock_ = true
 
 [node name="TrackManager" type="Node2D" parent="Manager"]
 script = ExtResource("3_321ql")
-TrackInfoPath = "res://Railwaydata/Tianjin.json"
+TrackInfoPath = "res://Railwaydata/BeijingRoundRail.json"
 metadata/_edit_lock_ = true
 
 [node name="MainCamera" type="Camera2D" parent="."]

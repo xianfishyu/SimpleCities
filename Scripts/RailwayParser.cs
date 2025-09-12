@@ -35,15 +35,16 @@ public partial class RailwayParser
         string data = json.Data.ToString();
         Error error = json.Parse(data);
 
-        // if (error == Error.ParseError)
-        // {
-        //     Print($"{path} is not a json");
-        //     return;
-        // }
+        if (error == Error.ParseError)
+        {
+            Print($"{path} is not a json");
+            Print(json.GetErrorLine());
+            Print(json.GetErrorMessage());
+            return;
+        }
 
         Root root = JsonSerializer.Deserialize<Root>(data);
         basePoint = new Vector2(root.elements[0].geometry[0].lon, root.elements[0].geometry[0].lat);
-        Print(1);
         foreach (Element element in root.elements)
         {
             Array<Vector2> geometryArray = [];
