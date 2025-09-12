@@ -28,22 +28,21 @@ public partial class TrackManager : Node2D
         }
     }
 
-    public override void _Draw()
-    {
-        foreach (RailwayData rail in railwayDataDic.Values)
-        {
-            if (highLight.Contains(rail.Name) || highLight.Count == 0)
-            {
-                Array<Vector2> nodePosition = rail.Geometry;
-                Array<double> nodeID = rail.Nodes;
-                for (var i = 0; i < nodeID.Count; i++)
-                {
-                    DrawCircle(nodePosition[i], 2f, Colors.White);
-                }
-            }
-        }
-
-    }
+    // public override void _Draw()
+    // {
+    //     foreach (RailwayData rail in railwayDataDic.Values)
+    //     {
+    //         if (highLight.Contains(rail.Name) || highLight.Count == 0)
+    //         {
+    //             Array<Vector2> nodePosition = rail.Geometry;
+    //             Array<double> nodeID = rail.Nodes;
+    //             for (var i = 0; i < nodeID.Count; i++)
+    //             {
+    //                 DrawCircle(nodePosition[i], 2f, Colors.White);
+    //             }
+    //         }
+    //     }
+    // }
 
 
     private void InitializeTrackPrefab(Line2D trackPrefab)

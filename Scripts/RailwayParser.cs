@@ -15,8 +15,7 @@ public partial class RailwayParser
     //默认使用godot类型
 
     //已完成
-
-
+    private Vector2 basePoint = Vector2.Zero;
 
     public RailwayParser(string path)
     {
@@ -33,17 +32,23 @@ public partial class RailwayParser
     private void JsonParser(string path)
     {
         Json json = Load<Json>(path);
-        Error error = json.Parse(json.Data.ToString());
         string data = json.Data.ToString();
+        Error error = json.Parse(data);
 
-
+        // if (error == Error.ParseError)
+        // {
+        //     Print($"{path} is not a json");
+        //     return;
+        // }
 
         Root root = JsonSerializer.Deserialize<Root>(data);
+        basePoint = new Vector2(root.elements[0].geometry[0].lon, root.elements[0].geometry[0].lat);
+        Print(1);
         foreach (Element element in root.elements)
         {
             Array<Vector2> geometryArray = [];
             for (int i = 0; i < element.geometry.Count; i++)
-                geometryArray.Add(new Vector2((element.geometry[i].lon - 116.5132943f) * 86414.25f, -(element.geometry[i].lat - 39.9981266f) * 111194.93f)); //经纬反转 纬度取反,因为坐标系问题 参数一经度 参数二纬度
+                geometryArray.Add(new Vector2((element.geometry[i].lon - basePoint.X) * 86414.25f, -(element.geometry[i].lat - basePoint.Y) * 111194.93f)); //经纬反转 纬度取反,因为坐标系问题 参数一经度 参数二纬度
 
 
             RailwayDataDic.Add
