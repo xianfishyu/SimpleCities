@@ -29,7 +29,7 @@ public partial class RailwayParser
 
     public Dictionary<int, RailwayData> RailwayDataDic = [];
 
-    
+
     private void JsonParser(string path)
     {
         Json json = Load<Json>(path);
@@ -134,14 +134,6 @@ public partial class RailwayParser
     }
 }
 
-public enum FileType
-{
-    Geojson,
-    Gpx,
-    Json,
-    Kml,
-}
-
 public partial class RailwayData : GodotObject
 {
     public RailwayData(string type, string name, int id, (Vector2 minBounds, Vector2 maxBounds) bounds, Array<double> nodes, Array<Vector2> geometry, string passengerLines)
@@ -168,9 +160,6 @@ public partial class RailwayData : GodotObject
         public Vector2 Min { get; set; } = min;
         public Vector2 Max { get; set; } = max;
     }
-
-    public override string ToString() => base.ToString();
-
 }
 
 
