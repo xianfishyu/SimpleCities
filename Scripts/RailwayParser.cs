@@ -27,6 +27,7 @@ public partial class RailwayParser
         string absPath = ProjectSettings.GlobalizePath(path);
         string jsonString = File.ReadAllText(absPath);
 
+        //解析
         Root root = JsonSerializer.Deserialize<Root>(jsonString);
         basePoint = new Vector2(root.elements[0].geometry[0].lon, root.elements[0].geometry[0].lat);
         foreach (Element element in root.elements)
@@ -39,13 +40,23 @@ public partial class RailwayParser
                 //经纬反转 纬度取反,因为坐标系问题 参数一经度 参数二纬度
             }
 
+            string name = null;
+            if (element.tags.namezh is not null)
+                name = element.tags.namezh;
+            else if (element.tags.name is not null)
+                name = element.tags.name;
+            else if (element.tags.railwaytrack_ref is not null)
+                name = element.tags.railwaytrack_ref;
+            else
+                name = "way";
 
             RailwayDataDic.Add
-            ((int)element.id,
-
+            (key:
+            (int)element.id,
+            value:
             new RailwayData(
             type: element.type,
-            name: element.tags.railwaytrack_ref,
+            name: name,
             id: (int)element.id,
             bounds: (element.bounds.GetMinVector2, element.bounds.GetMinVector2),
             nodes: element.nodes,
@@ -112,6 +123,7 @@ public partial class RailwayParser
 
         [JsonPropertyName("name:en")]
         public string nameen { get; set; }
+        public string namezh { get; set; }
         public string railway { get; set; }
         public string @ref { get; set; }
         public string usage { get; set; }
@@ -132,7 +144,7 @@ public partial class RailwayData(string type, string name, int id, (Vector2 minB
 {
 
     public string Type { get; set; } = type;
-    public string Name { get; set; } = name is not null ? name : null;
+    public string Name { get; set; } = name;
     public int ID { get; set; } = id;
     public Bounds RailwayBounds { get; set; } = new Bounds(bounds.minBounds, bounds.maxBounds);
     public Array<double> Nodes { get; set; } = nodes;
