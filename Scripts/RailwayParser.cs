@@ -4,6 +4,7 @@ using static Godot.GD;
 using Godot.Collections;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.IO;
 
 
 [Tool]
@@ -31,25 +32,20 @@ public partial class RailwayParser
 
     private void JsonParser(string path)
     {
-        Json json = Load<Json>(path);
-        string data = json.Data.ToString();
-        Error error = json.Parse(data);
+        string absPath = ProjectSettings.GlobalizePath(path);
+        string jsonString = File.ReadAllText(absPath);
 
-        if (error == Error.ParseError)
-        {
-            PrintErr($"{path} json ERROR!");
-            Print(json.GetErrorLine());
-            Print(json.GetErrorMessage());
-            return;
-        }
-
-        Root root = JsonSerializer.Deserialize<Root>(data);
+        Root root = JsonSerializer.Deserialize<Root>(jsonString);
         basePoint = new Vector2(root.elements[0].geometry[0].lon, root.elements[0].geometry[0].lat);
         foreach (Element element in root.elements)
         {
             Array<Vector2> geometryArray = [];
             for (int i = 0; i < element.geometry.Count; i++)
-                geometryArray.Add(new Vector2((element.geometry[i].lon - basePoint.X) * 86414.25f, -(element.geometry[i].lat - basePoint.Y) * 111194.93f)); //经纬反转 纬度取反,因为坐标系问题 参数一经度 参数二纬度
+            {
+                geometryArray.Add(new Vector2(
+                    x: (element.geometry[i].lon - basePoint.X) * 86414.25f, y: -(element.geometry[i].lat - basePoint.Y) * 111194.93f));
+                //经纬反转 纬度取反,因为坐标系问题 参数一经度 参数二纬度
+            }
 
 
             RailwayDataDic.Add
