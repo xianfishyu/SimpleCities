@@ -141,7 +141,7 @@ public partial class RailwayData : GodotObject
         Type = type;
         Name = name is not null ? name : null;
         ID = id;
-        railwayBounds = new Bounds(bounds.minBounds, bounds.maxBounds);
+        RailwayBounds = new Bounds(bounds.minBounds, bounds.maxBounds);
         Nodes = nodes;
         Geometry = geometry;
         PassengerLines = passengerLines;
@@ -150,7 +150,7 @@ public partial class RailwayData : GodotObject
     public string Type { get; set; }
     public string Name { get; set; }
     public int ID { get; set; }
-    public Bounds railwayBounds { get; set; }
+    public Bounds RailwayBounds { get; set; }
     public Array<double> Nodes { get; set; }
     public Array<Vector2> Geometry { get; set; }
     public string PassengerLines { get; set; }
