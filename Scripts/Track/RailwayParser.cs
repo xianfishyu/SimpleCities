@@ -1,0 +1,161 @@
+using Godot;
+using System;
+using static Godot.GD;
+using Godot.Collections;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.IO;
+
+
+
+public partial class RailwayParser
+{
+    private Vector2 basePoint = Vector2.Zero;
+    private Dictionary<int, RailwayData> RailwayDataDic = [];
+
+    public RailwayParser(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            throw new ArgumentException("Path cannot be null or empty.", nameof(path));
+        }
+        JsonParser(path);
+    }
+
+    private void JsonParser(string path)
+    {
+        string absPath = ProjectSettings.GlobalizePath(path);
+        string jsonString = File.ReadAllText(absPath);
+
+        //解析
+        Root root = JsonSerializer.Deserialize<Root>(jsonString);
+        basePoint = new Vector2(root.elements[0].geometry[0].lon, root.elements[0].geometry[0].lat);
+        foreach (Element element in root.elements)
+        {
+            Array<Vector2> geometryArray = [];
+            for (int i = 0; i < element.geometry.Count; i++)
+            {
+                geometryArray.Add(new Vector2(
+                    x: (element.geometry[i].lon - basePoint.X) * 86414.25f, y: -(element.geometry[i].lat - basePoint.Y) * 111194.93f));
+                //经纬反转 纬度取反,因为坐标系问题 参数一经度 参数二纬度
+            }
+
+            string name = null;
+            if (element.tags.namezh is not null)
+                name = element.tags.namezh;
+            else if (element.tags.name is not null)
+                name = element.tags.name;
+            else if (element.tags.railwaytrack_ref is not null)
+                name = element.tags.railwaytrack_ref;
+            else
+                name = "way";
+
+            RailwayDataDic.Add
+            (key:
+            (int)element.id,
+            value:
+            new RailwayData(
+            type: element.type,
+            name: name,
+            id: (int)element.id,
+            bounds: (element.bounds.GetMinVector2, element.bounds.GetMinVector2),
+            nodes: element.nodes,
+            geometry: geometryArray,
+            passengerLines: element.tags.passenger_lines
+            ));
+        }
+
+    }
+
+    public Dictionary<int, RailwayData> GetRailwayDataDic() => RailwayDataDic;
+
+
+
+    public class Root
+    {
+        public double version { get; set; }
+        public string generator { get; set; }
+        public Osm3s osm3s { get; set; }
+        public Array<Element> elements { get; set; }
+    }
+
+    public class Osm3s
+    {
+        public DateTime timestamp_osm_base { get; set; }
+        public string copyright { get; set; }
+    }
+
+    public partial class Element : GodotObject
+    {
+        public string type { get; set; }
+        public double id { get; set; }
+        public Bounds bounds { get; set; }
+        public Array<double> nodes { get; set; }
+        public Array<Geometry> geometry { get; set; }
+        public Tags tags { get; set; }
+    }
+
+    public class Bounds
+    {
+        public float minlat { get; set; }
+        public float minlon { get; set; }
+        public float maxlat { get; set; }
+        public float maxlon { get; set; }
+
+        public Vector2 GetMinVector2 => new Vector2(minlon, minlat);
+        public Vector2 GetMaxVector2 => new Vector2(maxlon, maxlat);
+    }
+
+    public partial class Geometry : GodotObject
+    {
+        public float lat { get; set; }
+        public float lon { get; set; }
+    }
+
+    public class Tags
+    {
+        public string electrified { get; set; }
+        public string frequency { get; set; }
+        public string gauge { get; set; }
+        public string highspeed { get; set; }
+        public string maxspeed { get; set; }
+        public string name { get; set; }
+
+        [JsonPropertyName("name:en")]
+        public string nameen { get; set; }
+        public string namezh { get; set; }
+        public string railway { get; set; }
+        public string @ref { get; set; }
+        public string usage { get; set; }
+        public string voltage { get; set; }
+        public string bridge { get; set; }
+        public string layer { get; set; }
+        public string service { get; set; }
+
+        [JsonPropertyName("railway:track_ref")]
+        public string railwaytrack_ref { get; set; }
+        public string alt_name { get; set; }
+        public string passenger_lines { get; set; }
+        public string tunnel { get; set; }
+    }
+}
+
+public partial class RailwayData(string type, string name, int id, (Vector2 minBounds, Vector2 maxBounds) bounds, Array<double> nodes, Array<Vector2> geometry, string passengerLines) : GodotObject
+{
+
+    public string Type { get; set; } = type;
+    public string Name { get; set; } = name;
+    public int ID { get; set; } = id;
+    public Bounds RailwayBounds { get; set; } = new Bounds(bounds.minBounds, bounds.maxBounds);
+    public Array<double> Nodes { get; set; } = nodes;
+    public Array<Vector2> Geometry { get; set; } = geometry;
+    public string PassengerLines { get; set; } = passengerLines;
+
+    public class Bounds(Vector2 min, Vector2 max)
+    {
+        public Vector2 Min { get; set; } = min;
+        public Vector2 Max { get; set; } = max;
+    }
+}
+
+

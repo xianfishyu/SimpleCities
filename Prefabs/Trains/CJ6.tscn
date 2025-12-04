@@ -1,6 +1,6 @@
 [gd_scene load_steps=4 format=3 uid="uid://bhokabhqv36fs"]
 
-[ext_resource type="Script" uid="uid://dx4o7aqnw5efw" path="res://Scripts/TrainBehavior.cs" id="1_7y11q"]
+[ext_resource type="Script" uid="uid://dx4o7aqnw5efw" path="res://Scripts/Track/TrainBehavior.cs" id="1_7y11q"]
 [ext_resource type="Texture2D" uid="uid://dg0phg3fgndvr" path="res://Textures/Trains/CJ6-Tp.png" id="4_5f4fx"]
 [ext_resource type="Texture2D" uid="uid://d1hlisls2ur7e" path="res://Textures/Trains/CJ6-Mc.png" id="5_2nkmy"]
 
