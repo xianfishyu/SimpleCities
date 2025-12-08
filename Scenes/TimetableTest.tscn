@@ -1,3 +1,8 @@
-[gd_scene format=3 uid="uid://ddksnh3bvem1q"]
+[gd_scene load_steps=2 format=3 uid="uid://ddksnh3bvem1q"]
+
+[ext_resource type="Script" uid="uid://b562bi3rspct0" path="res://Scripts/DebugGUI.cs" id="1_clh0x"]
 
 [node name="TimetableTest" type="Node2D"]
+
+[node name="DebugGUI" type="Node" parent="."]
+script = ExtResource("1_clh0x")
