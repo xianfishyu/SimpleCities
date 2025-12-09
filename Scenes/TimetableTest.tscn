@@ -1,8 +1,14 @@
-[gd_scene load_steps=2 format=3 uid="uid://ddksnh3bvem1q"]
+[gd_scene load_steps=3 format=3 uid="uid://ddksnh3bvem1q"]
 
-[ext_resource type="Script" uid="uid://b562bi3rspct0" path="res://Scripts/DebugGUI.cs" id="1_clh0x"]
+[ext_resource type="Script" uid="uid://c8hesfnhwvf13" path="res://Scripts/Background.cs" id="1_clh0x"]
+[ext_resource type="Script" uid="uid://3dc2kcbj18lu" path="res://Scripts/Camera2DController.cs" id="2_tj5hk"]
 
 [node name="TimetableTest" type="Node2D"]
 
-[node name="DebugGUI" type="Node" parent="."]
+[node name="Background" type="Node2D" parent="."]
 script = ExtResource("1_clh0x")
+GridColor = Color(0.5019608, 0.5019608, 0.5019608, 1)
+MainGridColor = Color(0.5019608, 0.5019608, 0.5019608, 1)
+
+[node name="Camera2D" type="Camera2D" parent="."]
+script = ExtResource("2_tj5hk")
