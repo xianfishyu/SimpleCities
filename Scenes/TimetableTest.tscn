@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3 uid="uid://ddksnh3bvem1q"]
+[gd_scene load_steps=4 format=3 uid="uid://ddksnh3bvem1q"]
 
 [ext_resource type="Script" uid="uid://c8hesfnhwvf13" path="res://Scripts/Background.cs" id="1_clh0x"]
 [ext_resource type="Script" uid="uid://3dc2kcbj18lu" path="res://Scripts/Camera2DController.cs" id="2_tj5hk"]
+[ext_resource type="Script" uid="uid://dthlfp26ftg0h" path="res://Scripts/Timetable/TimetableManager.cs" id="3_yhfxr"]
 
 [node name="TimetableTest" type="Node2D"]
 
@@ -9,6 +10,10 @@
 script = ExtResource("1_clh0x")
 GridColor = Color(0.5019608, 0.5019608, 0.5019608, 1)
 MainGridColor = Color(0.5019608, 0.5019608, 0.5019608, 1)
+BackgroundColor = Color(0.6378432, 0.6378432, 0.63784313, 1)
 
 [node name="Camera2D" type="Camera2D" parent="."]
 script = ExtResource("2_tj5hk")
+
+[node name="MANAGER" type="Node2D" parent="."]
+script = ExtResource("3_yhfxr")

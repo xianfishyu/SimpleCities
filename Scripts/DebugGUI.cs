@@ -5,6 +5,7 @@ using static Godot.GD;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Numerics;
 
 
 public partial class DebugGUI : Node
@@ -143,5 +144,69 @@ public static class DebugInfo
         {
             GameTime.Instance.ResetTime();
         }
+    }
+}
+
+public static class DebugBackground
+{
+    [DebugGUI("Background", Opening = true)]
+    public static void BackgroundPanel()
+    {
+        var bg = Background.Instance;
+        if (bg == null)
+        {
+            ImGui.Text("Background node not found in scene.");
+            return;
+        }
+
+        bool showBg = bg.ShowBackground;
+        if (ImGui.Checkbox("Show Background", ref showBg))
+            bg.ShowBackground = showBg;
+
+        ImGui.Separator();
+
+        bool showGrid = bg.ShowGrid;
+        if (ImGui.Checkbox("Show Grid", ref showGrid))
+            bg.ShowGrid = showGrid;
+
+        bool showMain = bg.ShowMainGrid;
+        if (ImGui.Checkbox("Show Main Grid", ref showMain))
+            bg.ShowMainGrid = showMain;
+
+        bool showMinor = bg.ShowMinorGrid;
+        if (ImGui.Checkbox("Show Minor Grid", ref showMinor))
+            bg.ShowMinorGrid = showMinor;
+
+        ImGui.Text("Major");
+        ImGui.SameLine();
+        float majorGridSize = bg.MajorGridSize;
+        ImGui.SetNextItemWidth(80);
+        if (ImGui.DragFloat("##MajorGridSize", ref majorGridSize, 1f, 1f, 1000f))
+            bg.MajorGridSize = majorGridSize;
+        ImGui.SameLine();
+        ImGui.Text("Size");
+        ImGui.SameLine();
+        float majorLineWidth = bg.MainLineWidth;
+        ImGui.SetNextItemWidth(80);
+        if (ImGui.DragFloat("##MajorLineWidth", ref majorLineWidth, 0.1f, 0.1f, 10f))
+            bg.MainLineWidth = majorLineWidth;
+        ImGui.SameLine();
+        ImGui.Text("Width");
+
+        ImGui.Text("Minor");
+        ImGui.SameLine();
+        float minorGridSize = bg.MinorGridSize;
+        ImGui.SetNextItemWidth(80);
+        if (ImGui.DragFloat("##MinorGridSize", ref minorGridSize, 1f, 1f, 1000f))
+            bg.MinorGridSize = minorGridSize;
+        ImGui.SameLine();
+        ImGui.Text("Size");
+        ImGui.SameLine();
+        float minorLineWidth = bg.LineWidth;
+        ImGui.SetNextItemWidth(80);
+        if (ImGui.DragFloat("##MinorLineWidth", ref minorLineWidth, 0.1f, 0.1f, 10f))
+            bg.LineWidth = minorLineWidth;
+        ImGui.SameLine();
+        ImGui.Text("Width");
     }
 }

@@ -6,20 +6,27 @@ using Godot;
 /// </summary>
 public partial class Background : Node2D
 {
+    public static Background Instance { get; private set; }
+
     /// <summary>
-    /// 网格大小（像素）
+    /// 主网格大小（像素）
     /// </summary>
-    [Export] public float GridSize = 50f;
+    [Export] public float MajorGridSize = 100f;
+
+    /// <summary>
+    /// 次网格大小（像素）
+    /// </summary>
+    [Export] public float MinorGridSize = 10f;
 
     /// <summary>
     /// 网格线颜色
     /// </summary>
-    [Export] public Color GridColor = Colors.Gray;
+    private Color GridColor = Colors.Gray;
 
     /// <summary>
-    /// 主网格线颜色（每10格显示一条粗线）
+    /// 主网格线颜色
     /// </summary>
-    [Export] public Color MainGridColor = Colors.Black;
+    private Color MainGridColor = Colors.Black;
 
     /// <summary>
     /// 网格线宽度
@@ -37,39 +44,55 @@ public partial class Background : Node2D
     [Export] public bool ShowGrid = true;
 
     /// <summary>
+    /// 是否显示主网格
+    /// </summary>
+    [Export] public bool ShowMainGrid = true;
+
+    /// <summary>
+    /// 是否显示次级网格
+    /// </summary>
+    [Export] public bool ShowMinorGrid = true;
+
+    /// <summary>
+    /// 是否显示背景颜色
+    /// </summary>
+    [Export] public bool ShowBackground = true;
+
+    /// <summary>
     /// 背景颜色
     /// </summary>
-    [Export] public Color BackgroundColor = Colors.White;
+    private Color BackgroundColor = Colors.White;
 
     private Camera2D camera;
 
     public override void _Ready()
     {
+        Instance = this;
+
         // 设置 Z 轴在后面
         ZIndex = -100;
 
-        // 获取相机引用
+        // 获取相机引用（可能为 null，使用时需判空）
         camera = GetViewport().GetCamera2D();
     }
 
     public override void _Process(double delta)
     {
-        if (ShowGrid)
-        {
+        if (ShowGrid || ShowBackground)
             QueueRedraw();
-        }
     }
 
     public override void _Draw()
     {
-        if (!ShowGrid || camera == null)
-            return;
+        if (ShowBackground)
+        {
+            DrawBackground();
+        }
 
-        // 绘制背景
-        DrawBackground();
-
-        // 绘制网格
-        DrawGrid();
+        if (ShowGrid)
+        {
+            DrawGrid();
+        }
     }
 
     private void DrawBackground()
@@ -102,46 +125,44 @@ public partial class Background : Node2D
         Vector2 topLeft = camPos - screenSize / (2 * zoom);
         Vector2 bottomRight = camPos + screenSize / (2 * zoom);
 
+        // 绘制主网格（如果启用）
+        if (ShowMainGrid && MajorGridSize > 0)
+        {
+            DrawGridLines(topLeft, bottomRight, MajorGridSize, MainGridColor, MainLineWidth);
+        }
+
+        // 绘制次网格（如果启用）
+        if (ShowMinorGrid && MinorGridSize > 0)
+        {
+            DrawGridLines(topLeft, bottomRight, MinorGridSize, GridColor, LineWidth);
+        }
+    }
+
+    private void DrawGridLines(Vector2 topLeft, Vector2 bottomRight, float gridSize, Color color, float width)
+    {
         // 计算起始和结束的网格坐标
-        int startX = (int)(topLeft.X / GridSize);
-        int endX = (int)(bottomRight.X / GridSize) + 1;
-        int startY = (int)(topLeft.Y / GridSize);
-        int endY = (int)(bottomRight.Y / GridSize) + 1;
+        int startX = (int)(topLeft.X / gridSize);
+        int endX = (int)(bottomRight.X / gridSize) + 1;
+        int startY = (int)(topLeft.Y / gridSize);
+        int endY = (int)(bottomRight.Y / gridSize) + 1;
 
         // 绘制竖线
         for (int x = startX; x <= endX; x++)
         {
-            float worldX = x * GridSize;
-
-            // 判断是否是主网格线（每10格）
-            bool isMainLine = x % 10 == 0;
-            Color color = isMainLine ? MainGridColor : GridColor;
-            float width = isMainLine ? MainLineWidth : LineWidth;
-
+            float worldX = x * gridSize;
             Vector2 p1 = new Vector2(worldX, topLeft.Y);
             Vector2 p2 = new Vector2(worldX, bottomRight.Y);
-
             DrawLine(p1, p2, color, width);
         }
 
         // 绘制横线
         for (int y = startY; y <= endY; y++)
         {
-            float worldY = y * GridSize;
-
-            // 判断是否是主网格线（每10格）
-            bool isMainLine = y % 10 == 0;
-            Color color = isMainLine ? MainGridColor : GridColor;
-            float width = isMainLine ? MainLineWidth : LineWidth;
-
+            float worldY = y * gridSize;
             Vector2 p1 = new Vector2(topLeft.X, worldY);
             Vector2 p2 = new Vector2(bottomRight.X, worldY);
-
             DrawLine(p1, p2, color, width);
         }
-
-        // 可选：绘制原点标记
-        DrawOriginMarker();
     }
 
     private void DrawOriginMarker()

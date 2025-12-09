@@ -44,8 +44,8 @@ public partial class GameTime : Node
         }
         Instance = this;
 
-        // 初始化游戏启动时间为当前现实时间
-        startRealTime = DateTime.Now;
+        // 初始化游戏启动时间为固定时刻，便于调试
+        startRealTime = new DateTime(2025, 12, 9, 3, 0, 0);
         gameTimeElapsed = 0.0;
         pausedGameTime = 0.0;
     }
@@ -110,43 +110,13 @@ public partial class GameTime : Node
     }
 
     /// <summary>
-    /// 加速（增加时间流速）
-    /// </summary>
-    /// <param name="increment">增加的倍数</param>
-    public void SpeedUp(float increment = 0.5f)
-    {
-        SetTimeScale(TimeScale + increment);
-    }
-
-    /// <summary>
-    /// 减速（降低时间流速）
-    /// </summary>
-    /// <param name="decrement">降低的倍数</param>
-    public void SlowDown(float decrement = 0.5f)
-    {
-        SetTimeScale(TimeScale - decrement);
-    }
-
-    /// <summary>
     /// 重置时间到初始状态
     /// </summary>
     public void ResetTime()
     {
-        startRealTime = DateTime.Now;
         gameTimeElapsed = 0.0;
-        pausedGameTime = 0.0;
         TimeScale = 1.0f;
         IsPaused = false;
-    }
-
-    /// <summary>
-    /// 设置游戏时间为特定时刻
-    /// </summary>
-    /// <param name="seconds">距离启动的秒数</param>
-    public void SetGameTime(double seconds)
-    {
-        gameTimeElapsed = Mathf.Max(0.0f, (float)seconds);
-        startRealTime = DateTime.Now.AddSeconds(-gameTimeElapsed);
     }
 
     /// <summary>
@@ -175,41 +145,6 @@ public partial class GameTime : Node
         DateTime gameTime = GetGameDateTime();
         return gameTime.ToString("yyyy-MM-dd HH:mm:ss");
     }
-
-    /// <summary>
-    /// 获取游戏年份
-    /// </summary>
-    public static int GetYear() => GetGameDateTime().Year;
-
-    /// <summary>
-    /// 获取游戏月份
-    /// </summary>
-    public static int GetMonth() => GetGameDateTime().Month;
-
-    /// <summary>
-    /// 获取游戏日期
-    /// </summary>
-    public static int GetDay() => GetGameDateTime().Day;
-
-    /// <summary>
-    /// 获取游戏小时
-    /// </summary>
-    public static int GetHour() => GetGameDateTime().Hour;
-
-    /// <summary>
-    /// 获取游戏分钟
-    /// </summary>
-    public static int GetMinute() => GetGameDateTime().Minute;
-
-    /// <summary>
-    /// 获取游戏秒钟
-    /// </summary>
-    public static int GetSecond() => GetGameDateTime().Second;
-
-    /// <summary>
-    /// 获取游戏启动以来的总时间（秒）
-    /// </summary>
-    public static double GetElapsedSeconds() => Instance.gameTimeElapsed;
 
     /// <summary>
     /// 获取当前时间流速倍数
