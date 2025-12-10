@@ -1,6 +1,17 @@
 using Godot;
 
 /// <summary>
+/// 编辑模式
+/// </summary>
+public enum EditMode
+{
+    Select,              // 选择模式 - 点击选中，拖拽移动，按Delete删除
+    DrawTrack,           // 绘制轨道 - 连续点击添加节点和边
+    DrawCrossover,       // 绘制渡线 - 点击两个节点连接
+    DrawStation          // 绘制站场 - 拖拽创建站场边界
+}
+
+/// <summary>
 /// 编辑器共享状态
 /// </summary>
 public class EditorState
