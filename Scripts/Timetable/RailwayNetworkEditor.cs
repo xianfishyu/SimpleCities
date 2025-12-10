@@ -10,7 +10,8 @@ public enum EditMode
 {
     Select,              // 选择模式 - 点击选中，拖拽移动，按Delete删除
     DrawTrack,           // 绘制轨道 - 连续点击添加节点和边
-    DrawCrossover        // 绘制渡线 - 点击两个节点连接
+    DrawCrossover,       // 绘制渡线 - 点击两个节点连接
+    DrawStation          // 绘制站场 - 拖拽创建站场边界
 }
 
 /// <summary>
@@ -44,6 +45,11 @@ public partial class RailwayNetworkEditor : Node2D
     [Export] public Color SelectedColor = new Color(1f, 1f, 0f);
     [Export] public Color HoverColor = new Color(0.5f, 1f, 0.5f);
 
+    [ExportGroup("Station Colors")]
+    [Export] public Color StationBorderColor = new Color(0.8f, 0.6f, 0.2f, 0.8f);
+    [Export] public Color StationLabelColor = new Color(1.637f, 1.241f, 0.436f);
+    [Export] public Color StationHandleColor = new Color(1f, 0.8f, 0.2f, 1f);
+
     // 网络数据
     private RailwayNetwork network;
 
@@ -52,21 +58,39 @@ public partial class RailwayNetworkEditor : Node2D
     private TrackType currentTrackType = TrackType.ArrivalDeparture;
     private string selectedNodeId = null;
     private string selectedEdgeId = null;
+    private string selectedStationId = null;  // 选中的站场
     private string hoveredNodeId = null;
     private string hoveredEdgeId = null;
+    private string hoveredStationId = null;   // 悬停的站场
     private string drawStartNodeId = null;
     private bool isDragging = false;
     private Godot.Vector2 dragOffset;
     private bool showCollisionBoxes = false; // 调试用
+    private bool showStationBorders = true;  // 是否显示站场边界
+
+    // 站场绘制状态
+    private bool isDrawingStation = false;
+    private Godot.Vector2 stationDrawStart;
 
     // 渲染对象
     private Dictionary<string, ColorRect> nodeVisuals = new();
     private Dictionary<string, Line2D> edgeVisuals = new();
     private Dictionary<string, Line2D> collisionBoxes = new(); // 节点碰撞箱调试
     private Dictionary<string, Line2D> edgeCollisionBoxes = new(); // 边碰撞箱调试
+    private Dictionary<string, Line2D> stationVisuals = new();  // 站场边界可视化
+    private Dictionary<string, Label> stationLabels = new();    // 站场名称标签
+    private Dictionary<string, ColorRect[]> stationHandles = new(); // 站场四角拖拽手柄
+
+    // 站场拖拽状态
+    private float stationHandleSize = 6f;
+    private int draggingStationHandle = -1; // 0=左上, 1=右上, 2=右下, 3=左下, -1=无
+    private string draggingStationId = null;
 
     // 预览线
     private Line2D previewLine;
+
+    // 站场预览
+    private ColorRect stationPreviewRect;
 
     public override void _Ready()
     {
@@ -79,6 +103,13 @@ public partial class RailwayNetworkEditor : Node2D
         previewLine.DefaultColor = new Color(1, 1, 1, 0.5f);
         previewLine.ZIndex = 100;
         AddChild(previewLine);
+
+        // 创建站场预览矩形
+        stationPreviewRect = new ColorRect();
+        stationPreviewRect.Color = new Color(StationBorderColor.R, StationBorderColor.G, StationBorderColor.B, 0.15f);
+        stationPreviewRect.Visible = false;
+        stationPreviewRect.ZIndex = -10;
+        AddChild(stationPreviewRect);
 
         // 注册调试GUI
         DebugGUI.RegisterDebugRender("Railway Editor", RenderEditorGUI, true);
@@ -151,7 +182,7 @@ public partial class RailwayNetworkEditor : Node2D
         Godot.Vector2 rawMousePos = GetGlobalMousePosition();
         Godot.Vector2 snappedMousePos = SnapToGrid ? SnapPosition(rawMousePos) : rawMousePos;
 
-        // 鼠标移动 - 拖拽
+        // 鼠标移动 - 拖拽节点
         if (@event is InputEventMouseMotion motion && isDragging && selectedNodeId != null)
         {
             var node = network.GetNode(selectedNodeId);
@@ -162,6 +193,29 @@ public partial class RailwayNetworkEditor : Node2D
                 UpdateNodeVisual(node);
                 UpdateConnectedEdgeVisuals(node.Id);
             }
+        }
+
+        // 鼠标移动 - 拖拽站场手柄
+        if (@event is InputEventMouseMotion && draggingStationHandle >= 0 && draggingStationId != null)
+        {
+            var station = network.GetStation(draggingStationId);
+            if (station != null)
+            {
+                DragStationHandle(station, draggingStationHandle, snappedMousePos);
+                UpdateStationVisual(station);
+            }
+        }
+
+        // 鼠标移动 - 更新站场预览
+        if (@event is InputEventMouseMotion && isDrawingStation)
+        {
+            var currentPos = snappedMousePos;
+            var minX = Mathf.Min(stationDrawStart.X, currentPos.X);
+            var minY = Mathf.Min(stationDrawStart.Y, currentPos.Y);
+            var maxX = Mathf.Max(stationDrawStart.X, currentPos.X);
+            var maxY = Mathf.Max(stationDrawStart.Y, currentPos.Y);
+            stationPreviewRect.Position = new Godot.Vector2(minX, minY);
+            stationPreviewRect.Size = new Godot.Vector2(maxX - minX, maxY - minY);
         }
 
         // 鼠标按下
@@ -192,12 +246,25 @@ public partial class RailwayNetworkEditor : Node2D
         switch (currentMode)
         {
             case EditMode.Select:
+                // 首先检查是否点击在选中站场的拖拽手柄上（只有显示站场边界时才允许编辑）
+                if (showStationBorders && selectedStationId != null)
+                {
+                    int handleIndex = FindStationHandleAtPosition(selectedStationId, rawPos);
+                    if (handleIndex >= 0)
+                    {
+                        draggingStationHandle = handleIndex;
+                        draggingStationId = selectedStationId;
+                        return;
+                    }
+                }
+
                 // 选择或开始拖拽 - 使用原始位置
                 var clickedNode = FindNodeAtPosition(rawPos);
                 if (clickedNode != null)
                 {
                     selectedNodeId = clickedNode;
                     selectedEdgeId = null;
+                    selectedStationId = null;
                     isDragging = true;
                     UpdateSelectionVisuals();
                 }
@@ -208,13 +275,27 @@ public partial class RailwayNetworkEditor : Node2D
                     {
                         selectedEdgeId = clickedEdge;
                         selectedNodeId = null;
+                        selectedStationId = null;
                         UpdateSelectionVisuals();
                     }
                     else
                     {
-                        selectedNodeId = null;
-                        selectedEdgeId = null;
-                        UpdateSelectionVisuals();
+                        // 检查是否点击在站场边界内
+                        var clickedStation = FindStationAtPosition(rawPos);
+                        if (clickedStation != null)
+                        {
+                            selectedStationId = clickedStation;
+                            selectedNodeId = null;
+                            selectedEdgeId = null;
+                            UpdateSelectionVisuals();
+                        }
+                        else
+                        {
+                            selectedNodeId = null;
+                            selectedEdgeId = null;
+                            selectedStationId = null;
+                            UpdateSelectionVisuals();
+                        }
                     }
                 }
                 break;
@@ -281,12 +362,47 @@ public partial class RailwayNetworkEditor : Node2D
                     }
                 }
                 break;
+
+            case EditMode.DrawStation:
+                // 开始绘制站场 - 拖拽创建边界
+                isDrawingStation = true;
+                stationDrawStart = snappedPos;
+                stationPreviewRect.Position = snappedPos;
+                stationPreviewRect.Size = Godot.Vector2.Zero;
+                stationPreviewRect.Visible = true;
+                break;
         }
     }
 
     private void HandleLeftMouseUp()
     {
         isDragging = false;
+
+        // 完成站场手柄拖拽
+        if (draggingStationHandle >= 0)
+        {
+            draggingStationHandle = -1;
+            draggingStationId = null;
+        }
+
+        // 完成站场绘制
+        if (isDrawingStation && currentMode == EditMode.DrawStation)
+        {
+            isDrawingStation = false;
+            stationPreviewRect.Visible = false;
+
+            // 计算边界（确保宽高为正）
+            var size = stationPreviewRect.Size;
+            if (size.X > 10 && size.Y > 10) // 最小尺寸检查
+            {
+                var pos = stationPreviewRect.Position;
+                var station = network.AddStation(
+                    $"Station_{network.Stations.Count + 1}",
+                    pos.X, pos.Y, size.X, size.Y
+                );
+                RenderStation(station);
+            }
+        }
     }
 
     private void HandleRightMouseDown()
@@ -295,6 +411,11 @@ public partial class RailwayNetworkEditor : Node2D
         drawStartNodeId = null;
         selectedNodeId = null;
         selectedEdgeId = null;
+        selectedStationId = null;
+        isDrawingStation = false;
+        draggingStationHandle = -1;
+        draggingStationId = null;
+        stationPreviewRect.Visible = false;
         UpdateSelectionVisuals();
     }
 
@@ -304,6 +425,7 @@ public partial class RailwayNetworkEditor : Node2D
         if (keyEvent.Keycode == Key.Key1) currentMode = EditMode.Select;
         else if (keyEvent.Keycode == Key.Key2) currentMode = EditMode.DrawTrack;
         else if (keyEvent.Keycode == Key.Key3) currentMode = EditMode.DrawCrossover;
+        else if (keyEvent.Keycode == Key.Key4) currentMode = EditMode.DrawStation;
 
         // 轨道类型快捷键
         else if (keyEvent.Keycode == Key.Q) currentTrackType = TrackType.MainLine;
@@ -508,9 +630,18 @@ public partial class RailwayNetworkEditor : Node2D
         var mousePos = GetGlobalMousePosition();
         hoveredNodeId = FindNodeAtPosition(mousePos);
         if (hoveredNodeId == null)
+        {
             hoveredEdgeId = FindEdgeAtPosition(mousePos);
+            if (hoveredEdgeId == null)
+                hoveredStationId = FindStationAtPosition(mousePos);
+            else
+                hoveredStationId = null;
+        }
         else
+        {
             hoveredEdgeId = null;
+            hoveredStationId = null;
+        }
     }
 
     private void UpdatePreviewLine()
@@ -538,7 +669,7 @@ public partial class RailwayNetworkEditor : Node2D
     {
         // 网络信息
         ImGui.Text($"Network: {network?.Name ?? "None"}");
-        ImGui.Text($"Nodes: {network?.Nodes.Count ?? 0} | Edges: {network?.Edges.Count ?? 0}");
+        ImGui.Text($"Nodes: {network?.Nodes.Count ?? 0} | Edges: {network?.Edges.Count ?? 0} | Stations: {network?.Stations.Count ?? 0}");
         ImGui.Separator();
 
         // 编辑模式选择
@@ -548,6 +679,8 @@ public partial class RailwayNetworkEditor : Node2D
         if (ImGui.RadioButton("Draw Track [2]", currentMode == EditMode.DrawTrack)) currentMode = EditMode.DrawTrack;
         ImGui.SameLine();
         if (ImGui.RadioButton("Draw Crossover [3]", currentMode == EditMode.DrawCrossover)) currentMode = EditMode.DrawCrossover;
+        ImGui.SameLine();
+        if (ImGui.RadioButton("Draw Station [4]", currentMode == EditMode.DrawStation)) currentMode = EditMode.DrawStation;
 
         ImGui.Separator();
 
@@ -575,12 +708,19 @@ public partial class RailwayNetworkEditor : Node2D
 
         // 调试选项
         ImGui.Checkbox("Show Collision Boxes", ref showCollisionBoxes);
+        if (ImGui.Checkbox("Show Station Borders", ref showStationBorders))
+        {
+            // 当显示/隐藏状态改变时，更新所有站场的可见性
+            foreach (var station in network.Stations)
+                UpdateStationVisual(station);
+        }
         
         // 显示鼠标位置和检测结果
         var mousePos = GetGlobalMousePosition();
         ImGui.Text($"Mouse: ({mousePos.X:F0}, {mousePos.Y:F0})");
         ImGui.Text($"Hovered Node: {hoveredNodeId ?? "None"}");
         ImGui.Text($"Hovered Edge: {hoveredEdgeId ?? "None"}");
+        ImGui.Text($"Hovered Station: {hoveredStationId ?? "None"}");
         
         ImGui.Separator();
 
@@ -635,6 +775,64 @@ public partial class RailwayNetworkEditor : Node2D
             }
         }
 
+        // 选中的站场属性
+        if (selectedStationId != null)
+        {
+            var station = network.GetStation(selectedStationId);
+            if (station != null)
+            {
+                ImGui.Separator();
+                ImGui.Text($"Station: {station.Id}");
+                
+                // 名称编辑
+                string name = station.Name ?? "";
+                if (ImGui.InputText("Name##Station", ref name, 100))
+                {
+                    station.Name = name;
+                }
+
+                // 边界编辑
+                var bounds = new System.Numerics.Vector4(station.BoundsX, station.BoundsY, station.BoundsWidth, station.BoundsHeight);
+                if (ImGui.DragFloat4("Bounds (X,Y,W,H)", ref bounds, GridSize))
+                {
+                    station.BoundsX = bounds.X;
+                    station.BoundsY = bounds.Y;
+                    station.BoundsWidth = bounds.Z;
+                    station.BoundsHeight = bounds.W;
+                    UpdateStationVisual(station);
+                }
+
+                // 站场内节点和边统计
+                var nodesInStation = network.GetNodesInStation(station.Id);
+                var edgesInStation = network.GetEdgesInStation(station.Id);
+                ImGui.Text($"Contains: {nodesInStation.Count} nodes, {edgesInStation.Count} edges");
+
+                // 股道列表
+                if (ImGui.CollapsingHeader($"Tracks ({station.Tracks.Count})##StationTracks"))
+                {
+                    foreach (var track in station.Tracks)
+                    {
+                        ImGui.BulletText($"{track.Name} ({track.TrackType})");
+                    }
+                    
+                    if (ImGui.Button("Add Track##AddStationTrack"))
+                    {
+                        station.AddTrack($"Track_{station.Tracks.Count + 1}", TrackType.ArrivalDeparture);
+                    }
+                }
+
+                // 删除站场按钮
+                ImGui.PushStyleColor(ImGuiCol.Button, new System.Numerics.Vector4(0.8f, 0.2f, 0.2f, 1f));
+                if (ImGui.Button("Delete Station"))
+                {
+                    RemoveStationVisual(station.Id);
+                    network.RemoveStation(station.Id);
+                    selectedStationId = null;
+                }
+                ImGui.PopStyleColor();
+            }
+        }
+
         ImGui.Separator();
 
         // 文件操作
@@ -666,6 +864,7 @@ public partial class RailwayNetworkEditor : Node2D
             EditMode.Select => "Click to select, drag to move nodes, press Delete to remove",
             EditMode.DrawTrack => "Click to place nodes and connect tracks. Right-click to cancel.",
             EditMode.DrawCrossover => "Click two nodes to connect with crossover",
+            EditMode.DrawStation => "Drag to create station boundary",
             _ => ""
         };
     }
@@ -694,10 +893,149 @@ public partial class RailwayNetworkEditor : Node2D
 
     private void RenderNetwork()
     {
+        // 先渲染站场（在最底层）
+        foreach (var station in network.Stations)
+            RenderStation(station);
         foreach (var edge in network.Edges)
             RenderEdge(edge);
         foreach (var node in network.Nodes)
             RenderNode(node);
+    }
+
+    private void RenderStation(Station station)
+    {
+        if (stationVisuals.ContainsKey(station.Id))
+        {
+            UpdateStationVisual(station);
+            return;
+        }
+
+        // 创建站场边界线
+        var border = new Line2D();
+        var bounds = station.Bounds;
+        
+        border.AddPoint(new Godot.Vector2(bounds.Position.X, bounds.Position.Y));
+        border.AddPoint(new Godot.Vector2(bounds.End.X, bounds.Position.Y));
+        border.AddPoint(new Godot.Vector2(bounds.End.X, bounds.End.Y));
+        border.AddPoint(new Godot.Vector2(bounds.Position.X, bounds.End.Y));
+        border.AddPoint(new Godot.Vector2(bounds.Position.X, bounds.Position.Y)); // 闭合
+        
+        border.Width = 2f;
+        border.DefaultColor = StationBorderColor;
+        border.ZIndex = -5;
+        AddChild(border);
+        stationVisuals[station.Id] = border;
+
+        // 创建站场名称标签
+        var label = new Label();
+        label.Text = station.Name ?? station.Id;
+        label.AddThemeColorOverride("font_color", StationLabelColor);
+        label.AddThemeFontSizeOverride("font_size", 14);
+        label.HorizontalAlignment = HorizontalAlignment.Center;
+        label.ZIndex = 50;
+        AddChild(label);
+        
+        // 设置标签位置在站场上方中央
+        float centerX = bounds.Position.X + bounds.Size.X / 2;
+        label.Position = new Godot.Vector2(centerX - label.Size.X / 2, bounds.Position.Y - 20);
+        
+        stationLabels[station.Id] = label;
+
+        // 创建四角拖拽手柄
+        var handles = new ColorRect[4];
+        var corners = new Godot.Vector2[]
+        {
+            bounds.Position,                                          // 左上
+            new Godot.Vector2(bounds.End.X, bounds.Position.Y),      // 右上
+            bounds.End,                                               // 右下
+            new Godot.Vector2(bounds.Position.X, bounds.End.Y)       // 左下
+        };
+
+        for (int i = 0; i < 4; i++)
+        {
+            handles[i] = new ColorRect();
+            handles[i].Size = new Godot.Vector2(stationHandleSize, stationHandleSize);
+            handles[i].Position = corners[i] - new Godot.Vector2(stationHandleSize / 2, stationHandleSize / 2);
+            handles[i].Color = StationHandleColor;
+            handles[i].ZIndex = 60;
+            handles[i].Visible = false; // 默认隐藏，选中时显示
+            AddChild(handles[i]);
+        }
+        stationHandles[station.Id] = handles;
+    }
+
+    private void UpdateStationVisual(Station station)
+    {
+        if (!stationVisuals.TryGetValue(station.Id, out var border)) return;
+
+        var bounds = station.Bounds;
+        border.ClearPoints();
+        border.AddPoint(new Godot.Vector2(bounds.Position.X, bounds.Position.Y));
+        border.AddPoint(new Godot.Vector2(bounds.End.X, bounds.Position.Y));
+        border.AddPoint(new Godot.Vector2(bounds.End.X, bounds.End.Y));
+        border.AddPoint(new Godot.Vector2(bounds.Position.X, bounds.End.Y));
+        border.AddPoint(new Godot.Vector2(bounds.Position.X, bounds.Position.Y));
+
+        // 根据显示开关更新可见性
+        border.Visible = showStationBorders;
+
+        // 根据选中/悬停状态更新颜色
+        bool isSelected = station.Id == selectedStationId;
+        if (isSelected)
+            border.DefaultColor = SelectedColor;
+        else if (station.Id == hoveredStationId)
+            border.DefaultColor = HoverColor;
+        else
+            border.DefaultColor = StationBorderColor;
+
+        // 更新名称标签位置（名称标签始终显示，不受showStationBorders影响）
+        if (stationLabels.TryGetValue(station.Id, out var label))
+        {
+            label.Text = station.Name ?? station.Id;
+            float centerX = bounds.Position.X + bounds.Size.X / 2;
+            label.Position = new Godot.Vector2(centerX - label.Size.X / 2, bounds.Position.Y - 20);
+            // 名称标签只受选中状态影响颜色，不受showStationBorders影响可见性
+            label.AddThemeColorOverride("font_color", (isSelected && showStationBorders) ? SelectedColor : StationLabelColor);
+        }
+
+        // 更新四角手柄位置和可见性
+        if (stationHandles.TryGetValue(station.Id, out var handles))
+        {
+            var corners = new Godot.Vector2[]
+            {
+                bounds.Position,
+                new Godot.Vector2(bounds.End.X, bounds.Position.Y),
+                bounds.End,
+                new Godot.Vector2(bounds.Position.X, bounds.End.Y)
+            };
+
+            for (int i = 0; i < 4; i++)
+            {
+                handles[i].Position = corners[i] - new Godot.Vector2(stationHandleSize / 2, stationHandleSize / 2);
+                // 只有选中且显示边界时才显示拖拽手柄
+                handles[i].Visible = isSelected && showStationBorders;
+            }
+        }
+    }
+
+    private void RemoveStationVisual(string stationId)
+    {
+        if (stationVisuals.TryGetValue(stationId, out var visual))
+        {
+            visual.QueueFree();
+            stationVisuals.Remove(stationId);
+        }
+        if (stationLabels.TryGetValue(stationId, out var label))
+        {
+            label.QueueFree();
+            stationLabels.Remove(stationId);
+        }
+        if (stationHandles.TryGetValue(stationId, out var handles))
+        {
+            foreach (var handle in handles)
+                handle.QueueFree();
+            stationHandles.Remove(stationId);
+        }
     }
 
     private void RenderNode(RailwayNode node)
@@ -875,6 +1213,8 @@ public partial class RailwayNetworkEditor : Node2D
             UpdateNodeVisual(node);
         foreach (var edge in network.Edges)
             UpdateEdgeVisual(edge);
+        foreach (var station in network.Stations)
+            UpdateStationVisual(station);
     }
 
     private void ClearVisuals()
@@ -883,10 +1223,17 @@ public partial class RailwayNetworkEditor : Node2D
         foreach (var v in edgeVisuals.Values) v.QueueFree();
         foreach (var v in collisionBoxes.Values) v.QueueFree();
         foreach (var v in edgeCollisionBoxes.Values) v.QueueFree();
+        foreach (var v in stationVisuals.Values) v.QueueFree();
+        foreach (var v in stationLabels.Values) v.QueueFree();
+        foreach (var handles in stationHandles.Values)
+            foreach (var h in handles) h.QueueFree();
         nodeVisuals.Clear();
         edgeVisuals.Clear();
         collisionBoxes.Clear();
         edgeCollisionBoxes.Clear();
+        stationVisuals.Clear();
+        stationLabels.Clear();
+        stationHandles.Clear();
     }
 
     private Color GetNodeColor(RailwayNode node)
@@ -941,6 +1288,141 @@ public partial class RailwayNetworkEditor : Node2D
                 return edge.Id;
         }
         return null;
+    }
+
+    private string FindStationAtPosition(Godot.Vector2 pos)
+    {
+        // 只有显示站场边界时才允许选中站场进行编辑
+        if (!showStationBorders)
+            return null;
+
+        // 检查点是否在站场的边框或四角处（碰撞箱局限于边框和四角）
+        const float borderThreshold = 5f; // 边框点击范围
+        const float cornerThreshold = 10f; // 四角点击范围
+
+        foreach (var station in network.Stations)
+        {
+            var bounds = station.Bounds;
+            var corners = new Godot.Vector2[]
+            {
+                bounds.Position,                                          // 左上
+                new Godot.Vector2(bounds.End.X, bounds.Position.Y),      // 右上
+                bounds.End,                                               // 右下
+                new Godot.Vector2(bounds.Position.X, bounds.End.Y)       // 左下
+            };
+
+            // 检查四角
+            foreach (var corner in corners)
+            {
+                if (pos.DistanceTo(corner) < cornerThreshold)
+                    return station.Id;
+            }
+
+            // 检查四条边
+            // 上边
+            float distTop = PointToSegmentDistance(pos, corners[0], corners[1]);
+            if (distTop < borderThreshold && pos.Y >= bounds.Position.Y - borderThreshold && pos.Y <= bounds.Position.Y + borderThreshold)
+                return station.Id;
+
+            // 右边
+            float distRight = PointToSegmentDistance(pos, corners[1], corners[2]);
+            if (distRight < borderThreshold && pos.X >= bounds.End.X - borderThreshold && pos.X <= bounds.End.X + borderThreshold)
+                return station.Id;
+
+            // 下边
+            float distBottom = PointToSegmentDistance(pos, corners[2], corners[3]);
+            if (distBottom < borderThreshold && pos.Y >= bounds.End.Y - borderThreshold && pos.Y <= bounds.End.Y + borderThreshold)
+                return station.Id;
+
+            // 左边
+            float distLeft = PointToSegmentDistance(pos, corners[3], corners[0]);
+            if (distLeft < borderThreshold && pos.X >= bounds.Position.X - borderThreshold && pos.X <= bounds.Position.X + borderThreshold)
+                return station.Id;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// 查找鼠标位置是否在站场的某个拖拽手柄上
+    /// </summary>
+    /// <returns>手柄索引: 0=左上, 1=右上, 2=右下, 3=左下, -1=无</returns>
+    private int FindStationHandleAtPosition(string stationId, Godot.Vector2 pos)
+    {
+        var station = network.GetStation(stationId);
+        if (station == null) return -1;
+
+        var bounds = station.Bounds;
+        var corners = new Godot.Vector2[]
+        {
+            bounds.Position,                                          // 0: 左上
+            new Godot.Vector2(bounds.End.X, bounds.Position.Y),      // 1: 右上
+            bounds.End,                                               // 2: 右下
+            new Godot.Vector2(bounds.Position.X, bounds.End.Y)       // 3: 左下
+        };
+
+        float hitRadius = stationHandleSize;
+        for (int i = 0; i < 4; i++)
+        {
+            if (pos.DistanceTo(corners[i]) < hitRadius)
+                return i;
+        }
+        return -1;
+    }
+
+    /// <summary>
+    /// 拖拽站场手柄调整边界
+    /// </summary>
+    private void DragStationHandle(Station station, int handleIndex, Godot.Vector2 newPos)
+    {
+        var bounds = station.Bounds;
+        float minSize = 20f; // 最小尺寸
+
+        switch (handleIndex)
+        {
+            case 0: // 左上角
+                float newWidth0 = bounds.End.X - newPos.X;
+                float newHeight0 = bounds.End.Y - newPos.Y;
+                if (newWidth0 >= minSize && newHeight0 >= minSize)
+                {
+                    station.BoundsX = newPos.X;
+                    station.BoundsY = newPos.Y;
+                    station.BoundsWidth = newWidth0;
+                    station.BoundsHeight = newHeight0;
+                }
+                break;
+
+            case 1: // 右上角
+                float newWidth1 = newPos.X - bounds.Position.X;
+                float newHeight1 = bounds.End.Y - newPos.Y;
+                if (newWidth1 >= minSize && newHeight1 >= minSize)
+                {
+                    station.BoundsY = newPos.Y;
+                    station.BoundsWidth = newWidth1;
+                    station.BoundsHeight = newHeight1;
+                }
+                break;
+
+            case 2: // 右下角
+                float newWidth2 = newPos.X - bounds.Position.X;
+                float newHeight2 = newPos.Y - bounds.Position.Y;
+                if (newWidth2 >= minSize && newHeight2 >= minSize)
+                {
+                    station.BoundsWidth = newWidth2;
+                    station.BoundsHeight = newHeight2;
+                }
+                break;
+
+            case 3: // 左下角
+                float newWidth3 = bounds.End.X - newPos.X;
+                float newHeight3 = newPos.Y - bounds.Position.Y;
+                if (newWidth3 >= minSize && newHeight3 >= minSize)
+                {
+                    station.BoundsX = newPos.X;
+                    station.BoundsWidth = newWidth3;
+                    station.BoundsHeight = newHeight3;
+                }
+                break;
+        }
     }
 
     private float PointToSegmentDistance(Godot.Vector2 p, Godot.Vector2 a, Godot.Vector2 b)

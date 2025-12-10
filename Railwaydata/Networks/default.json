@@ -1332,5 +1332,43 @@
       "isMainLine": true,
       "isCrossover": false
     }
+  ],
+  "stations": [
+    {
+      "id": "S2_7363",
+      "name": "\u4EA6\u5E84",
+      "boundsX": 640,
+      "boundsY": -60,
+      "boundsWidth": 320,
+      "boundsHeight": 160,
+      "tracks": []
+    },
+    {
+      "id": "S3_8831",
+      "name": "\u6B66\u6E05",
+      "boundsX": 1240,
+      "boundsY": -60,
+      "boundsWidth": 320,
+      "boundsHeight": 160,
+      "tracks": []
+    },
+    {
+      "id": "S4_3791",
+      "name": "\u5929\u6D25",
+      "boundsX": 1790,
+      "boundsY": -60,
+      "boundsWidth": 320,
+      "boundsHeight": 160,
+      "tracks": []
+    },
+    {
+      "id": "S4_5423",
+      "name": "\u5317\u4EAC\u5357",
+      "boundsX": 40,
+      "boundsY": -60,
+      "boundsWidth": 320,
+      "boundsHeight": 160,
+      "tracks": []
+    }
   ]
 }
