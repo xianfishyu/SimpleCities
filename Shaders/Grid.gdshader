@@ -15,7 +15,6 @@ uniform vec3 minor_grid_color = vec3(0.2, 0.2, 0.2);
 uniform float dot_grid_size = 10.0;
 uniform float dot_radius = 0.5;
 uniform vec3 dot_color = vec3(0.6, 0.6, 0.6);
-uniform int dot_skip_factor = 1;
 
 // 显示开关
 uniform bool show_background = true;
@@ -31,11 +30,11 @@ uniform vec2 viewport_size = vec2(1920.0, 1080.0);
 
 void fragment() {
     vec4 final_color = vec4(background_color, 1.0);
-    
+
     if (!show_background) {
         final_color = vec4(0.0, 0.0, 0.0, 0.0);
     }
-    
+
     // 计算世界坐标（使用 UV 坐标从 0.0-1.0 转换到屏幕像素）
     vec2 world_pos = (UV - vec2(0.5)) * viewport_size / camera_zoom + camera_pos;
 
@@ -45,7 +44,7 @@ void fragment() {
 
     // 点网格（带抗锯齿）
     if (show_dot_grid && dot_grid_size > 0.0) {
-        vec2 dot_grid_step = vec2(dot_grid_size * float(dot_skip_factor));
+        vec2 dot_grid_step = vec2(dot_grid_size );
         vec2 dot_pos = mod(world_pos + dot_grid_step * 0.5, dot_grid_step);
         float dist_to_dot = length(dot_pos - dot_grid_step * 0.5);
 
@@ -54,7 +53,7 @@ void fragment() {
             final_color = mix(final_color, vec4(dot_color, 1.0), 0.8 * dot_alpha);
         }
     }
-    
+
     // 次网格线（带抗锯齿）
     if (show_minor_grid && minor_grid_size > 0.0) {
         vec2 minor_pos = mod(world_pos, minor_grid_size);
@@ -82,6 +81,6 @@ void fragment() {
             final_color = mix(final_color, vec4(major_grid_color, 1.0), 1.0 * line_alphaM);
         }
     }
-    
+
     COLOR = final_color;
 }

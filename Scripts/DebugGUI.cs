@@ -164,10 +164,109 @@ public static class DebugInfo
             GameTime.Instance.ResetTime();
         }
     }
-}
 
-public static class DebugBackground
-{
+    private static int setYear = 2025;
+    private static int setMonth = 12;
+    private static int setDay = 9;
+    private static int setHour = 18;
+    private static int setMinute = 40;
+    private static int setSecond = 0;
+
+    [DebugGUI("Set Time", Opening = false)]
+    public static void SetTimeGUI()
+    {
+        ImGui.Text("Set Game Time:");
+        ImGui.Separator();
+
+        // 获取当前游戏时间并初始化输入框
+        var currentTime = GameTime.GetGameDateTime();
+        if (ImGui.Button("Load Current Time"))
+        {
+            setYear = currentTime.Year;
+            setMonth = currentTime.Month;
+            setDay = currentTime.Day;
+            setHour = currentTime.Hour;
+            setMinute = currentTime.Minute;
+            setSecond = currentTime.Second;
+        }
+
+        ImGui.Spacing();
+
+        // 日期设置
+        ImGui.Text("Date:");
+        ImGui.SetNextItemWidth(100);
+        ImGui.InputInt("Year", ref setYear);
+        setYear = Math.Clamp(setYear, 1900, 2100);
+
+        ImGui.SetNextItemWidth(100);
+        ImGui.InputInt("Month", ref setMonth);
+        setMonth = Math.Clamp(setMonth, 1, 12);
+
+        ImGui.SetNextItemWidth(100);
+        ImGui.InputInt("Day", ref setDay);
+        int maxDay = DateTime.DaysInMonth(setYear, setMonth);
+        setDay = Math.Clamp(setDay, 1, maxDay);
+
+        ImGui.Spacing();
+
+        // 时间设置
+        ImGui.Text("Time:");
+        ImGui.SetNextItemWidth(100);
+        ImGui.InputInt("Hour", ref setHour);
+        setHour = Math.Clamp(setHour, 0, 23);
+
+        ImGui.SetNextItemWidth(100);
+        ImGui.InputInt("Minute", ref setMinute);
+        setMinute = Math.Clamp(setMinute, 0, 59);
+
+        ImGui.SetNextItemWidth(100);
+        ImGui.InputInt("Second", ref setSecond);
+        setSecond = Math.Clamp(setSecond, 0, 59);
+
+        ImGui.Spacing();
+        ImGui.Separator();
+
+        // 预览设置的时间
+        try
+        {
+            var previewTime = new DateTime(setYear, setMonth, setDay, setHour, setMinute, setSecond);
+            ImGui.Text($"Preview: {previewTime:yyyy-MM-dd HH:mm:ss}");
+        }
+        catch
+        {
+            ImGui.TextColored(new System.Numerics.Vector4(1, 0, 0, 1), "Invalid date/time!");
+        }
+
+        ImGui.Spacing();
+
+        // 应用按钮
+        if (ImGui.Button("Apply Time"))
+        {
+            try
+            {
+                var newTime = new DateTime(setYear, setMonth, setDay, setHour, setMinute, setSecond);
+                GameTime.Instance.SetStartTime(newTime);
+            }
+            catch (Exception ex)
+            {
+                GD.PrintErr($"Failed to set time: {ex.Message}");
+            }
+        }
+
+        ImGui.SameLine();
+        if (ImGui.Button("Reset to Default"))
+        {
+            var defaultTime = new DateTime(2025, 12, 9, 18, 40, 0);
+            GameTime.Instance.SetStartTime(defaultTime);
+            setYear = 2025;
+            setMonth = 12;
+            setDay = 9;
+            setHour = 18;
+            setMinute = 40;
+            setSecond = 0;
+        }
+    }
+
     [DebugGUI("Background", Opening = false)]
     public static void BackgroundPanel()
     {
@@ -248,4 +347,5 @@ public static class DebugBackground
         ImGui.SameLine();
         ImGui.Text("Radius");
     }
+
 }

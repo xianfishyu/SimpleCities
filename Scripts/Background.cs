@@ -39,11 +39,6 @@ public partial class Background : CanvasLayer
     [Export] public float DotRadius = 0.5f;
 
     /// <summary>
-    /// 点网格跳过因子（性能优化）
-    /// </summary>
-    [Export] public int DotSkipFactor = 1;
-
-    /// <summary>
     /// 是否显示背景颜色
     /// </summary>
     [Export] public bool ShowBackground = true;
@@ -118,7 +113,6 @@ public partial class Background : CanvasLayer
         shaderMaterial.SetShaderParameter("minor_line_width", LineWidth);
         shaderMaterial.SetShaderParameter("dot_grid_size", DotGridSize);
         shaderMaterial.SetShaderParameter("dot_radius", DotRadius);
-        shaderMaterial.SetShaderParameter("dot_skip_factor", DotSkipFactor);
 
         shaderMaterial.SetShaderParameter("show_background", ShowBackground);
         shaderMaterial.SetShaderParameter("show_major_grid", ShowMainGrid && ShowGrid);

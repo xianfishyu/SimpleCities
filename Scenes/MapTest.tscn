@@ -1,0 +1,15 @@
+[gd_scene load_steps=3 format=3 uid="uid://ddksnh3bvem1q"]
+
+[ext_resource type="Script" uid="uid://c8hesfnhwvf13" path="res://Scripts/Background.cs" id="1_pddb8"]
+[ext_resource type="Script" uid="uid://3dc2kcbj18lu" path="res://Scripts/Camera2DController.cs" id="2_jswqu"]
+
+[node name="MapTest" type="Node2D"]
+
+[node name="Background" type="CanvasLayer" parent="."]
+layer = -100
+script = ExtResource("1_pddb8")
+MainLineWidth = 1.0
+LineWidth = 0.5
+
+[node name="Camera2D" type="Camera2D" parent="."]
+script = ExtResource("2_jswqu")
