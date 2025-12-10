@@ -1,13 +1,17 @@
-[gd_scene load_steps=3 format=3 uid="uid://ddksnh3bvem1q"]
+[gd_scene load_steps=4 format=3 uid="uid://ddksnh3bvem1q"]
 
-[ext_resource type="Script" uid="uid://c8hesfnhwvf13" path="res://Scripts/Background.cs" id="1_pddb8"]
+[ext_resource type="PackedScene" uid="uid://djieu0n0l8buy" path="res://Prefabs/background.tscn" id="1_jswqu"]
 [ext_resource type="Script" uid="uid://3dc2kcbj18lu" path="res://Scripts/MainCamera.cs" id="2_jswqu"]
+[ext_resource type="Texture2D" uid="uid://b85g1x6ivp1lp" path="res://Textures/31245427_p0.jpg" id="4_osyy1"]
 
 [node name="MapTest" type="Node2D"]
 
-[node name="Background" type="CanvasLayer" parent="."]
-layer = -100
-script = ExtResource("1_pddb8")
+[node name="Background" parent="." instance=ExtResource("1_jswqu")]
 
 [node name="Camera2D" type="Camera2D" parent="."]
 script = ExtResource("2_jswqu")
+
+[node name="31245427P0" type="Sprite2D" parent="."]
+position = Vector2(351, -71)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("4_osyy1")

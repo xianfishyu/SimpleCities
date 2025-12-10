@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using Godot;
+using static Godot.GD;
 
 /// <summary>
 /// 网格背景渲染器（使用Shader）
@@ -10,6 +11,7 @@ public partial class Background : CanvasLayer
 {
     public static Background Instance { get; private set; }
 
+    [ExportGroup("网格设置")]
     /// <summary>
     /// 主网格大小（像素）
     /// </summary>
@@ -40,6 +42,7 @@ public partial class Background : CanvasLayer
     /// </summary>
     [Export] public float DotRadius = 0.5f;
 
+    [ExportGroup("显示设置")]
     /// <summary>
     /// 是否显示背景颜色
     /// </summary>
@@ -68,17 +71,17 @@ public partial class Background : CanvasLayer
     /// <summary>
     /// 背景颜色
     /// </summary>
-    [Export] public Color BackgroundColor = new Color(128f/255f, 128f/255f, 128f/255f);
+    [Export] public Color BackgroundColor = new Color(128f / 255f, 128f / 255f, 128f / 255f);
 
-    private ColorRect gridDisplay;
+    [ExportGroup("节点引用")]
+    [Export] public ColorRect gridDisplay;
     private ShaderMaterial shaderMaterial;
 
     public override void _Ready()
     {
-        Instance = this;
+        Instance ??= this;
 
-        // 创建 ColorRect 来显示 Shader
-        gridDisplay = new ColorRect();
+        gridDisplay.Visible = true;
         gridDisplay.AnchorLeft = 0;
         gridDisplay.AnchorTop = 0;
         gridDisplay.AnchorRight = 1;
@@ -88,13 +91,7 @@ public partial class Background : CanvasLayer
         gridDisplay.OffsetRight = 0;
         gridDisplay.OffsetBottom = 0;
 
-        // 加载并应用 Shader
-        var shader = GD.Load<Shader>("res://Shaders/Grid.gdshader");
-        shaderMaterial = new ShaderMaterial();
-        shaderMaterial.Shader = shader;
-        gridDisplay.Material = shaderMaterial;
-
-        AddChild(gridDisplay);
+        shaderMaterial = gridDisplay.Material as ShaderMaterial;
     }
 
     public override void _Process(double delta)
@@ -121,7 +118,7 @@ public partial class Background : CanvasLayer
         shaderMaterial.SetShaderParameter("show_minor_grid", ShowMinorGrid && ShowGrid);
         shaderMaterial.SetShaderParameter("show_dot_grid", ShowDotGrid && ShowGrid);
         shaderMaterial.SetShaderParameter("background_color", BackgroundColor);
-        
+
         // 传递相机和视口参数
         shaderMaterial.SetShaderParameter("camera_pos", cameraPos);
         shaderMaterial.SetShaderParameter("camera_zoom", cameraZoom);

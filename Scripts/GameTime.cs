@@ -24,10 +24,16 @@ public partial class GameTime : Node
     /// </summary>
     private double gameTimeElapsed = 0.0;
 
+
+    /// <summary>
+    /// 默认时间（用于调试）
+    /// </summary>
+    private DateTime defaultTime;
+
     /// <summary>
     /// 游戏启动时的现实时间
     /// </summary>
-    private DateTime startRealTime;
+    private DateTime startTime;
 
     /// <summary>
     /// 上一帧暂停时的游戏时间
@@ -45,7 +51,8 @@ public partial class GameTime : Node
         Instance = this;
 
         // 初始化游戏启动时间为固定时刻，便于调试
-        startRealTime = new DateTime(2025, 12, 9, 18, 40, 0);
+        defaultTime = new DateTime(2025, 12, 9, 5, 0, 0);
+        startTime = new DateTime(2025, 12, 9, 18, 40, 0);
         gameTimeElapsed = 0.0;
         pausedGameTime = 0.0;
     }
@@ -73,7 +80,7 @@ public partial class GameTime : Node
     /// </summary>
     public static DateTime GetGameDateTime()
     {
-        return Instance.startRealTime.AddSeconds(Instance.gameTimeElapsed);
+        return Instance.startTime.AddSeconds(Instance.gameTimeElapsed);
     }
 
     /// <summary>
@@ -125,7 +132,7 @@ public partial class GameTime : Node
     /// <param name="dateTime">要设置的时间</param>
     public void SetStartTime(DateTime dateTime)
     {
-        startRealTime = dateTime;
+        startTime = dateTime;
         gameTimeElapsed = 0.0;
     }
 
@@ -133,19 +140,19 @@ public partial class GameTime : Node
     /// 设置游戏开始时间（使用时间字符串，如 "18:45"）
     /// 日期保持当前日期
     /// </summary>
-    public void SetStartTimeFromString(string timeStr)
-    {
-        var parts = timeStr.Split(':');
-        if (parts.Length >= 2 &&
-            int.TryParse(parts[0], out int hours) &&
-            int.TryParse(parts[1], out int minutes))
-        {
-            int seconds = parts.Length >= 3 && int.TryParse(parts[2], out int s) ? s : 0;
-            startRealTime = new DateTime(startRealTime.Year, startRealTime.Month, startRealTime.Day,
-                hours, minutes, seconds);
-            gameTimeElapsed = 0.0;
-        }
-    }
+    // public void SetStartTimeFromString(string timeStr)
+    // {
+    //     var parts = timeStr.Split(':');
+    //     if (parts.Length >= 2 &&
+    //         int.TryParse(parts[0], out int hours) &&
+    //         int.TryParse(parts[1], out int minutes))
+    //     {
+    //         int seconds = parts.Length >= 3 && int.TryParse(parts[2], out int s) ? s : 0;
+    //         startTime = new DateTime(startTime.Year, startTime.Month, startTime.Day,
+    //             hours, minutes, seconds);
+    //         gameTimeElapsed = 0.0;
+    //     }
+    // }
 
     /// <summary>
     /// 获取当前游戏时间（从00:00开始的秒数）
@@ -177,11 +184,11 @@ public partial class GameTime : Node
     /// <summary>
     /// 获取格式化的完整日期时间字符串（yyyy-MM-dd HH:mm:ss）
     /// </summary>
-    public static string GetFormattedDateTime()
-    {
-        DateTime gameTime = GetGameDateTime();
-        return gameTime.ToString("yyyy-MM-dd HH:mm:ss");
-    }
+    // public static string GetFormattedDateTime()
+    // {
+    //     DateTime gameTime = GetGameDateTime();
+    //     return gameTime.ToString("yyyy-MM-dd HH:mm:ss");
+    // }
 
     /// <summary>
     /// 获取当前时间流速倍数

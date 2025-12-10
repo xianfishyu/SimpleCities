@@ -124,7 +124,7 @@ public static class DebugInfo
         ImGui.Text($"Memory Usage: {OS.GetStaticMemoryUsage() / (1024 * 1024)} MB");
     }
 
-    [DebugGUI("TimeInfo", Opening = true)]
+    [DebugGUI("TimeInfo", Opening = false)]
     public static void GameTimeDebug()
     {
         ImGui.Text($"Date: {GameTime.GetFormattedDate()}");
@@ -160,110 +160,96 @@ public static class DebugInfo
 
         ImGui.Separator();
         if (ImGui.Button("Reset Time"))
-        {
             GameTime.Instance.ResetTime();
-        }
+        ImGui.SameLine();
+        if (ImGui.Button("Time Set to Now"))
+            GameTime.Instance.SetStartTime(DateTime.Now);
     }
 
     private static int setYear = 2025;
-    private static int setMonth = 12;
-    private static int setDay = 9;
-    private static int setHour = 18;
-    private static int setMinute = 40;
-    private static int setSecond = 0;
+    private static int setMonth = 8;
+    private static int setDay = 10;
+    private static int setHour = 11;
+    private static int setMinute = 45;
+    private static int setSecond = 14;
 
-    [DebugGUI("Set Time", Opening = false)]
+    [DebugGUI("TimeInfo", Opening = false)]
     public static void SetTimeGUI()
     {
-        ImGui.Text("Set Game Time:");
-        ImGui.Separator();
-
-        // 获取当前游戏时间并初始化输入框
-        var currentTime = GameTime.GetGameDateTime();
-        if (ImGui.Button("Load Current Time"))
+        if (ImGui.CollapsingHeader("TimeSet"))
         {
-            setYear = currentTime.Year;
-            setMonth = currentTime.Month;
-            setDay = currentTime.Day;
-            setHour = currentTime.Hour;
-            setMinute = currentTime.Minute;
-            setSecond = currentTime.Second;
-        }
 
-        ImGui.Spacing();
 
-        // 日期设置
-        ImGui.Text("Date:");
-        ImGui.SetNextItemWidth(100);
-        ImGui.InputInt("Year", ref setYear);
-        setYear = Math.Clamp(setYear, 1900, 2100);
+            ImGui.Text("Set Game Time:");
 
-        ImGui.SetNextItemWidth(100);
-        ImGui.InputInt("Month", ref setMonth);
-        setMonth = Math.Clamp(setMonth, 1, 12);
+            // 日期设置
+            ImGui.BeginGroup();
+            {
+                ImGui.Text("Date:");
+                ImGui.SetNextItemWidth(100);
+                ImGui.InputInt("Year", ref setYear);
+                setYear = Math.Clamp(setYear, 1900, 2100);
 
-        ImGui.SetNextItemWidth(100);
-        ImGui.InputInt("Day", ref setDay);
-        int maxDay = DateTime.DaysInMonth(setYear, setMonth);
-        setDay = Math.Clamp(setDay, 1, maxDay);
+                ImGui.SetNextItemWidth(100);
+                ImGui.InputInt("Month", ref setMonth);
+                setMonth = Math.Clamp(setMonth, 1, 12);
 
-        ImGui.Spacing();
+                ImGui.SetNextItemWidth(100);
+                ImGui.InputInt("Day", ref setDay);
+                int maxDay = DateTime.DaysInMonth(setYear, setMonth);
+                setDay = Math.Clamp(setDay, 1, maxDay);
+            }
+            ImGui.EndGroup();
 
-        // 时间设置
-        ImGui.Text("Time:");
-        ImGui.SetNextItemWidth(100);
-        ImGui.InputInt("Hour", ref setHour);
-        setHour = Math.Clamp(setHour, 0, 23);
+            ImGui.SameLine(200);
 
-        ImGui.SetNextItemWidth(100);
-        ImGui.InputInt("Minute", ref setMinute);
-        setMinute = Math.Clamp(setMinute, 0, 59);
+            // 时间设置
+            ImGui.BeginGroup();
+            {
+                ImGui.Text("Time:");
+                ImGui.SetNextItemWidth(100);
+                ImGui.InputInt("Hour", ref setHour);
+                setHour = Math.Clamp(setHour, 0, 23);
 
-        ImGui.SetNextItemWidth(100);
-        ImGui.InputInt("Second", ref setSecond);
-        setSecond = Math.Clamp(setSecond, 0, 59);
+                ImGui.SetNextItemWidth(100);
+                ImGui.InputInt("Minute", ref setMinute);
+                setMinute = Math.Clamp(setMinute, 0, 59);
 
-        ImGui.Spacing();
-        ImGui.Separator();
+                ImGui.SetNextItemWidth(100);
+                ImGui.InputInt("Second", ref setSecond);
+                setSecond = Math.Clamp(setSecond, 0, 59);
+            }
+            ImGui.EndGroup();
 
-        // 预览设置的时间
-        try
-        {
-            var previewTime = new DateTime(setYear, setMonth, setDay, setHour, setMinute, setSecond);
-            ImGui.Text($"Preview: {previewTime:yyyy-MM-dd HH:mm:ss}");
-        }
-        catch
-        {
-            ImGui.TextColored(new System.Numerics.Vector4(1, 0, 0, 1), "Invalid date/time!");
-        }
+            ImGui.Spacing();
+            ImGui.Separator();
 
-        ImGui.Spacing();
-
-        // 应用按钮
-        if (ImGui.Button("Apply Time"))
-        {
+            // 预览设置的时间
             try
             {
-                var newTime = new DateTime(setYear, setMonth, setDay, setHour, setMinute, setSecond);
-                GameTime.Instance.SetStartTime(newTime);
+                var previewTime = new DateTime(setYear, setMonth, setDay, setHour, setMinute, setSecond);
+                ImGui.Text($"Preview: {previewTime:yyyy-MM-dd HH:mm:ss}");
             }
-            catch (Exception ex)
+            catch
             {
-                GD.PrintErr($"Failed to set time: {ex.Message}");
+                ImGui.TextColored(new System.Numerics.Vector4(1, 0, 0, 1), "Invalid date/time!");
             }
-        }
 
-        ImGui.SameLine();
-        if (ImGui.Button("Reset to Default"))
-        {
-            var defaultTime = new DateTime(2025, 12, 9, 18, 40, 0);
-            GameTime.Instance.SetStartTime(defaultTime);
-            setYear = 2025;
-            setMonth = 12;
-            setDay = 9;
-            setHour = 18;
-            setMinute = 40;
-            setSecond = 0;
+            ImGui.Spacing();
+
+            // 应用按钮
+            if (ImGui.Button("Apply Time"))
+            {
+                try
+                {
+                    var newTime = new DateTime(setYear, setMonth, setDay, setHour, setMinute, setSecond);
+                    GameTime.Instance.SetStartTime(newTime);
+                }
+                catch (Exception ex)
+                {
+                    GD.PrintErr($"Failed to set time: {ex.Message}");
+                }
+            }
         }
     }
 

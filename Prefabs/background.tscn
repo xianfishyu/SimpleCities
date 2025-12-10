@@ -1,0 +1,35 @@
+[gd_scene load_steps=4 format=3 uid="uid://djieu0n0l8buy"]
+
+[ext_resource type="Script" uid="uid://c8hesfnhwvf13" path="res://Scripts/Background.cs" id="1_l3dar"]
+[ext_resource type="Shader" uid="uid://c46m251qjvie4" path="res://Shaders/Grid.gdshader" id="2_n0flw"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_vyv7u"]
+shader = ExtResource("2_n0flw")
+shader_parameter/major_grid_size = 500.0
+shader_parameter/major_line_width = 2.0
+shader_parameter/major_grid_color = Vector3(0.3, 0.3, 0.3)
+shader_parameter/minor_grid_size = 100.0
+shader_parameter/minor_line_width = 1.0
+shader_parameter/minor_grid_color = Vector3(0.2, 0.2, 0.2)
+shader_parameter/dot_grid_size = 10.0
+shader_parameter/dot_radius = 0.5
+shader_parameter/dot_color = Vector3(0.6, 0.6, 0.6)
+shader_parameter/show_background = true
+shader_parameter/show_major_grid = true
+shader_parameter/show_minor_grid = true
+shader_parameter/show_dot_grid = true
+shader_parameter/background_color = Vector3(0.5, 0.5, 0.5)
+shader_parameter/camera_pos = Vector2(0, 0)
+shader_parameter/camera_zoom = 1.0
+shader_parameter/viewport_size = Vector2(1920, 1080)
+
+[node name="Background" type="CanvasLayer" node_paths=PackedStringArray("gridDisplay")]
+layer = -100
+script = ExtResource("1_l3dar")
+gridDisplay = NodePath("ColorRect")
+
+[node name="ColorRect" type="ColorRect" parent="."]
+visible = false
+material = SubResource("ShaderMaterial_vyv7u")
+offset_right = 40.0
+offset_bottom = 40.0
