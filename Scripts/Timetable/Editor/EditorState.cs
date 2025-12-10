@@ -44,7 +44,7 @@ public class EditorState
 
     // 调试选项
     public bool ShowCollisionBoxes { get; set; } = false;
-    public bool ShowStationBorders { get; set; } = true;
+    public bool ShowStationBorders { get; set; } = false;
 
     /// <summary>
     /// 清除所有选择状态

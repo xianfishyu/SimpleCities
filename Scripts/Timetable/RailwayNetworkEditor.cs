@@ -1,5 +1,6 @@
 using Godot;
 using System.Collections.Generic;
+using System.IO;
 using ImGuiNET;
 using System.Numerics;
 
@@ -8,6 +9,8 @@ using System.Numerics;
 /// </summary>
 public partial class RailwayNetworkEditor : Node2D
 {
+    public static RailwayNetworkEditor Instance { get; private set; }
+
     [ExportGroup("File Settings")]
     [Export] public string NetworkPath = "res://Railwaydata/Networks/default.json";
 
@@ -53,8 +56,21 @@ public partial class RailwayNetworkEditor : Node2D
     private Line2D previewLine;
     private ColorRect stationPreviewRect;
 
+    // 时刻表和列车
+    private List<TrainSchedule> schedules = new();
+    private List<Train> trains = new();
+    private Dictionary<string, ColorRect> trainVisuals = new();
+
     public override void _Ready()
     {
+        // 单例模式
+        if (Instance != null)
+        {
+            QueueFree();
+            return;
+        }
+        Instance = this;
+
         // 初始化配置
         config = CreateConfig();
         state = new EditorState();
@@ -83,8 +99,8 @@ public partial class RailwayNetworkEditor : Node2D
         stationPreviewRect.ZIndex = -10;
         AddChild(stationPreviewRect);
 
-        // 注册调试GUI
-        DebugGUI.RegisterDebugRender("Railway Editor", RenderEditorGUI, true);
+        // 加载时刻表
+        LoadAllSchedules();
     }
 
     private EditorConfig CreateConfig()
@@ -120,6 +136,9 @@ public partial class RailwayNetworkEditor : Node2D
         
         if (state.ShowCollisionBoxes)
             nodeEdgeVisuals.UpdateCollisionBoxes();
+
+        // 更新列车
+        UpdateTrains((float)delta);
     }
 
     public override void _Input(InputEvent @event)
@@ -521,19 +540,23 @@ public partial class RailwayNetworkEditor : Node2D
 
     #region ImGui
 
-    private void RenderEditorGUI()
+    [DebugGUI("Railway Editor", Opening = true)]
+    public static void RenderEditorGUI()
     {
-        ImGui.Text($"Network: {network?.Name ?? "None"}");
-        ImGui.Text($"Nodes: {network?.Nodes.Count ?? 0} | Edges: {network?.Edges.Count ?? 0} | Stations: {network?.Stations.Count ?? 0}");
+        var editor = Instance;
+        if (editor == null) return;
+
+        ImGui.Text($"Network: {editor.network?.Name ?? "None"}");
+        ImGui.Text($"Nodes: {editor.network?.Nodes.Count ?? 0} | Edges: {editor.network?.Edges.Count ?? 0} | Stations: {editor.network?.Stations.Count ?? 0}");
         ImGui.Separator();
 
         // 编辑模式
         ImGui.Text("Edit Mode:");
-        int modeIndex = (int)state.CurrentMode;
+        int modeIndex = (int)editor.state.CurrentMode;
         string[] modeNames = { "Select [1]", "Draw Track [2]", "Draw Crossover [3]", "Draw Station [4]" };
         for (int i = 0; i < modeNames.Length; i++)
         {
-            if (ImGui.RadioButton(modeNames[i], modeIndex == i)) state.CurrentMode = (EditMode)i;
+            if (ImGui.RadioButton(modeNames[i], modeIndex == i)) editor.state.CurrentMode = (EditMode)i;
             if (i < modeNames.Length - 1) ImGui.SameLine();
         }
 
@@ -542,61 +565,61 @@ public partial class RailwayNetworkEditor : Node2D
         // 轨道类型
         ImGui.Text("Track Type:");
         string[] trackTypeNames = { "Main Line [Q]", "Arrival/Departure [W]", "Main+Platform [E]", "Crossover [R]" };
-        int trackTypeIndex = (int)state.CurrentTrackType;
+        int trackTypeIndex = (int)editor.state.CurrentTrackType;
         if (ImGui.Combo("##TrackType", ref trackTypeIndex, trackTypeNames, trackTypeNames.Length))
-            state.CurrentTrackType = (TrackType)trackTypeIndex;
+            editor.state.CurrentTrackType = (TrackType)trackTypeIndex;
 
         ImGui.Separator();
 
         // 网格设置
-        bool snapToGrid = config.SnapToGrid;
+        bool snapToGrid = editor.config.SnapToGrid;
         ImGui.Checkbox("Snap to Grid [G]", ref snapToGrid);
-        config.SnapToGrid = snapToGrid;
+        editor.config.SnapToGrid = snapToGrid;
 
         ImGui.Separator();
 
         // 调试选项
-        bool showCollisionBoxes = state.ShowCollisionBoxes;
+        bool showCollisionBoxes = editor.state.ShowCollisionBoxes;
         ImGui.Checkbox("Show Collision Boxes", ref showCollisionBoxes);
-        state.ShowCollisionBoxes = showCollisionBoxes;
+        editor.state.ShowCollisionBoxes = showCollisionBoxes;
 
-        bool showStationBorders = state.ShowStationBorders;
+        bool showStationBorders = editor.state.ShowStationBorders;
         if (ImGui.Checkbox("Show Station Borders", ref showStationBorders))
         {
-            state.ShowStationBorders = showStationBorders;
-            stationVisuals.UpdateAllStationVisuals();
+            editor.state.ShowStationBorders = showStationBorders;
+            editor.stationVisuals.UpdateAllStationVisuals();
         }
 
         // 鼠标位置
-        var mousePos = GetGlobalMousePosition();
+        var mousePos = editor.GetGlobalMousePosition();
         ImGui.Text($"Mouse: ({mousePos.X:F0}, {mousePos.Y:F0})");
-        ImGui.Text($"Hovered: {state.HoveredNodeId ?? state.HoveredEdgeId ?? state.HoveredStationId ?? "None"}");
+        ImGui.Text($"Hovered: {editor.state.HoveredNodeId ?? editor.state.HoveredEdgeId ?? editor.state.HoveredStationId ?? "None"}");
 
         ImGui.Separator();
 
         // 选中对象属性
-        RenderSelectedObjectProperties();
+        editor.RenderSelectedObjectProperties();
 
         ImGui.Separator();
 
         // 文件操作
-        if (ImGui.Button("Save [Ctrl+S]")) SaveNetwork();
+        if (ImGui.Button("Save [Ctrl+S]")) editor.SaveNetwork();
         ImGui.SameLine();
         if (ImGui.Button("Reload"))
         {
-            LoadNetwork();
-            nodeEdgeVisuals = new NodeEdgeVisualsManager(this, config, state, network);
-            stationVisuals = new StationVisualsManager(this, config, state, network);
-            ClearVisuals();
-            RenderNetwork();
+            editor.LoadNetwork();
+            editor.nodeEdgeVisuals = new NodeEdgeVisualsManager(editor, editor.config, editor.state, editor.network);
+            editor.stationVisuals = new StationVisualsManager(editor, editor.config, editor.state, editor.network);
+            editor.ClearVisuals();
+            editor.RenderNetwork();
         }
         ImGui.SameLine();
         if (ImGui.Button("Clear All"))
         {
-            network = new RailwayNetwork { Name = "New Network" };
-            nodeEdgeVisuals = new NodeEdgeVisualsManager(this, config, state, network);
-            stationVisuals = new StationVisualsManager(this, config, state, network);
-            ClearVisuals();
+            editor.network = new RailwayNetwork { Name = "New Network" };
+            editor.nodeEdgeVisuals = new NodeEdgeVisualsManager(editor, editor.config, editor.state, editor.network);
+            editor.stationVisuals = new StationVisualsManager(editor, editor.config, editor.state, editor.network);
+            editor.ClearVisuals();
         }
     }
 
@@ -675,6 +698,325 @@ public partial class RailwayNetworkEditor : Node2D
                 }
                 ImGui.PopStyleColor();
             }
+        }
+    }
+
+    #endregion
+
+    #region Schedules
+
+    public void LoadAllSchedules()
+    {
+        schedules.Clear();
+        string schedulesPath = ProjectSettings.GlobalizePath("res://Railwaydata/Schedules");
+        
+        if (!Directory.Exists(schedulesPath))
+        {
+            GD.Print($"Schedules directory not found: {schedulesPath}");
+            return;
+        }
+
+        var files = Directory.GetFiles(schedulesPath, "*.json");
+        foreach (var file in files)
+        {
+            try
+            {
+                var schedule = TrainSchedule.LoadFromFile(file);
+                schedules.Add(schedule);
+                GD.Print($"Loaded schedule: {schedule.TrainId}");
+            }
+            catch (System.Exception e)
+            {
+                GD.PrintErr($"Failed to load schedule from {file}: {e.Message}");
+            }
+        }
+
+        GD.Print($"Loaded {schedules.Count} schedules");
+    }
+
+    public void AddTrainFromSchedule(TrainSchedule schedule)
+    {
+        var train = new Train(schedule);
+        train.TrainColor = GetTrainColor(schedule.TrainId);
+        trains.Add(train);
+
+        // 创建列车可视化
+        var visual = new ColorRect();
+        visual.Size = new Godot.Vector2(12f, 4f);
+        visual.Color = train.TrainColor;
+        visual.ZIndex = 50;
+        visual.Visible = false; // 初始不可见，等有位置信息再显示
+        AddChild(visual);
+        trainVisuals[train.TrainId] = visual;
+
+        GD.Print($"Added train {schedule.TrainId} with {schedule.Entries.Count} entries");
+    }
+
+    private Color GetTrainColor(string trainId)
+    {
+        if (trainId.StartsWith("C"))
+            return new Color(0.2f, 0.5f, 0.9f); // 城际蓝
+        if (trainId.StartsWith("G"))
+            return new Color(0.9f, 0.3f, 0.2f); // 高铁红
+        if (trainId.StartsWith("D"))
+            return new Color(0.3f, 0.8f, 0.4f); // 动车绿
+        return Colors.Gray;
+    }
+
+    /// <summary>
+    /// 更新所有列车位置和状态
+    /// </summary>
+    private void UpdateTrains(float delta)
+    {
+        if (GameTime.IsPaused) return;
+
+        int currentTimeSeconds = GameTime.GetTimeOfDaySeconds();
+
+        foreach (var train in trains)
+        {
+            UpdateSingleTrain(train, currentTimeSeconds);
+            UpdateTrainVisual(train);
+        }
+    }
+
+    /// <summary>
+    /// 更新单个列车
+    /// </summary>
+    private void UpdateSingleTrain(Train train, int currentTimeSeconds)
+    {
+        if (train.Schedule == null || train.Schedule.Entries.Count == 0) return;
+        if (train.State == TrainState.Arrived) return;
+
+        // 找到当前应该执行的时刻表条目
+        var entries = train.Schedule.Entries;
+
+        // 找到当前时间段：在哪两个事件之间
+        int prevDepartIndex = -1;
+        int nextArriveIndex = -1;
+
+        for (int i = 0; i < entries.Count; i++)
+        {
+            if (entries[i].Event == ScheduleEventType.Departure && entries[i].TimeInSeconds <= currentTimeSeconds)
+            {
+                prevDepartIndex = i;
+            }
+        }
+
+        if (prevDepartIndex >= 0)
+        {
+            // 找下一个到达事件
+            for (int i = prevDepartIndex + 1; i < entries.Count; i++)
+            {
+                if (entries[i].Event == ScheduleEventType.Arrival)
+                {
+                    nextArriveIndex = i;
+                    break;
+                }
+            }
+        }
+
+        // 获取起点和终点站场
+        Station fromStation = null;
+        Station toStation = null;
+
+        if (prevDepartIndex >= 0)
+        {
+            string fromStationName = entries[prevDepartIndex].Station;
+            fromStation = network.Stations.Find(s => s.Name == fromStationName);
+        }
+
+        if (nextArriveIndex >= 0)
+        {
+            string toStationName = entries[nextArriveIndex].Station;
+            toStation = network.Stations.Find(s => s.Name == toStationName);
+        }
+
+        // 计算位置
+        if (fromStation != null && toStation != null && prevDepartIndex >= 0 && nextArriveIndex >= 0)
+        {
+            int departTime = entries[prevDepartIndex].TimeInSeconds;
+            int arriveTime = entries[nextArriveIndex].TimeInSeconds;
+
+            if (arriveTime > departTime)
+            {
+                float progress = (float)(currentTimeSeconds - departTime) / (arriveTime - departTime);
+                progress = Mathf.Clamp(progress, 0f, 1f);
+
+                // 简单线性插值站场中心位置
+                var fromPos = fromStation.Bounds.GetCenter();
+                var toPos = toStation.Bounds.GetCenter();
+
+                train.PositionX = Mathf.Lerp(fromPos.X, toPos.X, progress);
+                train.PositionY = Mathf.Lerp(fromPos.Y, toPos.Y, progress);
+                train.State = TrainState.Running;
+            }
+        }
+        else if (fromStation != null && toStation == null)
+        {
+            // 已到达终点
+            var pos = fromStation.Bounds.GetCenter();
+            train.PositionX = pos.X;
+            train.PositionY = pos.Y;
+            train.State = TrainState.Arrived;
+        }
+        else if (fromStation == null && entries.Count > 0)
+        {
+            // 还未发车 - 显示在始发站
+            string firstStation = entries[0].Station;
+            var station = network.Stations.Find(s => s.Name == firstStation);
+            if (station != null)
+            {
+                var pos = station.Bounds.GetCenter();
+                train.PositionX = pos.X;
+                train.PositionY = pos.Y;
+                train.State = TrainState.WaitingToDepart;
+            }
+        }
+    }
+
+    /// <summary>
+    /// 更新列车可视化
+    /// </summary>
+    private void UpdateTrainVisual(Train train)
+    {
+        if (!trainVisuals.TryGetValue(train.TrainId, out var visual)) return;
+
+        // 设置位置
+        visual.Position = new Godot.Vector2(
+            train.PositionX - visual.Size.X / 2,
+            train.PositionY - visual.Size.Y / 2
+        );
+
+        // 设置颜色和可见性
+        visual.Color = train.TrainColor;
+        visual.Visible = true;
+
+        // 根据状态调整透明度
+        if (train.State == TrainState.WaitingToDepart)
+            visual.Color = new Color(train.TrainColor, 0.5f);
+        else if (train.State == TrainState.Arrived)
+            visual.Color = new Color(train.TrainColor, 0.3f);
+    }
+
+    [DebugGUI("Schedules", Opening = true)]
+    public static void RenderScheduleGUI()
+    {
+        if (Instance == null) return;
+
+        ImGui.Text($"Schedules: {Instance.schedules.Count} | Active Trains: {Instance.trains.Count}");
+        ImGui.Separator();
+
+        // 时刻表列表
+        if (ImGui.CollapsingHeader("Available Schedules", ImGuiTreeNodeFlags.DefaultOpen))
+        {
+            foreach (var schedule in Instance.schedules)
+            {
+                bool isActive = Instance.trains.Exists(t => t.TrainId == schedule.TrainId);
+                
+                ImGui.PushID(schedule.TrainId);
+                
+                // 显示车次信息
+                string direction = schedule.IsDownbound ? "↓" : "↑";
+                string info = $"{schedule.TrainId} {direction}";
+                
+                if (schedule.Entries.Count > 0)
+                {
+                    var first = schedule.Entries[0];
+                    var last = schedule.Entries[^1];
+                    info += $" | {first.Station} → {last.Station}";
+                    info += $" | {first.Time} - {last.Time}";
+                }
+
+                if (isActive)
+                {
+                    ImGui.TextColored(new System.Numerics.Vector4(0.3f, 0.8f, 0.3f, 1f), info);
+                    ImGui.SameLine();
+                    if (ImGui.SmallButton("Remove"))
+                    {
+                        var train = Instance.trains.Find(t => t.TrainId == schedule.TrainId);
+                        if (train != null)
+                        {
+                            Instance.trains.Remove(train);
+                            if (Instance.trainVisuals.TryGetValue(train.TrainId, out var visual))
+                            {
+                                visual.QueueFree();
+                                Instance.trainVisuals.Remove(train.TrainId);
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    ImGui.Text(info);
+                    ImGui.SameLine();
+                    if (ImGui.SmallButton("Add"))
+                    {
+                        Instance.AddTrainFromSchedule(schedule);
+                    }
+                }
+
+                // 展开显示详细时刻表
+                if (ImGui.TreeNode($"Details##{schedule.TrainId}"))
+                {
+                    ImGui.Columns(4, "schedule_columns", true);
+                    ImGui.Text("Time"); ImGui.NextColumn();
+                    ImGui.Text("Station"); ImGui.NextColumn();
+                    ImGui.Text("Track"); ImGui.NextColumn();
+                    ImGui.Text("Event"); ImGui.NextColumn();
+                    ImGui.Separator();
+
+                    foreach (var entry in schedule.Entries)
+                    {
+                        ImGui.Text(entry.Time); ImGui.NextColumn();
+                        ImGui.Text(entry.Station); ImGui.NextColumn();
+                        ImGui.Text(entry.Track.ToString()); ImGui.NextColumn();
+                        ImGui.Text(entry.Event == ScheduleEventType.Arrival ? "到达" : "出发"); ImGui.NextColumn();
+                    }
+
+                    ImGui.Columns(1);
+                    ImGui.TreePop();
+                }
+
+                ImGui.PopID();
+            }
+        }
+
+        ImGui.Separator();
+
+        // 活跃列车状态
+        if (Instance.trains.Count > 0 && ImGui.CollapsingHeader("Active Trains", ImGuiTreeNodeFlags.DefaultOpen))
+        {
+            foreach (var train in Instance.trains)
+            {
+                var entry = train.GetCurrentEntry();
+                string status = train.State switch
+                {
+                    TrainState.WaitingToDepart => "等待发车",
+                    TrainState.Running => "运行中",
+                    TrainState.Stopped => "停站中",
+                    TrainState.Arrived => "已到达",
+                    _ => "未知"
+                };
+
+                ImGui.TextColored(
+                    new System.Numerics.Vector4(train.TrainColor.R, train.TrainColor.G, train.TrainColor.B, 1f),
+                    $"{train.TrainId}: {status}"
+                );
+
+                if (entry != null)
+                {
+                    ImGui.SameLine();
+                    ImGui.TextDisabled($"@ {entry.Station}");
+                }
+            }
+        }
+
+        ImGui.Separator();
+
+        // 刷新按钮
+        if (ImGui.Button("Reload Schedules"))
+        {
+            Instance.LoadAllSchedules();
         }
     }
 

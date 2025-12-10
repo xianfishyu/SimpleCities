@@ -62,22 +62,6 @@ public partial class TrainController : Node2D
     {
         var train = new Train(schedule);
 
-        // 设置初始位置（第一站）
-        // TODO: 不再使用站台信息，改为使用网络编辑器指定的位置
-        /*
-        if (schedule.Entries.Count > 0 && network != null)
-        {
-            var firstEntry = schedule.Entries[0];
-            var platform = network.FindPlatformByInfo(firstEntry.Station + "_Track" + firstEntry.Track);
-            if (platform != null)
-            {
-                train.PositionX = platform.X;
-                train.PositionY = platform.Y;
-                train.CurrentNodeId = platform.Id;
-            }
-        }
-        */
-
         // 设置列车颜色
         train.TrainColor = GetTrainColor(schedule.TrainId);
 
@@ -186,30 +170,7 @@ public partial class TrainController : Node2D
                             progress = Mathf.Clamp(progress, 0f, 1f);
                         }
 
-                        // TODO: 不再使用站台信息查找节点，改为使用网络编辑器指定的位置
-                        /*
-                        // 获取起点和终点节点
-                        var fromPlatform = network.FindPlatformByInfo(departEntry.Station + "_Track" + departEntry.Track);
-                        var toPlatform = network.FindPlatformByInfo(currentEntry.Station + "_Track" + currentEntry.Track);
-
-                        if (fromPlatform != null && toPlatform != null)
-                        {
-                            // 简单线性插值（未来可以用路径）
-                            train.PositionX = Mathf.Lerp(fromPlatform.X, toPlatform.X, progress);
-                            train.PositionY = Mathf.Lerp(fromPlatform.Y, toPlatform.Y, progress);
-
-                            // 检查是否到达
-                            if (currentTimeSeconds >= arriveTime)
-                            {
-                                train.State = TrainState.Stopped;
-                                train.PositionX = toPlatform.X;
-                                train.PositionY = toPlatform.Y;
-                                train.CurrentNodeId = toPlatform.Id;
-                                GD.Print($"{train.TrainId} arrived at {currentEntry.Station}");
-                                train.MoveToNextEntry();
-                            }
-                        }
-                        */
+                        // 位置由网络编辑器管理，进度信息已在进度计算中
                     }
                 }
                 break;

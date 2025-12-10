@@ -45,7 +45,7 @@ public partial class GameTime : Node
         Instance = this;
 
         // 初始化游戏启动时间为固定时刻，便于调试
-        startRealTime = new DateTime(2025, 12, 9, 3, 0, 0);
+        startRealTime = new DateTime(2025, 12, 9, 18, 40, 0);
         gameTimeElapsed = 0.0;
         pausedGameTime = 0.0;
     }

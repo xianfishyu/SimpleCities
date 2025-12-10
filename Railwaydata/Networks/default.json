@@ -1357,16 +1357,16 @@
       "name": "\u5929\u6D25",
       "boundsX": 1790,
       "boundsY": -60,
-      "boundsWidth": 320,
+      "boundsWidth": 410,
       "boundsHeight": 160,
       "tracks": []
     },
     {
       "id": "S4_5423",
       "name": "\u5317\u4EAC\u5357",
-      "boundsX": 40,
+      "boundsX": -30,
       "boundsY": -60,
-      "boundsWidth": 320,
+      "boundsWidth": 390,
       "boundsHeight": 160,
       "tracks": []
     }

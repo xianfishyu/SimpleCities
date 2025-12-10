@@ -56,8 +56,10 @@ public partial class DebugGUI : Node
         }
     }
 
-
-    public static void RegisterDebugRender(string name, Action renderFunc, bool opening = false)
+    /// <summary>
+    /// 内部方法：仅供 DebugGUIInitializer 使用来注册调试渲染函数
+    /// </summary>
+    internal static void InternalRegisterDebugRender(string name, Action renderFunc, bool opening = false)
     {
         if (!DebugGUIRender.ContainsKey(name))
             DebugGUIRender.TryAdd(name, (renderFunc, opening));
@@ -74,24 +76,41 @@ public class DebugGUIAttribute(string name, bool opening = false) : Attribute
 
 public static class DebugGUIInitializer
 {
-    //初始化并注册所有带有DebugGUIAttribute特性的静态方法
+    /// <summary>
+    /// 初始化并注册所有带有 DebugGUIAttribute 特性的静态方法
+    /// 并在编译时验证所有使用该特性的方法都是 public static
+    /// </summary>
     public static void InitializeDebugRenders()
     {
-        //获取当前程序集中的所有方法
         var assembly = Assembly.GetExecutingAssembly();
-        var methods = assembly.GetTypes()
-            .SelectMany(t => t.GetMethods(BindingFlags.Public | BindingFlags.Static))
-            .Where(m => m.GetCustomAttribute<DebugGUIAttribute>() != null);
+        var allAttributedMethods = assembly.GetTypes()
+            .SelectMany(t => t.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance))
+            .Where(m => m.GetCustomAttribute<DebugGUIAttribute>() != null)
+            .ToList();
 
-        //注册所有带有DebugGUIAttribute特性的静态方法
-        foreach (var method in methods)
+        // 验证所有使用 DebugGUIAttribute 的方法都是 public static
+        var invalidMethods = allAttributedMethods
+            .Where(m => !m.IsPublic || !m.IsStatic)
+            .ToList();
+
+        if (invalidMethods.Count > 0)
         {
-            //获取属性和方法委托
+            var errorMsg = "Error: DebugGUI methods must be public static!\n";
+            foreach (var method in invalidMethods)
+            {
+                var attr = method.GetCustomAttribute<DebugGUIAttribute>();
+                string methodModifiers = $"{(method.IsPublic ? "public" : "private")} {(method.IsStatic ? "static" : "instance")}";
+                errorMsg += $"  - {method.DeclaringType?.FullName}.{method.Name}() is '{methodModifiers}' but should be 'public static'\n";
+            }
+            throw new InvalidOperationException(errorMsg);
+        }
+
+        // 注册所有有效的方法
+        foreach (var method in allAttributedMethods.Where(m => m.IsPublic && m.IsStatic))
+        {
             var attribute = method.GetCustomAttribute<DebugGUIAttribute>();
             var action = (Action)Delegate.CreateDelegate(typeof(Action), method);
-
-            //注册到DebugGUI
-            DebugGUI.RegisterDebugRender(attribute.Name, action, attribute.Opening);
+            DebugGUI.InternalRegisterDebugRender(attribute.Name, action, attribute.Opening);
         }
     }
 }

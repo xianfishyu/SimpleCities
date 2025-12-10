@@ -61,10 +61,11 @@ public class StationVisualsManager
         // 名称标签
         var label = new Label();
         label.Text = station.Name;
-        label.Position = new Vector2(bounds.Position.X + 5, bounds.Position.Y + 5);
-        label.ZIndex = 15;
+        label.HorizontalAlignment = HorizontalAlignment.Center;
         label.AddThemeColorOverride("font_color", config.StationLabelColor);
         parent.AddChild(label);
+        label.Position = new Vector2(bounds.Position.X + bounds.Size.X / 2 - label.Size.X / 2, bounds.Position.Y - 25);
+        label.ZIndex = 15;
         stationLabels[station.Id] = label;
 
         // 四角手柄
@@ -110,7 +111,7 @@ public class StationVisualsManager
         if (stationLabels.TryGetValue(station.Id, out var label))
         {
             label.Text = station.Name;
-            label.Position = new Vector2(bounds.Position.X + 5, bounds.Position.Y + 5);
+            label.Position = new Vector2(bounds.Position.X + bounds.Size.X / 2 - label.Size.X / 2, bounds.Position.Y - 25);
         }
 
         if (stationHandles.TryGetValue(station.Id, out var handles))
