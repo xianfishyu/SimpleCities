@@ -48,6 +48,12 @@ public class Train
     /// <summary>当前路径（边ID列表）</summary>
     public List<string> CurrentPath { get; set; } = new();
 
+    /// <summary>当前路径中的边索引</summary>
+    public int CurrentPathEdgeIndex { get; set; } = 0;
+
+    /// <summary>当前边上的进度（0-1）</summary>
+    public float CurrentEdgeProgress { get; set; } = 0f;
+
     /// <summary>是否下行（北京到天津方向）</summary>
     public bool IsDownbound { get; set; } = true;
 
@@ -56,6 +62,16 @@ public class Train
 
     /// <summary>列车长度（渲染用）</summary>
     public float TrainLength { get; set; } = 8f;
+
+    /// <summary>
+    /// 轨道初始偏移（用于防止列车重叠）
+    /// </summary>
+    public float InitialPathOffset { get; set; } = 0f;
+
+    /// <summary>
+    /// 停车位置偏移（用于防止停车时重叠）
+    /// </summary>
+    public float ParkingOffset { get; set; } = 0f;
 
     public Train(string trainId)
     {
@@ -99,5 +115,61 @@ public class Train
         {
             State = TrainState.Arrived;
         }
+    }
+
+    /// <summary>
+    /// 设置新路径
+    /// </summary>
+    /// <param name="path">边ID列表</param>
+    /// <param name="startNodeId">起始节点ID</param>
+    public void SetPath(List<string> path, string startNodeId)
+    {
+        CurrentPath = path ?? new List<string>();
+        CurrentPathEdgeIndex = 0;
+        CurrentEdgeProgress = 0f;
+        CurrentNodeId = startNodeId;
+    }
+
+    /// <summary>
+    /// 获取当前所在的边
+    /// </summary>
+    public string GetCurrentEdgeId()
+    {
+        if (CurrentPath == null || CurrentPathEdgeIndex >= CurrentPath.Count)
+            return null;
+        return CurrentPath[CurrentPathEdgeIndex];
+    }
+
+    /// <summary>
+    /// 移动到路径中的下一条边
+    /// </summary>
+    /// <param name="nextNodeId">下一个节点ID</param>
+    /// <returns>是否成功移动到下一条边</returns>
+    public bool MoveToNextEdge(string nextNodeId)
+    {
+        CurrentPathEdgeIndex++;
+        CurrentEdgeProgress = 0f;
+        CurrentNodeId = nextNodeId;
+
+        return CurrentPathEdgeIndex < CurrentPath.Count;
+    }
+
+    /// <summary>
+    /// 检查是否到达路径终点
+    /// </summary>
+    public bool HasReachedPathEnd()
+    {
+        return CurrentPath == null ||
+               CurrentPath.Count == 0 ||
+               CurrentPathEdgeIndex >= CurrentPath.Count;
+    }
+
+    /// <summary>
+    /// 获取路径剩余边数
+    /// </summary>
+    public int GetRemainingEdges()
+    {
+        if (CurrentPath == null) return 0;
+        return CurrentPath.Count - CurrentPathEdgeIndex;
     }
 }

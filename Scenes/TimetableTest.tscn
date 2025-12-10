@@ -13,5 +13,5 @@ script = ExtResource("1_clh0x")
 [node name="Camera2D" type="Camera2D" parent="."]
 script = ExtResource("2_tj5hk")
 
-[node name="Node2D" type="Node2D" parent="."]
+[node name="RailwayManager" type="Node2D" parent="."]
 script = ExtResource("4_3pfiv")

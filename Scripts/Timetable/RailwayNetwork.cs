@@ -488,8 +488,26 @@ public class RailwayNetwork
     /// </summary>
     public List<string> FindPath(string startNodeId, string endNodeId)
     {
+        return FindPath(startNodeId, endNodeId, null);
+    }
+
+    /// <summary>
+    /// 寻路：从起点到终点的路径，支持正线靠左行驶规则
+    /// </summary>
+    /// <param name="startNodeId">起点节点ID</param>
+    /// <param name="endNodeId">终点节点ID</param>
+    /// <param name="isDownbound">行驶方向：true=下行（X增大），false=上行（X减小），null=不考虑方向</param>
+    /// <returns>边ID列表，如果找不到路径返回null</returns>
+    public List<string> FindPath(string startNodeId, string endNodeId, bool? isDownbound)
+    {
         if (!nodeIndex.ContainsKey(startNodeId) || !nodeIndex.ContainsKey(endNodeId))
             return null;
+
+        var startNode = GetNode(startNodeId);
+        var endNode = GetNode(endNodeId);
+
+        // 如果没有指定方向，根据起点终点X坐标判断
+        bool goingDownbound = isDownbound ?? (endNode.X > startNode.X);
 
         var distances = new Dictionary<string, float>();
         var previous = new Dictionary<string, (string nodeId, string edgeId)>();
@@ -529,7 +547,10 @@ public class RailwayNetwork
 
                 if (!unvisited.Contains(neighbor)) continue;
 
-                float newDist = distances[current] + edge.Length;
+                // 计算带权重的距离（考虑轨道类型和行驶方向）
+                float edgeCost = CalculateEdgeCost(edge, current, neighbor, goingDownbound);
+                float newDist = distances[current] + edgeCost;
+
                 if (newDist < distances[neighbor])
                 {
                     distances[neighbor] = newDist;
@@ -551,6 +572,222 @@ public class RailwayNetwork
         }
 
         return path;
+    }
+
+    /// <summary>
+    /// 计算边的寻路代价（考虑轨道类型和靠左行驶规则）
+    /// </summary>
+    /// <param name="edge">边</param>
+    /// <param name="fromNodeId">当前节点</param>
+    /// <param name="toNodeId">目标节点</param>
+    /// <param name="isDownbound">是否下行</param>
+    /// <returns>边的代价</returns>
+    private float CalculateEdgeCost(RailwayEdge edge, string fromNodeId, string toNodeId, bool isDownbound)
+    {
+        float baseCost = edge.Length;
+
+        // 获取节点位置用于判断轨道位置
+        var fromNode = GetNode(fromNodeId);
+        var toNode = GetNode(toNodeId);
+
+        // 正线/正线带站台优先
+        bool isMainLine = edge.TrackType == TrackType.MainLine ||
+                          edge.TrackType == TrackType.MainLineWithPlatform;
+
+        // 渡线惩罚（不优先使用渡线）
+        if (edge.TrackType == TrackType.Crossover)
+        {
+            baseCost *= 2.0f; // 渡线代价翻倍
+        }
+
+        // 实现靠左行驶规则
+        // 在中国铁路中：
+        // - 下行（X增大方向）应走Y坐标较大的正线（II道/下行正线）
+        // - 上行（X减小方向）应走Y坐标较小的正线（I道/上行正线）
+        if (isMainLine)
+        {
+            // 计算边的平均Y坐标
+            float avgY = (fromNode.Y + toNode.Y) / 2;
+
+            // 判断是否是正确方向的正线
+            // 查找同一区间的其他正线进行比较
+            bool isPreferredMainLine = IsPreferredMainLineForDirection(edge, avgY, isDownbound);
+
+            if (isPreferredMainLine)
+            {
+                baseCost *= 0.5f; // 正确方向的正线代价减半（优先选择）
+            }
+            else
+            {
+                baseCost *= 1.5f; // 逆向正线代价增加
+            }
+        }
+
+        return baseCost;
+    }
+
+    /// <summary>
+    /// 判断边是否是指定方向的首选正线
+    /// </summary>
+    /// <param name="edge">当前边</param>
+    /// <param name="avgY">边的平均Y坐标</param>
+    /// <param name="isDownbound">是否下行</param>
+    /// <returns>是否是首选正线</returns>
+    private bool IsPreferredMainLineForDirection(RailwayEdge edge, float avgY, bool isDownbound)
+    {
+        // 获取边两端节点
+        var fromNode = GetNode(edge.FromNode);
+        var toNode = GetNode(edge.ToNode);
+
+        // 计算边的中点X坐标
+        float midX = (fromNode.X + toNode.X) / 2;
+
+        // 查找同一X范围内的其他正线
+        float searchRadius = 100f; // 搜索半径
+        float minY = float.MaxValue;
+        float maxY = float.MinValue;
+
+        foreach (var otherEdge in Edges)
+        {
+            if (otherEdge.TrackType != TrackType.MainLine &&
+                otherEdge.TrackType != TrackType.MainLineWithPlatform)
+                continue;
+
+            var otherFrom = GetNode(otherEdge.FromNode);
+            var otherTo = GetNode(otherEdge.ToNode);
+            if (otherFrom == null || otherTo == null) continue;
+
+            float otherMidX = (otherFrom.X + otherTo.X) / 2;
+
+            // 只比较同一区间的正线
+            if (Math.Abs(otherMidX - midX) < searchRadius)
+            {
+                float otherAvgY = (otherFrom.Y + otherTo.Y) / 2;
+                minY = Math.Min(minY, otherAvgY);
+                maxY = Math.Max(maxY, otherAvgY);
+            }
+        }
+
+        // 如果只有一条正线，则它是首选
+        if (Math.Abs(maxY - minY) < 0.1f)
+            return true;
+
+        // 靠左行驶规则：
+        // 下行（X增大）走Y较大的线（II道）
+        // 上行（X减小）走Y较小的线（I道）
+        if (isDownbound)
+        {
+            // 下行走较大Y的线
+            return avgY >= (minY + maxY) / 2;
+        }
+        else
+        {
+            // 上行走较小Y的线
+            return avgY <= (minY + maxY) / 2;
+        }
+    }
+
+    /// <summary>
+    /// 高级寻路：支持指定停靠站台/股道
+    /// </summary>
+    /// <param name="startNodeId">起点节点ID</param>
+    /// <param name="endNodeId">终点节点ID</param>
+    /// <param name="isDownbound">是否下行</param>
+    /// <param name="preferredTrackIds">首选股道ID列表（按优先级排序）</param>
+    /// <returns>边ID列表</returns>
+    public List<string> FindPathWithTrackPreference(
+        string startNodeId,
+        string endNodeId,
+        bool isDownbound,
+        List<string> preferredTrackIds = null)
+    {
+        // 基础寻路
+        var path = FindPath(startNodeId, endNodeId, isDownbound);
+
+        // 如果没有指定首选股道，直接返回
+        if (preferredTrackIds == null || preferredTrackIds.Count == 0)
+            return path;
+
+        // TODO: 实现股道偏好逻辑（在站场内优先选择指定股道）
+        // 当前版本先返回基础路径
+
+        return path;
+    }
+
+    /// <summary>
+    /// 获取路径的总长度
+    /// </summary>
+    /// <param name="edgeIds">边ID列表</param>
+    /// <returns>总长度</returns>
+    public float GetPathLength(List<string> edgeIds)
+    {
+        if (edgeIds == null) return 0f;
+
+        float totalLength = 0f;
+        foreach (var edgeId in edgeIds)
+        {
+            var edge = GetEdge(edgeId);
+            if (edge != null)
+                totalLength += edge.Length;
+        }
+        return totalLength;
+    }
+
+    /// <summary>
+    /// 获取路径经过的节点列表
+    /// </summary>
+    /// <param name="edgeIds">边ID列表</param>
+    /// <param name="startNodeId">起始节点ID</param>
+    /// <returns>节点ID列表</returns>
+    public List<string> GetPathNodes(List<string> edgeIds, string startNodeId)
+    {
+        if (edgeIds == null || edgeIds.Count == 0)
+            return new List<string> { startNodeId };
+
+        var nodes = new List<string> { startNodeId };
+        string currentNode = startNodeId;
+
+        foreach (var edgeId in edgeIds)
+        {
+            var edge = GetEdge(edgeId);
+            if (edge == null) continue;
+
+            // 确定下一个节点
+            string nextNode = edge.FromNode == currentNode ? edge.ToNode : edge.FromNode;
+            nodes.Add(nextNode);
+            currentNode = nextNode;
+        }
+
+        return nodes;
+    }
+
+    /// <summary>
+    /// 验证路径是否有效（所有边连续相连）
+    /// </summary>
+    /// <param name="edgeIds">边ID列表</param>
+    /// <returns>是否有效</returns>
+    public bool IsValidPath(List<string> edgeIds)
+    {
+        if (edgeIds == null || edgeIds.Count == 0)
+            return true;
+
+        for (int i = 0; i < edgeIds.Count - 1; i++)
+        {
+            var edge1 = GetEdge(edgeIds[i]);
+            var edge2 = GetEdge(edgeIds[i + 1]);
+            if (edge1 == null || edge2 == null)
+                return false;
+
+            // 检查两条边是否共享一个节点
+            bool connected = edge1.FromNode == edge2.FromNode ||
+                             edge1.FromNode == edge2.ToNode ||
+                             edge1.ToNode == edge2.FromNode ||
+                             edge1.ToNode == edge2.ToNode;
+            if (!connected)
+                return false;
+        }
+
+        return true;
     }
 
     /// <summary>

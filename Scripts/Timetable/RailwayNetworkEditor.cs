@@ -1,6 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using ImGuiNET;
 using System.Numerics;
 
@@ -13,6 +14,7 @@ public partial class RailwayNetworkEditor : Node2D
 
     [ExportGroup("File Settings")]
     [Export] public string NetworkPath = "res://Railwaydata/Networks/default.json";
+    [Export] public bool AutoCreateTrains = true;
 
     [ExportGroup("Grid Settings")]
     [Export] public float GridSize = 10f;
@@ -59,7 +61,18 @@ public partial class RailwayNetworkEditor : Node2D
     // 时刻表和列车
     private List<TrainSchedule> schedules = new();
     private List<Train> trains = new();
-    private Dictionary<string, ColorRect> trainVisuals = new();
+    private Dictionary<string, List<ColorRect>> trainCarriages = new();  // 每列火车的车厢列表（独立节点）
+    private Dictionary<string, Line2D> trainPathLines = new();  // 每列火车的路径可视化
+
+    // 列车可视化参数
+    private const int CarriageCount = 4;
+    private const float CarriageLength = 25f;
+    private const float CarriageWidth = 5f;
+    private const float CarriageGap = 2f;
+    private const float TotalTrainLength = CarriageCount * CarriageLength + (CarriageCount - 1) * CarriageGap;
+
+    // 寻路服务
+    private PathfindingService pathfindingService;
 
     public override void _Ready()
     {
@@ -77,6 +90,9 @@ public partial class RailwayNetworkEditor : Node2D
 
         // 加载网络
         LoadNetwork();
+
+        // 初始化寻路服务
+        pathfindingService = new PathfindingService(network);
 
         // 初始化管理器
         nodeEdgeVisuals = new NodeEdgeVisualsManager(this, config, state, network);
@@ -101,6 +117,12 @@ public partial class RailwayNetworkEditor : Node2D
 
         // 加载时刻表
         LoadAllSchedules();
+
+        // 自动创建列车
+        if (AutoCreateTrains && schedules.Count > 0)
+        {
+            CreateAllTrainsFromSchedules(true);
+        }
     }
 
     private EditorConfig CreateConfig()
@@ -540,7 +562,7 @@ public partial class RailwayNetworkEditor : Node2D
 
     #region ImGui
 
-    [DebugGUI("Railway Editor", Opening = true)]
+    [DebugGUI("Railway Editor", Opening = false)]
     public static void RenderEditorGUI()
     {
         var editor = Instance;
@@ -619,7 +641,128 @@ public partial class RailwayNetworkEditor : Node2D
             editor.network = new RailwayNetwork { Name = "New Network" };
             editor.nodeEdgeVisuals = new NodeEdgeVisualsManager(editor, editor.config, editor.state, editor.network);
             editor.stationVisuals = new StationVisualsManager(editor, editor.config, editor.state, editor.network);
+            editor.pathfindingService = new PathfindingService(editor.network);
             editor.ClearVisuals();
+        }
+    }
+
+    // 寻路测试的静态变量
+    private static string pathfindStartNode = "";
+    private static string pathfindEndNode = "";
+    private static bool pathfindIsDownbound = true;
+    private static string pathfindResult = "";
+    private static List<string> lastCalculatedPath = new();
+
+    [DebugGUI("Pathfinding Test")]
+    public static void RenderPathfindingTestGUI()
+    {
+        var editor = Instance;
+        if (editor == null) return;
+
+        ImGui.Text("寻路测试 (支持正线靠左行驶)");
+        ImGui.Separator();
+
+        // 输入起点和终点
+        ImGui.InputText("起点节点ID", ref pathfindStartNode, 50);
+        ImGui.InputText("终点节点ID", ref pathfindEndNode, 50);
+
+        // 选择行驶方向
+        ImGui.Checkbox("下行方向 (X增大)", ref pathfindIsDownbound);
+        ImGui.TextDisabled(pathfindIsDownbound ? "下行: 走Y较大的正线 (II道)" : "上行: 走Y较小的正线 (I道)");
+
+        ImGui.Separator();
+
+        // 使用选中的节点作为起点/终点
+        if (editor.state.SelectedNodeId != null)
+        {
+            ImGui.TextColored(new System.Numerics.Vector4(0.5f, 1f, 0.5f, 1f), $"选中节点: {editor.state.SelectedNodeId}");
+            if (ImGui.SmallButton("设为起点"))
+            {
+                pathfindStartNode = editor.state.SelectedNodeId;
+            }
+            ImGui.SameLine();
+            if (ImGui.SmallButton("设为终点"))
+            {
+                pathfindEndNode = editor.state.SelectedNodeId;
+            }
+        }
+
+        ImGui.Separator();
+
+        // 寻路按钮
+        if (ImGui.Button("计算路径"))
+        {
+            if (string.IsNullOrEmpty(pathfindStartNode) || string.IsNullOrEmpty(pathfindEndNode))
+            {
+                pathfindResult = "请输入起点和终点节点ID";
+                lastCalculatedPath.Clear();
+            }
+            else
+            {
+                var options = new PathfindingOptions
+                {
+                    IsDownbound = pathfindIsDownbound,
+                    UseLeftHandRule = true
+                };
+
+                var result = editor.pathfindingService.FindPath(pathfindStartNode, pathfindEndNode, options);
+
+                if (result.Success)
+                {
+                    pathfindResult = $"成功! 路径长度: {result.TotalLength:F1}, 边数: {result.EdgeIds.Count}";
+                    lastCalculatedPath = result.EdgeIds;
+
+                    // 输出路径详情
+                    GD.Print($"Path from {pathfindStartNode} to {pathfindEndNode}:");
+                    foreach (var edgeId in result.EdgeIds)
+                    {
+                        var edge = editor.network.GetEdge(edgeId);
+                        if (edge != null)
+                        {
+                            GD.Print($"  {edgeId}: {edge.FromNode} -> {edge.ToNode}, Type: {edge.TrackType}");
+                        }
+                    }
+                }
+                else
+                {
+                    pathfindResult = $"失败: {result.ErrorMessage}";
+                    lastCalculatedPath.Clear();
+                }
+            }
+        }
+
+        // 显示结果
+        if (!string.IsNullOrEmpty(pathfindResult))
+        {
+            ImGui.TextWrapped(pathfindResult);
+        }
+
+        // 显示路径边列表
+        if (lastCalculatedPath.Count > 0)
+        {
+            if (ImGui.TreeNode("路径详情"))
+            {
+                for (int i = 0; i < lastCalculatedPath.Count; i++)
+                {
+                    var edgeId = lastCalculatedPath[i];
+                    var edge = editor.network.GetEdge(edgeId);
+                    if (edge != null)
+                    {
+                        string typeStr = edge.TrackType switch
+                        {
+                            TrackType.MainLine => "[正线]",
+                            TrackType.MainLineWithPlatform => "[正线+站台]",
+                            TrackType.ArrivalDeparture => "[到发线]",
+                            TrackType.Crossover => "[渡线]",
+                            _ => ""
+                        };
+
+                        ImGui.Text($"{i + 1}. {edgeId} {typeStr}");
+                        ImGui.TextDisabled($"   {edge.FromNode} → {edge.ToNode}, 长度: {edge.Length:F1}");
+                    }
+                }
+                ImGui.TreePop();
+            }
         }
     }
 
@@ -736,20 +879,283 @@ public partial class RailwayNetworkEditor : Node2D
 
     public void AddTrainFromSchedule(TrainSchedule schedule)
     {
+        // 检查是否已存在
+        if (trains.Any(t => t.TrainId == schedule.TrainId))
+        {
+            GD.Print($"Train {schedule.TrainId} already exists, skipping");
+            return;
+        }
+
+        // 计算初始偏移，避免重叠（每列车间隔100m）
+        float offsetStep = 100f;
+        float initialOffset = trains.Count * offsetStep;
+
         var train = new Train(schedule);
         train.TrainColor = GetTrainColor(schedule.TrainId);
+        train.InitialPathOffset = initialOffset;
+        train.ParkingOffset = trains.Count * 20f;  // 停车偏移，每列车间隔20m
         trains.Add(train);
 
-        // 创建列车可视化
-        var visual = new ColorRect();
-        visual.Size = new Godot.Vector2(12f, 4f);
-        visual.Color = train.TrainColor;
-        visual.ZIndex = 50;
-        visual.Visible = false; // 初始不可见，等有位置信息再显示
-        AddChild(visual);
-        trainVisuals[train.TrainId] = visual;
+        // 为列车计算初始路径
+        CalculateTrainPath(train);
 
-        GD.Print($"Added train {schedule.TrainId} with {schedule.Entries.Count} entries");
+        // 创建独立的车厢节点列表（每节车厢独立定位和旋转）
+        var carriages = new List<ColorRect>();
+        for (int i = 0; i < CarriageCount; i++)
+        {
+            var carriage = new ColorRect();
+            carriage.Name = $"Train_{schedule.TrainId}_Carriage_{i}";
+            carriage.Size = new Godot.Vector2(CarriageLength, CarriageWidth);
+            carriage.Color = train.TrainColor;  // 完全不透明
+            carriage.ZIndex = 50;
+            carriage.Visible = false;
+            // 添加窗户装饰
+            AddWindowsToCarriage(carriage, train.TrainColor);
+            // 车头/车尾标记
+            if (i == 0 || i == CarriageCount - 1)
+            {
+                var headMarker = new ColorRect();
+                headMarker.Size = new Godot.Vector2(3f, CarriageWidth);
+                headMarker.Position = i == 0 ? Godot.Vector2.Zero : new Godot.Vector2(CarriageLength - 3f, 0);
+                headMarker.Color = train.TrainColor.Darkened(0.3f);
+                carriage.AddChild(headMarker);
+            }
+            AddChild(carriage);
+            carriages.Add(carriage);
+        }
+        trainCarriages[train.TrainId] = carriages;
+        
+        // 创建路径可视化线条
+        CreatePathVisualization(train);
+        
+        GD.Print($"Added train {schedule.TrainId} with {CarriageCount} independent carriages, path edges: {train.CurrentPath?.Count ?? 0}, InitialPathOffset: {train.InitialPathOffset}");
+    }
+    
+    /// <summary>
+    /// 为车厢添加窗户装饰
+    /// </summary>
+    private void AddWindowsToCarriage(ColorRect carriage, Color baseColor)
+    {
+        float windowWidth = 2f;
+        float windowHeight = CarriageWidth * 0.4f;
+        float windowY = (CarriageWidth - windowHeight) / 2;
+        int windowCount = 6;
+        float startX = 4f;
+        float spacing = (CarriageLength - startX * 2 - windowWidth) / (windowCount - 1);
+        
+        Color windowColor = new Color(0.7f, 0.85f, 1.0f, 1.0f);  // 浅蓝色窗户
+        
+        for (int w = 0; w < windowCount; w++)
+        {
+            var window = new ColorRect();
+            window.Size = new Godot.Vector2(windowWidth, windowHeight);
+            window.Position = new Godot.Vector2(startX + w * spacing, windowY);
+            window.Color = windowColor;
+            carriage.AddChild(window);
+        }
+    }
+
+    /// <summary>
+    /// 根据所有时刻表自动创建列车（包含路径信息）
+    /// </summary>
+    /// <param name="clearExisting">是否清除现有列车</param>
+    /// <returns>成功创建的列车数量</returns>
+    public int CreateAllTrainsFromSchedules(bool clearExisting = true)
+    {
+        if (clearExisting)
+        {
+            ClearAllTrains();
+        }
+
+        int successCount = 0;
+        int failCount = 0;
+
+        foreach (var schedule in schedules)
+        {
+            try
+            {
+                // 检查时刻表有效性
+                if (schedule.Entries.Count < 2)
+                {
+                    GD.PrintErr($"Schedule {schedule.TrainId} has insufficient entries ({schedule.Entries.Count}), skipping");
+                    failCount++;
+                    continue;
+                }
+
+                AddTrainFromSchedule(schedule);
+
+                // 验证路径是否创建成功
+                var train = trains.Find(t => t.TrainId == schedule.TrainId);
+                if (train != null && train.CurrentPath != null && train.CurrentPath.Count > 0)
+                {
+                    successCount++;
+                }
+                else
+                {
+                    GD.PrintErr($"Train {schedule.TrainId} created but path calculation failed");
+                    failCount++;
+                }
+            }
+            catch (System.Exception e)
+            {
+                GD.PrintErr($"Failed to create train from schedule {schedule.TrainId}: {e.Message}");
+                failCount++;
+            }
+        }
+
+        GD.Print($"Created {successCount} trains from {schedules.Count} schedules ({failCount} failed)");
+        return successCount;
+    }
+
+    /// <summary>
+    /// 清除所有列车
+    /// </summary>
+    public void ClearAllTrains()
+    {
+        foreach (var carriages in trainCarriages.Values)
+        {
+            foreach (var carriage in carriages)
+            {
+                carriage.QueueFree();
+            }
+        }
+        foreach (var pathLine in trainPathLines.Values)
+        {
+            pathLine.QueueFree();
+        }
+        trains.Clear();
+        trainCarriages.Clear();
+        trainPathLines.Clear();
+        GD.Print("Cleared all trains");
+    }
+
+    /// <summary>
+    /// 创建列车路径可视化
+    /// </summary>
+    private void CreatePathVisualization(Train train)
+    {
+        if (train.CurrentPath == null || train.CurrentPath.Count == 0)
+            return;
+
+        // 移除旧的路径线条
+        if (trainPathLines.TryGetValue(train.TrainId, out var oldLine))
+        {
+            oldLine.QueueFree();
+            trainPathLines.Remove(train.TrainId);
+        }
+
+        var pathLine = new Line2D();
+        pathLine.Name = $"PathLine_{train.TrainId}";
+        pathLine.Width = 3f;
+        pathLine.DefaultColor = new Color(train.TrainColor.R, train.TrainColor.G, train.TrainColor.B, 0.5f);
+        pathLine.ZIndex = 40;  // 在轨道上方，车厢下方
+
+        // 收集路径上的所有点
+        var points = new List<Godot.Vector2>();
+        
+        for (int i = 0; i < train.CurrentPath.Count; i++)
+        {
+            var edgeId = train.CurrentPath[i];
+            var edge = network.GetEdge(edgeId);
+            if (edge == null) continue;
+
+            var fromNode = network.GetNode(edge.FromNode);
+            var toNode = network.GetNode(edge.ToNode);
+            if (fromNode == null || toNode == null) continue;
+
+            // 确定边的方向
+            bool fromToDir = DetermineEdgeDirection(train, i);
+            
+            Godot.Vector2 startPoint = fromToDir 
+                ? new Godot.Vector2(fromNode.X, fromNode.Y) 
+                : new Godot.Vector2(toNode.X, toNode.Y);
+            Godot.Vector2 endPoint = fromToDir 
+                ? new Godot.Vector2(toNode.X, toNode.Y) 
+                : new Godot.Vector2(fromNode.X, fromNode.Y);
+
+            // 第一条边添加起点
+            if (i == 0)
+            {
+                points.Add(startPoint);
+            }
+            
+            // 添加终点
+            points.Add(endPoint);
+        }
+
+        // 设置线条点
+        pathLine.Points = points.ToArray();
+        AddChild(pathLine);
+        trainPathLines[train.TrainId] = pathLine;
+    }
+
+    /// <summary>
+    /// 获取列车创建统计信息
+    /// </summary>
+    public (int total, int withPath, int withoutPath) GetTrainStatistics()
+    {
+        int withPath = trains.Count(t => t.CurrentPath != null && t.CurrentPath.Count > 0);
+        return (trains.Count, withPath, trains.Count - withPath);
+    }
+
+    /// <summary>
+    /// 为列车计算运行路径（基于时刻表和靠左行驶规则）
+    /// </summary>
+    private void CalculateTrainPath(Train train)
+    {
+        if (train.Schedule == null || train.Schedule.Entries.Count < 2)
+            return;
+
+        var entries = train.Schedule.Entries;
+
+        // 找到第一个发车条目
+        int firstDepartIndex = -1;
+        for (int i = 0; i < entries.Count; i++)
+        {
+            if (entries[i].Event == ScheduleEventType.Departure)
+            {
+                firstDepartIndex = i;
+                break;
+            }
+        }
+
+        if (firstDepartIndex < 0) return;
+
+        // 获取始发站和终点站
+        string fromStationName = entries[firstDepartIndex].Station;
+        int fromTrack = entries[firstDepartIndex].Track;
+
+        // 找最后一个到达条目
+        int lastArriveIndex = -1;
+        for (int i = entries.Count - 1; i >= 0; i--)
+        {
+            if (entries[i].Event == ScheduleEventType.Arrival)
+            {
+                lastArriveIndex = i;
+                break;
+            }
+        }
+
+        if (lastArriveIndex < 0) return;
+
+        string toStationName = entries[lastArriveIndex].Station;
+        int toTrack = entries[lastArriveIndex].Track;
+
+        // 使用寻路服务计算路径
+        var result = pathfindingService.FindPathForTrain(
+            train, fromStationName, toStationName, fromTrack, toTrack);
+
+        if (result.Success)
+        {
+            train.SetPath(result.EdgeIds, result.NodeIds.Count > 0 ? result.NodeIds[0] : null);
+            GD.Print($"Path calculated for {train.TrainId}: {result.EdgeIds.Count} edges, {result.TotalLength:F1} units");
+        }
+        else
+        {
+            GD.PrintErr($"Failed to calculate path for {train.TrainId}: {result.ErrorMessage}");
+            // 回退：使用站场中心进行简单移动
+            train.SetPath(new List<string>(), null);
+        }
     }
 
     private Color GetTrainColor(string trainId)
@@ -842,60 +1248,414 @@ public partial class RailwayNetworkEditor : Node2D
                 float progress = (float)(currentTimeSeconds - departTime) / (arriveTime - departTime);
                 progress = Mathf.Clamp(progress, 0f, 1f);
 
-                // 简单线性插值站场中心位置
-                var fromPos = fromStation.Bounds.GetCenter();
-                var toPos = toStation.Bounds.GetCenter();
+                if (progress >= 1f)
+                {
+                    // 到达停车位置：停在站台中央，加上停车偏移防止重叠
+                    train.PositionX = toStation.BoundsX + toStation.BoundsWidth / 2 + train.ParkingOffset;
+                    train.PositionY = toStation.BoundsY + toStation.BoundsHeight / 2;
+                    train.MoveToNextEntry();
+                }
+                else
+                {
+                    // 使用路径进行移动（如果有路径）
+                    if (train.CurrentPath != null && train.CurrentPath.Count > 0)
+                    {
+                        UpdateTrainPositionOnPath(train, progress);
+                    }
+                    else
+                    {
+                        // 回退：简单线性插值站场中心位置
+                        var fromPos = fromStation.Bounds.GetCenter();
+                        var toPos = toStation.Bounds.GetCenter();
 
-                train.PositionX = Mathf.Lerp(fromPos.X, toPos.X, progress);
-                train.PositionY = Mathf.Lerp(fromPos.Y, toPos.Y, progress);
-                train.State = TrainState.Running;
+                        train.PositionX = Mathf.Lerp(fromPos.X, toPos.X, progress);
+                        train.PositionY = Mathf.Lerp(fromPos.Y, toPos.Y, progress);
+                    }
+
+                    train.State = TrainState.Running;
+                }
             }
         }
         else if (fromStation != null && toStation == null)
         {
-            // 已到达终点
-            var pos = fromStation.Bounds.GetCenter();
-            train.PositionX = pos.X;
-            train.PositionY = pos.Y;
+            // 已到达终点 - 停在站台中央
+            train.PositionX = fromStation.BoundsX + fromStation.BoundsWidth / 2 + train.ParkingOffset;
+            train.PositionY = fromStation.BoundsY + fromStation.BoundsHeight / 2;
             train.State = TrainState.Arrived;
         }
         else if (fromStation == null && entries.Count > 0)
         {
-            // 还未发车 - 显示在始发站
+            // 还未发车 - 显示在始发站的站台中央
             string firstStation = entries[0].Station;
             var station = network.Stations.Find(s => s.Name == firstStation);
             if (station != null)
             {
-                var pos = station.Bounds.GetCenter();
-                train.PositionX = pos.X;
-                train.PositionY = pos.Y;
+                // 停在站台中央，加上停车偏移防止重叠
+                train.PositionX = station.BoundsX + station.BoundsWidth / 2 + train.ParkingOffset;
+                train.PositionY = station.BoundsY + station.BoundsHeight / 2;
                 train.State = TrainState.WaitingToDepart;
             }
         }
     }
 
     /// <summary>
-    /// 更新列车可视化
+    /// 根据路径更新列车位置
+    /// </summary>
+    /// <param name="train">列车</param>
+    /// <param name="totalProgress">总进度（0-1，整个行程）</param>
+    private void UpdateTrainPositionOnPath(Train train, float totalProgress)
+    {
+        if (train.CurrentPath == null || train.CurrentPath.Count == 0)
+            return;
+
+        // 计算路径总长度
+        float totalLength = 0f;
+        var edgeLengths = new List<float>();
+
+        foreach (var edgeId in train.CurrentPath)
+        {
+            var edge = network.GetEdge(edgeId);
+            if (edge != null)
+            {
+                edgeLengths.Add(edge.Length);
+                totalLength += edge.Length;
+            }
+            else
+            {
+                edgeLengths.Add(0f);
+            }
+        }
+
+        if (totalLength <= 0f)
+            return;
+
+        // 计算当前应该在路径上的距离
+        float targetDistance = totalProgress * totalLength;
+
+        // 找到当前所在的边
+        float accumulatedDistance = 0f;
+        int currentEdgeIndex = 0;
+        float edgeProgress = 0f;
+
+        for (int i = 0; i < train.CurrentPath.Count; i++)
+        {
+            if (accumulatedDistance + edgeLengths[i] >= targetDistance)
+            {
+                currentEdgeIndex = i;
+                float remainingDistance = targetDistance - accumulatedDistance;
+                edgeProgress = edgeLengths[i] > 0 ? remainingDistance / edgeLengths[i] : 0f;
+                break;
+            }
+            accumulatedDistance += edgeLengths[i];
+            currentEdgeIndex = i;
+            edgeProgress = 1f;
+        }
+
+        // 更新列车的路径状态
+        train.CurrentPathEdgeIndex = currentEdgeIndex;
+        train.CurrentEdgeProgress = edgeProgress;
+
+        // 如果已到达路径终点，停在最后一个节点
+        if (currentEdgeIndex >= train.CurrentPath.Count || (currentEdgeIndex == train.CurrentPath.Count - 1 && edgeProgress >= 1f))
+        {
+            // 获取最后一条边的终点节点
+            if (train.CurrentPath.Count > 0)
+            {
+                var lastEdgeId = train.CurrentPath[train.CurrentPath.Count - 1];
+                var lastEdge = network.GetEdge(lastEdgeId);
+                if (lastEdge != null)
+                {
+                    var lastNode = network.GetNode(lastEdge.ToNode);
+                    bool fromToDir = DetermineEdgeDirection(train, train.CurrentPath.Count - 1);
+                    
+                    if (lastNode != null)
+                    {
+                        if (fromToDir)
+                        {
+                            train.PositionX = lastNode.X;
+                            train.PositionY = lastNode.Y;
+                        }
+                        else
+                        {
+                            var fromNode = network.GetNode(lastEdge.FromNode);
+                            if (fromNode != null)
+                            {
+                                train.PositionX = fromNode.X;
+                                train.PositionY = fromNode.Y;
+                            }
+                        }
+                    }
+                }
+            }
+            return;
+        }
+
+        // 获取当前边并计算位置
+        if (currentEdgeIndex < train.CurrentPath.Count)
+        {
+            var edgeId = train.CurrentPath[currentEdgeIndex];
+            var edge = network.GetEdge(edgeId);
+
+            if (edge != null)
+            {
+                var fromNode = network.GetNode(edge.FromNode);
+                var toNode = network.GetNode(edge.ToNode);
+
+                if (fromNode != null && toNode != null)
+                {
+                    // 确定边的行进方向
+                    // 需要根据上一条边来确定从哪个节点进入当前边
+                    bool fromToDir = DetermineEdgeDirection(train, currentEdgeIndex);
+
+                    if (fromToDir)
+                    {
+                        train.PositionX = Mathf.Lerp(fromNode.X, toNode.X, edgeProgress);
+                        train.PositionY = Mathf.Lerp(fromNode.Y, toNode.Y, edgeProgress);
+                    }
+                    else
+                    {
+                        train.PositionX = Mathf.Lerp(toNode.X, fromNode.X, edgeProgress);
+                        train.PositionY = Mathf.Lerp(toNode.Y, fromNode.Y, edgeProgress);
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// 确定列车在边上的行进方向
+    /// </summary>
+    /// <param name="train">列车</param>
+    /// <param name="edgeIndex">边索引</param>
+    /// <returns>true = FromNode → ToNode, false = ToNode → FromNode</returns>
+    private bool DetermineEdgeDirection(Train train, int edgeIndex)
+    {
+        if (train.CurrentPath == null || edgeIndex >= train.CurrentPath.Count)
+            return true;
+
+        var currentEdgeId = train.CurrentPath[edgeIndex];
+        var currentEdge = network.GetEdge(currentEdgeId);
+        if (currentEdge == null) return true;
+
+        // 如果是第一条边，根据起始节点判断
+        if (edgeIndex == 0)
+        {
+            // 如果有起始节点ID，用它判断
+            if (!string.IsNullOrEmpty(train.CurrentNodeId))
+            {
+                return train.CurrentNodeId == currentEdge.FromNode;
+            }
+            // 否则根据行驶方向判断
+            var fromNode = network.GetNode(currentEdge.FromNode);
+            var toNode = network.GetNode(currentEdge.ToNode);
+            if (fromNode != null && toNode != null)
+            {
+                // 下行（X增大）时，从X较小的节点出发
+                if (train.IsDownbound)
+                    return fromNode.X < toNode.X;
+                else
+                    return fromNode.X > toNode.X;
+            }
+            return true;
+        }
+
+        // 非第一条边，查看上一条边的共享节点
+        var prevEdgeId = train.CurrentPath[edgeIndex - 1];
+        var prevEdge = network.GetEdge(prevEdgeId);
+        if (prevEdge == null) return true;
+
+        // 找到两条边的共享节点（列车的进入节点）
+        string entryNode = null;
+        if (prevEdge.FromNode == currentEdge.FromNode || prevEdge.ToNode == currentEdge.FromNode)
+            entryNode = currentEdge.FromNode;
+        else if (prevEdge.FromNode == currentEdge.ToNode || prevEdge.ToNode == currentEdge.ToNode)
+            entryNode = currentEdge.ToNode;
+
+        // 如果进入节点是 FromNode，则方向为 FromNode → ToNode
+        return entryNode == currentEdge.FromNode;
+    }
+
+    // 转向架到车厢中心的距离（转向架位置 = 车厢中心 ± BogieOffset）
+    private const float BogieOffset = 8f;
+
+    /// <summary>
+    /// 根据路径距离计算轨道上的点位置
+    /// </summary>
+    /// <param name="train">列车</param>
+    /// <param name="distance">从路径起点的距离</param>
+    /// <param name="totalLength">路径总长度</param>
+    /// <param name="edgeLengths">每条边的长度列表</param>
+    /// <returns>(位置X, 位置Y)</returns>
+    private (float x, float y) GetPointOnPath(Train train, float distance, float totalLength, List<float> edgeLengths)
+    {
+        if (train.CurrentPath == null || train.CurrentPath.Count == 0)
+            return (train.PositionX, train.PositionY);
+
+        // 限制距离范围
+        distance = Mathf.Clamp(distance, 0f, totalLength);
+
+        // 找到当前所在的边
+        float accumulatedDistance = 0f;
+        int edgeIndex = 0;
+        float edgeProgress = 0f;
+
+        for (int i = 0; i < train.CurrentPath.Count; i++)
+        {
+            if (accumulatedDistance + edgeLengths[i] >= distance)
+            {
+                edgeIndex = i;
+                float remainingDistance = distance - accumulatedDistance;
+                edgeProgress = edgeLengths[i] > 0 ? remainingDistance / edgeLengths[i] : 0f;
+                break;
+            }
+            accumulatedDistance += edgeLengths[i];
+            edgeIndex = i;
+            edgeProgress = 1f;
+        }
+
+        // 获取当前边并计算位置
+        if (edgeIndex < train.CurrentPath.Count)
+        {
+            var edgeId = train.CurrentPath[edgeIndex];
+            var edge = network.GetEdge(edgeId);
+
+            if (edge != null)
+            {
+                var fromNode = network.GetNode(edge.FromNode);
+                var toNode = network.GetNode(edge.ToNode);
+
+                if (fromNode != null && toNode != null)
+                {
+                    bool fromToDir = DetermineEdgeDirection(train, edgeIndex);
+                    
+                    float startX = fromToDir ? fromNode.X : toNode.X;
+                    float startY = fromToDir ? fromNode.Y : toNode.Y;
+                    float endX = fromToDir ? toNode.X : fromNode.X;
+                    float endY = fromToDir ? toNode.Y : fromNode.Y;
+
+                    float posX = Mathf.Lerp(startX, endX, edgeProgress);
+                    float posY = Mathf.Lerp(startY, endY, edgeProgress);
+                    return (posX, posY);
+                }
+            }
+        }
+
+        return (train.PositionX, train.PositionY);
+    }
+
+    /// <summary>
+    /// 使用转向架原理计算车厢位置和角度
+    /// 前后两个转向架分别采样轨道上的点，两点连线确定车厢朝向
+    /// </summary>
+    /// <param name="train">列车</param>
+    /// <param name="carriageCenterDistance">车厢中心在路径上的距离</param>
+    /// <param name="totalLength">路径总长度</param>
+    /// <param name="edgeLengths">每条边的长度列表</param>
+    /// <returns>(中心X, 中心Y, 角度)</returns>
+    private (float x, float y, float angle) GetCarriageTransform(Train train, float carriageCenterDistance, float totalLength, List<float> edgeLengths)
+    {
+        // 计算前后转向架在轨道上的位置
+        float frontBogieDistance = carriageCenterDistance + BogieOffset;  // 前转向架（车头方向）
+        float rearBogieDistance = carriageCenterDistance - BogieOffset;   // 后转向架（车尾方向）
+        
+        // 在轨道上采样两个点
+        var (frontX, frontY) = GetPointOnPath(train, frontBogieDistance, totalLength, edgeLengths);
+        var (rearX, rearY) = GetPointOnPath(train, rearBogieDistance, totalLength, edgeLengths);
+        
+        // 车厢中心 = 两个转向架的中点
+        float centerX = (frontX + rearX) / 2f;
+        float centerY = (frontY + rearY) / 2f;
+        
+        // 车厢角度 = 从后转向架指向前转向架的方向
+        float angle = Mathf.Atan2(frontY - rearY, frontX - rearX);
+        
+        return (centerX, centerY, angle);
+    }
+
+    /// <summary>
+    /// 更新列车可视化 - 使用转向架原理让每节车厢独立跟随轨道曲线
     /// </summary>
     private void UpdateTrainVisual(Train train)
     {
-        if (!trainVisuals.TryGetValue(train.TrainId, out var visual)) return;
-
-        // 设置位置
-        visual.Position = new Godot.Vector2(
-            train.PositionX - visual.Size.X / 2,
-            train.PositionY - visual.Size.Y / 2
-        );
-
-        // 设置颜色和可见性
-        visual.Color = train.TrainColor;
-        visual.Visible = true;
+        if (!trainCarriages.TryGetValue(train.TrainId, out var carriages)) return;
 
         // 根据状态调整透明度
-        if (train.State == TrainState.WaitingToDepart)
-            visual.Color = new Color(train.TrainColor, 0.5f);
-        else if (train.State == TrainState.Arrived)
-            visual.Color = new Color(train.TrainColor, 0.3f);
+        float alpha = train.State switch
+        {
+            TrainState.WaitingToDepart => 0.6f,
+            TrainState.Arrived => 0.4f,
+            _ => 1.0f
+        };
+
+        // 如果没有路径，所有车厢简单排列
+        if (train.CurrentPath == null || train.CurrentPath.Count == 0)
+        {
+            float angle = train.IsDownbound ? 0f : Mathf.Pi;
+            for (int i = 0; i < carriages.Count; i++)
+            {
+                var carriage = carriages[i];
+                float offsetX = i * (CarriageLength + CarriageGap);
+                
+                carriage.Position = new Godot.Vector2(
+                    train.PositionX - offsetX * Mathf.Cos(angle),
+                    train.PositionY - offsetX * Mathf.Sin(angle)
+                );
+                carriage.Rotation = angle;
+                carriage.Color = new Color(train.TrainColor, alpha);
+                carriage.Visible = true;
+            }
+            return;
+        }
+
+        // 计算路径总长度和每条边的长度
+        float totalLength = 0f;
+        var edgeLengths = new List<float>();
+        foreach (var edgeId in train.CurrentPath)
+        {
+            var edge = network.GetEdge(edgeId);
+            float len = edge?.Length ?? 0f;
+            edgeLengths.Add(len);
+            totalLength += len;
+        }
+
+        if (totalLength <= 0f) return;
+
+        // 计算列车头部（第一节车厢前转向架）在路径上的距离
+        // 注意：不再使用 InitialPathOffset，位置完全由路径状态决定
+        float headDistance = 0f;
+        for (int i = 0; i < train.CurrentPathEdgeIndex && i < edgeLengths.Count; i++)
+        {
+            headDistance += edgeLengths[i];
+        }
+        if (train.CurrentPathEdgeIndex < edgeLengths.Count)
+        {
+            headDistance += train.CurrentEdgeProgress * edgeLengths[train.CurrentPathEdgeIndex];
+        }
+
+        // 为每节车厢使用转向架原理计算位置和角度
+        for (int i = 0; i < carriages.Count; i++)
+        {
+            var carriage = carriages[i];
+            
+            // 计算该车厢中心在路径上的距离
+            // 第一节车厢的中心位置 = headDistance - BogieOffset（头部是前转向架位置）
+            // 后续车厢依次往后偏移
+            float carriageCenterDistance = headDistance - BogieOffset - i * (CarriageLength + CarriageGap);
+            
+            // 使用转向架原理获取车厢的位置和角度
+            var (centerX, centerY, angle) = GetCarriageTransform(train, carriageCenterDistance, totalLength, edgeLengths);
+            
+            // 将中心坐标转换为左上角坐标（考虑旋转）
+            float offsetX = CarriageLength / 2;
+            float offsetY = CarriageWidth / 2;
+            float posX = centerX - offsetX * Mathf.Cos(angle) + offsetY * Mathf.Sin(angle);
+            float posY = centerY - offsetX * Mathf.Sin(angle) - offsetY * Mathf.Cos(angle);
+            
+            carriage.Position = new Godot.Vector2(posX, posY);
+            carriage.Rotation = angle;
+            carriage.Color = new Color(train.TrainColor, alpha);
+            carriage.Visible = true;
+        }
     }
 
     [DebugGUI("Schedules", Opening = true)]
@@ -937,10 +1697,13 @@ public partial class RailwayNetworkEditor : Node2D
                         if (train != null)
                         {
                             Instance.trains.Remove(train);
-                            if (Instance.trainVisuals.TryGetValue(train.TrainId, out var visual))
+                            if (Instance.trainCarriages.TryGetValue(train.TrainId, out var carriages))
                             {
-                                visual.QueueFree();
-                                Instance.trainVisuals.Remove(train.TrainId);
+                                foreach (var carriage in carriages)
+                                {
+                                    carriage.QueueFree();
+                                }
+                                Instance.trainCarriages.Remove(train.TrainId);
                             }
                         }
                     }
@@ -998,9 +1761,11 @@ public partial class RailwayNetworkEditor : Node2D
                     _ => "未知"
                 };
 
+                string direction = train.IsDownbound ? "↓下行" : "↑上行";
+
                 ImGui.TextColored(
                     new System.Numerics.Vector4(train.TrainColor.R, train.TrainColor.G, train.TrainColor.B, 1f),
-                    $"{train.TrainId}: {status}"
+                    $"{train.TrainId} ({direction}): {status}"
                 );
 
                 if (entry != null)
@@ -1008,16 +1773,45 @@ public partial class RailwayNetworkEditor : Node2D
                     ImGui.SameLine();
                     ImGui.TextDisabled($"@ {entry.Station}");
                 }
+
+                // 显示路径信息
+                if (train.CurrentPath != null && train.CurrentPath.Count > 0)
+                {
+                    ImGui.Indent();
+                    ImGui.TextDisabled($"路径: {train.CurrentPath.Count} 边, 当前边 {train.CurrentPathEdgeIndex + 1}/{train.CurrentPath.Count}, 进度 {train.CurrentEdgeProgress:P0}");
+                    ImGui.Unindent();
+                }
             }
         }
 
         ImGui.Separator();
 
-        // 刷新按钮
+        // 按钮区域
         if (ImGui.Button("Reload Schedules"))
         {
             Instance.LoadAllSchedules();
         }
+
+        ImGui.SameLine();
+
+        // 一键创建所有列车按钮
+        if (ImGui.Button("Create All Trains"))
+        {
+            int count = Instance.CreateAllTrainsFromSchedules(true);
+            GD.Print($"Auto-created {count} trains from schedules");
+        }
+
+        ImGui.SameLine();
+
+        // 清除所有列车按钮
+        if (ImGui.Button("Clear All Trains"))
+        {
+            Instance.ClearAllTrains();
+        }
+
+        // 显示统计信息
+        var (total, withPath, withoutPath) = Instance.GetTrainStatistics();
+        ImGui.TextDisabled($"Stats: {total} trains, {withPath} with path, {withoutPath} without path");
     }
 
     #endregion

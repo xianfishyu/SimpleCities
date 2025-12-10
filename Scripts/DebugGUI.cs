@@ -124,7 +124,7 @@ public static class DebugInfo
         ImGui.Text($"Memory Usage: {OS.GetStaticMemoryUsage() / (1024 * 1024)} MB");
     }
 
-    [DebugGUI("TimeInfo", Opening = false)]
+    [DebugGUI("TimeInfo", Opening = true)]
     public static void GameTimeDebug()
     {
         ImGui.Text($"Date: {GameTime.GetFormattedDate()}");
