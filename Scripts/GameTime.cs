@@ -120,6 +120,43 @@ public partial class GameTime : Node
     }
 
     /// <summary>
+    /// 设置游戏开始时间
+    /// </summary>
+    /// <param name="dateTime">要设置的时间</param>
+    public void SetStartTime(DateTime dateTime)
+    {
+        startRealTime = dateTime;
+        gameTimeElapsed = 0.0;
+    }
+
+    /// <summary>
+    /// 设置游戏开始时间（使用时间字符串，如 "18:45"）
+    /// 日期保持当前日期
+    /// </summary>
+    public void SetStartTimeFromString(string timeStr)
+    {
+        var parts = timeStr.Split(':');
+        if (parts.Length >= 2 &&
+            int.TryParse(parts[0], out int hours) &&
+            int.TryParse(parts[1], out int minutes))
+        {
+            int seconds = parts.Length >= 3 && int.TryParse(parts[2], out int s) ? s : 0;
+            startRealTime = new DateTime(startRealTime.Year, startRealTime.Month, startRealTime.Day,
+                hours, minutes, seconds);
+            gameTimeElapsed = 0.0;
+        }
+    }
+
+    /// <summary>
+    /// 获取当前游戏时间（从00:00开始的秒数）
+    /// </summary>
+    public static int GetTimeOfDaySeconds()
+    {
+        var dt = GetGameDateTime();
+        return dt.Hour * 3600 + dt.Minute * 60 + dt.Second;
+    }
+
+    /// <summary>
     /// 获取格式化的游戏时间字符串（HH:mm:ss）
     /// </summary>
     public static string GetFormattedTime()

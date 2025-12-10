@@ -1,0 +1,42 @@
+{
+  "trainId": "C2025",
+  "isDownbound": true,
+  "entries": [
+    {
+      "time": "18:47",
+      "station": "北京南",
+      "track": 20,
+      "event": "Departure"
+    },
+    {
+      "time": "18:57",
+      "station": "亦庄",
+      "track": 1,
+      "event": "Arrival"
+    },
+    {
+      "time": "18:59",
+      "station": "亦庄",
+      "track": 1,
+      "event": "Departure"
+    },
+    {
+      "time": "19:15",
+      "station": "武清",
+      "track": 1,
+      "event": "Arrival"
+    },
+    {
+      "time": "19:20",
+      "station": "武清",
+      "track": 1,
+      "event": "Departure"
+    },
+    {
+      "time": "19:34",
+      "station": "天津",
+      "track": 14,
+      "event": "Arrival"
+    }
+  ]
+}

@@ -177,6 +177,10 @@ public static class DebugBackground
         if (ImGui.Checkbox("Show Minor Grid", ref showMinor))
             bg.ShowMinorGrid = showMinor;
 
+        bool showDot = bg.ShowDotGrid;
+        if (ImGui.Checkbox("Show Dot Grid", ref showDot))
+            bg.ShowDotGrid = showDot;
+
         ImGui.Text("Major");
         ImGui.SameLine();
         float majorGridSize = bg.MajorGridSize;
@@ -208,5 +212,21 @@ public static class DebugBackground
             bg.LineWidth = minorLineWidth;
         ImGui.SameLine();
         ImGui.Text("Width");
+
+        ImGui.Text("Dot");
+        ImGui.SameLine();
+        float dotGridSize = bg.DotGridSize;
+        ImGui.SetNextItemWidth(80);
+        if (ImGui.DragFloat("##DotGridSize", ref dotGridSize, 1f, 1f, 1000f))
+            bg.DotGridSize = dotGridSize;
+        ImGui.SameLine();
+        ImGui.Text("Size");
+        ImGui.SameLine();
+        float dotRadius = bg.DotRadius;
+        ImGui.SetNextItemWidth(80);
+        if (ImGui.DragFloat("##DotRadius", ref dotRadius, 0.1f, 0.1f, 10f))
+            bg.DotRadius = dotRadius;
+        ImGui.SameLine();
+        ImGui.Text("Radius");
     }
 }

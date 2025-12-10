@@ -11,13 +11,11 @@ metadata/_edit_lock_ = true
 [node name="Manager" type="Node" parent="."]
 
 [node name="TrainManager" type="Node2D" parent="Manager"]
-visible = false
 script = ExtResource("1_6qwfd")
 train_scene = ExtResource("2_8u6f0")
 metadata/_edit_lock_ = true
 
 [node name="TrackManager" type="Node2D" parent="Manager"]
-visible = false
 script = ExtResource("3_mufa5")
 TrackInfoPath = "res://Railwaydata/Shanghai.json"
 metadata/_edit_lock_ = true

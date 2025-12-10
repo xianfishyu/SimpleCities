@@ -38,6 +38,10 @@ movie_writer/movie_file="D:/Code/GodotProject/simplecities/video.avi"
 
 enabled=PackedStringArray("res://addons/imgui-godot/plugin.cfg")
 
+[gui]
+
+theme/default_font_multichannel_signed_distance_field=true
+
 [input]
 
 KeyBoard_MoveUp={
