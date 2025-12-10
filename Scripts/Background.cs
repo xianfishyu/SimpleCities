@@ -1,9 +1,11 @@
+using System.ComponentModel;
 using Godot;
 
 /// <summary>
 /// 网格背景渲染器（使用Shader）
 /// 性能优化版本，所有网格通过GPU渲染
 /// </summary>
+
 public partial class Background : CanvasLayer
 {
     public static Background Instance { get; private set; }
@@ -21,12 +23,12 @@ public partial class Background : CanvasLayer
     /// <summary>
     /// 主网格线宽度
     /// </summary>
-    [Export] public float MainLineWidth = 2f;
+    [Export] public float MainLineWidth = 1f;
 
     /// <summary>
     /// 次网格线宽度
     /// </summary>
-    [Export] public float LineWidth = 1f;
+    [Export] public float LineWidth = 0.5f;
 
     /// <summary>
     /// 点网格大小（像素）
@@ -101,7 +103,7 @@ public partial class Background : CanvasLayer
             return;
 
         // 获取相机信息
-        Camera2D camera = GetViewport().GetCamera2D();
+        MainCamera camera = MainCamera.Instance;
         Vector2 cameraPos = camera?.GlobalPosition ?? Vector2.Zero;
         float cameraZoom = camera?.Zoom.X ?? 1.0f;
         Vector2 viewportSize = GetViewport().GetVisibleRect().Size;

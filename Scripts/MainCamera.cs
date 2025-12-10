@@ -2,9 +2,9 @@ using Godot;
 using System;
 
 
-public partial class Camera2DController : Camera2D
+public partial class MainCamera : Camera2D
 {
-	[Export]private float defaultScale = 1f;
+	[Export] private float defaultScale = 1f;
 	[Export] public float scaleFactor = 0.125f;
 	[Export] public float minScale = 0.125f;
 	[Export] public float maxScale = 4f;
@@ -17,8 +17,11 @@ public partial class Camera2DController : Camera2D
 
 	private Vector2 mousePos = new();
 
+	public static MainCamera Instance { get; private set; }
+
 	public override void _Ready()
 	{
+		Instance ??= this;
 		nextPos = Position;
 	}
 
