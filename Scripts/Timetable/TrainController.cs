@@ -63,6 +63,8 @@ public partial class TrainController : Node2D
         var train = new Train(schedule);
 
         // 设置初始位置（第一站）
+        // TODO: 不再使用站台信息，改为使用网络编辑器指定的位置
+        /*
         if (schedule.Entries.Count > 0 && network != null)
         {
             var firstEntry = schedule.Entries[0];
@@ -74,6 +76,7 @@ public partial class TrainController : Node2D
                 train.CurrentNodeId = platform.Id;
             }
         }
+        */
 
         // 设置列车颜色
         train.TrainColor = GetTrainColor(schedule.TrainId);
@@ -183,6 +186,8 @@ public partial class TrainController : Node2D
                             progress = Mathf.Clamp(progress, 0f, 1f);
                         }
 
+                        // TODO: 不再使用站台信息查找节点，改为使用网络编辑器指定的位置
+                        /*
                         // 获取起点和终点节点
                         var fromPlatform = network.FindPlatformByInfo(departEntry.Station + "_Track" + departEntry.Track);
                         var toPlatform = network.FindPlatformByInfo(currentEntry.Station + "_Track" + currentEntry.Track);
@@ -204,6 +209,7 @@ public partial class TrainController : Node2D
                                 train.MoveToNextEntry();
                             }
                         }
+                        */
                     }
                 }
                 break;

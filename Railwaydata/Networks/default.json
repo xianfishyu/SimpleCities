@@ -1,204 +1,1336 @@
 {
   "name": "Beijing-Tianjin Intercity Railway",
   "nodes": [
-    {"id": "BJS_Entry", "x": -100, "y": 5, "type": "Endpoint"},
-    {"id": "BJS_SW1", "x": 0, "y": 5, "type": "Switch"},
-    {"id": "BJS_T18_L", "x": 50, "y": 0, "type": "Connection"},
-    {"id": "BJS_T18_P", "x": 150, "y": 0, "type": "Platform", "platformInfo": "Track 18"},
-    {"id": "BJS_T18_R", "x": 250, "y": 0, "type": "Connection"},
-    {"id": "BJS_SW2", "x": 25, "y": 10, "type": "Switch"},
-    {"id": "BJS_T19_L", "x": 50, "y": 10, "type": "Connection"},
-    {"id": "BJS_T19_P", "x": 150, "y": 10, "type": "Platform", "platformInfo": "Track 19"},
-    {"id": "BJS_T19_R", "x": 250, "y": 10, "type": "Connection"},
-    {"id": "BJS_SW3", "x": 25, "y": 20, "type": "Switch"},
-    {"id": "BJS_T20_L", "x": 50, "y": 20, "type": "Connection"},
-    {"id": "BJS_T20_P", "x": 150, "y": 20, "type": "Platform", "platformInfo": "Track 20"},
-    {"id": "BJS_T20_R", "x": 250, "y": 20, "type": "Connection"},
-    {"id": "BJS_M1_L", "x": 50, "y": 30, "type": "Connection"},
-    {"id": "BJS_M1_R", "x": 250, "y": 30, "type": "Connection"},
-    {"id": "BJS_M2_L", "x": 50, "y": 40, "type": "Connection"},
-    {"id": "BJS_M2_R", "x": 250, "y": 40, "type": "Connection"},
-    {"id": "BJS_SW4", "x": 25, "y": 50, "type": "Switch"},
-    {"id": "BJS_T23_L", "x": 50, "y": 50, "type": "Connection"},
-    {"id": "BJS_T23_P", "x": 150, "y": 50, "type": "Platform", "platformInfo": "Track 23"},
-    {"id": "BJS_T23_R", "x": 250, "y": 50, "type": "Connection"},
-    {"id": "BJS_SW5", "x": 25, "y": 60, "type": "Switch"},
-    {"id": "BJS_T24_L", "x": 50, "y": 60, "type": "Connection"},
-    {"id": "BJS_T24_P", "x": 150, "y": 60, "type": "Platform", "platformInfo": "Track 24"},
-    {"id": "BJS_T24_R", "x": 250, "y": 60, "type": "Connection"},
-    {"id": "BJS_SW6", "x": 300, "y": 30, "type": "Switch"},
-    {"id": "BJS_SW7", "x": 300, "y": 40, "type": "Switch"},
-    {"id": "BJS_Exit", "x": 400, "y": 35, "type": "Endpoint"},
-    
-    {"id": "YZ_Entry", "x": 600, "y": 35, "type": "Connection"},
-    {"id": "YZ_SW1", "x": 650, "y": 30, "type": "Switch"},
-    {"id": "YZ_SW2", "x": 650, "y": 40, "type": "Switch"},
-    {"id": "YZ_T1_L", "x": 700, "y": 20, "type": "Connection"},
-    {"id": "YZ_T1_P", "x": 800, "y": 20, "type": "Platform", "platformInfo": "Track 1"},
-    {"id": "YZ_T1_R", "x": 900, "y": 20, "type": "Connection"},
-    {"id": "YZ_M1_L", "x": 700, "y": 30, "type": "Connection"},
-    {"id": "YZ_M1_R", "x": 900, "y": 30, "type": "Connection"},
-    {"id": "YZ_M2_L", "x": 700, "y": 40, "type": "Connection"},
-    {"id": "YZ_M2_R", "x": 900, "y": 40, "type": "Connection"},
-    {"id": "YZ_T2_L", "x": 700, "y": 50, "type": "Connection"},
-    {"id": "YZ_T2_P", "x": 800, "y": 50, "type": "Platform", "platformInfo": "Track 2"},
-    {"id": "YZ_T2_R", "x": 900, "y": 50, "type": "Connection"},
-    {"id": "YZ_SW3", "x": 950, "y": 30, "type": "Switch"},
-    {"id": "YZ_SW4", "x": 950, "y": 40, "type": "Switch"},
-    {"id": "YZ_Exit", "x": 1000, "y": 35, "type": "Connection"},
-    
-    {"id": "WQ_Entry", "x": 1200, "y": 35, "type": "Connection"},
-    {"id": "WQ_SW1", "x": 1250, "y": 30, "type": "Switch"},
-    {"id": "WQ_SW2", "x": 1250, "y": 40, "type": "Switch"},
-    {"id": "WQ_T1_L", "x": 1300, "y": 20, "type": "Connection"},
-    {"id": "WQ_T1_P", "x": 1400, "y": 20, "type": "Platform", "platformInfo": "Track 1"},
-    {"id": "WQ_T1_R", "x": 1500, "y": 20, "type": "Connection"},
-    {"id": "WQ_M1_L", "x": 1300, "y": 30, "type": "Connection"},
-    {"id": "WQ_M1_R", "x": 1500, "y": 30, "type": "Connection"},
-    {"id": "WQ_M2_L", "x": 1300, "y": 40, "type": "Connection"},
-    {"id": "WQ_M2_R", "x": 1500, "y": 40, "type": "Connection"},
-    {"id": "WQ_T2_L", "x": 1300, "y": 50, "type": "Connection"},
-    {"id": "WQ_T2_P", "x": 1400, "y": 50, "type": "Platform", "platformInfo": "Track 2"},
-    {"id": "WQ_T2_R", "x": 1500, "y": 50, "type": "Connection"},
-    {"id": "WQ_SW3", "x": 1550, "y": 30, "type": "Switch"},
-    {"id": "WQ_SW4", "x": 1550, "y": 40, "type": "Switch"},
-    {"id": "WQ_Exit", "x": 1600, "y": 35, "type": "Connection"},
-    
-    {"id": "TJ_Entry", "x": 1800, "y": 35, "type": "Endpoint"},
-    {"id": "TJ_SW1", "x": 1850, "y": 30, "type": "Switch"},
-    {"id": "TJ_SW2", "x": 1850, "y": 40, "type": "Switch"},
-    {"id": "TJ_T12_L", "x": 1900, "y": 0, "type": "Connection"},
-    {"id": "TJ_T12_P", "x": 2000, "y": 0, "type": "Platform", "platformInfo": "Track 12"},
-    {"id": "TJ_T12_R", "x": 2100, "y": 0, "type": "Connection"},
-    {"id": "TJ_T13_L", "x": 1900, "y": 10, "type": "Connection"},
-    {"id": "TJ_T13_P", "x": 2000, "y": 10, "type": "Platform", "platformInfo": "Track 13"},
-    {"id": "TJ_T13_R", "x": 2100, "y": 10, "type": "Connection"},
-    {"id": "TJ_T14_L", "x": 1900, "y": 20, "type": "Connection"},
-    {"id": "TJ_T14_P", "x": 2000, "y": 20, "type": "Platform", "platformInfo": "Track 14"},
-    {"id": "TJ_T14_R", "x": 2100, "y": 20, "type": "Connection"},
-    {"id": "TJ_M1_L", "x": 1900, "y": 30, "type": "Connection"},
-    {"id": "TJ_M1_R", "x": 2100, "y": 30, "type": "Connection"},
-    {"id": "TJ_M2_L", "x": 1900, "y": 40, "type": "Connection"},
-    {"id": "TJ_M2_R", "x": 2100, "y": 40, "type": "Connection"},
-    {"id": "TJ_T17_L", "x": 1900, "y": 50, "type": "Connection"},
-    {"id": "TJ_T17_P", "x": 2000, "y": 50, "type": "Platform", "platformInfo": "Track 17"},
-    {"id": "TJ_T17_R", "x": 2100, "y": 50, "type": "Connection"},
-    {"id": "TJ_T18_L", "x": 1900, "y": 60, "type": "Connection"},
-    {"id": "TJ_T18_P", "x": 2000, "y": 60, "type": "Platform", "platformInfo": "Track 18"},
-    {"id": "TJ_T18_R", "x": 2100, "y": 60, "type": "Connection"},
-    {"id": "TJ_SW3", "x": 2150, "y": 30, "type": "Switch"},
-    {"id": "TJ_SW4", "x": 2150, "y": 40, "type": "Switch"},
-    {"id": "TJ_Exit", "x": 2250, "y": 35, "type": "Endpoint"}
+    {
+      "id": "BJS_T18_L",
+      "x": 50,
+      "y": 0,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "BJS_T18_R",
+      "x": 250,
+      "y": -0,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "BJS_T19_L",
+      "x": 50,
+      "y": 10,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "BJS_T19_R",
+      "x": 250,
+      "y": 10,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "BJS_T20_L",
+      "x": 50,
+      "y": 20,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "BJS_T20_R",
+      "x": 250,
+      "y": 20,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "BJS_M1_L",
+      "x": 50,
+      "y": 30,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "BJS_M1_R",
+      "x": 250,
+      "y": 30,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "BJS_M2_L",
+      "x": 50,
+      "y": 40,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "BJS_M2_R",
+      "x": 250,
+      "y": 40,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "BJS_T23_L",
+      "x": 50,
+      "y": 50,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "BJS_T23_R",
+      "x": 250,
+      "y": 50,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "BJS_T24_L",
+      "x": 50,
+      "y": 60,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "BJS_T24_R",
+      "x": 250,
+      "y": 60,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "BJS_SW6",
+      "x": 300,
+      "y": 30,
+      "type": "Switch",
+      "switchTarget": ""
+    },
+    {
+      "id": "BJS_SW7",
+      "x": 300,
+      "y": 40,
+      "type": "Switch",
+      "switchTarget": ""
+    },
+    {
+      "id": "YZ_SW1",
+      "x": 650,
+      "y": 30,
+      "type": "Switch",
+      "switchTarget": ""
+    },
+    {
+      "id": "YZ_SW2",
+      "x": 650,
+      "y": 40,
+      "type": "Switch",
+      "switchTarget": ""
+    },
+    {
+      "id": "YZ_T1_L",
+      "x": 700,
+      "y": 20,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "YZ_T1_R",
+      "x": 900,
+      "y": 20,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "YZ_M1_L",
+      "x": 700,
+      "y": 30,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "YZ_M1_R",
+      "x": 900,
+      "y": 30,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "YZ_M2_L",
+      "x": 700,
+      "y": 40,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "YZ_M2_R",
+      "x": 900,
+      "y": 40,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "YZ_T2_L",
+      "x": 700,
+      "y": 50,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "YZ_T2_R",
+      "x": 900,
+      "y": 50,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "YZ_SW3",
+      "x": 950,
+      "y": 30,
+      "type": "Switch",
+      "switchTarget": ""
+    },
+    {
+      "id": "YZ_SW4",
+      "x": 950,
+      "y": 40,
+      "type": "Switch",
+      "switchTarget": ""
+    },
+    {
+      "id": "WQ_SW1",
+      "x": 1250,
+      "y": 30,
+      "type": "Switch",
+      "switchTarget": ""
+    },
+    {
+      "id": "WQ_SW2",
+      "x": 1250,
+      "y": 40,
+      "type": "Switch",
+      "switchTarget": ""
+    },
+    {
+      "id": "WQ_T1_L",
+      "x": 1300,
+      "y": 20,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "WQ_T1_R",
+      "x": 1500,
+      "y": 20,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "WQ_M1_L",
+      "x": 1300,
+      "y": 30,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "WQ_M1_R",
+      "x": 1500,
+      "y": 30,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "WQ_M2_L",
+      "x": 1300,
+      "y": 40,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "WQ_M2_R",
+      "x": 1500,
+      "y": 40,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "WQ_T2_L",
+      "x": 1300,
+      "y": 50,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "WQ_T2_R",
+      "x": 1500,
+      "y": 50,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "WQ_SW3",
+      "x": 1550,
+      "y": 30,
+      "type": "Switch",
+      "switchTarget": ""
+    },
+    {
+      "id": "WQ_SW4",
+      "x": 1550,
+      "y": 40,
+      "type": "Switch",
+      "switchTarget": ""
+    },
+    {
+      "id": "TJ_SW1",
+      "x": 1850,
+      "y": 30,
+      "type": "Switch",
+      "switchTarget": ""
+    },
+    {
+      "id": "TJ_SW2",
+      "x": 1850,
+      "y": 40,
+      "type": "Switch",
+      "switchTarget": ""
+    },
+    {
+      "id": "TJ_T12_L",
+      "x": 1900,
+      "y": 0,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "TJ_T12_R",
+      "x": 2100,
+      "y": 0,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "TJ_T13_L",
+      "x": 1900,
+      "y": 10,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "TJ_T13_R",
+      "x": 2100,
+      "y": 10,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "TJ_T14_L",
+      "x": 1900,
+      "y": 20,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "TJ_T14_R",
+      "x": 2100,
+      "y": 20,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "TJ_M1_L",
+      "x": 1900,
+      "y": 30,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "TJ_M1_R",
+      "x": 2100,
+      "y": 30,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "TJ_M2_L",
+      "x": 1900,
+      "y": 40,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "TJ_M2_R",
+      "x": 2100,
+      "y": 40,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "TJ_T17_L",
+      "x": 1900,
+      "y": 50,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "TJ_T17_R",
+      "x": 2100,
+      "y": 50,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "TJ_T18_L",
+      "x": 1900,
+      "y": 60,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "TJ_T18_R",
+      "x": 2100,
+      "y": 60,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "N59_280",
+      "x": 250,
+      "y": 40,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "N58_3429",
+      "x": 270,
+      "y": 10,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "N59_2961",
+      "x": 270,
+      "y": 30,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "N60_4380",
+      "x": 270,
+      "y": 50,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "N62_4849",
+      "x": 330,
+      "y": 30,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "N63_1248",
+      "x": 1870,
+      "y": 50,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "N64_5158",
+      "x": 1870,
+      "y": 20,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "N65_2462",
+      "x": 1880,
+      "y": 20,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "N66_379",
+      "x": 1900,
+      "y": -0,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "N67_7419",
+      "x": 1830,
+      "y": 30,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "N68_4118",
+      "x": 1820,
+      "y": 40,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "N69_2290",
+      "x": 1810,
+      "y": 40,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "N70_6586",
+      "x": 1800,
+      "y": 30,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "N71_6228",
+      "x": 320,
+      "y": 40,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "N72_8460",
+      "x": 340,
+      "y": 30,
+      "type": "Connection",
+      "switchTarget": ""
+    },
+    {
+      "id": "N73_6066",
+      "x": 350,
+      "y": 40,
+      "type": "Connection",
+      "switchTarget": ""
+    }
   ],
   "edges": [
-    {"id": "BJS_E1", "fromNode": "BJS_Entry", "toNode": "BJS_SW1", "length": 100, "isMainLine": true},
-    {"id": "BJS_E2", "fromNode": "BJS_SW1", "toNode": "BJS_T18_L", "length": 50, "isCrossover": true},
-    {"id": "BJS_E3", "fromNode": "BJS_T18_L", "toNode": "BJS_T18_P", "length": 100},
-    {"id": "BJS_E4", "fromNode": "BJS_T18_P", "toNode": "BJS_T18_R", "length": 100},
-    {"id": "BJS_E5", "fromNode": "BJS_SW1", "toNode": "BJS_SW2", "length": 25, "isCrossover": true},
-    {"id": "BJS_E6", "fromNode": "BJS_SW2", "toNode": "BJS_T19_L", "length": 25},
-    {"id": "BJS_E7", "fromNode": "BJS_T19_L", "toNode": "BJS_T19_P", "length": 100},
-    {"id": "BJS_E8", "fromNode": "BJS_T19_P", "toNode": "BJS_T19_R", "length": 100},
-    {"id": "BJS_E9", "fromNode": "BJS_SW2", "toNode": "BJS_SW3", "length": 10, "isCrossover": true},
-    {"id": "BJS_E10", "fromNode": "BJS_SW3", "toNode": "BJS_T20_L", "length": 25},
-    {"id": "BJS_E11", "fromNode": "BJS_T20_L", "toNode": "BJS_T20_P", "length": 100},
-    {"id": "BJS_E12", "fromNode": "BJS_T20_P", "toNode": "BJS_T20_R", "length": 100},
-    {"id": "BJS_E13", "fromNode": "BJS_SW3", "toNode": "BJS_M1_L", "length": 35, "isMainLine": true},
-    {"id": "BJS_E14", "fromNode": "BJS_M1_L", "toNode": "BJS_M1_R", "length": 200, "isMainLine": true},
-    {"id": "BJS_E15", "fromNode": "BJS_M1_L", "toNode": "BJS_M2_L", "length": 10, "isCrossover": true},
-    {"id": "BJS_E16", "fromNode": "BJS_M2_L", "toNode": "BJS_M2_R", "length": 200, "isMainLine": true},
-    {"id": "BJS_E17", "fromNode": "BJS_M2_L", "toNode": "BJS_SW4", "length": 35, "isCrossover": true},
-    {"id": "BJS_E18", "fromNode": "BJS_SW4", "toNode": "BJS_T23_L", "length": 25},
-    {"id": "BJS_E19", "fromNode": "BJS_T23_L", "toNode": "BJS_T23_P", "length": 100},
-    {"id": "BJS_E20", "fromNode": "BJS_T23_P", "toNode": "BJS_T23_R", "length": 100},
-    {"id": "BJS_E21", "fromNode": "BJS_SW4", "toNode": "BJS_SW5", "length": 10, "isCrossover": true},
-    {"id": "BJS_E22", "fromNode": "BJS_SW5", "toNode": "BJS_T24_L", "length": 25},
-    {"id": "BJS_E23", "fromNode": "BJS_T24_L", "toNode": "BJS_T24_P", "length": 100},
-    {"id": "BJS_E24", "fromNode": "BJS_T24_P", "toNode": "BJS_T24_R", "length": 100},
-    {"id": "BJS_E25", "fromNode": "BJS_T18_R", "toNode": "BJS_SW6", "length": 50, "isCrossover": true},
-    {"id": "BJS_E26", "fromNode": "BJS_T19_R", "toNode": "BJS_SW6", "length": 50, "isCrossover": true},
-    {"id": "BJS_E27", "fromNode": "BJS_T20_R", "toNode": "BJS_SW6", "length": 50, "isCrossover": true},
-    {"id": "BJS_E28", "fromNode": "BJS_M1_R", "toNode": "BJS_SW6", "length": 50, "isMainLine": true},
-    {"id": "BJS_E29", "fromNode": "BJS_M2_R", "toNode": "BJS_SW7", "length": 50, "isMainLine": true},
-    {"id": "BJS_E30", "fromNode": "BJS_T23_R", "toNode": "BJS_SW7", "length": 50, "isCrossover": true},
-    {"id": "BJS_E31", "fromNode": "BJS_T24_R", "toNode": "BJS_SW7", "length": 50, "isCrossover": true},
-    {"id": "BJS_E32", "fromNode": "BJS_SW6", "toNode": "BJS_SW7", "length": 10, "isCrossover": true},
-    {"id": "BJS_E33", "fromNode": "BJS_SW6", "toNode": "BJS_Exit", "length": 100, "isMainLine": true},
-    {"id": "BJS_E34", "fromNode": "BJS_SW7", "toNode": "BJS_Exit", "length": 100, "isMainLine": true},
-    
-    {"id": "LINE_1", "fromNode": "BJS_Exit", "toNode": "YZ_Entry", "length": 200, "isMainLine": true},
-    
-    {"id": "YZ_E1", "fromNode": "YZ_Entry", "toNode": "YZ_SW1", "length": 50, "isMainLine": true},
-    {"id": "YZ_E2", "fromNode": "YZ_Entry", "toNode": "YZ_SW2", "length": 50, "isMainLine": true},
-    {"id": "YZ_E3", "fromNode": "YZ_SW1", "toNode": "YZ_T1_L", "length": 50, "isCrossover": true},
-    {"id": "YZ_E4", "fromNode": "YZ_T1_L", "toNode": "YZ_T1_P", "length": 100},
-    {"id": "YZ_E5", "fromNode": "YZ_T1_P", "toNode": "YZ_T1_R", "length": 100},
-    {"id": "YZ_E6", "fromNode": "YZ_SW1", "toNode": "YZ_M1_L", "length": 50, "isMainLine": true},
-    {"id": "YZ_E7", "fromNode": "YZ_M1_L", "toNode": "YZ_M1_R", "length": 200, "isMainLine": true},
-    {"id": "YZ_E8", "fromNode": "YZ_SW2", "toNode": "YZ_M2_L", "length": 50, "isMainLine": true},
-    {"id": "YZ_E9", "fromNode": "YZ_M2_L", "toNode": "YZ_M2_R", "length": 200, "isMainLine": true},
-    {"id": "YZ_E10", "fromNode": "YZ_SW2", "toNode": "YZ_T2_L", "length": 50, "isCrossover": true},
-    {"id": "YZ_E11", "fromNode": "YZ_T2_L", "toNode": "YZ_T2_P", "length": 100},
-    {"id": "YZ_E12", "fromNode": "YZ_T2_P", "toNode": "YZ_T2_R", "length": 100},
-    {"id": "YZ_E13", "fromNode": "YZ_T1_R", "toNode": "YZ_SW3", "length": 50, "isCrossover": true},
-    {"id": "YZ_E14", "fromNode": "YZ_M1_R", "toNode": "YZ_SW3", "length": 50, "isMainLine": true},
-    {"id": "YZ_E15", "fromNode": "YZ_M2_R", "toNode": "YZ_SW4", "length": 50, "isMainLine": true},
-    {"id": "YZ_E16", "fromNode": "YZ_T2_R", "toNode": "YZ_SW4", "length": 50, "isCrossover": true},
-    {"id": "YZ_E17", "fromNode": "YZ_SW3", "toNode": "YZ_Exit", "length": 50, "isMainLine": true},
-    {"id": "YZ_E18", "fromNode": "YZ_SW4", "toNode": "YZ_Exit", "length": 50, "isMainLine": true},
-    
-    {"id": "LINE_2", "fromNode": "YZ_Exit", "toNode": "WQ_Entry", "length": 200, "isMainLine": true},
-    
-    {"id": "WQ_E1", "fromNode": "WQ_Entry", "toNode": "WQ_SW1", "length": 50, "isMainLine": true},
-    {"id": "WQ_E2", "fromNode": "WQ_Entry", "toNode": "WQ_SW2", "length": 50, "isMainLine": true},
-    {"id": "WQ_E3", "fromNode": "WQ_SW1", "toNode": "WQ_T1_L", "length": 50, "isCrossover": true},
-    {"id": "WQ_E4", "fromNode": "WQ_T1_L", "toNode": "WQ_T1_P", "length": 100},
-    {"id": "WQ_E5", "fromNode": "WQ_T1_P", "toNode": "WQ_T1_R", "length": 100},
-    {"id": "WQ_E6", "fromNode": "WQ_SW1", "toNode": "WQ_M1_L", "length": 50, "isMainLine": true},
-    {"id": "WQ_E7", "fromNode": "WQ_M1_L", "toNode": "WQ_M1_R", "length": 200, "isMainLine": true},
-    {"id": "WQ_E8", "fromNode": "WQ_SW2", "toNode": "WQ_M2_L", "length": 50, "isMainLine": true},
-    {"id": "WQ_E9", "fromNode": "WQ_M2_L", "toNode": "WQ_M2_R", "length": 200, "isMainLine": true},
-    {"id": "WQ_E10", "fromNode": "WQ_SW2", "toNode": "WQ_T2_L", "length": 50, "isCrossover": true},
-    {"id": "WQ_E11", "fromNode": "WQ_T2_L", "toNode": "WQ_T2_P", "length": 100},
-    {"id": "WQ_E12", "fromNode": "WQ_T2_P", "toNode": "WQ_T2_R", "length": 100},
-    {"id": "WQ_E13", "fromNode": "WQ_T1_R", "toNode": "WQ_SW3", "length": 50, "isCrossover": true},
-    {"id": "WQ_E14", "fromNode": "WQ_M1_R", "toNode": "WQ_SW3", "length": 50, "isMainLine": true},
-    {"id": "WQ_E15", "fromNode": "WQ_M2_R", "toNode": "WQ_SW4", "length": 50, "isMainLine": true},
-    {"id": "WQ_E16", "fromNode": "WQ_T2_R", "toNode": "WQ_SW4", "length": 50, "isCrossover": true},
-    {"id": "WQ_E17", "fromNode": "WQ_SW3", "toNode": "WQ_Exit", "length": 50, "isMainLine": true},
-    {"id": "WQ_E18", "fromNode": "WQ_SW4", "toNode": "WQ_Exit", "length": 50, "isMainLine": true},
-    
-    {"id": "LINE_3", "fromNode": "WQ_Exit", "toNode": "TJ_Entry", "length": 200, "isMainLine": true},
-    
-    {"id": "TJ_E1", "fromNode": "TJ_Entry", "toNode": "TJ_SW1", "length": 50, "isMainLine": true},
-    {"id": "TJ_E2", "fromNode": "TJ_Entry", "toNode": "TJ_SW2", "length": 50, "isMainLine": true},
-    {"id": "TJ_E3", "fromNode": "TJ_SW1", "toNode": "TJ_T12_L", "length": 80, "isCrossover": true},
-    {"id": "TJ_E4", "fromNode": "TJ_T12_L", "toNode": "TJ_T12_P", "length": 100},
-    {"id": "TJ_E5", "fromNode": "TJ_T12_P", "toNode": "TJ_T12_R", "length": 100},
-    {"id": "TJ_E6", "fromNode": "TJ_SW1", "toNode": "TJ_T13_L", "length": 70, "isCrossover": true},
-    {"id": "TJ_E7", "fromNode": "TJ_T13_L", "toNode": "TJ_T13_P", "length": 100},
-    {"id": "TJ_E8", "fromNode": "TJ_T13_P", "toNode": "TJ_T13_R", "length": 100},
-    {"id": "TJ_E9", "fromNode": "TJ_SW1", "toNode": "TJ_T14_L", "length": 60, "isCrossover": true},
-    {"id": "TJ_E10", "fromNode": "TJ_T14_L", "toNode": "TJ_T14_P", "length": 100},
-    {"id": "TJ_E11", "fromNode": "TJ_T14_P", "toNode": "TJ_T14_R", "length": 100},
-    {"id": "TJ_E12", "fromNode": "TJ_SW1", "toNode": "TJ_M1_L", "length": 50, "isMainLine": true},
-    {"id": "TJ_E13", "fromNode": "TJ_M1_L", "toNode": "TJ_M1_R", "length": 200, "isMainLine": true},
-    {"id": "TJ_E14", "fromNode": "TJ_SW2", "toNode": "TJ_M2_L", "length": 50, "isMainLine": true},
-    {"id": "TJ_E15", "fromNode": "TJ_M2_L", "toNode": "TJ_M2_R", "length": 200, "isMainLine": true},
-    {"id": "TJ_E16", "fromNode": "TJ_SW2", "toNode": "TJ_T17_L", "length": 60, "isCrossover": true},
-    {"id": "TJ_E17", "fromNode": "TJ_T17_L", "toNode": "TJ_T17_P", "length": 100},
-    {"id": "TJ_E18", "fromNode": "TJ_T17_P", "toNode": "TJ_T17_R", "length": 100},
-    {"id": "TJ_E19", "fromNode": "TJ_SW2", "toNode": "TJ_T18_L", "length": 70, "isCrossover": true},
-    {"id": "TJ_E20", "fromNode": "TJ_T18_L", "toNode": "TJ_T18_P", "length": 100},
-    {"id": "TJ_E21", "fromNode": "TJ_T18_P", "toNode": "TJ_T18_R", "length": 100},
-    {"id": "TJ_E22", "fromNode": "TJ_T12_R", "toNode": "TJ_SW3", "length": 80, "isCrossover": true},
-    {"id": "TJ_E23", "fromNode": "TJ_T13_R", "toNode": "TJ_SW3", "length": 70, "isCrossover": true},
-    {"id": "TJ_E24", "fromNode": "TJ_T14_R", "toNode": "TJ_SW3", "length": 60, "isCrossover": true},
-    {"id": "TJ_E25", "fromNode": "TJ_M1_R", "toNode": "TJ_SW3", "length": 50, "isMainLine": true},
-    {"id": "TJ_E26", "fromNode": "TJ_M2_R", "toNode": "TJ_SW4", "length": 50, "isMainLine": true},
-    {"id": "TJ_E27", "fromNode": "TJ_T17_R", "toNode": "TJ_SW4", "length": 60, "isCrossover": true},
-    {"id": "TJ_E28", "fromNode": "TJ_T18_R", "toNode": "TJ_SW4", "length": 70, "isCrossover": true},
-    {"id": "TJ_E29", "fromNode": "TJ_SW3", "toNode": "TJ_Exit", "length": 100, "isMainLine": true},
-    {"id": "TJ_E30", "fromNode": "TJ_SW4", "toNode": "TJ_Exit", "length": 100, "isMainLine": true}
+    {
+      "id": "BJS_E14",
+      "fromNode": "BJS_M1_L",
+      "toNode": "BJS_M1_R",
+      "length": 200,
+      "trackType": "MainLineWithPlatform",
+      "trackNumber": 21,
+      "speedLimit": 0,
+      "isMainLine": true,
+      "isCrossover": false
+    },
+    {
+      "id": "BJS_E16",
+      "fromNode": "BJS_M2_L",
+      "toNode": "BJS_M2_R",
+      "length": 200,
+      "trackType": "MainLineWithPlatform",
+      "trackNumber": 22,
+      "speedLimit": 0,
+      "isMainLine": true,
+      "isCrossover": false
+    },
+    {
+      "id": "YZ_E3",
+      "fromNode": "YZ_SW1",
+      "toNode": "YZ_T1_L",
+      "length": 50.990196,
+      "trackType": "Crossover",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": true
+    },
+    {
+      "id": "YZ_E6",
+      "fromNode": "YZ_SW1",
+      "toNode": "YZ_M1_L",
+      "length": 50,
+      "trackType": "MainLine",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": true,
+      "isCrossover": false
+    },
+    {
+      "id": "YZ_E7",
+      "fromNode": "YZ_M1_L",
+      "toNode": "YZ_M1_R",
+      "length": 200,
+      "trackType": "MainLine",
+      "trackNumber": 2,
+      "speedLimit": 0,
+      "isMainLine": true,
+      "isCrossover": false
+    },
+    {
+      "id": "YZ_E8",
+      "fromNode": "YZ_SW2",
+      "toNode": "YZ_M2_L",
+      "length": 50,
+      "trackType": "MainLine",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": true,
+      "isCrossover": false
+    },
+    {
+      "id": "YZ_E9",
+      "fromNode": "YZ_M2_L",
+      "toNode": "YZ_M2_R",
+      "length": 200,
+      "trackType": "MainLine",
+      "trackNumber": 3,
+      "speedLimit": 0,
+      "isMainLine": true,
+      "isCrossover": false
+    },
+    {
+      "id": "YZ_E10",
+      "fromNode": "YZ_SW2",
+      "toNode": "YZ_T2_L",
+      "length": 50,
+      "trackType": "Crossover",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": true
+    },
+    {
+      "id": "YZ_E13",
+      "fromNode": "YZ_T1_R",
+      "toNode": "YZ_SW3",
+      "length": 50,
+      "trackType": "Crossover",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": true
+    },
+    {
+      "id": "YZ_E14",
+      "fromNode": "YZ_M1_R",
+      "toNode": "YZ_SW3",
+      "length": 50,
+      "trackType": "MainLine",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": true,
+      "isCrossover": false
+    },
+    {
+      "id": "YZ_E15",
+      "fromNode": "YZ_M2_R",
+      "toNode": "YZ_SW4",
+      "length": 50,
+      "trackType": "MainLine",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": true,
+      "isCrossover": false
+    },
+    {
+      "id": "YZ_E16",
+      "fromNode": "YZ_T2_R",
+      "toNode": "YZ_SW4",
+      "length": 50,
+      "trackType": "Crossover",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": true
+    },
+    {
+      "id": "WQ_E3",
+      "fromNode": "WQ_SW1",
+      "toNode": "WQ_T1_L",
+      "length": 50.990196,
+      "trackType": "Crossover",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": true
+    },
+    {
+      "id": "WQ_E6",
+      "fromNode": "WQ_SW1",
+      "toNode": "WQ_M1_L",
+      "length": 50,
+      "trackType": "MainLine",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": true,
+      "isCrossover": false
+    },
+    {
+      "id": "WQ_E7",
+      "fromNode": "WQ_M1_L",
+      "toNode": "WQ_M1_R",
+      "length": 200,
+      "trackType": "MainLine",
+      "trackNumber": 2,
+      "speedLimit": 0,
+      "isMainLine": true,
+      "isCrossover": false
+    },
+    {
+      "id": "WQ_E8",
+      "fromNode": "WQ_SW2",
+      "toNode": "WQ_M2_L",
+      "length": 50,
+      "trackType": "MainLine",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": true,
+      "isCrossover": false
+    },
+    {
+      "id": "WQ_E9",
+      "fromNode": "WQ_M2_L",
+      "toNode": "WQ_M2_R",
+      "length": 200,
+      "trackType": "MainLine",
+      "trackNumber": 3,
+      "speedLimit": 0,
+      "isMainLine": true,
+      "isCrossover": false
+    },
+    {
+      "id": "WQ_E10",
+      "fromNode": "WQ_SW2",
+      "toNode": "WQ_T2_L",
+      "length": 50,
+      "trackType": "Crossover",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": true
+    },
+    {
+      "id": "WQ_E13",
+      "fromNode": "WQ_T1_R",
+      "toNode": "WQ_SW3",
+      "length": 50,
+      "trackType": "Crossover",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": true
+    },
+    {
+      "id": "WQ_E14",
+      "fromNode": "WQ_M1_R",
+      "toNode": "WQ_SW3",
+      "length": 50,
+      "trackType": "MainLine",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": true,
+      "isCrossover": false
+    },
+    {
+      "id": "WQ_E15",
+      "fromNode": "WQ_M2_R",
+      "toNode": "WQ_SW4",
+      "length": 50,
+      "trackType": "MainLine",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": true,
+      "isCrossover": false
+    },
+    {
+      "id": "WQ_E16",
+      "fromNode": "WQ_T2_R",
+      "toNode": "WQ_SW4",
+      "length": 50,
+      "trackType": "Crossover",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": true
+    },
+    {
+      "id": "TJ_E12",
+      "fromNode": "TJ_SW1",
+      "toNode": "TJ_M1_L",
+      "length": 50,
+      "trackType": "MainLine",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": true,
+      "isCrossover": false
+    },
+    {
+      "id": "TJ_E13",
+      "fromNode": "TJ_M1_L",
+      "toNode": "TJ_M1_R",
+      "length": 200,
+      "trackType": "MainLineWithPlatform",
+      "trackNumber": 15,
+      "speedLimit": 0,
+      "isMainLine": true,
+      "isCrossover": false
+    },
+    {
+      "id": "TJ_E14",
+      "fromNode": "TJ_SW2",
+      "toNode": "TJ_M2_L",
+      "length": 50,
+      "trackType": "MainLine",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": true,
+      "isCrossover": false
+    },
+    {
+      "id": "TJ_E15",
+      "fromNode": "TJ_M2_L",
+      "toNode": "TJ_M2_R",
+      "length": 200,
+      "trackType": "MainLineWithPlatform",
+      "trackNumber": 14,
+      "speedLimit": 0,
+      "isMainLine": true,
+      "isCrossover": false
+    },
+    {
+      "id": "E104_3286",
+      "fromNode": "BJS_T18_L",
+      "toNode": "BJS_T18_R",
+      "length": 200,
+      "trackType": "ArrivalDeparture",
+      "trackNumber": 18,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": false
+    },
+    {
+      "id": "E103_7900",
+      "fromNode": "BJS_T19_L",
+      "toNode": "BJS_T19_R",
+      "length": 200,
+      "trackType": "ArrivalDeparture",
+      "trackNumber": 19,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": false
+    },
+    {
+      "id": "E102_7248",
+      "fromNode": "BJS_T20_L",
+      "toNode": "BJS_T20_R",
+      "length": 200,
+      "trackType": "ArrivalDeparture",
+      "trackNumber": 20,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": false
+    },
+    {
+      "id": "E101_9284",
+      "fromNode": "BJS_T23_L",
+      "toNode": "BJS_T23_R",
+      "length": 200,
+      "trackType": "ArrivalDeparture",
+      "trackNumber": 23,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": false
+    },
+    {
+      "id": "E100_1292",
+      "fromNode": "BJS_T24_L",
+      "toNode": "BJS_T24_R",
+      "length": 200,
+      "trackType": "ArrivalDeparture",
+      "trackNumber": 24,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": false
+    },
+    {
+      "id": "E70_164",
+      "fromNode": "YZ_T1_L",
+      "toNode": "YZ_T1_R",
+      "length": 200,
+      "trackType": "ArrivalDeparture",
+      "trackNumber": 1,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": false
+    },
+    {
+      "id": "E71_5520",
+      "fromNode": "YZ_T2_L",
+      "toNode": "YZ_T2_R",
+      "length": 200,
+      "trackType": "ArrivalDeparture",
+      "trackNumber": 4,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": false
+    },
+    {
+      "id": "E38_6469",
+      "fromNode": "TJ_T12_L",
+      "toNode": "TJ_T12_R",
+      "length": 200,
+      "trackType": "ArrivalDeparture",
+      "trackNumber": 18,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": false
+    },
+    {
+      "id": "E39_3253",
+      "fromNode": "TJ_T13_R",
+      "toNode": "TJ_T13_L",
+      "length": 200,
+      "trackType": "ArrivalDeparture",
+      "trackNumber": 17,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": false
+    },
+    {
+      "id": "E40_1552",
+      "fromNode": "TJ_T14_L",
+      "toNode": "TJ_T14_R",
+      "length": 200,
+      "trackType": "ArrivalDeparture",
+      "trackNumber": 16,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": false
+    },
+    {
+      "id": "E41_5670",
+      "fromNode": "TJ_T17_R",
+      "toNode": "TJ_T17_L",
+      "length": 200,
+      "trackType": "ArrivalDeparture",
+      "trackNumber": 13,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": false
+    },
+    {
+      "id": "E42_5424",
+      "fromNode": "TJ_T18_L",
+      "toNode": "TJ_T18_R",
+      "length": 200,
+      "trackType": "ArrivalDeparture",
+      "trackNumber": 12,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": false
+    },
+    {
+      "id": "E43_2883",
+      "fromNode": "WQ_T1_R",
+      "toNode": "WQ_T1_L",
+      "length": 200,
+      "trackType": "ArrivalDeparture",
+      "trackNumber": 1,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": false
+    },
+    {
+      "id": "E44_1658",
+      "fromNode": "WQ_T2_L",
+      "toNode": "WQ_T2_R",
+      "length": 200,
+      "trackType": "ArrivalDeparture",
+      "trackNumber": 4,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": false
+    },
+    {
+      "id": "E45_5266",
+      "fromNode": "YZ_SW3",
+      "toNode": "WQ_SW1",
+      "length": 300,
+      "trackType": "MainLine",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": true,
+      "isCrossover": false
+    },
+    {
+      "id": "E46_2247",
+      "fromNode": "WQ_SW2",
+      "toNode": "YZ_SW4",
+      "length": 300,
+      "trackType": "MainLine",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": true,
+      "isCrossover": false
+    },
+    {
+      "id": "E50_1059",
+      "fromNode": "BJS_SW7",
+      "toNode": "N59_280",
+      "length": 50,
+      "trackType": "MainLine",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": true,
+      "isCrossover": false
+    },
+    {
+      "id": "E49_4371",
+      "fromNode": "BJS_T19_R",
+      "toNode": "N58_3429",
+      "length": 20,
+      "trackType": "Crossover",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": true
+    },
+    {
+      "id": "E50_9437",
+      "fromNode": "N58_3429",
+      "toNode": "BJS_T18_R",
+      "length": 22.36068,
+      "trackType": "Crossover",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": true
+    },
+    {
+      "id": "E53_1828",
+      "fromNode": "N58_3429",
+      "toNode": "BJS_SW6",
+      "length": 36.05551,
+      "trackType": "Crossover",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": true
+    },
+    {
+      "id": "E51_9939",
+      "fromNode": "BJS_M1_R",
+      "toNode": "N59_2961",
+      "length": 20,
+      "trackType": "MainLine",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": true,
+      "isCrossover": false
+    },
+    {
+      "id": "E52_599",
+      "fromNode": "N59_2961",
+      "toNode": "BJS_SW6",
+      "length": 30,
+      "trackType": "MainLine",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": true,
+      "isCrossover": false
+    },
+    {
+      "id": "E53_7284",
+      "fromNode": "N59_2961",
+      "toNode": "BJS_T20_R",
+      "length": 22.36068,
+      "trackType": "Crossover",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": true
+    },
+    {
+      "id": "E54_5223",
+      "fromNode": "BJS_T23_R",
+      "toNode": "N60_4380",
+      "length": 20,
+      "trackType": "Crossover",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": true
+    },
+    {
+      "id": "E55_5173",
+      "fromNode": "N60_4380",
+      "toNode": "BJS_T24_R",
+      "length": 22.36068,
+      "trackType": "Crossover",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": true
+    },
+    {
+      "id": "E56_9371",
+      "fromNode": "N60_4380",
+      "toNode": "BJS_SW7",
+      "length": 31.622776,
+      "trackType": "Crossover",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": true
+    },
+    {
+      "id": "E59_5850",
+      "fromNode": "N62_4849",
+      "toNode": "BJS_SW6",
+      "length": 30,
+      "trackType": "MainLine",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": true,
+      "isCrossover": false
+    },
+    {
+      "id": "E61_1945",
+      "fromNode": "TJ_T17_L",
+      "toNode": "N63_1248",
+      "length": 30,
+      "trackType": "Crossover",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": true
+    },
+    {
+      "id": "E62_2859",
+      "fromNode": "N63_1248",
+      "toNode": "TJ_T18_L",
+      "length": 31.622776,
+      "trackType": "Crossover",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": true
+    },
+    {
+      "id": "E63_5691",
+      "fromNode": "N63_1248",
+      "toNode": "TJ_SW2",
+      "length": 22.36068,
+      "trackType": "Crossover",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": true
+    },
+    {
+      "id": "E65_5820",
+      "fromNode": "N64_5158",
+      "toNode": "TJ_SW1",
+      "length": 22.36068,
+      "trackType": "Crossover",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": true
+    },
+    {
+      "id": "E65_3275",
+      "fromNode": "TJ_T14_L",
+      "toNode": "N65_2462",
+      "length": 20,
+      "trackType": "Crossover",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": true
+    },
+    {
+      "id": "E66_3422",
+      "fromNode": "N65_2462",
+      "toNode": "N64_5158",
+      "length": 10,
+      "trackType": "Crossover",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": true
+    },
+    {
+      "id": "E67_5393",
+      "fromNode": "TJ_T13_L",
+      "toNode": "N65_2462",
+      "length": 22.36068,
+      "trackType": "Crossover",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": true
+    },
+    {
+      "id": "E68_1856",
+      "fromNode": "N66_379",
+      "toNode": "N64_5158",
+      "length": 36.05551,
+      "trackType": "Crossover",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": true
+    },
+    {
+      "id": "E68_8207",
+      "fromNode": "WQ_SW3",
+      "toNode": "N67_7419",
+      "length": 280,
+      "trackType": "MainLine",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": true,
+      "isCrossover": false
+    },
+    {
+      "id": "E69_9066",
+      "fromNode": "N67_7419",
+      "toNode": "TJ_SW1",
+      "length": 20,
+      "trackType": "MainLine",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": true,
+      "isCrossover": false
+    },
+    {
+      "id": "E69_5484",
+      "fromNode": "TJ_SW2",
+      "toNode": "N68_4118",
+      "length": 30,
+      "trackType": "MainLine",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": true,
+      "isCrossover": false
+    },
+    {
+      "id": "E71_4372",
+      "fromNode": "N68_4118",
+      "toNode": "N67_7419",
+      "length": 14.142136,
+      "trackType": "Crossover",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": true
+    },
+    {
+      "id": "E71_3052",
+      "fromNode": "N68_4118",
+      "toNode": "N69_2290",
+      "length": 10,
+      "trackType": "MainLine",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": true,
+      "isCrossover": false
+    },
+    {
+      "id": "E72_3196",
+      "fromNode": "N69_2290",
+      "toNode": "WQ_SW4",
+      "length": 260,
+      "trackType": "MainLine",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": true,
+      "isCrossover": false
+    },
+    {
+      "id": "E73_7198",
+      "fromNode": "N69_2290",
+      "toNode": "N70_6586",
+      "length": 14.142136,
+      "trackType": "Crossover",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": true
+    },
+    {
+      "id": "E71_7033",
+      "fromNode": "BJS_SW7",
+      "toNode": "N71_6228",
+      "length": 20,
+      "trackType": "MainLine",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": true,
+      "isCrossover": false
+    },
+    {
+      "id": "E73_3519",
+      "fromNode": "N71_6228",
+      "toNode": "N62_4849",
+      "length": 14.142136,
+      "trackType": "Crossover",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": true
+    },
+    {
+      "id": "E73_9194",
+      "fromNode": "YZ_SW1",
+      "toNode": "N72_8460",
+      "length": 310,
+      "trackType": "MainLine",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": true,
+      "isCrossover": false
+    },
+    {
+      "id": "E74_9345",
+      "fromNode": "N72_8460",
+      "toNode": "N62_4849",
+      "length": 10,
+      "trackType": "MainLine",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": true,
+      "isCrossover": false
+    },
+    {
+      "id": "E75_6966",
+      "fromNode": "N73_6066",
+      "toNode": "YZ_SW2",
+      "length": 300,
+      "trackType": "MainLine",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": true,
+      "isCrossover": false
+    },
+    {
+      "id": "E76_7144",
+      "fromNode": "N73_6066",
+      "toNode": "N72_8460",
+      "length": 14.142136,
+      "trackType": "Crossover",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": false,
+      "isCrossover": true
+    },
+    {
+      "id": "E75_9056",
+      "fromNode": "N71_6228",
+      "toNode": "N73_6066",
+      "length": 30,
+      "trackType": "MainLine",
+      "trackNumber": 0,
+      "speedLimit": 0,
+      "isMainLine": true,
+      "isCrossover": false
+    }
   ]
 }

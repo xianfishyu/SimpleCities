@@ -14,9 +14,22 @@ public enum RailwayNodeType
     /// <summary>连接点（两条轨道相连）</summary>
     Connection,
     /// <summary>道岔（多条轨道可切换连接）</summary>
-    Switch,
-    /// <summary>站台停靠点</summary>
-    Platform
+    Switch
+}
+
+/// <summary>
+/// 轨道类型
+/// </summary>
+public enum TrackType
+{
+    /// <summary>正线 - 不停车通过的线路</summary>
+    MainLine,
+    /// <summary>到发线 - 用于列车停靠的线路</summary>
+    ArrivalDeparture,
+    /// <summary>正线兼到发线 - 既可通过又可停靠</summary>
+    MainLineWithPlatform,
+    /// <summary>渡线/连接线 - 连接不同轨道的斜向轨道</summary>
+    Crossover
 }
 
 /// <summary>
@@ -35,10 +48,6 @@ public class RailwayNode
 
     [JsonPropertyName("type")]
     public RailwayNodeType Type { get; set; } = RailwayNodeType.Connection;
-
-    /// <summary>站台信息（仅当Type为Platform时使用）</summary>
-    [JsonPropertyName("platformInfo")]
-    public string PlatformInfo { get; set; } = "";
 
     /// <summary>道岔当前指向的边ID（仅当Type为Switch时使用）</summary>
     [JsonPropertyName("switchTarget")]
@@ -79,17 +88,32 @@ public class RailwayEdge
     [JsonPropertyName("length")]
     public float Length { get; set; }
 
-    /// <summary>是否为正线</summary>
-    [JsonPropertyName("isMainLine")]
-    public bool IsMainLine { get; set; } = false;
+    /// <summary>轨道类型</summary>
+    [JsonPropertyName("trackType")]
+    public TrackType TrackType { get; set; } = TrackType.ArrivalDeparture;
 
-    /// <summary>是否为渡线</summary>
-    [JsonPropertyName("isCrossover")]
-    public bool IsCrossover { get; set; } = false;
+    /// <summary>轨道编号（用于显示，如"18道"）</summary>
+    [JsonPropertyName("trackNumber")]
+    public int TrackNumber { get; set; } = 0;
 
     /// <summary>限速（km/h，0表示无限制）</summary>
     [JsonPropertyName("speedLimit")]
     public float SpeedLimit { get; set; } = 0f;
+
+    // 兼容旧属性（JSON反序列化用）
+    [JsonPropertyName("isMainLine")]
+    public bool IsMainLine
+    {
+        get => TrackType == TrackType.MainLine || TrackType == TrackType.MainLineWithPlatform;
+        set { if (value && TrackType == TrackType.ArrivalDeparture) TrackType = TrackType.MainLine; }
+    }
+
+    [JsonPropertyName("isCrossover")]
+    public bool IsCrossover
+    {
+        get => TrackType == TrackType.Crossover;
+        set { if (value) TrackType = TrackType.Crossover; }
+    }
 
     public RailwayEdge() { }
 
@@ -347,32 +371,5 @@ public class RailwayNetwork
             PropertyNameCaseInsensitive = true,
             Converters = { new JsonStringEnumConverter() }
         };
-    }
-
-    /// <summary>
-    /// 获取所有站台节点
-    /// </summary>
-    public List<RailwayNode> GetPlatformNodes()
-    {
-        var platforms = new List<RailwayNode>();
-        foreach (var node in Nodes)
-        {
-            if (node.Type == RailwayNodeType.Platform)
-                platforms.Add(node);
-        }
-        return platforms;
-    }
-
-    /// <summary>
-    /// 根据站台信息查找节点
-    /// </summary>
-    public RailwayNode FindPlatformByInfo(string platformInfo)
-    {
-        foreach (var node in Nodes)
-        {
-            if (node.Type == RailwayNodeType.Platform && node.PlatformInfo == platformInfo)
-                return node;
-        }
-        return null;
     }
 }

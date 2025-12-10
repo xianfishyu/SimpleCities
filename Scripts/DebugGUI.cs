@@ -105,7 +105,7 @@ public static class DebugInfo
         ImGui.Text($"Memory Usage: {OS.GetStaticMemoryUsage() / (1024 * 1024)} MB");
     }
 
-    [DebugGUI("TimeInfo", Opening = true)]
+    [DebugGUI("TimeInfo", Opening = false)]
     public static void GameTimeDebug()
     {
         ImGui.Text($"Date: {GameTime.GetFormattedDate()}");
@@ -149,7 +149,7 @@ public static class DebugInfo
 
 public static class DebugBackground
 {
-    [DebugGUI("Background", Opening = true)]
+    [DebugGUI("Background", Opening = false)]
     public static void BackgroundPanel()
     {
         var bg = Background.Instance;
