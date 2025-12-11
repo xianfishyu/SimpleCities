@@ -127,43 +127,41 @@ public static class DebugInfo
     [DebugGUI("TimeInfo", Opening = false)]
     public static void GameTimeDebug()
     {
-        ImGui.Text($"Date: {GameTime.GetFormattedDate()}");
-        ImGui.Text($"Time: {GameTime.GetFormattedTime()}");
+        ImGui.Text($"Date: {GameTimeManager.CurrentDateString}");
+        ImGui.Text($"Time: {GameTimeManager.CurrentTimeString}");
 
         ImGui.Separator();
 
-        float timeScale = GameTime.GetTimeScale();
+        float timeScale = GameTimeManager.TimeScale;
         if (ImGui.SliderFloat("Time Scale", ref timeScale, 0.1f, 10000f, "%.2f", ImGuiSliderFlags.Logarithmic))
         {
-            GameTime.Instance.SetTimeScale(timeScale);
+            GameTimeManager.TimeScale = timeScale;
         }
 
 
-        if (ImGui.Button(GameTime.IsPaused ? "Resume" : "Pause"))
-            GameTime.TogglePause();
+        if (ImGui.Button(GameTimeManager.IsPaused ? "Resume" : "Pause"))
+            GameTimeManager.IsPaused = !GameTimeManager.IsPaused;
 
         ImGui.SameLine();
         if (ImGui.Button("x1"))
-            GameTime.Instance.SetTimeScale(1f);
-
+            GameTimeManager.TimeScale = 1f;
         ImGui.SameLine();
         if (ImGui.Button("x10"))
-            GameTime.Instance.SetTimeScale(10f);
+            GameTimeManager.TimeScale = 10f;
 
         ImGui.SameLine();
         if (ImGui.Button("x100"))
-            GameTime.Instance.SetTimeScale(100f);
-
+            GameTimeManager.TimeScale = 100f;
         ImGui.SameLine();
         if (ImGui.Button("x1000"))
-            GameTime.Instance.SetTimeScale(1000f);
+            GameTimeManager.TimeScale = 1000f;
 
         ImGui.Separator();
         if (ImGui.Button("Reset Time"))
-            GameTime.Instance.ResetTime();
+            GameTimeManager.ResetGameTime();
         ImGui.SameLine();
         if (ImGui.Button("Time Set to Now"))
-            GameTime.Instance.SetStartTime(DateTime.Now);
+            GameTimeManager.SetGameTimeToNow();
     }
 
     private static int setYear = 2025;
@@ -243,7 +241,7 @@ public static class DebugInfo
                 try
                 {
                     var newTime = new DateTime(setYear, setMonth, setDay, setHour, setMinute, setSecond);
-                    GameTime.Instance.SetStartTime(newTime);
+                    GameTimeManager.SetGameTime(newTime);
                 }
                 catch (Exception ex)
                 {

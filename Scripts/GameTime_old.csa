@@ -5,9 +5,9 @@ using System;
 /// 游戏内时间管理系统
 /// 初始化时与现实时间同步，支持加速、减速、暂停
 /// </summary>
-public partial class GameTime : Node
+public partial class GameTime_old : Node
 {
-    public static GameTime Instance { get; private set; }
+    public static GameTime_old Instance { get; private set; }
 
     /// <summary>
     /// 时间流速倍数（1.0 = 正常速度，2.0 = 2倍速，0.5 = 0.5倍速）
