@@ -48,7 +48,33 @@ void fragment() {
         vec2 dot_pos = mod(world_pos + dot_grid_step * 0.5, dot_grid_step);
         float dist_to_dot = length(dot_pos - dot_grid_step * 0.5);
 
+        // 计算与次/主网格线的距离，以便在网格线上不渲染点
         float dot_alpha = clamp(1.0 - smoothstep(dot_radius - aa, dot_radius + aa, dist_to_dot), 0.0, 1.0);
+
+        // 次网格距离
+        if (minor_grid_size > 0.0 && show_minor_grid) {
+            vec2 minor_pos = mod(world_pos, minor_grid_size);
+            float dist_to_minor_x = min(minor_pos.x, minor_grid_size - minor_pos.x);
+            float dist_to_minor_y = min(minor_pos.y, minor_grid_size - minor_pos.y);
+            float dist_minor_line = min(dist_to_minor_x, dist_to_minor_y);
+            float halfw_minor = minor_line_width * 0.5;
+            if (dist_minor_line <= halfw_minor + aa) {
+                dot_alpha = 0.0;
+            }
+        }
+
+        // 主网格距离
+        if (major_grid_size > 0.0 && show_major_grid) {
+            vec2 major_pos = mod(world_pos, major_grid_size);
+            float dist_to_major_x = min(major_pos.x, major_grid_size - major_pos.x);
+            float dist_to_major_y = min(major_pos.y, major_grid_size - major_pos.y);
+            float dist_major_line = min(dist_to_major_x, dist_to_major_y);
+            float halfw_major = major_line_width * 0.5;
+            if (dist_major_line <= halfw_major + aa) {
+                dot_alpha = 0.0;
+            }
+        }
+
         if (dot_alpha > 0.0) {
             final_color = mix(final_color, vec4(dot_color, 1.0), 0.8 * dot_alpha);
         }
