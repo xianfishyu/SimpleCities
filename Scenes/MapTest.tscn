@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3 uid="uid://ddksnh3bvem1q"]
+[gd_scene load_steps=6 format=3 uid="uid://ddksnh3bvem1q"]
 
 [ext_resource type="PackedScene" uid="uid://djieu0n0l8buy" path="res://Prefabs/background.tscn" id="1_jswqu"]
 [ext_resource type="Script" uid="uid://3dc2kcbj18lu" path="res://Scripts/MainCamera.cs" id="2_jswqu"]
 [ext_resource type="Texture2D" uid="uid://b85g1x6ivp1lp" path="res://Textures/31245427_p0.jpg" id="4_osyy1"]
 [ext_resource type="Script" uid="uid://bqxp48qyw6mnb" path="res://Scripts/GameTimeManager.cs" id="4_vyv7u"]
+[ext_resource type="Script" uid="uid://b7ffqx6up7mcm" path="res://Scripts/MapStructure/MapStructureManager.cs" id="5_vyv7u"]
 
 [node name="MapTest" type="Node2D"]
 
@@ -13,8 +14,12 @@
 script = ExtResource("2_jswqu")
 
 [node name="31245427P0" type="Sprite2D" parent="."]
+visible = false
 scale = Vector2(0.5, 0.5)
 texture = ExtResource("4_osyy1")
 
 [node name="GameTimeManager" type="Node" parent="."]
 script = ExtResource("4_vyv7u")
+
+[node name="Node" type="Node" parent="."]
+script = ExtResource("5_vyv7u")

@@ -82,11 +82,10 @@ public static class DebugGUIInitializer
     /// </summary>
     public static void InitializeDebugRenders()
     {
-        var assembly = Assembly.GetExecutingAssembly();
-        var allAttributedMethods = assembly.GetTypes()
+        Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
+        List<MethodInfo> allAttributedMethods = [.. assemblies.SelectMany(assembly => assembly.GetTypes())
             .SelectMany(t => t.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance))
-            .Where(m => m.GetCustomAttribute<DebugGUIAttribute>() != null)
-            .ToList();
+            .Where(m => m.GetCustomAttribute<DebugGUIAttribute>() != null)];
 
         // 验证所有使用 DebugGUIAttribute 的方法都是 public static
         var invalidMethods = allAttributedMethods
@@ -115,7 +114,7 @@ public static class DebugGUIInitializer
     }
 }
 
-public static class DebugInfo
+public static partial class DebugInfo
 {
     [DebugGUI("GeneralInfo")]
     public static void GeneralInfo()
