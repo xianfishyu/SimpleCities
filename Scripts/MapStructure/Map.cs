@@ -10,8 +10,8 @@ using static Godot.GD;
 public static class MapData
 {
 
-    private static List<MapStructure> MapStructure = [];
-    private static List<string> MapStructureTypes = [];
+    public static List<IMapStructure> MapStructure{get;private set;} = [];
+    public static Dictionary<string, Type> MapStructureTypes {get;private set;} = [];
 
 
     static MapData()
@@ -25,28 +25,24 @@ public static class MapData
         IEnumerable<Type> types = AppDomain.CurrentDomain.GetAssemblies()
                 .SelectMany(a => a.GetTypes())
                 .Where(t =>
-                    typeof(MapStructure).IsAssignableFrom(t) &&
+                    typeof(IMapStructure).IsAssignableFrom(t) &&
                     !t.IsAbstract &&
                     !t.IsInterface &&
-                    !t.IsAssignableFrom(typeof(MapStructure)));
-        foreach (var type in types)
+                    !t.IsAssignableFrom(typeof(IMapStructure)));
+        foreach (Type type in types)
         {
-            MapStructureTypes.Add(type.Name);
+            MapStructureTypes.Add(type.Name, type);
         }
     }
 
-    public static List<MapStructure> GetMapStructure => MapStructure;
-    public static List<string> GetMapStructureTypes => MapStructureTypes;
-
     private static void TEST()
     {
-        List<Vector2> boundary = [new Vector2(0, 0), new Vector2(10, 0), new Vector2(10, 10), new Vector2(0, 10)];
-        MapStructure.Add(new District("District 1", boundary));
+        // List<Vector2> boundary = [new Vector2(0, 0), new Vector2(100, 0), new Vector2(100, 100), new Vector2(0, 100)];
+        // MapStructure.Add(new District("District 1", boundary));
     }
 }
 
-public class MapStructure
+public interface IMapStructure
 {
-    public string Name { get; set; }
-    public virtual void StructureGenerate(Node parent){}
+    public static Node StructureFolder;
 }

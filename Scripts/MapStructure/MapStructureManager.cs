@@ -1,9 +1,10 @@
 using Godot;
 using System;
 using System.Collections;
-using ImGuiNET;
 using System.Collections.Generic;
+using ImGuiNET;
 using static Godot.GD;
+using System.Linq;
 
 
 
@@ -11,10 +12,11 @@ using static Godot.GD;
 public partial class MapStructureManager : Node
 {
     private Dictionary<string, Node> StructureFolder = [];
-    public override void _Ready()
+
+    public override void _EnterTree()
     {
-        CreateStructureFolders(MapData.GetMapStructureTypes);
-        CreateStructures(MapData.GetMapStructure);
+        CreateStructureFolders([.. MapData.MapStructureTypes.Keys]);
+        CreateStructures(MapData.MapStructure);
     }
 
     private void CreateStructureFolders(List<string> typeNames)
@@ -31,17 +33,22 @@ public partial class MapStructureManager : Node
         };
         StructureFolder.TryAdd(typeName, typeFolder);
         AddChild(typeFolder);
+        MapData.MapStructureTypes.TryGetValue(typeName, out Type type);
+        if(type != null)
+        {
+            type
+        }
     }
 
-    private void CreateStructures(List<MapStructure> structures)
+    private void CreateStructures(List<IMapStructure> structures)
     {
-        foreach (var structure in structures)
-            CreateStructure(structure);
+        // foreach (var structure in structures)
+            // structure.StructureGenerate(StructureFolder[structure.GetType().Name]);
     }
 
-    private void CreateStructure(MapStructure structure)
+    private void CreateStructure(IMapStructure structure)
     {
-        structure.StructureGenerate(StructureFolder[structure.GetType().Name]);
+        // structure.StructureGenerate(StructureFolder[structure.GetType().Name]);
     }
 }
 
@@ -50,8 +57,8 @@ public static partial class DebugInfo
     [DebugGUI("MapStructureInfo")]
     public static void MapStructureInfo()
     {
-        ImGui.Text($"Registered Map Structure Types: {MapData.GetMapStructureTypes.Count}");
-        foreach (var typeName in MapData.GetMapStructureTypes)
+        ImGui.Text($"Registered Map Structure Types: {MapData.MapStructureTypes.Count}");
+        foreach (var typeName in MapData.MapStructureTypes.Keys)
         {
             ImGui.BulletText(typeName);
         }
