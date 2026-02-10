@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections;
+using ImGuiNET;
 using System.Collections.Generic;
 using System.Linq;
 using static Godot.GD;
@@ -46,3 +47,17 @@ public interface IMapStructure
 {
     public static Node StructureFolder;
 }
+
+public static partial class DebugInfo
+{
+    [DebugGUI("MapStructureInfo")]
+    public static void MapStructureInfo()
+    {
+        ImGui.Text($"Registered Map Structure Types: {MapData.MapStructureTypes.Count}");
+        foreach (var typeName in MapData.MapStructureTypes.Keys)
+        {
+            ImGui.BulletText(typeName);
+        }
+    }
+}
+

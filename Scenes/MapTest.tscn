@@ -4,11 +4,12 @@
 [ext_resource type="Script" uid="uid://3dc2kcbj18lu" path="res://Scripts/MainCamera.cs" id="2_jswqu"]
 [ext_resource type="Texture2D" uid="uid://b85g1x6ivp1lp" path="res://Textures/31245427_p0.jpg" id="4_osyy1"]
 [ext_resource type="Script" uid="uid://bqxp48qyw6mnb" path="res://Scripts/GameTimeManager.cs" id="4_vyv7u"]
-[ext_resource type="Script" uid="uid://b7ffqx6up7mcm" path="res://Scripts/MapStructure/MapStructureManager.cs" id="5_vyv7u"]
+[ext_resource type="Script" uid="uid://cw7tbgxvgsu70" path="res://Scripts/Client/Mapstructure/DistrictInstance.cs" id="5_vyv7u"]
 
 [node name="MapTest" type="Node2D"]
 
 [node name="Background" parent="." instance=ExtResource("1_jswqu")]
+BackgroundColor = Color(0.78431374, 0.78431374, 0.78431374, 1)
 
 [node name="Camera2D" type="Camera2D" parent="."]
 script = ExtResource("2_jswqu")
@@ -21,5 +22,11 @@ texture = ExtResource("4_osyy1")
 [node name="GameTimeManager" type="Node" parent="."]
 script = ExtResource("4_vyv7u")
 
-[node name="Node" type="Node" parent="."]
+[node name="Line2D" type="Line2D" parent="."]
+points = PackedVector2Array(500, -300, 500, 100, -300, 100, -300, -300)
+closed = true
+width = 3.0
+joint_mode = 2
+
+[node name="District" type="Node" parent="."]
 script = ExtResource("5_vyv7u")
