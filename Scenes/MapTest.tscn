@@ -22,11 +22,5 @@ texture = ExtResource("4_osyy1")
 [node name="GameTimeManager" type="Node" parent="."]
 script = ExtResource("4_vyv7u")
 
-[node name="Line2D" type="Line2D" parent="."]
-points = PackedVector2Array(500, -300, 500, 100, -300, 100, -300, -300)
-closed = true
-width = 3.0
-joint_mode = 2
-
 [node name="District" type="Node" parent="."]
 script = ExtResource("5_vyv7u")

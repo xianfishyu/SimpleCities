@@ -132,7 +132,8 @@ public static partial class DebugInfo
         ImGui.Separator();
 
         float timeScale = GameTimeManager.TimeScale;
-        if (ImGui.SliderFloat("Time Scale", ref timeScale, 0.1f, 10000f, "%.2f", ImGuiSliderFlags.Logarithmic))
+        ImGui.SetNextItemWidth(150);
+        if (ImGui.DragFloat("Time Scale", ref timeScale, 1f, 10f, 2f))
         {
             GameTimeManager.TimeScale = timeScale;
         }
