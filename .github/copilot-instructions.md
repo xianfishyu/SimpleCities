@@ -2,80 +2,74 @@
 
 ## 项目概述
 
-SimpleCities 是一个 Godot 4.5 C# 项目，用于模拟城市铁路系统。从 OpenStreetMap 导出的 JSON 文件加载铁路网络数据，在 2D 画布上显示轨道，并模拟列车沿路线运动。项目集成了 ImGui 进行调试可视化。
-
-## 架构与数据流
-
-### 核心组件
-
-1. **铁路数据管道**：`RailwayParser`（Track/）→ 从 `Railwaydata/` 文件夹反序列化 JSON
-
-   - 解析 GeoJSON 格式的经纬度坐标，转换为本地 2D 空间（单位：米）
-   - 数据存储在 `Dictionary<int, RailwayData>` 中，以元素 ID 为键
-   - 基准点计算：第一个坐标作为原点，其他坐标相对偏移（约 86414.25 经度单位/米，111194.93 纬度单位/米）
-2. **轨道显示**：`TrackManager` 将 `RailwayData` 渲染为 `Line2D` 节点
-
-   - 通过 `highLight` 导出数组过滤轨道；为空则显示所有
-   - 线宽固定为 1.435 米（铁轨标准距离），Z 轴索引 = -1
-   - 每条轨道命名为 "ID_{id}/Name_{name}" 便于调试
-3. **列车仿真**：`TrainBehavior` 沿路径移动列车单元
-
-   - 使用 `PathFollow2D` 节点，通过 `Progress` 属性（沿路径的距离）控制位置
-   - 速度转换：km/h ÷ 3.6 = m/s，每帧应用增量
-   - 列车由多个车厢组成，通过配对的 `PathFollow2D` 节点定位
-   - 路径结束时循环检测阻止进一步移动
-4. **相机控制**：`Camera2DController` 实现平移/缩放
-
-   - 键盘：WASD（映射到 project.godot 中的 `KeyBoard_Move*`）
-   - 鼠标：中键拖动
-   - 缩放：鼠标滚轮，范围 0.125x 到 4x
-5. **调试 UI**：`DebugGUI` 使用属性驱动的渲染
-
-   - 通过反射自动发现标记了 `[DebugGUI("分类名")]` 的静态方法
-   - 在可收起的 ImGui 分类中渲染
-   - 示例：`DebugInfo.RenderInfo()` 显示 FPS，`MemoryInfo()` 显示内存使用
-
-### 数据类型
-
-- **RailwayData**：封装轨道元数据（类型、名称、ID、几何形状为 Vector2 数组、节点 ID、客运线路）
-- **GeoJSON 结构**：根 → 元素（ways） → 几何形状（经纬度点）+ 标签（name_zh、name 等）
-
-## 开发模式
-
-### 导出属性
-
-- `[Export]` 标记 Godot 检查器属性；使用 `PropertyHint.None` 加 `suffix:` 显示单位
-- 示例：`[Export(PropertyHint.Range, "0.125,4")]` 用于缩放限制
-
-### 反射初始化
-
-- 使用反射 + 自定义属性实现运行时注册（见 `DebugGUIInitializer`）
-- 避免硬编码依赖；支持插件式扩展
-
-### C# 中的文件路径
-
-- 使用 `ProjectSettings.GlobalizePath(path)` 将 `res://` 相对路径转为绝对路径
-- JSON 数据位置：`Railwaydata/` 文件夹，包含城市特定的文件（BeijingRoundRail.json、Shanghai.json 等）
+Godot 4.6 C# 项目，集成了 ImGui 调试 UI。**当前处于脚手架阶段，仅实现了相机控制和 ImGui 集成。**
 
 ## 构建与运行
 
-- **框架**：.NET 10.0、C# 14.0（允许不安全代码块）
-- **依赖**：ImGui.NET 1.91.6.1、Godot.NET.Sdk 4.5.1
-- **主场景**：Menu（project.godot 中的 uid），测试场景在 Scenes/（TimetableTest.tscn、TrackTest.tscn）
-- **ImGui 自动加载**：ImGuiRoot.tscn 作为单例加载
+- **引擎**：Godot 4.6
+- **框架**：.NET 10.0、C# 14.0、`AllowUnsafeBlocks: true`
+- **依赖**：ImGui.NET 1.91.6.1、Godot.NET.Sdk 4.6.1
+- **主场景**：`Scenes/MapTest.tscn`（uid: `uid://ddksnh3bvem1q`）
+- **ImGui 自动加载**：`ImGuiRoot.tscn`（uid: `uid://dugmpnsxaagba`）
+- **⚠️ 已知问题**：`project.godot` 中 `DebugGUI` 自动加载指向不存在的 `*res://Scripts/DebugGUI.cs`，在创建该文件前引擎启动会报错
 
-## 关键文件
+## 项目结构
 
-- `Scripts/Track/RailwayParser.cs` - JSON 解析与坐标转换逻辑
-- `Scripts/Track/TrackManager.cs` - 轨道渲染与过滤
-- `Scripts/Track/TrainBehavior.cs` - 列车物理与运动
-- `Scripts/DebugGUI.cs` - 调试 UI 框架
-- `project.godot` - 引擎配置、输入映射、自动加载
-- `SimpleCities.csproj` - 构建目标、包引用
+```
+Scripts/              ← 所有 C# 源码
+Scenes/               ← .tscn 场景文件
+Textures/             ← 图片资源
+addons/imgui-godot/   ← ImGui 插件（v6.3.2），不要手动修改
+```
+
+## 现有代码
+
+### `Scripts/MainCamera.cs` — 2D 相机控制
+
+唯一的 C# 源码文件。`Camera2D` 子类，提供：
+- **键盘平移**：WASD（`KeyBoard_MoveUp/Left/Down/Right` 输入映射）
+- **鼠标拖动**：中键拖拽平移
+- **缩放**：鼠标滚轮，范围 0.125× ~ 4×
+- **单例**：`public static MainCamera Instance { get; }` 供全局访问
+- **导出属性**：`defaultScale`、`scaleFactor`、`minScale`、`maxScale`、`keyMoveFactor`、`moveSpeed`
+- **平滑过渡**：所有变换使用 `Mathf.Lerp` 逐帧插值
+
+### `Scenes/MapTest.tscn` — 当前主场景
+
+- `Node2D` 根节点
+- 子节点：`Camera2D`（挂载 `MainCamera.cs`）、`Sprite2D`（背景图 `Textures/31245427_p0.jpg`，缩放 0.5）
+
+## ImGui 集成
+
+ImGui 通过 `addons/imgui-godot/` 插件提供，自动加载为单例。核心 API：
+
+- `ImGuiGD.ImGuiBegin(string title)` / `ImGuiGD.ImGuiEnd()` — 窗口包裹
+- `ImGuiGD.ImGuiText(string text)` — 文本显示
+- `ImGuiGD.ImGuiButton(string label)` — 按钮（返回 bool）
+- `ImGuiGD.ImGuiSliderFloat(...)` — 滑块控件
+- 详细 API 见 `addons/imgui-godot/ImGuiGodot/ImGuiGD.cs`
+
+使用模式：在 `_Process` 中调用 ImGui API，每帧渲染。示例：
+```csharp
+public override void _Process(double delta)
+{
+    ImGuiGD.ImGuiBegin("调试面板");
+    ImGuiGD.ImGuiText($"FPS: {Engine.GetFramesPerSecond()}");
+    ImGuiGD.ImGuiEnd();
+}
+```
+
+## Godot C# 编码约定
+
+- **类声明**：`public partial class MyClass : Node2D`（必须 `partial`）
+- **导出属性**：`[Export] private int _myField;`（下划线前缀私有字段）
+- **生命周期**：`_Ready()` → `_Process(double delta)` → `_Input(InputEvent @event)`
+- **文件路径**：使用 `ProjectSettings.GlobalizePath("res://...")` 将资源路径转为绝对路径
+- **场景实例化**：`GD.Load<PackedScene>("res://Scenes/MyScene.tscn").Instantiate<MyNode>()`
+- **输入**：`Input.GetVector("KeyBoard_MoveLeft", "KeyBoard_MoveRight", "KeyBoard_MoveUp", "KeyBoard_MoveDown")`
 
 ## 常见任务
 
-- **添加新的铁路网络**：将城市 JSON 放在 `Railwaydata/`，更新 TrackTest.tscn 的 `TrackInfoPath` 属性
-- **自定义列车模型**：修改 `train_model` 属性，更新 `Prefabs/Trains/` 中的预制体
-- **添加调试功能**：创建静态方法，标记为 `[DebugGUI("功能名")]`，反射发现在 DebugGUI._Ready() 运行
-- **调整速度**：编辑 TrainBehavior 中的 `operation_speed`（km/h），会通过属性自动转换为 m/s
+- **添加新 C# 脚本**：创建 `public partial class`，如需挂载到节点则继承对应 Godot 类型
+- **添加新场景**：在 Godot 编辑器中创建 `.tscn`，或通过 `[GlobalClass]` 注册 C# 类后在编辑器中可用
+- **添加 ImGui 调试面板**：在 `_Process` 中调用 ImGui API 即可

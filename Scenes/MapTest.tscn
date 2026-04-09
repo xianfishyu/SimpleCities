@@ -1,26 +1,13 @@
-[gd_scene load_steps=6 format=3 uid="uid://ddksnh3bvem1q"]
+[gd_scene format=3 uid="uid://baxamkfym8atd"]
 
-[ext_resource type="PackedScene" uid="uid://djieu0n0l8buy" path="res://Prefabs/background.tscn" id="1_jswqu"]
 [ext_resource type="Script" uid="uid://3dc2kcbj18lu" path="res://Scripts/MainCamera.cs" id="2_jswqu"]
 [ext_resource type="Texture2D" uid="uid://b85g1x6ivp1lp" path="res://Textures/31245427_p0.jpg" id="4_osyy1"]
-[ext_resource type="Script" uid="uid://bqxp48qyw6mnb" path="res://Scripts/GameTimeManager.cs" id="4_vyv7u"]
-[ext_resource type="Script" uid="uid://cw7tbgxvgsu70" path="res://Scripts/Client/Mapstructure/DistrictInstance.cs" id="5_vyv7u"]
 
-[node name="MapTest" type="Node2D"]
+[node name="MapTest" type="Node2D" unique_id=1358314178]
 
-[node name="Background" parent="." instance=ExtResource("1_jswqu")]
-BackgroundColor = Color(0.78431374, 0.78431374, 0.78431374, 1)
-
-[node name="Camera2D" type="Camera2D" parent="."]
+[node name="Camera2D" type="Camera2D" parent="." unique_id=271826465]
 script = ExtResource("2_jswqu")
 
-[node name="31245427P0" type="Sprite2D" parent="."]
-visible = false
+[node name="31245427P0" type="Sprite2D" parent="." unique_id=1730194213]
 scale = Vector2(0.5, 0.5)
 texture = ExtResource("4_osyy1")
-
-[node name="GameTimeManager" type="Node" parent="."]
-script = ExtResource("4_vyv7u")
-
-[node name="District" type="Node" parent="."]
-script = ExtResource("5_vyv7u")
