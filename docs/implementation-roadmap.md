@@ -39,52 +39,54 @@ Phase 9: 打磨与优化
 
 ---
 
-## Phase 1：网格与道路 🔜（下一步）
+## Phase 1：道路网络 🔜（下一步）
 
-### 1.1 网格管理器 `GridManager`
-
-| 任务 | 文件 | 说明 |
-|------|------|------|
-| 网格坐标系统 | `Scripts/Grid/GridCoord.cs` | `(c, r)` ↔ 世界坐标转换 |
-| 网格数据层 | `Scripts/Grid/GridMap.cs` | 稀疏存储，`CellType` 枚举，单元格查询 |
-| 网格管理器 | `Scripts/Grid/GridManager.cs` | Godot `Node2D`，初始化网格，对外暴露 API |
-| 8 方向工具 | `Scripts/Grid/Direction.cs` | 方向枚举 + 位移表 + 旋转工具 |
-
-### 1.2 网格渲染 `GridRenderer`
+### 1.1 道路数据结构
 
 | 任务 | 文件 | 说明 |
 |------|------|------|
-| 网格线绘制 | `Scripts/Grid/GridRenderer.cs` | `_Draw()` 绘制调试网格线（ImGui 开关控制） |
-| 单元格高亮 | 同上 | 鼠标悬停单元格高亮 |
-| 视口裁剪 | 同上 | 仅渲染可见区域 |
+| 8 方向枚举与工具 | `Scripts/Road/Direction.cs` | `enum Direction` + `DirectionUtil` 位移/长度/方向判定 |
+| 路口 | `Scripts/Road/Junction.cs` | `class Junction`：Id, Position, Type, 邻接表 |
+| 路段 | `Scripts/Road/Road.cs` | `class Road`：两端 JunctionId, Direction, Length |
+| 路网容器 | `Scripts/Road/RoadNetwork.cs` | `class RoadNetwork`：Junction/Road 管理 + 事件 + 增删查 |
 
-### 1.3 道路系统 `RoadSystem`
-
-| 任务 | 文件 | 说明 |
-|------|------|------|
-| 道路图数据结构 | `Scripts/Road/RoadGraph.cs` | 节点 + 边 + 邻接表 |
-| 道路铺设工具 | `Scripts/Road/RoadBuilder.cs` | 鼠标拖拽铺设，8 方向，连续放置 |
-| 道路拆除工具 | 同上 | 右键拆除 |
-| 道路渲染 | `Scripts/Road/RoadRenderer.cs` | 矢量绘制道路段 + 交叉口自动合成 |
-
-### 1.4 工具系统 `ToolSystem`
+### 1.2 道路渲染
 
 | 任务 | 文件 | 说明 |
 |------|------|------|
-| 工具枚举 | `Scripts/Tools/ToolType.cs` | 选择 / 道路铺设 / 道路拆除 / 分区 / 建筑 / 拆除 |
-| 工具管理器 | `Scripts/Tools/ToolManager.cs` | 工具切换，光标样式 |
-| 输入转发 | 同上 | 将鼠标/键盘事件转发到当前活动工具 |
+| 道路矢量渲染 | `Scripts/Road/RoadRenderer.cs` | `_Draw()` 绘制路段矩形 + 交叉口圆，订阅事件自动重绘 |
 
-### 1.5 ImGui 调试面板
+### 1.3 道路铺设/拆除工具
+
+| 任务 | 文件 | 说明 |
+|------|------|------|
+| 铺路交互 | `Scripts/Road/RoadBuilder.cs` | 鼠标拖拽铺设，8 方向连续放置，网格对齐 snap |
+| 拆路交互 | 同上 | 切换模式后点击拆除路段 |
+
+### 1.4 工具系统
+
+| 任务 | 文件 | 说明 |
+|------|------|------|
+| 工具枚举 | `Scripts/Tools/ToolType.cs` | Select / Road / RoadRemove（Phase 1 仅此三个） |
+| 工具管理器 | `Scripts/Tools/ToolManager.cs` | 工具切换（R/E/Esc），输入转发到当前工具 |
+
+### 1.5 Godot 原生调试面板
 
 | 任务 | 说明 |
 |------|------|
-| 网格显示开关 | 切换网格线可见性 |
-| 单元格信息 | 悬停单元格坐标、类型 |
-| 道路图信息 | 节点数、边数、连通分量数 |
+| 调试面板 | `GameHUD : CanvasLayer`，代码构建 Panel + Label + Button |
+| 道路网络统计 | 路口数、路段数 |
+| 工具状态 | 当前激活工具、鼠标格点坐标 |
+| 工具切换按钮 | "选择 (Esc)" / "铺路 (R)" / "拆路 (E)"，点击切换工具 |
 
 ### Phase 1 里程碑
 > 🎯 可以用鼠标在 8 方向上自由画路，道路在视觉上正确渲染，交叉口自动合成。
+
+### Phase 1 关键设计决策
+- **网络模型**：Junction + Road + RoadNetwork，不存逐格 GridMap
+- **网格仅用于对齐**：`SnapToGrid()` 纯函数对齐鼠标坐标
+- **事件驱动渲染**：RoadAdded/RoadRemoved → QueueRedraw
+- **文件清单（6 个）**：Direction.cs, Junction.cs, Road.cs, RoadNetwork.cs, RoadRenderer.cs, RoadBuilder.cs + ToolType.cs, ToolManager.cs, GameHUD.cs
 
 ---
 
