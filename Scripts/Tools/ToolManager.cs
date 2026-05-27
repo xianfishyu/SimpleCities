@@ -1,0 +1,63 @@
+using Godot;
+
+public partial class ToolManager : Node2D
+{
+    public static ToolManager Instance { get; private set; } = null!;
+
+    private ToolType _currentTool = ToolType.Select;
+
+    /// <summary>切换工具时，若当前是 Road 工具且正在拖拽，则取消拖拽，避免 _isDragging 卡死。</summary>
+    public ToolType CurrentTool
+    {
+        get => _currentTool;
+        set
+        {
+            if (_currentTool == value) return;
+            // Bug #3: 切出 Road 工具前必须取消进行中的拖拽
+            if (_currentTool == ToolType.Road)
+                _roadBuilder?.CancelPlaceDrag();
+            _currentTool = value;
+        }
+    }
+
+    private RoadBuilder? _roadBuilder;
+
+    public override void _Ready()
+    {
+        Instance = this;
+        _roadBuilder = GetNode<RoadBuilder>("../RoadSystem/RoadBuilder");
+    }
+
+    public override void _Input(InputEvent @event)
+    {
+        // Keyboard tool switching
+        if (@event is InputEventKey keyEvent && keyEvent.Pressed)
+        {
+            switch (keyEvent.Keycode)
+            {
+                case Key.R:
+                    CurrentTool = ToolType.Road;
+                    return;
+                case Key.E:
+                    CurrentTool = ToolType.RoadRemove;
+                    return;
+                case Key.Escape:
+                    CurrentTool = ToolType.Select;
+                    return;
+            }
+        }
+
+        // Forward input to RoadBuilder
+        if (_roadBuilder == null) return;
+
+        switch (_currentTool)
+        {
+            case ToolType.Road:
+                _roadBuilder.HandlePlaceInput(@event);
+                break;
+            case ToolType.RoadRemove:
+                _roadBuilder.HandleRemoveInput(@event);
+                break;
+        }
+    }
+}

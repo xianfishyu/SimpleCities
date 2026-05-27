@@ -1,0 +1,6 @@
+public enum ToolType
+{
+    Select,
+    Road,
+    RoadRemove
+}
