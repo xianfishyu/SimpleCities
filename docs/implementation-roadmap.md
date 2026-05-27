@@ -41,52 +41,50 @@ Phase 9: 打磨与优化
 
 ## Phase 1：道路网络 🔜（下一步）
 
-### 1.1 道路数据结构
+### 1.1 道路数据结构（方案 B）
 
 | 任务 | 文件 | 说明 |
 |------|------|------|
-| 8 方向枚举与工具 | `Scripts/Road/Direction.cs` | `enum Direction` + `DirectionUtil` 位移/长度/方向判定 |
-| 路口 | `Scripts/Road/Junction.cs` | `class Junction`：Id, Position, Type, 邻接表 |
-| 路段 | `Scripts/Road/Road.cs` | `class Road`：两端 JunctionId, Direction, Length |
-| 路网容器 | `Scripts/Road/RoadNetwork.cs` | `class RoadNetwork`：Junction/Road 管理 + 事件 + 增删查 |
+| 8 方向枚举与工具 | `Scripts/Road/Direction.cs` | `enum Direction` + `DirectionUtil` |
+| 路口（仅交叉口/端点） | `Scripts/Road/Junction.cs` | `class Junction`：Id, Position, Type, 邻接 JunctionId |
+| 路段（含 waypoints） | `Scripts/Road/Road.cs` | `class Road`：两端 JunctionId, `Vector2[] Waypoints`, TotalLength |
+| 路网容器 | `Scripts/Road/RoadNetwork.cs` | `AddRoad(from, to, waypoints[])`, `RemoveRoad(roadId)` |
 
 ### 1.2 道路渲染
 
 | 任务 | 文件 | 说明 |
 |------|------|------|
-| 道路矢量渲染 | `Scripts/Road/RoadRenderer.cs` | `_Draw()` 绘制路段矩形 + 交叉口圆，订阅事件自动重绘 |
+| 道路矢量渲染 | `Scripts/Road/RoadRenderer.cs` | 遍历 `Road.GetSegments()` → `DrawRoadSegment()` + 交叉口圆 |
 
 ### 1.3 道路铺设/拆除工具
 
 | 任务 | 文件 | 说明 |
 |------|------|------|
-| 铺路交互 | `Scripts/Road/RoadBuilder.cs` | 鼠标拖拽铺设，8 方向连续放置，网格对齐 snap |
-| 拆路交互 | 同上 | 切换模式后点击拆除路段 |
+| 铺路交互 | `Scripts/Road/RoadBuilder.cs` | 拖拽收集 waypoints → 释放时调用 `AddRoad(from, to, waypoints[])` |
+| 拆路交互 | 同上 | 点击 Road → `RemoveRoad(roadId)` |
 
 ### 1.4 工具系统
 
 | 任务 | 文件 | 说明 |
 |------|------|------|
-| 工具枚举 | `Scripts/Tools/ToolType.cs` | Select / Road / RoadRemove（Phase 1 仅此三个） |
-| 工具管理器 | `Scripts/Tools/ToolManager.cs` | 工具切换（R/E/Esc），输入转发到当前工具 |
+| 工具枚举 | `Scripts/Tools/ToolType.cs` | Select / Road / RoadRemove |
+| 工具管理器 | `Scripts/Tools/ToolManager.cs` | 键盘切换 + 输入转发 |
 
 ### 1.5 Godot 原生调试面板
 
 | 任务 | 说明 |
 |------|------|
-| 调试面板 | `GameHUD : CanvasLayer`，代码构建 Panel + Label + Button |
-| 道路网络统计 | 路口数、路段数 |
-| 工具状态 | 当前激活工具、鼠标格点坐标 |
-| 工具切换按钮 | "选择 (Esc)" / "铺路 (R)" / "拆路 (E)"，点击切换工具 |
+| 调试面板 | `GameHUD : CanvasLayer`，代码构建 UI |
+| 道路网络统计 | Junction 数、Road 数 |
+| 工具切换按钮 | "选择 (Esc)" / "铺路 (R)" / "拆路 (E)" |
 
 ### Phase 1 里程碑
-> 🎯 可以用鼠标在 8 方向上自由画路，道路在视觉上正确渲染，交叉口自动合成。
+> 🎯 用鼠标在 8 方向上自由画路，一条 Road 可含多个 waypoint（长直路中间无 Junction），交叉口自动合成。
 
 ### Phase 1 关键设计决策
-- **网络模型**：Junction + Road + RoadNetwork，不存逐格 GridMap
-- **网格仅用于对齐**：`SnapToGrid()` 纯函数对齐鼠标坐标
+- **方案 B**：Junction 仅在交叉口/端点，Road 含 waypoints
+- **网格 = 纯风格**：`SnapToGrid()` 纯函数，无 GridMap/CellType/GridCoord 等数据结构
 - **事件驱动渲染**：RoadAdded/RoadRemoved → QueueRedraw
-- **文件清单（6 个）**：Direction.cs, Junction.cs, Road.cs, RoadNetwork.cs, RoadRenderer.cs, RoadBuilder.cs + ToolType.cs, ToolManager.cs, GameHUD.cs
 
 ---
 

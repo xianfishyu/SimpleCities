@@ -1,7 +1,13 @@
 [gd_scene format=3 uid="uid://baxamkfym8atd"]
 
 [ext_resource type="Script" uid="uid://3dc2kcbj18lu" path="res://Scripts/MainCamera.cs" id="2_jswqu"]
+[ext_resource type="Script" uid="uid://dbwpxsq4va6mj" path="res://Scripts/Road/RoadSystem.cs" id="3_8kb5a"]
+[ext_resource type="Script" uid="uid://dfb4k8qpkr4jx" path="res://Scripts/Road/RoadRenderer.cs" id="4_h22yp"]
 [ext_resource type="Texture2D" uid="uid://b85g1x6ivp1lp" path="res://Textures/31245427_p0.jpg" id="4_osyy1"]
+[ext_resource type="Script" uid="uid://bo1jdiun6ow8v" path="res://Scripts/Road/RoadBuilder.cs" id="5_2253v"]
+[ext_resource type="Script" uid="uid://desqe03ui0aug" path="res://Scripts/Tools/ToolManager.cs" id="6_58v1x"]
+[ext_resource type="Script" uid="uid://8l6uwm7qjh82" path="res://Scripts/UI/GameHUD.cs" id="7_8vo34"]
+[ext_resource type="Resource" uid="uid://ebbitynntrvx" path="res://Scenes/road_config.tres" id="8_roadcfg"]
 
 [node name="MapTest" type="Node2D" unique_id=1358314178]
 
@@ -9,5 +15,24 @@
 script = ExtResource("2_jswqu")
 
 [node name="31245427P0" type="Sprite2D" parent="." unique_id=1730194213]
+visible = false
 scale = Vector2(0.5, 0.5)
 texture = ExtResource("4_osyy1")
+
+[node name="RoadSystem" type="Node2D" parent="." unique_id=653622038]
+script = ExtResource("3_8kb5a")
+
+[node name="RoadRenderer" type="Node2D" parent="RoadSystem" unique_id=1524192545]
+script = ExtResource("4_h22yp")
+Config = ExtResource("8_roadcfg")
+
+[node name="RoadBuilder" type="Node2D" parent="RoadSystem" unique_id=718448307]
+script = ExtResource("5_2253v")
+Config = ExtResource("8_roadcfg")
+
+[node name="ToolManager" type="Node2D" parent="." unique_id=592973445]
+script = ExtResource("6_58v1x")
+
+[node name="GameHUD" type="CanvasLayer" parent="." unique_id=1473188913]
+script = ExtResource("7_8vo34")
+Config = ExtResource("8_roadcfg")

@@ -17,7 +17,7 @@ public partial class MainCamera : Camera2D
 
 	private Vector2 mousePos = new();
 
-	public static MainCamera Instance { get; private set; }
+	public static MainCamera Instance { get; private set; } = null!;
 
 	public override void _Ready()
 	{

@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="RoadConfig" format=3 uid="uid://ebbitynntrvx"]
+
+[ext_resource type="Script" uid="uid://mo4q7fauurvd" path="res://Scripts/Road/RoadConfig.cs" id="1_roadconfig"]
+
+[resource]
+script = ExtResource("1_roadconfig")
+CellSize = 100.0
+RoadColor = Color(1, 1, 1, 1)
+RoadWidth = 20.0
+JunctionRadius = 20.0
+JunctionColor = Color(1, 1, 1, 1)
+EndpointRadius = 20.0
+EndpointColor = Color(1, 1, 1, 1)
