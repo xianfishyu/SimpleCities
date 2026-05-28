@@ -1,0 +1,73 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Scripts/UI/GameHUD.cs" id="1_script"]
+
+[node name="GameHUD" type="CanvasLayer"]
+script = ExtResource("1_script")
+
+[node name="Panel" type="Panel" parent="."]
+offset_left = 10.0
+offset_top = 10.0
+offset_right = 290.0
+offset_bottom = 260.0
+self_modulate = Color(0.08, 0.08, 0.08, 0.88)
+
+[node name="VBox" type="VBoxContainer" parent="Panel"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = -8.0
+
+[node name="FPS" type="Label" parent="Panel/VBox"]
+text = "FPS: --"
+theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 1)
+theme_override_font_sizes/font_size = 13
+
+[node name="Tool" type="Label" parent="Panel/VBox"]
+text = "工具: 选择"
+theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 1)
+theme_override_font_sizes/font_size = 13
+
+[node name="MousePos" type="Label" parent="Panel/VBox"]
+text = "鼠标格点: --"
+theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 1)
+theme_override_font_sizes/font_size = 13
+
+[node name="Separator" type="HSeparator" parent="Panel/VBox"]
+
+[node name="Roads" type="Label" parent="Panel/VBox"]
+text = "道路: 0"
+theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 1)
+theme_override_font_sizes/font_size = 13
+
+[node name="Segments" type="Label" parent="Panel/VBox"]
+text = "路段: 0"
+theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 1)
+theme_override_font_sizes/font_size = 13
+
+[node name="Junctions" type="Label" parent="Panel/VBox"]
+text = "路口: 0"
+theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 1)
+theme_override_font_sizes/font_size = 13
+
+[node name="Spacer" type="Control" parent="Panel/VBox"]
+custom_minimum_size = Vector2(0, 8)
+
+[node name="ToolBar" type="HBoxContainer" parent="Panel/VBox"]
+
+[node name="SelectBtn" type="Button" parent="Panel/VBox/ToolBar"]
+text = "选择(Esc)"
+custom_minimum_size = Vector2(64, 28)
+theme_override_font_sizes/font_size = 12
+
+[node name="RoadBtn" type="Button" parent="Panel/VBox/ToolBar"]
+text = "铺路(R)"
+custom_minimum_size = Vector2(64, 28)
+theme_override_font_sizes/font_size = 12
+
+[node name="RemoveBtn" type="Button" parent="Panel/VBox/ToolBar"]
+text = "拆路(E)"
+custom_minimum_size = Vector2(64, 28)
+theme_override_font_sizes/font_size = 12

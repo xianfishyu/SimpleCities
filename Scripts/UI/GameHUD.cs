@@ -5,21 +5,22 @@ using System.Linq;
 /// 主 HUD 浮层 — 常驻显示 FPS、当前工具、鼠标格点、路网统计，
 /// 并提供工具切换按钮（选择 / 铺路 / 拆路）。
 ///
-/// 数据流向：
-///   ToolManager.Instance → 工具状态
-///   RoadSystem.Instance.Network → 路网统计数据
-///   MainCamera.Instance → 鼠标世界坐标 → 格点计算
+/// UI 布局定义在 Scenes/UI/GameHUD.tscn 中（Godot 编辑器可视化编辑）。
+/// 本脚本仅负责：
+///   1. _Ready  — 解析子控件引用 + 绑定按钮事件 + 初始化 UIManager
+///   2. _Process — 帧更新动态 Label（轮询模式）
 ///
-/// 生命周期：
-///   _Ready  → 构建 UI 控件树 + 初始化 UIManager
-///   _Process → 帧更新所有动态 Label（轮询模式，后续可迁移为事件驱动）
+/// 数据来源：
+///   ToolManager.Instance → 工具状态
+///   RoadSystem.Instance.Network → 路网统计
+///   MainCamera.Instance → 鼠标世界坐标 → 格点计算
 /// </summary>
 public partial class GameHUD : CanvasLayer
 {
     /// <summary>共享路网配置（与 RoadBuilder / RoadRenderer 同一份）。</summary>
     [Export] public RoadConfig Config { get; set; } = null!;
 
-    // ── 子控件引用 ────────────────────────────────────────
+    // ── .tscn 子控件引用（_Ready 中解析）───────────────────
     private Label _fpsLabel = null!;
     private Label _toolLabel = null!;
     private Label _mouseLabel = null!;
@@ -27,34 +28,24 @@ public partial class GameHUD : CanvasLayer
     private Label _statsSegmentsLabel = null!;
     private Label _statsJunctionsLabel = null!;
 
-    // ── 依赖注入 ──────────────────────────────────────────
+    // ── 依赖 ──────────────────────────────────────────────
     private RoadNetwork? _network;
     private ToolManager? _toolManager;
 
-    // ── 布局常量 ──────────────────────────────────────────
-    private const float PanelX = 10f;
-    private const float PanelY = 10f;
-    private const float PanelW = 280f;
-    private const float PanelH = 250f;
-    private const float Pad = 4f;
-
     public override void _Ready()
     {
-        // 解析依赖
         _toolManager = ToolManager.Instance;
         _network = RoadSystem.Instance.Network;
 
         if (Config == null)
         {
-            GD.PushError("GameHUD: Config (RoadConfig resource) is not assigned in the scene.");
+            GD.PushError("GameHUD: Config (RoadConfig resource) is not assigned.");
             Config = new RoadConfig();
         }
 
-        // 初始化 UIManager（全局 UI 面板管理器）
         EnsureUIManager();
-
-        // 构建 UI
-        BuildUI();
+        ResolveChildNodes();
+        WireButtons();
     }
 
     /// <summary>确保 UIManager 单例存在（作为本节点的子节点）。</summary>
@@ -64,67 +55,31 @@ public partial class GameHUD : CanvasLayer
         AddChild(new UIManager());
     }
 
-    // ═══════════════════════════════════════════════════════
-    //  UI 构建（一次性）
-    // ═══════════════════════════════════════════════════════
-
-    private void BuildUI()
+    /// <summary>
+    /// 从 GameHUD.tscn 中解析子控件引用。
+    /// 节点树结构参见 Scenes/UI/GameHUD.tscn。
+    /// </summary>
+    private void ResolveChildNodes()
     {
-        var panel = UIHelpers.CreateDarkPanel(
-            new Vector2(PanelX, PanelY),
-            new Vector2(PanelW, PanelH));
-        AddChild(panel);
-
-        var vbox = new VBoxContainer
-        {
-            Position = new Vector2(PanelX + Pad, PanelY + Pad),
-            Size = new Vector2(PanelW - Pad * 2, PanelH - Pad * 2)
-        };
-        panel.AddChild(vbox);
-
-        BuildInfoSection(vbox);
-        vbox.AddChild(new HSeparator());
-        BuildStatsSection(vbox);
-        vbox.AddChild(UIHelpers.CreateLabel("")); // spacer
-        BuildToolBar(vbox);
+        _fpsLabel = GetNode<Label>("Panel/VBox/FPS");
+        _toolLabel = GetNode<Label>("Panel/VBox/Tool");
+        _mouseLabel = GetNode<Label>("Panel/VBox/MousePos");
+        _statsRoadsLabel = GetNode<Label>("Panel/VBox/Roads");
+        _statsSegmentsLabel = GetNode<Label>("Panel/VBox/Segments");
+        _statsJunctionsLabel = GetNode<Label>("Panel/VBox/Junctions");
     }
 
-    private void BuildInfoSection(VBoxContainer parent)
+    /// <summary>绑定工具按钮点击事件。</summary>
+    private void WireButtons()
     {
-        _fpsLabel = UIHelpers.CreateLabel("FPS: --");
-        _toolLabel = UIHelpers.CreateLabel("工具: 选择");
-        _mouseLabel = UIHelpers.CreateLabel("鼠标格点: --");
+        GetNode<Button>("Panel/VBox/ToolBar/SelectBtn").Pressed += () =>
+            _toolManager!.CurrentTool = ToolType.Select;
 
-        parent.AddChild(_fpsLabel);
-        parent.AddChild(_toolLabel);
-        parent.AddChild(_mouseLabel);
-    }
+        GetNode<Button>("Panel/VBox/ToolBar/RoadBtn").Pressed += () =>
+            _toolManager!.CurrentTool = ToolType.Road;
 
-    private void BuildStatsSection(VBoxContainer parent)
-    {
-        _statsRoadsLabel = UIHelpers.CreateLabel("道路: 0");
-        _statsSegmentsLabel = UIHelpers.CreateLabel("路段: 0");
-        _statsJunctionsLabel = UIHelpers.CreateLabel("路口: 0");
-
-        parent.AddChild(_statsRoadsLabel);
-        parent.AddChild(_statsSegmentsLabel);
-        parent.AddChild(_statsJunctionsLabel);
-    }
-
-    private void BuildToolBar(VBoxContainer parent)
-    {
-        var btnRow = new HBoxContainer();
-        parent.AddChild(btnRow);
-
-        btnRow.AddChild(UIHelpers.CreateToolButton("选择(Esc)", ToolType.Select, OnToolSelected));
-        btnRow.AddChild(UIHelpers.CreateToolButton("铺路(R)", ToolType.Road, OnToolSelected));
-        btnRow.AddChild(UIHelpers.CreateToolButton("拆路(E)", ToolType.RoadRemove, OnToolSelected));
-    }
-
-    private void OnToolSelected(ToolType tool)
-    {
-        if (_toolManager != null)
-            _toolManager.CurrentTool = tool;
+        GetNode<Button>("Panel/VBox/ToolBar/RemoveBtn").Pressed += () =>
+            _toolManager!.CurrentTool = ToolType.RoadRemove;
     }
 
     // ═══════════════════════════════════════════════════════
