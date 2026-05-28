@@ -21,6 +21,10 @@ public partial class RoadBuilder : Node2D
     private Direction _currentDir;     // 仅在 _currentLength >= 1 时有意义
     private int _currentLength;        // 沿 _currentDir 的格数；0 表示尚未确定方向
 
+    /// <summary>拆除工具激活时每帧更新悬停高亮</summary>
+    private bool _isRemoveHoverActive;
+    private int _lastHoveredSegmentID = -1;
+
     public void SetNetwork(RoadNetwork network) => _network = network;
 
     public override void _Ready()
@@ -53,8 +57,16 @@ public partial class RoadBuilder : Node2D
 
     public override void _Process(double delta)
     {
-        if (!_isDragging || _network == null) return;
-        UpdateProjection();
+        if (_network == null || _renderer == null) return;
+
+        if (_isDragging)
+        {
+            UpdateProjection();
+        }
+        else if (_isRemoveHoverActive)
+        {
+            UpdateRemoveHover();
+        }
     }
 
     private void BeginDrag()
@@ -187,6 +199,41 @@ public partial class RoadBuilder : Node2D
         {
             _renderer.PreviewFrom = null;
             _renderer.PreviewTo = null;
+            _renderer.QueueRedraw();
+        }
+    }
+
+    // ── 拆除工具悬停高亮 ──
+
+    /// <summary>
+    /// 由 ToolManager 在切换到/离开拆除工具时调用。
+    /// 切换离开时清除当前高亮状态。
+    /// </summary>
+    public void SetRemoveHoverActive(bool active)
+    {
+        _isRemoveHoverActive = active;
+        if (!active)
+            ClearRemoveHover();
+    }
+
+    private void UpdateRemoveHover()
+    {
+        var snapped = RoadNetwork.SnapToGrid(GetGlobalMousePosition(), Config.CellSize);
+        int segmentID = _network!.FindSegmentAt(snapped);
+        if (segmentID != _lastHoveredSegmentID)
+        {
+            _lastHoveredSegmentID = segmentID;
+            _renderer!.HoveredSegmentID = segmentID >= 0 ? segmentID : null;
+            _renderer!.QueueRedraw();
+        }
+    }
+
+    private void ClearRemoveHover()
+    {
+        _lastHoveredSegmentID = -1;
+        if (_renderer != null)
+        {
+            _renderer.HoveredSegmentID = null;
             _renderer.QueueRedraw();
         }
     }

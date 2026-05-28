@@ -31,4 +31,10 @@ public partial class RoadConfig : Resource
 
     /// <summary>端点圆点颜色（区别于 JunctionColor 与 RoadColor，便于辨认）。</summary>
     [Export] public Color EndpointColor { get; set; } = new("#90A4AE");
+
+    /// <summary>拆除工具悬停高亮色（半透明亮色，叠加在路面上）。</summary>
+    [Export] public Color HoverHighlightColor { get; set; } = new(1f, 0.8f, 0.2f, 0.6f);
+
+    /// <summary>拆除工具悬停高亮线宽（比 RoadWidth 稍宽以视觉突出）。</summary>
+    [Export] public float HoverHighlightWidth { get; set; } = 18f;
 }

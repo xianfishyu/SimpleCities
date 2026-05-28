@@ -16,7 +16,13 @@ public partial class ToolManager : Node2D
             // Bug #3: 切出 Road 工具前必须取消进行中的拖拽
             if (_currentTool == ToolType.Road)
                 _roadBuilder?.CancelPlaceDrag();
+            // 切出 RoadRemove 工具前清除悬停高亮
+            if (_currentTool == ToolType.RoadRemove)
+                _roadBuilder?.SetRemoveHoverActive(false);
             _currentTool = value;
+            // 切入 RoadRemove 工具时开启悬停高亮
+            if (_currentTool == ToolType.RoadRemove)
+                _roadBuilder?.SetRemoveHoverActive(true);
         }
     }
 

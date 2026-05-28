@@ -17,6 +17,9 @@ public partial class RoadRenderer : Node2D
     public Vector2? PreviewFrom { get; set; }
     public Vector2? PreviewTo { get; set; }
 
+    /// <summary>拆除工具悬停的 Segment ID（null = 未悬停在任何 Segment 上）</summary>
+    public int? HoveredSegmentID { get; set; }
+
     public override void _Ready()
     {
         if (Config == null)
@@ -115,6 +118,29 @@ public partial class RoadRenderer : Node2D
 
     public override void _Draw()
     {
+        // 拆除工具悬停高亮：画在预览虚线之上
+        if (HoveredSegmentID.HasValue && _network != null)
+        {
+            var seg = _network.GetSegment(HoveredSegmentID.Value);
+            if (seg != null)
+            {
+                var fj = _network.GetJunction(seg.FromJunctionID);
+                var tj = _network.GetJunction(seg.ToJunctionID);
+                if (fj != null && tj != null)
+                {
+                    var points = new Vector2[2 + seg.Waypoints.Length];
+                    points[0] = fj.Position;
+                    for (int i = 0; i < seg.Waypoints.Length; i++)
+                        points[i + 1] = seg.Waypoints[i];
+                    points[^1] = tj.Position;
+                    DrawPolyline(points, Config.HoverHighlightColor, Config.HoverHighlightWidth);
+                    // 同时高亮端点
+                    DrawCircle(fj.Position, Config.JunctionRadius * 1.3f, Config.HoverHighlightColor);
+                    DrawCircle(tj.Position, Config.JunctionRadius * 1.3f, Config.HoverHighlightColor);
+                }
+            }
+        }
+
         if (PreviewFrom.HasValue && PreviewTo.HasValue && PreviewFrom.Value != PreviewTo.Value)
         {
             DrawDashedLine(PreviewFrom.Value, PreviewTo.Value, new Color(1, 1, 1, 0.5f));
