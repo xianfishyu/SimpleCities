@@ -1,14 +1,25 @@
 using Godot;
 using System.Linq;
 
+/// <summary>
+/// 主 HUD 浮层 — 常驻显示 FPS、当前工具、鼠标格点、路网统计，
+/// 并提供工具切换按钮（选择 / 铺路 / 拆路）。
+///
+/// 数据流向：
+///   ToolManager.Instance → 工具状态
+///   RoadSystem.Instance.Network → 路网统计数据
+///   MainCamera.Instance → 鼠标世界坐标 → 格点计算
+///
+/// 生命周期：
+///   _Ready  → 构建 UI 控件树 + 初始化 UIManager
+///   _Process → 帧更新所有动态 Label（轮询模式，后续可迁移为事件驱动）
+/// </summary>
 public partial class GameHUD : CanvasLayer
 {
-    /// <summary>
-    /// 共享配置（与 RoadBuilder / RoadRenderer 同一份）。
-    /// 需在场景里把 Scenes/road_config.tres 拖到这个槽，否则会用默认 64 像素 cellSize。
-    /// </summary>
+    /// <summary>共享路网配置（与 RoadBuilder / RoadRenderer 同一份）。</summary>
     [Export] public RoadConfig Config { get; set; } = null!;
 
+    // ── 子控件引用 ────────────────────────────────────────
     private Label _fpsLabel = null!;
     private Label _toolLabel = null!;
     private Label _mouseLabel = null!;
@@ -16,118 +27,146 @@ public partial class GameHUD : CanvasLayer
     private Label _statsSegmentsLabel = null!;
     private Label _statsJunctionsLabel = null!;
 
+    // ── 依赖注入 ──────────────────────────────────────────
     private RoadNetwork? _network;
     private ToolManager? _toolManager;
 
+    // ── 布局常量 ──────────────────────────────────────────
+    private const float PanelX = 10f;
+    private const float PanelY = 10f;
+    private const float PanelW = 280f;
+    private const float PanelH = 250f;
+    private const float Pad = 4f;
+
     public override void _Ready()
     {
+        // 解析依赖
         _toolManager = ToolManager.Instance;
         _network = RoadSystem.Instance.Network;
+
         if (Config == null)
         {
             GD.PushError("GameHUD: Config (RoadConfig resource) is not assigned in the scene.");
             Config = new RoadConfig();
         }
+
+        // 初始化 UIManager（全局 UI 面板管理器）
+        EnsureUIManager();
+
+        // 构建 UI
         BuildUI();
     }
 
+    /// <summary>确保 UIManager 单例存在（作为本节点的子节点）。</summary>
+    private void EnsureUIManager()
+    {
+        if (UIManager.Instance != null) return;
+        AddChild(new UIManager());
+    }
+
+    // ═══════════════════════════════════════════════════════
+    //  UI 构建（一次性）
+    // ═══════════════════════════════════════════════════════
+
     private void BuildUI()
     {
-        var panel = new Panel
-        {
-            Position = new Vector2(10, 10),
-            Size = new Vector2(280, 250),
-            SelfModulate = new Color(0.08f, 0.08f, 0.08f, 0.88f)
-        };
+        var panel = UIHelpers.CreateDarkPanel(
+            new Vector2(PanelX, PanelY),
+            new Vector2(PanelW, PanelH));
         AddChild(panel);
 
         var vbox = new VBoxContainer
         {
-            Position = new Vector2(14, 14),
-            Size = new Vector2(252, 222)
+            Position = new Vector2(PanelX + Pad, PanelY + Pad),
+            Size = new Vector2(PanelW - Pad * 2, PanelH - Pad * 2)
         };
         panel.AddChild(vbox);
 
-        _fpsLabel = CreateLabel("FPS: --");
-        _toolLabel = CreateLabel("工具: 选择");
-        _mouseLabel = CreateLabel("鼠标格点: --");
-        vbox.AddChild(_fpsLabel);
-        vbox.AddChild(_toolLabel);
-        vbox.AddChild(_mouseLabel);
-
+        BuildInfoSection(vbox);
         vbox.AddChild(new HSeparator());
+        BuildStatsSection(vbox);
+        vbox.AddChild(UIHelpers.CreateLabel("")); // spacer
+        BuildToolBar(vbox);
+    }
 
-        // 三层统计：道路（玩家一次画线 = 连续路径） / 路段（节点间的边） / 路口（节点）
-        _statsRoadsLabel     = CreateLabel("道路: 0");
-        _statsSegmentsLabel  = CreateLabel("路段: 0");
-        _statsJunctionsLabel = CreateLabel("路口: 0");
-        vbox.AddChild(_statsRoadsLabel);
-        vbox.AddChild(_statsSegmentsLabel);
-        vbox.AddChild(_statsJunctionsLabel);
+    private void BuildInfoSection(VBoxContainer parent)
+    {
+        _fpsLabel = UIHelpers.CreateLabel("FPS: --");
+        _toolLabel = UIHelpers.CreateLabel("工具: 选择");
+        _mouseLabel = UIHelpers.CreateLabel("鼠标格点: --");
 
-        vbox.AddChild(CreateLabel("")); // spacer
+        parent.AddChild(_fpsLabel);
+        parent.AddChild(_toolLabel);
+        parent.AddChild(_mouseLabel);
+    }
 
+    private void BuildStatsSection(VBoxContainer parent)
+    {
+        _statsRoadsLabel = UIHelpers.CreateLabel("道路: 0");
+        _statsSegmentsLabel = UIHelpers.CreateLabel("路段: 0");
+        _statsJunctionsLabel = UIHelpers.CreateLabel("路口: 0");
+
+        parent.AddChild(_statsRoadsLabel);
+        parent.AddChild(_statsSegmentsLabel);
+        parent.AddChild(_statsJunctionsLabel);
+    }
+
+    private void BuildToolBar(VBoxContainer parent)
+    {
         var btnRow = new HBoxContainer();
-        vbox.AddChild(btnRow);
+        parent.AddChild(btnRow);
 
-        var selectBtn = CreateToolButton("选择(Esc)", ToolType.Select);
-        var roadBtn = CreateToolButton("铺路(R)", ToolType.Road);
-        var removeBtn = CreateToolButton("拆路(E)", ToolType.RoadRemove);
-
-        btnRow.AddChild(selectBtn);
-        btnRow.AddChild(roadBtn);
-        btnRow.AddChild(removeBtn);
+        btnRow.AddChild(UIHelpers.CreateToolButton("选择(Esc)", ToolType.Select, OnToolSelected));
+        btnRow.AddChild(UIHelpers.CreateToolButton("铺路(R)", ToolType.Road, OnToolSelected));
+        btnRow.AddChild(UIHelpers.CreateToolButton("拆路(E)", ToolType.RoadRemove, OnToolSelected));
     }
 
-    private static Label CreateLabel(string text)
+    private void OnToolSelected(ToolType tool)
     {
-        var label = new Label
-        {
-            Text = text,
-        };
-        label.AddThemeColorOverride("font_color", new Color(0.9f, 0.9f, 0.9f));
-        label.AddThemeFontSizeOverride("font_size", 13);
-        return label;
+        if (_toolManager != null)
+            _toolManager.CurrentTool = tool;
     }
 
-    private Button CreateToolButton(string text, ToolType tool)
-    {
-        var btn = new Button
-        {
-            Text = text,
-            CustomMinimumSize = new Vector2(64, 28),
-        };
-        btn.AddThemeFontSizeOverride("font_size", 12);
-
-        btn.Pressed += () =>
-        {
-            if (_toolManager != null)
-                _toolManager.CurrentTool = tool;
-        };
-        return btn;
-    }
+    // ═══════════════════════════════════════════════════════
+    //  帧更新（轮询模式）
+    // ═══════════════════════════════════════════════════════
 
     public override void _Process(double delta)
     {
         if (_network == null || _toolManager == null) return;
 
-        _fpsLabel.Text = $"FPS: {Engine.GetFramesPerSecond()}";
-        _toolLabel.Text = $"工具: {_toolManager.CurrentTool}";
+        UpdateFPS();
+        UpdateToolInfo();
+        UpdateMousePos();
+        UpdateRoadStats();
+    }
 
+    private void UpdateFPS()
+    {
+        _fpsLabel.Text = $"FPS: {Engine.GetFramesPerSecond()}";
+    }
+
+    private void UpdateToolInfo()
+    {
+        _toolLabel.Text = $"工具: {_toolManager!.CurrentTool}";
+    }
+
+    private void UpdateMousePos()
+    {
         var mouseWorld = MainCamera.Instance.GetGlobalMousePosition();
         var snapped = RoadNetwork.SnapToGrid(mouseWorld, Config.CellSize);
-        bool hasJunction = _network.HasJunctionAt(snapped);
+        bool hasJunction = _network!.HasJunctionAt(snapped);
         _mouseLabel.Text = $"鼠标格点: ({snapped.X:F0}, {snapped.Y:F0}) {(hasJunction ? "[路口]" : "")}";
+    }
 
-        // 道路：玩家"一次画线"产生的连续路径（含被穿插劈分后仍是同一条 Road）
-        // 路段：节点间的几何边（一条 Road 含 N≥1 个 Segment）
-        // 路口：节点（含端点 + 真路口 + 半格交点 Junction）
-        int roadCount     = _network.GetAllRoads().Count();
-        int segmentCount  = _network.GetAllSegments().Count();
+    private void UpdateRoadStats()
+    {
+        int roadCount = _network!.GetAllRoads().Count();
+        int segmentCount = _network.GetAllSegments().Count();
         int junctionCount = _network.GetAllJunctions().Count();
 
-        _statsRoadsLabel.Text     = $"道路 (Road):     {roadCount}";
-        _statsSegmentsLabel.Text  = $"路段 (Segment):  {segmentCount}";
+        _statsRoadsLabel.Text = $"道路 (Road):     {roadCount}";
+        _statsSegmentsLabel.Text = $"路段 (Segment):  {segmentCount}";
         _statsJunctionsLabel.Text = $"路口 (Junction): {junctionCount}";
     }
 }
