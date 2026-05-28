@@ -146,29 +146,32 @@ public override void _Input(InputEvent @event)
 
 ### 5.1 结构
 
+布局定义在 `Scenes/UI/GameHUD.tscn`（Godot 编辑器可视化编辑），脚本为 `Scripts/UI/GameHUD.cs`。
+
 ```
-CanvasLayer (GameHUD)
-└── UIManager (Node)              ← 自动创建，子节点
-└── Panel (半透明深色背景)          ← UIHelpers.CreateDarkPanel
-    └── VBoxContainer
-        ├── Label: FPS
-        ├── Label: 工具
-        ├── Label: 鼠标格点
-        ├── HSeparator
-        ├── Label: 道路统计
-        ├── Label: 路段统计
-        ├── Label: 路口统计
-        ├── Label (spacer)
-        └── HBoxContainer (工具按钮栏)
-            ├── Button: 选择(Esc)
-            ├── Button: 铺路(R)
-            └── Button: 拆路(E)
+CanvasLayer (GameHUD)                       ← .tscn 根节点 + C# 脚本
+├── UIManager (Node)                        ← 代码自动创建
+└── Panel (半透明深色背景)                    ← .tscn 定义
+    └── VBoxContainer                        ← .tscn 定义
+        ├── Label "FPS"         (%FPS)       ← .tscn 定义
+        ├── Label "Tool"        (%Tool)      ← .tscn 定义
+        ├── Label "MousePos"    (%MousePos)  ← .tscn 定义
+        ├── HSeparator                        ← .tscn 定义
+        ├── Label "Roads"                    ← .tscn 定义
+        ├── Label "Segments"                 ← .tscn 定义
+        ├── Label "Junctions"                ← .tscn 定义
+        ├── Control (spacer)                  ← .tscn 定义
+        └── HBoxContainer "ToolBar"           ← .tscn 定义
+            ├── Button "SelectBtn"            ← .tscn 定义
+            ├── Button "RoadBtn"              ← .tscn 定义
+            └── Button "RemoveBtn"            ← .tscn 定义
 ```
 
 ### 5.2 代码组织
 
-- `_Ready()` — 解析依赖 → 初始化 UIManager → 构建 UI
-- `BuildUI()` → `BuildInfoSection()` / `BuildStatsSection()` / `BuildToolBar()` — 一次性控件创建
+- `_Ready()` — 解析依赖 → 初始化 UIManager → `ResolveChildNodes()` → `WireButtons()`
+- `ResolveChildNodes()` — `GetNode<Label>("Panel/VBox/FPS")` 等，从 .tscn 树中获取引用
+- `WireButtons()` — `GetNode<Button>("...").Pressed +=` 绑定三个工具按钮
 - `_Process()` → `UpdateFPS()` / `UpdateToolInfo()` / `UpdateMousePos()` / `UpdateRoadStats()` — 帧更新
 
 ### 5.3 依赖
@@ -253,7 +256,7 @@ panel?.ShowFor(selectedObject);
 | `UIManager` 用构造函数设 Instance（而非 `_Ready`） | 避免 `AddChild` 后 `_Ready` 未执行的时序问题 |
 | `UIHelpers` 为静态类（非 Godot Node） | 纯工厂方法，无生命周期依赖 |
 | HUD 不注册到 UIManager | HUD 始终可见，不需要显示/隐藏管理 |
-| GameHUD 程序化构建 UI（暂不迁移 .tscn） | 当前控件数量少（6 Label + 3 Button），迁移收益不显著；.tscn 迁移在控件数 > 15 时考虑 |
+| GameHUD 布局迁移到 `.tscn` 场景 | 静态布局由 Godot 编辑器管理，C# 仅负责动态逻辑和事件绑定 |
 | `_Process` 轮询而非事件驱动（当前阶段） | Phase 1 仅 6 个动态 Label，轮询开销可忽略；Phase 4+ 引入事件驱动 |
 
 ---
@@ -268,4 +271,3 @@ panel?.ShowFor(selectedObject);
 | Phase 4 | RCI 需求条 + 资金面板 | `GameHUD.cs` 扩展 |
 | Phase 4 | 事件驱动迁移（资金/人口） | 添加 C# event 到 Simulation 系统 |
 | Phase 5+ | 数据图层叠加系统 | `DataOverlay.cs` |
-| Phase 9 | GameHUD 迁移到 .tscn 场景 | `Scenes/UI/GameHUD.tscn` |
