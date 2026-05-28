@@ -101,7 +101,8 @@ public class RoadNetwork
         }
 
         // 新路两端也可能撞到旧 Segment 中段 waypoint。
-        // 同样：若新路的接入方向与旧 Segment 在该处延伸方向共线，跳过劈分。
+        // 共线端点跳过劈分：避免把 Road A (0,0)→(0,5) 在 (0,2) 处切开。
+        // Road B 的端点 Junction 叠加在 A 的 waypoint 上，二者在同一位置共存。
         if (!HasJunctionAt(from))
         {
             int sid = FindSegmentAt(from);
@@ -116,11 +117,18 @@ public class RoadNetwork
         }
 
         // 第二步：按 path 上所有 Junction 位置把新路切成多段。
-        // 包含格点 Junction（_posToJunctionID 命中）+ 半格 Junction（X 交叉点等，仅几何匹配）。
+        // 共线直通跳过：若新路在该 Junction 处的方向与已有 Segment 的方向共线，
+        // 不切段（新路以 waypoint 穿过）；非共线（十字/T字路口）仍需切段。
         var splitIdx = new List<int> { 0 };
         for (int i = 1; i < path.Count - 1; i++)
         {
-            if (IsAnyJunctionAt(path[i])) splitIdx.Add(i);
+            if (!IsAnyJunctionAt(path[i])) continue;
+
+            int sid = FindSegmentAt(path[i]);
+            if (sid >= 0 && IsApproachColinearWithSegment(path[i], path[i - 1], sid))
+                continue; // 共线直通 Junction，跳过
+
+            splitIdx.Add(i);
         }
         splitIdx.Add(path.Count - 1);
 
