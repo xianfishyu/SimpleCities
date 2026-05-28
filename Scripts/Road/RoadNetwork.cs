@@ -718,6 +718,15 @@ public class RoadNetwork
             _posToJunctionID.Remove(tj.Position);
         }
 
+        // 补回共享 Junction 在 _posToSegmentID 中的索引。
+        // Bug: 当 Junction 被多个 Segment 共享时，_posToSegmentID 只存最后写入的那个 Segment ID。
+        // RemoveSegment 清除条目后若 Junction 仍存活（剩余连接 >0），但字典位置已被清空，
+        // 玩家将无法通过点击该 Junction 格点拆除剩余 Segment（Lookup 返回 -1 然后被忽略）。
+        // 此修复从该 Junction 的 ConnectedSegmentIDs 取一条存活的按格点补回。
+        MaybeReindexJunctionInPosDict(fj, _lastCellSize);
+        if (tj != fj)
+            MaybeReindexJunctionInPosDict(tj, _lastCellSize);
+
         // 从 Road 摘除；Road 变空时清掉（不发 Road 级事件，本期未引入）
         if (_roads.TryGetValue(seg.RoadID, out var road))
         {
@@ -834,6 +843,28 @@ public class RoadNetwork
     /// <summary>按位置反查 Segment.ID；找不到返回 -1</summary>
     public int FindSegmentAt(Vector2 pos) =>
         _posToSegmentID.TryGetValue(pos, out int id) ? id : -1;
+
+    /// <summary>
+    /// RemoveSegment 后调用：若某 Junction 位置在字典中被清空，但 Junction 仍存活（仍有连接 Segment），
+    /// 则从 ConnectedSegmentIDs 取一条存活的按格点补回 _posToSegmentID。否则点击该格点拆除会失效。
+    /// 半格 Junction 不补（IsSnapGrid == false，无法命中字典 key）。
+    /// </summary>
+    private void MaybeReindexJunctionInPosDict(Junction? junction, float cellSize)
+    {
+        if (junction == null) return;
+        if (junction.ConnectionCount == 0) return;
+        var pos = junction.Position;
+        if (_posToSegmentID.ContainsKey(pos)) return;
+        if (!IsSnapGrid(pos, cellSize)) return;
+        foreach (var sid in junction.ConnectedSegmentIDs)
+        {
+            if (_segments.ContainsKey(sid))
+            {
+                _posToSegmentID[pos] = sid;
+                break;
+            }
+        }
+    }
 
     public Junction? GetJunctionAt(Vector2 pos) =>
         _posToJunctionID.TryGetValue(pos, out int id) ? _junctions.GetValueOrDefault(id) : null;
