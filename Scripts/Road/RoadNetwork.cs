@@ -117,20 +117,40 @@ public class RoadNetwork
         }
 
         // 第二步：按 path 上所有 Junction 位置把新路切成多段。
-        // 共线直通跳过：若新路在该 Junction 处的方向与已有 Segment 的方向共线，
-        // 不切段（新路以 waypoint 穿过）；非共线（十字/T字路口）仍需切段。
         var splitIdx = new List<int> { 0 };
         for (int i = 1; i < path.Count - 1; i++)
         {
-            if (!IsAnyJunctionAt(path[i])) continue;
-
-            int sid = FindSegmentAt(path[i]);
-            if (sid >= 0 && IsApproachColinearWithSegment(path[i], path[i - 1], sid))
-                continue; // 共线直通 Junction，跳过
-
-            splitIdx.Add(i);
+            if (IsAnyJunctionAt(path[i]))
+                splitIdx.Add(i);
         }
         splitIdx.Add(path.Count - 1);
+
+        // 拓扑去重：若新路从已有 Junction 起沿已有 Segment 共线延伸，
+        // 截断到该 Junction——重叠部分由已有路的 Segment 覆盖。
+        // 避免同一条物理路径上铺两条重叠 Segment（拓扑错误）。
+        if (splitIdx.Count >= 3)
+        {
+            for (int s = 0; s < splitIdx.Count - 1; s++)
+            {
+                int a = splitIdx[s];
+                if (!HasJunctionAt(path[a])) continue;
+                bool allColinear = true;
+                for (int t = s; t < splitIdx.Count - 1; t++)
+                {
+                    int ta = splitIdx[t];
+                    int tb = splitIdx[t + 1];
+                    int sid = FindSegmentAt(path[ta]);
+                    if (sid < 0 || !IsApproachColinearWithSegment(path[tb], path[ta], sid))
+                    { allColinear = false; break; }
+                }
+                if (allColinear && s > 0)
+                {
+                    // 保留 splitIdx[0..s]，去掉后面的共线段
+                    while (splitIdx.Count > s + 1) splitIdx.RemoveAt(splitIdx.Count - 1);
+                    break;
+                }
+            }
+        }
 
         // 第三步：按 splitIdx 相邻对生成各段 Segment（全部归属 newRoad）。
         bool anyAdded = false;
