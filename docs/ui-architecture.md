@@ -47,8 +47,8 @@ Scripts/UI/
 ├── DataOverlay.cs     ← 🔜 数据图层切换
 └── ModalDialog.cs     ← 🔜 通用模态对话框基类
 
-Scenes/UI/              ← 🔜 未来 .tscn 场景文件
-├── GameHUD.tscn
+Scenes/UI/              ← .tscn 场景文件
+├── GameHUD.tscn         ← ✅ HUD 布局
 ├── InfoPanel.tscn
 └── ...
 ```
