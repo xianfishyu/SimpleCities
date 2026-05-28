@@ -11,3 +11,4 @@ JunctionRadius = 20.0
 JunctionColor = Color(1, 1, 1, 1)
 EndpointRadius = 20.0
 EndpointColor = Color(1, 1, 1, 1)
+HoverHighlightWidth = 25.0

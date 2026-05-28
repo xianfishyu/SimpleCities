@@ -6,7 +6,6 @@
 [ext_resource type="Texture2D" uid="uid://b85g1x6ivp1lp" path="res://Textures/31245427_p0.jpg" id="4_osyy1"]
 [ext_resource type="Script" uid="uid://bo1jdiun6ow8v" path="res://Scripts/Road/RoadBuilder.cs" id="5_2253v"]
 [ext_resource type="Script" uid="uid://desqe03ui0aug" path="res://Scripts/Tools/ToolManager.cs" id="6_58v1x"]
-[ext_resource type="Script" uid="uid://8l6uwm7qjh82" path="res://Scripts/UI/GameHUD.cs" id="7_8vo34"]
 [ext_resource type="Resource" uid="uid://ebbitynntrvx" path="res://Scenes/road_config.tres" id="8_roadcfg"]
 [ext_resource type="PackedScene" path="res://Scenes/UI/GameHUD.tscn" id="9_hudscene"]
 
@@ -34,5 +33,5 @@ Config = ExtResource("8_roadcfg")
 [node name="ToolManager" type="Node2D" parent="." unique_id=592973445]
 script = ExtResource("6_58v1x")
 
-[node name="GameHUD" parent="." instance=ExtResource("9_hudscene")]
+[node name="GameHUD" parent="." unique_id=1361946814 instance=ExtResource("9_hudscene")]
 Config = ExtResource("8_roadcfg")
