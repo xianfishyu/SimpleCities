@@ -84,26 +84,35 @@ public class RoadNetwork
         var newRoad = new Road(NextID());
         _roads[newRoad.ID] = newRoad;
 
-        // 第一步：劈开所有被新路中段穿过的旧 Segment（共格点穿插场景）。
+        // 第一步：劈开所有被新路中段穿过的旧 Segment。
+        // 共线重叠跳过：若新路接近该格点的方向与已有 Segment 在该格点处的延伸方向一致，
+        // 说明新路与已有 Segment 共线，无需劈分（避免产生冗余 Junction）。
         for (int i = 1; i < path.Count - 1; i++)
         {
             var p = path[i];
-            if (HasJunctionAt(p)) continue; // 已是 Junction，留给第二步处理
+            if (HasJunctionAt(p)) continue;
             int oldSegmentID = FindSegmentAt(p);
             if (oldSegmentID < 0) continue;
+
+            if (IsApproachColinearWithSegment(p, path[i - 1], oldSegmentID))
+                continue; // 共线重叠，跳过劈分（十字路口不共线 → 仍会劈分）
+
             SplitSegmentAtWaypoint(oldSegmentID, p, cellSize);
         }
 
-        // 新路两端也可能撞到旧 Segment 中段 waypoint
+        // 新路两端也可能撞到旧 Segment 中段 waypoint。
+        // 同样：若新路的接入方向与旧 Segment 在该处延伸方向共线，跳过劈分。
         if (!HasJunctionAt(from))
         {
             int sid = FindSegmentAt(from);
-            if (sid >= 0) SplitSegmentAtWaypoint(sid, from, cellSize);
+            if (sid >= 0 && !IsApproachColinearWithSegment(from, path[1], sid))
+                SplitSegmentAtWaypoint(sid, from, cellSize);
         }
         if (!HasJunctionAt(to))
         {
             int sid = FindSegmentAt(to);
-            if (sid >= 0) SplitSegmentAtWaypoint(sid, to, cellSize);
+            if (sid >= 0 && !IsApproachColinearWithSegment(to, path[path.Count - 2], sid))
+                SplitSegmentAtWaypoint(sid, to, cellSize);
         }
 
         // 第二步：按 path 上所有 Junction 位置把新路切成多段。
@@ -864,6 +873,41 @@ public class RoadNetwork
                 break;
             }
         }
+    }
+
+    /// <summary>
+    /// 判断新路从 approachPos 接近 targetPos 的方向是否与已有 Segment 在 targetPos
+    /// 处的延伸方向共线（同方向）。用于跳过共线重叠场景中的冗余劈分。
+    /// </summary>
+    private bool IsApproachColinearWithSegment(Vector2 targetPos, Vector2 approachPos, int segmentID)
+    {
+        if (!_segments.TryGetValue(segmentID, out var seg)) return false;
+        var approachDir = DirectionUtil.FromDisplacementAnyLength(approachPos, targetPos);
+        if (approachDir == null) return false;
+
+        var fj = GetJunction(seg.FromJunctionID);
+        var tj = GetJunction(seg.ToJunctionID);
+        if (fj == null || tj == null) return false;
+
+        var pts = new List<Vector2> { fj.Position };
+        pts.AddRange(seg.Waypoints);
+        pts.Add(tj.Position);
+
+        int idx = pts.IndexOf(targetPos);
+        if (idx < 0) return false;
+
+        // 检查 approachDir 是否与 Segment 在 targetPos 处的延伸方向一致
+        if (idx < pts.Count - 1)
+        {
+            var fwd = DirectionUtil.FromDisplacementAnyLength(targetPos, pts[idx + 1]);
+            if (fwd != null && fwd == approachDir) return true;
+        }
+        if (idx > 0)
+        {
+            var bwd = DirectionUtil.FromDisplacementAnyLength(targetPos, pts[idx - 1]);
+            if (bwd != null && bwd == approachDir) return true;
+        }
+        return false;
     }
 
     public Junction? GetJunctionAt(Vector2 pos) =>
