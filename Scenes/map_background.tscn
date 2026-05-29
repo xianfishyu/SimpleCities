@@ -5,19 +5,20 @@
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_mb"]
 shader = ExtResource("2_mbshader")
-shader_parameter/background_color = Vector3(1, 1, 1)
+shader_parameter/background_color = Vector3(0.118, 0.118, 0.118)
+shader_parameter/grid_offset = Vector2(50, 50)
 shader_parameter/major_grid_size = 500.0
-shader_parameter/major_line_width = 2.0
-shader_parameter/major_grid_color = Vector3(0.85, 0.85, 0.85)
+shader_parameter/major_line_width = 1.5
+shader_parameter/major_grid_color = Vector3(0.25, 0.25, 0.25)
 shader_parameter/minor_grid_size = 100.0
 shader_parameter/minor_line_width = 0.5
-shader_parameter/minor_grid_color = Vector3(0.92, 0.92, 0.92)
+shader_parameter/minor_grid_color = Vector3(0.18, 0.18, 0.18)
+shader_parameter/dot_grid_size = 10.0
+shader_parameter/dot_radius = 0.5
+shader_parameter/dot_color = Vector3(0.2, 0.2, 0.2)
 shader_parameter/show_major_grid = true
 shader_parameter/show_minor_grid = true
 shader_parameter/show_dot_grid = true
-shader_parameter/dot_grid_size = 10.0
-shader_parameter/dot_radius = 0.5
-shader_parameter/dot_color = Vector3(0.75, 0.75, 0.75)
 shader_parameter/camera_pos = Vector2(0, 0)
 shader_parameter/camera_zoom = 1.0
 shader_parameter/viewport_size = Vector2(1920, 1080)

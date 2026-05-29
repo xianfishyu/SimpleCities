@@ -1,8 +1,7 @@
 using Godot;
 
 /// <summary>
-/// 地图背景渲染器 — 纯白底色 + 网格线
-/// 地形后续在编辑器中手动绘制
+/// 地图背景渲染器 — 暗色底 + 网格线（对齐道路 CellSize 中心点）
 /// </summary>
 public partial class MapBackground : CanvasLayer
 {
@@ -13,24 +12,27 @@ public partial class MapBackground : CanvasLayer
     // ═══════════════════════════════════════════
 
     [ExportGroup("背景设置")]
-    [Export] public Color BackgroundColor = Colors.White;
+    [Export] public Color BackgroundColor = new(0.118f, 0.118f, 0.118f);
 
     // ═══════════════════════════════════════════
     // 网格设置
     // ═══════════════════════════════════════════
 
     [ExportGroup("网格设置")]
+    /// <summary>网格偏移，默认 RoadConfig.CellSize / 2 对齐道路端点中心</summary>
+    [Export] public Vector2 GridOffset = new(50f, 50f);
+
     [Export] public float MajorGridSize = 500f;
-    [Export] public float MainLineWidth = 2f;
-    [Export] public Color MajorGridColor = new(0.85f, 0.85f, 0.85f);
+    [Export] public float MainLineWidth = 1.5f;
+    [Export] public Color MajorGridColor = new(0.25f, 0.25f, 0.25f);
 
     [Export] public float MinorGridSize = 100f;
     [Export] public float LineWidth = 0.5f;
-    [Export] public Color MinorGridColor = new(0.92f, 0.92f, 0.92f);
+    [Export] public Color MinorGridColor = new(0.18f, 0.18f, 0.18f);
 
     [Export] public float DotGridSize = 10f;
     [Export] public float DotRadius = 0.5f;
-    [Export] public Color DotColor = new(0.75f, 0.75f, 0.75f);
+    [Export] public Color DotColor = new(0.20f, 0.20f, 0.20f);
 
     // ═══════════════════════════════════════════
     // 显示设置
@@ -81,6 +83,9 @@ public partial class MapBackground : CanvasLayer
         // 背景
         _shaderMaterial.SetShaderParameter("background_color",
             new Vector3(BackgroundColor.R, BackgroundColor.G, BackgroundColor.B));
+
+        // 网格偏移
+        _shaderMaterial.SetShaderParameter("grid_offset", GridOffset);
 
         // 网格
         _shaderMaterial.SetShaderParameter("major_grid_size", MajorGridSize);
