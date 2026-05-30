@@ -1,8 +1,9 @@
 using Godot;
 using System;
+using System.Text.Json;
 
 
-public partial class MainCamera : Camera2D
+public partial class MainCamera : Camera2D, ISaveable
 {
 	[Export] private float defaultScale = 1f;
 	[Export] public float scaleFactor = 0.125f;
@@ -23,6 +24,7 @@ public partial class MainCamera : Camera2D
 	{
 		Instance ??= this;
 		nextPos = Position;
+		SaveManager.Instance.Register(this);
 	}
 
 	public override void _Process(double delta)
@@ -78,6 +80,30 @@ public partial class MainCamera : Camera2D
 					break;
 			}
 		}
+	}
+
+	// ═══════════════════════════════════════════════
+	// ISaveable 实现
+	// ═══════════════════════════════════════════════
+
+	public string SaveFileName => "camera";
+
+	public object CaptureState()
+	{
+		return new CameraData
+		{
+			PositionX = Position.X,
+			PositionY = Position.Y,
+			Zoom = defaultScale
+		};
+	}
+
+	public void RestoreState(string json)
+	{
+		var data = SaveJson.Deserialize<CameraData>(json);
+		Position = new Vector2(data.PositionX, data.PositionY);
+		nextPos = Position;
+		defaultScale = data.Zoom;
 	}
 
 }
