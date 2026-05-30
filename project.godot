@@ -22,6 +22,7 @@ config/icon="res://icon.svg"
 [autoload]
 
 ImGuiRoot="*uid://dugmpnsxaagba"
+SaveManager="*res://Scripts/Core/SaveManager.cs"
 
 [display]
 

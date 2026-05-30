@@ -1,0 +1,186 @@
+using Godot;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Text;
+
+/// <summary>
+/// 存档管理器 — Autoload 单例。
+/// 各系统通过 Register() 注册，Save/Load 时遍历所有已注册系统。
+/// </summary>
+public partial class SaveManager : Node
+{
+    public static SaveManager Instance { get; private set; } = null!;
+
+    private readonly List<ISaveable> _saveables = new();
+
+    private const string SaveBaseDir = "user://saves";
+    private const string ManifestFile = "manifest.json";
+
+    public string CurrentSlotName { get; private set; } = "autosave";
+
+    public override void _Ready()
+    {
+        Instance ??= this;
+    }
+
+    // ═══════════════════════════════════════════════
+    // 注册
+    // ═══════════════════════════════════════════════
+
+    /// <summary>注册一个可持久化系统。通常在子系统的 _Ready() 中调用。</summary>
+    public void Register(ISaveable saveable)
+    {
+        if (!_saveables.Contains(saveable))
+            _saveables.Add(saveable);
+    }
+
+    // ═══════════════════════════════════════════════
+    // 保存
+    // ═══════════════════════════════════════════════
+
+    /// <summary>保存所有已注册系统到指定存档槽</summary>
+    public bool Save(string slotName = "autosave")
+    {
+        try
+        {
+            string slotDir = GetSlotDir(slotName);
+            DirAccess.MakeDirRecursiveAbsolute(slotDir);
+
+            var savedFiles = new List<string>();
+
+            foreach (var saveable in _saveables)
+            {
+                string fileName = saveable.SaveFileName + ".json";
+                string tmpPath = Path.Combine(slotDir, fileName + ".tmp");
+                string finalPath = Path.Combine(slotDir, fileName);
+
+                object state = saveable.CaptureState();
+                string json = SaveJson.Serialize(state);
+
+                // 先写 .tmp，成功后再 rename（防断电写坏文件）
+                File.WriteAllText(tmpPath, json, Encoding.UTF8);
+                if (File.Exists(finalPath))
+                    File.Delete(finalPath);
+                File.Move(tmpPath, finalPath);
+
+                savedFiles.Add(fileName);
+            }
+
+            // 写入 manifest
+            WriteManifest(slotDir, slotName, savedFiles);
+
+            CurrentSlotName = slotName;
+            GD.Print($"[SaveManager] Saved to slot '{slotName}' ({savedFiles.Count} files)");
+            return true;
+        }
+        catch (Exception e)
+        {
+            GD.PushError($"[SaveManager] Save failed: {e.Message}");
+            return false;
+        }
+    }
+
+    // ═══════════════════════════════════════════════
+    // 加载
+    // ═══════════════════════════════════════════════
+
+    /// <summary>从指定存档槽加载所有已注册系统</summary>
+    public bool Load(string slotName = "autosave")
+    {
+        try
+        {
+            string slotDir = GetSlotDir(slotName);
+
+            if (!DirAccess.DirExistsAbsolute(slotDir))
+            {
+                GD.PushError($"[SaveManager] Save slot '{slotName}' not found");
+                return false;
+            }
+
+            // 读取 manifest
+            string manifestPath = Path.Combine(slotDir, ManifestFile);
+            if (!File.Exists(manifestPath))
+            {
+                GD.PushError($"[SaveManager] Manifest not found in slot '{slotName}'");
+                return false;
+            }
+            string manifestJson = File.ReadAllText(manifestPath, Encoding.UTF8);
+            var manifest = SaveJson.Deserialize<ManifestData>(manifestJson);
+
+            // 从清单中收集可加载的文件
+            var fileSet = new HashSet<string>(manifest.Files);
+            var systemMap = new Dictionary<string, ISaveable>();
+            foreach (var saveable in _saveables)
+            {
+                string fileName = saveable.SaveFileName + ".json";
+                if (fileSet.Contains(fileName))
+                    systemMap[fileName] = saveable;
+            }
+
+            // 逐个加载
+            foreach (var (fileName, saveable) in systemMap)
+            {
+                string filePath = Path.Combine(slotDir, fileName);
+                if (!File.Exists(filePath))
+                {
+                    GD.PushError($"[SaveManager] File '{fileName}' missing in slot '{slotName}'");
+                    return false;
+                }
+
+                string json = File.ReadAllText(filePath, Encoding.UTF8);
+
+                // 需要知道 DTO 类型 → 通过反射从 CaptureState 返回值推断
+                // 这里用一个技巧：先调 CaptureState 看类型，再用该类型反序列化
+                // 但在 restore 前我们不想要副作用，所以约定 RestoreState 接收 raw json
+                // → 改用泛型或 json 字符串传递
+                saveable.RestoreState(json);
+            }
+
+            CurrentSlotName = slotName;
+            GD.Print($"[SaveManager] Loaded from slot '{slotName}' ({systemMap.Count} files)");
+            return true;
+        }
+        catch (Exception e)
+        {
+            GD.PushError($"[SaveManager] Load failed: {e.Message}");
+            return false;
+        }
+    }
+
+    // ═══════════════════════════════════════════════
+    // 辅助
+    // ═══════════════════════════════════════════════
+
+    public bool SaveSlotExists(string slotName)
+    {
+        string manifestPath = Path.Combine(GetSlotDir(slotName), ManifestFile);
+        return File.Exists(manifestPath);
+    }
+
+    public void DeleteSlot(string slotName)
+    {
+        string slotDir = GetSlotDir(slotName);
+        if (DirAccess.DirExistsAbsolute(slotDir))
+        {
+            DirAccess.RemoveAbsolute(slotDir);
+            GD.Print($"[SaveManager] Deleted slot '{slotName}'");
+        }
+    }
+
+    private static string GetSlotDir(string slotName) =>
+        ProjectSettings.GlobalizePath($"{SaveBaseDir}/{slotName}");
+
+    private static void WriteManifest(string slotDir, string slotName, List<string> files)
+    {
+        var manifest = new ManifestData
+        {
+            SlotName = slotName,
+            Timestamp = DateTime.UtcNow.ToString("O"),
+            Files = files
+        };
+        string json = SaveJson.Serialize(manifest);
+        string path = Path.Combine(slotDir, ManifestFile);
+        File.WriteAllText(path, json, Encoding.UTF8);
+    }
+}
