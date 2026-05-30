@@ -71,3 +71,16 @@ theme_override_font_sizes/font_size = 12
 text = "拆路(E)"
 custom_minimum_size = Vector2(64, 28)
 theme_override_font_sizes/font_size = 12
+
+[node name="SaveSpacer" type="Control" parent="Panel/VBox/ToolBar"]
+custom_minimum_size = Vector2(16, 0)
+
+[node name="SaveBtn" type="Button" parent="Panel/VBox/ToolBar"]
+text = "保存(F5)"
+custom_minimum_size = Vector2(64, 28)
+theme_override_font_sizes/font_size = 12
+
+[node name="LoadBtn" type="Button" parent="Panel/VBox/ToolBar"]
+text = "加载(F9)"
+custom_minimum_size = Vector2(64, 28)
+theme_override_font_sizes/font_size = 12

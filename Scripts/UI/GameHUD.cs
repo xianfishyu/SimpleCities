@@ -3,17 +3,19 @@ using System.Linq;
 
 /// <summary>
 /// 主 HUD 浮层 — 常驻显示 FPS、当前工具、鼠标格点、路网统计，
-/// 并提供工具切换按钮（选择 / 铺路 / 拆路）。
+/// 提供工具切换按钮（选择 / 铺路 / 拆路）和存档/读档按钮（保存 / 加载）。
 ///
 /// UI 布局定义在 Scenes/UI/GameHUD.tscn 中（Godot 编辑器可视化编辑）。
 /// 本脚本仅负责：
 ///   1. _Ready  — 解析子控件引用 + 绑定按钮事件 + 初始化 UIManager
 ///   2. _Process — 帧更新动态 Label（轮询模式）
+///   3. _Input   — 快捷键：F5 保存 / F9 加载
 ///
 /// 数据来源：
 ///   ToolManager.Instance → 工具状态
 ///   RoadSystem.Instance.Network → 路网统计
 ///   MainCamera.Instance → 鼠标世界坐标 → 格点计算
+///   SaveManager.Instance → 存档/读档
 /// </summary>
 public partial class GameHUD : CanvasLayer
 {
@@ -69,9 +71,10 @@ public partial class GameHUD : CanvasLayer
         _statsJunctionsLabel = GetNode<Label>("Panel/VBox/Junctions");
     }
 
-    /// <summary>绑定工具按钮点击事件。</summary>
+    /// <summary>绑定工具按钮 + 存档/读档按钮点击事件。</summary>
     private void WireButtons()
     {
+        // 工具切换按钮
         GetNode<Button>("Panel/VBox/ToolBar/SelectBtn").Pressed += () =>
             _toolManager!.CurrentTool = ToolType.Select;
 
@@ -80,6 +83,37 @@ public partial class GameHUD : CanvasLayer
 
         GetNode<Button>("Panel/VBox/ToolBar/RemoveBtn").Pressed += () =>
             _toolManager!.CurrentTool = ToolType.RoadRemove;
+
+        // 存档 / 读档按钮
+        GetNode<Button>("Panel/VBox/ToolBar/SaveBtn").Pressed += OnSave;
+        GetNode<Button>("Panel/VBox/ToolBar/LoadBtn").Pressed += OnLoad;
+    }
+
+    /// <summary>快捷键：F5 保存 / F9 加载。</summary>
+    public override void _Input(InputEvent @event)
+    {
+        if (@event is not InputEventKey keyEvent || !keyEvent.Pressed) return;
+
+        if (keyEvent.Keycode == Key.F5)
+            OnSave();
+        else if (keyEvent.Keycode == Key.F9)
+            OnLoad();
+    }
+
+    private void OnSave()
+    {
+        if (SaveManager.Instance.Save("autosave"))
+            GD.Print("[GameHUD] 存档成功");
+        else
+            GD.PushError("[GameHUD] 存档失败");
+    }
+
+    private void OnLoad()
+    {
+        if (SaveManager.Instance.Load("autosave"))
+            GD.Print("[GameHUD] 读档成功");
+        else
+            GD.PushError("[GameHUD] 读档失败：存档不存在或损坏");
     }
 
     // ═══════════════════════════════════════════════════════
