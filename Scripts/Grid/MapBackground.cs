@@ -8,6 +8,14 @@ public partial class MapBackground : CanvasLayer
     public static MapBackground Instance { get; private set; }
 
     // ═══════════════════════════════════════════
+    // RoadConfig 引用
+    // ═══════════════════════════════════════════
+
+    [ExportGroup("配置引用")]
+    /// <summary>道路配置资源，网格大小和偏移从 CellSize 自动推导</summary>
+    [Export] public RoadConfig Config { get; set; } = null!;
+
+    // ═══════════════════════════════════════════
     // 背景设置
     // ═══════════════════════════════════════════
 
@@ -19,9 +27,6 @@ public partial class MapBackground : CanvasLayer
     // ═══════════════════════════════════════════
 
     [ExportGroup("网格设置")]
-    /// <summary>网格偏移，默认 RoadConfig.CellSize / 2 对齐道路端点中心</summary>
-    [Export] public Vector2 GridOffset = new(50f, 50f);
-
     [Export] public float MajorGridSize = 500f;
     [Export] public float MainLineWidth = 1.5f;
     [Export] public Color MajorGridColor = new(0.25f, 0.25f, 0.25f);
@@ -52,10 +57,22 @@ public partial class MapBackground : CanvasLayer
     [Export] public ColorRect Display;
 
     private ShaderMaterial _shaderMaterial;
+    private Vector2 _gridOffset;
 
     public override void _Ready()
     {
         Instance ??= this;
+
+        // 回退到默认 RoadConfig
+        if (Config == null)
+        {
+            GD.PushError("MapBackground: Config (RoadConfig resource) is not assigned in the scene.");
+            Config = new RoadConfig();
+        }
+
+        _gridOffset = new Vector2(Config.CellSize / 2f, Config.CellSize / 2f);
+        MajorGridSize = Config.CellSize * 5f;
+        MinorGridSize = Config.CellSize;
 
         Display.Visible = true;
         Display.AnchorLeft = 0;
@@ -84,8 +101,8 @@ public partial class MapBackground : CanvasLayer
         _shaderMaterial.SetShaderParameter("background_color",
             new Vector3(BackgroundColor.R, BackgroundColor.G, BackgroundColor.B));
 
-        // 网格偏移
-        _shaderMaterial.SetShaderParameter("grid_offset", GridOffset);
+        // 网格偏移（从 Config.CellSize 推导）
+        _shaderMaterial.SetShaderParameter("grid_offset", _gridOffset);
 
         // 网格
         _shaderMaterial.SetShaderParameter("major_grid_size", MajorGridSize);

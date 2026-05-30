@@ -1,7 +1,8 @@
-[gd_scene load_steps=4 format=3 uid="uid://dmapbgscen001"]
+[gd_scene load_steps=5 format=3 uid="uid://dmapbgscen001"]
 
 [ext_resource type="Script" uid="uid://dmapbgscpt001" path="res://Scripts/Grid/MapBackground.cs" id="1_mbscript"]
 [ext_resource type="Shader" uid="uid://dmapbgshdr001" path="res://Shaders/MapTerrain.gdshader" id="2_mbshader"]
+[ext_resource type="Resource" uid="uid://ebbitynntrvx" path="res://Scenes/road_config.tres" id="3_roadcfg"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_mb"]
 shader = ExtResource("2_mbshader")
@@ -26,6 +27,7 @@ shader_parameter/viewport_size = Vector2(1920, 1080)
 [node name="MapBackground" type="CanvasLayer" node_paths=PackedStringArray("Display")]
 layer = -100
 script = ExtResource("1_mbscript")
+Config = ExtResource("3_roadcfg")
 Display = NodePath("ColorRect")
 
 [node name="ColorRect" type="ColorRect" parent="."]
