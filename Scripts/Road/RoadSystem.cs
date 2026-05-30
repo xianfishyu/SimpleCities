@@ -17,5 +17,7 @@ public partial class RoadSystem : Node2D
         var builder = GetNode<RoadBuilder>("RoadBuilder");
         renderer.SetNetwork(Network);
         builder.SetNetwork(Network);
+
+        SaveManager.Instance.Register(Network);
     }
 }

@@ -2,8 +2,9 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 
-public class RoadNetwork
+public class RoadNetwork : ISaveable
 {
     private readonly Dictionary<int, Junction> _junctions = new();
     private readonly Dictionary<int, Segment> _segments = new();
@@ -26,6 +27,8 @@ public class RoadNetwork
     private float _lastCellSize = 64f;
     // 防止 TryMergeAtJunction 内部 RemoveSegment 时递归触发末尾的合并降级，造成级联误并
     private bool _inMergeOperation = false;
+
+    public string SaveFileName => "road_network";
 
     public event Action<Segment>? SegmentAdded;
     public event Action<Segment>? SegmentRemoved;
@@ -997,5 +1000,168 @@ public class RoadNetwork
         if (IsSnapGrid(pos, cellSize))
             _posToJunctionID[pos] = junction.ID;
         return junction;
+    }
+
+    // ═══════════════════════════════════════════════
+    // ISaveable 实现
+    // ═══════════════════════════════════════════════
+
+    public object CaptureState()
+    {
+        var data = new RoadNetworkData
+        {
+            NextID = _nextID,
+            CellSize = _lastCellSize
+        };
+
+        // Junctions
+        foreach (var j in _junctions.Values)
+        {
+            data.Junctions.Add(new JunctionData
+            {
+                ID = j.ID,
+                X = j.Position.X,
+                Y = j.Position.Y
+            });
+        }
+
+        // Segments
+        foreach (var s in _segments.Values)
+        {
+            var sd = new SegmentData
+            {
+                ID = s.ID,
+                FromJunctionID = s.FromJunctionID,
+                ToJunctionID = s.ToJunctionID,
+                RoadID = s.RoadID,
+                TotalLength = s.TotalLength
+            };
+            foreach (var wp in s.Waypoints)
+                sd.Waypoints.Add(new Vector2Data(wp));
+            data.Segments.Add(sd);
+        }
+
+        // Roads
+        foreach (var r in _roads.Values)
+        {
+            data.Roads.Add(new RoadData
+            {
+                ID = r.ID,
+                SegmentIDs = new List<int>(r.SegmentIDs)
+            });
+        }
+
+        return data;
+    }
+
+    public void RestoreState(string json)
+    {
+        var data = SaveJson.Deserialize<RoadNetworkData>(json);
+
+        // 清空所有现有状态
+        _junctions.Clear();
+        _segments.Clear();
+        _roads.Clear();
+        _posToJunctionID.Clear();
+        _posToSegmentID.Clear();
+
+        // 恢复基础字段
+        _nextID = data.NextID;
+        _lastCellSize = data.CellSize;
+        _inMergeOperation = false;
+
+        // 重建 Junctions（先只建 ID + Position，连接关系由 RebuildIndexes 补）
+        foreach (var jd in data.Junctions)
+        {
+            var junction = new Junction(jd.ID, new Vector2(jd.X, jd.Y));
+            _junctions[junction.ID] = junction;
+        }
+
+        // 重建 Roads
+        foreach (var rd in data.Roads)
+        {
+            var road = new Road(rd.ID);
+            foreach (var sid in rd.SegmentIDs)
+                road.AddSegment(sid);
+            _roads[road.ID] = road;
+        }
+
+        // 重建 Segments
+        foreach (var sd in data.Segments)
+        {
+            var waypoints = new Vector2[sd.Waypoints.Count];
+            for (int i = 0; i < waypoints.Length; i++)
+                waypoints[i] = sd.Waypoints[i].ToVector2();
+
+            var segment = new Segment(
+                sd.ID,
+                sd.FromJunctionID,
+                sd.ToJunctionID,
+                sd.RoadID,
+                waypoints,
+                sd.TotalLength
+            );
+            _segments[segment.ID] = segment;
+        }
+
+        // 重建所有反向索引
+        RebuildIndexes();
+    }
+
+    /// <summary>
+    /// 从已加载的 Junctions / Segments 重建反向索引词典和 Junction 内部连接关系。
+    /// 在 RestoreState 结束时调用。
+    /// </summary>
+    internal void RebuildIndexes()
+    {
+        float cellSize = _lastCellSize;
+
+        // 1. 重建 _posToJunctionID（仅 snap 格点 Junction）
+        foreach (var j in _junctions.Values)
+        {
+            if (IsSnapGrid(j.Position, cellSize))
+                _posToJunctionID[j.Position] = j.ID;
+        }
+
+        // 2. 重建 _posToSegmentID（从 Segment 的 waypoints + 端点）
+        foreach (var s in _segments.Values)
+        {
+            var fromJ = _junctions.GetValueOrDefault(s.FromJunctionID);
+            var toJ = _junctions.GetValueOrDefault(s.ToJunctionID);
+
+            if (fromJ != null && IsSnapGrid(fromJ.Position, cellSize))
+                _posToSegmentID[fromJ.Position] = s.ID;
+            if (toJ != null && IsSnapGrid(toJ.Position, cellSize))
+                _posToSegmentID[toJ.Position] = s.ID;
+            foreach (var wp in s.Waypoints)
+            {
+                if (IsSnapGrid(wp, cellSize))
+                    _posToSegmentID[wp] = s.ID;
+            }
+        }
+
+        // 3. 重建 Junction 内部的 _connections（从 Segment 反向构建）
+        foreach (var s in _segments.Values)
+        {
+            var fromJ = _junctions.GetValueOrDefault(s.FromJunctionID);
+            var toJ = _junctions.GetValueOrDefault(s.ToJunctionID);
+            if (fromJ == null || toJ == null) continue;
+
+            // 确定 fromJunction 侧的入方向
+            Vector2 firstPt = s.Waypoints.Length > 0
+                ? s.Waypoints[0]
+                : toJ.Position;
+            var dirFrom = DirectionUtil.FromDisplacementAnyLength(fromJ.Position, firstPt);
+            if (dirFrom.HasValue)
+                fromJ.AddSegmentConnection(s.ID, toJ.ID, dirFrom.Value);
+
+            // 确定 toJunction 侧的入方向
+            Vector2 lastPt = s.Waypoints.Length > 0
+                ? s.Waypoints[^1]
+                : fromJ.Position;
+            var dirTo = DirectionUtil.FromDisplacementAnyLength(toJ.Position, lastPt);
+            if (dirTo.HasValue)
+                toJ.AddSegmentConnection(s.ID, fromJ.ID, dirTo.Value);
+        }
     }
 }
