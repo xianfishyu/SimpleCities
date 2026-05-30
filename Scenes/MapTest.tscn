@@ -38,3 +38,4 @@ script = ExtResource("6_58v1x")
 Config = ExtResource("8_roadcfg")
 
 [node name="MapBackground" parent="." unique_id=2035075634 instance=ExtResource("9_2253v")]
+Config = ExtResource("8_roadcfg")
