@@ -69,10 +69,10 @@ public class RoadNetwork : ISaveable
         path.AddRange(waypoints);
         path.Add(to);
 
-        // 校验所有相邻格点 8 方向；若不合法直接拒绝
+        // 校验 8 方向（用 AnyLength 兼容半格步长；FromDisplacement 的 Banker's rounding 会误判）
         for (int i = 0; i < path.Count - 1; i++)
         {
-            if (DirectionUtil.FromDisplacement(path[i], path[i + 1], cellSize) == null)
+            if (DirectionUtil.FromDisplacementAnyLength(path[i], path[i + 1]) == null)
             {
                 GD.Print($"[ADDROAD] REJECT: non-8dir step[{i}] ({path[i].X:F0},{path[i].Y:F0})->({path[i+1].X:F0},{path[i+1].Y:F0})");
                 return -1;
