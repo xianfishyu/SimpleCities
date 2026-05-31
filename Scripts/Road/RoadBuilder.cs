@@ -115,8 +115,8 @@ public partial class RoadBuilder : Node2D
         Vector2 anchor;
         if (IsHalfGridStart)
         {
-            var disp = DirectionUtil.GetDisplacement(_currentDir);
-            anchor = _dragStartPos - new Vector2(disp.X, disp.Y) * Config.CellSize / 2f;
+            var halfDisp = DirectionUtil.GetDisplacement(_currentDir);
+            anchor = _dragStartPos - new Vector2(halfDisp.X, halfDisp.Y) * Config.CellSize / 2f;
         }
         else
             anchor = _dragStartPos;
