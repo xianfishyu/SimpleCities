@@ -72,7 +72,7 @@ public partial class MapBackground : CanvasLayer
             Config = new RoadConfig();
         }
 
-        _gridOffset = new Vector2(Config.CellSize / 2f, Config.CellSize / 2f);
+        _gridOffset = Vector2.Zero;
 
         Display.Visible = true;
         Display.AnchorLeft = 0;
