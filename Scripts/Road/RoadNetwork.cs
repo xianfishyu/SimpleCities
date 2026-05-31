@@ -46,15 +46,16 @@ public class RoadNetwork : ISaveable
         // extendRoadID 现阶段忽略（占位接口）。未来此处取已有 Road 复用。
         _ = extendRoadID;
 
-        // 已经在路网上的点不 snap。若 from 在路网上则 waypoints 也不 snap
-        // （半格起点偏移导致 waypoint snap 会破坏方向，如(150,-50)→(200,0)）。
+        // 已在路网上的点不 snap。若 from 是半格点，to/waypoints 也不 snap
+        // （否则 snap 后位移不是合法 8 方向：如(150,150)→(200,200)位移(2,2)）。
         bool fromOnRoad = IsOnRoadPoint(from);
         bool toOnRoad   = IsOnRoadPoint(to);
-        GD.Print($"[ADDROAD] raw from=({from.X:F0},{from.Y:F0}) onRoad={fromOnRoad} to=({to.X:F0},{to.Y:F0}) onRoad={toOnRoad}");
-        from = fromOnRoad ? from : SnapToGrid(from, cellSize);
-        to   = toOnRoad   ? to   : SnapToGrid(to, cellSize);
+        bool skipSnap = fromOnRoad; // 半格起点→整条路都不 snap
+        GD.Print($"[ADDROAD] raw from=({from.X:F0},{from.Y:F0}) onRoad={fromOnRoad} to=({to.X:F0},{to.Y:F0}) onRoad={toOnRoad} skipSnap={skipSnap}");
+        if (!skipSnap) from = SnapToGrid(from, cellSize);
+        if (!skipSnap) to   = SnapToGrid(to, cellSize);
         GD.Print($"[ADDROAD] after snap: from=({from.X:F0},{from.Y:F0}) to=({to.X:F0},{to.Y:F0})");
-        if (!fromOnRoad)
+        if (!skipSnap)
         {
             for (int i = 0; i < waypoints.Length; i++)
                 waypoints[i] = SnapToGrid(waypoints[i], cellSize);
