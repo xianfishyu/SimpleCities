@@ -131,23 +131,24 @@ public partial class RoadBuilder : Node2D
         _currentLength = 0;
     }
 
-    /// <summary>
-    /// 把当前鼠标向量投影到最接近的 8 方向，更新 _currentDir / _currentLength 与预览。
-    /// </summary>
     private void UpdateProjection()
     {
         var mouseWorld = GetGlobalMousePosition();
         var v = mouseWorld - _dragStartPos;
 
-        // 将向量投影到 8 个单位方向上，选投影最大者；若所有投影 ≤ 0，长度归零（鼠标在起点或反方向附近）
+        // 半格起点仅允许对角延伸（正交方向位移非 cellSize 整数倍会被 AddRoad 拒绝）
+        bool halfGridStart = !RoadNetwork.IsOnRoadPoint(_dragStartPos) || !IsOnSnapGrid(_dragStartPos);
+        bool diagonalsOnly = halfGridStart;
+
         Direction bestDir = Direction.E;
         float bestProj = 0f;
         foreach (var d in DirectionUtil.All)
         {
+            if (diagonalsOnly && !IsDiagonal(d)) continue;
             var disp = DirectionUtil.GetDisplacement(d);
             float ux = disp.X;
             float uy = disp.Y;
-            float invLen = 1f / Mathf.Sqrt(ux * ux + uy * uy); // ortho=1, diag=1/√2
+            float invLen = 1f / Mathf.Sqrt(ux * ux + uy * uy);
             ux *= invLen; uy *= invLen;
             float proj = v.X * ux + v.Y * uy;
             if (proj > bestProj)
@@ -157,7 +158,6 @@ public partial class RoadBuilder : Node2D
             }
         }
 
-        // 投影长度 → 格数
         float stepLen = DirectionUtil.Length(bestDir, Config.CellSize);
         int cells = Mathf.RoundToInt(bestProj / stepLen);
         if (cells < 0) cells = 0;
@@ -172,6 +172,14 @@ public partial class RoadBuilder : Node2D
             _renderer.QueueRedraw();
         }
     }
+
+    private static bool IsDiagonal(Direction d)
+    {
+        var disp = DirectionUtil.GetDisplacement(d);
+        return Math.Abs(disp.X) == 1 && Math.Abs(disp.Y) == 1;
+    }
+
+    private bool IsOnSnapGrid(Vector2 pos) => GridSystem.IsSnapGrid(pos);
 
     private Vector2 ComputeEndPos(Direction dir, int cells)
     {
