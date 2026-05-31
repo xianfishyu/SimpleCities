@@ -48,8 +48,9 @@ public class RoadNetwork : ISaveable
 
         GridSystem.Config.CellSize = cellSize;
 
-        from = SnapToGrid(from, cellSize);
-        to = SnapToGrid(to, cellSize);
+        // 已经在路网上的点（waypoint/Junction，含半格）不 snap，保持原位
+        from = IsOnRoadPoint(from) ? from : SnapToGrid(from, cellSize);
+        to   = IsOnRoadPoint(to)   ? to   : SnapToGrid(to, cellSize);
         for (int i = 0; i < waypoints.Length; i++)
             waypoints[i] = SnapToGrid(waypoints[i], cellSize);
 
@@ -938,6 +939,21 @@ public class RoadNetwork : ISaveable
         _posToJunctionID.TryGetValue(pos, out int id) ? _junctions.GetValueOrDefault(id) : null;
 
     public bool HasJunctionAt(Vector2 pos) => _posToJunctionID.ContainsKey(pos);
+
+    /// <summary>判断位置是否落在已有路网点上（含 Junction + waypoint，含半格点）。</summary>
+    private bool IsOnRoadPoint(Vector2 pos)
+    {
+        if (_posToJunctionID.ContainsKey(pos)) return true;
+        if (_posToSegmentID.ContainsKey(pos)) return true;
+        // 扫描所有 Segment 的 waypoint（含半格点——不在 _posToSegmentID 中）
+        foreach (var seg in _segments.Values)
+            foreach (var wp in seg.Waypoints)
+                if (wp.DistanceSquaredTo(pos) < 1e-4f) return true;
+        // 也扫描 Junction 位置（半格 Junction 不在 _posToJunctionID 中）
+        foreach (var j in _junctions.Values)
+            if (j.Position.DistanceSquaredTo(pos) < 1e-4f) return true;
+        return false;
+    }
 
     /// <summary>
     /// 几何匹配查 Junction：含字典命中（格点）+ 几何近似匹配（半格 Junction）。
