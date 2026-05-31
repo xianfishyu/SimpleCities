@@ -72,8 +72,18 @@ public partial class RoadBuilder : Node2D
     private void BeginDrag()
     {
         _isDragging = true;
-        _dragStartPos = RoadNetwork.SnapToGrid(GetGlobalMousePosition(), Config.CellSize);
+        var mouseWorld = GetGlobalMousePosition();
+        _dragStartPos = RoadNetwork.SnapToGrid(mouseWorld, Config.CellSize);
         _currentLength = 0;
+
+        // 半格点吸附：若 snap 位置无 Segment，回退到几何最近点（waypoint/Junction）。
+        // 解决半格 X 交叉合并后 waypoint 无法起笔的问题。
+        if (_network != null && _network.FindSegmentAt(_dragStartPos) < 0)
+        {
+            var nearest = FindNearestRoadPoint(mouseWorld);
+            if (nearest.HasValue)
+                _dragStartPos = nearest.Value;
+        }
 
         if (_renderer != null)
         {
@@ -236,5 +246,36 @@ public partial class RoadBuilder : Node2D
             _renderer.HoveredSegmentID = null;
             _renderer.QueueRedraw();
         }
+    }
+
+    /// <summary>
+    /// 几何最近点搜索：扫所有 Segment 的 waypoint 和 Junction，找距离鼠标最近的点。
+    /// 用于半格点吸附——当 SnapToGrid 位置无 Segment 时，回退到实际路网上的最近点。
+    /// </summary>
+    private Vector2? FindNearestRoadPoint(Vector2 mousePos)
+    {
+        float bestDistSq = (Config.CellSize * 0.8f) * (Config.CellSize * 0.8f);
+        Vector2? best = null;
+
+        if (_network == null) return null;
+
+        foreach (var seg in _network.GetAllSegments())
+        {
+            var fj = _network.GetJunction(seg.FromJunctionID);
+            var tj = _network.GetJunction(seg.ToJunctionID);
+            if (fj == null || tj == null) continue;
+
+            Check(fj.Position);
+            Check(tj.Position);
+            foreach (var wp in seg.Waypoints) Check(wp);
+        }
+
+        void Check(Vector2 pt)
+        {
+            float d2 = mousePos.DistanceSquaredTo(pt);
+            if (d2 < bestDistSq) { bestDistSq = d2; best = pt; }
+        }
+
+        return best;
     }
 }
