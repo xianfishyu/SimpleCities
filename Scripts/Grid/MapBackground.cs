@@ -1,7 +1,7 @@
 using Godot;
 
 /// <summary>
-/// 地图背景渲染器 — 暗色底 + 网格线（对齐道路 CellSize 中心点）
+/// 地图背景渲染器 — 暗色底 + 网格线（对齐原点）
 /// </summary>
 public partial class MapBackground : CanvasLayer
 {
@@ -70,7 +70,7 @@ public partial class MapBackground : CanvasLayer
             Config = new RoadConfig();
         }
 
-        _gridOffset = new Vector2(Config.CellSize / 2f, Config.CellSize / 2f);
+        _gridOffset = Vector2.Zero;
         MajorGridSize = Config.CellSize * 5f;
         MinorGridSize = Config.CellSize;
 

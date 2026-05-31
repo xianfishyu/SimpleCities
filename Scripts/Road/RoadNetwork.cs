@@ -19,12 +19,7 @@ public class RoadNetwork : ISaveable
     private int _nextID;
     private int NextID() => _nextID++;
 
-    /// <summary>
-    /// 上次 AddRoad 调用使用的 cellSize，供 RemoveSegment 后的合并降级复用。
-    /// 项目实际使用单一 cellSize（来自 RoadConfig），多调用方理论上可能传不同值，但本系统约定一致。
-    /// 默认 64f，未调用过 AddRoad 时 RemoveSegment 仍能工作（罕见路径）。
-    /// </summary>
-    private float _lastCellSize = 64f;
+    // cellSize 已由 GridSystem 全局管理，不再本地持有字段。
     // 防止 TryMergeAtJunction 内部 RemoveSegment 时递归触发末尾的合并降级，造成级联误并
     private bool _inMergeOperation = false;
 
@@ -51,7 +46,7 @@ public class RoadNetwork : ISaveable
         // extendRoadID 现阶段忽略（占位接口）。未来此处取已有 Road 复用。
         _ = extendRoadID;
 
-        _lastCellSize = cellSize;
+        GridSystem.Config.CellSize = cellSize;
 
         from = SnapToGrid(from, cellSize);
         to = SnapToGrid(to, cellSize);
@@ -340,14 +335,8 @@ public class RoadNetwork : ISaveable
         return true;
     }
 
-    /// <summary>判断位置是否落在标准 snap 格点上（cell 原点，即 cellSize 的整数倍）。</summary>
-    private static bool IsSnapGrid(Vector2 pos, float cellSize)
-    {
-        float rx = pos.X / cellSize;
-        float ry = pos.Y / cellSize;
-        return Mathf.Abs(rx - Mathf.Round(rx)) < 1e-3f
-            && Mathf.Abs(ry - Mathf.Round(ry)) < 1e-3f;
-    }
+    /// <summary>委托给 GridSystem；保留签名供内外部兼容调用。</summary>
+    private static bool IsSnapGrid(Vector2 pos, float cellSize) => GridSystem.IsSnapGrid(pos);
 
     /// <summary>
     /// 在指定位置劈开一条已有 Segment：原 Segment 删除，新建两段 Segment（继承原 RoadID）。
@@ -767,9 +756,9 @@ public class RoadNetwork : ISaveable
         // RemoveSegment 清除条目后若 Junction 仍存活（剩余连接 >0），但字典位置已被清空，
         // 玩家将无法通过点击该 Junction 格点拆除剩余 Segment（Lookup 返回 -1 然后被忽略）。
         // 此修复从该 Junction 的 ConnectedSegmentIDs 取一条存活的按格点补回。
-        MaybeReindexJunctionInPosDict(fj, _lastCellSize);
+        MaybeReindexJunctionInPosDict(fj, GridSystem.CellSize);
         if (tj != fj)
-            MaybeReindexJunctionInPosDict(tj, _lastCellSize);
+            MaybeReindexJunctionInPosDict(tj, GridSystem.CellSize);
 
         // 从 Road 摘除；Road 变空时清掉（不发 Road 级事件，本期未引入）
         if (_roads.TryGetValue(seg.RoadID, out var road))
@@ -798,9 +787,9 @@ public class RoadNetwork : ISaveable
         if (!_inMergeOperation)
         {
             if (fj != null && _junctions.ContainsKey(fj.ID))
-                TryMergeAtJunction(fj.ID, _lastCellSize);
+                TryMergeAtJunction(fj.ID, GridSystem.CellSize);
             if (tj != null && tj != fj && _junctions.ContainsKey(tj.ID))
-                TryMergeAtJunction(tj.ID, _lastCellSize);
+                TryMergeAtJunction(tj.ID, GridSystem.CellSize);
         }
 
         return true;
@@ -974,11 +963,8 @@ public class RoadNetwork : ISaveable
     public IEnumerable<Road> GetAllRoads() => _roads.Values;
     public IEnumerable<Junction> GetAllJunctions() => _junctions.Values;
 
-    public static Vector2 SnapToGrid(Vector2 pos, float cellSize) =>
-        new(
-            Mathf.Round(pos.X / cellSize) * cellSize,
-            Mathf.Round(pos.Y / cellSize) * cellSize
-        );
+    /// <summary>委托给 GridSystem；保留签名供内外部兼容调用。</summary>
+    public static Vector2 SnapToGrid(Vector2 pos, float cellSize) => GridSystem.SnapToGrid(pos);
 
     /// <summary>
     /// 获取或创建一个 Junction。仅当位置落在标准 snap 格点上时才进 _posToJunctionID 字典。
@@ -1015,7 +1001,7 @@ public class RoadNetwork : ISaveable
         var data = new RoadNetworkData
         {
             NextID = _nextID,
-            CellSize = _lastCellSize
+            CellSize = GridSystem.CellSize
         };
 
         // Junctions
@@ -1071,7 +1057,7 @@ public class RoadNetwork : ISaveable
 
         // 恢复基础字段
         _nextID = data.NextID;
-        _lastCellSize = data.CellSize;
+        GridSystem.Config.CellSize = data.CellSize;
         _inMergeOperation = false;
 
         // 重建 Junctions（先只建 ID + Position，连接关系由 RebuildIndexes 补）
@@ -1121,7 +1107,7 @@ public class RoadNetwork : ISaveable
     /// </summary>
     internal void RebuildIndexes()
     {
-        float cellSize = _lastCellSize;
+        float cellSize = GridSystem.CellSize;
 
         // 1. 重建 _posToJunctionID（仅 snap 格点 Junction）
         foreach (var j in _junctions.Values)

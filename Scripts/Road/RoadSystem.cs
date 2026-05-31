@@ -15,6 +15,11 @@ public partial class RoadSystem : Node2D
 
         var renderer = GetNode<RoadRenderer>("RoadRenderer");
         var builder = GetNode<RoadBuilder>("RoadBuilder");
+        var config = builder.Config; // 从 RoadBuilder 的 Export 中取 RoadConfig
+
+        // 注入网格系统（所有模块共用一份 CellSize）
+        GridSystem.Config = config;
+
         renderer.SetNetwork(Network);
         builder.SetNetwork(Network);
 
