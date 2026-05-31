@@ -111,22 +111,28 @@ public partial class RoadBuilder : Node2D
 
         if (_currentLength <= 0) { GD.Print("[DRAG-END] length<=0, skip"); return; }
 
-        var endPos = ComputeEndPos(_currentDir, _currentLength);
-        GD.Print($"[DRAG-END] from=({_dragStartPos.X:F0},{_dragStartPos.Y:F0}) dir={_currentDir} len={_currentLength} to=({endPos.X:F0},{endPos.Y:F0}) wps={_currentLength-1}");
+        // 半格起点：锚定到 dragging 反方向的整格，终/waypoints 全落整格
+        Vector2 anchor;
+        if (IsHalfGridStart)
+        {
+            var disp = DirectionUtil.GetDisplacement(_currentDir);
+            anchor = _dragStartPos - new Vector2(disp.X, disp.Y) * Config.CellSize / 2f;
+        }
+        else
+            anchor = _dragStartPos;
+        var endPos = ComputeEndPosFrom(anchor, _currentDir, _currentLength);
+        GD.Print($"[DRAG-END] from=({_dragStartPos.X:F0},{_dragStartPos.Y:F0}) halfGrid={IsHalfGridStart} anchor=({anchor.X:F0},{anchor.Y:F0}) dir={_currentDir} len={_currentLength} to=({endPos.X:F0},{endPos.Y:F0}) wps={_currentLength-1}");
 
-        // 共线 waypoints：起点之后、终点之前的所有中间格
         var waypoints = new Vector2[_currentLength - 1];
         var disp = DirectionUtil.GetDisplacement(_currentDir);
         for (int i = 1; i < _currentLength; i++)
         {
             waypoints[i - 1] = new Vector2(
-                _dragStartPos.X + disp.X * i * Config.CellSize,
-                _dragStartPos.Y + disp.Y * i * Config.CellSize
+                anchor.X + disp.X * i * Config.CellSize,
+                anchor.Y + disp.Y * i * Config.CellSize
             );
         }
 
-        // AddRoad 返回 RoadID（>=0 表示成功），失败返回 -1。
-        // 当前阶段不传 extendRoadID（占位接口），每次拖拽产生一条新 Road。
         _network.AddRoad(_dragStartPos, endPos, waypoints, Config.CellSize);
         _currentLength = 0;
     }
@@ -167,9 +173,22 @@ public partial class RoadBuilder : Node2D
         if (_renderer != null)
         {
             _renderer.PreviewFrom = _dragStartPos;
-            _renderer.PreviewTo = (cells > 0) ? ComputeEndPos(bestDir, cells) : _dragStartPos;
+            var bestDisp = DirectionUtil.GetDisplacement(bestDir);
+            var anchor = IsHalfGridStart
+                ? _dragStartPos - new Vector2(bestDisp.X, bestDisp.Y) * Config.CellSize / 2f
+                : _dragStartPos;
+            _renderer.PreviewTo = (cells > 0) ? ComputeEndPosFrom(anchor, bestDir, cells) : _dragStartPos;
             _renderer.QueueRedraw();
         }
+    }
+
+    private bool IsHalfGridStart => !GridSystem.IsSnapGrid(_dragStartPos);
+
+    private Vector2 ComputeEndPosFrom(Vector2 anchor, Direction dir, int cells)
+    {
+        var disp = DirectionUtil.GetDisplacement(dir);
+        return new Vector2(anchor.X + disp.X * cells * Config.CellSize,
+                           anchor.Y + disp.Y * cells * Config.CellSize);
     }
 
     private static bool IsDiagonal(Direction d)
