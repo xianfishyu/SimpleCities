@@ -63,12 +63,12 @@ public partial class GameHUD : CanvasLayer
     /// </summary>
     private void ResolveChildNodes()
     {
-        _fpsLabel = GetNode<Label>("Panel/VBox/FPS");
-        _toolLabel = GetNode<Label>("Panel/VBox/Tool");
-        _mouseLabel = GetNode<Label>("Panel/VBox/MousePos");
-        _statsRoadsLabel = GetNode<Label>("Panel/VBox/Roads");
-        _statsSegmentsLabel = GetNode<Label>("Panel/VBox/Segments");
-        _statsJunctionsLabel = GetNode<Label>("Panel/VBox/Junctions");
+        _fpsLabel = GetNode<Label>("Panel/VBox/RowFPS/FPS");
+        _toolLabel = GetNode<Label>("Panel/VBox/RowTool/Tool");
+        _mouseLabel = GetNode<Label>("Panel/VBox/RowMouse/MousePos");
+        _statsRoadsLabel = GetNode<Label>("Panel/VBox/RowRoads/Roads");
+        _statsSegmentsLabel = GetNode<Label>("Panel/VBox/RowSegments/Segments");
+        _statsJunctionsLabel = GetNode<Label>("Panel/VBox/RowJunctions/Junctions");
     }
 
     /// <summary>绑定工具按钮 + 存档/读档按钮点击事件。</summary>
@@ -85,8 +85,8 @@ public partial class GameHUD : CanvasLayer
             _toolManager!.CurrentTool = ToolType.RoadRemove;
 
         // 存档 / 读档按钮
-        GetNode<Button>("Panel/VBox/ToolBar/SaveBtn").Pressed += OnSave;
-        GetNode<Button>("Panel/VBox/ToolBar/LoadBtn").Pressed += OnLoad;
+        GetNode<Button>("Panel/VBox/SaveBar/SaveBtn").Pressed += OnSave;
+        GetNode<Button>("Panel/VBox/SaveBar/LoadBtn").Pressed += OnLoad;
     }
 
     /// <summary>快捷键：F5 保存 / F9 加载。</summary>

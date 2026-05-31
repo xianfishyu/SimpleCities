@@ -40,15 +40,40 @@ public partial class RoadRenderer : Node2D
         {
             _network.SegmentAdded -= OnSegmentAdded;
             _network.SegmentRemoved -= OnSegmentRemoved;
+            _network.NetworkReloaded -= OnNetworkReloaded;
         }
         _network = network;
         _network.SegmentAdded += OnSegmentAdded;
         _network.SegmentRemoved += OnSegmentRemoved;
+        _network.NetworkReloaded += OnNetworkReloaded;
+    }
+
+    // ── 整网重载（存档加载后） ──
+
+    private void OnNetworkReloaded()
+    {
+        // 清除所有现有 Line2D 节点
+        foreach (var line in _segmentLines.Values)
+            line.QueueFree();
+        _segmentLines.Clear();
+
+        // 重建所有 Segment 的 Line2D
+        if (_network == null) return;
+        foreach (var seg in _network.GetAllSegments())
+            CreateSegmentLine(seg);
+
+        _junctionLayer.QueueRedraw();
     }
 
     // ── Segment 增删 → Line2D 同步 ──
 
     private void OnSegmentAdded(Segment seg)
+    {
+        CreateSegmentLine(seg);
+        _junctionLayer.QueueRedraw();
+    }
+
+    private void CreateSegmentLine(Segment seg)
     {
         if (_network == null) return;
 
@@ -77,8 +102,6 @@ public partial class RoadRenderer : Node2D
         AddChild(line);
         MoveChild(line, _junctionLayer.GetIndex());
         _segmentLines[seg.ID] = line;
-
-        _junctionLayer.QueueRedraw();
     }
 
     private void OnSegmentRemoved(Segment seg)

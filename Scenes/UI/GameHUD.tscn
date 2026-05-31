@@ -1,86 +1,171 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://Scripts/UI/GameHUD.cs" id="1_script"]
+
+[sub_resource type="StyleBoxFlat" id="1"]
+bg_color = Color(0.06, 0.07, 0.09, 0.92)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_left = 6
+corner_radius_bottom_right = 6
+border_width_left = 1
+border_width_right = 1
+border_width_top = 1
+border_width_bottom = 1
+border_color = Color(0.14, 0.16, 0.2, 0.5)
+content_margin_left = 10.0
+content_margin_top = 8.0
+content_margin_right = 10.0
+content_margin_bottom = 10.0
 
 [node name="GameHUD" type="CanvasLayer"]
 script = ExtResource("1_script")
 
 [node name="Panel" type="Panel" parent="."]
-offset_left = 10.0
-offset_top = 10.0
-offset_right = 290.0
-offset_bottom = 260.0
-self_modulate = Color(0.08, 0.08, 0.08, 0.88)
+offset_left = 12.0
+offset_top = 12.0
+offset_right = 312.0
+offset_bottom = 325.0
+theme_override_styles/panel = SubResource("1")
 
 [node name="VBox" type="VBoxContainer" parent="Panel"]
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 8.0
-offset_top = 8.0
-offset_right = -8.0
-offset_bottom = -8.0
+theme_override_constants/separation = 2
 
-[node name="FPS" type="Label" parent="Panel/VBox"]
-text = "FPS: --"
-theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 1)
+; ═══════════ 状态 ═══════════
+[node name="SectionInfo" type="Label" parent="Panel/VBox"]
+text = "状态"
+theme_override_colors/font_color = Color(1, 0.76, 0.35, 1)
 theme_override_font_sizes/font_size = 13
 
-[node name="Tool" type="Label" parent="Panel/VBox"]
-text = "工具: 选择"
-theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 1)
+[node name="RowFPS" type="HBoxContainer" parent="Panel/VBox"]
+[node name="LabelFPS" type="Label" parent="Panel/VBox/RowFPS"]
+text = "FPS"
+theme_override_colors/font_color = Color(0.5, 0.5, 0.55, 1)
+theme_override_font_sizes/font_size = 12
+[node name="SpacerFPS" type="Control" parent="Panel/VBox/RowFPS"]
+size_flags_horizontal = 3
+[node name="FPS" type="Label" parent="Panel/VBox/RowFPS"]
+text = "--"
+horizontal_alignment = 2
+theme_override_colors/font_color = Color(0.95, 0.95, 0.95, 1)
+theme_override_font_sizes/font_size = 12
+
+[node name="RowTool" type="HBoxContainer" parent="Panel/VBox"]
+[node name="LabelTool" type="Label" parent="Panel/VBox/RowTool"]
+text = "工具"
+theme_override_colors/font_color = Color(0.5, 0.5, 0.55, 1)
+theme_override_font_sizes/font_size = 12
+[node name="SpacerTool" type="Control" parent="Panel/VBox/RowTool"]
+size_flags_horizontal = 3
+[node name="Tool" type="Label" parent="Panel/VBox/RowTool"]
+text = "选择"
+horizontal_alignment = 2
+theme_override_colors/font_color = Color(0.95, 0.95, 0.95, 1)
+theme_override_font_sizes/font_size = 12
+
+[node name="RowMouse" type="HBoxContainer" parent="Panel/VBox"]
+[node name="LabelMouse" type="Label" parent="Panel/VBox/RowMouse"]
+text = "格点"
+theme_override_colors/font_color = Color(0.5, 0.5, 0.55, 1)
+theme_override_font_sizes/font_size = 12
+[node name="SpacerMouse" type="Control" parent="Panel/VBox/RowMouse"]
+size_flags_horizontal = 3
+[node name="MousePos" type="Label" parent="Panel/VBox/RowMouse"]
+text = "--"
+horizontal_alignment = 2
+theme_override_colors/font_color = Color(0.95, 0.95, 0.95, 1)
+theme_override_font_sizes/font_size = 12
+
+; ═══════════ 路网 ═══════════
+[node name="Sep1" type="HSeparator" parent="Panel/VBox"]
+
+[node name="SectionRoads" type="Label" parent="Panel/VBox"]
+text = "路网"
+theme_override_colors/font_color = Color(1, 0.76, 0.35, 1)
 theme_override_font_sizes/font_size = 13
 
-[node name="MousePos" type="Label" parent="Panel/VBox"]
-text = "鼠标格点: --"
-theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 1)
-theme_override_font_sizes/font_size = 13
+[node name="RowRoads" type="HBoxContainer" parent="Panel/VBox"]
+[node name="LabelRoads" type="Label" parent="Panel/VBox/RowRoads"]
+text = "道路"
+theme_override_colors/font_color = Color(0.5, 0.5, 0.55, 1)
+theme_override_font_sizes/font_size = 12
+[node name="SpacerRoads" type="Control" parent="Panel/VBox/RowRoads"]
+size_flags_horizontal = 3
+[node name="Roads" type="Label" parent="Panel/VBox/RowRoads"]
+text = "0"
+horizontal_alignment = 2
+theme_override_colors/font_color = Color(0.95, 0.95, 0.95, 1)
+theme_override_font_sizes/font_size = 12
 
-[node name="Separator" type="HSeparator" parent="Panel/VBox"]
+[node name="RowSegments" type="HBoxContainer" parent="Panel/VBox"]
+[node name="LabelSegments" type="Label" parent="Panel/VBox/RowSegments"]
+text = "路段"
+theme_override_colors/font_color = Color(0.5, 0.5, 0.55, 1)
+theme_override_font_sizes/font_size = 12
+[node name="SpacerSegments" type="Control" parent="Panel/VBox/RowSegments"]
+size_flags_horizontal = 3
+[node name="Segments" type="Label" parent="Panel/VBox/RowSegments"]
+text = "0"
+horizontal_alignment = 2
+theme_override_colors/font_color = Color(0.95, 0.95, 0.95, 1)
+theme_override_font_sizes/font_size = 12
 
-[node name="Roads" type="Label" parent="Panel/VBox"]
-text = "道路: 0"
-theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 1)
-theme_override_font_sizes/font_size = 13
+[node name="RowJunctions" type="HBoxContainer" parent="Panel/VBox"]
+[node name="LabelJunctions" type="Label" parent="Panel/VBox/RowJunctions"]
+text = "路口"
+theme_override_colors/font_color = Color(0.5, 0.5, 0.55, 1)
+theme_override_font_sizes/font_size = 12
+[node name="SpacerJunctions" type="Control" parent="Panel/VBox/RowJunctions"]
+size_flags_horizontal = 3
+[node name="Junctions" type="Label" parent="Panel/VBox/RowJunctions"]
+text = "0"
+horizontal_alignment = 2
+theme_override_colors/font_color = Color(0.95, 0.95, 0.95, 1)
+theme_override_font_sizes/font_size = 12
 
-[node name="Segments" type="Label" parent="Panel/VBox"]
-text = "路段: 0"
-theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 1)
-theme_override_font_sizes/font_size = 13
+; ═══════════ 工具 ═══════════
+[node name="Sep2" type="HSeparator" parent="Panel/VBox"]
 
-[node name="Junctions" type="Label" parent="Panel/VBox"]
-text = "路口: 0"
-theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 1)
-theme_override_font_sizes/font_size = 13
-
-[node name="Spacer" type="Control" parent="Panel/VBox"]
-custom_minimum_size = Vector2(0, 8)
+[node name="SectionTools" type="Label" parent="Panel/VBox"]
+text = "工具"
+theme_override_colors/font_color = Color(1, 0.76, 0.35, 1)
+theme_override_font_sizes/font_size = 12
 
 [node name="ToolBar" type="HBoxContainer" parent="Panel/VBox"]
+theme_override_constants/separation = 4
 
 [node name="SelectBtn" type="Button" parent="Panel/VBox/ToolBar"]
-text = "选择(Esc)"
-custom_minimum_size = Vector2(64, 28)
+text = "选择 (Esc)"
+custom_minimum_size = Vector2(88, 30)
 theme_override_font_sizes/font_size = 12
 
 [node name="RoadBtn" type="Button" parent="Panel/VBox/ToolBar"]
-text = "铺路(R)"
-custom_minimum_size = Vector2(64, 28)
+text = "铺路 (R)"
+custom_minimum_size = Vector2(88, 30)
 theme_override_font_sizes/font_size = 12
 
 [node name="RemoveBtn" type="Button" parent="Panel/VBox/ToolBar"]
-text = "拆路(E)"
-custom_minimum_size = Vector2(64, 28)
+text = "拆路 (E)"
+custom_minimum_size = Vector2(88, 30)
 theme_override_font_sizes/font_size = 12
 
-[node name="SaveSpacer" type="Control" parent="Panel/VBox/ToolBar"]
-custom_minimum_size = Vector2(16, 0)
-
-[node name="SaveBtn" type="Button" parent="Panel/VBox/ToolBar"]
-text = "保存(F5)"
-custom_minimum_size = Vector2(64, 28)
+; ═══════════ 存档 ═══════════
+[node name="SectionSave" type="Label" parent="Panel/VBox"]
+text = "存档"
+theme_override_colors/font_color = Color(1, 0.76, 0.35, 1)
 theme_override_font_sizes/font_size = 12
 
-[node name="LoadBtn" type="Button" parent="Panel/VBox/ToolBar"]
-text = "加载(F9)"
-custom_minimum_size = Vector2(64, 28)
+[node name="SaveBar" type="HBoxContainer" parent="Panel/VBox"]
+theme_override_constants/separation = 4
+
+[node name="SaveBtn" type="Button" parent="Panel/VBox/SaveBar"]
+text = "保存 (F5)"
+custom_minimum_size = Vector2(88, 30)
+theme_override_font_sizes/font_size = 12
+
+[node name="LoadBtn" type="Button" parent="Panel/VBox/SaveBar"]
+text = "加载 (F9)"
+custom_minimum_size = Vector2(88, 30)
 theme_override_font_sizes/font_size = 12
