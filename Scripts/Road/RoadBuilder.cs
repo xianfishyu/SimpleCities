@@ -136,15 +136,14 @@ public partial class RoadBuilder : Node2D
         var mouseWorld = GetGlobalMousePosition();
         var v = mouseWorld - _dragStartPos;
 
-        // 半格起点仅允许对角延伸（正交方向位移非 cellSize 整数倍会被 AddRoad 拒绝）
-        bool halfGridStart = !RoadNetwork.IsOnRoadPoint(_dragStartPos) || !IsOnSnapGrid(_dragStartPos);
-        bool diagonalsOnly = halfGridStart;
+        // 半格起点仅允许对角延伸
+        bool halfGridStart = !GridSystem.IsSnapGrid(_dragStartPos);
 
         Direction bestDir = Direction.E;
         float bestProj = 0f;
         foreach (var d in DirectionUtil.All)
         {
-            if (diagonalsOnly && !IsDiagonal(d)) continue;
+            if (halfGridStart && !IsDiagonal(d)) continue;
             var disp = DirectionUtil.GetDisplacement(d);
             float ux = disp.X;
             float uy = disp.Y;
@@ -178,8 +177,6 @@ public partial class RoadBuilder : Node2D
         var disp = DirectionUtil.GetDisplacement(d);
         return Math.Abs(disp.X) == 1 && Math.Abs(disp.Y) == 1;
     }
-
-    private bool IsOnSnapGrid(Vector2 pos) => GridSystem.IsSnapGrid(pos);
 
     private Vector2 ComputeEndPos(Direction dir, int cells)
     {
