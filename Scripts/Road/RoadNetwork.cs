@@ -610,6 +610,7 @@ public class RoadNetwork : ISaveable
         if (!_junctions.TryGetValue(junctionID, out var junction)) return;
         if (junction.ConnectionCount != 2) return;
         Vector2 pos = junction.Position;
+        GD.Print($"[MERGE] try J@{pos.X:F0},{pos.Y:F0} cc=2");
 
         var segIDs = junction.ConnectedSegmentIDs.ToList();
         if (!_segments.TryGetValue(segIDs[0], out var segA)) return;
@@ -639,7 +640,8 @@ public class RoadNetwork : ISaveable
         if (dirAFromJ == null || dirBFromJ == null) return;
         var dispA = DirectionUtil.GetDisplacement(dirAFromJ.Value);
         var dispB = DirectionUtil.GetDisplacement(dirBFromJ.Value);
-        if (dispA.X + dispB.X != 0 || dispA.Y + dispB.Y != 0) return; // 非对向（Curve）→ 拒绝合并
+        if (dispA.X + dispB.X != 0 || dispA.Y + dispB.Y != 0) { GD.Print($"[MERGE] skip J@{pos.X:F0},{pos.Y:F0}: not opposite dirA={dirAFromJ} dirB={dirBFromJ}"); return; }
+        GD.Print($"[MERGE] ok J@{pos.X:F0},{pos.Y:F0}: opposite segA#{segA.ID} segB#{segB.ID} farA={farA.X:F0},{farA.Y:F0} farB={farB.X:F0},{farB.Y:F0}");
 
         // 合并方向：farA → junction → farB
         var mergedWps = new List<Vector2>();
