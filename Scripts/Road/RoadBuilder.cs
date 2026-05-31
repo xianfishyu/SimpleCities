@@ -82,7 +82,7 @@ public partial class RoadBuilder : Node2D
         {
             var nearest = FindNearestRoadPoint(mouseWorld);
             if (nearest.HasValue)
-                _dragStartPos = nearest.Value;
+                _dragStartPos = nearest.Value.pos;
         }
 
         if (_renderer != null)
@@ -228,8 +228,18 @@ public partial class RoadBuilder : Node2D
 
     private void UpdateRemoveHover()
     {
-        var snapped = RoadNetwork.SnapToGrid(GetGlobalMousePosition(), Config.CellSize);
+        var mouseWorld = GetGlobalMousePosition();
+        var snapped = RoadNetwork.SnapToGrid(mouseWorld, Config.CellSize);
         int segmentID = _network!.FindSegmentAt(snapped);
+
+        // 半格点吸附：若 snap 位置无 Segment，回退到几何最近点
+        if (segmentID < 0)
+        {
+            var nearest = FindNearestRoadPoint(mouseWorld);
+            if (nearest.HasValue)
+                segmentID = nearest.Value.segmentID;
+        }
+
         if (segmentID != _lastHoveredSegmentID)
         {
             _lastHoveredSegmentID = segmentID;
@@ -249,13 +259,15 @@ public partial class RoadBuilder : Node2D
     }
 
     /// <summary>
-    /// 几何最近点搜索：扫所有 Segment 的 waypoint 和 Junction，找距离鼠标最近的点。
+    /// 几何最近点搜索：扫所有 Segment 的 waypoint 和 Junction，找距离鼠标最近的点及其所属 Segment。
     /// 用于半格点吸附——当 SnapToGrid 位置无 Segment 时，回退到实际路网上的最近点。
+    /// 返回 (位置, SegmentID)；若范围内无路网点则 null。
     /// </summary>
-    private Vector2? FindNearestRoadPoint(Vector2 mousePos)
+    private (Vector2 pos, int segmentID)? FindNearestRoadPoint(Vector2 mousePos)
     {
         float bestDistSq = (Config.CellSize * 0.8f) * (Config.CellSize * 0.8f);
-        Vector2? best = null;
+        Vector2? bestPos = null;
+        int bestSegID = -1;
 
         if (_network == null) return null;
 
@@ -265,17 +277,17 @@ public partial class RoadBuilder : Node2D
             var tj = _network.GetJunction(seg.ToJunctionID);
             if (fj == null || tj == null) continue;
 
-            Check(fj.Position);
-            Check(tj.Position);
-            foreach (var wp in seg.Waypoints) Check(wp);
+            Check(fj.Position, seg.ID);
+            Check(tj.Position, seg.ID);
+            foreach (var wp in seg.Waypoints) Check(wp, seg.ID);
         }
 
-        void Check(Vector2 pt)
+        void Check(Vector2 pt, int sid)
         {
             float d2 = mousePos.DistanceSquaredTo(pt);
-            if (d2 < bestDistSq) { bestDistSq = d2; best = pt; }
+            if (d2 < bestDistSq) { bestDistSq = d2; bestPos = pt; bestSegID = sid; }
         }
 
-        return best;
+        return bestPos.HasValue ? (bestPos.Value, bestSegID) : null;
     }
 }
