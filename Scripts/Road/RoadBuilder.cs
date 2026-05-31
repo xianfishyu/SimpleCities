@@ -75,14 +75,19 @@ public partial class RoadBuilder : Node2D
         var mouseWorld = GetGlobalMousePosition();
         _dragStartPos = RoadNetwork.SnapToGrid(mouseWorld, Config.CellSize);
         _currentLength = 0;
+        GD.Print($"[DRAG-START] mouse=({mouseWorld.X:F0},{mouseWorld.Y:F0}) snap=({_dragStartPos.X:F0},{_dragStartPos.Y:F0})");
 
         // 半格点吸附：若 snap 位置无 Segment，回退到几何最近点（waypoint/Junction）。
-        // 解决半格 X 交叉合并后 waypoint 无法起笔的问题。
         if (_network != null && _network.FindSegmentAt(_dragStartPos) < 0)
         {
             var nearest = FindNearestRoadPoint(mouseWorld);
             if (nearest.HasValue)
+            {
                 _dragStartPos = nearest.Value.pos;
+                GD.Print($"[DRAG-SNAP] half-grid fallback to ({_dragStartPos.X:F0},{_dragStartPos.Y:F0}) segID={nearest.Value.segmentID}");
+            }
+            else
+                GD.Print("[DRAG-SNAP] no nearby road point found");
         }
 
         if (_renderer != null)
@@ -104,9 +109,10 @@ public partial class RoadBuilder : Node2D
         _isDragging = false;
         ClearPreview();
 
-        if (_currentLength <= 0) return;
+        if (_currentLength <= 0) { GD.Print("[DRAG-END] length<=0, skip"); return; }
 
         var endPos = ComputeEndPos(_currentDir, _currentLength);
+        GD.Print($"[DRAG-END] from=({_dragStartPos.X:F0},{_dragStartPos.Y:F0}) dir={_currentDir} len={_currentLength} to=({endPos.X:F0},{endPos.Y:F0}) wps={_currentLength-1}");
 
         // 共线 waypoints：起点之后、终点之前的所有中间格
         var waypoints = new Vector2[_currentLength - 1];

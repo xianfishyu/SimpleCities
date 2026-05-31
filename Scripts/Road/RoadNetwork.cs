@@ -46,13 +46,19 @@ public class RoadNetwork : ISaveable
         // extendRoadID 现阶段忽略（占位接口）。未来此处取已有 Road 复用。
         _ = extendRoadID;
 
-        GridSystem.Config.CellSize = cellSize;
-
-        // 已经在路网上的点（waypoint/Junction，含半格）不 snap，保持原位
-        from = IsOnRoadPoint(from) ? from : SnapToGrid(from, cellSize);
-        to   = IsOnRoadPoint(to)   ? to   : SnapToGrid(to, cellSize);
-        for (int i = 0; i < waypoints.Length; i++)
-            waypoints[i] = SnapToGrid(waypoints[i], cellSize);
+        // 已经在路网上的点不 snap。若 from 在路网上则 waypoints 也不 snap
+        // （半格起点偏移导致 waypoint snap 会破坏方向，如(150,-50)→(200,0)）。
+        bool fromOnRoad = IsOnRoadPoint(from);
+        bool toOnRoad   = IsOnRoadPoint(to);
+        GD.Print($"[ADDROAD] raw from=({from.X:F0},{from.Y:F0}) onRoad={fromOnRoad} to=({to.X:F0},{to.Y:F0}) onRoad={toOnRoad}");
+        from = fromOnRoad ? from : SnapToGrid(from, cellSize);
+        to   = toOnRoad   ? to   : SnapToGrid(to, cellSize);
+        GD.Print($"[ADDROAD] after snap: from=({from.X:F0},{from.Y:F0}) to=({to.X:F0},{to.Y:F0})");
+        if (!fromOnRoad)
+        {
+            for (int i = 0; i < waypoints.Length; i++)
+                waypoints[i] = SnapToGrid(waypoints[i], cellSize);
+        }
 
         // 自环显式拒绝（Junction/邻接结构尚不支持）
         if (from == to) return -1;
@@ -66,15 +72,17 @@ public class RoadNetwork : ISaveable
         for (int i = 0; i < path.Count - 1; i++)
         {
             if (DirectionUtil.FromDisplacement(path[i], path[i + 1], cellSize) == null)
+            {
+                GD.Print($"[ADDROAD] REJECT: non-8dir step[{i}] ({path[i].X:F0},{path[i].Y:F0})->({path[i+1].X:F0},{path[i+1].Y:F0})");
                 return -1;
+            }
         }
 
-        // 路径自身不能含重复格点（直线场景天然不会，但仍校验）
-        if (path.Distinct().Count() != path.Count) return -1;
+        // 路径自身不能含重复格点
+        if (path.Distinct().Count() != path.Count) { GD.Print("[ADDROAD] REJECT: duplicate points in path"); return -1; }
 
-        // 完全重叠预检：若路径上每对相邻格点都已被某条现有 Segment 覆盖（作为相邻格点），
-        // 视为玩家重画了同一条路，直接拒绝且不动现有路网。
-        if (IsPathFullyCovered(path)) return -1;
+        // 完全重叠预检
+        if (IsPathFullyCovered(path)) { GD.Print("[ADDROAD] REJECT: path fully covered"); return -1; }
 
         // X 形几何交叉处理：找出新路径每相邻线段与现有 Segment 任一相邻线段的内部交点，
         // 在每个交点处对现有 Segment 做"位置劈分"（位置可以是非格点的"半格 Junction"），
