@@ -27,11 +27,13 @@ public partial class MapBackground : CanvasLayer
     // ═══════════════════════════════════════════
 
     [ExportGroup("网格设置")]
-    [Export] public float MajorGridSize = 500f;
+    /// <summary>主网格 = CellSize × 此倍数</summary>
+    [Export(PropertyHint.Range, "1,20,1")] public int MajorGridCells = 5;
     [Export] public float MainLineWidth = 1.5f;
     [Export] public Color MajorGridColor = new(0.25f, 0.25f, 0.25f);
 
-    [Export] public float MinorGridSize = 100f;
+    /// <summary>次网格 = CellSize × 此倍数</summary>
+    [Export(PropertyHint.Range, "1,10,1")] public int MinorGridCells = 1;
     [Export] public float LineWidth = 0.5f;
     [Export] public Color MinorGridColor = new(0.18f, 0.18f, 0.18f);
 
@@ -70,9 +72,7 @@ public partial class MapBackground : CanvasLayer
             Config = new RoadConfig();
         }
 
-        _gridOffset = Vector2.Zero;
-        MajorGridSize = Config.CellSize * 5f;
-        MinorGridSize = Config.CellSize;
+        _gridOffset = new Vector2(Config.CellSize / 2f, Config.CellSize / 2f);
 
         Display.Visible = true;
         Display.AnchorLeft = 0;
@@ -104,12 +104,13 @@ public partial class MapBackground : CanvasLayer
         // 网格偏移（从 Config.CellSize 推导）
         _shaderMaterial.SetShaderParameter("grid_offset", _gridOffset);
 
-        // 网格
-        _shaderMaterial.SetShaderParameter("major_grid_size", MajorGridSize);
+        // 网格（尺寸 = CellSize × 倍数，Inspector 设倍数不会被覆盖）
+        float cellSize = Config.CellSize;
+        _shaderMaterial.SetShaderParameter("major_grid_size", cellSize * MajorGridCells);
         _shaderMaterial.SetShaderParameter("major_line_width", MainLineWidth);
         _shaderMaterial.SetShaderParameter("major_grid_color",
             new Vector3(MajorGridColor.R, MajorGridColor.G, MajorGridColor.B));
-        _shaderMaterial.SetShaderParameter("minor_grid_size", MinorGridSize);
+        _shaderMaterial.SetShaderParameter("minor_grid_size", cellSize * MinorGridCells);
         _shaderMaterial.SetShaderParameter("minor_line_width", LineWidth);
         _shaderMaterial.SetShaderParameter("minor_grid_color",
             new Vector3(MinorGridColor.R, MinorGridColor.G, MinorGridColor.B));
