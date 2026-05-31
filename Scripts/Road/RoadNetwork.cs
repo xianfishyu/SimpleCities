@@ -33,6 +33,9 @@ public class RoadNetwork : ISaveable
     public event Action<Segment>? SegmentAdded;
     public event Action<Segment>? SegmentRemoved;
 
+    /// <summary>整网从存档加载完成后触发，通知渲染器等重建显示</summary>
+    public event Action? NetworkReloaded;
+
     /// <summary>
     /// 铺设一条道路。from/to 为两端端点，waypoints 为中间途经格点（共 8 方向相邻）。
     /// 若路径与已有 Segment 相交（端点撞 Junction、或穿过别的 Segment 的中段 waypoint），
@@ -337,12 +340,13 @@ public class RoadNetwork : ISaveable
         return true;
     }
 
-    /// <summary>判断位置是否落在标准 snap 格点上（cell 中心，cellSize/2 偏移）。</summary>
+    /// <summary>判断位置是否落在标准 snap 格点上（cell 原点，即 cellSize 的整数倍）。</summary>
     private static bool IsSnapGrid(Vector2 pos, float cellSize)
     {
-        float ex = pos.X / cellSize - Mathf.Floor(pos.X / cellSize) - 0.5f;
-        float ey = pos.Y / cellSize - Mathf.Floor(pos.Y / cellSize) - 0.5f;
-        return Mathf.Abs(ex) < 1e-3f && Mathf.Abs(ey) < 1e-3f;
+        float rx = pos.X / cellSize;
+        float ry = pos.Y / cellSize;
+        return Mathf.Abs(rx - Mathf.Round(rx)) < 1e-3f
+            && Mathf.Abs(ry - Mathf.Round(ry)) < 1e-3f;
     }
 
     /// <summary>
@@ -972,8 +976,8 @@ public class RoadNetwork : ISaveable
 
     public static Vector2 SnapToGrid(Vector2 pos, float cellSize) =>
         new(
-            Mathf.Floor(pos.X / cellSize) * cellSize + cellSize / 2f,
-            Mathf.Floor(pos.Y / cellSize) * cellSize + cellSize / 2f
+            Mathf.Round(pos.X / cellSize) * cellSize,
+            Mathf.Round(pos.Y / cellSize) * cellSize
         );
 
     /// <summary>
@@ -1106,6 +1110,9 @@ public class RoadNetwork : ISaveable
 
         // 重建所有反向索引
         RebuildIndexes();
+
+        // 通知渲染器等重建显示
+        NetworkReloaded?.Invoke();
     }
 
     /// <summary>
