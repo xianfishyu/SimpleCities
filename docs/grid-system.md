@@ -1,6 +1,6 @@
 # 网格系统设计
 
-> 状态：草案 | 最后更新：2026-05-23
+> 状态：草案 | 最后更新：2026-06-01
 
 ---
 
@@ -53,6 +53,23 @@ W        (-1,  0)    270°
 NW       (-1, -1)    315°
 ```
 
+> **半格步长**：当端点位于非整格位置（半格点）时，首尾段步长可能 < CellSize。
+> 此场景使用 `DirectionUtil.FromDisplacementAnyLength()` 判断方向（归一化向量与 8 方向余弦匹配），
+> 而非 `DirectionUtil.FromDisplacement()`（要求位移恰为整格单位距离）。
+
+### 2.4 半格点（Half-Grid Point）
+
+**语义**：位于道路几何线段上但不处于 CellSize 整数倍的位置。典型场景：
+
+- 两条对角线道路段的几何交叉点（如 NE 方向道路与 SE 方向道路的 X 形交点）
+- 道路段被几何交叉劈分后的内部任意位置
+
+**检测**：`GridSystem.IsSnapGrid(pos)` 返回 `false` 即表示半格点。
+
+**半格起点约束**：`RoadBuilder` 中，若拖拽起点为半格点，则仅允许向对角线方向（NE/SE/SW/NW）延伸，禁止正交方向拖拽，以防止产生脱离网格的道路段。
+
+**半格点上的 Junction**：半格点的 Junction 仍作为 `Junction` 对象存储于 `_junctions` 字典中（通过 ID 访问），但其位置 **不** 索引到 `_posToJunctionID` 字典。查找半格 Junction 需要通过 `IsAnyJunctionAt()` 进行 O(n) 几何扫描（遍历所有 Junction 做距离匹配）。
+
 ---
 
 ## 3. 道路网络拓扑
@@ -87,15 +104,19 @@ NW       (-1, -1)    315°
 
 ## 4. 数据结构
 
-### 4.1 网格存储
+### 4.1 GridSystem
 
 ```
-GridMap
-├── int Width, Height                # 网格尺寸（单元数）
-├── float CellSize                   # 单元边长（世界单位）
-├── Dictionary<(int,int), GridCell>  # 稀疏存储（仅存储非空单元格）
-└── Dictionary<(int,int), Node2D>    # 网格单元 → 渲染节点映射
+GridSystem (static class)
+├── RoadConfig Config { get; set; }  # 共享配置资源，在 RoadSystem._Ready() 中注入
+├── float CellSize { get; }          # 当前网格单元尺寸（来自 Config，默认 64）
+├── SnapToGrid(Vector2) → Vector2    # 将世界坐标吸附到最近的整数倍格点
+└── IsSnapGrid(Vector2) → bool       # 判断位置是否为 CellSize 整数倍（容差 1e-3）
 ```
+
+> CellSize 由 `RoadConfig` 资源统一管理。`RoadSystem._Ready()` 中将 Config 注入
+> `GridSystem.Config`，此后所有模块通过 `GridSystem.CellSize` 获取当前网格尺寸，
+> 不再需要各自持有 cellSize 字段。
 
 ### 4.2 道路图
 
@@ -200,3 +221,85 @@ Layer 4: UI 叠加（选中高亮、范围指示、网格调试）
 - [ ] 建筑是否需要严格对齐网格，还是可以自由旋转 / 偏移？
 - [ ] 是否需要网格细分（SubCell）用于建筑内部布局？
 - [ ] 最小道路闭合区域面积？（一键填充时需要下限避免 1×1 孤立格）
+
+---
+
+## 9. 半格点处理细节
+
+### 9.1 `FindSegmentAtIncludingHalfGrid`
+
+反查某位置所属的 Segment，查找流程：
+
+1. 优先查 `_posToSegmentID` 字典（O(1)，仅覆盖整格格点）
+2. 若未命中，遍历所有 Segment 的 waypoints 做距离匹配
+3. 若仍未命中，遍历所有 Junction 做距离匹配，若命中则从 `ConnectedSegmentIDs` 取一条存活 Segment
+
+```csharp
+private int FindSegmentAtIncludingHalfGrid(Vector2 pos)
+{
+    int sid = FindSegmentAt(pos);                 // Step 1: 字典 O(1)
+    if (sid >= 0) return sid;
+    foreach (var seg in _segments.Values)         // Step 2: waypoint 扫描
+        foreach (var wp in seg.Waypoints)
+            if (wp.DistanceSquaredTo(pos) < 1e-4f) return seg.ID;
+    foreach (var j in _junctions.Values)          // Step 3: Junction 回退
+        if (j.Position.DistanceSquaredTo(pos) < 1e-4f)
+            foreach (var csid in j.ConnectedSegmentIDs)
+                if (_segments.ContainsKey(csid)) return csid;
+    return -1;
+}
+```
+
+### 9.2 `IsAnyJunctionAt`
+
+判断位置是否存在 Junction（含半格点），查找流程：
+
+1. 先查 `_posToJunctionID` 字典（整格 Junction，O(1)）
+2. 若未命中，O(n) 遍历 `_junctions.Values` 做距离匹配（覆盖半格 Junction）
+
+```csharp
+private bool IsAnyJunctionAt(Vector2 pos)
+{
+    if (_posToJunctionID.ContainsKey(pos)) return true;  // 整格命中
+    foreach (var j in _junctions.Values)                 // 几何扫描
+        if (j.Position.DistanceSquaredTo(pos) < 1e-4f) return true;
+    return false;
+}
+```
+
+用于 `AddRoad` 中的 splitIdx 切段逻辑，确保半格交点也能作为切分锚点。
+
+### 9.3 `GetOrCreateJunction`
+
+创建或获取 Junction 的逻辑：
+
+1. 优先从 `_posToJunctionID` 字典查找（整格点命中，O(1)）
+2. 若位置为半格点（`!IsSnapGrid(pos)`），O(n) 遍历已有 Junction 做距离匹配
+3. 未命中时创建新 `Junction`：
+   - 若位置为整格点 → 写入 `_posToJunctionID` 字典
+   - 若位置为半格点 → **不**写入 `_posToJunctionID`，仅存于 `_junctions` 字典
+
+```csharp
+private Junction GetOrCreateJunction(Vector2 pos, float cellSize)
+{
+    // Step 1: 整格字典查找
+    if (_posToJunctionID.TryGetValue(pos, out int id))
+        return _junctions[id];
+
+    // Step 2: 半格几何匹配
+    if (!IsSnapGrid(pos, cellSize))
+        foreach (var j in _junctions.Values)
+            if (j.Position.DistanceSquaredTo(pos) < 1e-4f) return j;
+
+    // Step 3: 新建
+    var junction = new Junction(NextID(), pos);
+    _junctions[junction.ID] = junction;
+    if (IsSnapGrid(pos, cellSize))     // 仅整格点进字典
+        _posToJunctionID[pos] = junction.ID;
+    return junction;
+}
+```
+
+### 9.4 半格 Junction 为何不在 `_posToJunctionID` 中
+
+`_posToJunctionID` 是 `Dictionary<Vector2, int>`，以位置为 key 做精确匹配。半格点的坐标不落在 `CellSize` 整数倍上，若按位置检索则 key 值存在浮点精度风险（同一几何点可能因计算路径不同产生微小偏移，导致字典查找失败）。因此半格 Junction 统一通过 `IsAnyJunctionAt()` 和 `GetOrCreateJunction()` 中的 O(n) 几何距离扫描查找。在典型规模的城市场景中，Junction 总数（含半格）通常在数百级别，几何扫描的性能开销可接受。

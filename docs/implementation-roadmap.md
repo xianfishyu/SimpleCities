@@ -1,6 +1,6 @@
 # 实施路线图
 
-> 状态：草案 | 最后更新：2026-05-23
+> 状态：草案 | 最后更新：2026-06-01
 
 ---
 
@@ -8,7 +8,7 @@
 
 ```
 Phase 0: 基础设施        ✅ 已完成
-Phase 1: 网格与道路       🔜 下一步
+Phase 1: 网格与道路       ✅ 基本完成
 Phase 2: 分区系统（原子单元）
 Phase 3: 时间与基础模拟
 Phase 4: 人口与经济
@@ -39,52 +39,78 @@ Phase 9: 打磨与优化
 
 ---
 
-## Phase 1：网格与道路 🔜（下一步）
+## Phase 1：网格与道路 ✅（基本完成）
 
-### 1.1 网格管理器 `GridManager`
+### 1.1 网格管理器
 
-| 任务 | 文件 | 说明 |
+| 任务 | 文件 | 状态 | 说明 |
+|------|------|------|------|
+| 8 方向枚举 | `Scripts/Road/Direction.cs` | ✅ 完成 | 方向枚举 + 位移表 + 单位/任意距离方向检测 |
+| 统一网格系统 | `Scripts/Grid/GridSystem.cs` | ✅ 完成 | 静态类，`SnapToGrid()` + `IsSnapGrid()`，集中管理 CellSize |
+
+> ⚠️ 原始计划中的 `GridCoord.cs` / `GridMap.cs` / `GridManager.cs` 三层架构已简化，由 `GridSystem` 静态类替代。网格数据不需要稀疏存储——当前阶段道路就是唯一网格占用者，由 RoadNetwork 内部字典管理。
+
+### 1.2 网格渲染
+
+| 任务 | 文件 | 状态 | 说明 |
+|------|------|------|------|
+| Shader 网格线 | `Scripts/Grid/MapBackground.cs` | ✅ 完成 | CanvasLayer + ShaderMaterial，支持主/次/点三层网格，相机自适应 |
+| `_Draw()` 网格线 | `Scripts/Grid/GridRenderer.cs` | ❌ 未实现 | 由 GPU shader 方案替代，性能远优于 CPU 逐帧绘制 |
+| 单元格高亮 | — | ❌ 未实现 | 低优先级——HUD 已显示鼠标格点坐标 |
+
+> 💡 原始计划使用 `_Draw()` 绘制调试网格线，实际采用 shader-based 渲染：无限网格对齐原点，缩放/平移自动适配，无需视口裁剪逻辑。
+
+### 1.3 道路系统
+
+| 任务 | 文件 | 状态 | 说明 |
+|------|------|------|------|
+| 道路图数据结构 | `Scripts/Road/RoadNetwork.cs` | ✅ 完成 | Junction + Segment + Road 三层模型，邻接表 + 反向索引 |
+| 道路铺设 | `Scripts/Road/RoadBuilder.cs` | ✅ 完成 | 鼠标拖拽 8 方向投影，半格点吸附，预览虚线 |
+| 道路拆除 | 同上 | ✅ 完成 | 点击 Segment 格点拆除单段，悬停高亮 |
+| 道路渲染 | `Scripts/Road/RoadRenderer.cs` | ✅ 完成 | Line2D 矢量绘制 + `_junctionLayer.Draw` 交叉口圆点 |
+| 路网根节点 | `Scripts/Road/RoadSystem.cs` | ✅ 完成 | Node2D，持有 RoadNetwork 实例，注入 Config 给子节点 |
+| 共享配置 | `Scripts/Road/RoadConfig.cs` | ✅ 完成 | GlobalClass Resource（.tres），CellSize + 道路/路口/悬停颜色与尺寸 |
+| 逻辑路 | `Scripts/Road/Road.cs` | ✅ 完成 | 一次画线操作的 Segment 集合，支持连通分量拆分 |
+| 几何边 | `Scripts/Road/Segment.cs` | ✅ 完成 | 两端 Junction + 中间 waypoints + 总长度 |
+| 路口节点 | `Scripts/Road/Junction.cs` | ✅ 完成 | ConnectionCount + 类型推断（Endpoint/Straight/Curve/T/Cross/XCross/MultiWay） |
+
+> 💡 数据结构比原始计划更精细：原始设想 `RoadGraph`（节点+边+邻接表），实际实现为三层模型——`Road`（逻辑单位，一次画线）→ `Segment`（几何边，被路口劈分）→ `Junction`（连接点，含方向）。关键算法包括：X 形交叉自动劈分（`ResolveInteriorCrossings`）、任意位置劈分（`SplitSegmentAtPosition`）、对向直通合并降级（`TryMergeAtJunction`）、移除段后连通分量拆分（`SplitRoadIntoConnectedComponents`）。
+
+### 1.4 工具系统
+
+| 任务 | 文件 | 状态 | 说明 |
+|------|------|------|------|
+| 工具枚举 | `Scripts/Tools/ToolType.cs` | ✅ 完成 | Select / Road / RoadRemove |
+| 工具管理器 | `Scripts/Tools/ToolManager.cs` | ✅ 完成 | 键盘切换（R/E/Esc），输入转发，拖拽取消保护 |
+
+> ⚠️ 原始计划中的 `ITool` 接口未实现——工具种类少（当前仅 3 种），直接 switch 分发比接口模式更简洁。Phase 2 加入分区工具后若复杂度上升可重新评估。
+
+### 1.5 ImGui 调试面板 → HUD
+
+| 任务 | 文件 | 状态 | 说明 |
+|------|------|------|------|
+| HUD 浮层 | `Scripts/UI/GameHUD.cs` | ✅ 完成 | FPS / 工具 / 鼠标格点（含路口检测）/ 路网统计（Road/Segment/Junction 数） |
+| 工具切换按钮 | 同上 | ✅ 完成 | 选择 / 铺路 / 拆路 按钮 + 快捷键 F5 保存 / F9 加载 |
+| UI 工厂 | `Scripts/UI/UIHelpers.cs` | ✅ 完成 | 统一 Label / Button / Panel 样式 |
+| 面板管理器 | `Scripts/UI/UIManager.cs` | ✅ 完成 | 注册/显示/隐藏/模态面板生命周期 |
+
+> 💡 原始计划使用 ImGui 调试面板，实际改用 Godot 原生 CanvasLayer + Control 树（`Scenes/UI/GameHUD.tscn`），编辑器可视化布局，更易维护。
+
+### 1.6 半格点系统（计划外新增）
+
+道路铺设过程中引入"半格点"概念——Junction 可落在非整数网格位置（如两条斜线交叉的几何交点），解决 X 形十字路口的锚定问题。
+
+| 核心能力 | 实现位置 | 说明 |
 |------|------|------|
-| 网格坐标系统 | `Scripts/Grid/GridCoord.cs` | `(c, r)` ↔ 世界坐标转换 |
-| 网格数据层 | `Scripts/Grid/GridMap.cs` | 稀疏存储，`CellType` 枚举，单元格查询 |
-| 网格管理器 | `Scripts/Grid/GridManager.cs` | Godot `Node2D`，初始化网格，对外暴露 API |
-| 8 方向工具 | `Scripts/Grid/Direction.cs` | 方向枚举 + 位移表 + 旋转工具 |
+| 半格点检测 | `GridSystem.IsSnapGrid()` | 位置不在 cellSize 整数倍上即为半格点 |
+| 任意距离方向判定 | `DirectionUtil.FromDisplacementAnyLength()` | 归一化向量与 8 单位方向余弦匹配，支持非单位位移（如半格段） |
+| 半格起点约束 | `RoadBuilder.UpdateProjection()` | 半格起点仅允许对角方向延伸（`IsDiagonal` 过滤） |
+| 半格 Junction 存储 | `RoadNetwork.GetOrCreateJunction()` | 半格 Junction 不进位置字典，仅通过 ID 访问 |
 
-### 1.2 网格渲染 `GridRenderer`
-
-| 任务 | 文件 | 说明 |
-|------|------|------|
-| 网格线绘制 | `Scripts/Grid/GridRenderer.cs` | `_Draw()` 绘制调试网格线（ImGui 开关控制） |
-| 单元格高亮 | 同上 | 鼠标悬停单元格高亮 |
-| 视口裁剪 | 同上 | 仅渲染可见区域 |
-
-### 1.3 道路系统 `RoadSystem`
-
-| 任务 | 文件 | 说明 |
-|------|------|------|
-| 道路图数据结构 | `Scripts/Road/RoadGraph.cs` | 节点 + 边 + 邻接表 |
-| 道路铺设工具 | `Scripts/Road/RoadBuilder.cs` | 鼠标拖拽铺设，8 方向，连续放置 |
-| 道路拆除工具 | 同上 | 右键拆除 |
-| 道路渲染 | `Scripts/Road/RoadRenderer.cs` | 矢量绘制道路段 + 交叉口自动合成 |
-
-### 1.4 工具系统 `ToolSystem`
-
-| 任务 | 文件 | 说明 |
-|------|------|------|
-| 工具枚举 | `Scripts/Tools/ToolType.cs` | 选择 / 道路铺设 / 道路拆除 / 分区 / 建筑 / 拆除 |
-| 工具管理器 | `Scripts/Tools/ToolManager.cs` | 工具切换，光标样式 |
-| 输入转发 | 同上 | 将鼠标/键盘事件转发到当前活动工具 |
-
-### 1.5 ImGui 调试面板
-
-| 任务 | 说明 |
-|------|------|
-| 网格显示开关 | 切换网格线可见性 |
-| 单元格信息 | 悬停单元格坐标、类型 |
-| 道路图信息 | 节点数、边数、连通分量数 |
+> ⚠️ 约束：半格起点拖出的路只能沿对角方向铺设。正交方向延长因几何不对称暂不支持（会破坏"一次拖拽 = 单方向直路"的简洁语义）。
 
 ### Phase 1 里程碑
-> 🎯 可以用鼠标在 8 方向上自由画路，道路在视觉上正确渲染，交叉口自动合成。
+> 🎯 **里程碑达成**：支持 8 方向铺路、半格点锚定、X 形交叉自动劈分、交叉口类型化渲染（Endpoint/Straight/Curve/T/Cross/XCross）、工具切换（铺路/拆除/选择）、HUD 实时统计、存档/读档——Phase 1 核心功能完备。
 
 ---
 
@@ -304,74 +330,93 @@ Phase 9: 打磨与优化
 
 ---
 
-## 文件结构规划
+## 文件结构规划（2026-06-01 更新）
 
 ```
 Scripts/
-├── MainCamera.cs                 # ✅ 已有
-├── DebugGUI.cs                   # 🔜 待创建（ImGui 调试面板入口）
+├── MainCamera.cs                      # ✅ 相机控制 + ISaveable
 │
 ├── Core/
-│   ├── GameManager.cs            # 游戏主控制器（单例）
-│   ├── SimulationEngine.cs       # 模拟循环调度
-│   └── TimeManager.cs            # 游戏时钟 + 日历
+│   ├── GameManager.cs                 # 🔜 游戏主控制器（单例）
+│   ├── SimulationEngine.cs            # 🔜 模拟循环调度
+│   ├── TimeManager.cs                 # 🔜 游戏时钟 + 日历
+│   ├── ISaveable.cs                   # ✅ 存档接口（Phase 1 新增）
+│   ├── SaveManager.cs                 # ✅ 存档管理器（Phase 1 新增）
+│   ├── SaveData.cs                    # ✅ 存档数据结构（Phase 1 新增）
+│   └── SaveJson.cs                    # ✅ JSON 序列化工具（Phase 1 新增）
 │
 ├── Grid/
-│   ├── GridCoord.cs              # 网格坐标系统
-│   ├── GridMap.cs                # 网格数据存储
-│   ├── GridManager.cs            # 网格管理器
-│   ├── GridRenderer.cs           # 网格渲染
-│   └── Direction.cs              # 8 方向定义 + 工具方法
+│   ├── GridSystem.cs                  # ✅ 统一网格系统（静态类，替代原 GridCoord + GridMap + GridManager）
+│   ├── MapBackground.cs               # ✅ Shader 网格渲染（替代原 GridRenderer._Draw()）
+│   ├── ⚠️ GridCoord.cs               # 已弃用 — 由 GridSystem.SnapToGrid() 替代
+│   ├── ⚠️ GridMap.cs                 # 已弃用 — 道路占用由 RoadNetwork 内部字典管理
+│   ├── ⚠️ GridManager.cs             # 已弃用 — 由 GridSystem 静态类替代
+│   └── ⚠️ GridRenderer.cs            # 已弃用 — Shader 网格由 MapBackground 渲染
 │
 ├── Road/
-│   ├── RoadGraph.cs              # 道路图数据结构
-│   ├── RoadBuilder.cs            # 道路铺设/拆除逻辑
-│   ├── RoadRenderer.cs           # 道路 + 交叉口渲染
-│   └── Pathfinding.cs            # A* 寻路
+│   ├── Direction.cs                   # ✅ 8 方向枚举 + 位移表 + FromDisplacementAnyLength
+│   ├── RoadNetwork.cs                 # ✅ 路网数据层（Junction + Segment + Road 三层模型）
+│   ├── RoadBuilder.cs                 # ✅ 道路铺设/拆除 + 半格点吸附
+│   ├── RoadRenderer.cs                # ✅ Line2D 道路 + 交叉口渲染
+│   ├── RoadSystem.cs                  # ✅ 路网根节点（Node2D，注入 Config + Network）
+│   ├── RoadConfig.cs                  # ✅ 共享配置资源（GlobalClass .tres）
+│   ├── Road.cs                        # ✅ 逻辑路（Segment 聚合 + 连通分量拆分）
+│   ├── Segment.cs                     # ✅ 几何边（Junction 间 + waypoints + 长度）
+│   ├── Junction.cs                    # ✅ 路口节点（ConnectionCount + 类型推断）
+│   ├── ⚠️ RoadGraph.cs               # 已重命名 → RoadNetwork（数据结构更丰富）
+│   └── Pathfinding.cs                 # 🔜 A* 寻路（Phase 6 交通系统）
 │
 ├── Zone/
-│   ├── ZoneType.cs               # 分区类型枚举 + 颜色
-│   ├── ZoneData.cs               # 分区数据结构（聚合指标）
-│   ├── ZoneManager.cs            # 分区 CRUD + 查询
-│   ├── ZoneRenderer.cs           # 分区色块渲染
-│   ├── ZoneDrawTool.cs           # 自由绘制多边形
-│   ├── ZoneFillTool.cs           # 一键填充道路闭合区
-│   ├── RoadCycleDetector.cs      # 道路闭合环路检测
-│   └── FloodFill.cs              # 泛洪填充算法
+│   ├── ZoneType.cs                    # 🔜 分区类型枚举 + 颜色
+│   ├── ZoneData.cs                    # 🔜 分区数据结构（聚合指标）
+│   ├── ZoneManager.cs                 # 🔜 分区 CRUD + 查询
+│   ├── ZoneRenderer.cs                # 🔜 分区色块渲染
+│   ├── ZoneDrawTool.cs                # 🔜 自由绘制多边形
+│   ├── ZoneFillTool.cs                # 🔜 一键填充道路闭合区
+│   ├── RoadCycleDetector.cs           # 🔜 道路闭合环路检测
+│   └── FloodFill.cs                   # 🔜 泛洪填充算法
 │
 ├── Simulation/
-│   ├── PopulationSystem.cs       # 人口模拟
-│   ├── EconomySystem.cs          # 经济系统
-│   ├── DemandSystem.cs           # RCI 需求
-│   ├── TrafficSystem.cs          # 交通模拟
-│   ├── UtilitySystem.cs          # 电力 + 供水
-│   ├── ServiceSystem.cs          # 城市服务
-│   ├── EnvironmentSystem.cs      # 污染 + 环境
-│   └── EventSystem.cs            # 随机事件
+│   ├── PopulationSystem.cs            # 🔜 人口模拟
+│   ├── EconomySystem.cs               # 🔜 经济系统
+│   ├── DemandSystem.cs                # 🔜 RCI 需求
+│   ├── TrafficSystem.cs               # 🔜 交通模拟
+│   ├── UtilitySystem.cs               # 🔜 电力 + 供水
+│   ├── ServiceSystem.cs               # 🔜 城市服务
+│   ├── EnvironmentSystem.cs           # 🔜 污染 + 环境
+│   └── EventSystem.cs                 # 🔜 随机事件
 │
 ├── Tools/
-│   ├── ToolType.cs               # 工具枚举
-│   ├── ToolManager.cs            # 工具管理
-│   └── ITool.cs                  # 工具接口
+│   ├── ToolType.cs                    # ✅ 工具枚举（Select / Road / RoadRemove）
+│   ├── ToolManager.cs                 # ✅ 工具管理 + 输入转发
+│   └── ⚠️ ITool.cs                   # 未实现 — 当前工具少，switch 分发更简洁
 │
 └── UI/
-    ├── HUD.cs                    # 顶部信息栏
-    ├── InfoPanel.cs              # 详情面板
-    ├── DataOverlay.cs            # 数据图层
-    └── SpeedControl.cs           # 速度控制
+    ├── GameHUD.cs                     # ✅ HUD 浮层（FPS / 工具 / 格点 / 路网统计 + 按钮）
+    ├── UIHelpers.cs                   # ✅ UI 工厂（Label / Button / Panel 统一样式）
+    ├── UIManager.cs                   # ✅ 面板生命周期管理（注册/显示/模态）
+    ├── HUD.cs                         # ⚠️ 已重命名 → GameHUD（功能更完整）
+    ├── ⚠️ DebugGUI.cs                # 已弃用 — Godot 原生 UI 替代 ImGui
+    ├── InfoPanel.cs                   # 🔜 详情面板
+    ├── DataOverlay.cs                 # 🔜 数据图层
+    └── SpeedControl.cs                # 🔜 速度控制
 ```
 
 ---
 
 ## 下一步行动
 
-当前应聚焦 **Phase 1**，按顺序推进：
+Phase 1 核心已就绪，当前应聚焦 **Phase 2：分区系统**：
 
-1. `Direction.cs` — 8 方向枚举 + 位移表
-2. `GridCoord.cs` — 坐标系统
-3. `GridMap.cs` — 网格数据层
-4. `GridManager.cs` + `GridRenderer.cs` — 网格显示
-5. `RoadGraph.cs` — 道路图数据结构
-6. `ToolManager.cs` + `ITool.cs` — 工具系统框架
-7. `RoadBuilder.cs` + `RoadRenderer.cs` — 道路铺设
-8. `DebugGUI.cs` — ImGui 调试面板（修复 autoload 报错）
+1. `ZoneType.cs` + `ZoneData.cs` — 分区类型枚举与数据结构定义
+2. `ZoneManager.cs` — 分区 CRUD + 空间查询
+3. `ZoneRenderer.cs` — 半透明色块渲染多边形
+4. `ZoneDrawTool.cs` — 自由多边形绘制（点击顶点 → 闭合）
+5. `RoadCycleDetector.cs` — 图论层面检测道路闭合环
+6. `FloodFill.cs` — 道路闭合区域泛洪填充
+7. ToolManager 扩展：加入 Zone / ZoneFill 工具
+
+Phase 1 遗留事项（低优先级）：
+- 单元格悬停高亮（当前 HUD 已显示格点坐标，优先级低）
+- ITool 接口（待工具种类 ≥ 5 时引入，当前 3 种 switch 够用）
+- A* 寻路（归入 Phase 6 深度交通统一实现）

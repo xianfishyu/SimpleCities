@@ -1,6 +1,6 @@
 # SimpleCities-LLM 类引用文档
 
-> 最后更新：2026-05-29 | Godot 4.6 C# | .NET 10.0
+> 最后更新：2026-06-01 | Godot 4.6 C# | .NET 10.0
 
 ---
 
@@ -9,6 +9,7 @@
 - [1. 主模块 (Core)](#1-主模块-core)
   - [MainCamera](#maincamera)
 - [2. 网格模块 (Grid)](#2-网格模块-grid)
+  - [GridSystem](#gridsystem)
   - [MapBackground](#mapbackground)
   - [MapTerrain.gdshader](#apterraingdshader)
 - [3. 道路模块 (Road)](#3-道路模块-road)
@@ -88,6 +89,36 @@
 ---
 
 ## 2. 网格模块 (Grid)
+
+网格模块集中管理地图网格的数学逻辑（GridSystem）和视觉渲染（MapBackground / Shader）。
+
+### GridSystem
+
+**文件**: `Scripts/Grid/GridSystem.cs`
+**类型**: 静态类
+
+集中式网格数学工具：替换原先各处传递 cellSize 参数的分散模式，统一管理 SnapToGrid / IsSnapGrid 逻辑。由 `RoadSystem._Ready()` 注入 `RoadConfig` 完成初始化。
+
+#### 静态属性
+
+| 属性 | 类型 | 说明 |
+|------|------|------|
+| `Config` | `RoadConfig` | 共享配置资源（在 RoadSystem._Ready 中注入），提供 CellSize 等参数 |
+| `CellSize` | `float` | 当前网格单元尺寸。未初始化时返回默认 64 |
+
+#### 静态方法
+
+| 方法 | 签名 | 说明 |
+|------|------|------|
+| `SnapToGrid(Vector2 pos)` | `Vector2` | 将世界坐标对齐到最近的网格原点（CellSize 整数倍） |
+| `IsSnapGrid(Vector2 pos)` | `bool` | 位置是否落在标准 snap 格点上（CellSize 整数倍，容差 1e-3） |
+
+#### 使用场景
+
+- `SnapToGrid` — RoadBuilder 拖拽起点吸附、RoadNetwork 端点定位
+- `IsSnapGrid` — 判断起点是否半格点（决定拖拽方向限制和锚定行为）；Junction 是否进 `_posToJunctionID` 字典
+
+---
 
 ### MapBackground
 
@@ -282,7 +313,7 @@ RoadSystem (Node2D, 根节点)
 |------|------|------|
 | `GetDisplacement(Direction d)` | `Vector2I` | 获取方向的单位位移向量 |
 | `FromDisplacement(Vector2 from, Vector2 to, float cellSize)` | `Direction?` | 从位移反查方向（要求位移长度 = cellSize） |
-| `FromDisplacementAnyLength(Vector2 from, Vector2 to)` | `Direction?` | 从位移反查方向（允许任意长度，余弦匹配） |
+| `FromDisplacementAnyLength(Vector2 from, Vector2 to)` | `Direction?` | 从位移反查方向（允许任意长度，余弦匹配，cos 阈值 0.999）。核心用途：半格步长场景，端点→waypoint 距离 < cellSize 但仍需判定 8 方向合法性 |
 | `IsOrthogonal(Direction d)` | `bool` | 是否为正交方向（N/E/S/W） |
 | `IsDiagonal(Direction d)` | `bool` | 是否为对角方向（NE/SE/SW/NW） |
 | `Length(Direction d, float cellSize)` | `float` | 该方向单位步长：正交 = cellSize，对角 = cellSize × √2 |
@@ -295,8 +326,8 @@ RoadSystem (Node2D, 根节点)
 
 #### 使用场景
 
-- `FromDisplacement` — 严格单位距离校验，用于 waypoint 序列的 8 方向合法性
-- `FromDisplacementAnyLength` — 半格 Junction 场景：端点位置不一定在 snap 格点上，允许首/尾段距离小于 cellSize
+- `FromDisplacement` — 严格单位距离校验，用于 waypoint 序列的 8 方向合法性。注意：Godot 的 `Mathf.RoundToInt` 使用 Banker's rounding（0.5 → 0），位移恰好是 cellSize 的 0.5 倍时会错误舍入，导致方向判定失败。半格步长场景必须改用 `FromDisplacementAnyLength`
+- `FromDisplacementAnyLength` — 半格 Junction 场景：端点位置不一定在 snap 格点上，首/尾段距离小于 cellSize 时仍正确判定 8 方向。也是 AddRoad 首步校验的首选方法
 
 ---
 
@@ -324,7 +355,7 @@ RoadSystem (Node2D, 根节点)
 | 属性 | 类型 | 说明 |
 |------|------|------|
 | `ID` | `int` | 全局唯一标识 |
-| `Position` | `Vector2` | 世界坐标（可能在标准格点或半格位置） |
+| `Position` | `Vector2` | 世界坐标。可能是整数格点（进 `_posToJunctionID` 字典）或半格位置（非整数格点坐标，不在字典中，仅通过 ID / 几何匹配访问） |
 | `Type` | `JunctionType` | 当前路口类型（由连接数 + 方向自动判定） |
 | `ConnectionCount` | `int` | 连接到该 Junction 的 Segment 总数 |
 | `ConnectedSegmentIDs` | `IEnumerable<int>` | 所有连接 Segment 的 ID（不重复） |
@@ -406,20 +437,26 @@ RoadSystem (Node2D, 根节点)
 
 ```
 按下左键 → BeginDrag():
-  记录起点 (snap 到格点)
-  初始化 _isDragging=true, _currentLength=0
+  1. 记录鼠标世界坐标
+  2. SnapToGrid 到格点 → 若该格点无 Segment，调用 FindNearestRoadPoint() 半格回退
+     （在 CellSize × 0.8 半径内搜索最近 waypoint 或 Junction，用于从已有路网点接续铺路）
+  3. 初始化 _isDragging=true, _currentLength=0
+  4. IsHalfGridStart 由 GridSystem.IsSnapGrid(_dragStartPos) 反值确定
 
 拖拽中 → UpdateProjection() 每帧:
   1. 计算鼠标向量 (mouse - start)
-  2. 投影到 8 方向 → 选最长投影的方向
+  2. 投影到可能的 8 方向 → 选最长投影的方向
+     （半格起点时仅允许对角方向 NE/SE/SW/NW，正交方向过滤掉）
   3. 投影长度 ÷ 该方向步长 → 格数 (_currentLength)
-  4. 计算终点 → 更新预览虚线
+  4. 预览终点：半格起点锚定到反方向整格 + 格数；否则从起点直接计算
 
 释放左键 → EndDragAndCommit():
-  1. 最终方向/格数确认（≥1 格才提交）
-  2. 构建 waypoints 数组（起点→终点之间的所有中间格点）
-  3. 调用 _network.AddRoad(start, end, waypoints, cellSize)
-  4. 清除预览
+  1. IsHalfGridStart=true → anchor = 起点沿当前方向反移 CellSize/2（锚到整格）
+  2. waypoints 和终点全部从 anchor 整数倍计算（保证整车路落在整格上）
+  3. 最终方向/格数确认（≥1 格才提交）
+  4. 构建 waypoints 数组（起点→终点之间的所有中间格点）
+  5. 调用 _network.AddRoad(start, end, waypoints, cellSize)
+  6. 清除预览
 ```
 
 #### 方法
@@ -428,21 +465,28 @@ RoadSystem (Node2D, 根节点)
 |------|------|------|
 | `SetNetwork(RoadNetwork network)` | `void` | 注入 RoadNetwork 引用 |
 | `HandlePlaceInput(InputEvent @event)` | `void` | 处理铺路工具的鼠标输入（左键按/放） |
-| `HandleRemoveInput(InputEvent @event)` | `void` | 处理拆除工具的鼠标输入（点击 Segment 格点） |
+| `HandleRemoveInput(InputEvent @event)` | `void` | 处理拆除工具的鼠标输入（点击 Segment 任一格点即拆除该段，支持整格与半格） |
 | `SetRemoveHoverActive(bool active)` | `void` | 开关拆除工具悬停高亮 |
 | `CancelPlaceDrag()` | `void` | 取消进行中的拖拽（工具切换时调用） |
-| `UpdateProjection()` | `private void` | 拖拽中每帧更新方向和长度 |
-| `BeginDrag()` | `private void` | 开始拖拽 |
-| `EndDragAndCommit()` | `private void` | 结束拖拽并提交路网 |
+| `UpdateProjection()` | `private void` | 拖拽中每帧更新方向和长度（半格起点仅允许对角方向） |
+| `BeginDrag()` | `private void` | 开始拖拽：snap + FindNearestRoadPoint 半格回退 |
+| `EndDragAndCommit()` | `private void` | 结束拖拽并提交路网（半格起点锚定到整格） |
+| `FindNearestRoadPoint(Vector2 mousePos)` | `private (Vector2 pos, int segmentID)?` | 几何 O(n) 搜索所有 Segment 的 waypoint 和 Junction，找距离鼠标最近的路网点（搜索半径 = CellSize × 0.8） |
 | `ComputeEndPos(Direction dir, int cells)` | `private Vector2` | 计算终点坐标 |
 | `ClearPreview()` | `private void` | 清除预览虚线 |
+| `IsHalfGridStart` | `bool` (属性) | 起点是否位于半格位置（由 `GridSystem.IsSnapGrid` 反值确定） |
 
 #### 拆除工具悬停高亮
 
 1. `SetRemoveHoverActive(true)` — 切入拆除工具时激活
-2. 每帧 `UpdateRemoveHover()` — 检测鼠标格点的 Segment，设 `HoveredSegmentID`
+2. 每帧 `UpdateRemoveHover()` — snap 到格点查 Segment，若无结果则 `FindNearestRoadPoint` 半格回退；找到则设 `HoveredSegmentID`
 3. `RoadRenderer` 读取 `HoveredSegmentID` 绘制高亮
 4. `SetRemoveHoverActive(false)` — 切出时清除
+
+#### 拆除语义
+
+- 点击 Segment 的任一 waypoint（不仅是端点）即可拆除该整段 Segment
+- 如需拆除整条 Road（所有 Segment），使用 `RoadNetwork.RemoveRoad(roadID)`
 
 #### 依赖
 
@@ -494,8 +538,9 @@ RoadSystem (Node2D, 根节点)
 | `_junctions` | `Dictionary<int, Junction>` | Junction ID → Junction |
 | `_segments` | `Dictionary<int, Segment>` | Segment ID → Segment |
 | `_roads` | `Dictionary<int, Road>` | Road ID → Road |
-| `_posToJunctionID` | `Dictionary<Vector2, int>` | 格点位置 → Junction ID（仅标准格点） |
+| `_posToJunctionID` | `Dictionary<Vector2, int>` | 格点位置 → Junction ID（仅整数格点；半格 Junction 不在此字典中） |
 | `_posToSegmentID` | `Dictionary<Vector2, int>` | 格点位置 → Segment ID（用于点击拆除） |
+| `_inMergeOperation` | `bool` | 合并操作守卫标志，防止 TryMergeAtJunction 内部 RemoveSegment 递归触发级联合并 |
 
 #### 事件
 
@@ -525,27 +570,31 @@ RoadSystem (Node2D, 根节点)
 #### AddRoad 处理流程
 
 ```
-1. 入参校验: snap 到格点、自环拒绝、8 方向合法性、内部重复格点、完全重叠
-2. X 形交叉处理 (ResolveInteriorCrossings):
+0. 半格处理: from/to 若已在路网上（IsOnRoadPoint），skipSnap=true 避免 snap 破坏 8 方向合法性
+1. 入参校验: 自环拒绝、FromDisplacementAnyLength 8 方向校验（兼容半格步长）、内部重复格点
+2. 完全重叠预检: IsPathFullyCovered（子线段区间并集判定）— 路径已存在则拒绝
+3. X 形交叉处理 (ResolveInteriorCrossings):
    a. 收集新路径每段与现有 Segment 的几何内部交点
-   b. 在交点处 SplitSegmentAtPosition 切开旧 Segment
-   c. 将交点锚点插入新路径
-3. 共线重叠跳过: IsApproachColinearWithSegment 判定
-4. SplitSegmentAtWaypoint: 在途径 waypoint 处劈开旧 Segment
-5. 按 path 上所有 Junction 切分新路
-6. 拓扑去重: 共线端点重叠不生成冗余 Segment
-7. 生成各段 Segment (归属同一新 Road)
-8. 合并降级: 接入前连接数 =1、接入后 =2 且对向直通 → TryMergeAtJunction
+   b. 在交点处 SplitSegmentAtPosition 切开旧 Segment（交点可为非格点的"半格 Junction"）
+   c. 将交点锚点按沿 path 距离插入新路径
+4. 共线重叠跳过: IsApproachColinearWithSegment 判定 — 新路接近方向与已有 Segment 延伸方向一致则跳过劈分
+5. 端点劈分: from/to 若落在已有 Segment 中段（非已有 Junction），用 FindSegmentAtIncludingHalfGrid / IsAnyJunctionAt 查，调 SplitSegmentAtWaypoint 切开
+6. 按 path 上所有去重 Junction 位置切分新路 (splitIdx)
+7. 拓扑去重: 共线端点重叠不生成冗余 Segment
+8. 生成各段 Segment (归属同一新 Road)
+9. 合并降级: 接入前连接数 =1、接入后 =2 且对向直通 → TryMergeAtJunction
 ```
 
 #### 合并降级 (TryMergeAtJunction)
 
 条件全部满足时才合并：
 - Junction 连接数 == 2
-- 两段方向互为反向（dispA + dispB == 0）—— 即对向直通
-- 合并后整路 8 方向连续
+- 两段方向互为反向（dispA + dispB == 0）—— 即对向直通（使用 departure direction: junction→neighbor，非 approach direction）
+- 合并后整路 8 方向连续（首尾段用 FromDisplacementAnyLength 兼容半格）
 - 合并路 RoadID 归并（较小 ID 吸收较大 ID）
-- 安全护栏：拒绝自环 Segment、多重边环路、非对向转弯 Curl
+- 安全护栏：拒绝自环 Segment、多重边环路、非对向转弯 Curve
+
+`_inMergeOperation` 标志：合并期间 RemoveSegment 内部不再触发末尾合并降级，防止递归级联误并。
 
 #### 拆除后的 Road 连通分量修复 (SplitRoadIntoConnectedComponents)
 
@@ -553,6 +602,29 @@ RoadSystem (Node2D, 根节点)
 - BFS 遍历 Road 内各 Segment 通过共享 Junction 的邻接关系
 - 保留第一个连通分量挂原 RoadID
 - 其余分量各分配新 RoadID
+
+#### 内部核心方法
+
+##### FindSegmentAtIncludingHalfGrid
+按位置反查 Segment：先查 `_posToSegmentID` 字典（整格命中），无结果则几何 O(n) 扫描所有 Segment 的 waypoint，再扫描 Junction 的 ConnectedSegmentIDs。用于半格端点劈分场景。
+
+##### IsAnyJunctionAt
+判断某位置是否有 Junction：先查 `_posToJunctionID` 字典（整格命中），无结果则几何 O(n) 扫描所有 Junction 位置。半格 Junction 不在 `_posToJunctionID` 字典中，仅通过几何匹配命中。
+
+##### SplitSegmentAtPosition
+在 Segment 几何线段的任意位置劈开（不必是 waypoint）。找到 splitPos 落在哪条子线段（fromJunction → wp[0] → ... → toJunction）的内部，拆原 Segment 为两段，连接处为 splitPos（可能是非格点的半格 Junction）。用于 X 形交叉处理。
+
+##### SplitSegmentAtWaypoint
+在指定 waypoint 位置劈开 Segment（共格点劈分场景）：原 Segment 删除，新建两段 Segment 继承原 RoadID。
+
+##### IsPathFullyCovered
+路径完全覆盖预检：将路径每对相邻格点与现有 Segment 的几何子线段并集做区间合并，若全部被覆盖则拒绝（避免重复铺路）。不要求某条 Segment 精确覆盖——X 交叉切开后的多段拼起来仍算覆盖。
+
+##### IsApproachColinearWithSegment
+判断新路从 approachPos 接近 targetPos 的方向是否与已有 Segment 在 targetPos 处的延伸方向共线。用于跳过共线重叠场景中冗余的 Segment 劈分。
+
+##### MaybeReindexJunctionInPosDict
+RemoveSegment 后修复 `_posToSegmentID` 索引：当 Junction 被多个 Segment 共享时，删除一个 Segment 可能清空该格点的字典条目。此方法从 Junction 的 ConnectedSegmentIDs 取一条存活 Segment 补回。半格 Junction 不处理（IsSnapGrid == false）。
 
 ---
 
