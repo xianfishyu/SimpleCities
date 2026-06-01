@@ -117,9 +117,12 @@ public class RoadNetwork : ISaveable
         if (!HasJunctionAt(from))
         {
             int sid = FindSegmentAtIncludingHalfGrid(from);
-            // from 端点检测 departure 方向（from→path[1]），非 approach 方向
+            GD.Print($"[ADDROAD] from=({from.X:F0},{from.Y:F0}) sid={sid} hasJunc={HasJunctionAt(from)}");
             if (sid >= 0 && !IsApproachColinearWithSegment(path[1], from, sid))
+            {
+                GD.Print($"[ADDROAD] split existing seg#{sid} at from");
                 SplitSegmentAtWaypoint(sid, from, cellSize);
+            }
         }
         if (!HasJunctionAt(to))
         {
