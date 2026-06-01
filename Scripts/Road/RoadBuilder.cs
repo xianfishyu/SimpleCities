@@ -212,10 +212,16 @@ public partial class RoadBuilder : Node2D
 
         if (@event is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Left && mb.Pressed)
         {
-            // 拆整条 Road（而非单段 Segment），确保 X 路口删除整条斜路后
-            // 剩余路的两个半段方向一致 → 自动合并。
+            // 点击任意格点 → 找到 Segment → 拆整个 Road
             var snapped = RoadNetwork.SnapToGrid(GetGlobalMousePosition(), Config.CellSize);
             int segmentID = _network.FindSegmentAt(snapped);
+            if (segmentID < 0)
+            {
+                // 半格点回退
+                var nearest = FindNearestRoadPoint(GetGlobalMousePosition());
+                if (nearest.HasValue)
+                    segmentID = nearest.Value.segmentID;
+            }
             if (segmentID >= 0)
             {
                 var seg = _network.GetSegment(segmentID);
