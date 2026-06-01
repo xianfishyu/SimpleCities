@@ -65,49 +65,43 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    subgraph Phase1["Phase 1: 拖拽开始"]
-        direction TB
+    subgraph Phase1["拖拽开始"]
         S1["玩家按下左键"] --> S2["ToolManager 转发至 RoadBuilder"]
         S2 --> S3["RoadBuilder.BeginDrag"]
         S3 --> S4["GridSystem.SnapToGrid 吸附"]
         S4 --> S5{"格点上有 Segment?"}
-        S5 -->|否| S6["FindNearestRoadPoint<br/>半格点回退"]
-        S5 -->|是| S7["记录起点<br/>PreviewFrom = start"]
+        S5 -->|否| S6["FindNearestRoadPoint 半格点回退"]
+        S5 -->|是| S7["记录起点 PreviewFrom"]
         S6 --> S7
         S7 --> S8["RoadRenderer.QueueRedraw"]
     end
 
-    subgraph Phase2["Phase 2: 拖拽中每帧"]
-        direction TB
+    subgraph Phase2["拖拽中每帧"]
         D1["鼠标移动"] --> D2["RoadBuilder.UpdateProjection"]
-        D2 --> D3["GridSystem.IsSnapGrid 检测"]
-        D3 --> D4{"半格起点?"}
-        D4 -->|是| D5["过滤: 仅 NE SE SW NW<br/>对角方向候选"]
-        D5 --> D6["DirectionUtil.GetDisplacement<br/>计算步长"]
-        D4 -->|否| D6
-        D6 --> D7["投影选最长方向 格数"]
-        D7 --> D8["更新 PreviewTo<br/>RoadRenderer.QueueRedraw"]
+        D2 --> D3{"半格起点?"}
+        D3 -->|是| D4["仅 NE SE SW NW 对角候选"]
+        D4 --> D5["DirectionUtil.GetDisplacement 计算步长"]
+        D3 -->|否| D5
+        D5 --> D6["投影选最长方向格数"]
+        D6 --> D7["更新 PreviewTo QueueRedraw"]
     end
 
-    subgraph Phase3["Phase 3: 释放提交"]
-        direction TB
+    subgraph Phase3["释放提交"]
         C1["玩家释放左键"] --> C2["RoadBuilder.EndDragAndCommit"]
-        C2 --> C3["最终方向格数确认"]
-        C3 --> C4{"半格起点?"}
-        C4 -->|是| C5["锚定到反方向整格<br/>waypoints 全部落整格"]
-        C5 --> C6["构建 waypoints 数组"]
-        C4 -->|否| C6
-        C6 --> C7["RoadNetwork.AddRoad"]
-        C7 --> C8["DirectionUtil.FromDisplacementAnyLength<br/>8方向合法性校验"]
-        C8 --> C9["IsPathFullyCovered<br/>完全重叠预检"]
-        C9 --> C10["ResolveInteriorCrossings<br/>X形几何交叉劈分"]
-        C10 --> C11["SplitSegmentAtWaypoint<br/>中段穿过劈开旧Segment"]
-        C11 --> C12["IsAnyJunctionAt<br/>半格路口检测"]
-        C12 --> C13["按路口切段生成 Segments"]
-        C13 --> C14["TryMergeAtJunction<br/>接入前cc=1合并降级"]
-        C14 --> C15["SegmentAdded 事件触发"]
-        C15 --> C16["RoadRenderer 创建 Line2D 节点"]
-        C16 --> C17["ClearPreview + QueueRedraw"]
+        C2 --> C3{"半格起点?"}
+        C3 -->|是| C4["锚定反方向整格 waypoints落整格"]
+        C4 --> C5["构建 waypoints 数组"]
+        C3 -->|否| C5
+        C5 --> C6["RoadNetwork.AddRoad"]
+        C6 --> C7["8方向合法性校验"]
+        C7 --> C8["IsPathFullyCovered 重叠预检"]
+        C8 --> C9["ResolveInteriorCrossings 交叉劈分"]
+        C9 --> C10["SplitSegmentAtWaypoint 劈开旧Segment"]
+        C10 --> C11["按路口切段生成 Segments"]
+        C11 --> C12["TryMergeAtJunction 合并降级"]
+        C12 --> C13["SegmentAdded 事件触发"]
+        C13 --> C14["RoadRenderer 创建 Line2D"]
+        C14 --> C15["ClearPreview QueueRedraw"]
     end
 
     Phase1 --> Phase2
@@ -120,31 +114,29 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    subgraph Phase1["Phase 1: 切到拆除工具"]
-        direction TB
-        E1["ToolManager<br/>SetRemoveHoverActive true"] --> E2["每帧 _Process"]
-        E2 --> E3["RoadNetwork.FindSegmentAt<br/>按 snap 格点反查"]
+    subgraph Phase1["切到拆除工具"]
+        E1["ToolManager SetRemoveHoverActive true"] --> E2["每帧 _Process"]
+        E2 --> E3["RoadNetwork.FindSegmentAt 按snap格点反查"]
         E3 --> E4{"命中?"}
-        E4 -->|否| E5["FindNearestRoadPoint<br/>几何最近点回退"]
+        E4 -->|否| E5["FindNearestRoadPoint 几何最近点回退"]
         E5 --> E6["设置 HoveredSegmentID"]
         E4 -->|是| E6
-        E6 --> E7["RoadRenderer.QueueRedraw<br/>悬停高亮显示"]
+        E6 --> E7["RoadRenderer.QueueRedraw 悬停高亮"]
     end
 
-    subgraph Phase2["Phase 2: 点击拆除 拓扑修复"]
-        direction TB
+    subgraph Phase2["点击拆除 拓扑修复"]
         R1["玩家点击左键"] --> R2["RoadBuilder.HandleRemoveInput"]
-        R2 --> R3["RoadNetwork.FindSegmentAt<br/>得到 segmentID"]
+        R2 --> R3["RoadNetwork.FindSegmentAt 得到segmentID"]
         R3 --> R4["RoadNetwork.RemoveSegment"]
         R4 --> R5["清 _posToSegmentID 索引"]
         R5 --> R6["断开 from/to Junction 连接"]
         R6 --> R7["清理孤立 Junction cc=0"]
-        R7 --> R8["MaybeReindexJunctionInPosDict<br/>补回共享路口索引"]
+        R7 --> R8["MaybeReindexJunctionInPosDict 补回索引"]
         R8 --> R9["从 Road 摘除 Segment"]
-        R9 --> R10["SplitRoadIntoConnectedComponents<br/>BFS 连通分量拆分"]
+        R9 --> R10["SplitRoadIntoConnectedComponents BFS拆分"]
         R10 --> R11["SegmentRemoved 事件触发"]
-        R11 --> R12["RoadRenderer 回收 Line2D 节点"]
-        R12 --> R13["TryMergeAtJunction<br/>两端降至 cc=2 对向合并"]
+        R11 --> R12["RoadRenderer 回收 Line2D"]
+        R12 --> R13["TryMergeAtJunction 两端cc=2对向合并"]
     end
 
     Phase1 --> Phase2
