@@ -1,6 +1,6 @@
 # 网格系统设计
 
-> 状态：草案 | 最后更新：2026-06-01
+> 状态：实施中 | 最后更新：2026-06-02
 
 ---
 
@@ -21,9 +21,12 @@
 World Position:  (x, y)   ∈ ℝ²    (Godot 2D 坐标系，Y 轴向下)
 Grid Coordinate: (c, r)   ∈ ℤ²    (列, 行)
 
-转换规则：
-  c = floor(x / CellSize)
-  r = floor(y / CellSize)
+转换规则（格点原点 = CellSize 整数倍）：
+  c = Round(x / CellSize)
+  r = Round(y / CellSize)
+
+格点位置 = (c × CellSize, r × CellSize)
+例如：CellSize=100时，(0,0)、(100,0)、(0,100) 是格点。
 ```
 
 ### 2.2 网格单元结构
@@ -118,20 +121,28 @@ GridSystem (static class)
 > `GridSystem.Config`，此后所有模块通过 `GridSystem.CellSize` 获取当前网格尺寸，
 > 不再需要各自持有 cellSize 字段。
 
-### 4.2 道路图
+### 4.2 道路网络（当前实现）
+
+当前实现采用 **双层模型**：`Junction`（路口/端点）+ `Segment`（几何边）+ `Road`（玩家画线聚合）。
 
 ```
-RoadGraph
-├── Dictionary<int, RoadNode>        # 道路节点（交叉口 / 端点）
-├── Dictionary<int, RoadEdge>        # 道路段
+RoadNetwork
+├── Dictionary<int, Junction>    # 路口/端点（key=JunctionID）
+├── Dictionary<int, Segment>     # 几何边（key=SegmentID）
+├── Dictionary<int, Road>        # 道路聚合（key=RoadID）
+├── _posToJunctionID             # 格点位置→JunctionID
+├── _posToSegmentID              # 格点位置→SegmentID
 └── 方法：
-    ├── AddRoad(c1,r1, c2,r2)        # 铺设道路
-    ├── RemoveRoad(c1,r1, c2,r2)     # 拆除道路
-    ├── FindPath(from, to)           # 寻路（A*）
-    └── GetConnectedComponent(node)  # 连通分量查询
+    ├── AddRoad(from, to, wps)   # 铺设道路→返回 RoadID
+    ├── RemoveRoad(id)            # 拆除整条道路
+    ├── RemoveSegment(id)         # 拆除单段
+    ├── FindSegmentAt(pos)        # 按位置反查 Segment
+    └── TryMergeAtJunction(id)    # 合并降级
 ```
 
-### 4.3 节点与边
+### 4.3 节点与边（计划 / 待实现）
+
+以下为寻路系统规划数据结构，尚未实现：
 
 ```csharp
 class RoadNode

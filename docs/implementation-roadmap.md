@@ -1,6 +1,6 @@
 # 实施路线图
 
-> 状态：草案 | 最后更新：2026-06-01
+> 状态：实施中 | 最后更新：2026-06-02
 
 ---
 
@@ -66,9 +66,9 @@ Phase 9: 打磨与优化
 |------|------|------|------|
 | 道路图数据结构 | `Scripts/Road/RoadNetwork.cs` | ✅ 完成 | Junction + Segment + Road 三层模型，邻接表 + 反向索引 |
 | 道路铺设 | `Scripts/Road/RoadBuilder.cs` | ✅ 完成 | 鼠标拖拽 8 方向投影，半格点吸附，预览虚线 |
-| 道路拆除 | 同上 | ✅ 完成 | 点击 Segment 格点拆除单段，悬停高亮 |
-| 道路渲染 | `Scripts/Road/RoadRenderer.cs` | ✅ 完成 | Line2D 矢量绘制 + `_junctionLayer.Draw` 交叉口圆点 |
-| 路网根节点 | `Scripts/Road/RoadSystem.cs` | ✅ 完成 | Node2D，持有 RoadNetwork 实例，注入 Config 给子节点 |
+| 道路拆除 | 同上 | ✅ 完成 | 点击 Segment 格点拆除单段，悬停高亮（金黄半透明折线+端点圈） |
+| 道路渲染 | `Scripts/Road/RoadRenderer.cs` | ✅ 完成 | Line2D 矢量绘制 + `_junctionLayer.Draw` 交叉口圆点 + 拆除悬停高亮 |
+| 路网根节点 | `Scripts/Road/RoadSystem.cs` | ✅ 完成 | Node2D，持有 RoadNetwork 实例，注入 Config + GridSystem 给子节点 |
 | 共享配置 | `Scripts/Road/RoadConfig.cs` | ✅ 完成 | GlobalClass Resource（.tres），CellSize + 道路/路口/悬停颜色与尺寸 |
 | 逻辑路 | `Scripts/Road/Road.cs` | ✅ 完成 | 一次画线操作的 Segment 集合，支持连通分量拆分 |
 | 几何边 | `Scripts/Road/Segment.cs` | ✅ 完成 | 两端 Junction + 中间 waypoints + 总长度 |
@@ -105,9 +105,12 @@ Phase 9: 打磨与优化
 | 半格点检测 | `GridSystem.IsSnapGrid()` | 位置不在 cellSize 整数倍上即为半格点 |
 | 任意距离方向判定 | `DirectionUtil.FromDisplacementAnyLength()` | 归一化向量与 8 单位方向余弦匹配，支持非单位位移（如半格段） |
 | 半格起点约束 | `RoadBuilder.UpdateProjection()` | 半格起点仅允许对角方向延伸（`IsDiagonal` 过滤） |
+| 半格点延伸锚定 | `RoadBuilder.EndDragAndCommit()` | `anchor = start - disp*cellSize/2`，终点落在整格 |
+| 半格点劈分回退 | `RoadNetwork.FindSegmentAtIncludingHalfGrid()` | 字典未命中时扫 waypoint + Junction 的 ConnectedSegmentIDs |
+| 半格 Junction 检测 | `RoadNetwork.IsAnyJunctionAt()` | 含几何扫描，覆盖半格 Junction（不在 `_posToJunctionID` 中） |
 | 半格 Junction 存储 | `RoadNetwork.GetOrCreateJunction()` | 半格 Junction 不进位置字典，仅通过 ID 访问 |
 
-> ⚠️ 约束：半格起点拖出的路只能沿对角方向铺设。正交方向延长因几何不对称暂不支持（会破坏"一次拖拽 = 单方向直路"的简洁语义）。
+> ⚠️ 约束：半格起点拖出的路锚定到反方向整格（`anchor = start - disp*cellSize/2`），终点和 waypoints 落在整格。仅对角方向（NE/SE/SW/NW）可拖拽，正交方向被 `UpdateProjection` 过滤。
 
 ### Phase 1 里程碑
 > 🎯 **里程碑达成**：支持 8 方向铺路、半格点锚定、X 形交叉自动劈分、交叉口类型化渲染（Endpoint/Straight/Curve/T/Cross/XCross）、工具切换（铺路/拆除/选择）、HUD 实时统计、存档/读档——Phase 1 核心功能完备。
