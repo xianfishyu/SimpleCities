@@ -78,77 +78,75 @@ graph TB
 ```mermaid
 sequenceDiagram
     actor User as 玩家
-    participant Input as Godot Input
+    participant Input as Godot_Input
     participant TM as ToolManager
     participant RB as RoadBuilder
     participant RU as DirectionUtil
     participant GS as GridSystem
     participant RN as RoadNetwork
     participant RR as RoadRenderer
-    participant Scene as Godot Scene Tree
+    participant Scene as SceneTree
 
-    rect rgb(15, 52, 96)
-        Note over User,Scene: ⬇ 拖拽开始
+    rect rgba(15, 52, 96, 0.3)
+        Note over User,Scene: 拖拽开始
         User->>Input: 按下左键
-        Input->>TM: _Input(InputEvent)
-        TM->>RB: HandlePlaceInput(event)
-        RB->>RB: BeginDrag()
-        RB->>GS: SnapToGrid(mouseWorld)
+        Input->>TM: _Input
+        TM->>RB: HandlePlaceInput
+        RB->>RB: BeginDrag
+        RB->>GS: SnapToGrid
         GS-->>RB: 吸附格点
-        alt 半格起点（格点无Segment）
-            RB->>RN: FindNearestRoadPoint()
+        alt 半格起点
+            RB->>RN: FindNearestRoadPoint
             RN-->>RB: 最近路网点
         end
-        RB->>RR: PreviewFrom = start<br/>PreviewTo = start
-        RR->>Scene: QueueRedraw()
+        RB->>RR: PreviewFrom / PreviewTo
+        RR->>Scene: QueueRedraw
     end
 
-    rect rgb(83, 52, 131)
-        Note over User,Scene: ⬇ 拖拽中（每帧）
-        loop 每帧 _Process()
+    rect rgba(83, 52, 131, 0.3)
+        Note over User,Scene: 拖拽中
+        loop 每帧
             User->>Input: 移动鼠标
-            RB->>RB: UpdateProjection()
-            RB->>GS: IsSnapGrid(dragStart)
-            GS-->>RB: true/false
+            RB->>RB: UpdateProjection
+            RB->>GS: IsSnapGrid
+            GS-->>RB: true or false
             alt 半格起点
-                RB->>RB: 过滤：仅对角线方向
+                RB->>RB: 过滤仅对角线方向
             end
-            RB->>RU: GetDisplacement / Length
+            RB->>RU: GetDisplacement
             RU-->>RB: 8方向步长
-            RB->>RB: 投影 → 最长方向 → 格数
+            RB->>RB: 投影选最长方向
             RB->>RR: PreviewFrom / PreviewTo
-            RR->>Scene: QueueRedraw()
+            RR->>Scene: QueueRedraw
         end
     end
 
-    rect rgb(233, 69, 96)
-        Note over User,Scene: ⬇ 释放提交
+    rect rgba(233, 69, 96, 0.3)
+        Note over User,Scene: 释放提交
         User->>Input: 释放左键
-        Input->>TM: _Input(InputEvent)
-        TM->>RB: HandlePlaceInput(event)
-        RB->>RB: EndDragAndCommit()
-        RB->>RB: 最终方向/格数确认
+        Input->>TM: _Input
+        TM->>RB: HandlePlaceInput
+        RB->>RB: EndDragAndCommit
         alt 半格起点
             RB->>RB: 锚定到反方向整格
         end
-        RB->>RB: 构建 waypoints[]
-        RB->>RN: AddRoad(from, to, waypoints, cellSize)
+        RB->>RB: 构建 waypoints
+        RB->>RN: AddRoad
         activate RN
-        RN->>RU: FromDisplacementAnyLength<br/>(8方向校验)
-        RU-->>RN: Direction?
-        RN->>RN: IsPathFullyCovered<br/>(重叠预检)
-        RN->>RN: ResolveInteriorCrossings<br/>(X形交叉劈分)
-        RN->>RN: SplitSegmentAtWaypoint<br/>(中段穿過劈分)
-        RN->>RN: IsAnyJunctionAt<br/>(半格路口检测)
-        RN->>RN: 按路口切段 → 生成 Segments
-        RN->>RN: TryMergeAtJunction<br/>(对向直通合并)
+        RN->>RU: FromDisplacementAnyLength
+        RU-->>RN: Direction
+        RN->>RN: IsPathFullyCovered
+        RN->>RN: ResolveInteriorCrossings
+        RN->>RN: SplitSegmentAtWaypoint
+        RN->>RN: IsAnyJunctionAt
+        RN->>RN: 按路口切段生成Segments
+        RN->>RN: TryMergeAtJunction
         RN-->>RB: RoadID
         deactivate RN
-        Note over RN,RR: 每新增 Segment 触发
-        RN->>RR: SegmentAdded(segment)
-        RR->>Scene: 创建 Line2D 节点
-        RB->>RR: ClearPreview()
-        RR->>Scene: QueueRedraw()
+        RN->>RR: SegmentAdded
+        RR->>Scene: 创建Line2D节点
+        RB->>RR: ClearPreview
+        RR->>Scene: QueueRedraw
     end
 ```
 
@@ -164,38 +162,38 @@ sequenceDiagram
     participant RN as RoadNetwork
     participant RR as RoadRenderer
 
-    rect rgb(83, 52, 131)
+    rect rgba(83, 52, 131, 0.3)
         Note over User,RR: 切到拆除工具
-        TM->>RB: SetRemoveHoverActive(true)
+        TM->>RB: SetRemoveHoverActive true
         loop 每帧
-            RB->>RB: UpdateRemoveHover()
-            RB->>RN: FindSegmentAt(snapped)
+            RB->>RB: UpdateRemoveHover
+            RB->>RN: FindSegmentAt
             alt 未命中
-                RB->>RB: FindNearestRoadPoint(mouse)
+                RB->>RB: FindNearestRoadPoint
             end
             RB->>RR: HoveredSegmentID
-            RR->>RR: QueueRedraw()
+            RR->>RR: QueueRedraw
         end
     end
 
-    rect rgb(233, 69, 96)
+    rect rgba(233, 69, 96, 0.3)
         Note over User,RR: 点击拆除
         User->>TM: 点击左键
-        TM->>RB: HandleRemoveInput(event)
-        RB->>RN: FindSegmentAt(snapped)
+        TM->>RB: HandleRemoveInput
+        RB->>RN: FindSegmentAt
         RN-->>RB: segmentID
-        RB->>RN: RemoveSegment(segmentID)
+        RB->>RN: RemoveSegment
         activate RN
-        RN->>RN: 清 _posToSegmentID 索引
-        RN->>RN: 断开 from/to Junction 连接
-        RN->>RN: 清理孤立 Junction
-        RN->>RN: MaybeReindexJunctionInPosDict
-        RN->>RN: 从 Road 摘除
-        RN->>RN: SplitRoadIntoConnectedComponents<br/>(BFS 连通分量)
-        RN-->>RR: SegmentRemoved(segment)
+        RN->>RN: 清索引字典
+        RN->>RN: 断开Junction连接
+        RN->>RN: 清理孤立Junction
+        RN->>RN: MaybeReindexJunction
+        RN->>RN: 从Road摘除
+        RN->>RN: SplitRoadIntoConnectedComponents
+        RN-->>RR: SegmentRemoved
         deactivate RN
-        RR->>RR: 回收 Line2D 节点
-        RN->>RN: TryMergeAtJunction<br/>(两端如降至cc=2)
+        RR->>RR: 回收Line2D节点
+        RN->>RN: TryMergeAtJunction
     end
 ```
 
@@ -314,32 +312,24 @@ classDiagram
 ## 5. 工具状态机
 
 ```mermaid
+---
+title: 工具状态机
+---
 stateDiagram-v2
     [*] --> Select : 启动
 
-    Select --> Road : 按 R / 点击 RoadBtn
-    Select --> RoadRemove : 按 E / 点击 RemoveBtn
+    Select --> Road : 按R键
+    Select --> RoadRemove : 按E键
 
-    Road --> Select : 按 Esc / 点击 SelectBtn
-    Road --> RoadRemove : 按 E / 点击 RemoveBtn
-    Road --> Road : 拖拽中（按左键不放）
+    Road --> Select : 按Esc键
+    Road --> RoadRemove : 按E键
     
-    note right of Road
-        进入: 无操作
-        进行: BeginDrag → UpdateProjection（每帧）
-        退出: CancelPlaceDrag() 取消拖拽
-    end note
+    note right of Road: 进入: 无操作 | 进行: BeginDrag到UpdateProjection | 退出: CancelPlaceDrag
 
-    RoadRemove --> Select : 按 Esc / 点击 SelectBtn
-    RoadRemove --> Road : 按 R / 点击 RoadBtn
+    RoadRemove --> Select : 按Esc键
+    RoadRemove --> Road : 按R键
     
-    note right of RoadRemove
-        进入: SetRemoveHoverActive(true)
-        进行: UpdateRemoveHover（每帧）
-        退出: SetRemoveHoverActive(false)
-    end note
-
-    Select --> Select : 无操作（默认状态）
+    note right of RoadRemove: 进入: SetRemoveHoverActive | 进行: UpdateRemoveHover | 退出: SetRemoveHoverActive
 ```
 
 ---
@@ -376,38 +366,38 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    Start[BeginDrag: 记录起点] --> Snap[SnapToGrid]
-    Snap --> Check{格点有Segment?}
-    Check -->|是| Direct[使用吸附格点]
-    Check -->|否| Fallback[FindNearestRoadPoint]
-    Fallback -->|找到| HalfGrid[半格起点]
+    Start["BeginDrag 记录起点"] --> Snap["SnapToGrid"]
+    Snap --> Check{"格点有Segment"}
+    Check -->|是| Direct["使用吸附格点"]
+    Check -->|否| Fallback["FindNearestRoadPoint"]
+    Fallback -->|找到| HalfGrid["半格起点"]
     Fallback -->|未找到| Direct
 
-    HalfGrid --> Update["UpdateProjection（每帧）"]
-    Update --> Filter["遍历8方向<br/>IsDiagonal(d) 过滤"]
-    Filter --> DiagOnly["仅 NE/SE/SW/NW 候选"]
-    DiagOnly --> Project[投影 → 选最长]
-    Project --> Commit[EndDragAndCommit]
-    Commit --> Anchor["锚定到反方向整格<br/>waypoints 全落整格"]
+    HalfGrid --> Update["UpdateProjection 每帧"]
+    Update --> Filter["遍历8方向 IsDiagonal过滤"]
+    Filter --> DiagOnly["仅 NE SE SW NW 候选"]
+    DiagOnly --> Project["投影选最长"]
+    Project --> Commit["EndDragAndCommit"]
+    Commit --> Anchor["锚定到反方向整格<br>waypoints全落整格"]
 ```
 
 ### 7.2 对向合并降级(TryMergeAtJunction)
 
 ```mermaid
 flowchart TD
-    Start["Junction cc == 2?"] -->|否| Skip[跳过]
-    Start -->|是| SegAB[取两段 Segment]
-    SegAB --> Guard1{自环?}
+    Start{"Junction cc equal 2"} -->|否| Skip["跳过"]
+    Start -->|是| SegAB["取两段 Segment"]
+    SegAB --> Guard1{"自环"}
     Guard1 -->|是| Skip
-    Guard1 -->|否| Orient[OrientTowardsJunction]
-    Orient --> Dir[取 Junction→邻点 方向]
-    Dir --> Guard2{"dispA + dispB == 0?<br/>(对向直通)"}
+    Guard1 -->|否| Orient["OrientTowardsJunction"]
+    Orient --> Dir["取 Junction to 邻点 方向"]
+    Dir --> Guard2{"dispA 加 dispB 等于 0"}
     Guard2 -->|否| Skip
-    Guard2 -->|是| Guard3{"合并后 8 方向连续?"}
+    Guard2 -->|是| Guard3{"合并后8方向连续"}
     Guard3 -->|否| Skip
-    Guard3 -->|是| Guard4{"farA == farB?<br/>(多重边环路)"}
-    Guard4 -->|是| Skip
-    Guard4 -->|否| Merge["_inMergeOperation = true<br/>RemoveSegment(A)<br/>RemoveSegment(B)<br/>AddSegment(farA, farB, mergedWps)<br/>较小 RoadID 吸收较大"]
+    Guard3 -->|是| Guard4{"farA 不等于 farB"}
+    Guard4 -->|否| Skip
+    Guard4 -->|是| Merge["inMergeOperation true<br>RemoveSegment A and B<br>AddSegment farA to farB<br>小RoadID吸收大RoadID"]
 ```
 
 ---
