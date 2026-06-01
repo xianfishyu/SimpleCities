@@ -112,17 +112,17 @@ public class RoadNetwork : ISaveable
         }
 
         // 新路两端也可能撞到旧 Segment 中段 waypoint。
-        // 共线端点跳过劈分：避免把 Road A (0,0)→(0,5) 在 (0,2) 处切开。
-        // Road B 的端点 Junction 叠加在 A 的 waypoint 上，二者在同一位置共存。
+        // 共线端点跳过劈分；非共线则劈分。半格 waypoint 不在 FindSegmentAt 字典中，
+        // 通过几何扫 waypoint 补查。
         if (!HasJunctionAt(from))
         {
-            int sid = FindSegmentAt(from);
+            int sid = FindSegmentAtIncludingHalfGrid(from);
             if (sid >= 0 && !IsApproachColinearWithSegment(from, path[1], sid))
                 SplitSegmentAtWaypoint(sid, from, cellSize);
         }
         if (!HasJunctionAt(to))
         {
-            int sid = FindSegmentAt(to);
+            int sid = FindSegmentAtIncludingHalfGrid(to);
             if (sid >= 0 && !IsApproachColinearWithSegment(to, path[path.Count - 2], sid))
                 SplitSegmentAtWaypoint(sid, to, cellSize);
         }
@@ -888,6 +888,18 @@ public class RoadNetwork : ISaveable
     /// <summary>按位置反查 Segment.ID；找不到返回 -1</summary>
     public int FindSegmentAt(Vector2 pos) =>
         _posToSegmentID.TryGetValue(pos, out int id) ? id : -1;
+
+    /// <summary>FindSegmentAt + 半格 waypoint 几何回退（半格点不在 _posToSegmentID 中）。</summary>
+    private int FindSegmentAtIncludingHalfGrid(Vector2 pos)
+    {
+        int sid = FindSegmentAt(pos);
+        if (sid >= 0) return sid;
+        // 扫描所有 Segment 的 waypoint 找几何重合
+        foreach (var seg in _segments.Values)
+            foreach (var wp in seg.Waypoints)
+                if (wp.DistanceSquaredTo(pos) < 1e-4f) return seg.ID;
+        return -1;
+    }
 
     /// <summary>
     /// RemoveSegment 后调用：若某 Junction 位置在字典中被清空，但 Junction 仍存活（仍有连接 Segment），
