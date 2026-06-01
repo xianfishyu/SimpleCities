@@ -111,20 +111,16 @@ public class RoadNetwork : ISaveable
             SplitSegmentAtWaypoint(oldSegmentID, p, cellSize);
         }
 
-        // 新路两端也可能撞到旧 Segment 中段 waypoint。
-        // 共线端点跳过劈分；非共线则劈分。半格 waypoint 不在 FindSegmentAt 字典中，
-        // 通过几何扫 waypoint 补查。
-        if (!HasJunctionAt(from))
+        // 新路两端也可能撞到旧 Segment（中段 waypoint 或半格 Junction）。
+        // HasJunctionAt 只命中格点字典 → 用 IsAnyJunctionAt 覆盖半格。
+        // FindSegmentAtIncludingHalfGrid 优先字典，回退几何扫 waypoint + 从 Junction 取 ConnectedSegment。
+        if (!IsAnyJunctionAt(from))
         {
             int sid = FindSegmentAtIncludingHalfGrid(from);
-            GD.Print($"[ADDROAD] from=({from.X:F0},{from.Y:F0}) sid={sid} hasJunc={HasJunctionAt(from)}");
             if (sid >= 0 && !IsApproachColinearWithSegment(path[1], from, sid))
-            {
-                GD.Print($"[ADDROAD] split existing seg#{sid} at from");
                 SplitSegmentAtWaypoint(sid, from, cellSize);
-            }
         }
-        if (!HasJunctionAt(to))
+        if (!IsAnyJunctionAt(to))
         {
             int sid = FindSegmentAtIncludingHalfGrid(to);
             if (sid >= 0 && !IsApproachColinearWithSegment(to, path[path.Count - 2], sid))
@@ -893,15 +889,20 @@ public class RoadNetwork : ISaveable
     public int FindSegmentAt(Vector2 pos) =>
         _posToSegmentID.TryGetValue(pos, out int id) ? id : -1;
 
-    /// <summary>FindSegmentAt + 半格 waypoint 几何回退（半格点不在 _posToSegmentID 中）。</summary>
+    /// <summary>FindSegmentAt + 半格点几何回退（waypoint + Junction）。</summary>
     private int FindSegmentAtIncludingHalfGrid(Vector2 pos)
     {
         int sid = FindSegmentAt(pos);
         if (sid >= 0) return sid;
-        // 扫描所有 Segment 的 waypoint 找几何重合
+        // 扫描 waypoint
         foreach (var seg in _segments.Values)
             foreach (var wp in seg.Waypoints)
                 if (wp.DistanceSquaredTo(pos) < 1e-4f) return seg.ID;
+        // 扫描半格 Junction：从其 ConnectedSegmentIDs 取
+        foreach (var j in _junctions.Values)
+            if (j.Position.DistanceSquaredTo(pos) < 1e-4f)
+                foreach (var csid in j.ConnectedSegmentIDs)
+                    if (_segments.ContainsKey(csid)) return csid;
         return -1;
     }
 
