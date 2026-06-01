@@ -77,8 +77,8 @@ graph TB
 
 ```mermaid
 sequenceDiagram
-    actor User as 玩家
-    participant Input as Godot_Input
+    actor User as Player
+    participant Input as Input
     participant TM as ToolManager
     participant RB as RoadBuilder
     participant RU as DirectionUtil
@@ -87,64 +87,62 @@ sequenceDiagram
     participant RR as RoadRenderer
     participant Scene as SceneTree
 
-    rect rgba(15, 52, 96, 0.3)
-        Note over User,Scene: 拖拽开始
-        User->>Input: 按下左键
+    rect rgb(200, 200, 255)
+        Note over User,Scene: drag start
+        User->>Input: left mouse down
         Input->>TM: _Input
         TM->>RB: HandlePlaceInput
         RB->>RB: BeginDrag
         RB->>GS: SnapToGrid
-        GS-->>RB: 吸附格点
-        alt 半格起点
+        GS-->>RB: snap pos
+        alt half-grid start
             RB->>RN: FindNearestRoadPoint
-            RN-->>RB: 最近路网点
+            RN-->>RB: nearest pt
         end
         RB->>RR: PreviewFrom / PreviewTo
         RR->>Scene: QueueRedraw
     end
 
-    rect rgba(83, 52, 131, 0.3)
-        Note over User,Scene: 拖拽中
-        loop 每帧
-            User->>Input: 移动鼠标
+    rect rgb(200, 255, 200)
+        Note over User,Scene: dragging per frame
+        loop each frame
+            User->>Input: mouse move
             RB->>RB: UpdateProjection
             RB->>GS: IsSnapGrid
-            GS-->>RB: true or false
-            alt 半格起点
-                RB->>RB: 过滤仅对角线方向
+            GS-->>RB: bool
+            alt half-grid
+                RB->>RB: filter diagonal only
             end
             RB->>RU: GetDisplacement
-            RU-->>RB: 8方向步长
-            RB->>RB: 投影选最长方向
+            RU-->>RB: step length
+            RB->>RB: project to longest dir
             RB->>RR: PreviewFrom / PreviewTo
             RR->>Scene: QueueRedraw
         end
     end
 
-    rect rgba(233, 69, 96, 0.3)
-        Note over User,Scene: 释放提交
-        User->>Input: 释放左键
+    rect rgb(255, 200, 200)
+        Note over User,Scene: commit
+        User->>Input: left mouse up
         Input->>TM: _Input
         TM->>RB: HandlePlaceInput
         RB->>RB: EndDragAndCommit
-        alt 半格起点
-            RB->>RB: 锚定到反方向整格
+        alt half-grid
+            RB->>RB: anchor to int grid
         end
-        RB->>RB: 构建 waypoints
+        RB->>RB: build waypoints
         RB->>RN: AddRoad
-        activate RN
         RN->>RU: FromDisplacementAnyLength
-        RU-->>RN: Direction
+        RU-->>RN: direction
         RN->>RN: IsPathFullyCovered
         RN->>RN: ResolveInteriorCrossings
         RN->>RN: SplitSegmentAtWaypoint
         RN->>RN: IsAnyJunctionAt
-        RN->>RN: 按路口切段生成Segments
+        RN->>RN: cut to segments
         RN->>RN: TryMergeAtJunction
         RN-->>RB: RoadID
-        deactivate RN
         RN->>RR: SegmentAdded
-        RR->>Scene: 创建Line2D节点
+        RR->>Scene: create Line2D
         RB->>RR: ClearPreview
         RR->>Scene: QueueRedraw
     end
@@ -156,19 +154,19 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    actor User as 玩家
+    actor User as Player
     participant TM as ToolManager
     participant RB as RoadBuilder
     participant RN as RoadNetwork
     participant RR as RoadRenderer
 
-    rect rgba(83, 52, 131, 0.3)
-        Note over User,RR: 切到拆除工具
+    rect rgb(200, 200, 255)
+        Note over User,RR: enter remove tool
         TM->>RB: SetRemoveHoverActive true
-        loop 每帧
+        loop each frame
             RB->>RB: UpdateRemoveHover
             RB->>RN: FindSegmentAt
-            alt 未命中
+            alt miss
                 RB->>RB: FindNearestRoadPoint
             end
             RB->>RR: HoveredSegmentID
@@ -176,23 +174,21 @@ sequenceDiagram
         end
     end
 
-    rect rgba(233, 69, 96, 0.3)
-        Note over User,RR: 点击拆除
-        User->>TM: 点击左键
+    rect rgb(255, 200, 200)
+        Note over User,RR: click to remove
+        User->>TM: left click
         TM->>RB: HandleRemoveInput
         RB->>RN: FindSegmentAt
         RN-->>RB: segmentID
         RB->>RN: RemoveSegment
-        activate RN
-        RN->>RN: 清索引字典
-        RN->>RN: 断开Junction连接
-        RN->>RN: 清理孤立Junction
+        RN->>RN: clear posToSegmentID index
+        RN->>RN: disconnect junctions
+        RN->>RN: remove orphan junctions
         RN->>RN: MaybeReindexJunction
-        RN->>RN: 从Road摘除
-        RN->>RN: SplitRoadIntoConnectedComponents
+        RN->>RN: remove from Road
+        RN->>RN: SplitRoadIntoComponents BFS
         RN-->>RR: SegmentRemoved
-        deactivate RN
-        RR->>RR: 回收Line2D节点
+        RR->>RR: recycle Line2D node
         RN->>RN: TryMergeAtJunction
     end
 ```
@@ -312,24 +308,19 @@ classDiagram
 ## 5. 工具状态机
 
 ```mermaid
----
-title: 工具状态机
----
 stateDiagram-v2
-    [*] --> Select : 启动
+    [*] --> Select: startup
 
-    Select --> Road : 按R键
-    Select --> RoadRemove : 按E键
+    Select --> Road: R key
+    Select --> RoadRemove: E key
 
-    Road --> Select : 按Esc键
-    Road --> RoadRemove : 按E键
-    
-    note right of Road: 进入: 无操作 | 进行: BeginDrag到UpdateProjection | 退出: CancelPlaceDrag
+    Road --> Select: Esc key
+    Road --> RoadRemove: E key
+    note right of Road: onEnter: nop | onTick: BeginDrag to UpdateProjection | onExit: CancelPlaceDrag
 
-    RoadRemove --> Select : 按Esc键
-    RoadRemove --> Road : 按R键
-    
-    note right of RoadRemove: 进入: SetRemoveHoverActive | 进行: UpdateRemoveHover | 退出: SetRemoveHoverActive
+    RoadRemove --> Select: Esc key
+    RoadRemove --> Road: R key
+    note right of RoadRemove: onEnter: SetRemoveHoverActive true | onTick: UpdateRemoveHover | onExit: SetRemoveHoverActive false
 ```
 
 ---
