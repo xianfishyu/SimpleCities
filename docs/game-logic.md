@@ -1,0 +1,454 @@
+# 游戏总体逻辑
+
+> 最后更新：2026-06-01
+
+---
+
+## 1. 系统架构总览
+
+```mermaid
+graph TB
+    subgraph Godot["Godot 场景树"]
+        MapTest["MapTest.tscn<br/>Node2D 根"]
+        MapBg["MapBackground<br/>CanvasLayer"]
+        RoadSys["RoadSystem<br/>Node2D"]
+        ToolMgr["ToolManager<br/>Node2D"]
+        GameHUD["GameHUD<br/>CanvasLayer"]
+        ImGuiRoot["ImGuiRoot<br/>自动加载"]
+        SaveMgr["SaveManager<br/>自动加载"]
+    end
+
+    subgraph RoadSys_internal["RoadSystem 内部"]
+        RoadBuilder["RoadBuilder<br/>输入处理"]
+        RoadRenderer["RoadRenderer<br/>事件驱动渲染"]
+    end
+
+    subgraph Data["纯数据层"]
+        RoadNetwork["RoadNetwork<br/>ISaveable"]
+        RoadConfig["RoadConfig<br/>GlobalClass Resource"]
+    end
+
+    subgraph StaticUtils["静态工具"]
+        GridSystem["GridSystem"]
+        DirectionUtil["DirectionUtil"]
+    end
+
+    MapTest --> MapBg
+    MapTest --> RoadSys
+    MapTest --> ToolMgr
+    MapTest --> GameHUD
+
+    RoadSys --> RoadBuilder
+    RoadSys --> RoadRenderer
+    RoadSys --> RoadNetwork
+    RoadSys -->|"注入 Config"| GridSystem
+
+    RoadBuilder -->|"调用 API"| RoadNetwork
+    RoadBuilder -->|"设置预览"| RoadRenderer
+    RoadBuilder -.->|"读取 Config"| RoadConfig
+
+    RoadNetwork -->|"SegmentAdded<br/>SegmentRemoved<br/>NetworkReloaded"| RoadRenderer
+
+    RoadRenderer -.->|"读取 Config"| RoadConfig
+    RoadBuilder -.->|"调用"| GridSystem
+    RoadBuilder -.->|"调用"| DirectionUtil
+    RoadNetwork -.->|"调用"| GridSystem
+    RoadNetwork -.->|"调用"| DirectionUtil
+
+    ToolMgr -->|"转发输入"| RoadBuilder
+    GameHUD -.->|"读取统计"| RoadNetwork
+    GameHUD -.->|"读取工具"| ToolMgr
+
+    SaveMgr -->|"CaptureState<br/>RestoreState"| RoadNetwork
+    SaveMgr -->|"CaptureState<br/>RestoreState"| MainCamera["MainCamera<br/>ISaveable"]
+
+    style MapBg fill:#1a1a2e,stroke:#16213e,color:#e0e0e0
+    style RoadSys fill:#0f3460,stroke:#16213e,color:#e0e0e0
+    style RoadNetwork fill:#533483,stroke:#3d2c6b,color:#e0e0e0
+    style RoadBuilder fill:#e94560,stroke:#c23152,color:#fff
+    style RoadRenderer fill:#e94560,stroke:#c23152,color:#fff
+    style GridSystem fill:#1a1a2e,stroke:#16213e,color:#e0e0e0
+    style DirectionUtil fill:#1a1a2e,stroke:#16213e,color:#e0e0e0
+```
+
+---
+
+## 2. 道路铺设完整流程
+
+```mermaid
+sequenceDiagram
+    actor User as 玩家
+    participant Input as Godot Input
+    participant TM as ToolManager
+    participant RB as RoadBuilder
+    participant RU as DirectionUtil
+    participant GS as GridSystem
+    participant RN as RoadNetwork
+    participant RR as RoadRenderer
+    participant Scene as Godot Scene Tree
+
+    rect rgb(15, 52, 96)
+        Note over User,Scene: ⬇ 拖拽开始
+        User->>Input: 按下左键
+        Input->>TM: _Input(InputEvent)
+        TM->>RB: HandlePlaceInput(event)
+        RB->>RB: BeginDrag()
+        RB->>GS: SnapToGrid(mouseWorld)
+        GS-->>RB: 吸附格点
+        alt 半格起点（格点无Segment）
+            RB->>RN: FindNearestRoadPoint()
+            RN-->>RB: 最近路网点
+        end
+        RB->>RR: PreviewFrom = start<br/>PreviewTo = start
+        RR->>Scene: QueueRedraw()
+    end
+
+    rect rgb(83, 52, 131)
+        Note over User,Scene: ⬇ 拖拽中（每帧）
+        loop 每帧 _Process()
+            User->>Input: 移动鼠标
+            RB->>RB: UpdateProjection()
+            RB->>GS: IsSnapGrid(dragStart)
+            GS-->>RB: true/false
+            alt 半格起点
+                RB->>RB: 过滤：仅对角线方向
+            end
+            RB->>RU: GetDisplacement / Length
+            RU-->>RB: 8方向步长
+            RB->>RB: 投影 → 最长方向 → 格数
+            RB->>RR: PreviewFrom / PreviewTo
+            RR->>Scene: QueueRedraw()
+        end
+    end
+
+    rect rgb(233, 69, 96)
+        Note over User,Scene: ⬇ 释放提交
+        User->>Input: 释放左键
+        Input->>TM: _Input(InputEvent)
+        TM->>RB: HandlePlaceInput(event)
+        RB->>RB: EndDragAndCommit()
+        RB->>RB: 最终方向/格数确认
+        alt 半格起点
+            RB->>RB: 锚定到反方向整格
+        end
+        RB->>RB: 构建 waypoints[]
+        RB->>RN: AddRoad(from, to, waypoints, cellSize)
+        activate RN
+        RN->>RU: FromDisplacementAnyLength<br/>(8方向校验)
+        RU-->>RN: Direction?
+        RN->>RN: IsPathFullyCovered<br/>(重叠预检)
+        RN->>RN: ResolveInteriorCrossings<br/>(X形交叉劈分)
+        RN->>RN: SplitSegmentAtWaypoint<br/>(中段穿過劈分)
+        RN->>RN: IsAnyJunctionAt<br/>(半格路口检测)
+        RN->>RN: 按路口切段 → 生成 Segments
+        RN->>RN: TryMergeAtJunction<br/>(对向直通合并)
+        RN-->>RB: RoadID
+        deactivate RN
+        Note over RN,RR: 每新增 Segment 触发
+        RN->>RR: SegmentAdded(segment)
+        RR->>Scene: 创建 Line2D 节点
+        RB->>RR: ClearPreview()
+        RR->>Scene: QueueRedraw()
+    end
+```
+
+---
+
+## 3. 道路拆除 + 拓扑修复
+
+```mermaid
+sequenceDiagram
+    actor User as 玩家
+    participant TM as ToolManager
+    participant RB as RoadBuilder
+    participant RN as RoadNetwork
+    participant RR as RoadRenderer
+
+    rect rgb(83, 52, 131)
+        Note over User,RR: 切到拆除工具
+        TM->>RB: SetRemoveHoverActive(true)
+        loop 每帧
+            RB->>RB: UpdateRemoveHover()
+            RB->>RN: FindSegmentAt(snapped)
+            alt 未命中
+                RB->>RB: FindNearestRoadPoint(mouse)
+            end
+            RB->>RR: HoveredSegmentID
+            RR->>RR: QueueRedraw()
+        end
+    end
+
+    rect rgb(233, 69, 96)
+        Note over User,RR: 点击拆除
+        User->>TM: 点击左键
+        TM->>RB: HandleRemoveInput(event)
+        RB->>RN: FindSegmentAt(snapped)
+        RN-->>RB: segmentID
+        RB->>RN: RemoveSegment(segmentID)
+        activate RN
+        RN->>RN: 清 _posToSegmentID 索引
+        RN->>RN: 断开 from/to Junction 连接
+        RN->>RN: 清理孤立 Junction
+        RN->>RN: MaybeReindexJunctionInPosDict
+        RN->>RN: 从 Road 摘除
+        RN->>RN: SplitRoadIntoConnectedComponents<br/>(BFS 连通分量)
+        RN-->>RR: SegmentRemoved(segment)
+        deactivate RN
+        RR->>RR: 回收 Line2D 节点
+        RN->>RN: TryMergeAtJunction<br/>(两端如降至cc=2)
+    end
+```
+
+---
+
+## 4. 路网数据模型
+
+```mermaid
+classDiagram
+    class RoadNetwork {
+        -Dictionary~int,Junction~ _junctions
+        -Dictionary~int,Segment~ _segments
+        -Dictionary~int,Road~ _roads
+        -Dictionary~Vector2,int~ _posToJunctionID
+        -Dictionary~Vector2,int~ _posToSegmentID
+        -int _nextID
+        +event SegmentAdded
+        +event SegmentRemoved
+        +event NetworkReloaded
+        +AddRoad(from,to,waypoints,cellSize) int
+        +RemoveSegment(segmentID) bool
+        +RemoveRoad(roadID) bool
+        +FindSegmentAt(pos) int
+        -FindSegmentAtIncludingHalfGrid(pos) int
+        -IsAnyJunctionAt(pos) bool
+        -GetOrCreateJunction(pos) Junction
+        -SplitSegmentAtWaypoint(id,pos) void
+        -SplitSegmentAtPosition(id,pos) void
+        -TryMergeAtJunction(junctionID) void
+        -SplitRoadIntoConnectedComponents(road) void
+        -ResolveInteriorCrossings(path) List
+        -IsPathFullyCovered(path) bool
+        -IsApproachColinearWithSegment(...) bool
+        -MaybeReindexJunctionInPosDict(j) void
+    }
+
+    class Junction {
+        +int ID
+        +Vector2 Position
+        +JunctionType Type
+        +int ConnectionCount
+        -Dictionary~int,Connection~ _connections
+        +AddSegmentConnection(id,neighbor,dir) void
+        +RemoveSegmentConnection(id) void
+        +RecalculateType() void
+    }
+
+    class Segment {
+        +int ID
+        +int FromJunctionID
+        +int ToJunctionID
+        +int RoadID
+        +Vector2[] Waypoints
+        +float TotalLength
+    }
+
+    class Road {
+        +int ID
+        +int SegmentCount
+        +bool IsEmpty
+        -HashSet~int~ _segmentIDs
+        +AddSegment(id) void
+        +RemoveSegment(id) void
+        +ContainsSegment(id) bool
+    }
+
+    class DirectionUtil {
+        +All Direction[]
+        +GetDisplacement(d) Vector2I
+        +FromDisplacement(from,to,cellSize) Direction?
+        +FromDisplacementAnyLength(from,to) Direction?
+        +IsOrthogonal(d) bool
+        +IsDiagonal(d) bool
+        +Length(d,cellSize) float
+    }
+
+    class GridSystem {
+        +Config RoadConfig
+        +CellSize float
+        +SnapToGrid(pos) Vector2
+        +IsSnapGrid(pos) bool
+    }
+
+    class ToolManager {
+        +Instance ToolManager
+        +CurrentTool ToolType
+        -_HandleInput(event) void
+    }
+
+    class RoadBuilder {
+        +HandlePlaceInput(event) void
+        +HandleRemoveInput(event) void
+        -BeginDrag() void
+        -UpdateProjection() void
+        -EndDragAndCommit() void
+        -FindNearestRoadPoint(mouse) (pos,segID)?
+    }
+
+    RoadNetwork "1" --> "*" Junction : _junctions
+    RoadNetwork "1" --> "*" Segment : _segments
+    RoadNetwork "1" --> "*" Road : _roads
+    Segment --> Road : RoadID
+    Segment --> Junction : FromJunctionID
+    Segment --> Junction : ToJunctionID
+    Junction --> DirectionUtil : 方向判定
+    RoadNetwork --> DirectionUtil : 8方向校验
+    RoadNetwork --> GridSystem : Snap/IsSnap
+    RoadBuilder --> RoadNetwork : 调用API
+    RoadBuilder --> DirectionUtil : 方向投影
+    RoadBuilder --> GridSystem : 格点判断
+    ToolManager --> RoadBuilder : 转发输入
+```
+
+---
+
+## 5. 工具状态机
+
+```mermaid
+stateDiagram-v2
+    [*] --> Select : 启动
+
+    Select --> Road : 按 R / 点击 RoadBtn
+    Select --> RoadRemove : 按 E / 点击 RemoveBtn
+
+    Road --> Select : 按 Esc / 点击 SelectBtn
+    Road --> RoadRemove : 按 E / 点击 RemoveBtn
+    Road --> Road : 拖拽中（按左键不放）
+    
+    note right of Road
+        进入: 无操作
+        进行: BeginDrag → UpdateProjection（每帧）
+        退出: CancelPlaceDrag() 取消拖拽
+    end note
+
+    RoadRemove --> Select : 按 Esc / 点击 SelectBtn
+    RoadRemove --> Road : 按 R / 点击 RoadBtn
+    
+    note right of RoadRemove
+        进入: SetRemoveHoverActive(true)
+        进行: UpdateRemoveHover（每帧）
+        退出: SetRemoveHoverActive(false)
+    end note
+
+    Select --> Select : 无操作（默认状态）
+```
+
+---
+
+## 6. 存档 / 读档流程
+
+```mermaid
+flowchart LR
+    subgraph Save["💾 存档 (F5)"]
+        SM_S[SaveManager] -->|"Register()"| IS[ISaveable]
+        SM_S -->|"遍历已注册"| RN_S[RoadNetwork]
+        SM_S -->|"CaptureState()"| RN_Data[RoadNetworkData]
+        SM_S -->|"遍历已注册"| MC_S[MainCamera]
+        SM_S -->|"CaptureState()"| MC_Data[CameraData]
+        RN_Data -->|"SaveJson.Serialize"| JSON_J["JSON 文件<br/>user://road_network.json"]
+        MC_Data -->|"SaveJson.Serialize"| JSON_C["JSON 文件<br/>user://main_camera.json"]
+    end
+
+    subgraph Load["📂 读档 (F9)"]
+        JSON_J_R["user://road_network.json"] -->|"SaveJson.Deserialize"| RN_Data_R[RoadNetworkData]
+        JSON_C_R["user://main_camera.json"] -->|"SaveJson.Deserialize"| MC_Data_R[CameraData]
+        RN_Data_R -->|"RestoreState()"| RN_L[RoadNetwork]
+        MC_Data_R -->|"RestoreState()"| MC_L[MainCamera]
+        RN_L -->|"RebuildIndexes()"| RN_L
+        RN_L -->|"NetworkReloaded 事件"| RR[RoadRenderer 重建显示]
+    end
+```
+
+---
+
+## 7. 关键决策流程
+
+### 7.1 半格点拖拽方向限制
+
+```mermaid
+flowchart TD
+    Start[BeginDrag: 记录起点] --> Snap[SnapToGrid]
+    Snap --> Check{格点有Segment?}
+    Check -->|是| Direct[使用吸附格点]
+    Check -->|否| Fallback[FindNearestRoadPoint]
+    Fallback -->|找到| HalfGrid[半格起点]
+    Fallback -->|未找到| Direct
+
+    HalfGrid --> Update["UpdateProjection（每帧）"]
+    Update --> Filter["遍历8方向<br/>IsDiagonal(d) 过滤"]
+    Filter --> DiagOnly["仅 NE/SE/SW/NW 候选"]
+    DiagOnly --> Project[投影 → 选最长]
+    Project --> Commit[EndDragAndCommit]
+    Commit --> Anchor["锚定到反方向整格<br/>waypoints 全落整格"]
+```
+
+### 7.2 对向合并降级(TryMergeAtJunction)
+
+```mermaid
+flowchart TD
+    Start["Junction cc == 2?"] -->|否| Skip[跳过]
+    Start -->|是| SegAB[取两段 Segment]
+    SegAB --> Guard1{自环?}
+    Guard1 -->|是| Skip
+    Guard1 -->|否| Orient[OrientTowardsJunction]
+    Orient --> Dir[取 Junction→邻点 方向]
+    Dir --> Guard2{"dispA + dispB == 0?<br/>(对向直通)"}
+    Guard2 -->|否| Skip
+    Guard2 -->|是| Guard3{"合并后 8 方向连续?"}
+    Guard3 -->|否| Skip
+    Guard3 -->|是| Guard4{"farA == farB?<br/>(多重边环路)"}
+    Guard4 -->|是| Skip
+    Guard4 -->|否| Merge["_inMergeOperation = true<br/>RemoveSegment(A)<br/>RemoveSegment(B)<br/>AddSegment(farA, farB, mergedWps)<br/>较小 RoadID 吸收较大"]
+```
+
+---
+
+## 8. 事件流
+
+```mermaid
+flowchart LR
+    subgraph Input["用户输入"]
+        Mouse[鼠标事件]
+        Key[键盘事件]
+    end
+
+    subgraph Routing["输入路由"]
+        TM[ToolManager._Input]
+        TM -->|R/E/Esc| TM_Self[切换工具]
+        TM -->|按 CurrentTool| Forward[转发]
+        Forward -->|Road| Place[RoadBuilder.HandlePlaceInput]
+        Forward -->|RoadRemove| Remove[RoadBuilder.HandleRemoveInput]
+    end
+
+    subgraph Data["数据层"]
+        Place --> Add["RoadNetwork.AddRoad"]
+        Remove --> Del["RoadNetwork.RemoveSegment"]
+        Add --> Event1["SegmentAdded 事件"]
+        Del --> Event2["SegmentRemoved 事件"]
+        Add --> Merge["TryMergeAtJunction"]
+        Del --> Split["SplitRoadIntoConnectedComponents"]
+        Del --> Merge2["TryMergeAtJunction"]
+    end
+
+    subgraph Render["渲染层"]
+        Event1 --> RR_Add["RoadRenderer.OnSegmentAdded<br/>创建 Line2D"]
+        Event2 --> RR_Del["RoadRenderer.OnSegmentRemoved<br/>回收 Line2D"]
+        RR_Add --> Draw["QueueRedraw"]
+        RR_Del --> Draw
+    end
+
+    subgraph UI["UI 刷新"]
+        Place --> HUD["GameHUD._Process<br/>刷新统计"]
+        Remove --> HUD
+        Place --> Preview["RoadRenderer._Draw<br/>清除预览虚线"]
+    end
+```
