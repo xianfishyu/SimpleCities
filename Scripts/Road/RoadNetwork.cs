@@ -117,7 +117,8 @@ public class RoadNetwork : ISaveable
         if (!HasJunctionAt(from))
         {
             int sid = FindSegmentAtIncludingHalfGrid(from);
-            if (sid >= 0 && !IsApproachColinearWithSegment(from, path[1], sid))
+            // from 端点检测 departure 方向（from→path[1]），非 approach 方向
+            if (sid >= 0 && !IsApproachColinearWithSegment(path[1], from, sid))
                 SplitSegmentAtWaypoint(sid, from, cellSize);
         }
         if (!HasJunctionAt(to))
