@@ -212,22 +212,13 @@ public partial class RoadBuilder : Node2D
 
         if (@event is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Left && mb.Pressed)
         {
-            // 点击任意格点 → 找到 Segment → 拆整个 Road
+            // 点击 Segment 的任一格点（端点或 waypoint）→ 只拆这一段 Segment。
+            // Road（连续路径聚合）会自动随 Segment 增删调整：若该 Road 因此变空则一并清掉，
+            // 否则保留剩下的 Segment 仍归属同一 Road。整条 Road 拆除请用 RemoveRoad(roadID)。
             var snapped = RoadNetwork.SnapToGrid(GetGlobalMousePosition(), Config.CellSize);
             int segmentID = _network.FindSegmentAt(snapped);
-            if (segmentID < 0)
-            {
-                // 半格点回退
-                var nearest = FindNearestRoadPoint(GetGlobalMousePosition());
-                if (nearest.HasValue)
-                    segmentID = nearest.Value.segmentID;
-            }
             if (segmentID >= 0)
-            {
-                var seg = _network.GetSegment(segmentID);
-                if (seg != null)
-                    _network.RemoveRoad(seg.RoadID);
-            }
+                _network.RemoveSegment(segmentID);
         }
     }
 

@@ -39,3 +39,7 @@ script = ExtResource("6_58v1x")
 Config = ExtResource("8_roadcfg")
 
 [node name="MapBackground" parent="." unique_id=2035075634 instance=ExtResource("9_2253v")]
+MajorGridCells = 10
+MainLineWidth = 3.0
+LineWidth = 1.0
+DotRadius = 0.0
