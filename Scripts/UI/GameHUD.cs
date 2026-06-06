@@ -31,13 +31,13 @@ public partial class GameHUD : CanvasLayer
     private Label _statsJunctionsLabel = null!;
 
     // ── 依赖 ──────────────────────────────────────────────
-    private RoadNetwork? _network;
+    private RoadGraph? _network;
     private ToolManager? _toolManager;
 
     public override void _Ready()
     {
         _toolManager = ToolManager.Instance;
-        _network = RoadSystem.Instance.Network;
+        _network = RoadSystem.Instance.Graph;
 
         if (Config == null)
         {
@@ -143,19 +143,19 @@ public partial class GameHUD : CanvasLayer
     private void UpdateMousePos()
     {
         var mouseWorld = MainCamera.Instance.GetGlobalMousePosition();
-        var snapped = RoadNetwork.SnapToGrid(mouseWorld, Config.CellSize);
-        bool hasJunction = _network!.HasJunctionAt(snapped);
+        var snapped = GridSystem.SnapToGrid(mouseWorld);
+        bool hasJunction = _network!.FindClosestNode(snapped, Config.CellSize * 0.1f) != null;
         _mouseLabel.Text = $"鼠标格点: ({snapped.X:F0}, {snapped.Y:F0}) {(hasJunction ? "[路口]" : "")}";
     }
 
     private void UpdateRoadStats()
     {
-        int roadCount = _network!.GetAllRoads().Count();
-        int segmentCount = _network.GetAllSegments().Count();
-        int junctionCount = _network.GetAllJunctions().Count();
+        int groupCount = _network!.GetAllGroups().Count();
+        int edgeCount = _network.GetAllEdges().Count();
+        int nodeCount = _network.GetAllNodes().Count();
 
-        _statsRoadsLabel.Text = $"道路 (Road):     {roadCount}";
-        _statsSegmentsLabel.Text = $"路段 (Segment):  {segmentCount}";
-        _statsJunctionsLabel.Text = $"路口 (Junction): {junctionCount}";
+        _statsRoadsLabel.Text = $"道路组 (Group):  {groupCount}";
+        _statsSegmentsLabel.Text = $"路段 (Edge):     {edgeCount}";
+        _statsJunctionsLabel.Text = $"节点 (Node):     {nodeCount}";
     }
 }

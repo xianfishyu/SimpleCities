@@ -37,4 +37,31 @@ public partial class RoadConfig : Resource
 
     /// <summary>拆除工具悬停高亮线宽（比 RoadWidth 稍宽以视觉突出）。</summary>
     [Export] public float HoverHighlightWidth { get; set; } = 18f;
+
+    // ── 道路分级样式（Phase 6 准备）──────────────────────
+    /// <summary>四种道路等级的样式（索引对应 RoadType 枚举值）。</summary>
+    [Export] public RoadTypeStyle[] TypeStyles { get; set; } = new RoadTypeStyle[4]
+    {
+        new() { Color = new Color(0.5f, 0.4f, 0.3f), Width = 2f },   // Dirt
+        new() { Color = new Color(0.8f, 0.8f, 0.8f), Width = 4f },   // Street
+        new() { Color = new Color(0.9f, 0.7f, 0.2f), Width = 6f },   // Arterial
+        new() { Color = new Color(0.2f, 0.6f, 1.0f), Width = 8f },   // Highway
+    };
+
+    /// <summary>按 RoadType 取样式。越界时回退 Street 样式。</summary>
+    public RoadTypeStyle GetStyle(RoadType type)
+    {
+        int idx = (int)type;
+        if (TypeStyles == null || idx < 0 || idx >= TypeStyles.Length)
+            return new RoadTypeStyle { Color = RoadColor, Width = RoadWidth };
+        return TypeStyles[idx];
+    }
+}
+
+[GlobalClass]
+public partial class RoadTypeStyle : Resource
+{
+    [Export] public Color Color { get; set; } = new Color(0.8f, 0.8f, 0.8f);
+    [Export] public float Width { get; set; } = 4f;
+    [Export] public float DashLength { get; set; } = 0f; // 0 = 实线
 }

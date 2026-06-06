@@ -6,7 +6,7 @@ public partial class RoadBuilder : Node2D
 {
     [Export] public RoadConfig Config { get; set; } = null!;
 
-    private RoadNetwork? _network;
+    private RoadGraph? _graph;
     private RoadRenderer? _renderer;
 
     /// <summary>
@@ -23,9 +23,9 @@ public partial class RoadBuilder : Node2D
 
     /// <summary>拆除工具激活时每帧更新悬停高亮</summary>
     private bool _isRemoveHoverActive;
-    private int _lastHoveredSegmentID = -1;
+    private int _lastHoveredEdgeID = -1;
 
-    public void SetNetwork(RoadNetwork network) => _network = network;
+    public void SetGraph(RoadGraph graph) => _graph = graph;
 
     public override void _Ready()
     {
@@ -40,7 +40,7 @@ public partial class RoadBuilder : Node2D
 
     public void HandlePlaceInput(InputEvent @event)
     {
-        if (_network == null) return;
+        if (_graph == null) return;
 
         if (@event is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Left)
         {
@@ -57,7 +57,7 @@ public partial class RoadBuilder : Node2D
 
     public override void _Process(double delta)
     {
-        if (_network == null || _renderer == null) return;
+        if (_graph == null || _renderer == null) return;
 
         if (_isDragging)
         {
@@ -73,18 +73,19 @@ public partial class RoadBuilder : Node2D
     {
         _isDragging = true;
         var mouseWorld = GetGlobalMousePosition();
-        _dragStartPos = RoadNetwork.SnapToGrid(mouseWorld, Config.CellSize);
+        _dragStartPos = GridSystem.SnapToGrid(mouseWorld);
         _currentLength = 0;
         GD.Print($"[DRAG-START] mouse=({mouseWorld.X:F0},{mouseWorld.Y:F0}) snap=({_dragStartPos.X:F0},{_dragStartPos.Y:F0})");
 
-        // 半格点吸附：若 snap 位置无 Segment，回退到几何最近点（waypoint/Junction）。
-        if (_network != null && _network.FindSegmentAt(_dragStartPos) < 0)
+        // 半格点吸附：若 snap 位置附近无 Edge/Node，回退到几何最近点。
+        float snapR = Config.CellSize * 0.8f;
+        if (_graph != null && _graph.FindClosestEdge(_dragStartPos, snapR) == null && _graph.FindClosestNode(_dragStartPos, snapR) == null)
         {
             var nearest = FindNearestRoadPoint(mouseWorld);
             if (nearest.HasValue)
             {
                 _dragStartPos = nearest.Value.pos;
-                GD.Print($"[DRAG-SNAP] half-grid fallback to ({_dragStartPos.X:F0},{_dragStartPos.Y:F0}) segID={nearest.Value.segmentID}");
+                GD.Print($"[DRAG-SNAP] half-grid fallback to ({_dragStartPos.X:F0},{_dragStartPos.Y:F0}) edgeID={nearest.Value.edgeID}");
             }
             else
                 GD.Print("[DRAG-SNAP] no nearby road point found");
@@ -101,7 +102,7 @@ public partial class RoadBuilder : Node2D
     private void EndDragAndCommit()
     {
         if (!_isDragging) return;
-        if (_network == null) { _isDragging = false; ClearPreview(); return; }
+        if (_graph == null) { _isDragging = false; ClearPreview(); return; }
 
         // 用最新鼠标位置做一次投影，避免最后一帧鼠标移动未被 _Process 捕获
         UpdateProjection();
@@ -133,7 +134,7 @@ public partial class RoadBuilder : Node2D
             );
         }
 
-        _network.AddRoad(_dragStartPos, endPos, waypoints, Config.CellSize);
+        _graph.AddRoad(_dragStartPos, endPos, waypoints, RoadType.Street);
         _currentLength = 0;
     }
 
@@ -208,17 +209,17 @@ public partial class RoadBuilder : Node2D
 
     public void HandleRemoveInput(InputEvent @event)
     {
-        if (_network == null) return;
+        if (_graph == null) return;
 
         if (@event is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Left && mb.Pressed)
         {
-            // 点击 Segment 的任一格点（端点或 waypoint）→ 只拆这一段 Segment。
-            // Road（连续路径聚合）会自动随 Segment 增删调整：若该 Road 因此变空则一并清掉，
-            // 否则保留剩下的 Segment 仍归属同一 Road。整条 Road 拆除请用 RemoveRoad(roadID)。
-            var snapped = RoadNetwork.SnapToGrid(GetGlobalMousePosition(), Config.CellSize);
-            int segmentID = _network.FindSegmentAt(snapped);
-            if (segmentID >= 0)
-                _network.RemoveSegment(segmentID);
+            var mouseWorld = GetGlobalMousePosition();
+            var snapped = GridSystem.SnapToGrid(mouseWorld);
+            float snapR = Config.CellSize * 0.8f;
+            var edge = _graph.FindClosestEdge(snapped, snapR)
+                ?? _graph.FindClosestEdge(mouseWorld, snapR);
+            if (edge != null)
+                _graph.RemoveEdge(edge.ID);
         }
     }
 
@@ -259,65 +260,52 @@ public partial class RoadBuilder : Node2D
     private void UpdateRemoveHover()
     {
         var mouseWorld = GetGlobalMousePosition();
-        var snapped = RoadNetwork.SnapToGrid(mouseWorld, Config.CellSize);
-        int segmentID = _network!.FindSegmentAt(snapped);
+        var snapped = GridSystem.SnapToGrid(mouseWorld);
+        float snapR = Config.CellSize * 0.8f;
+        var edge = _graph!.FindClosestEdge(snapped, snapR)
+            ?? _graph.FindClosestEdge(mouseWorld, snapR);
+        int? edgeID = edge?.ID;
 
-        // 半格点吸附：若 snap 位置无 Segment，回退到几何最近点
-        if (segmentID < 0)
+        int hoveredInt = edgeID ?? -1;
+        if (hoveredInt != _lastHoveredEdgeID)
         {
-            var nearest = FindNearestRoadPoint(mouseWorld);
-            if (nearest.HasValue)
-                segmentID = nearest.Value.segmentID;
-        }
-
-        if (segmentID != _lastHoveredSegmentID)
-        {
-            _lastHoveredSegmentID = segmentID;
-            _renderer!.HoveredSegmentID = segmentID >= 0 ? segmentID : null;
+            _lastHoveredEdgeID = hoveredInt;
+            _renderer!.HoveredEdgeID = edgeID;
             _renderer!.QueueRedraw();
         }
     }
 
     private void ClearRemoveHover()
     {
-        _lastHoveredSegmentID = -1;
+        _lastHoveredEdgeID = -1;
         if (_renderer != null)
         {
-            _renderer.HoveredSegmentID = null;
+            _renderer.HoveredEdgeID = null;
             _renderer.QueueRedraw();
         }
     }
 
     /// <summary>
-    /// 几何最近点搜索：扫所有 Segment 的 waypoint 和 Junction，找距离鼠标最近的点及其所属 Segment。
-    /// 用于半格点吸附——当 SnapToGrid 位置无 Segment 时，回退到实际路网上的最近点。
-    /// 返回 (位置, SegmentID)；若范围内无路网点则 null。
+    /// 几何最近点搜索：用空间索引找距离鼠标最近的边上的点。
+    /// 用于半格点吸附——当 SnapToGrid 位置附近无 Edge/Node 时，回退到实际路网上的最近点。
+    /// 返回 (位置, EdgeID)；若范围内无路网点则 null。
     /// </summary>
-    private (Vector2 pos, int segmentID)? FindNearestRoadPoint(Vector2 mousePos)
+    private (Vector2 pos, int edgeID)? FindNearestRoadPoint(Vector2 mousePos)
     {
-        float bestDistSq = (Config.CellSize * 0.8f) * (Config.CellSize * 0.8f);
+        float searchR = Config.CellSize * 0.8f;
+        var edge = _graph?.FindClosestEdge(mousePos, searchR);
+        if (edge == null) return null;
+
+        // 找边上最近的点（端点或途经点）
+        var fullPath = edge.GetFullPath(id => _graph!.GetNode(id));
         Vector2? bestPos = null;
-        int bestSegID = -1;
-
-        if (_network == null) return null;
-
-        foreach (var seg in _network.GetAllSegments())
-        {
-            var fj = _network.GetJunction(seg.FromJunctionID);
-            var tj = _network.GetJunction(seg.ToJunctionID);
-            if (fj == null || tj == null) continue;
-
-            Check(fj.Position, seg.ID);
-            Check(tj.Position, seg.ID);
-            foreach (var wp in seg.Waypoints) Check(wp, seg.ID);
-        }
-
-        void Check(Vector2 pt, int sid)
+        float bestD2 = float.MaxValue;
+        foreach (var pt in fullPath)
         {
             float d2 = mousePos.DistanceSquaredTo(pt);
-            if (d2 < bestDistSq) { bestDistSq = d2; bestPos = pt; bestSegID = sid; }
+            if (d2 < bestD2) { bestD2 = d2; bestPos = pt; }
         }
 
-        return bestPos.HasValue ? (bestPos.Value, bestSegID) : null;
+        return bestPos.HasValue ? (bestPos.Value, edge.ID) : null;
     }
 }

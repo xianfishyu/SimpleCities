@@ -5,10 +5,10 @@ public partial class RoadRenderer : Node2D
 {
     [Export] public RoadConfig Config { get; set; } = null!;
 
-    private RoadNetwork? _network;
+    private RoadGraph? _network;
 
-    // Segment.ID → Line2D 节点映射
-    private readonly Dictionary<int, Line2D> _segmentLines = new();
+    // Edge.ID → Line2D 节点映射
+    private readonly Dictionary<int, Line2D> _edgeLines = new();
 
     // 交叉口渲染层（放在所有 Line2D 之后，保证渲染在最上层）
     private Node2D _junctionLayer = null!;
@@ -17,8 +17,8 @@ public partial class RoadRenderer : Node2D
     public Vector2? PreviewFrom { get; set; }
     public Vector2? PreviewTo { get; set; }
 
-    /// <summary>拆除工具悬停的 Segment ID（null = 未悬停在任何 Segment 上）</summary>
-    public int? HoveredSegmentID { get; set; }
+    /// <summary>拆除工具悬停的 Edge ID（null = 未悬停在任何 Edge 上）</summary>
+    public int? HoveredEdgeID { get; set; }
 
     public override void _Ready()
     {
@@ -34,59 +34,59 @@ public partial class RoadRenderer : Node2D
         _junctionLayer.Draw += OnDrawJunctions;
     }
 
-    public void SetNetwork(RoadNetwork network)
+    public void SetGraph(RoadGraph graph)
     {
         if (_network != null)
         {
-            _network.SegmentAdded -= OnSegmentAdded;
-            _network.SegmentRemoved -= OnSegmentRemoved;
-            _network.NetworkReloaded -= OnNetworkReloaded;
+            _network.EdgeAdded -= OnEdgeAdded;
+            _network.EdgeRemoved -= OnEdgeRemoved;
+            _network.GraphCleared -= OnGraphCleared;
         }
-        _network = network;
-        _network.SegmentAdded += OnSegmentAdded;
-        _network.SegmentRemoved += OnSegmentRemoved;
-        _network.NetworkReloaded += OnNetworkReloaded;
+        _network = graph;
+        _network.EdgeAdded += OnEdgeAdded;
+        _network.EdgeRemoved += OnEdgeRemoved;
+        _network.GraphCleared += OnGraphCleared;
     }
 
     // ── 整网重载（存档加载后） ──
 
-    private void OnNetworkReloaded()
+    private void OnGraphCleared()
     {
         // 清除所有现有 Line2D 节点
-        foreach (var line in _segmentLines.Values)
+        foreach (var line in _edgeLines.Values)
             line.QueueFree();
-        _segmentLines.Clear();
+        _edgeLines.Clear();
 
-        // 重建所有 Segment 的 Line2D
+        // 重建所有 Edge 的 Line2D
         if (_network == null) return;
-        foreach (var seg in _network.GetAllSegments())
-            CreateSegmentLine(seg);
+        foreach (var edge in _network.GetAllEdges())
+            CreateEdgeLine(edge);
 
         _junctionLayer.QueueRedraw();
     }
 
-    // ── Segment 增删 → Line2D 同步 ──
+    // ── Edge 增删 → Line2D 同步 ──
 
-    private void OnSegmentAdded(Segment seg)
+    private void OnEdgeAdded(GraphEdge edge)
     {
-        CreateSegmentLine(seg);
+        CreateEdgeLine(edge);
         _junctionLayer.QueueRedraw();
     }
 
-    private void CreateSegmentLine(Segment seg)
+    private void CreateEdgeLine(GraphEdge edge)
     {
         if (_network == null) return;
 
-        var fromJ = _network.GetJunction(seg.FromJunctionID);
-        var toJ = _network.GetJunction(seg.ToJunctionID);
-        if (fromJ == null || toJ == null) return;
+        var nodeA = _network.GetNode(edge.NodeA);
+        var nodeB = _network.GetNode(edge.NodeB);
+        if (nodeA == null || nodeB == null) return;
 
-        // 构建点序列：FromJunction → Waypoints → ToJunction
-        var points = new Vector2[2 + seg.Waypoints.Length];
-        points[0] = fromJ.Position;
-        for (int i = 0; i < seg.Waypoints.Length; i++)
-            points[i + 1] = seg.Waypoints[i];
-        points[^1] = toJ.Position;
+        // 构建点序列：NodeA → Points → NodeB
+        var points = new Vector2[2 + edge.Points.Length];
+        points[0] = nodeA.Position;
+        for (int i = 0; i < edge.Points.Length; i++)
+            points[i + 1] = edge.Points[i];
+        points[^1] = nodeB.Position;
 
         var line = new Line2D
         {
@@ -101,15 +101,15 @@ public partial class RoadRenderer : Node2D
         // 插入到 JunctionLayer 之前
         AddChild(line);
         MoveChild(line, _junctionLayer.GetIndex());
-        _segmentLines[seg.ID] = line;
+        _edgeLines[edge.ID] = line;
     }
 
-    private void OnSegmentRemoved(Segment seg)
+    private void OnEdgeRemoved(GraphEdge edge)
     {
-        if (_segmentLines.TryGetValue(seg.ID, out var line))
+        if (_edgeLines.TryGetValue(edge.ID, out var line))
         {
             line.QueueFree();
-            _segmentLines.Remove(seg.ID);
+            _edgeLines.Remove(edge.ID);
         }
         _junctionLayer.QueueRedraw();
     }
@@ -120,19 +120,15 @@ public partial class RoadRenderer : Node2D
     {
         if (_network == null) return;
 
-        // ConnectionCount == 1 → 端点（细小灰色圆，区别于路面色）
-        // ConnectionCount >= 2 → 真路口（明显的高亮色圆，让 T 字 / 十字 / 转弯点视觉可辨）
-        // 注：合并阶段已把"对向直通"的 ConnectionCount==2 节点降级回 waypoint，
-        //     所以剩下 ConnectionCount==2 的 Junction 一定是"非对向"的转弯点（Curve 类型），仍当真路口画。
-        foreach (var junction in _network.GetAllJunctions())
+        foreach (var node in _network.GetAllNodes())
         {
-            if (junction.ConnectionCount >= 2)
+            if (node.EdgeCount >= 2)
             {
-                _junctionLayer.DrawCircle(junction.Position, Config.JunctionRadius, Config.JunctionColor);
+                _junctionLayer.DrawCircle(node.Position, Config.JunctionRadius, Config.JunctionColor);
             }
-            else if (junction.ConnectionCount == 1 && Config.EndpointRadius > 0f)
+            else if (node.EdgeCount == 1 && Config.EndpointRadius > 0f)
             {
-                _junctionLayer.DrawCircle(junction.Position, Config.EndpointRadius, Config.EndpointColor);
+                _junctionLayer.DrawCircle(node.Position, Config.EndpointRadius, Config.EndpointColor);
             }
         }
     }
@@ -142,24 +138,24 @@ public partial class RoadRenderer : Node2D
     public override void _Draw()
     {
         // 拆除工具悬停高亮：画在预览虚线之上
-        if (HoveredSegmentID.HasValue && _network != null)
+        if (HoveredEdgeID.HasValue && _network != null)
         {
-            var seg = _network.GetSegment(HoveredSegmentID.Value);
-            if (seg != null)
+            var edge = _network.GetEdge(HoveredEdgeID.Value);
+            if (edge != null)
             {
-                var fj = _network.GetJunction(seg.FromJunctionID);
-                var tj = _network.GetJunction(seg.ToJunctionID);
-                if (fj != null && tj != null)
+                var nodeA = _network.GetNode(edge.NodeA);
+                var nodeB = _network.GetNode(edge.NodeB);
+                if (nodeA != null && nodeB != null)
                 {
-                    var points = new Vector2[2 + seg.Waypoints.Length];
-                    points[0] = fj.Position;
-                    for (int i = 0; i < seg.Waypoints.Length; i++)
-                        points[i + 1] = seg.Waypoints[i];
-                    points[^1] = tj.Position;
-                    DrawPolyline(points, Config.HoverHighlightColor, Config.HoverHighlightWidth);
+                    var pts = new Vector2[2 + edge.Points.Length];
+                    pts[0] = nodeA.Position;
+                    for (int i = 0; i < edge.Points.Length; i++)
+                        pts[i + 1] = edge.Points[i];
+                    pts[^1] = nodeB.Position;
+                    DrawPolyline(pts, Config.HoverHighlightColor, Config.HoverHighlightWidth);
                     // 同时高亮端点
-                    DrawCircle(fj.Position, Config.JunctionRadius * 1.3f, Config.HoverHighlightColor);
-                    DrawCircle(tj.Position, Config.JunctionRadius * 1.3f, Config.HoverHighlightColor);
+                    DrawCircle(nodeA.Position, Config.JunctionRadius * 1.3f, Config.HoverHighlightColor);
+                    DrawCircle(nodeB.Position, Config.JunctionRadius * 1.3f, Config.HoverHighlightColor);
                 }
             }
         }
