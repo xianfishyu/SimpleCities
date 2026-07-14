@@ -1,4 +1,4 @@
-using Godot;
+﻿using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -43,7 +43,12 @@ public class RoadGraph : ISaveable
         path.AddRange(waypoints);
         path.Add(end);
 
-        if (!IsPathValid(path)) return -1;
+        // Coverage check must run BEFORE any mutating step (ResolveIntersections,
+        // SplitEdgesAtPathAnchors) — otherwise a fully-covered AddRoad still splits
+        // existing edges at the incoming path's anchors and then returns -1, leaving
+        // the graph churned. Coverage of the polyline in R² does not depend on how
+        // the path is later subdivided by anchors.
+        if (IsPathFullyCovered(path)) return -1;
 
         path = ResolveIntersections(path);
         SplitEdgesAtPathAnchors(path);
@@ -196,6 +201,7 @@ public class RoadGraph : ISaveable
                 ToJunctionID = edge.NodeB,
                 RoadID = edge.GroupID,
                 TotalLength = edge.Length,
+                Type = (int)edge.Type,
             };
             foreach (var point in edge.Points)
                 segmentData.Waypoints.Add(new Vector2Data(point));
@@ -208,6 +214,7 @@ public class RoadGraph : ISaveable
             {
                 ID = group.ID,
                 SegmentIDs = group.EdgeIDs.ToList(),
+                Type = (int)group.Type,
             });
         }
 
@@ -462,7 +469,7 @@ public class RoadGraph : ISaveable
 
             // Also find edges whose interior waypoints coincide with this point.
             // FindEdgesContainingInteriorPoint uses PointOnSegmentInterior which
-            // excludes sub-segment endpoints — but a point matching an edge waypoint
+            // excludes sub-segment endpoints, but a point matching an edge waypoint
             // still needs a split.
             if (edgeIDs.Count == 0)
                 edgeIDs = FindEdgesWithWaypointAt(point).ToList();
@@ -738,7 +745,8 @@ public class RoadGraph : ISaveable
 
         foreach (var groupData in data.Roads)
         {
-            var group = new RoadGroup(groupData.ID, RoadType.Street);
+            var groupType = groupData.Type.HasValue ? (RoadType)groupData.Type.Value : RoadType.Street;
+            var group = new RoadGroup(groupData.ID, groupType);
             foreach (int edgeID in groupData.SegmentIDs)
                 group.AddEdge(edgeID);
             _groups[group.ID] = group;
@@ -747,13 +755,26 @@ public class RoadGraph : ISaveable
         foreach (var edgeData in data.Segments)
         {
             var points = edgeData.Waypoints.Select(p => p.ToVector2()).ToArray();
+
+            // Edge type resolution order:
+            //   1. Explicit type on the segment (v2+ saves).
+            //   2. Owning group's type if the group carried one (v2+ saves).
+            //   3. RoadType.Street (legacy v1 saves).
+            RoadType edgeType;
+            if (edgeData.Type.HasValue)
+                edgeType = (RoadType)edgeData.Type.Value;
+            else if (_groups.TryGetValue(edgeData.RoadID, out var existingGroup))
+                edgeType = existingGroup.Type;
+            else
+                edgeType = RoadType.Street;
+
             var edge = new GraphEdge(
                 edgeData.ID,
                 edgeData.FromJunctionID,
                 edgeData.ToJunctionID,
                 points,
                 edgeData.RoadID,
-                RoadType.Street,
+                edgeType,
                 edgeData.TotalLength > 0f
                     ? edgeData.TotalLength
                     : ComputeLength(edgeData.FromJunctionID, edgeData.ToJunctionID, points)
@@ -762,7 +783,7 @@ public class RoadGraph : ISaveable
 
             if (!_groups.TryGetValue(edge.GroupID, out var group))
             {
-                group = new RoadGroup(edge.GroupID, RoadType.Street);
+                group = new RoadGroup(edge.GroupID, edgeType);
                 _groups[group.ID] = group;
             }
             group.AddEdge(edge.ID);

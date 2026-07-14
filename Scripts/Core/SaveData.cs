@@ -1,10 +1,10 @@
-using Godot;
+﻿using Godot;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
-// ══════════════════════════════════════════════════════
-// 存档 DTO — 纯数据类，与运行时类型解耦，避免循环引用
-// ══════════════════════════════════════════════════════
+// ============================================================================
+// 存档 DTO - 纯数据类，与运行时类型解耦，避免循环引用
+// ============================================================================
 
 #region Manifest
 
@@ -80,6 +80,13 @@ public class SegmentData
 
     [JsonPropertyName("totalLength")]
     public float TotalLength { get; set; }
+
+    /// <summary>
+    /// Road tier (see <see cref="RoadType"/>). Nullable so legacy v1 saves
+    /// without this field fall back to <see cref="RoadType.Street"/>.
+    /// </summary>
+    [JsonPropertyName("type")]
+    public int? Type { get; set; }
 }
 
 public class RoadData
@@ -89,6 +96,12 @@ public class RoadData
 
     [JsonPropertyName("segmentIDs")]
     public List<int> SegmentIDs { get; set; } = new();
+
+    /// <summary>
+    /// Group road tier. Nullable — legacy v1 saves default to <see cref="RoadType.Street"/>.
+    /// </summary>
+    [JsonPropertyName("type")]
+    public int? Type { get; set; }
 }
 
 /// <summary>Vector2 的 JSON 表示，避免序列化私有字段</summary>
