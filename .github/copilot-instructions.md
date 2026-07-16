@@ -2,351 +2,312 @@
 
 ## 项目概述
 
-Godot 4.6 C# 项目，集成了 ImGui 调试 UI。**Phase 1（网格 + 道路系统）已基本完成。**
+SimpleCities 是 Godot 4.7 C# 城市建造原型。当前核心是无限网格、8 方向道路编辑、路网拓扑维护、事件驱动渲染，以及 JSON 存档/加载。项目集成 ImGui 调试 UI，Phase 1 的网格与道路系统已基本可用。
 
-项目能力：
-- 8 方向道路铺设（正交 + 对角），鼠标拖拽式输入
-- X 形交叉自动劈分，生成半格点路口
-- 道路拆除（点击单段 Segment），删除后自动修复拓扑
-- 工具切换：选择 (Esc) / 铺路 (R) / 拆路 (E)，带 HUD 按钮 + 快捷键
-- 存档/加载：JSON 序列化，F5 保存 / F9 加载，支持路网 + 相机状态
-- HUD 实时统计：FPS、当前工具、鼠标格点、Road / Segment / Junction 计数
-- 无限网格背景渲染（shader 驱动）
+当前能力：
 
-主场景：`Scenes/MapTest.tscn`（uid: `uid://baxamkfym8atd`）
+- 8 方向道路铺设（正交 + 对角），鼠标拖拽预览并提交
+- X 形交叉、端点落边和 waypoint 交叉自动拆边并创建节点
+- 点击单条 `GraphEdge` 拆路，删除后自动清理孤立节点和修复共线拓扑
+- 完整重复路径无副作用拒绝；部分重叠只添加未覆盖区段
+- `RoadType` 数据模型：Dirt / Street / Arterial / Highway，并支持存档往返
+- 工具切换：选择 (Esc) / 铺路 (R) / 拆路 (E)
+- F5 保存、F9 加载，支持 RoadGraph 和相机状态
+- HUD 显示 FPS、工具、鼠标格点，以及 Group / Edge / Node 数量
+- Shader 驱动的无限网格背景
+
+主场景：`Scenes/MapTest.tscn`（uid: `uid://baxamkfym8atd`）。
 
 ## 构建与运行
 
-- **引擎**：Godot 4.6
-- **框架**：.NET 10.0、C# 14.0、`AllowUnsafeBlocks: true`
-- **依赖**：ImGui.NET 1.91.6.1、Godot.NET.Sdk 4.6.1
+- **引擎**：Godot 4.7
+- **SDK**：`Godot.NET.Sdk/4.7.0`
+- **框架**：.NET 10.0、C# 14.0、nullable enabled、`AllowUnsafeBlocks: true`
+- **依赖**：ImGui.NET 1.91.6.1
+- **构建**：`dotnet build SimpleCities.sln`
 - **主场景**：`Scenes/MapTest.tscn`
-- **ImGui 自动加载**：`ImGuiRoot.tscn`
-- **SaveManager 自动加载**：`Scripts/Core/SaveManager.cs`
-- **共享配置资源**：`Scenes/road_config.tres`（`RoadConfig` GlobalClass），由 `RoadBuilder`、`RoadRenderer`、`MapBackground`、`GameHUD` 共同引用，确保 CellSize 全局一致
+- **Autoload**：`ImGuiRoot`、`SaveManager`
+- **共享道路配置**：`Scenes/road_config.tres`
+
+修改 C# 后至少运行一次 `dotnet build SimpleCities.sln`。当前已知 `Scripts/Grid/MapBackground.cs` 有 4 个 nullable 警告；不要把既有警告描述成新改动导致的问题。
 
 ## 项目结构
 
-```
+```text
 Scripts/
 ├── MainCamera.cs
-├── Core/           ← 存档/核心
+├── Core/
 │   ├── ISaveable.cs
 │   ├── SaveManager.cs
 │   ├── SaveData.cs
 │   └── SaveJson.cs
-├── Grid/           ← 网格系统
-│   ├── GridSystem.cs       ← 静态工具类
-│   └── MapBackground.cs    ← CanvasLayer + Shader 渲染
-├── Road/           ← 道路系统（核心子系统）
-│   ├── RoadSystem.cs       ← 单例根节点
-│   ├── RoadNetwork.cs      ← 纯数据层（核心，~1200 行）
-│   ├── RoadBuilder.cs      ← 输入处理 + 拖拽投影
-│   ├── RoadRenderer.cs     ← 事件驱动渲染
-│   ├── RoadConfig.cs       ← [GlobalClass] Resource 配置
-│   ├── Road.cs             ← 数据类
-│   ├── Segment.cs          ← 数据类
-│   ├── Junction.cs         ← 数据类
-│   └── Direction.cs        ← 枚举 + DirectionUtil 静态工具
-├── Tools/          ← 工具管理
-│   ├── ToolManager.cs      ← 单例
-│   └── ToolType.cs         ← 枚举
-└── UI/             ← UI 系统
-    ├── GameHUD.cs          ← CanvasLayer 主 HUD
-    ├── UIHelpers.cs        ← 静态工厂方法
-    └── UIManager.cs        ← 面板生命周期管理
+├── Grid/
+│   ├── GridSystem.cs
+│   └── MapBackground.cs
+├── Road/
+│   ├── RoadSystem.cs       ← 场景根节点和依赖注入
+│   ├── RoadGraph.cs        ← 纯数据路网核心
+│   ├── GraphNode.cs        ← 拓扑节点 + 邻接 EdgeRef
+│   ├── GraphEdge.cs        ← 两节点间的几何边
+│   ├── RoadGroup.cs        ← 一次铺路产生的边集合
+│   ├── SpatialIndex.cs     ← UniformGrid 空间哈希
+│   ├── RoadType.cs         ← 道路等级枚举
+│   ├── RoadBuilder.cs      ← 输入、拖拽和 8 方向投影
+│   ├── RoadRenderer.cs     ← 事件驱动 Line2D 渲染
+│   ├── RoadConfig.cs       ← [GlobalClass] 共享配置
+│   └── Direction.cs        ← 方向枚举与工具
+├── Tools/
+│   ├── ToolManager.cs
+│   └── ToolType.cs
+└── UI/
+    ├── GameHUD.cs
+    ├── UIHelpers.cs
+    └── UIManager.cs
 
 Scenes/
-├── MapTest.tscn            ← 主场景
-├── road_config.tres        ← RoadConfig Resource
-└── UI/
-    └── GameHUD.tscn        ← HUD 布局
+├── MapTest.tscn
+├── map_background.tscn
+├── road_config.tres
+└── UI/GameHUD.tscn
 
-Textures/
 Shaders/
-addons/imgui-godot/         ← ImGui 插件，不要手动修改
-docs/                       ← 设计文档
+addons/imgui-godot/         ← 第三方插件，不要无关修改
+docs/                       ← 设计、实现和 bugfix 文档
 ```
+
+不要重新引入已经删除的 `RoadNetwork`、`Road`、`Segment`、`Junction` 类型。当前数据层术语统一为 `RoadGraph`、`RoadGroup`、`GraphEdge`、`GraphNode`。
 
 ## 核心架构
 
-### RoadSystem（Singleton 根节点）
+### RoadSystem（场景节点）
 
-场景树根节点。`_Ready()` 中：
-1. 注册自身为 `Instance`
-2. 创建 `RoadNetwork`（纯数据层）
-3. 从 `RoadBuilder.Config` 提取 `RoadConfig` 注入 `GridSystem.Config`
-4. 将 `Network` 注入 `RoadRenderer` 和 `RoadBuilder`
-5. 调用 `SaveManager.Instance.Register(Network)`
+`RoadSystem._Ready()` 是道路系统组装入口：
+
+1. 注册 `RoadSystem.Instance`
+2. 创建纯数据对象 `RoadGraph`
+3. 从 `RoadBuilder.Config` 获取共享 `RoadConfig` 并注入 `GridSystem.Config`
+4. 调用 `RoadRenderer.SetGraph(Graph)` 和 `RoadBuilder.SetGraph(Graph)`
+5. 向 `SaveManager` 注册 `RoadGraph`
 
 ```csharp
 public partial class RoadSystem : Node2D
 {
-    public RoadNetwork Network { get; private set; } = null!;
+    public RoadGraph Graph { get; private set; } = null!;
     public static RoadSystem Instance { get; private set; } = null!;
 }
 ```
 
-### RoadNetwork（纯数据层，非 Godot 节点）
+### RoadGraph（纯数据层）
 
-不继承任何 Godot 类型，通过事件与外部通信：
+`RoadGraph` 不继承 Godot 节点，只负责拓扑、几何、空间查询和持久化：
 
-- **三层模型**：`Road` → `Segment` → `Junction`
-- **Road**：玩家一次画线操作的逻辑集合，可由多个 Segment 组成（被路口劈分仍是同一条 Road）
-- **Segment**：两个相邻 Junction 之间的几何边，含 waypoints + 总长度
-- **Junction**：多 Segment 交汇点，自动计算类型（Endpoint / Straight / Curve / TJunction / Cross / XCross / MultiWay）
-- **事件**：`SegmentAdded`、`SegmentRemoved`（渲染层订阅）；`NetworkReloaded`（存档加载后触发全量重建）
-- **空间索引**：`Dictionary<Vector2, int>` 按位置反查 Segment/Junction（仅 snap 格点；半格 Junction 不索引，通过几何扫描访问）
-- **实现 `ISaveable`**：`SaveFileName = "road_network"`
+- `_nodes: Dictionary<int, GraphNode>`：节点实体
+- `_edges: Dictionary<int, GraphEdge>`：几何边实体
+- `_groups: Dictionary<int, RoadGroup>`：玩家一次铺路操作形成的边集合
+- `_spatialIndex: UniformGrid`：节点和边途经点的半径查询
+- `_nodeRefs` / `_edgeRefs`：保存实际插入索引的引用，保证移除精确对应
+- 事件：`EdgeAdded`、`EdgeRemoved`、`GraphCleared`
+- `ISaveable.SaveFileName = "road_network"`
 
-### GridSystem（静态工具类）
+三层模型：
 
-集中管理 CellSize，消除到处传参：
+- **RoadGroup**：持有 `EdgeIDs` 和 `RoadType`；不是连通性算法的替代品
+- **GraphEdge**：`NodeA`、`NodeB`、中间 `Points`、`GroupID`、`Type`、`Length`
+- **GraphNode**：位置和 `EdgeRef` 邻接表；`EdgeCount` 用于端点/路口判断和自动合并
 
-```csharp
-public static class GridSystem
-{
-    public static RoadConfig Config { get; set; } = null!;
-    public static float CellSize => Config?.CellSize ?? 64f;
-    public static Vector2 SnapToGrid(Vector2 pos);
-    public static bool IsSnapGrid(Vector2 pos);
-}
-```
+### 空间索引
 
-初始化路径：`RoadSystem._Ready()` → `GridSystem.Config = config`
+`UniformGrid` 按固定 bucket 保存 `NodeSpatialRef` 和 `EdgePointRef`。它用于 `FindClosestNode`、`FindClosestEdge`、交叉候选筛选和节点复用，而不是权威数据源。
 
-### ToolManager（Singleton + 输入转发）
+维护规则：
 
-- 单例模式，通过 `R`/`E`/`Esc` 快捷键切换工具
-- `_Input()` 中根据 `CurrentTool` 将事件转发给 `RoadBuilder` 的不同方法
-- 切换工具时自动取消进行中的拖拽（`CancelPlaceDrag()`）和清除拆路悬停高亮
+- 新增节点时同时写入 `_nodes`、`_nodeRefs` 和 `_spatialIndex`
+- 新增边时为 NodeA、所有 `Points`、NodeB 建立空间引用，并保存到 `_edgeRefs[edge.ID]`
+- 删除边时必须使用 `_edgeRefs` 中的原对象移除索引，随后清除该映射
+- 加载存档后必须重建节点邻接关系与完整空间索引
+- 不要仅修改字典而遗漏邻接表、RoadGroup、空间索引或事件
 
-```csharp
-public enum ToolType { Select, Road, RoadRemove }
-```
+### GridSystem 与方向
 
-### RoadRenderer（事件驱动渲染）
+`GridSystem` 集中持有 `RoadConfig`，提供 `CellSize`、`SnapToGrid()` 和 `IsSnapGrid()`。初始化路径为 `RoadSystem._Ready()` → `GridSystem.Config = config`。
 
-- 订阅 `RoadNetwork.SegmentAdded` → 创建 `Line2D` 节点
-- 订阅 `RoadNetwork.SegmentRemoved` → `QueueFree()` 对应 `Line2D`
-- 订阅 `RoadNetwork.NetworkReloaded` → 全量重建所有 `Line2D`
-- 交叉口绘制在独立 `Node2D` 子节点上（`_junctionLayer`），确保渲染在所有路段之上
-- `_Draw()` 只画施工预览虚线和拆路悬停高亮
+- `DirectionUtil.FromDisplacement(...)`：按单位格距离判断方向
+- `DirectionUtil.FromDisplacementAnyLength(...)`：按任意长度判断 8 方向
+- `DirectionUtil.GetDisplacement(...)`：返回方向的整数位移
+- `DirectionUtil.Length(...)`：返回正交/对角步长
 
-### RoadBuilder（输入处理 + 拖拽投影）
+半格起点仅允许对角延伸；`RoadBuilder` 会先反向定位整格 anchor，再生成终点和 waypoints。
 
-- `HandlePlaceInput()`：鼠标左键按下开始拖拽，释放提交道路
-- `HandleRemoveInput()`：鼠标左键点击拆除该格点所在的 Segment
-- `_Process()` 中 `UpdateProjection()`：将鼠标向量投影到 8 方向，计算格数预览
-- 半格起点（从 X 交叉点延伸）仅允许对角方向
+### RoadBuilder（输入与投影）
 
-### UIManager（Singleton + 面板生命周期）
+- `SetGraph(RoadGraph)` 注入数据层
+- `HandlePlaceInput()`：左键按下开始拖拽，释放调用 `EndDragAndCommit()`
+- `UpdateProjection()`：将鼠标向量投影到 8 个归一化方向并计算格数
+- `EndDragAndCommit()`：构造 waypoints 后调用 `RoadGraph.AddRoad(..., RoadType.Street)`
+- `HandleRemoveInput()`：优先按 snap 位置、再按原始鼠标位置查找最近 `GraphEdge`，调用 `RemoveEdge(edge.ID)`
+- `CancelPlaceDrag()` 和拆路 hover 状态由 `ToolManager` 在工具切换时维护
 
-- 注册/注销面板：`Register(name, panel)` / `Unregister(name)`
-- 可见性控制：`Show` / `Hide` / `Toggle` / `HideAll`
-- 模态栈：`PushModal` / `PopModal`（阻塞游戏输入）
-- 当前仅 GameHUD 使用，构造函数中自动注册 `Instance`
+目前 UI 固定创建 `RoadType.Street`；添加道路分级 UI 时需要把用户选择传到 `AddRoad`，不能只修改枚举或存档。
 
-### 存档/加载
+### RoadRenderer（事件驱动）
 
-- `ISaveable` 接口：`SaveFileName` + `CaptureState()` + `RestoreState(string json)`
-- `SaveManager`（Autoload）：遍历所有已注册 `ISaveable`，每个系统存为独立 JSON 文件
-- 当前已注册：`RoadNetwork`（`RoadSystem._Ready`）、`MainCamera`（自身 `_Ready`）
-- 原子写入：先写 `.tmp`，成功后再 rename 覆盖正式文件
+- 订阅 `EdgeAdded`：创建对应 `Line2D`
+- 订阅 `EdgeRemoved`：释放对应 `Line2D`
+- 订阅 `GraphCleared`：加载后清空并按 `GetAllEdges()` 全量重建
+- `_junctionLayer` 绘制节点圆点：`EdgeCount >= 2` 为路口，`EdgeCount == 1` 为端点
+- `_Draw()` 只处理施工预览和拆路 hover 高亮
+
+当前 `RoadType` 已进入数据和存档，但 `RoadRenderer` 仍统一使用 `RoadConfig.RoadColor/RoadWidth`。不要声称不同道路类型已经具有不同视觉样式。
+
+### ToolManager 与 UI
+
+- `ToolType` 当前为 `Select`、`Road`、`RoadRemove`
+- `R` / `E` / `Esc` 切换工具
+- `ToolManager._Input()` 把输入转发给 `RoadBuilder.HandlePlaceInput()` 或 `HandleRemoveInput()`
+- `GameHUD` 从 `RoadSystem.Instance.Graph` 读取 Group / Edge / Node 计数
+- `UIManager` 管理面板注册、可见性和模态栈
+
+## RoadGraph 关键流程
+
+### 添加道路
+
+`RoadBuilder.EndDragAndCommit()` → `RoadGraph.AddRoad(start, end, waypoints, type)`：
+
+1. 拒绝起终点相同的路径
+2. 组装完整折线路径
+3. **在任何拆分前调用 `IsPathFullyCovered`**；完整重复路径直接返回 `-1`，不得产生副作用
+4. `ResolveIntersections`：查找候选边、创建交点并拆分已有边
+5. `SplitEdgesAtPathAnchors`：处理新路径点落在已有边内部或 waypoint 的情况
+6. `InsertExistingNodeAnchors`：把路径经过的既有节点插入路径
+7. 再次执行完整覆盖检查，处理路径重建后的最终状态
+8. 创建 `RoadGroup`，逐段跳过已覆盖区间并调用 `AddEdge`
+9. 没有实际新增边时清理空 group 并返回 `-1`
+10. 对触及节点执行 `TryMergeAtNode`，将共线 2-edge 节点降级为 waypoint
+11. merge 后再次清理可能变空的 group，再返回 group ID
+
+关键不变量：覆盖检查的前置位置不可后移。`ResolveIntersections` 和 `SplitEdgesAtPathAnchors` 都会修改现有路网。
+
+### 拆分边
+
+`SplitEdgeAtPosition` 必须同时支持：
+
+- 交点位于子线段内部
+- 交点恰好等于一个内部 waypoint（相邻子线段的共享端点）
+
+拆分流程需要保留原边的 `GroupID` 和 `RoadType`，移除旧边后创建拆分节点及左右新边。不要在 `RemoveEdge` 后再读取已失效的拓扑状态。
+
+### 删除边和道路组
+
+`RemoveEdge(edgeID)`：
+
+1. 从 `_edges` 和空间索引移除边
+2. 从两端 `GraphNode` 移除邻接关系
+3. 清理孤立节点及其空间引用
+4. 从 `RoadGroup` 移除 edge；空 group 自动删除
+5. 触发 `EdgeRemoved`
+6. 对仍存在的两端节点尝试共线合并
+
+`RemoveRoadGroup(groupID)` 会先收集所有端点，批量抑制逐边 merge，删除完成后再对存活节点执行统一 merge repair。
+
+### 合并节点
+
+`TryMergeAtNode` 只合并 `EdgeCount == 2` 且两边方向共线的节点。合并期间需注意：
+
+- 两条边必须连接不同的远端节点
+- 合并路径必须保留正确顺序和中间 points
+- 必须选择并保持一致的 group/type
+- 删除旧边可能暂时让远端节点孤立；创建合并边前要确保节点仍在字典与空间索引中
+- 使用 `suppressMerge` 防止递归或批处理中的级联合并
+
+## 存档与加载
+
+- `SaveManager` 是 Autoload 单例，保存目录为 `user://saves/<slot>/`
+- 每个 `ISaveable` 写独立 JSON；manifest 记录该槽包含的文件
+- 文件先写 `.tmp` 再移动为正式文件，降低中断损坏风险
+- 当前注册对象：`RoadGraph` 和 `MainCamera`
+- `RoadGraph.CaptureState()` 写入 version 2、NextID、nodes、edges、groups 和 RoadType
+- `RestoreState()` 清空图后恢复实体，再调用 `RebuildNodeEdges()`、`RebuildSpatialIndex()`、`EnsureNextIDBeyondLoadedEntities()`，最后触发 `GraphCleared`
+- `SegmentData.Type` / `RoadData.Type` 为 nullable；旧存档没有 type 时回退到 `RoadType.Street`
+
+存档 DTO 仍沿用 `junctions`、`segments`、`roads` JSON 字段以兼容已有格式；不要仅因运行时类型改名就破坏字段兼容性。
 
 ## Godot C# 编码约定
 
-### 类声明模式
-
-项目使用四种不同的类声明模式，按用途选择：
-
 | 模式 | 声明 | 用途 | 示例 |
-|------|------|------|------|
-| **Singleton** | `public partial class Xxx : Node2D` | Godot 节点，需挂在场景树 | `RoadSystem`, `ToolManager` |
-| **Data class** | `public class Xxx` | 纯数据模型，不继承 Godot | `Road`, `Segment`, `Junction`, `RoadNetwork` |
-| **Resource** | `[GlobalClass] public partial class XxxConfig : Resource` | 共享配置 `.tres` | `RoadConfig` |
-| **Static utility** | `public static class Xxx` | 纯函数工具 | `GridSystem`, `DirectionUtil`, `UIHelpers` |
+|---|---|---|---|
+| Godot 节点 | `public partial class Xxx : Node2D` | 场景树生命周期；按职责也可继承其他 Godot 节点 | `RoadSystem`, `ToolManager`, `RoadRenderer` |
+| 纯数据类 | `public class Xxx` | 数据、拓扑、DTO | `RoadGraph`, `GraphEdge`, `GraphNode`, `RoadGroup` |
+| Resource | `[GlobalClass] public partial class Xxx : Resource` | `.tres` 共享配置 | `RoadConfig` |
+| 静态工具 | `public static class Xxx` | 无状态工具 | `GridSystem`, `DirectionUtil`, `UIHelpers` |
 
-### Singleton 模式（强制约定）
+其他约定：
 
-所有系统级单例统一使用以下模式：
-
-```csharp
-public partial class MySystem : Node2D
-{
-    public static MySystem Instance { get; private set; } = null!;
-
-    public override void _Ready()
-    {
-        Instance = this;  // 或 Instance ??= this 用于可能重复初始化的场景
-    }
-}
-```
-
-### 数据类（非 Godot 节点）
-
-`RoadNetwork`、`Road`、`Segment`、`Junction`、SaveData DTO 都是普通 C# 类，不继承任何 Godot 类型。使用纯 C# 集合（`Dictionary`、`List`、`HashSet`）管理数据，通过 C# 事件（`event Action<T>?`）通知外部。
-
-### GlobalClass Resource 模式
-
-`RoadConfig` 是 `[GlobalClass] Resource`，在 Godot 编辑器中创建 `.tres` 文件，所有消费者通过 `[Export]` 引用同一份资源：
-
-```csharp
-[Export] public RoadConfig Config { get; set; } = null!;
-```
-
-### 事件驱动渲染
-
-渲染层订阅数据层事件，而非在 `_Process` 中轮询：
-
-```csharp
-_network.SegmentAdded += OnSegmentAdded;   // 创建 Line2D
-_network.SegmentRemoved += OnSegmentRemoved; // 销毁 Line2D
-_network.NetworkReloaded += OnNetworkReloaded; // 全量重建
-```
-
-### 输入转发
-
-`ToolManager._Input()` 根据当前工具类型将事件转发给 `RoadBuilder` 的不同方法：
-
-```csharp
-case ToolType.Road:
-    _roadBuilder.HandlePlaceInput(@event);
-    break;
-case ToolType.RoadRemove:
-    _roadBuilder.HandleRemoveInput(@event);
-    break;
-```
-
-### Vector2 作为字典键
-
-`Dictionary<Vector2, T>` 用于空间查找（`_posToJunctionID`、`_posToSegmentID`）。Godot 的 `Vector2` 实现了值相等（`Equals` 按分量比较），可直接用作字典键。
-
-### 其他约定
-
-- **类声明**：`public partial class MyClass : Node2D`（Godot 节点必须 `partial`）
-- **导出属性**：`[Export] private int _myField;`（下划线前缀私有字段）
-- **生命周期**：`_Ready()` → `_Process(double delta)` → `_Input(InputEvent @event)`
-- **文件路径**：`ProjectSettings.GlobalizePath("res://...")` 将资源路径转为绝对路径
-- **场景实例化**：`GD.Load<PackedScene>("res://Scenes/MyScene.tscn").Instantiate<MyNode>()`
-- **输入**：`Input.GetVector("KeyBoard_MoveLeft", ...)` 用于 WASD 移动
-
-### ImGui 集成
-
-ImGui 通过 `addons/imgui-godot/` 插件提供，自动加载为单例。核心 API：
-
-- `ImGuiGD.ImGuiBegin(string title)` / `ImGuiGD.ImGuiEnd()` — 窗口包裹
-- `ImGuiGD.ImGuiText(string text)` — 文本显示
-- `ImGuiGD.ImGuiButton(string label)` — 按钮（返回 bool）
-- `ImGuiGD.ImGuiSliderFloat(...)` — 滑块控件
-- 详细 API 见 `addons/imgui-godot/ImGuiGodot/ImGuiGD.cs`
-
-使用模式：在 `_Process` 中调用 ImGui API，每帧渲染。
-
-## Road System 详解
-
-这是项目最复杂的子系统（`RoadNetwork.cs` ~1200 行），核心流程：
-
-### 添加道路流程
-
-`RoadBuilder.EndDragAndCommit()` → `RoadNetwork.AddRoad(from, to, waypoints, cellSize)`：
-
-1. Snap 起点/终点/waypoints 到网格（已在路上的半格起点跳过 snap）
-2. 校验：8 方向连续、无重复点、非自环、非完全重叠
-3. X 交叉处理（`ResolveInteriorCrossings`）：扫描新路径与现有 Segment 的内部几何交点，在每个交点处调用 `SplitSegmentAtPosition` 切开旧 Segment，并将交点作为额外锚点插入新路径
-4. 两端撞旧 Segment 检查：`SplitSegmentAtWaypoint` 在端点处劈开
-5. 按路径上所有 Junction 位置将新路切成多段 Segment
-6. 共线重叠检测：避免在已有 Segment 上铺冗余路线
-7. 合并降级（`TryMergeAtJunction`）：若某 Junction 从 1 连接变为 2 连接且两侧对向直通，合并回单段 Segment
-8. 为每个 Segment 创建 Junction（`GetOrCreateJunction`），仅 snap 格点 Junction 进 `_posToJunctionID` 字典
-
-### 拆除 Segment 流程
-
-`RoadBuilder.HandleRemoveInput()` → `RoadNetwork.RemoveSegment(segmentID)`：
-
-1. 清除 `_segments` 字典和所有反向索引（`_posToSegmentID`）
-2. 断开 from/to Junction 的 Segment 连接
-3. 清孤立 Junction（ConnectionCount == 0）
-4. 修复共享 Junction 的空间索引（`MaybeReindexJunctionInPosDict`）
-5. 从所属 Road 摘除 Segment；Road 变空则清理
-6. 调用 `SplitRoadIntoConnectedComponents`：若删除中间一段导致 Road 的剩余 Segment 不再连通，自动切成多个独立 Road
-7. 触发 `SegmentRemoved` 事件
-8. 合并降级检查：被删段两端的 Junction 若 ConnectionCount 降到 2 且对向直通，自动合并
-
-### 半格 Junction
-
-X 形交叉产生的交点可能不在标准网格点上（"半格"）。这些 Junction：
-- 不加入 `_posToJunctionID` 字典（仅通过 ID 访问）
-- 不加入 `_posToSegmentID` 字典（拆除工具通过被切 Segment 的另一侧间接访问）
-- `FindSegmentAtIncludingHalfGrid`：先查字典，再几何扫描 waypoints + Junction
-- `IsAnyJunctionAt`：先查字典，再无差别扫所有 Junction 的几何位置
-
-### 方向工具
-
-- `DirectionUtil.FromDisplacement(from, to, cellSize)`：严格单位距离方向判定（内部 waypoint 段使用）
-- `DirectionUtil.FromDisplacementAnyLength(from, to)`：任意距离方向判定（首尾半格段使用，基于归一化向量余弦匹配）
-- `DirectionUtil.GetDisplacement(d)`：获取方向的 (dx, dy) 单位位移
-
-### RoadConfig.tres 配置
-
-共享配置资源，所有模块通过 `[Export]` 引用同一份 `.tres`：
-
-- `CellSize`：网格单元尺寸（默认 64）
-- `RoadColor` / `RoadWidth`：路段颜色和线宽
-- `JunctionRadius` / `JunctionColor`：真路口圆点样式
-- `EndpointRadius` / `EndpointColor`：端点圆点样式
-- `HoverHighlightColor` / `HoverHighlightWidth`：拆路悬停高亮样式
+- Godot 节点脚本必须是 `partial`
+- 私有字段使用 `_camelCase`；现有旧文件可能不完全统一，新代码遵循当前模块风格
+- 导出依赖使用 `[Export]`，场景缺失关键资源时记录明确错误
+- 数据层通过 C# 事件通知渲染层，不在 `_Process()` 中轮询路网变化
+- 不使用 `null!` 隐藏本应在运行时检查的可选依赖；仅用于 Godot 生命周期保证注入的字段
+- 不修改 `addons/imgui-godot/`，除非任务明确针对插件
+- 不手工编辑 `.godot/` 生成内容
 
 ## 常见任务
 
-### 添加新的道路功能
+### 修改道路行为
 
-修改三层：`RoadBuilder`（输入处理）→ `RoadNetwork`（数据逻辑）→ `RoadRenderer`（视觉表现）。例如增加曲线道路：`RoadBuilder` 处理新的鼠标手势，`RoadNetwork` 修改 AddRoad 接受曲线参数，`RoadRenderer` 使用贝塞尔曲线渲染。
+按职责定位：
 
-### 添加新工具
+- 输入与拖拽：`RoadBuilder`
+- 拓扑、交叉、覆盖、拆分、合并：`RoadGraph`
+- 数据实体：`GraphNode` / `GraphEdge` / `RoadGroup`
+- 视觉表现：`RoadRenderer` / `RoadConfig`
+- HUD 和工具：`GameHUD` / `ToolManager`
 
-1. 在 `ToolType` 枚举中添加新项
-2. 在 `ToolManager._Input()` 中处理新工具的按键切换和输入转发
-3. 若需要新交互模式，在 `RoadBuilder` 或其他处理类中添加对应的 Handle 方法
-4. 在 `GameHUD` 中添加对应的工具按钮
+修改 `RoadGraph` 时，逐项检查字典、节点邻接、group、空间索引、事件和存档是否仍一致。
 
-### 添加新 UI 面板
+### 添加道路类型能力
 
-1. 在 Godot 编辑器中创建 Control 场景（`.tscn` + C# 脚本）
-2. 在面板的 `_Ready()` 中调用 `UIManager.Instance.Register("panelName", this)` 注册
-3. 使用 `UIHelpers` 静态方法确保控件样式一致（`CreateLabel`、`CreateDarkPanel`、`CreateToolButton`）
-4. 通过 `UIManager.Instance.Show("panelName")` 控制可见性
-5. 模态弹窗使用 `PushModal("panelName")` 阻塞游戏输入
+1. 更新 `RoadType`（如确实需要新等级）
+2. 确认 `RoadGroup.Type` 和 `GraphEdge.Type` 的传播规则
+3. 在 `RoadBuilder` 或 UI 中提供选择并传给 `AddRoad`
+4. 若需要视觉差异，扩展 `RoadConfig` 和 `RoadRenderer`
+5. 验证保存/加载后类型保持，旧存档仍回退到 Street
 
-### 添加可存档数据
+### 添加可存档系统
 
-1. 创建 DTO 类（纯数据类，字段用 `{ get; set; }`）
-2. 在目标系统上实现 `ISaveable` 接口（`SaveFileName` + `CaptureState()` + `RestoreState(string json)`）
-3. 在系统的 `_Ready()` 中调用 `SaveManager.Instance.Register(this)` 注册
-4. 序列化/反序列化使用 `SaveJson.Serialize()` / `SaveJson.Deserialize<T>()`
+1. 创建纯数据 DTO
+2. 实现 `ISaveable.SaveFileName`、`CaptureState()`、`RestoreState(string json)`
+3. 在系统初始化时调用 `SaveManager.Instance.Register(this)`
+4. 使用 `SaveJson`，保持旧 JSON 字段兼容或提供明确迁移
+5. 验证保存、加载、缺失文件和旧版本数据
 
-### 修改网格行为
+### 添加新工具或 UI 面板
 
-- 纯数学逻辑：修改 `GridSystem` 静态类
-- 视觉渲染：修改 `MapBackground` 及其关联的 `.gdshader` 文件（`Shaders/` 目录）
-- 网格尺寸：修改 `RoadConfig.tres` 中的 `CellSize`
+- 新工具：更新 `ToolType`、`ToolManager` 切换和输入转发、`GameHUD` 按钮，并处理离开工具时的状态清理
+- 新面板：通过 `UIManager.Register` 注册，使用 `Show/Hide/Toggle`；模态面板使用 `PushModal/PopModal`
+- 使用 `UIHelpers` 保持现有控件风格
 
-### 添加新路口类型
+### 修复 bug
 
-1. 在 `JunctionType` 枚举中添加新类型
-2. 更新 `Junction.RecalculateType()` 中的 switch 逻辑
-3. 更新 `RoadRenderer.OnDrawJunctions()` 中的绘制逻辑（不同路口类型可能用不同颜色/形状）
+1. 先复现或用代码证据锁定症状与根因
+2. 做最小修复，不顺带重构无关代码
+3. 运行 `dotnet build SimpleCities.sln` 和适用的手工场景
+4. 将已验证修复记录到 `docs/bugfix/`，包含症状、根因、修复、影响范围和真实验证结果
+5. 未执行的测试不得写成已通过
 
-## 设计文档参考
+## 文档索引
 
-`docs/` 目录包含独立的设计文档，不要将其内容重复写入此文件：
-
-- `docs/class-reference.md` — 完整类 API 参考
-- `docs/grid-system.md` — 网格系统 + 半格点设计方案
-- `docs/implementation-roadmap.md` — Phase 进度与里程碑
-- `docs/math-model.md` — 模拟数学模型（远期 Phase）
-- `docs/design-overview.md` — 设计总览
-- `docs/persistence-plan.md` — 存档系统设计
-- `docs/ui-architecture.md` — UI 架构方案
+- `docs/class-reference.md` — 类与 API 参考（使用前仍需和源码核对）
+- `docs/manuals/grid-system.md` — 网格设计
+- `docs/manuals/road-system-next-gen.md` — RoadGraph 重构设计
+- `docs/manuals/infrastructure-guide.md` — 基础设施开发指南
+- `docs/manuals/design-overview.md` — 设计总览
+- `docs/implementation-roadmap.md` — 实现进度
+- `docs/persistence-plan.md` — 存档设计
+- `docs/ui-architecture.md` — UI 架构
+- `docs/game-logic.md` — 系统逻辑图
 - `docs/simulation-systems.md` — 远期模拟系统设计
+- `docs/math-model.md` — 模拟数学模型
 - `docs/game-style-discussion.md` — 游戏风格讨论
+- `docs/bugfix/road-graph-post-refactor.md` — RoadGraph 重构后的修复记录
+
+源码是最终事实来源。设计文档可能描述未来目标；实现任务前必须先核对当前类、方法和调用关系。
