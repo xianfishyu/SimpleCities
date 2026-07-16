@@ -327,3 +327,98 @@ if (hitIndex < 0)
 ### 影响范围
 
 所有经过 `FindEdgesWithWaypointAt` 路径触发的拆分操作。这是交叉口不生成的**最终根因**——前面的检测修复（BUG-2/5/6）能正确找到需要拆分的边和位置，但拆分动作本身在 waypoint 处失败。
+
+---
+
+## BUG-8：道路类型未写入存档，加载后统一退化为 Street
+
+### 症状
+
+使用 Dirt、Arterial 或 Highway 等非默认类型建设道路并保存后，再次加载存档，道路组和边的类型都会变成 `RoadType.Street`。道路几何与拓扑仍能恢复，因此问题容易表现为加载后道路分级样式或后续分级逻辑静默丢失。
+
+### 根因分析
+
+`RoadGraph.CaptureState()` 原先只记录边和道路组的 ID、连接关系、几何点与长度，`SegmentData` 和 `RoadData` 中没有道路类型字段。`RestoreFromSavedData()` 重建 `RoadGroup` 和 `GraphEdge` 时只能硬编码使用 `RoadType.Street`，导致非默认类型无法完成存档往返。
+
+### 修复方案
+
+在存档 DTO 中为边和道路组增加可空的 `Type` 字段，并在捕获状态时分别写入 `edge.Type` 与 `group.Type`：
+
+```csharp
+public class SegmentData
+{
+    [JsonPropertyName("type")]
+    public int? Type { get; set; }
+}
+
+public class RoadData
+{
+    [JsonPropertyName("type")]
+    public int? Type { get; set; }
+}
+```
+
+恢复时优先使用边自身保存的类型，其次使用所属道路组的类型；旧存档没有 `type` 字段时，可空值保持为 `null`，最终兼容性回退到 `RoadType.Street`：
+
+```csharp
+RoadType edgeType;
+if (edgeData.Type.HasValue)
+    edgeType = (RoadType)edgeData.Type.Value;
+else if (_groups.TryGetValue(edgeData.RoadID, out var existingGroup))
+    edgeType = existingGroup.Type;
+else
+    edgeType = RoadType.Street;
+```
+
+### 影响范围
+
+影响 `RoadGraph` 的存档捕获与恢复，以及 `SegmentData`、`RoadData` 的 JSON 结构。新存档能够保留道路类型；缺少 `type` 字段的旧存档仍按 Street 加载，不需要迁移旧文件。
+
+---
+
+## BUG-9：完整重复铺路在被拒绝前仍会拆分现有路网
+
+### 症状
+
+沿已有道路完整重复铺设同一路径时，`AddRoad` 最终返回 `-1` 表示没有添加新道路，但已有道路仍可能被传入路径的锚点拆分。调用方看到操作被拒绝，路网内部却发生边和节点变更，并可能产生对应的增删事件。
+
+### 根因分析
+
+原流程在检查 `IsPathFullyCovered(path)` 之前，先调用了两个会修改路网的方法：
+
+1. `ResolveIntersections(path)` 可能在交点处拆分已有边；
+2. `SplitEdgesAtPathAnchors(path)` 可能在新路径锚点处拆分已有边；
+3. 随后覆盖检查发现整条路径已存在并返回 `-1`。
+
+因此，“拒绝重复道路”并不是无副作用操作。虽然没有留下新的道路组，但已有边可能经历不必要的拆分、重建和事件通知。
+
+### 修复方案
+
+在任何路网变更之前先对原始折线路径执行完整覆盖检查：
+
+```csharp
+var path = new List<Vector2>(waypoints.Length + 2) { start };
+path.AddRange(waypoints);
+path.Add(end);
+
+if (IsPathFullyCovered(path)) return -1;
+
+path = ResolveIntersections(path);
+SplitEdgesAtPathAnchors(path);
+path = InsertExistingNodeAnchors(path);
+```
+
+保留后续的第二次覆盖检查，用于处理交叉点和既有节点被插入路径后的最终状态；前置检查则保证明显的完整重复路径在进入任何可变流程前直接退出。
+
+### 影响范围
+
+影响所有完整覆盖既有路网的 `AddRoad` 调用。部分重叠但仍包含新区段的路径不会被前置检查拒绝，仍按原流程完成交叉处理并添加未覆盖区段。
+
+---
+
+## BUG-8 / BUG-9 验证状态
+
+- 关联提交：`6ec0a66`（`修复：保持道路类型存档并避免重复铺路副作用`）
+- `dotnet build SimpleCities.sln`：构建成功，0 个错误，4 个既有的 `Scripts/Grid/MapBackground.cs` nullable 警告
+- 已核对当前代码路径：存档捕获与恢复均处理 `RoadType`，且完整覆盖检查位于 `ResolveIntersections`、`SplitEdgesAtPathAnchors` 等变更操作之前
+- 当前仓库未发现覆盖上述两个场景的自动化测试；本次未执行 Godot 运行时存档往返或重复铺路手工测试，因此不声明运行时回归验证已完成
