@@ -23,6 +23,7 @@ config/icon="res://icon.svg"
 
 ImGuiRoot="*uid://dugmpnsxaagba"
 SaveManager="*res://Scripts/Core/SaveManager.cs"
+MCPGameBridge="res://addons/godot_mcp/game_bridge/mcp_game_bridge.gd"
 
 [display]
 
@@ -39,7 +40,14 @@ movie_writer/movie_file="D:/Code/GodotProject/simplecities/video.avi"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/imgui-godot/plugin.cfg")
+enabled=PackedStringArray("res://addons/imgui-godot/plugin.cfg", "res://addons/godot_mcp/plugin.cfg")
+
+[godot_mcp]
+
+bind_mode=0
+custom_bind_ip=""
+port_override_enabled=true
+port_override=6550
 
 [gui]
 

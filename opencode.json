@@ -1,0 +1,11 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "godot": {
+      "type": "local",
+      "command": ["npx", "-y", "@satelliteoflove/godot-mcp"],
+      "enabled": true,
+      "timeout": 15000
+    }
+  }
+}
