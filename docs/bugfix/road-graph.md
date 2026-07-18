@@ -2,10 +2,11 @@
 
 > 日期：2026-06-06
 > 影响文件：`Scripts/Road/RoadGraph.cs`
-> 关联重构：road-system-next-gen（阶段 A+B）
+> 关联重构：road-system-v2-gen（阶段 A+B）
 
 ---
 
+<a id="road-graph-bug-1"></a>
 ## BUG-1：TryMergeAtNode 远端节点被误删，导致道路不渲染
 
 ### 症状
@@ -51,6 +52,7 @@ AddEdge(farA, farB, mergedPoints.ToArray(), keepGroupID, type);
 
 ---
 
+<a id="road-graph-bug-2"></a>
 ## BUG-2：ResolveIntersections 未检测到边 waypoint 处的交叉点
 
 ### 症状
@@ -87,6 +89,7 @@ for (int j = 1; j < existing.Length - 1; j++)
 
 ---
 
+<a id="road-graph-bug-3"></a>
 ## BUG-3：QueryCandidateEdgeIDs 搜索半径不足，对角线交叉概率性失败
 
 ### 症状
@@ -123,6 +126,7 @@ float radius = a.DistanceTo(b) * 0.5f + IndexBucketSize * 1.5f;
 
 ---
 
+<a id="road-graph-bug-4"></a>
 ## BUG-4：RemoveRoadGroup 批量删除后未触发 merge repair
 
 ### 症状
@@ -168,6 +172,7 @@ foreach (int nodeID in touchedNodeIDs)
 
 ---
 
+<a id="road-graph-bug-5"></a>
 ## BUG-5：QueryCandidateEdgeIDs 搜索半径与 CellSize 不匹配
 
 ### 症状
@@ -208,6 +213,7 @@ private void QueryCandidateEdgeIDs(Vector2 a, Vector2 b, HashSet<int> result)
 
 ---
 
+<a id="road-graph-bug-6"></a>
 ## BUG-6：SplitEdgesAtPathAnchors 未检测到路径点与已有边 waypoint 重合
 
 ### 症状
@@ -265,17 +271,7 @@ private IEnumerable<int> FindEdgesWithWaypointAt(Vector2 pos)
 
 ---
 
-## 验证状态
-
-- `dotnet build`：0 错误，4 个无关警告（MapBackground.cs nullable）
-- 所有修复均在 `RoadGraph.cs` 内完成，无外部接口变更
-- 已用用户提供的精确日志数据验证 BUG-5 + BUG-6 + BUG-7 场景：
-  - 第一条路：(-300,0)→(500,0)，CellSize=100，8 格东向
-  - 第二条路：(100,-200)→(100,200)，4 格南向
-  - 交叉点 (100,0) 现在能正确检测并拆分已有边
-
----
-
+<a id="road-graph-bug-7"></a>
 ## BUG-7：SplitEdgeAtPosition 无法在 waypoint 位置执行拆分
 
 ### 症状
@@ -330,53 +326,10 @@ if (hitIndex < 0)
 
 ---
 
-## BUG-8：道路类型未写入存档，加载后统一退化为 Street
+<a id="road-graph-bug-8"></a>
+## BUG-8：完整重复铺路在被拒绝前仍会拆分现有路网
 
-### 症状
-
-使用 Dirt、Arterial 或 Highway 等非默认类型建设道路并保存后，再次加载存档，道路组和边的类型都会变成 `RoadType.Street`。道路几何与拓扑仍能恢复，因此问题容易表现为加载后道路分级样式或后续分级逻辑静默丢失。
-
-### 根因分析
-
-`RoadGraph.CaptureState()` 原先只记录边和道路组的 ID、连接关系、几何点与长度，`SegmentData` 和 `RoadData` 中没有道路类型字段。`RestoreFromSavedData()` 重建 `RoadGroup` 和 `GraphEdge` 时只能硬编码使用 `RoadType.Street`，导致非默认类型无法完成存档往返。
-
-### 修复方案
-
-在存档 DTO 中为边和道路组增加可空的 `Type` 字段，并在捕获状态时分别写入 `edge.Type` 与 `group.Type`：
-
-```csharp
-public class SegmentData
-{
-    [JsonPropertyName("type")]
-    public int? Type { get; set; }
-}
-
-public class RoadData
-{
-    [JsonPropertyName("type")]
-    public int? Type { get; set; }
-}
-```
-
-恢复时优先使用边自身保存的类型，其次使用所属道路组的类型；旧存档没有 `type` 字段时，可空值保持为 `null`，最终兼容性回退到 `RoadType.Street`：
-
-```csharp
-RoadType edgeType;
-if (edgeData.Type.HasValue)
-    edgeType = (RoadType)edgeData.Type.Value;
-else if (_groups.TryGetValue(edgeData.RoadID, out var existingGroup))
-    edgeType = existingGroup.Type;
-else
-    edgeType = RoadType.Street;
-```
-
-### 影响范围
-
-影响 `RoadGraph` 的存档捕获与恢复，以及 `SegmentData`、`RoadData` 的 JSON 结构。新存档能够保留道路类型；缺少 `type` 字段的旧存档仍按 Street 加载，不需要迁移旧文件。
-
----
-
-## BUG-9：完整重复铺路在被拒绝前仍会拆分现有路网
+关联文档：`persistence:BUG-1`
 
 ### 症状
 
@@ -415,6 +368,15 @@ path = InsertExistingNodeAnchors(path);
 影响所有完整覆盖既有路网的 `AddRoad` 调用。部分重叠但仍包含新区段的路径不会被前置检查拒绝，仍按原流程完成交叉处理并添加未覆盖区段。
 
 ---
+
+## 验证状态
+
+- `dotnet build`：0 错误，4 个无关警告（MapBackground.cs nullable）
+- 所有修复均在 `RoadGraph.cs` 内完成，无外部接口变更
+- 已用用户提供的精确日志数据验证 BUG-5 + BUG-6 + BUG-7 场景：
+  - 第一条路：(-300,0)→(500,0)，CellSize=100，8 格东向
+  - 第二条路：(100,-200)→(100,200)，4 格南向
+  - 交叉点 (100,0) 现在能正确检测并拆分已有边
 
 ## BUG-8 / BUG-9 验证状态
 
