@@ -5,7 +5,7 @@ using Godot;
 /// </summary>
 public partial class MapBackground : CanvasLayer
 {
-    public static MapBackground Instance { get; private set; }
+    public static MapBackground Instance { get; private set; } = null!;
 
     // ═══════════════════════════════════════════
     // RoadConfig 引用
@@ -56,9 +56,9 @@ public partial class MapBackground : CanvasLayer
     // ═══════════════════════════════════════════
 
     [ExportGroup("节点引用")]
-    [Export] public ColorRect Display;
+    [Export] public ColorRect Display = null!;
 
-    private ShaderMaterial _shaderMaterial;
+    private ShaderMaterial? _shaderMaterial;
     private Vector2 _gridOffset;
 
     public override void _Ready()
