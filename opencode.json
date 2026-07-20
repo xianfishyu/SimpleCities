@@ -6,6 +6,15 @@
       "command": ["npx", "-y", "@satelliteoflove/godot-mcp"],
       "enabled": true,
       "timeout": 15000
+    },
+    "godot-minimal": {
+      "type": "local",
+      "command": ["npx", "-y", "@ryanmazzolini/minimal-godot-mcp@0.1.6"],
+      "enabled": true,
+      "timeout": 15000,
+      "environment": {
+        "GODOT_WORKSPACE_PATH": "D:/Code/GodotProject/simple-cities"
+      }
     }
   }
 }
