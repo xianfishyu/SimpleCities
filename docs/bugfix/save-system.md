@@ -1,4 +1,4 @@
-# Persistence Bug 修复记录
+# 存档系统 Bug 修复记录
 
 > 日期：2026-06-06
 > 影响文件：`Scripts/Road/RoadGraph.cs`
@@ -6,7 +6,7 @@
 
 ---
 
-<a id="persistence-bug-1"></a>
+<a id="save-system-bug-1"></a>
 ## BUG-1：道路类型未写入存档，加载后统一退化为 Street
 
 关联文档：`road-graph:BUG-8`

@@ -1,72 +1,72 @@
 ---
 name: todo-manager
-description: "MUST USE when adding, reviewing, prioritizing, splitting, deferring, completing, reopening, cancelling, superseding, or otherwise maintaining durable project work items in the dedicated docs/todo/<system>.md roadmap for the owning system. Different systems must never be mixed in one todo document. Also use after verified work that corresponds to an existing project todo. Do not use as a substitute for the session task tracker, for general implementation review, for speculative ideas without actionable acceptance criteria, for bugfix documentation, or for Git commits."
+description: "在所属系统对应的 docs/todo/<system>.md 路线图中新增、复核、排序、拆分、延期、完成、重新打开、取消、取代或以其他方式维护跨会话项目工作项时，必须使用本 Skill。不同系统不得混写在同一份待办文档中。对于与现有项目待办对应且已经验证的工作，也必须使用本 Skill。不要把本 Skill 当作当前会话的临时任务跟踪器、通用实现评审、没有可执行验收标准的想法记录、bug 修复文档或 Git 操作工具。"
 ---
 
-# Todo Manager
+# 待办管理器
 
-Manage the project's durable roadmaps as one document per owning system under `docs/todo/`. Keep them grounded in the current working tree, current requirements, and actual verification evidence. These files track work across sessions; they are different from the agent's temporary in-session todo list.
+将项目的跨会话路线图按所属系统分别维护在 `docs/todo/` 下，每个所属系统使用一份文档。内容必须以当前工作树、当前需求和实际验证证据为依据。这些文件用于跨会话跟踪工作，与 Agent 当前会话中的临时 todo 清单不同。
 
-## Scope Gate
+## 范围门槛
 
-Use this skill for project-level work items that should survive the current session:
+以下情况应使用本 Skill 管理会话结束后仍需保留的项目级工作项：
 
-- Add an actionable feature, refactor, test, performance, documentation, or architecture task.
-- Review whether an existing item is still valid against the current code.
-- Split an item that is too broad to implement or verify safely.
-- Reorder phases or prerequisites after dependencies change.
-- Mark an item completed after its acceptance criteria have been verified.
-- Defer, cancel, supersede, or reopen an item with an evidence-based reason.
+- 新增可执行的功能、重构、测试、性能、文档或架构任务。
+- 根据当前代码复核现有工作项是否仍然有效。
+- 拆分过于宽泛、无法安全实现或验证的工作项。
+- 在依赖关系变化后重新安排阶段或前置条件。
+- 在验收标准已通过验证后将工作项标记为完成。
+- 基于证据延期、取消、取代或重新打开工作项。
 
-Do not add:
+不要添加以下内容：
 
-- Transient execution steps that belong only in the current session tracker.
-- Vague ideas such as "improve roads" without scope and acceptance criteria.
-- A bug that has already been fixed solely to make the list look complete; keep verified fixes in `docs/bugfix/` and, when useful, retain only their missing regression-test work as todo items.
-- Work already represented by an equivalent active item.
-- Claims copied from design documents without checking current source first.
+- 只属于当前会话执行过程的临时步骤；这些步骤应放在当前会话跟踪器中。
+- 没有范围和验收标准的模糊想法，例如“改进道路”。
+- 仅为了让列表看起来完整而记录已经修复的 bug；已验证的修复应保存在 `docs/bugfix/` 中，必要时只保留缺失的回归测试作为待办项。
+- 已经由等价活动项表示的工作。
+- 未先核对当前源码就从设计文档照搬的断言。
 
-## Classify and Route by System
+## 按系统分类和路由
 
-Before reading or editing a todo document, identify the system that owns the work:
+在读取或编辑待办文档前，先确定工作所属的系统：
 
-- Use stable lowercase kebab-case keys such as `road-graph`, `persistence`, `grid-rendering`, `tool-input`, `ui`, and `godot-integration`.
-- Route by the system that owns the requirement or invariant, not by the file most likely to be edited. For example, save schema work belongs to `persistence`; topology and spatial-index work belongs to `road-graph`; toolbar and panel work belongs to `ui`.
-- The canonical path is `docs/todo/<system>.md`. Reuse an existing system document and key; do not create aliases such as both `save.md` and `persistence.md`.
-- A document must contain active, deferred, completed, and baseline items for one system only. Do not add a general `misc`, `project`, or catch-all roadmap.
-- When one initiative spans systems, split it into one independently verifiable item per system. Link the items with `依赖` or `关联` fields and state which system owns the integration acceptance criterion.
-- If a task cannot be split without losing meaning, place it in the system that owns the final contract and link to collaborating system documents. Do not copy the full task into multiple files.
-- Existing mixed or legacy documents may remain unchanged for history, but new items must go to canonical system documents. When touching a legacy item, migrate only that item to its owning system document and leave a concise superseded pointer; do not silently duplicate it. If the user's current request explicitly forbids migration, do not migrate: update only canonical documents for new work and report the legacy item as unchanged.
+- 使用稳定的小写 kebab-case key，例如 `road-graph`、`save-system`、`grid-rendering`、`tool-input`、`ui` 和 `godot-integration`。
+- 按需求或不变量所属的系统路由，而不是按最可能被修改的文件路由。例如，存档 schema 工作属于 `save-system`；拓扑和空间索引工作属于 `road-graph`；工具栏和面板工作属于 `ui`。
+- 规范路径是 `docs/todo/<system>.md`。复用已有的系统文档和 key；不要创建 `save.md`、`persistence.md` 或其他别名。
+- 一份文档只能包含一个系统的活动、延期、已完成和基线项。不要添加通用的 `misc`、`project` 或兜底路线图。
+- 一个计划跨越多个系统时，拆分为每个系统中可独立验证的工作项。使用 `依赖` 或 `关联` 字段连接这些工作项，并明确哪个系统负责集成验收标准。
+- 如果一个任务无法拆分而不损失含义，则放在负责最终契约的系统中，并链接协作系统的文档。不要把完整任务复制到多份文件。
+- 现有的混合或遗留文档可以为保留历史而不变，但新工作项必须进入规范系统文档。触碰遗留项时，只迁移该项到所属系统文档，并留下简短的已取代指针；不要静默复制。如果用户当前请求明确禁止迁移，则不要迁移：新工作只更新规范文档，并报告遗留项未变。
 
-## Ground Truth
+## 事实依据
 
-Before editing, list `docs/todo/`, read the entire target system document, inspect linked system documents when dependencies cross boundaries, and inspect the source, configuration, or documentation relevant to the affected item.
+编辑前，列出 `docs/todo/`，读取目标系统文档全文；当依赖跨越系统时，检查相关系统文档；同时检查与该工作项有关的源码、配置或文档。
 
-1. Treat current code and runnable verification as primary evidence.
-2. Treat `docs/bugfix/` as evidence of completed repairs, not as a source of new implementation work unless regression coverage is missing.
-3. Treat design documents as intent; distinguish current behavior from future plans.
-4. Preserve existing numbering and references whenever possible so links and historical context remain understandable.
-5. If the evidence is incomplete, leave the item open and state what remains unknown.
+1. 将当前代码和可运行验证视为首要证据。
+2. 将 `docs/bugfix/` 视为已完成修复的证据；除非缺少回归覆盖，否则不要把它当作新增实现工作的来源。
+3. 将设计文档视为意图，并区分当前行为与未来计划。
+4. 尽可能保留现有编号和引用，使链接与历史上下文仍然易于理解。
+5. 如果证据不完整，保持工作项开放，并说明仍未知的内容。
 
-## System Document Structure
+## 系统文档结构
 
-Each `docs/todo/<system>.md` document should preserve this structure unless the user explicitly requests a redesign:
+除非用户明确要求重新设计，每份 `docs/todo/<system>.md` 都应保留以下结构：
 
 1. `# <系统名称>待办清单`
-2. Metadata block with system key, 整理日期, evidence sources, and governing principle
+2. 元数据块，包含系统 key、整理日期、证据来源和主导原则
 3. `## 状态总览`
-4. `## 执行顺序`, grouped into dependency-ordered phases
-5. `## 暂不执行`, with reasons and reopening conditions
-6. `## 已解决基线`, for verified behavior that future changes must preserve
+4. `## 执行顺序`，按依赖关系分阶段分组
+5. `## 暂不执行`，包含延期原因和重新开启条件
+6. `## 已解决基线`，记录未来修改必须保持的已验证行为
 7. `## 完成标准`
 
-The summary table is an index, not a second independent source of truth. Whenever an item's status or disposition changes, update both its detailed entry and the corresponding summary row in the same edit.
+状态总览表是索引，不是第二份独立事实来源。任何工作项状态或处置方式发生变化时，必须在同一次编辑中同时更新详细条目和对应的状态总览行。
 
-Numbering is local to one system document. Identical numeric IDs may exist in different documents, so references outside the document must include the system key, for example `road-graph:1.2` or `persistence:0.4`.
+编号只在单个系统文档内有效。不同文档可以使用相同的数字 ID，因此文档外引用必须包含系统 key，例如 `road-graph:1.2` 或 `save-system:0.4`。
 
-## Item Format
+## 工作项格式
 
-Use stable phase-based identifiers such as `0.4`, `1.2`, or `5.3`. Insert a new item into the phase that reflects its prerequisites; do not append everything to the end.
+使用 `0.4`、`1.2` 或 `5.3` 等稳定的阶段编号。将新工作项插入与其前置条件对应的阶段，不要把所有内容都追加到文档末尾。
 
 ```markdown
 - [ ] **<阶段.序号> <可执行且结果导向的标题>**
@@ -76,110 +76,110 @@ Use stable phase-based identifiers such as `0.4`, `1.2`, or `5.3`. Insert a new 
   - 验收：<可观察、可判定的完成条件>。
 ```
 
-Use only the fields that fit the work, but every active item must include:
+只使用适合该工作的字段，但每个活动项都必须包含：
 
-- **Why**: the current problem, requirement, or dependency.
-- **Where/How**: the subsystem, files, symbols, or strategy involved.
-- **Verification**: tests, build, metrics, or manual scenario.
-- **Expected result**: a binary or measurable acceptance condition.
+- **原因（Why）**：当前问题、需求或依赖。
+- **位置/方式（Where/How）**：涉及的子系统、文件、符号或策略。
+- **验证（Verification）**：测试、构建、指标或手工场景。
+- **预期结果（Expected result）**：二元或可度量的验收条件。
 
-For cross-system work, also include:
+跨系统工作还必须包含：
 
-- **Dependency**: the exact `<system>:<id>` prerequisite or collaborating item.
-- **Integration owner**: the one system document responsible for the end-to-end acceptance result.
+- **依赖（Dependency）**：准确的 `<system>:<id>` 前置条件或协作项。
+- **集成负责人（Integration owner）**：负责端到端验收结果的唯一系统文档。
 
-For performance tasks, require a baseline, dataset size, metric, and target or comparison method. For migrations, require backward-compatibility and rollback/error behavior. For documentation tasks, name the documents and the source facts they must match.
+性能任务必须要求基线、数据集规模、指标以及目标或对比方法。迁移任务必须要求向后兼容性和回滚/错误行为。文档任务必须写明需要匹配的文档和源事实。
 
-## Status Transitions
+## 状态转换
 
-### Open
+### 开放
 
-Use `- [ ]` for actionable items that are not fully verified. Partial implementation remains open; add a concise progress note instead of checking the item.
+使用 `- [ ]` 表示尚未完全验证的可执行项。部分实现仍保持开放；添加简短的进度说明，不要直接勾选。
 
-### Completed
+### 已完成
 
-Change to `- [x]` only when all stated acceptance criteria are satisfied by actual evidence.
+只有所有声明的验收标准都已经由实际证据满足时，才将其改为 `- [x]`。
 
-Before marking complete:
+标记完成前：
 
-1. Confirm the relevant implementation or document exists in the current working tree.
-2. Run the item's specified tests, build, diagnostics, metrics, or manual scenario where applicable.
-3. Record the exact evidence concisely in the owning system's item or `已解决基线`.
-4. Update the summary row to `已完成` or `已修复` and describe any remaining follow-up separately.
+1. 确认相关实现或文档存在于当前工作树中。
+2. 在适用时，执行该项规定的测试、构建、诊断、指标采集或手工场景。
+3. 在所属系统的工作项或 `已解决基线` 中简洁记录准确证据。
+4. 将状态总览行更新为 `已完成` 或 `已修复`，并单独说明仍需跟进的事项。
 
-If some acceptance criteria remain unverified, do not mark complete. Split the remaining work into a new item only when the completed portion is independently valuable and verifiable.
+如果仍有验收标准未验证，不要标记完成。只有当已完成部分本身具有独立价值且可验证时，才将剩余工作拆成新的工作项。
 
-### Deferred
+### 暂不执行
 
-Move non-actionable work to `## 暂不执行` when a product decision, prerequisite, or external requirement is missing. Include:
+当缺少产品决策、前置条件或外部要求时，将不可执行的工作移至 `## 暂不执行`。必须包含：
 
-- Why it is deferred now.
-- What remains unchanged in the meantime.
-- A precise reopening condition.
+- 当前延期的原因。
+- 期间保持不变的内容。
+- 明确的重新开启条件。
 
-Deferred is not completed. Keep its checkbox open unless the item describes a decision that has itself been completed.
+延期不等于完成。除非该项描述的是已经完成的决策，否则保持复选框未勾选。
 
-### Cancelled or Superseded
+### 取消或取代
 
-Do not silently delete historical work. Mark the summary disposition as `取消` or `已取代`, explain why, and point to the replacing item or current behavior. Remove the detailed item only when it has no lasting context and the user explicitly requests cleanup.
+不要静默删除历史工作。将状态总览处置方式标记为 `取消` 或 `已取代`，解释原因，并指向替代工作项或当前行为。只有当详细条目不再有长期上下文且用户明确要求清理时，才删除它。
 
-### Reopened
+### 重新打开
 
-Change `[x]` back to `[ ]`, record the regression or invalidated assumption, and add new verification criteria. If the reopened issue is a confirmed bug, use `bugfix-recorder` after the new repair is implemented and verified.
+将 `[x]` 改回 `[ ]`，记录回归或已失效的假设，并添加新的验证标准。如果重新打开的是已确认的 bug，则在新修复完成并验证后使用 `bugfix-recorder`。
 
-## Prioritization and Dependencies
+## 优先级和依赖
 
-Order work by dependency and risk, not by when it was mentioned:
+按依赖和风险排序，而不是按提及顺序排序：
 
-1. Regression protection and reproducible test entry points.
-2. Correctness, data integrity, save compatibility, and destructive-operation safety.
-3. User-visible behavior and interaction defects.
-4. Architectural refactors protected by tests.
-5. Performance work with measured baselines.
-6. Visual polish, naming cleanup, and documentation calibration.
+1. 回归保护和可复现的测试入口。
+2. 正确性、数据完整性、存档兼容性和破坏性操作安全。
+3. 用户可见行为和交互缺陷。
+4. 有测试保护的架构重构。
+5. 有测量基线的性能工作。
+6. 视觉润色、命名清理和文档校准。
 
-An item that enables several later items in the same system belongs in an earlier phase. Cross-system prerequisites must use explicit `<system>:<id>` references because ordering in one document cannot represent global order. Do not move a task into an earlier phase merely because it is easy.
+能够为同一系统中多个后续工作提供条件的项，应放在更早的阶段。跨系统前置条件必须使用明确的 `<system>:<id>` 引用，因为单份文档内的排序无法表达全局顺序。不要仅因为任务容易就把它移到更早阶段。
 
-## Updating After Implementation
+## 实现后的更新
 
-When completed work corresponds to an existing todo:
+当已完成的工作对应现有待办项时：
 
-1. Identify the owning system first, then match the work by behavior and acceptance criteria, not only by title or file name.
-2. Compare the actual implementation with every requirement in that item.
-3. Mark it completed only if all requirements pass.
-4. Update source line references if edits made them stale; prefer symbol names over fragile line-only references.
-5. Add or update `已解决基线` when the behavior is important regression protection.
-6. Set `整理日期` to the actual current date only when the document was materially reviewed or changed.
+1. 先确定所属系统，再按行为和验收标准匹配工作，而不只是按标题或文件名匹配。
+2. 将实际实现与该项的每一条要求进行比较。
+3. 只有所有要求都通过时，才标记完成。
+4. 如果修改导致源码行号失效，更新引用；优先使用符号名，而不是脆弱的纯行号引用。
+5. 如果该行为是重要的回归保护，添加或更新 `已解决基线`。
+6. 只有在文档确实经过实质复核或修改时，才将 `整理日期` 设置为实际当前日期。
 
-Do not automatically close nearby items just because the same file was modified. Do not close an item in another system unless that document's own acceptance criteria were verified. Do not weaken acceptance criteria to match an incomplete implementation.
+不要因为修改了同一个文件就自动关闭附近的工作项。除非另一个系统文档自身的验收标准已经验证，否则不要关闭其中的工作项。不要为了匹配不完整的实现而降低验收标准。
 
-## Cross-Skill Boundaries
+## 与其他 Skill 的边界
 
-- **Session tracker**: use the agent's todo tool for immediate execution steps. This skill manages only system roadmaps under `docs/todo/`.
-- **Bug fixes**: after a verified repair, use `bugfix-recorder` for the owning system's durable incident record. Update a system todo document only if one of its listed items was completed or follow-up work remains.
-- **Git**: todo maintenance never authorizes staging, committing, rebasing, or pushing. Use `git-master` only when the user explicitly requests Git work.
-- **Implementation**: editing the todo does not authorize implementing the listed work unless the user's current request explicitly asks for implementation.
+- **会话跟踪器**：使用 Agent 的 todo 工具记录当前执行步骤。本 Skill 只管理 `docs/todo/` 下的系统路线图。
+- **Bug 修复**：验证修复后，使用 `bugfix-recorder` 保存所属系统的持久化事件记录。只有当系统待办中有条目完成或仍需后续工作时，才更新系统待办文档。
+- **Git**：维护待办不授权暂存、提交、变基或推送。只有用户明确要求 Git 工作时，才使用 `git-master`。
+- **实现**：编辑待办不等于授权实现待办中列出的工作；除非用户当前请求明确要求实现，否则不要实现其中内容。
 
-## Writing Rules
+## 写作规则
 
-- Preserve Chinese prose and exact code identifiers.
-- Use repository-relative paths; never include machine-specific absolute paths.
-- Keep tasks concise but decision-complete.
-- State facts, not confidence language or unsupported estimates.
-- Never invent test results, performance numbers, issue IDs, dates, or completion evidence.
-- Avoid duplicate requirements across multiple active items; use references when concerns overlap.
-- Never place unrelated systems in one document for convenience. Split and cross-reference instead.
-- Do not rewrite the whole roadmap for a small status update.
+- 所有面向人的标题、说明、状态、原因和验收内容必须使用中文；代码标识符、系统 key、路径及外部专有名称保持准确原文。
+- 使用仓库相对路径；绝不包含机器相关的绝对路径。
+- 保持任务简洁，同时使决策信息完整。
+- 陈述事实，不使用无依据的置信度措辞或估算。
+- 绝不编造测试结果、性能数据、Issue ID、日期或完成证据。
+- 避免在多个活动项中重复要求；有重叠时使用引用。
+- 不要为了方便而把无关系统放在同一份文档中。应拆分并相互引用。
+- 小型状态更新不要重写整份路线图。
 
-## Final Report
+## 最终报告
 
-After editing, tell the user:
+编辑完成后，向用户说明：
 
-- Which owning system document or documents were selected.
-- Which todo IDs were added, changed, completed, deferred, reopened, or superseded.
-- Why their status changed.
-- What verification evidence supports completed items.
-- Which items remain blocked or unverified.
-- For cross-system initiatives, which document owns final integration acceptance and which dependencies were linked.
+- 选中了哪些所属系统文档。
+- 新增、修改、完成、延期、重新打开或取代了哪些 todo ID。
+- 状态发生变化的原因。
+- 支持已完成项的验证证据。
+- 哪些项仍被阻塞或尚未验证。
+- 对于跨系统计划，哪份文档负责最终集成验收，以及关联了哪些依赖。
 
-Report Git state only when relevant, and never create a commit unless explicitly requested.
+只有在相关时才报告 Git 状态，并且除非用户明确要求，否则绝不创建提交。

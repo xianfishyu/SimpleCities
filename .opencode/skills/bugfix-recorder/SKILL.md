@@ -22,9 +22,9 @@ If verification is blocked or failing, report that status to the user instead of
 
 Read the existing files in `docs/bugfix/` before writing.
 
-- Identify the system that owns the broken invariant, not merely the file where the symptom surfaced. Examples include `road-graph`, `persistence`, `grid-rendering`, `tool-input`, `ui`, and `godot-integration`.
-- Use one stable lowercase kebab-case system key. Reuse an existing key when its document already owns that system; do not create synonyms such as both `save` and `persistence`.
-- Route by responsibility. A save/load bug belongs to `persistence` even when detected while loading roads; a topology bug belongs to `road-graph`; an editor addon connection bug belongs to `godot-integration`.
+- Identify the system that owns the broken invariant, not merely the file where the symptom surfaced. Examples include `road-graph`, `save-system`, `grid-rendering`, `tool-input`, `ui`, and `godot-integration`.
+- Use one stable lowercase kebab-case system key. The canonical save/load key is `save-system`; do not create or reuse aliases such as `save` or `persistence`.
+- Route by responsibility. A save/load bug belongs to `save-system` even when detected while loading roads; a topology bug belongs to `road-graph`; an editor addon connection bug belongs to `godot-integration`.
 - If one repair fixes independent root causes in different systems, create or update one document per system. In each document, describe only that system's cause, change, impact, and verification, then cross-reference the companion document.
 - If ownership is genuinely shared and cannot be separated, choose the system that owns the violated contract and add a short `关联文档` reference to the collaborating system. Never create a generic mixed document such as `misc-fixes.md`.
 
@@ -32,7 +32,7 @@ Read the existing files in `docs/bugfix/` before writing.
 
 - The canonical path is `docs/bugfix/<system>.md`.
 - Append only when the existing document has the same owning system. Continue that document's existing `BUG-N` numbering.
-- `BUG-N` numbering is local to one system document. Cross-document references must include the system key, for example `persistence:BUG-2` or `road-graph:BUG-1`.
+- `BUG-N` numbering is local to one system document. Cross-document references must include the system key, for example `save-system:BUG-2` or `road-graph:BUG-1`.
 - Otherwise create the canonical system document. Name it after the system, not the date, symptom, incident, branch, or a generic label such as `fix-1.md`.
 - A follow-up or regression remains in the same system document even when it comes from a different incident. Separate incidents with distinct `BUG-N` sections, not separate symptom-named files.
 - Preserve the existing document's language, headings, terminology, and level of detail. This project currently uses Chinese prose with code identifiers left unchanged.

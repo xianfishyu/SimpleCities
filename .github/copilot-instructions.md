@@ -26,10 +26,10 @@ SimpleCities 是 Godot 4.7 C# 城市建造原型。当前核心是无限网格�
 - **依赖**：ImGui.NET 1.91.6.1
 - **构建**：`dotnet build SimpleCities.sln`
 - **主场景**：`Scenes/MapTest.tscn`
-- **Autoload**：`ImGuiRoot`、`SaveManager`
+- **Autoload**：`ImGuiRoot`、`SaveManager`、`MCPGameBridge`
 - **共享道路配置**：`Scenes/road_config.tres`
 
-修改 C# 后至少运行一次 `dotnet build SimpleCities.sln`。当前已知 `Scripts/Grid/MapBackground.cs` 有 4 个 nullable 警告；不要把既有警告描述成新改动导致的问题。
+修改 C# 后至少运行一次 `dotnet build SimpleCities.sln`。以当前构建输出为准判断 warning 来源；不要把既有 warning 描述成新改动导致的问题。
 
 ## 项目结构
 
@@ -221,7 +221,7 @@ public partial class RoadSystem : Node2D
 
 ## 存档与加载
 
-- `SaveManager` 是 Autoload 单例，保存目录为 `user://saves/<slot>/`
+- `SaveManager` 是 Autoload 单例；编辑器保存到 `res://saves/<slot>/`，导出版本保存到可执行文件旁的 `saves/<slot>/`
 - 每个 `ISaveable` 写独立 JSON；manifest 记录该槽包含的文件
 - 文件先写 `.tmp` 再移动为正式文件，降低中断损坏风险
 - 当前注册对象：`RoadGraph` 和 `MainCamera`
@@ -296,18 +296,21 @@ public partial class RoadSystem : Node2D
 
 ## 文档索引
 
-- `docs/class-reference.md` — 类与 API 参考（使用前仍需和源码核对）
+- `docs/README.md` — 文档分类与完整导航
+- `docs/reference/class-reference.md` — 类与 API 参考（使用前仍需和源码核对）
 - `docs/manuals/grid-system.md` — 网格设计
-- `docs/manuals/road-system-next-gen.md` — RoadGraph 重构设计
+- `docs/manuals/road-system-v2-gen.md` — RoadGraph 重构设计
 - `docs/manuals/infrastructure-guide.md` — 基础设施开发指南
-- `docs/manuals/design-overview.md` — 设计总览
-- `docs/implementation-roadmap.md` — 实现进度
-- `docs/persistence-plan.md` — 存档设计
-- `docs/ui-architecture.md` — UI 架构
-- `docs/game-logic.md` — 系统逻辑图
-- `docs/simulation-systems.md` — 远期模拟系统设计
-- `docs/math-model.md` — 模拟数学模型
-- `docs/game-style-discussion.md` — 游戏风格讨论
-- `docs/bugfix/road-graph-post-refactor.md` — RoadGraph 重构后的修复记录
+- `docs/design/overview.md` — 设计总览
+- `docs/roadmaps/implementation-roadmap.md` — 实现进度
+- `docs/reference/save-system-plan.md` — 存档系统当前参考与演进计划
+- `docs/reference/ui-architecture.md` — UI 架构
+- `docs/reference/game-logic.md` — 系统逻辑图
+- `docs/design/simulation-systems.md` — 远期模拟系统设计
+- `docs/design/math-model.md` — 模拟数学模型
+- `docs/design/game-style-discussion.md` — 游戏风格讨论
+- `docs/opencode-tooling/skills.md` — 项目 Skill 与维护规则
+- `docs/opencode-tooling/opencode-mcp-lsp.md` — OpenCode MCP 与 LSP 排障
+- `docs/bugfix/README.md` — 按系统拆分的修复记录索引
 
 源码是最终事实来源。设计文档可能描述未来目标；实现任务前必须先核对当前类、方法和调用关系。

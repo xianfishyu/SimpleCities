@@ -1,0 +1,45 @@
+# SimpleCities 文档索引
+
+`docs/` 按文档用途组织。源码和可运行行为是当前实现的最终事实来源；设计与路线图文档可能包含尚未实现的目标。
+
+## 当前参考
+
+- [类与 API 参考](reference/class-reference.md)
+- [系统逻辑与运行流程](reference/game-logic.md)
+- [UI 架构](reference/ui-architecture.md)
+- [存档系统当前参考](reference/save-system-plan.md)
+
+## 当前路线图
+
+- [存档系统待办](todo/save-system.md)
+
+## 已验证修复
+
+- [Bugfix 索引](bugfix/README.md)
+- [存档系统修复记录](bugfix/save-system.md)
+
+## 设计
+
+- [设计总览](design/overview.md)
+- [游戏风格讨论](design/game-style-discussion.md)
+- [模拟数学模型](design/math-model.md)
+- [模拟系统设计](design/simulation-systems.md)
+
+这些文档主要记录产品方向、系统方案和远期模型，不应直接视为当前实现契约。
+
+## 路线图与工作记录
+
+- [实现路线图](roadmaps/implementation-roadmap.md)
+- [系统待办索引](todo/README.md)：按 owning system 拆分的长期任务与验收标准。
+- [会话记录](session-notes/)：重要工作阶段的上下文与迁移说明。
+
+## 开发手册
+
+- [网格系统](manuals/grid-system.md)
+- [基础设施开发指南](manuals/infrastructure-guide.md)
+- [RoadGraph 重构与演进说明](manuals/road-system-v2-gen.md)
+
+## OpenCode 工具链
+
+- [项目 Skill 说明](opencode-tooling/skills.md)
+- [OpenCode MCP 与 LSP](opencode-tooling/opencode-mcp-lsp.md)
