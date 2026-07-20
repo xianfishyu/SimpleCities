@@ -1,6 +1,8 @@
 # UI 系统架构
 
-> 状态：已实施 | 最后更新：2026-05-28
+> 状态：已实施 | 最后更新：2026-07-19
+>
+> 当前实现范围：HUD、工具按钮、存档按钮、UIManager 和轮询式状态更新已实现。资金、人口、RCI、日期、速度控制和模拟事件仍是未来计划。
 
 ---
 
@@ -18,8 +20,8 @@ UI 系统采用**三层叠加 + 面板管理**架构：
 │  · 速度控制  · 预算面板  · 图表                │
 ├──────────────────────────────────────────────┤
 │  Layer 1: HUD 常驻层（始终可见）               │  ← 不可关闭
-│  · FPS  · 资金/人口  · RCI 需求条             │
-│  · 日期/时间  · 工具选择  · 路网统计           │
+│  · FPS  · 工具选择  · 鼠标格点                │
+│  · 路网统计  · 工具按钮  · 存档按钮            │
 ├──────────────────────────────────────────────┤
 │  Game World（Camera2D 视口）                   │
 └──────────────────────────────────────────────┘
@@ -35,12 +37,22 @@ UI 系统采用**三层叠加 + 面板管理**架构：
 
 ## 2. 文件结构
 
+当前已存在文件：
+
 ```
 Scripts/UI/
 ├── UIHelpers.cs       ← 静态工厂：CreateLabel / CreateToolButton / CreateDarkPanel
 ├── UIManager.cs       ← 面板生命周期管理器（全局单例）
-├── GameHUD.cs         ← 主 HUD：FPS、工具、格点、路网统计、工具按钮
-│
+└── GameHUD.cs         ← 主 HUD：FPS、工具、格点、路网统计、工具按钮
+
+Scenes/UI/              ← .tscn 场景文件
+└── GameHUD.tscn         ← HUD 布局
+```
+
+未来计划文件：
+
+```
+Scripts/UI/
 ├── InfoPanel.cs       ← 🔜 点击对象弹出详情
 ├── ToolPanel.cs       ← 🔜 根据 ToolType 显示对应子面板
 ├── SpeedControl.cs    ← 🔜 时间速度控制
@@ -48,7 +60,6 @@ Scripts/UI/
 └── ModalDialog.cs     ← 🔜 通用模态对话框基类
 
 Scenes/UI/              ← .tscn 场景文件
-├── GameHUD.tscn         ← ✅ HUD 布局
 ├── InfoPanel.tscn
 └── ...
 ```
@@ -65,7 +76,7 @@ UI 每帧从仿真单例读取最新数据，适合高频/简单场景：
 GameHUD._Process(delta)
   ├── ToolManager.Instance.CurrentTool      → 工具 Label
   ├── MainCamera.Instance.GetGlobalMousePos → 鼠标格点 Label
-  ├── RoadSystem.Instance.Network           → 路网统计 Label
+  ├── RoadSystem.Instance.Graph             → 路网统计 Label
   └── Engine.GetFramesPerSecond()           → FPS Label
 ```
 
@@ -82,7 +93,7 @@ GameHUD._Process(delta)
 **事件驱动示例**（推荐模式）：
 
 ```csharp
-// — 仿真侧 —
+// 未来设计示例，当前 EconomySystem 尚未实现
 public class EconomySystem
 {
     public event Action<BudgetData>? BudgetChanged;
@@ -153,25 +164,27 @@ CanvasLayer (GameHUD)                       ← .tscn 根节点 + C# 脚本
 ├── UIManager (Node)                        ← 代码自动创建
 └── Panel (半透明深色背景)                    ← .tscn 定义
     └── VBoxContainer                        ← .tscn 定义
-        ├── Label "FPS"         (%FPS)       ← .tscn 定义
-        ├── Label "Tool"        (%Tool)      ← .tscn 定义
-        ├── Label "MousePos"    (%MousePos)  ← .tscn 定义
-        ├── HSeparator                        ← .tscn 定义
-        ├── Label "Roads"                    ← .tscn 定义
-        ├── Label "Segments"                 ← .tscn 定义
-        ├── Label "Junctions"                ← .tscn 定义
-        ├── Control (spacer)                  ← .tscn 定义
-        └── HBoxContainer "ToolBar"           ← .tscn 定义
-            ├── Button "SelectBtn"            ← .tscn 定义
-            ├── Button "RoadBtn"              ← .tscn 定义
-            └── Button "RemoveBtn"            ← .tscn 定义
+        ├── Label "SectionInfo"              ← .tscn 定义
+        ├── HBoxContainer "RowFPS"            ← 含 FPS Label
+        ├── HBoxContainer "RowTool"           ← 含 Tool Label
+        ├── HBoxContainer "RowMouse"          ← 含 MousePos Label
+        ├── HSeparator "Sep1"
+        ├── Label "SectionRoads"
+        ├── HBoxContainer "RowRoads"          ← 含 Roads Label
+        ├── HBoxContainer "RowSegments"       ← 含 Segments Label
+        ├── HBoxContainer "RowJunctions"      ← 含 Junctions Label
+        ├── HSeparator "Sep2"
+        ├── Label "SectionTools"
+        ├── HBoxContainer "ToolBar"           ← SelectBtn / RoadBtn / RemoveBtn
+        ├── Label "SectionSave"
+        └── HBoxContainer "SaveBar"           ← SaveBtn / LoadBtn
 ```
 
 ### 5.2 代码组织
 
 - `_Ready()` — 解析依赖 → 初始化 UIManager → `ResolveChildNodes()` → `WireButtons()`
-- `ResolveChildNodes()` — `GetNode<Label>("Panel/VBox/FPS")` 等，从 .tscn 树中获取引用
-- `WireButtons()` — `GetNode<Button>("...").Pressed +=` 绑定三个工具按钮
+- `ResolveChildNodes()` — `GetNode<Label>("Panel/VBox/RowFPS/FPS")` 等，从 .tscn 树中获取引用
+- `WireButtons()` — 绑定 `ToolBar` 三个工具按钮和 `SaveBar` 的保存/加载按钮
 - `_Process()` → `UpdateFPS()` / `UpdateToolInfo()` / `UpdateMousePos()` / `UpdateRoadStats()` — 帧更新
 
 ### 5.3 依赖
@@ -180,7 +193,7 @@ CanvasLayer (GameHUD)                       ← .tscn 根节点 + C# 脚本
 |------|------|---------|
 | `RoadConfig` | 格点尺寸 | `[Export]` 注入 |
 | `ToolManager` | 当前工具 | `ToolManager.Instance` |
-| `RoadSystem` → `RoadNetwork` | 路网数据 | `RoadSystem.Instance.Network` |
+| `RoadSystem` → `RoadGraph` | 路网数据 | `RoadSystem.Instance.Graph` |
 | `MainCamera` | 鼠标世界坐标 | `MainCamera.Instance` |
 | `UIManager` | 面板管理器 | `UIManager.Instance` |
 
@@ -258,6 +271,7 @@ panel?.ShowFor(selectedObject);
 | HUD 不注册到 UIManager | HUD 始终可见，不需要显示/隐藏管理 |
 | GameHUD 布局迁移到 `.tscn` 场景 | 静态布局由 Godot 编辑器管理，C# 仅负责动态逻辑和事件绑定 |
 | `_Process` 轮询而非事件驱动（当前阶段） | Phase 1 仅 6 个动态 Label，轮询开销可忽略；Phase 4+ 引入事件驱动 |
+| F5/F9 由 `GameHUD._Input()` 处理 | 当前保存和加载固定使用 `autosave` 槽 |
 
 ---
 

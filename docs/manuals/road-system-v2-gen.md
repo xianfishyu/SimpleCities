@@ -1,14 +1,14 @@
-# 道路系统下一代迭代设计指南
+# 第二代道路系统迭代设计指南
 
-> 状态：设计草案 | 创建日期：2026-06-04
+> 状态：历史设计与迁移记录 | 创建日期：2026-06-04 | 当前状态更新：RoadGraph 迁移已完成
 >
-> 本文档基于当前 Phase 1 道路系统的完整复盘，为下一代重设计提供架构蓝图。
+> 本文档基于迁移前 Phase 1 RoadNetwork 系统的完整复盘，记录 RoadGraph 重构的诊断、设计和迁移路径。文中“当前系统”在诊断章节指迁移前的 legacy RoadNetwork。当前运行时已经完成 RoadGraph / GraphNode / GraphEdge / RoadGroup / SpatialIndex 迁移。TrafficGraph、A*、道路升级工具和按 RoadType 差异化渲染仍是未来工作。
 
 ---
 
 ## 目录
 
-1. [问题诊断：当前系统的核心矛盾](#1-问题诊断当前系统的核心矛盾)
+1. [问题诊断：迁移前 Phase 1 系统的核心矛盾](#1-问题诊断迁移前-phase-1-系统的核心矛盾)
 2. [设计原则](#2-设计原则)
 3. [核心架构：纯连续图](#3-核心架构纯连续图)
 4. [数据结构](#4-数据结构)
@@ -22,11 +22,13 @@
 
 ---
 
-## 1. 问题诊断：当前系统的核心矛盾
+## 1. 问题诊断：迁移前 Phase 1 系统的核心矛盾
+
+> 本章保留历史诊断。“当前 RoadNetwork”指迁移前系统，不是当前 SimpleCities 运行时。
 
 ### 1.1 双重身份危机
 
-当前 RoadNetwork 的核心数据结构同时存在于两个世界：
+迁移前 RoadNetwork 的核心数据结构同时存在于两个世界：
 
 ```
 世界 A — 网格索引（Grid-Indexed）
@@ -68,7 +70,7 @@
 
 ### 1.3 CellSize 的病毒式传播
 
-`CellSize` 参数在当前系统中几乎无处不在：
+`CellSize` 参数在迁移前系统中几乎无处不在：
 
 ```
 RoadBuilder          — 所有拖拽/吸附计算
@@ -98,7 +100,7 @@ GameHUD              — 鼠标格点坐标显示
 
 ## 2. 设计原则
 
-下一代系统遵循以下原则，每条都针对当前系统的具体问题：
+下一代系统遵循以下原则，每条都针对迁移前系统的具体问题：
 
 ### P1：图即真相（Graph as Single Source of Truth）
 
@@ -120,13 +122,13 @@ GameHUD              — 鼠标格点坐标显示
 
 ### P4：添加比修改简单，修改比删除简单（CRUD Asymmetry）
 
-当前系统的高复杂度集中在 **删除操作**（`RemoveSegment`）：需要同步清理 `_posToSegmentID`、断连 Junction、清理孤立 Junction、补回共享 Junction 的索引、拆分 Road 连通分量、触发合并降级。下一代的设计应使删除操作的复杂度和添加操作相当。
+迁移前系统的高复杂度集中在 **删除操作**（`RemoveSegment`）：需要同步清理 `_posToSegmentID`、断连 Junction、清理孤立 Junction、补回共享 Junction 的索引、拆分 Road 连通分量、触发合并降级。下一代的设计应使删除操作的复杂度和添加操作相当。
 
 > 手段：将"Road = 连通分量"的语义从"删除时修复"变为"查询时计算"。
 
 ### P5：不变式最小化（Minimize Invariants）
 
-当前系统有多个容易破裂的不变式：
+迁移前系统有多个容易破裂的不变式：
 - `_posToSegmentID` 的 key 必须被 `SnapToGrid` 标准化（否则字典查找失败）
 - 半格 Junction 不能出现在 `_posToJunctionID` 中（否则格点 Junction 覆盖它）
 - `_posToSegmentID` 中共享 Junction 的条目必须在删段后补回（否则点击拆除失效）
@@ -162,9 +164,11 @@ GameHUD              — 鼠标格点坐标显示
   - CellSize 不出现在 Layer 2
 ```
 
-### 3.2 与当前架构的对照
+**当前运行时状态**：RoadGraph、GraphNode、GraphEdge、RoadGroup 和 SpatialIndex 已落地。GridSystem 与 DirectionUtil 仍承担 8 方向输入约束，RoadGraph 不回到 legacy RoadNetwork 命名。
 
-| 当前 | 下一代 | 变化 |
+### 3.2 与迁移前架构的对照
+
+| 迁移前 | 当前 RoadGraph | 变化 |
 |------|--------|------|
 | `RoadNetwork` | `RoadGraph` | 去掉所有位置索引字典；去掉 CellSize 参数 |
 | `_posToJunctionID` | `SpatialIndex` | 从数据存储变为查询服务 |
@@ -336,7 +340,7 @@ public enum RoadType
 }
 ```
 
-> 这是 Phase 6 需要的道路层级基础。当前版本可在 `RoadConfig` 中设为默认 `Street`，全部现有道路视为普通街道。
+> RoadType 已进入当前数据和存档模型。当前 UI 仍固定创建 `Street`，按 RoadType 差异化渲染和道路升级工具仍是未来工作。
 
 ---
 
@@ -479,7 +483,7 @@ var hits = _spatialIndex.QueryRadius(clickPos, snapRadius);
 
 ### 6.1 铺设道路（AddRoad）
 
-**当前流程的复杂度来源**：
+**迁移前流程的复杂度来源**：
 1. 半格点特殊处理（skipSnap、锚定计算）
 2. X 形交叉解析（ResolveInteriorCrossings + SplitSegmentAtPosition）
 3. 共线重叠跳过（IsApproachColinearWithSegment）
@@ -488,7 +492,7 @@ var hits = _spatialIndex.QueryRadius(clickPos, snapRadius);
 6. 拓扑去重
 7. 合并降级（TryMergeAtJunction）
 
-**下一代简化后的流程**：
+**RoadGraph 目标流程**：
 
 ```
 AddRoad(fromPos, toPos, waypoints, groupID, roadType):
@@ -533,14 +537,14 @@ AddRoad(fromPos, toPos, waypoints, groupID, roadType):
 
 ### 6.2 拆除边（RemoveEdge）
 
-**当前流程的复杂度来源**：
+**迁移前流程的复杂度来源**：
 1. 清 `_posToSegmentID` 索引（含共享 Junction 的条目标记）
 2. 断连 Junction → 清理孤立 Junction → 清 `_posToJunctionID`
 3. `MaybeReindexJunctionInPosDict` 补丁
 4. 从 Road 摘除 Segment → Road 空则清 → 否则 `SplitRoadIntoConnectedComponents`
 5. 触发 `TryMergeAtJunction`（含 `_inMergeOperation` 守卫）
 
-**下一代简化后的流程**：
+**RoadGraph 目标流程**：
 
 ```
 RemoveEdge(edgeID):
@@ -574,7 +578,7 @@ FindClosestEdge(position, radius):
   3. 若未命中，筛选 NodeRef → 取距离最近的 → 返回该节点上任一条边的 edgeID
 ```
 
-对比当前的三级回退（字典 → waypoint 扫描 → Junction ConnectedSegment），新方案是单次空间索引查询 + 按需过滤。
+对比迁移前的三级回退（字典 → waypoint 扫描 → Junction ConnectedSegment），新方案是单次空间索引查询 + 按需过滤。
 
 ---
 
@@ -625,9 +629,9 @@ public class RoadGraph
 }
 ```
 
-### 7.2 与当前 API 的对照
+### 7.2 与 legacy API 的对照
 
-| 当前方法 | 下一代方法 | 变化 |
+| legacy 方法 | 当前 RoadGraph 方法 | 变化 |
 |----------|-----------|------|
 | `AddRoad(from, to, wps, cellSize, extendRoadID)` | `AddRoad(start, end, wps, type)` | 去掉 `cellSize`，去掉 `extendRoadID`（占位），加 `type` |
 | `RemoveSegment(segmentID)` | `RemoveEdge(edgeID)` | 行为简化（不再触发拓扑修复链） |
@@ -656,14 +660,14 @@ RoadGraph 事件:
 
 ### 8.2 节点渲染简化
 
-当前渲染逻辑：
+迁移前渲染逻辑：
 ```
 foreach junction in GetAllJunctions():
     if junction.ConnectionCount >= 2 → 画 Junction 圆点
     else if junction.ConnectionCount == 1 → 画 Endpoint 圆点
 ```
 
-下一代：
+RoadGraph：
 ```
 foreach node in GetAllNodes():
     if node.EdgeCount >= 2 → 画 Node 圆点
@@ -674,7 +678,7 @@ foreach node in GetAllNodes():
 
 ### 8.3 道路分级视觉
 
-当 `RoadType` 引入后，渲染层按 RoadType 查表决定样式：
+未来按道路分级显示时，渲染层可按 RoadType 查表决定样式：
 
 ```csharp
 // 在 RoadConfig 中添加:
@@ -696,7 +700,7 @@ line.DefaultColor = style.Color;
 line.Width = style.Width;
 ```
 
-> 这保持了全局 `RoadConfig` 的模式（用户的选择），同时支持按等级差异化。
+> 这保持了全局 `RoadConfig` 的模式，同时支持未来按等级差异化。当前 RoadRenderer 仍统一使用 RoadConfig 的基础颜色和线宽。
 
 ---
 
@@ -750,9 +754,11 @@ EdgeRemoved → TrafficGraph 移除边 + 标记经过此边的所有路径为"�
 
 ### 10.1 为什么不能一刀切重写
 
-当前系统已经稳定运行，有一整套单元测试（若不存在则应先补测试），存档格式已定义，渲染系统工作正常。一刀切重写风险极高。
+迁移前系统已经稳定运行，存档格式已定义，渲染系统工作正常。一刀切重写风险极高。这段保留当时的迁移判断，当前 RoadGraph 重构已经完成。
 
-### 10.2 渐进式迁移
+### 10.2 渐进式迁移记录
+
+> 阶段 A 和阶段 B 的 RoadGraph / SpatialIndex / GraphNode / GraphEdge / RoadGroup 迁移已经完成。以下内容保留为历史迁移记录，阶段 C 仍是未来模拟工作。
 
 分三个阶段，每个阶段可独立交付和测试：
 
@@ -802,16 +808,16 @@ EdgeRemoved → TrafficGraph 移除边 + 标记经过此边的所有路径为"�
 
 ### 10.3 存档兼容性
 
-当前存档格式（`RoadNetworkData`）包含字段名如 `Junctions`、`Segments`、`Roads`。阶段 B 重命名后格式会变化。处理方案：
+legacy 存档格式（`RoadNetworkData`）包含字段名如 `Junctions`、`Segments`、`Roads`。当前 RoadGraph 写入 private v2 payload，但 JSON 兼容字段名仍保留为 `junctions`、`segments`、`roads`。不要仅因运行时类型改名破坏这些字段。
 
 ```csharp
-// RoadNetworkData 保留旧字段名 + 添加新别名
-// RestoreState 中检测 JSON 字段存在性 → 用旧名或新名
+// RoadNetworkData 保留 legacy public DTO
+// RoadGraph v2 payload 继续使用 junctions / segments / roads 兼容字段
 
-// 或者：引入版本号
+// 当时的备选提案：引入版本号
 public class RoadNetworkData
 {
-    public int Version { get; set; } = 1;  // v1 → 当前格式, v2 → 新格式
+    public int Version { get; set; } = 1;  // 迁移前示例；当前 RoadGraph payload 已写出 version 2
     // ...
 }
 ```
@@ -821,6 +827,8 @@ public class RoadNetworkData
 ## 11. 路线图与优先级
 
 ### 优先级矩阵
+
+> 当前状态：阶段 A 和阶段 B 已完成。阶段 C、TrafficGraph、A*、道路升级工具和按 RoadType 差异化渲染仍保留为未来设计。
 
 | 任务 | 价值 | 成本 | 风险 | 优先级 |
 |------|------|------|------|--------|
@@ -849,24 +857,24 @@ Phase 2（分区系统）进行中
 
 ## 附录 A：命名对照表
 
-| 当前名称 | 下一代名称 | 说明 |
+| legacy 名称 | 当前 RoadGraph 名称 | 说明 |
 |----------|-----------|------|
-| `RoadNetwork` | `RoadGraph` | 强调"图"而非"网络" |
-| `Junction` | `GraphNode` | 去掉"路口"隐含的地理语义 |
-| `Segment` | `GraphEdge` | 去掉"段"隐含的破碎语义 |
-| `Road` | `RoadGroup` | 强调"分组"而非"路"（与 GraphEdge 区分） |
+| `RoadNetwork` | `RoadGraph` | 强调"图"而非"网络"，当前已完成 |
+| `Junction` | `GraphNode` | 去掉"路口"隐含的地理语义，当前已完成 |
+| `Segment` | `GraphEdge` | 去掉"段"隐含的破碎语义，当前已完成 |
+| `Road` | `RoadGroup` | 强调"分组"而非"路"（与 GraphEdge 区分），当前已完成 |
 | `JunctionType` | *删除* | 类型按需计算，不存储为状态 |
 | `ConnectionCount` | `EdgeCount` | 名称简化 |
 | `FromJunctionID` / `ToJunctionID` | `NodeA` / `NodeB` | 无向语义 |
-| `_posToJunctionID` | *删除* | 并入 SpatialIndex |
-| `_posToSegmentID` | *删除* | 并入 SpatialIndex |
+| `_posToJunctionID` | *删除* | 并入 SpatialIndex，当前已完成 |
+| `_posToSegmentID` | *删除* | 并入 SpatialIndex，当前已完成 |
 | `Direction`, `DirectionUtil` | *保留但仅用于 UI 层* | RoadBuilder 仍需要 8 方向投影 |
 | `GridSystem` | *保留但不再被数据层引用* | 纯 UI 工具 |
 | `RoadConfig` | *保留 + 扩展 RoadTypeStyle[]* | 全局配置模式不变 |
 
 ## 附录 B：不变式对比
 
-| 当前系统的不变式（易破裂） | 下一代系统的不变式（由设计保证） |
+| 迁移前系统的不变式（易破裂） | RoadGraph 系统的不变式（由设计保证） |
 |---------------------------|-------------------------------|
 | `_posToSegmentID[key]` 的 key 必须经 `SnapToGrid` 标准化 | **无此不变式** — 空间索引用浮点距离匹配 |
 | 半格 Junction 不能出现在 `_posToJunctionID` | **无此不变式** — 不存在 `_posToJunctionID` |
