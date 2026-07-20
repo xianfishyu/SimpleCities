@@ -14,7 +14,8 @@ public partial class SaveManager : Node
 
     private readonly List<ISaveable> _saveables = new();
 
-    private const string SaveBaseDir = "user://saves";
+    private const string EditorSaveBaseDir = "res://saves";
+    private const string ExportSaveDirectoryName = "saves";
     private const string ManifestFile = "manifest.json";
 
     public string CurrentSlotName { get; private set; } = "autosave";
@@ -154,22 +155,69 @@ public partial class SaveManager : Node
 
     public bool SaveSlotExists(string slotName)
     {
-        string manifestPath = Path.Combine(GetSlotDir(slotName), ManifestFile);
-        return File.Exists(manifestPath);
+        try
+        {
+            string manifestPath = Path.Combine(GetSlotDir(slotName), ManifestFile);
+            return File.Exists(manifestPath);
+        }
+        catch (Exception e)
+        {
+            GD.PushError($"[SaveManager] Cannot inspect slot '{slotName}': {e.Message}");
+            return false;
+        }
     }
 
     public void DeleteSlot(string slotName)
     {
-        string slotDir = GetSlotDir(slotName);
-        if (DirAccess.DirExistsAbsolute(slotDir))
+        try
         {
-            DirAccess.RemoveAbsolute(slotDir);
-            GD.Print($"[SaveManager] Deleted slot '{slotName}'");
+            string slotDir = GetSlotDir(slotName);
+            if (DirAccess.DirExistsAbsolute(slotDir))
+            {
+                DirAccess.RemoveAbsolute(slotDir);
+                GD.Print($"[SaveManager] Deleted slot '{slotName}'");
+            }
+        }
+        catch (Exception e)
+        {
+            GD.PushError($"[SaveManager] Delete failed for slot '{slotName}': {e.Message}");
         }
     }
 
-    private static string GetSlotDir(string slotName) =>
-        ProjectSettings.GlobalizePath($"{SaveBaseDir}/{slotName}");
+    private static string GetSlotDir(string slotName)
+    {
+        ValidateSlotName(slotName);
+        return Path.Combine(GetSaveBaseDir(), slotName);
+    }
+
+    private static string GetSaveBaseDir()
+    {
+        if (OS.HasFeature("editor"))
+            return ProjectSettings.GlobalizePath(EditorSaveBaseDir);
+
+        string executablePath = OS.GetExecutablePath();
+        if (string.IsNullOrWhiteSpace(executablePath) || !Path.IsPathFullyQualified(executablePath))
+            throw new InvalidOperationException($"Cannot resolve executable path '{executablePath}'.");
+
+        string? executableDir = Path.GetDirectoryName(executablePath);
+        if (string.IsNullOrWhiteSpace(executableDir))
+            throw new InvalidOperationException($"Cannot resolve executable directory from '{executablePath}'.");
+
+        return Path.Combine(executableDir, ExportSaveDirectoryName);
+    }
+
+    private static void ValidateSlotName(string slotName)
+    {
+        if (string.IsNullOrWhiteSpace(slotName))
+            throw new ArgumentException("Save slot name cannot be empty.", nameof(slotName));
+
+        foreach (char character in slotName)
+        {
+            bool isAllowed = char.IsAsciiLetterOrDigit(character) || character is '_' or '-';
+            if (!isAllowed)
+                throw new ArgumentException("Save slot name may only contain ASCII letters, digits, '_' or '-'.", nameof(slotName));
+        }
+    }
 
     private static void WriteManifest(string slotDir, string slotName, List<string> files)
     {
