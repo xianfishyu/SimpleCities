@@ -1,31 +1,31 @@
-# Tool input system todo list
+# 工具输入系统待办清单
 
-> System key: `tool-input`
-> Review date: 2026-07-19
-> Evidence: `.omo/backups/system-doc-split/docs/todo/todolist.md`, `.omo/evidence/split-system-docs/task-3/ownership-map.json`, current workspace source, and the legacy `docs/todo/todolist.md`.
-> Principle: Owns player interaction, grid snapping, half-cell input rules, and RoadType selection entry points.
+> 系统 key：`tool-input`
+> 复核日期：2026-07-19
+> 证据：`.omo/backups/system-doc-split/docs/todo/todolist.md`、`.omo/evidence/split-system-docs/task-3/ownership-map.json`、当前工作区源码，以及旧版 `docs/todo/todolist.md`。
+> 主导原则：负责玩家交互、网格吸附、半格输入规则和 `RoadType` 选择入口。
 
-## Status Summary
+## 状态总览
 
-| Legacy ID | Finding | Current status | Disposition |
+| 遗留 ID | 发现 | 当前状态 | 处置方式 |
 |---|---|---|---|
 <a id="tool-input8"></a>
 | 8 | `RoadBuilder` 仍有半格特殊分支 | 事实成立，但属于 UI 约束 | 当前不改；连续输入需求出现时再设计 |
 <a id="tool-inputp2"></a>
 | P2 | 连续空间、离散输入留在 UI 层 | 部分完成 | 由 0.7、2.1～2.3 清除数据层方向约束并固定节点容差 |
 
-### Design Coverage Matrix
+### 设计覆盖矩阵
 
-| Design scope | Current fact | Related todo or baseline |
+| 设计范围 | 当前事实 | 关联待办或基线 |
 |---|---|---|
 <a id="tool-input3c3216c8f123"></a>
 | §2 P2 连续空间 | `CellSize` 已退出数据层 API，但 `RoadGraph` 仍依赖 `DirectionUtil`，节点身份容差未形成公开契约 | 0.7、2.1～2.3 |
 
-## Execution Order
+## 执行顺序
 
-No active checkbox item from the legacy execution order belongs to this system.
+旧版执行顺序中没有任何活动复选框项属于该系统。
 
-## Deferred
+## 暂不执行
 
 ### RoadType 产品功能
 
@@ -37,8 +37,8 @@ No active checkbox item from the legacy execution order belongs to this system.
   - 测试：默认 Street、每种开放类型传入 `AddRoad`、切换选择不修改既有 Edge、保存加载保持。
   - 验收：启用后 Builder 不再硬编码 Street；本项启用前不计入当前里程碑。
 
-  - Related refs: `persistence:5.3`.
-  - Source key: `todo:deferred:D5.3`.
+- 关联引用：`save-system:5.3`。
+  - 来源 key：`todo:deferred:D5.3`。
 
 <a id="tool-input35b9c59e1fd7"></a>
 ### 原问题 8：RoadBuilder 半格分支
@@ -49,16 +49,16 @@ No active checkbox item from the legacy execution order belongs to this system.
   - 暂不修改原因：当前产品交互明确是 8 方向网格铺路，从非格点交叉口限制输入方向属于 UI 规则，不是数据层错误。
   - 重新开启条件：支持自由角度、曲线道路，或产品要求从任意交点向任意方向延伸。
 
-  - Related refs: `tool-input:D5.3`.
-  - Source key: `todo:deferred:a371ae88d7d5`.
+  - 关联引用：`tool-input:D5.3`。
+  - 来源 key：`todo:deferred:a371ae88d7d5`。
 
-## Solved Baselines
+## 已解决基线
 
 <a id="tool-inputdf59848d1fce"></a>
 - [x] **`CellSize` 已从 RoadGraph API 移除。** 网格吸附和半格输入留在 `RoadBuilder` / `GridSystem`。
-  - Related refs: `tool-input:D5.3`.
-  - Source key: `todo:baseline:df59848d1fce`.
+  - 关联引用：`tool-input:D5.3`。
+  - 来源 key：`todo:baseline:df59848d1fce`。
 
-## Completion Criteria
+## 完成标准
 
-- 本系统当前仅包含延期项；启用条件满足前不计入当前里程碑。
+- 本系统当前仅包含暂不执行项；启用条件满足前不计入当前里程碑。

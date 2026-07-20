@@ -1,9 +1,10 @@
 # 网格系统设计
 
-> 状态：设计规范 | 最后更新：2026-06-04
+> 状态：当前实现说明 + 未来抽象设计 | 最后更新：2026-07-20
 >
-> **注意**：本文档描述网格系统的**抽象规范**，不绑定特定实现。
-> 具体的数据结构（GraphNode / GraphEdge / RoadGroup / SpatialIndex）见 `road-system-next-gen.md`。
+> **注意**：当前实现仍是 `GridSystem` + `Direction` + `DirectionUtil`，提供 8 方向行为并通过 `RoadConfig` 获取 CellSize。
+> `IGridGeometry` 与 `Square8Grid` 是未来可替换网格的设计草案，不是现有类。
+> 具体的数据结构（GraphNode / GraphEdge / RoadGroup / SpatialIndex）见 `road-system-v2-gen.md`。
 
 ---
 
@@ -26,11 +27,22 @@ GridSystem     | 网格数学（吸附、邻居枚举）   | 是 — 网格逻�
 
 ---
 
-## 2. 抽象网格接口
+## 2. 当前实现与未来抽象边界
 
-### 2.1 IGridGeometry
+当前运行时代码：
 
-所有网格结构必须实现的接口：
+- `GridSystem` 是静态 helper，集中提供 `SnapToGrid()` 和 `IsSnapGrid()`。
+- `GridSystem.Config` 由 `RoadSystem._Ready()` 注入，CellSize 来自 `RoadConfig`。
+- `Direction` / `DirectionUtil` 负责 8 方向判定、位移和正交/对角长度。
+- `RoadBuilder` 使用这些工具完成鼠标吸附、拖拽投影和半格起点规则。
+
+未来设计目标仍是把网格几何抽象成可替换对象，但当前不要声称 `IGridGeometry` 或 `Square8Grid` 已经存在。
+
+## 3. 抽象网格接口（未来设计）
+
+### 3.1 IGridGeometry
+
+未来所有网格结构建议实现的接口：
 
 ```csharp
 /// <summary>
@@ -71,7 +83,7 @@ public struct GridProjection
 }
 ```
 
-### 2.2 关键设计决策
+### 3.2 关键设计决策
 
 | 决策 | 理由 |
 |------|------|
@@ -82,11 +94,11 @@ public struct GridProjection
 
 ---
 
-## 3. 正方 8 方向网格（Square8Grid）
+## 4. 正方 8 方向网格（Square8Grid，未来设计）
 
-这是当前项目的默认网格实现，也是游戏设计文档中描述的标准方案。
+这是未来可替换网格方案中的默认候选。当前项目的运行时代码还没有 `Square8Grid` 类，而是由 `GridSystem`、`Direction` 和 `DirectionUtil` 共同实现同等的 8 方向行为。
 
-### 3.1 坐标系
+### 4.1 坐标系
 
 ```
 World Position:  (x, y)   ∈ ℝ²    (Godot 2D，Y 轴向下)
@@ -96,7 +108,7 @@ Grid Point:      cellSize 的整数倍坐标
 格点 = (c × cellSize, r × cellSize)
 ```
 
-### 3.2 8 方向位移表
+### 4.2 8 方向位移表
 
 ```
 方向     (dx, dy)    角度      步长
@@ -110,7 +122,7 @@ W        (-1,  0)   270°      cellSize
 NW       (-1, -1)   315°      cellSize × √2
 ```
 
-### 3.3 交叉口类型（渲染用）
+### 4.3 交叉口类型（渲染用）
 
 当多条边交汇于同一节点时，按连接数分类：
 
@@ -126,7 +138,7 @@ NW       (-1, -1)   315°      cellSize × √2
 
 > 节点类型**不存储为状态**，而是从当前的边连接关系**按需计算**（连接数 + 方向几何判定）。
 
-### 3.4 Square8Grid 实现要点
+### 4.4 Square8Grid 实现要点（草案）
 
 ```csharp
 public class Square8Grid : IGridGeometry
@@ -164,15 +176,15 @@ public class Square8Grid : IGridGeometry
 }
 ```
 
-**注意**：`Square8Grid` 替代了当前 `GridSystem` + `Direction` + `DirectionUtil` 的全部功能。
+**注意**：`Square8Grid` 是未来替代方案。当前不要删除 `GridSystem`、`Direction` 或 `DirectionUtil`，它们仍是运行时 8 方向行为的来源。
 
 ---
 
-## 4. 备选网格方案（供未来实验）
+## 5. 备选网格方案（供未来实验）
 
-以下方案无需现在实现，但 `IGridGeometry` 接口应能容纳它们。
+以下方案无需现在实现，但未来的 `IGridGeometry` 接口应能容纳它们。
 
-### 4.1 六边形网格（HexGrid）
+### 5.1 六边形网格（HexGrid）
 
 ```
     NW  NE
@@ -190,7 +202,7 @@ public class Square8Grid : IGridGeometry
 - `Snap()` 需要六边形坐标系的取整逻辑（轴向坐标或立方坐标）
 - `Cost()` 始终返回常数（与方向无关）
 
-### 4.2 正方 4 方向网格（Square4Grid）
+### 5.2 正方 4 方向网格（Square4Grid）
 
 ```
       N
@@ -205,7 +217,7 @@ public class Square8Grid : IGridGeometry
 
 直接复用 `Square8Grid` 的大部分逻辑，仅 `GetNeighbors()` 和 `Project()` 过滤到 4 方向。
 
-### 4.3 自由角度网格（FreeAngleGrid）
+### 5.3 自由角度网格（FreeAngleGrid）
 
 ```
 任意角度拖拽，RoadBuilder 不限定方向。格点 = 鼠标位置的最近已有节点。
@@ -214,7 +226,7 @@ public class Square8Grid : IGridGeometry
 
 这可能不需要 `Snap()`，而是依赖空间索引找最近节点。`Project()` 退化为"沿鼠标方向直接指向鼠标位置"。
 
-### 4.4 混合网格
+### 5.4 混合网格
 
 同一场景中不同区域使用不同网格。例如：
 - 市中心：正方 4 方向（严格街区）
@@ -225,9 +237,9 @@ public class Square8Grid : IGridGeometry
 
 ---
 
-## 5. 寻路系统
+## 6. 寻路系统
 
-### 5.1 通用 A* 框架
+### 6.1 通用 A* 框架
 
 寻路在 `RoadGraph`（纯图）上进行，不依赖网格：
 
@@ -244,7 +256,7 @@ public static class PathFinder
 }
 ```
 
-### 5.2 启发函数
+### 6.2 启发函数
 
 启发函数可以根据活跃网格选择：
 
@@ -264,9 +276,9 @@ float Heuristic(Vector2 from, Vector2 to);
 
 ---
 
-## 6. 渲染方案
+## 7. 渲染方案
 
-### 6.1 道路渲染
+### 7.1 道路渲染
 
 使用 Godot `Line2D` 节点（每边一个）。边上的点序列来自 `GraphEdge.GetFullPath()`：
 
@@ -276,27 +288,28 @@ NodeA.Position → waypoint[0] → waypoint[1] → ... → NodeB.Position
 
 交叉口节点通过 `_Draw()` 绘制圆点（按连接数决定半径和颜色）。
 
-### 6.2 网格背景
+### 7.2 网格背景
 
 背景网格由 `MapBackground`（ShaderMaterial）渲染，与道路逻辑解耦。
 网格背景的视觉效果（是否显示网格线、间距、颜色）由 Shader 参数控制，
 **不受活跃 `IGridGeometry` 影响**（背景显示只是视觉辅助）。
 
-### 6.3 道路样式
+### 7.3 道路样式
 
-按 `RoadType`（土路/普通/主干/高速）查表决定颜色和线宽。
-样式映射由 RoadConfig 资源管理（全局 `.tres` 文件）。
+未来可按 `RoadType`（土路/普通/主干/高速）查表决定颜色和线宽。
+当前 RoadRenderer 仍使用 RoadConfig 的基础颜色和线宽；样式映射扩展属于未来工作。
 
 ---
 
-## 7. 已确认决策
+## 8. 已确认决策
 
 - [x] 网格是 UI 输入层概念，数据层（RoadGraph）不感知网格
-- [x] 网格实现 `IGridGeometry` 接口，支持替换
-- [x] 当前默认实现：正方 8 方向（Square8Grid, CellSize=100）
+- [x] 当前默认行为：正方 8 方向，由 `GridSystem` + `Direction` + `DirectionUtil` 实现
+- [ ] 网格实现 `IGridGeometry` 接口，支持替换
+- [ ] 当前默认实现迁移为 `Square8Grid`（CellSize 仍由配置提供）
 - [x] 地图地形由 Godot 编辑器手工制作
 
-## 8. 待定问题
+## 9. 待定问题
 
 - [ ] 是否需要在游戏运行时切换网格类型？（混合网格场景）
 - [ ] 六边形网格的视觉背景（Shader 需要支持六边形线）

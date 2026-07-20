@@ -1,32 +1,32 @@
-# Traffic simulation system todo list
+# 交通模拟系统待办清单
 
-> System key: `traffic-simulation`
-> Review date: 2026-07-19
-> Evidence: `.omo/backups/system-doc-split/docs/todo/todolist.md`, `.omo/evidence/split-system-docs/task-3/ownership-map.json`, current workspace source, and the legacy `docs/todo/todolist.md`.
-> Principle: Owns TrafficGraph, pathfinding, congestion, incremental sync, and upgrade simulation after graph contracts stabilize.
+> 系统 key：`traffic-simulation`
+> 复核日期：2026-07-19
+> 证据：`.omo/backups/system-doc-split/docs/todo/todolist.md`、`.omo/evidence/split-system-docs/task-3/ownership-map.json`、当前工作区源码，以及旧版 `docs/todo/todolist.md`。
+> 主导原则：在图契约稳定后，负责 `TrafficGraph`、寻路、拥堵、增量同步和升级模拟。
 
-## Status Summary
+## 状态总览
 
-| Legacy ID | Finding | Current status | Disposition |
+| 遗留 ID | 发现 | 当前状态 | 处置方式 |
 |---|---|---|---|
 <a id="traffic-simulationphase-6"></a>
 | Phase 6 | `TrafficGraph`、A*、拥堵和增量同步 | 未实现，按路线图延期 | P6.1～P6.5 在当前 RoadGraph 契约稳定后启用 |
 
-### Design Coverage Matrix
+### 设计覆盖矩阵
 
-| Design scope | Current fact | Related todo or baseline |
+| 设计范围 | 当前事实 | 关联待办或基线 |
 |---|---|---|
 <a id="traffic-simulation95732cb62c0e"></a>
 | §9、§10 阶段 C、§11 Phase 6 | `TrafficGraph`、A*、拥堵、增量同步和道路升级工具均未实现 | 延期 P6.1～P6.5 |
 
-## Execution Order
+## 执行顺序
 
-No active checkbox item from the legacy execution order belongs to this system.
+旧版执行顺序中没有任何活动复选框项属于该系统。
 
-## Deferred
+## 暂不执行
 
 <a id="traffic-simulationdef6b8230b9f"></a>
-### Product Phase 6：交通模拟与道路升级
+### 产品阶段 6：交通模拟与道路升级
 
 <a id="traffic-simulationp6.1"></a>
 - [ ] **P6.1 构建 `TrafficGraph` 只读带权有向视图**
@@ -36,8 +36,8 @@ No active checkbox item from the legacy execution order belongs to this system.
   - 测试：双向边映射、单向扩展策略、平行 Edge、图变更前后只读一致性。
   - 验收：模拟层可遍历带权有向图，且无法绕过 RoadGraph API 修改拓扑。
 
-  - Related refs: `road-graph:4.4`, `road-graph:31883cfb1c78`.
-  - Source key: `todo:deferred:P6.1`.
+  - 关联引用：`road-graph:4.4`、`road-graph:31883cfb1c78`。
+  - 来源 key：`todo:deferred:P6.1`。
 
 <a id="traffic-simulationp6.2"></a>
 - [ ] **P6.2 实现 A* 寻路与确定的不可达行为**
@@ -47,8 +47,8 @@ No active checkbox item from the legacy execution order belongs to this system.
   - 测试：最短路径、多条等价路径、断路、环、起终点相同和不存在节点。
   - 验收：固定输入得到确定路径；不可达或非法输入不会返回部分伪路径。
 
-  - Related refs: `traffic-simulation:P6.1`.
-  - Source key: `todo:deferred:P6.2`.
+  - 关联引用：`traffic-simulation:P6.1`。
+  - 来源 key：`todo:deferred:P6.2`。
 
 <a id="traffic-simulationp6.3"></a>
 - [ ] **P6.3 建立 RoadType 通行权重、容量与拥堵重算**
@@ -58,8 +58,8 @@ No active checkbox item from the legacy execution order belongs to this system.
   - 测试：四种类型基础权重、零/正常/过饱和流量、权重单调性和路径随拥堵切换。
   - 验收：相同长度下类型与拥堵产生可解释、可重复的权重，A* 使用最新权重。
 
-  - Related refs: `grid-rendering:D5.1`, `traffic-simulation:P6.1`, `traffic-simulation:P6.2`.
-  - Source key: `todo:deferred:P6.3`.
+  - 关联引用：`grid-rendering:D5.1`、`traffic-simulation:P6.1`、`traffic-simulation:P6.2`。
+  - 来源 key：`todo:deferred:P6.3`。
 
 <a id="traffic-simulationp6.4"></a>
 - [ ] **P6.4 按已提交的 RoadGraph 变更增量同步模拟图**
@@ -69,8 +69,8 @@ No active checkbox item from the legacy execution order belongs to this system.
   - 测试：铺路、拆路、交叉拆边、整组删除、存档全图重建及连续复合操作。
   - 验收：增量结果与从同一 RoadGraph 全量重建结果一致；消费者不会永久缓存中间拓扑。
 
-  - Related refs: `road-graph:4.4`, `traffic-simulation:P6.1`.
-  - Source key: `todo:deferred:P6.4`.
+  - 关联引用：`road-graph:4.4`、`traffic-simulation:P6.1`。
+  - 来源 key：`todo:deferred:P6.4`。
 
 <a id="traffic-simulationp6.5"></a>
 - [ ] **P6.5 实现既有道路升级工具**
@@ -80,13 +80,13 @@ No active checkbox item from the legacy execution order belongs to this system.
   - 测试：单 Edge/整组升级策略、无效降级、保存加载、视觉刷新和寻路权重更新。
   - 验收：升级操作原子完成；失败无部分修改；成功后数据、视觉、存档和模拟权重一致。
 
-  - Related refs: `grid-rendering:D5.1`, `grid-rendering:D5.2`, `tool-input:D5.3`, `traffic-simulation:P6.3`, `traffic-simulation:P6.4`.
-  - Source key: `todo:deferred:P6.5`.
+  - 关联引用：`grid-rendering:D5.1`、`grid-rendering:D5.2`、`tool-input:D5.3`、`traffic-simulation:P6.3`、`traffic-simulation:P6.4`。
+  - 来源 key：`todo:deferred:P6.5`。
 
-## Solved Baselines
+## 已解决基线
 
-No solved baseline from the legacy list belongs to this system.
+旧版列表中没有任何已解决基线属于该系统。
 
-## Completion Criteria
+## 完成标准
 
-- 本系统当前仅包含延期项；启用条件满足前不计入当前里程碑。
+- 本系统当前仅包含暂不执行项；启用条件满足前不计入当前里程碑。

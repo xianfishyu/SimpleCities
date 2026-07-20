@@ -329,7 +329,7 @@ if (hitIndex < 0)
 <a id="road-graph-bug-8"></a>
 ## BUG-8：完整重复铺路在被拒绝前仍会拆分现有路网
 
-关联文档：`persistence:BUG-1`
+关联文档：`save-system:BUG-1`
 
 ### 症状
 
