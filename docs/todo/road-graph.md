@@ -1,7 +1,7 @@
 # RoadGraph 系统待办清单
 
 > 系统 key：`road-graph`
-> 复核日期：2026-07-19
+> 复核日期：2026-07-22
 > 证据：`.omo/backups/system-doc-split/docs/todo/todolist.md`、`.omo/evidence/split-system-docs/task-3/ownership-map.json`、当前工作区源码，以及旧版 `docs/todo/todolist.md`。
 > 主导原则：负责拓扑、几何查询、空间索引行为、公共图 API、删除事务和并行边策略。
 
@@ -9,8 +9,9 @@
 
 | 遗留 ID | 发现 | 当前状态 | 处置方式 |
 |---|---|---|---|
+| 0.1 | RoadGraph 自动化测试入口 | 已完成 | xUnit 测试项目已接入解决方案，可由单条 `dotnet test` 命令运行 |
 <a id="road-graph1"></a>
-| 1 | `AddRoad` 返回 `-1` 时泄漏副作用 | 已修复 | 补回归测试，不再修改流程 |
+| 1 | `AddRoad` 返回 `-1` 时泄漏副作用 | 已修复并有自动化回归 | 保持前置覆盖检查，不再修改流程 |
 <a id="road-graph3"></a>
 | 3 | 几何查询仍有全表扫描 | 成立 | 优化候选边查询并建立性能基线 |
 <a id="road-graph4"></a>
@@ -32,7 +33,7 @@
 <a id="road-graphp4"></a>
 | P4 | 删除操作不触发拓扑修复链 | 未完成 | 由 0.6、4.1、4.3、4.4 移除删除后的自动合并 |
 <a id="road-graphp5"></a>
-| P5 | 最小化并可验证图不变式 | 部分完成；缺少自动化入口 | 由阶段 0 与阶段 4 建立校验、事务和封装边界 |
+| P5 | 最小化并可验证图不变式 | 部分完成；自动化入口已建立，图不变式验证仍待补齐 | 由阶段 0 与阶段 4 建立校验、事务和封装边界 |
 <a id="road-graphapi"></a>
 | API | 文档定义的公共 `AddEdge` 契约 | 未实现 | 2.4 先验证契约，再实现或明确以文档修订取代 |
 
@@ -58,20 +59,22 @@
 ### 阶段 0：建立回归保护
 
 <a id="road-graph0.1"></a>
-- [ ] **0.1 建立 RoadGraph 自动化测试入口**
+- [x] **0.1 建立 RoadGraph 自动化测试入口**
   - 当前问题：仓库中尚未发现道路系统自动化测试项目或测试文件；后续行为修改缺少可重复的保护入口。
   - 范围：新增独立测试项目或项目现有工具链认可的 Godot headless 测试入口。
   - 覆盖：纯图逻辑不依赖场景树，可直接创建 `RoadGraph`。
   - 验收：测试可由单条命令运行；失败时返回非零退出码；不依赖人工点击。
+  - 完成证据（2026-07-22）：`tests/SimpleCities.RoadGraph.Tests/SimpleCities.RoadGraph.Tests.csproj` 已接入 `SimpleCities.sln` 并引用真实主工程；`RoadGraphSmokeTests.Constructor_DoesNotRequireSceneTree` 直接构造 `RoadGraph`，`RoadGraphSmokeTests.NewGraph_HasNoEntities` 验证空图。`dotnet test tests/SimpleCities.RoadGraph.Tests/SimpleCities.RoadGraph.Tests.csproj --configuration Debug` 与 `dotnet test SimpleCities.sln --configuration Debug --no-restore` 均执行 2 个测试且 0 失败、0 跳过；临时失败探针使同一测试命令以退出码 1 结束，删除探针后恢复全绿；`dotnet build SimpleCities.sln --configuration Debug` 为 0 警告、0 错误。
 
   - 来源 key：`todo:item:0.1`。
 
 <a id="road-graph0.2"></a>
-- [ ] **0.2 固化已修复的 `AddRoad` 无副作用行为（原问题 1）**
+- [x] **0.2 固化已修复的 `AddRoad` 无副作用行为（原问题 1）**
   - 性质：源码行为已完成，本项仅补自动化回归证据，不重复修改主流程。
   - 当前证据：`Scripts/Road/RoadGraph.cs:48` 在 `ResolveIntersections`、`SplitEdgesAtPathAnchors` 之前执行 `IsPathFullyCovered`。
   - 测试场景：先创建已有道路，再提交完全覆盖路径。
   - 验收：返回 `-1`，且节点、边、Group、ID 分配状态均不变化。
+  - 完成证据（2026-07-22）：`RoadGraphCoverageTests` 覆盖完全重复路径、带内部锚点的完全覆盖路径及拒绝后继续铺路的控制图对比；三个场景均断言返回 `-1`，并通过 `CaptureState()` 全量比较节点、边、Group 与 `nextID`。临时移除 `AddRoad` 的前置覆盖检查后，锚点场景和 ID 场景按预期失败（`nextID` 分别从 `4` 偏至 `13`、从 `8` 偏至 `17`，测试命令退出码 1）；恢复生产代码后聚焦测试 3/3 通过。
 
   - 来源 key：`todo:item:0.2`。
 

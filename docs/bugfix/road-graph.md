@@ -383,4 +383,5 @@ path = InsertExistingNodeAnchors(path);
 - 关联提交：`6ec0a66`（`修复：保持道路类型存档并避免重复铺路副作用`）
 - `dotnet build SimpleCities.sln`：构建成功，0 个错误，4 个既有的 `Scripts/Grid/MapBackground.cs` nullable 警告
 - 已核对当前代码路径：存档捕获与恢复均处理 `RoadType`，且完整覆盖检查位于 `ResolveIntersections`、`SplitEdgesAtPathAnchors` 等变更操作之前
-- 当前仓库未发现覆盖上述两个场景的自动化测试；本次未执行 Godot 运行时存档往返或重复铺路手工测试，因此不声明运行时回归验证已完成
+- `road-graph:BUG-8` 自动化回归（2026-07-22）：`RoadGraphCoverageTests` 覆盖完全重复路径、带内部锚点的完全覆盖路径和拒绝后 ID 分配状态；临时移除前置覆盖检查时 2 个关键场景失败且命令退出码为 1，恢复后聚焦测试 3/3 通过。
+- `save-system:BUG-1` 的存档往返验证仍见 `docs/bugfix/save-system.md`；本条自动化证据只声明 `road-graph:BUG-8` 的重复铺路无副作用行为。

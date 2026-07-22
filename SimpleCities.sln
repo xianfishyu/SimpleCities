@@ -2,6 +2,8 @@
 # Visual Studio 2012
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleCities", "SimpleCities.csproj", "{0F144C10-0124-4B51-BD4D-51337C7CE50B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleCities.RoadGraph.Tests", "tests\SimpleCities.RoadGraph.Tests\SimpleCities.RoadGraph.Tests.csproj", "{A71E645F-C562-48B3-81C7-256958068164}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 	Debug|Any CPU = Debug|Any CPU
@@ -15,5 +17,11 @@ Global
 		{0F144C10-0124-4B51-BD4D-51337C7CE50B}.ExportDebug|Any CPU.Build.0 = ExportDebug|Any CPU
 		{0F144C10-0124-4B51-BD4D-51337C7CE50B}.ExportRelease|Any CPU.ActiveCfg = ExportRelease|Any CPU
 		{0F144C10-0124-4B51-BD4D-51337C7CE50B}.ExportRelease|Any CPU.Build.0 = ExportRelease|Any CPU
+		{A71E645F-C562-48B3-81C7-256958068164}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A71E645F-C562-48B3-81C7-256958068164}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A71E645F-C562-48B3-81C7-256958068164}.ExportDebug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A71E645F-C562-48B3-81C7-256958068164}.ExportDebug|Any CPU.Build.0 = Debug|Any CPU
+		{A71E645F-C562-48B3-81C7-256958068164}.ExportRelease|Any CPU.ActiveCfg = Release|Any CPU
+		{A71E645F-C562-48B3-81C7-256958068164}.ExportRelease|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
