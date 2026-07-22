@@ -3,5 +3,6 @@
 /android/
 .omo/
 .opencode/node_modules/
+saves/
 **/bin/
 **/obj/
