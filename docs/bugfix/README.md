@@ -5,6 +5,7 @@
 - [road-graph.md](road-graph.md)
 - [save-system.md](save-system.md)
 - [grid-rendering.md](grid-rendering.md)
+- [ui.md](ui.md)
 
 ## Legacy Mapping
 

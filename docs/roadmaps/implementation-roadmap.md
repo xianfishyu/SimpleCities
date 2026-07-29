@@ -91,9 +91,9 @@ Phase 9: 打磨与优化
 
 | 任务 | 文件 | 状态 | 说明 |
 |------|------|------|------|
-| HUD 浮层 | `Scripts/UI/GameHUD.cs` | ✅ 完成 | FPS / 工具 / 鼠标格点（含节点检测）/ 路网统计（Group/Edge/Node 数） |
-| 工具切换按钮 | 同上 | ✅ 完成 | 选择 / 铺路 / 拆路 按钮 + 快捷键 F5 保存 / F9 加载 |
-| UI 工厂 | `Scripts/UI/UIHelpers.cs` | ✅ 完成 | 统一 Label / Button / Panel 样式 |
+| HUD 组合根 | `Scripts/UI/GameHUD.cs` | ✅ 完成 | 组合 ConstructionDock、ToolContextPanel、DebugPanel、SystemControls |
+| 建造坞 / 工具托盘 | `Scripts/UI/ConstructionDock.cs` | ✅ 完成 | 道路分类、选择/铺路/拆路按钮，R/E/Esc 同步 |
+| 命令中心 Theme | `Scenes/UI/Themes/CommandCenterTheme.tres` | ✅ 完成 | 统一 Label / Button / Panel 样式 |
 | 面板管理器 | `Scripts/UI/UIManager.cs` | ✅ 完成 | 注册/显示/隐藏/模态面板生命周期 |
 
 > 💡 原始计划使用 ImGui 调试面板，实际改用 Godot 原生 CanvasLayer + Control 树（`Scenes/UI/GameHUD.tscn`），编辑器可视化布局，更易维护。
@@ -398,8 +398,11 @@ Scripts/
 │   └── ⚠️ ITool.cs                   # 未实现 — 当前工具少，switch 分发更简洁
 │
 └── UI/
-    ├── GameHUD.cs                     # ✅ HUD 浮层（FPS / 工具 / 格点 / 路网统计 + 按钮）
-    ├── UIHelpers.cs                   # ✅ UI 工厂（Label / Button / Panel 统一样式）
+    ├── GameHUD.cs                     # ✅ HUD 组合根
+    ├── ConstructionDock.cs            # ✅ 底部建造坞和道路工具托盘
+    ├── ToolContextPanel.cs            # ✅ 右侧只读工具上下文
+    ├── DebugPanel.cs                  # ✅ 默认折叠调试指标
+    ├── SystemControls.cs              # ✅ 保存 / 加载系统操作区
     ├── UIManager.cs                   # ✅ 面板生命周期管理（注册/显示/模态）
     ├── HUD.cs                         # ⚠️ 已重命名 → GameHUD（功能更完整）
     ├── ⚠️ DebugGUI.cs                # 已弃用 — Godot 原生 UI 替代 ImGui

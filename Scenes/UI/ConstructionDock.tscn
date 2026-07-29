@@ -1,0 +1,91 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://Scripts/UI/ConstructionDock.cs" id="1_script"]
+[ext_resource type="Theme" path="res://Scenes/UI/Themes/CommandCenterTheme.tres" id="2_theme"]
+[ext_resource type="Resource" path="res://Scenes/UI/RoadsConstructionCategory.tres" id="3_category"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_tray"]
+bg_color = Color(0.0823529, 0.101961, 0.133333, 0.96)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+content_margin_left = 12.0
+content_margin_top = 12.0
+content_margin_right = 12.0
+content_margin_bottom = 12.0
+
+[node name="ConstructionDock" type="Control"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -260.0
+offset_top = -80.0
+offset_right = 260.0
+offset_bottom = -16.0
+mouse_filter = 1
+theme = ExtResource("2_theme")
+script = ExtResource("1_script")
+Category = ExtResource("3_category")
+
+[node name="DockPanel" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+
+[node name="DockStack" type="VBoxContainer" parent="DockPanel"]
+layout_mode = 2
+alignment = 2
+theme_override_constants/separation = 8
+
+[node name="ToolTray" type="PanelContainer" parent="DockPanel/DockStack"]
+visible = false
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_tray")
+
+[node name="TrayMargin" type="MarginContainer" parent="DockPanel/DockStack/ToolTray"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="ToolScroll" type="ScrollContainer" parent="DockPanel/DockStack/ToolTray/TrayMargin"]
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="ToolList" type="VBoxContainer" parent="DockPanel/DockStack/ToolTray/TrayMargin/ToolScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="CategoryBar" type="HBoxContainer" parent="DockPanel/DockStack"]
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="RoadsCategoryButton" type="Button" parent="DockPanel/DockStack/CategoryBar"]
+custom_minimum_size = Vector2(96, 40)
+layout_mode = 2
+focus_mode = 2
+size_flags_vertical = 4
+toggle_mode = true
+text = "道路"
+
+[node name="CategorySpacer" type="Control" parent="DockPanel/DockStack/CategoryBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="CurrentToolLabel" type="Label" parent="DockPanel/DockStack/CategoryBar"]
+layout_mode = 2
+size_flags_vertical = 4
+text = "当前: 选择"
+horizontal_alignment = 2
+vertical_alignment = 1

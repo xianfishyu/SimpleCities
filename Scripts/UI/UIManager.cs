@@ -2,29 +2,22 @@ using Godot;
 using System.Collections.Generic;
 
 /// <summary>
-/// UI 面板生命周期管理器 — 全局单例，负责注册 / 显示 / 隐藏 / 模态面板。
-///
-/// 使用方式：
-///   - GameHUD._Ready() 中自动创建并注册自身到 UIManager
-///   - 其他面板通过 UIManager.Instance.Register("name", panel) 注册
-///   - 通过 Show / Hide / Toggle 控制可见性
-///   - 模态面板（PushModal / PopModal）会阻塞游戏输入
-///
-/// 遵循项目既有的静态 Instance 单例模式（参见 ToolManager、RoadSystem）。
+/// UI 面板生命周期管理器 — 每个 GameHUD 拥有自己的实例，负责该 HUD 内真实受管面板的注册 / 显示 / 隐藏 / 模态栈。
+/// GameHUD 只向自己的 manager 注册需要外部可见性管理的组件，例如 ContextPanel、DebugPanel、SystemControls。
+/// ConstructionDock 始终可见，不通过 UIManager 管理。
 /// </summary>
 public partial class UIManager : Node
 {
-    public static UIManager Instance { get; private set; } = null!;
-
     private readonly Dictionary<string, Control> _panels = new();
     private readonly Stack<string> _modalStack = new();
 
     /// <summary>是否有模态面板正在阻塞游戏输入。</summary>
     public bool IsModalActive => _modalStack.Count > 0;
 
-    public UIManager()
+    public override void _ExitTree()
     {
-        Instance = this;
+        _panels.Clear();
+        _modalStack.Clear();
     }
 
     // ── 注册 ──────────────────────────────────────────────
@@ -73,14 +66,11 @@ public partial class UIManager : Node
         return _panels.TryGetValue(name, out var panel) && panel.Visible;
     }
 
-    /// <summary>隐藏所有已注册面板（HUD 除外）。</summary>
+    /// <summary>隐藏所有已注册面板。</summary>
     public void HideAll()
     {
-        foreach (var (name, panel) in _panels)
-        {
-            if (name != "HUD")
-                panel.Visible = false;
-        }
+        foreach (var (_, panel) in _panels)
+            panel.Visible = false;
     }
 
     // ── 模态面板 ──────────────────────────────────────────
@@ -112,5 +102,10 @@ public partial class UIManager : Node
     public T? GetPanel<T>(string name) where T : Control
     {
         return _panels.TryGetValue(name, out var panel) ? panel as T : null;
+    }
+
+    public Control? GetPanel(string name)
+    {
+        return _panels.TryGetValue(name, out var panel) ? panel : null;
     }
 }

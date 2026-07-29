@@ -1,171 +1,266 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://Scripts/UI/GameHUD.cs" id="1_script"]
-
-[sub_resource type="StyleBoxFlat" id="1"]
-bg_color = Color(0.06, 0.07, 0.09, 0.92)
-corner_radius_top_left = 6
-corner_radius_top_right = 6
-corner_radius_bottom_left = 6
-corner_radius_bottom_right = 6
-border_width_left = 1
-border_width_right = 1
-border_width_top = 1
-border_width_bottom = 1
-border_color = Color(0.14, 0.16, 0.2, 0.5)
-content_margin_left = 10.0
-content_margin_top = 8.0
-content_margin_right = 10.0
-content_margin_bottom = 10.0
+[ext_resource type="PackedScene" path="res://Scenes/UI/ConstructionDock.tscn" id="2_dock"]
+[ext_resource type="Theme" path="res://Scenes/UI/Themes/CommandCenterTheme.tres" id="3_theme"]
+[ext_resource type="Script" path="res://Scripts/UI/ToolContextPanel.cs" id="4_context_script"]
+[ext_resource type="Script" path="res://Scripts/UI/DebugPanel.cs" id="5_debug_script"]
+[ext_resource type="Script" path="res://Scripts/UI/SystemControls.cs" id="6_system_script"]
 
 [node name="GameHUD" type="CanvasLayer"]
 script = ExtResource("1_script")
 
-[node name="Panel" type="Panel" parent="."]
-offset_left = 12.0
-offset_top = 12.0
-offset_right = 312.0
-offset_bottom = 325.0
-theme_override_styles/panel = SubResource("1")
+[node name="ConstructionDock" parent="." instance=ExtResource("2_dock")]
 
-[node name="VBox" type="VBoxContainer" parent="Panel"]
+[node name="ToolContextPanel" type="PanelContainer" parent="."]
+anchors_preset = -1
+anchor_left = 1.0
+anchor_top = 0.0
 anchor_right = 1.0
-anchor_bottom = 1.0
-theme_override_constants/separation = 2
+anchor_bottom = 0.0
+offset_left = -336.0
+offset_top = 148.0
+offset_right = -16.0
+offset_bottom = 356.0
+theme = ExtResource("3_theme")
+script = ExtResource("4_context_script")
 
-; ═══════════ 状态 ═══════════
-[node name="SectionInfo" type="Label" parent="Panel/VBox"]
-text = "状态"
-theme_override_colors/font_color = Color(1, 0.76, 0.35, 1)
+[node name="PanelMargin" type="MarginContainer" parent="ToolContextPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="Rows" type="VBoxContainer" parent="ToolContextPanel/PanelMargin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ContextFocusEntryButton" type="Button" parent="ToolContextPanel/PanelMargin/Rows"]
+custom_minimum_size = Vector2(44, 36)
+layout_mode = 2
+focus_mode = 2
+text = "工具上下文"
+
+[node name="ContextContentScroll" type="ScrollContainer" parent="ToolContextPanel/PanelMargin/Rows"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+vertical_scroll_mode = 1
+
+[node name="ContextContent" type="VBoxContainer" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.760784, 0.34902, 1)
+theme_override_font_sizes/font_size = 16
+text = "工具上下文"
+
+[node name="CategoryRow" type="VBoxContainer" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent"]
+layout_mode = 2
+
+[node name="CategoryLabel" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/CategoryRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.654902, 0.686275, 0.729412, 1)
 theme_override_font_sizes/font_size = 13
+text = "当前分类"
 
-[node name="RowFPS" type="HBoxContainer" parent="Panel/VBox"]
-[node name="LabelFPS" type="Label" parent="Panel/VBox/RowFPS"]
-text = "FPS"
-theme_override_colors/font_color = Color(0.5, 0.5, 0.55, 1)
-theme_override_font_sizes/font_size = 12
-[node name="SpacerFPS" type="Control" parent="Panel/VBox/RowFPS"]
-size_flags_horizontal = 3
-[node name="FPS" type="Label" parent="Panel/VBox/RowFPS"]
-text = "--"
-horizontal_alignment = 2
-theme_override_colors/font_color = Color(0.95, 0.95, 0.95, 1)
-theme_override_font_sizes/font_size = 12
-
-[node name="RowTool" type="HBoxContainer" parent="Panel/VBox"]
-[node name="LabelTool" type="Label" parent="Panel/VBox/RowTool"]
-text = "工具"
-theme_override_colors/font_color = Color(0.5, 0.5, 0.55, 1)
-theme_override_font_sizes/font_size = 12
-[node name="SpacerTool" type="Control" parent="Panel/VBox/RowTool"]
-size_flags_horizontal = 3
-[node name="Tool" type="Label" parent="Panel/VBox/RowTool"]
-text = "选择"
-horizontal_alignment = 2
-theme_override_colors/font_color = Color(0.95, 0.95, 0.95, 1)
-theme_override_font_sizes/font_size = 12
-
-[node name="RowMouse" type="HBoxContainer" parent="Panel/VBox"]
-[node name="LabelMouse" type="Label" parent="Panel/VBox/RowMouse"]
-text = "格点"
-theme_override_colors/font_color = Color(0.5, 0.5, 0.55, 1)
-theme_override_font_sizes/font_size = 12
-[node name="SpacerMouse" type="Control" parent="Panel/VBox/RowMouse"]
-size_flags_horizontal = 3
-[node name="MousePos" type="Label" parent="Panel/VBox/RowMouse"]
-text = "--"
-horizontal_alignment = 2
-theme_override_colors/font_color = Color(0.95, 0.95, 0.95, 1)
-theme_override_font_sizes/font_size = 12
-
-; ═══════════ 路网 ═══════════
-[node name="Sep1" type="HSeparator" parent="Panel/VBox"]
-
-[node name="SectionRoads" type="Label" parent="Panel/VBox"]
-text = "路网"
-theme_override_colors/font_color = Color(1, 0.76, 0.35, 1)
-theme_override_font_sizes/font_size = 13
-
-[node name="RowRoads" type="HBoxContainer" parent="Panel/VBox"]
-[node name="LabelRoads" type="Label" parent="Panel/VBox/RowRoads"]
+[node name="CategoryValue" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/CategoryRow"]
+layout_mode = 2
 text = "道路"
-theme_override_colors/font_color = Color(0.5, 0.5, 0.55, 1)
-theme_override_font_sizes/font_size = 12
-[node name="SpacerRoads" type="Control" parent="Panel/VBox/RowRoads"]
-size_flags_horizontal = 3
-[node name="Roads" type="Label" parent="Panel/VBox/RowRoads"]
-text = "0"
-horizontal_alignment = 2
-theme_override_colors/font_color = Color(0.95, 0.95, 0.95, 1)
-theme_override_font_sizes/font_size = 12
 
-[node name="RowSegments" type="HBoxContainer" parent="Panel/VBox"]
-[node name="LabelSegments" type="Label" parent="Panel/VBox/RowSegments"]
-text = "路段"
-theme_override_colors/font_color = Color(0.5, 0.5, 0.55, 1)
-theme_override_font_sizes/font_size = 12
-[node name="SpacerSegments" type="Control" parent="Panel/VBox/RowSegments"]
-size_flags_horizontal = 3
-[node name="Segments" type="Label" parent="Panel/VBox/RowSegments"]
-text = "0"
-horizontal_alignment = 2
-theme_override_colors/font_color = Color(0.95, 0.95, 0.95, 1)
-theme_override_font_sizes/font_size = 12
+[node name="CurrentToolRow" type="VBoxContainer" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent"]
+layout_mode = 2
 
-[node name="RowJunctions" type="HBoxContainer" parent="Panel/VBox"]
-[node name="LabelJunctions" type="Label" parent="Panel/VBox/RowJunctions"]
-text = "路口"
-theme_override_colors/font_color = Color(0.5, 0.5, 0.55, 1)
-theme_override_font_sizes/font_size = 12
-[node name="SpacerJunctions" type="Control" parent="Panel/VBox/RowJunctions"]
-size_flags_horizontal = 3
-[node name="Junctions" type="Label" parent="Panel/VBox/RowJunctions"]
-text = "0"
-horizontal_alignment = 2
-theme_override_colors/font_color = Color(0.95, 0.95, 0.95, 1)
-theme_override_font_sizes/font_size = 12
+[node name="CurrentToolLabel" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/CurrentToolRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.654902, 0.686275, 0.729412, 1)
+theme_override_font_sizes/font_size = 13
+text = "当前工具"
 
-; ═══════════ 工具 ═══════════
-[node name="Sep2" type="HSeparator" parent="Panel/VBox"]
+[node name="CurrentToolValue" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/CurrentToolRow"]
+layout_mode = 2
+text = "选择"
 
-[node name="SectionTools" type="Label" parent="Panel/VBox"]
-text = "工具"
-theme_override_colors/font_color = Color(1, 0.76, 0.35, 1)
-theme_override_font_sizes/font_size = 12
+[node name="OperationRow" type="VBoxContainer" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent"]
+layout_mode = 2
 
-[node name="ToolBar" type="HBoxContainer" parent="Panel/VBox"]
+[node name="OperationLabel" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/OperationRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.654902, 0.686275, 0.729412, 1)
+theme_override_font_sizes/font_size = 13
+text = "操作"
+
+[node name="OperationValue" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/OperationRow"]
+layout_mode = 2
+autowrap_mode = 3
+text = "查看当前状态，取消建造操作。"
+
+[node name="ShortcutRow" type="VBoxContainer" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent"]
+layout_mode = 2
+
+[node name="ShortcutLabel" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/ShortcutRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.654902, 0.686275, 0.729412, 1)
+theme_override_font_sizes/font_size = 13
+text = "快捷键"
+
+[node name="ShortcutValue" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/ShortcutRow"]
+layout_mode = 2
+text = "Esc"
+
+[node name="CellSizeRow" type="VBoxContainer" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent"]
+layout_mode = 2
+
+[node name="CellSizeLabel" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/CellSizeRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.654902, 0.686275, 0.729412, 1)
+theme_override_font_sizes/font_size = 13
+text = "道路配置"
+
+[node name="CellSizeValue" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/CellSizeRow"]
+layout_mode = 2
+text = "CellSize: --"
+
+[node name="SystemControls" type="PanelContainer" parent="."]
+anchors_preset = -1
+anchor_left = 1.0
+anchor_top = 0.0
+anchor_right = 1.0
+anchor_bottom = 0.0
+offset_left = -336.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = 80.0
+theme = ExtResource("3_theme")
+script = ExtResource("6_system_script")
+
+[node name="PanelMargin" type="MarginContainer" parent="SystemControls"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 8
+
+[node name="Controls" type="VBoxContainer" parent="SystemControls/PanelMargin"]
+layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="SelectBtn" type="Button" parent="Panel/VBox/ToolBar"]
-text = "选择 (Esc)"
-custom_minimum_size = Vector2(88, 30)
-theme_override_font_sizes/font_size = 12
+[node name="Buttons" type="HBoxContainer" parent="SystemControls/PanelMargin/Controls"]
+layout_mode = 2
+theme_override_constants/separation = 8
 
-[node name="RoadBtn" type="Button" parent="Panel/VBox/ToolBar"]
-text = "铺路 (R)"
-custom_minimum_size = Vector2(88, 30)
-theme_override_font_sizes/font_size = 12
+[node name="SaveButton" type="Button" parent="SystemControls/PanelMargin/Controls/Buttons"]
+custom_minimum_size = Vector2(88, 36)
+layout_mode = 2
+focus_mode = 2
+text = "保存 F5"
 
-[node name="RemoveBtn" type="Button" parent="Panel/VBox/ToolBar"]
-text = "拆路 (E)"
-custom_minimum_size = Vector2(88, 30)
-theme_override_font_sizes/font_size = 12
+[node name="LoadButton" type="Button" parent="SystemControls/PanelMargin/Controls/Buttons"]
+custom_minimum_size = Vector2(88, 36)
+layout_mode = 2
+focus_mode = 2
+text = "加载 F9"
 
-; ═══════════ 存档 ═══════════
-[node name="SectionSave" type="Label" parent="Panel/VBox"]
-text = "存档"
-theme_override_colors/font_color = Color(1, 0.76, 0.35, 1)
+[node name="StatusLabel" type="Label" parent="SystemControls/PanelMargin/Controls"]
+layout_mode = 2
 theme_override_font_sizes/font_size = 12
+text = "系统就绪"
 
-[node name="SaveBar" type="HBoxContainer" parent="Panel/VBox"]
+[node name="DebugPanel" type="PanelContainer" parent="."]
+anchors_preset = -1
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 0.0
+anchor_bottom = 0.0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 316.0
+offset_bottom = 64.0
+theme = ExtResource("3_theme")
+script = ExtResource("5_debug_script")
+
+[node name="PanelMargin" type="MarginContainer" parent="DebugPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 8
+
+[node name="Rows" type="VBoxContainer" parent="DebugPanel/PanelMargin"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="DebugToggleButton" type="Button" parent="DebugPanel/PanelMargin/Rows"]
+custom_minimum_size = Vector2(112, 36)
+layout_mode = 2
+focus_mode = 2
+text = "Debug ▼"
+
+[node name="DebugContent" type="VBoxContainer" parent="DebugPanel/PanelMargin/Rows"]
+visible = false
+layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="SaveBtn" type="Button" parent="Panel/VBox/SaveBar"]
-text = "保存 (F5)"
-custom_minimum_size = Vector2(88, 30)
-theme_override_font_sizes/font_size = 12
+[node name="FpsRow" type="HBoxContainer" parent="DebugPanel/PanelMargin/Rows/DebugContent"]
+layout_mode = 2
+[node name="FpsLabel" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/FpsRow"]
+layout_mode = 2
+text = "FPS"
+[node name="FpsSpacer" type="Control" parent="DebugPanel/PanelMargin/Rows/DebugContent/FpsRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+[node name="FpsValue" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/FpsRow"]
+layout_mode = 2
+text = "--"
 
-[node name="LoadBtn" type="Button" parent="Panel/VBox/SaveBar"]
-text = "加载 (F9)"
-custom_minimum_size = Vector2(88, 30)
-theme_override_font_sizes/font_size = 12
+[node name="GridRow" type="HBoxContainer" parent="DebugPanel/PanelMargin/Rows/DebugContent"]
+layout_mode = 2
+[node name="GridLabel" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/GridRow"]
+layout_mode = 2
+text = "格点"
+[node name="GridSpacer" type="Control" parent="DebugPanel/PanelMargin/Rows/DebugContent/GridRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+[node name="GridValue" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/GridRow"]
+layout_mode = 2
+text = "--"
+
+[node name="RoadGroupRow" type="HBoxContainer" parent="DebugPanel/PanelMargin/Rows/DebugContent"]
+layout_mode = 2
+[node name="RoadGroupLabel" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/RoadGroupRow"]
+layout_mode = 2
+text = "RoadGroup"
+[node name="RoadGroupSpacer" type="Control" parent="DebugPanel/PanelMargin/Rows/DebugContent/RoadGroupRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+[node name="RoadGroupValue" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/RoadGroupRow"]
+layout_mode = 2
+text = "--"
+
+[node name="GraphEdgeRow" type="HBoxContainer" parent="DebugPanel/PanelMargin/Rows/DebugContent"]
+layout_mode = 2
+[node name="GraphEdgeLabel" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/GraphEdgeRow"]
+layout_mode = 2
+text = "GraphEdge"
+[node name="GraphEdgeSpacer" type="Control" parent="DebugPanel/PanelMargin/Rows/DebugContent/GraphEdgeRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+[node name="GraphEdgeValue" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/GraphEdgeRow"]
+layout_mode = 2
+text = "--"
+
+[node name="GraphNodeRow" type="HBoxContainer" parent="DebugPanel/PanelMargin/Rows/DebugContent"]
+layout_mode = 2
+[node name="GraphNodeLabel" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/GraphNodeRow"]
+layout_mode = 2
+text = "GraphNode"
+[node name="GraphNodeSpacer" type="Control" parent="DebugPanel/PanelMargin/Rows/DebugContent/GraphNodeRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+[node name="GraphNodeValue" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/GraphNodeRow"]
+layout_mode = 2
+text = "--"

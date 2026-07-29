@@ -1,287 +1,102 @@
-# UI 系统架构
+# UI 架构契约
 
-> 状态：已实施 | 最后更新：2026-07-19
->
-> 当前实现范围：HUD、工具按钮、存档按钮、UIManager 和轮询式状态更新已实现。资金、人口、RCI、日期、速度控制和模拟事件仍是未来计划。
+本文只记录当前可运行 UI 和未来扩展边界。视觉令牌、颜色、字号、间距和基础焦点样式以 [`DESIGN.md`](../../DESIGN.md) 为准。
 
----
+## 当前命令中心组成
 
-## 1. 架构概览
+`Scenes/UI/GameHUD.tscn` 是当前 HUD 组合根，挂在 `Scenes/MapTest.tscn` 的 `GameHUD` 节点下。
 
-UI 系统采用**三层叠加 + 面板管理**架构：
-
-```
-┌──────────────────────────────────────────────┐
-│  Layer 3: 模态弹窗（PushModal / PopModal）     │  ← 阻塞游戏输入
-│  · 设置面板  · 离线报告  · 确认对话框          │
-├──────────────────────────────────────────────┤
-│  Layer 2: 按需面板（Show / Hide / Toggle）    │  ← 玩家主动打开
-│  · 建筑菜单  · 详情面板  · 数据图层切换        │
-│  · 速度控制  · 预算面板  · 图表                │
-├──────────────────────────────────────────────┤
-│  Layer 1: HUD 常驻层（始终可见）               │  ← 不可关闭
-│  · FPS  · 工具选择  · 鼠标格点                │
-│  · 路网统计  · 工具按钮  · 存档按钮            │
-├──────────────────────────────────────────────┤
-│  Game World（Camera2D 视口）                   │
-└──────────────────────────────────────────────┘
-```
-
-**核心原则**：
-- UI 渲染独立于游戏世界（`CanvasLayer` 隔离）
-- 面板生命周期由 `UIManager` 集中管理
-- 仿真数据 → UI 的流向支持「轮询」和「事件驱动」两种模式
-- 共享 UI 工厂方法确保视觉一致性
-
----
-
-## 2. 文件结构
-
-当前已存在文件：
-
-```
-Scripts/UI/
-├── UIHelpers.cs       ← 静态工厂：CreateLabel / CreateToolButton / CreateDarkPanel
-├── UIManager.cs       ← 面板生命周期管理器（全局单例）
-└── GameHUD.cs         ← 主 HUD：FPS、工具、格点、路网统计、工具按钮
-
-Scenes/UI/              ← .tscn 场景文件
-└── GameHUD.tscn         ← HUD 布局
+```text
+GameHUD (CanvasLayer, Scripts/UI/GameHUD.cs)
++-- UIManager (Scripts/UI/UIManager.cs, 每个 GameHUD 自有)
++-- ConstructionDock (Scenes/UI/ConstructionDock.tscn)
+|   +-- DockPanel/DockStack/ToolTray
+|   |   +-- TrayMargin/ToolScroll/ToolList
+|   |       +-- SelectToolButton
+|   |       +-- RoadToolButton
+|   |       +-- RoadRemoveToolButton
+|   +-- DockPanel/DockStack/CategoryBar
+|       +-- RoadsCategoryButton
++-- ToolContextPanel (Scripts/UI/ToolContextPanel.cs)
+|   +-- PanelMargin/Rows/ContextFocusEntryButton
+|   +-- PanelMargin/Rows/ContextContent
++-- SystemControls (Scripts/UI/SystemControls.cs)
+|   +-- PanelMargin/Controls/Buttons/SaveButton
+|   +-- PanelMargin/Controls/Buttons/LoadButton
++-- DebugPanel (Scripts/UI/DebugPanel.cs)
+    +-- PanelMargin/Rows/DebugToggleButton
+    +-- PanelMargin/Rows/DebugContent
 ```
 
-未来计划文件：
+历史迁移说明：旧左上 `Panel/VBox` HUD、旧 `WireButtons()` 硬编码工具栏和 `Scripts/UI/UIHelpers.cs` 已被命令中心组合、catalog 资源和 `Scenes/UI/Themes/CommandCenterTheme.tres` 取代。它们不是当前实现。
 
-```
-Scripts/UI/
-├── InfoPanel.cs       ← 🔜 点击对象弹出详情
-├── ToolPanel.cs       ← 🔜 根据 ToolType 显示对应子面板
-├── SpeedControl.cs    ← 🔜 时间速度控制
-├── DataOverlay.cs     ← 🔜 数据图层切换
-└── ModalDialog.cs     ← 🔜 通用模态对话框基类
+## Catalog 和工具
 
-Scenes/UI/              ← .tscn 场景文件
-├── InfoPanel.tscn
-└── ...
-```
+首个 live 阶段只渲染 Roads 分类，且只渲染现有可用工具：`Select`、`Road`、`RoadRemove`。
 
----
+当前 bundled catalog 是 `Scenes/UI/RoadsConstructionCategory.tres`：
 
-## 3. 数据流
+| 工具 ID | `ToolType` | 玩家显示 | 快捷键 | 说明来源 |
+|---|---|---|---|---|
+| `select` | `Select` | `选择` | `Esc` | catalog `Description` |
+| `road` | `Road` | `铺路` | `R` | catalog `Description` |
+| `road-remove` | `RoadRemove` | `拆路` | `E` | catalog `Description` |
 
-### 3.1 当前模式：轮询（Polling）
+`ConstructionCategoryDefinition.TryValidate()` 必须拒绝空分类 ID、空显示名、null `Tools`、空工具引用、空工具 ID/显示名和重复工具 ID。`ConstructionDock` 只在 catalog 验证通过后创建按钮；验证失败时隐藏 ToolTray、禁用 Roads 按钮并显示 degraded 文案。
 
-UI 每帧从仿真单例读取最新数据，适合高频/简单场景：
+## UIManager 所有权
 
-```
-GameHUD._Process(delta)
-  ├── ToolManager.Instance.CurrentTool      → 工具 Label
-  ├── MainCamera.Instance.GetGlobalMousePos → 鼠标格点 Label
-  ├── RoadSystem.Instance.Graph             → 路网统计 Label
-  └── Engine.GetFramesPerSecond()           → FPS Label
-```
+`UIManager` 不是进程全局单例。每个 `GameHUD` 创建或解析自己的 `UIManager` 子节点，并只向该 manager 注册自己的 `ContextPanel`、`DebugPanel`、`SystemControls`。`ConstructionDock` 始终可见，不注册到 `UIManager`。
 
-### 3.2 推荐演进：事件驱动 + 脏标记
+`UIManager` 保留面板 API：`Register`、`Unregister`、`Show`、`Hide`、`Toggle`、`IsVisible`、`HideAll`、`PushModal`、`PopModal`、`GetPanel<T>` 和 GDScript 可调用的 `GetPanel(string)`。两个 `GameHUD` 同时存在时，它们的 manager 不得互相覆盖或注销对方的面板。
 
-随着仿真系统增多，全量轮询会浪费 CPU。Phase 4+ 应引入分层更新：
+## 输入和数据流
 
-| 数据频率 | 推荐模式 | 示例 |
-|---------|---------|------|
-| 每帧 | 轮询 | FPS、鼠标位置、拖拽预览 |
-| 每 0.5~1s | 脏标记 | 资金、人口、RCI 需求 |
-| 事件触发 | C# event | 分区属性变更、建筑完成、破产警告 |
+| 输入或事件 | 所有者 | 当前效果 |
+|---|---|---|
+| `R` | `ToolManager._Input()` | `CurrentTool = ToolType.Road` |
+| `E` | `ToolManager._Input()` | `CurrentTool = ToolType.RoadRemove` |
+| `Esc` | `ToolManager._Input()` | `CurrentTool = ToolType.Select` |
+| `SelectToolButton` / `RoadToolButton` / `RoadRemoveToolButton` | `ConstructionDock` | 请求 `ToolManager.CurrentTool` 切换 |
+| `RoadsCategoryButton` | `ConstructionDock` | 展开或收起 ToolTray，不改变当前工具 |
+| `F5` / `SaveButton` | `GameHUD` / `SystemControls` | 调用 `SaveManager.Instance.Save("autosave")` 并更新状态 |
+| `F9` / `LoadButton` | `GameHUD` / `SystemControls` | 调用 `SaveManager.Instance.Load("autosave")` 并更新状态 |
 
-**事件驱动示例**（推荐模式）：
+`ToolContextPanel` 不维护重复 switch 文案。它从 `ConstructionDock.Category` 的 `ConstructionToolDefinition` 读取当前工具显示名、说明和快捷键；找不到定义时显示安全 fallback。`DebugPanel` 显示 FPS、鼠标格点、RoadGroup、GraphEdge、GraphNode，并在缺失或释放的 `MainCamera` / `RoadGraph` 状态下显示 `--`。
 
-```csharp
-// 未来设计示例，当前 EconomySystem 尚未实现
-public class EconomySystem
-{
-    public event Action<BudgetData>? BudgetChanged;
-    private void UpdateBudget() => BudgetChanged?.Invoke(_budget);
-}
+## 响应式和焦点
 
-// — UI 侧 —
-public override void _Ready()
-{
-    SimulationEngine.Instance.Economy.BudgetChanged += OnBudgetChanged;
-}
-private void OnBudgetChanged(BudgetData data)
-{
-    _moneyLabel.Text = $"¥{data.Balance:N0}";
-    _moneyLabel.SelfModulate = data.Balance < 0 ? Colors.Red : Colors.White;
-}
+默认桌面布局：`ConstructionDock` 底部居中并向上展开；`SystemControls` 在右上；`ToolContextPanel` 在右侧；`DebugPanel` 默认折叠在左上。展开后的 dock 不得与右侧 context/system 面板重叠。
+
+低于 760px 宽度时：
+
+| 区域 | 当前规则 |
+|---|---|
+| `ConstructionDock` | 保持底部，宽度收敛到 `viewport_width - 24px`，ToolTray 仍向上展开 |
+| `ToolTray` | 高度不超过视口三分之一，内容通过 `ToolScroll` 滚动 |
+| `ToolContextPanel` | 默认折叠为 44px 右侧入口；展开时根据 dock 实际顶部边界限制高度，避免与 dock/system/debug 重叠 |
+| `SystemControls` | 保持独立右上系统操作区，不进入 dock |
+| `DebugPanel` | 默认折叠，展开内容不进入主焦点路径 |
+
+焦点顺序由代码显式设置，并在 ToolTray 可见性变化时立即更新：
+
+```text
+展开：RoadsCategoryButton -> SelectToolButton -> RoadToolButton -> RoadRemoveToolButton -> ContextFocusEntryButton -> SaveButton -> LoadButton -> DebugToggleButton -> RoadsCategoryButton
+折叠：RoadsCategoryButton -> ContextFocusEntryButton -> SaveButton -> LoadButton -> DebugToggleButton -> RoadsCategoryButton
 ```
 
----
+反向焦点链必须与上述顺序互为镜像；折叠时隐藏工具按钮必须被 forward 和 reverse traversal 同时绕过。
 
-## 4. UIManager — 面板生命周期管理器
+## 新分类上线规则
 
-### 4.1 职责
+新 live 分类必须完成全部步骤后才能从未来示例进入 catalog：
 
-- **注册**：面板在 `_Ready()` 中调用 `UIManager.Instance.Register("name", panel)` 注册自身
-- **显示/隐藏**：`Show()` / `Hide()` / `Toggle()` 控制可见性
-- **模态栈**：`PushModal()` 推入模态面板 → 阻塞游戏输入 → `PopModal()` 关闭
-- **查询**：`IsVisible()` 查询状态，`GetPanel<T>()` 获取面板引用
+1. 定义分类 ID、中文显示名、排序和说明。
+2. 定义每个工具 ID、中文显示名、快捷键、`ToolType`、排序和说明。
+3. 接入真实行为所有者，不能只有按钮或禁用占位。
+4. 准备统一 Theme / 图标 / 文案资源，禁止 emoji 占位。
+5. 验证鼠标、键盘、Tab、Enter、Space、Esc 与现有快捷键冲突。
+6. 验证保存/加载、资源加载、可访问性和小窗口布局。
+7. 更新本文件和相关 class/reference 文档。
 
-### 4.2 使用示例
-
-```csharp
-// 注册面板（在面板自身的 _Ready 中）
-public override void _Ready()
-{
-    UIManager.Instance.Register("InfoPanel", this);
-    Visible = false; // 初始隐藏
-}
-
-// 显示面板（在任何地方）
-UIManager.Instance.Show("InfoPanel");
-
-// 模态弹窗
-UIManager.Instance.PushModal("ConfirmDialog");
-
-// 输入处理中判断是否被模态阻塞
-public override void _Input(InputEvent @event)
-{
-    if (UIManager.Instance.IsModalActive) return;
-    // ... 正常输入处理
-}
-```
-
-### 4.3 单例初始化
-
-`UIManager` 由 `GameHUD._Ready()` 自动创建并添加到场景树。构造函数中设置 `Instance`，避免 `_Ready` 时序问题。任何节点在 `_Process()` 之后访问 `UIManager.Instance` 都是安全的。
-
----
-
-## 5. GameHUD — 主 HUD 实现
-
-### 5.1 结构
-
-布局定义在 `Scenes/UI/GameHUD.tscn`（Godot 编辑器可视化编辑），脚本为 `Scripts/UI/GameHUD.cs`。
-
-```
-CanvasLayer (GameHUD)                       ← .tscn 根节点 + C# 脚本
-├── UIManager (Node)                        ← 代码自动创建
-└── Panel (半透明深色背景)                    ← .tscn 定义
-    └── VBoxContainer                        ← .tscn 定义
-        ├── Label "SectionInfo"              ← .tscn 定义
-        ├── HBoxContainer "RowFPS"            ← 含 FPS Label
-        ├── HBoxContainer "RowTool"           ← 含 Tool Label
-        ├── HBoxContainer "RowMouse"          ← 含 MousePos Label
-        ├── HSeparator "Sep1"
-        ├── Label "SectionRoads"
-        ├── HBoxContainer "RowRoads"          ← 含 Roads Label
-        ├── HBoxContainer "RowSegments"       ← 含 Segments Label
-        ├── HBoxContainer "RowJunctions"      ← 含 Junctions Label
-        ├── HSeparator "Sep2"
-        ├── Label "SectionTools"
-        ├── HBoxContainer "ToolBar"           ← SelectBtn / RoadBtn / RemoveBtn
-        ├── Label "SectionSave"
-        └── HBoxContainer "SaveBar"           ← SaveBtn / LoadBtn
-```
-
-### 5.2 代码组织
-
-- `_Ready()` — 解析依赖 → 初始化 UIManager → `ResolveChildNodes()` → `WireButtons()`
-- `ResolveChildNodes()` — `GetNode<Label>("Panel/VBox/RowFPS/FPS")` 等，从 .tscn 树中获取引用
-- `WireButtons()` — 绑定 `ToolBar` 三个工具按钮和 `SaveBar` 的保存/加载按钮
-- `_Process()` → `UpdateFPS()` / `UpdateToolInfo()` / `UpdateMousePos()` / `UpdateRoadStats()` — 帧更新
-
-### 5.3 依赖
-
-| 依赖 | 用途 | 访问方式 |
-|------|------|---------|
-| `RoadConfig` | 格点尺寸 | `[Export]` 注入 |
-| `ToolManager` | 当前工具 | `ToolManager.Instance` |
-| `RoadSystem` → `RoadGraph` | 路网数据 | `RoadSystem.Instance.Graph` |
-| `MainCamera` | 鼠标世界坐标 | `MainCamera.Instance` |
-| `UIManager` | 面板管理器 | `UIManager.Instance` |
-
----
-
-## 6. UIHelpers — 共享工厂
-
-确保所有 UI 面板的控件外观一致：
-
-```csharp
-// 创建统一样式的 Label
-var label = UIHelpers.CreateLabel("文本", fontSize: 13);
-
-// 创建工具切换按钮
-var btn = UIHelpers.CreateToolButton("铺路(R)", ToolType.Road, tool => {
-    ToolManager.Instance.CurrentTool = tool;
-});
-
-// 创建半透明背景面板
-var panel = UIHelpers.CreateDarkPanel(pos, size, alpha: 0.88f);
-```
-
----
-
-## 7. 添加新 UI 面板指南
-
-### 7.1 创建面板
-
-```csharp
-using Godot;
-
-public partial class InfoPanel : Control
-{
-    public override void _Ready()
-    {
-        // 注册到 UIManager
-        UIManager.Instance.Register("InfoPanel", this);
-        Visible = false; // 初始隐藏
-
-        // 构建 UI（使用 UIHelpers 保持一致性）
-        var bg = UIHelpers.CreateDarkPanel(Vector2.Zero, new Vector2(300, 200));
-        AddChild(bg);
-        // ...
-    }
-}
-```
-
-### 7.2 挂载到场景
-
-1. 在 Godot 编辑器中，在 `Scenes/UI/` 下创建 `.tscn` 场景
-2. 根节点设为对应的 Control 类型，挂载 C# 脚本
-3. 在 `MapTest.tscn` 中添加该场景实例（作为 GameHUD 的子节点或同级节点）
-
-### 7.3 控制显示
-
-```csharp
-// 快捷键切换
-if (Input.IsKeyPressed(Key.I))
-    UIManager.Instance.Toggle("InfoPanel");
-
-// 点击对象显示
-UIManager.Instance.Show("InfoPanel");
-var panel = UIManager.Instance.GetPanel<InfoPanel>("InfoPanel");
-panel?.ShowFor(selectedObject);
-```
-
----
-
-## 8. 设计决策记录
-
-| 决策 | 理由 |
-|------|------|
-| `UIManager` 用构造函数设 Instance（而非 `_Ready`） | 避免 `AddChild` 后 `_Ready` 未执行的时序问题 |
-| `UIHelpers` 为静态类（非 Godot Node） | 纯工厂方法，无生命周期依赖 |
-| HUD 不注册到 UIManager | HUD 始终可见，不需要显示/隐藏管理 |
-| GameHUD 布局迁移到 `.tscn` 场景 | 静态布局由 Godot 编辑器管理，C# 仅负责动态逻辑和事件绑定 |
-| `_Process` 轮询而非事件驱动（当前阶段） | Phase 1 仅 6 个动态 Label，轮询开销可忽略；Phase 4+ 引入事件驱动 |
-| F5/F9 由 `GameHUD._Input()` 处理 | 当前保存和加载固定使用 `autosave` 槽 |
-
----
-
-## 9. 后续计划
-
-| Phase | 任务 | 涉及文件 |
-|-------|------|---------|
-| Phase 2 | InfoPanel — 点击道路/分区弹出详情 | `InfoPanel.cs`, `InfoPanel.tscn` |
-| Phase 3 | SpeedControl — 时间速度控制 | `SpeedControl.cs` |
-| Phase 3 | 离线报告模态弹窗 | `OfflineReportDialog.cs` |
-| Phase 4 | RCI 需求条 + 资金面板 | `GameHUD.cs` 扩展 |
-| Phase 4 | 事件驱动迁移（资金/人口） | 添加 C# event 到 Simulation 系统 |
-| Phase 5+ | 数据图层叠加系统 | `DataOverlay.cs` |
+未来示例只能留在文档中，不能作为 live 按钮、灰色 tab、空托盘或“即将推出”卡片渲染：Zoning、Public Facilities、Transit、Landscaping、道路等级变体、桥梁、隧道、预算/人口/RCI、速度控制。

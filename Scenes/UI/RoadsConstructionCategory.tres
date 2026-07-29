@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="ConstructionCategoryDefinition" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://Scripts/UI/ConstructionCategoryDefinition.cs" id="1_category"]
+[ext_resource type="Script" path="res://Scripts/UI/ConstructionToolDefinition.cs" id="2_tool"]
+
+[sub_resource type="Resource" id="Resource_select"]
+script = ExtResource("2_tool")
+Id = "select"
+DisplayName = "选择"
+ShortcutHint = "Esc"
+ToolType = 0
+SortOrder = 0
+Description = "查看当前状态，取消建造操作。"
+
+[sub_resource type="Resource" id="Resource_road"]
+script = ExtResource("2_tool")
+Id = "road"
+DisplayName = "铺路"
+ShortcutHint = "R"
+ToolType = 1
+SortOrder = 10
+Description = "拖拽铺设道路。"
+
+[sub_resource type="Resource" id="Resource_road_remove"]
+script = ExtResource("2_tool")
+Id = "road-remove"
+DisplayName = "拆路"
+ShortcutHint = "E"
+ToolType = 2
+SortOrder = 20
+Description = "点击已有 GraphEdge 拆路。"
+
+[resource]
+script = ExtResource("1_category")
+Id = "roads"
+DisplayName = "道路"
+SortOrder = 0
+Description = "道路建造、选择和拆除工具。"
+Tools = Array[ExtResource("2_tool")]([SubResource("Resource_select"), SubResource("Resource_road"), SubResource("Resource_road_remove")])

@@ -13,7 +13,7 @@ SimpleCities 是 Godot 4.7 C# 城市建造原型。当前核心是无限网格�
 - `RoadType` 数据模型：Dirt / Street / Arterial / Highway，并支持存档往返
 - 工具切换：选择 (Esc) / 铺路 (R) / 拆路 (E)
 - F5 保存、F9 加载，支持 RoadGraph 和相机状态
-- HUD 显示 FPS、工具、鼠标格点，以及 Group / Edge / Node 数量
+- 命令中心 HUD：底部道路建造坞、右侧工具上下文、默认折叠调试指标、独立保存/加载系统操作
 - Shader 驱动的无限网格背景
 
 主场景：`Scenes/MapTest.tscn`（uid: `uid://baxamkfym8atd`）。
@@ -61,7 +61,10 @@ Scripts/
 │   └── ToolType.cs
 └── UI/
     ├── GameHUD.cs
-    ├── UIHelpers.cs
+    ├── ConstructionDock.cs
+    ├── ToolContextPanel.cs
+    ├── DebugPanel.cs
+    ├── SystemControls.cs
     └── UIManager.cs
 
 Scenes/
@@ -164,7 +167,7 @@ public partial class RoadSystem : Node2D
 - `ToolType` 当前为 `Select`、`Road`、`RoadRemove`
 - `R` / `E` / `Esc` 切换工具
 - `ToolManager._Input()` 把输入转发给 `RoadBuilder.HandlePlaceInput()` 或 `HandleRemoveInput()`
-- `GameHUD` 从 `RoadSystem.Instance.Graph` 读取 Group / Edge / Node 计数
+- `GameHUD` 组合 ConstructionDock、ToolContextPanel、DebugPanel、SystemControls；DebugPanel 从 `RoadSystem.Instance.Graph` 读取 Group / Edge / Node 计数
 - `UIManager` 管理面板注册、可见性和模态栈
 
 ## RoadGraph 关键流程
@@ -238,7 +241,7 @@ public partial class RoadSystem : Node2D
 | Godot 节点 | `public partial class Xxx : Node2D` | 场景树生命周期；按职责也可继承其他 Godot 节点 | `RoadSystem`, `ToolManager`, `RoadRenderer` |
 | 纯数据类 | `public class Xxx` | 数据、拓扑、DTO | `RoadGraph`, `GraphEdge`, `GraphNode`, `RoadGroup` |
 | Resource | `[GlobalClass] public partial class Xxx : Resource` | `.tres` 共享配置 | `RoadConfig` |
-| 静态工具 | `public static class Xxx` | 无状态工具 | `GridSystem`, `DirectionUtil`, `UIHelpers` |
+| 静态工具 | `public static class Xxx` | 无状态工具 | `GridSystem`, `DirectionUtil` |
 
 其他约定：
 
@@ -282,9 +285,9 @@ public partial class RoadSystem : Node2D
 
 ### 添加新工具或 UI 面板
 
-- 新工具：更新 `ToolType`、`ToolManager` 切换和输入转发、`GameHUD` 按钮，并处理离开工具时的状态清理
+- 新工具：更新 `ToolType`、`ToolManager` 切换和输入转发、道路工具 catalog / `ConstructionDock`，并处理离开工具时的状态清理
 - 新面板：通过 `UIManager.Register` 注册，使用 `Show/Hide/Toggle`；模态面板使用 `PushModal/PopModal`
-- 使用 `UIHelpers` 保持现有控件风格
+- 使用 `Scenes/UI/Themes/CommandCenterTheme.tres` 保持现有控件风格
 
 ### 修复 bug
 

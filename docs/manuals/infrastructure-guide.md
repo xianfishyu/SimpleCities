@@ -193,7 +193,7 @@ public void SetRemoveHoverActive(bool active);
 
 ### 5.1 GameHUD
 
-CanvasLayer 浮层，常驻显示：FPS、当前工具、鼠标格点坐标、路网统计、工具按钮、存读档按钮。
+CanvasLayer 浮层，组合底部 ConstructionDock、右侧 ToolContextPanel、默认折叠 DebugPanel 和独立 SystemControls。
 
 **依赖**（通过单例访问）：
 - `ToolManager.Instance` → 工具状态
@@ -201,12 +201,12 @@ CanvasLayer 浮层，常驻显示：FPS、当前工具、鼠标格点坐标、�
 - `MainCamera.Instance` → 鼠标世界坐标
 - `SaveManager.Instance` → 存读档
 
-**当前状态**：`GameHUD.cs` 已从 `RoadSystem.Instance.Graph` 读取 Group / Edge / Node 数量，并使用当前 GridSystem 显示鼠标格点。
+**当前状态**：`DebugPanel` 从 `RoadSystem.Instance.Graph` 读取 Group / Edge / Node 数量，并使用当前 GridSystem 显示鼠标格点；`ToolContextPanel` 读取道路工具目录显示只读说明。
 
-### 5.2 UIHelpers 和 UIManager
+### 5.2 Theme 和 UIManager
 
-`UIHelpers`：静态工厂（`CreateLabel`、`CreateToolButton`、`CreateDarkPanel`）。
-`UIManager`：面板生命周期管理（`Register`、`Show`、`Hide`、`PushModal`、`PopModal`）。
+`CommandCenterTheme.tres`：统一 Label / Button / Panel 的命令中心样式。
+`UIManager`：真实受管面板生命周期管理（`Register`、`Show`、`Hide`、`PushModal`、`PopModal`）。
 
 **AI 不需要修改这两个文件。**
 
@@ -261,8 +261,12 @@ Scripts/Road/RoadConfig.cs
 Scripts/Road/Direction.cs
 Scripts/Tools/ToolType.cs
 Scripts/Tools/ToolManager.cs
-Scripts/UI/UIHelpers.cs
+Scenes/UI/Themes/CommandCenterTheme.tres
 Scripts/UI/UIManager.cs
+Scripts/UI/ConstructionDock.cs
+Scripts/UI/ToolContextPanel.cs
+Scripts/UI/DebugPanel.cs
+Scripts/UI/SystemControls.cs
 Scripts/MainCamera.cs
 Scenes/map_background.tscn
 Scenes/UI/GameHUD.tscn

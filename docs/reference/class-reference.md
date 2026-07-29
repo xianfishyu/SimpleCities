@@ -45,7 +45,7 @@
 | Road data | `Direction.cs`, `GraphNode.cs`, `GraphEdge.cs`, `RoadGroup.cs`, `RoadType.cs`, `SpatialIndex.cs`, `RoadGraph.cs` | 方向、拓扑、路网、空间索引、持久化 |
 | Road scene | `RoadBuilder.cs`, `RoadConfig.cs`, `RoadRenderer.cs`, `RoadSystem.cs` | 输入投影、共享配置、事件驱动渲染、依赖注入 |
 | Tools | `ToolManager.cs`, `ToolType.cs` | 工具切换和输入转发 |
-| UI | `GameHUD.cs`, `UIHelpers.cs`, `UIManager.cs` | HUD、按钮、面板管理 |
+| UI | `GameHUD.cs`, `ConstructionDock.cs`, `ToolContextPanel.cs`, `DebugPanel.cs`, `SystemControls.cs`, `UIManager.cs` | 命令中心 HUD、建造坞、上下文、诊断、系统操作和面板管理 |
 
 ---
 
@@ -58,7 +58,7 @@
 | `RoadSystem.Instance` | `RoadSystem` | `RoadSystem._Ready()` | `GameHUD` |
 | `ToolManager.Instance` | `ToolManager` | `ToolManager._Ready()` | `GameHUD` |
 | `MapBackground.Instance` | `MapBackground` | `MapBackground._Ready()` | 目前无直接调用者 |
-| `UIManager.Instance` | `UIManager` | `UIManager()` 构造函数 | `GameHUD`, 后续 UI 面板 |
+| `UIManager` 子节点 | `UIManager` | `GameHUD.EnsureUIManager()` | 所属 `GameHUD` 内面板 |
 
 | 初始化阶段 | 关键调用 | 结果 |
 |---|---|---|
@@ -562,39 +562,40 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 
 | 公开/导出成员 | 签名 | 说明 |
 |---|---|---|
-| `Config` | `[Export] public RoadConfig Config { get; set; } = null!` | HUD 读取 CellSize 用于鼠标格点和查节点 |
-| `_Ready` | `public override void _Ready()` | 获取工具和路网依赖，确保 `UIManager`，解析控件，绑定按钮 |
+| `Config` | `[Export] public RoadConfig Config { get; set; } = null!` | HUD 将道路配置分发给上下文和调试组件 |
+| `_Ready` | `public override void _Ready()` | 作为命令中心组合协调器，解析子组件、确保本 HUD 的 `UIManager`、绑定组件事件 |
 | `_Input` | `public override void _Input(InputEvent @event)` | F5 保存，F9 加载 |
-| `_Process` | `public override void _Process(double delta)` | 更新 FPS、工具、鼠标格点、路网统计 |
+| `_Process` | `public override void _Process(double delta)` | 协调子组件刷新当前工具、catalog 上下文、调试指标和响应式布局 |
 
 | UI/快捷键 | 当前调用 | 说明 |
 |---|---|---|
-| 选择按钮 | `_toolManager.CurrentTool = ToolType.Select` | 切换选择工具 |
-| 铺路按钮 | `_toolManager.CurrentTool = ToolType.Road` | 切换铺路工具 |
-| 拆路按钮 | `_toolManager.CurrentTool = ToolType.RoadRemove` | 切换拆路工具 |
+| 选择按钮 | `ConstructionDock` 调用 `ToolManager.CurrentTool = ToolType.Select` | 切换选择工具 |
+| 铺路按钮 | `ConstructionDock` 调用 `ToolManager.CurrentTool = ToolType.Road` | 切换铺路工具 |
+| 拆路按钮 | `ConstructionDock` 调用 `ToolManager.CurrentTool = ToolType.RoadRemove` | 切换拆路工具 |
 | 保存按钮 | `OnSave()` | `SaveManager.Instance.Save("autosave")` |
 | 加载按钮 | `OnLoad()` | `SaveManager.Instance.Load("autosave")` |
 | F5 | `OnSave()` | autosave 保存 |
 | F9 | `OnLoad()` | autosave 加载 |
 
-| HUD 数据 | 来源 |
+| HUD 数据 | 所属组件 / 来源 |
 |---|---|
-| FPS | `Engine.GetFramesPerSecond()` |
-| 当前工具 | `ToolManager.Instance.CurrentTool` |
-| 鼠标格点 | `MainCamera.Instance.GetGlobalMousePosition()` + `GridSystem.SnapToGrid(...)` |
-| 是否有节点 | `RoadGraph.FindClosestNode(snapped, Config.CellSize * 0.1f)` |
-| Group/Edge/Node 数量 | `RoadSystem.Instance.Graph.GetAllGroups/Edges/Nodes().Count()` |
+| 当前工具显示和工具按钮 | `ConstructionDock` 读取 bundled Roads catalog，并写入 `ToolManager.Instance.CurrentTool` |
+| catalog 上下文 | `ToolContextPanel` 读取当前 `ToolType`、`RoadConfig` 和 `ConstructionCategoryDefinition` |
+| FPS | `DebugPanel` 读取 `Engine.GetFramesPerSecond()` |
+| 鼠标格点 | `DebugPanel` 读取 `MainCamera.Instance.GetGlobalMousePosition()` + `GridSystem.SnapToGrid(...)` |
+| 是否有节点 | `DebugPanel` 读取 `RoadGraph.FindClosestNode(snapped, Config.CellSize * 0.1f)` |
+| Group/Edge/Node 数量 | `DebugPanel` 读取 `RoadSystem.Instance.Graph.GetAllGroups/Edges/Nodes().Count()` |
 
-### UIHelpers
+### Command Center UI Components
 
-**文件**：`Scripts/UI/UIHelpers.cs`
-**类型**：`public static class UIHelpers`
+**文件**：`Scripts/UI/ConstructionDock.cs`, `ToolContextPanel.cs`, `DebugPanel.cs`, `SystemControls.cs`
 
-| 成员 | 签名 | 说明 |
-|---|---|---|
-| `CreateLabel` | `public static Label CreateLabel(string text, int fontSize = 13)` | 创建统一浅色文字标签 |
-| `CreateToolButton` | `public static Button CreateToolButton(string text, ToolType tool, System.Action<ToolType> onPressed)` | 创建工具按钮并绑定回调 |
-| `CreateDarkPanel` | `public static Panel CreateDarkPanel(Vector2 position, Vector2 size, float alpha = 0.88f)` | 创建半透明深色 Panel |
+| 组件 | 说明 |
+|---|---|
+| `ConstructionDock` | 底部 Roads 分类、ToolTray、工具按钮创建和当前工具显示；工具按钮来自 bundled Roads catalog |
+| `ToolContextPanel` | 右侧只读 catalog 上下文，读取工具显示名、说明、快捷键和道路配置 |
+| `DebugPanel` | 默认折叠，拥有 FPS、鼠标格点、RoadGroup、GraphEdge、GraphNode 指标显示 |
+| `SystemControls` | 独立 Save / Load 操作区，显示成功或失败状态 |
 
 ### UIManager
 
@@ -603,19 +604,18 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 
 | 成员 | 签名 | 说明 |
 |---|---|---|
-| `Instance` | `public static UIManager Instance { get; private set; } = null!` | 单例引用 |
 | `IsModalActive` | `public bool IsModalActive => _modalStack.Count > 0` | 是否有模态面板 |
-| 构造函数 | `public UIManager()` | 设置 `Instance` |
 | `Register` | `public void Register(string name, Control panel)` | 注册面板 |
 | `Unregister` | `public void Unregister(string name)` | 注销面板 |
 | `Show` | `public void Show(string name)` | 显示面板 |
 | `Hide` | `public void Hide(string name)` | 隐藏面板 |
 | `Toggle` | `public void Toggle(string name)` | 切换可见性 |
 | `IsVisible` | `public bool IsVisible(string name)` | 查询可见性 |
-| `HideAll` | `public void HideAll()` | 隐藏除 `HUD` 外的所有面板 |
+| `HideAll` | `public void HideAll()` | 隐藏所有已注册面板 |
 | `PushModal` | `public void PushModal(string name)` | 显示并压入模态栈 |
 | `PopModal` | `public void PopModal()` | 关闭最顶层模态面板 |
 | `GetPanel` | `public T? GetPanel<T>(string name) where T : Control` | 获取已注册面板 |
+| `GetPanel` | `public Control? GetPanel(string name)` | 供 GDScript/runtime tests 查询已注册面板 |
 
 ---
 
@@ -631,7 +631,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | 4 | `RoadBuilder.EndDragAndCommit()` | 生成 waypoints，固定 `RoadType.Street` |
 | 5 | `RoadGraph.AddRoad(...)` | 创建/复用节点，拆分交点，跳过覆盖段，创建 group/edge |
 | 6 | `RoadGraph.EdgeAdded` | 通知渲染器创建 `Line2D` |
-| 7 | `GameHUD._Process()` | 轮询并显示 Group/Edge/Node 数量 |
+| 7 | `GameHUD._Process()` -> `DebugPanel.UpdateMetrics()` | 调试组件轮询并显示 Group/Edge/Node 数量 |
 
 ### 拆路数据流
 

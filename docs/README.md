@@ -6,7 +6,7 @@
 
 - [类与 API 参考](reference/class-reference.md)
 - [系统逻辑与运行流程](reference/game-logic.md)
-- [UI 架构](reference/ui-architecture.md)
+- [UI 架构](reference/ui-architecture.md)：当前命令中心实现与未来扩展边界。
 - [存档系统当前参考](reference/save-system-plan.md)
 
 ## 当前路线图
@@ -17,9 +17,11 @@
 
 - [Bugfix 索引](bugfix/README.md)
 - [存档系统修复记录](bugfix/save-system.md)
+- [UI 修复记录](bugfix/ui.md)
 
 ## 设计
 
+- [视觉设计系统](../DESIGN.md)：视觉设计系统事实来源。
 - [设计总览](design/overview.md)
 - [游戏风格讨论](design/game-style-discussion.md)
 - [模拟数学模型](design/math-model.md)
