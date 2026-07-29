@@ -154,7 +154,6 @@ Before creating each commit, verify:
 3. The subject uses Chinese punctuation and has no legacy `#` prefix.
 4. Symbols and paths are spelled exactly as they appear in the diff.
 5. Any body statements and verification claims are supported by actual evidence.
-6. The mandatory attribution footer and co-author trailer are added exactly once.
 
 ## Rebase Mode
 
