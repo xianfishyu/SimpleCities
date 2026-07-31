@@ -63,7 +63,7 @@ public partial class MapBackground : CanvasLayer
 
     public override void _Ready()
     {
-        Instance ??= this;
+		Instance = this;
 
         // 回退到默认 RoadConfig
         if (Config == null)
@@ -86,6 +86,13 @@ public partial class MapBackground : CanvasLayer
 
         _shaderMaterial = Display.Material as ShaderMaterial;
     }
+
+	public override void _ExitTree()
+	{
+		if (ReferenceEquals(Instance, this))
+			Instance = null!;
+		_shaderMaterial = null;
+	}
 
     public override void _Process(double delta)
     {

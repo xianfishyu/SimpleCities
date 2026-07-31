@@ -4,8 +4,13 @@ This directory is the canonical navigation root for current SimpleCities UI desi
 
 ## Current contracts
 
-- [Design system](design-system.md): live visual rules, K dock palette, full-width 76px collapsed and 122px expanded geometry, CJK rules, icon semantics, and production asset boundaries.
+- [Design system](design-system.md): live visual rules, K dock palette, full-width 76px collapsed and 140px expanded geometry, CJK rules, icon semantics, and production asset boundaries.
 - [Architecture](architecture.md): live HUD composition, ConstructionDock resource flow, focus contracts, responsive reservation, Debug isolation, and verification entry points.
+- [Pause menu](pause-menu.md): configurable pause lifecycle, save/load behavior, audio and persistent key settings, focus, confirmation flow, and main-menu return semantics.
+
+## Implemented iteration
+
+- [ConstructionDock two-level menu iteration](construction-dock-iteration.md): implemented design record for the 64px secondary shelf, globally centered secondary groups, bottom-anchored primary amber indicator, and filled secondary selection state.
 
 ## Supporting records
 

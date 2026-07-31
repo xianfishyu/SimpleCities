@@ -22,9 +22,17 @@ public partial class MainCamera : Camera2D, ISaveable
 
 	public override void _Ready()
 	{
-		Instance ??= this;
+		Instance = this;
 		nextPos = Position;
 		SaveManager.Instance.Register(this);
+	}
+
+	public override void _ExitTree()
+	{
+		if (SaveManager.Instance != null && GodotObject.IsInstanceValid(SaveManager.Instance))
+			SaveManager.Instance.Unregister(this);
+		if (ReferenceEquals(Instance, this))
+			Instance = null!;
 	}
 
 	public override void _Process(double delta)
@@ -60,7 +68,11 @@ public partial class MainCamera : Camera2D, ISaveable
 	{
 		//WASD
 		if (Input.IsMouseButtonPressed(MouseButton.Middle) == false)
-			moveInput = Input.GetVector("KeyBoard_MoveLeft", "KeyBoard_MoveRight", "KeyBoard_MoveUp", "KeyBoard_MoveDown");
+			moveInput = Input.GetVector(
+				InputBindingManager.CameraMoveLeftAction,
+				InputBindingManager.CameraMoveRightAction,
+				InputBindingManager.CameraMoveUpAction,
+				InputBindingManager.CameraMoveDownAction);
 
 		//MouseWheel
 		if (@event is InputEventMouseButton mouseEvent && mouseEvent.Pressed)

@@ -34,20 +34,16 @@ public partial class ToolManager : Node2D
         _roadBuilder = GetNode<RoadBuilder>("../RoadSystem/RoadBuilder");
     }
 
+    public override void _ExitTree()
+    {
+        if (ReferenceEquals(Instance, this))
+            Instance = null!;
+        _roadBuilder = null;
+    }
+
     public override void _Input(InputEvent @event)
     {
-        // Keyboard tool switching
-        if (@event is InputEventKey keyEvent && keyEvent.Pressed)
-        {
-            switch (keyEvent.Keycode)
-            {
-                case Key.Escape:
-                    CurrentTool = ToolType.Select;
-                    return;
-            }
-        }
-
-        // Forward input to RoadBuilder
+        // Esc is owned by GameHUD's pause menu. ToolManager only forwards active tool input.
         if (_roadBuilder == null) return;
 
         switch (_currentTool)

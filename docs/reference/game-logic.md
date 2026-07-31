@@ -201,15 +201,17 @@ flowchart LR
 flowchart LR
     Start((启动)) --> Select
 
-    Select["Select<br/>选择工具"] -->|RoadToolButton| Road["Road<br/>铺路工具"]
-    Select -->|程序设置| Remove["RoadRemove<br/>拆除工具"]
+    Select["Select<br/>选择工具"] -->|RoadToolButton 或 tool_road 默认 R| Road["Road<br/>铺路工具"]
+    Select -->|tool_remove 默认 E| Remove["RoadRemove<br/>拆除工具"]
+    Road -->|tool_select 默认 Q| Select
+    Road -->|tool_remove 默认 E| Remove
+    Remove -->|tool_select 默认 Q| Select
+    Remove -->|tool_road 默认 R| Road
 
-    Road -->|按 Esc| Select
-    Remove -->|按 Esc| Select
-
-    Select -->|按 R/E: 保持| Select
-    Road -->|按 R/E: 保持| Road
-    Remove -->|按 R/E: 保持| Remove
+    Select -->|pause_menu 默认 Esc| Pause["PauseMenu<br/>不改变当前工具"]
+    Road -->|pause_menu 默认 Esc| Pause
+    Remove -->|pause_menu 默认 Esc| Pause
+    Pause -->|继续游戏| Previous["恢复先前工具状态"]
 
     Road -.生命周期.-> RN["Enter: 无操作<br/>Tick: BeginDrag - UpdateProjection - EndDragAndCommit<br/>Exit: CancelPlaceDrag"]
     Remove -.生命周期.-> RMN["Enter: SetRemoveHoverActive true<br/>Tick: UpdateRemoveHover 悬停检测<br/>Exit: SetRemoveHoverActive false 清除高亮"]
@@ -223,7 +225,7 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    subgraph Save["存档 F5"]
+    subgraph Save["暂停菜单：存档"]
         SM_S[SaveManager] -->|Register| IS[ISaveable]
         SM_S -->|遍历已注册| RN_S[RoadGraph]
         SM_S -->|CaptureState| RN_Data[RoadGraphSaveData 私有根 DTO]
@@ -233,7 +235,7 @@ flowchart LR
         MC_Data -->|SaveJson.Serialize| JSON_C["camera.json"]
     end
 
-    subgraph Load["读档 F9"]
+    subgraph Load["暂停菜单：读档"]
         JSON_J_R["road_network.json"] -->|SaveJson.Deserialize| RN_Data_R[RoadGraphSaveData]
         JSON_C_R["camera.json"] -->|SaveJson.Deserialize| MC_Data_R[CameraData]
         RN_Data_R -->|RestoreState| RN_L[RoadGraph]
@@ -297,9 +299,10 @@ flowchart LR
     end
 
     subgraph Routing["输入路由"]
+        HUD[GameHUD._Input]
+        HUD -->|pause_menu 当前绑定| Pause[PauseMenu 打开并暂停场景树]
+        HUD -->|tool_select / tool_road / tool_remove| ToolState[设置 ToolManager.CurrentTool]
         TM[ToolManager._Input]
-        TM -->|Esc| TM_Self[切换到 Select]
-        TM -->|R/E| Forward
         TM -->|按 CurrentTool| Forward[转发]
         Forward -->|Road| Place[RoadBuilder.HandlePlaceInput]
         Forward -->|RoadRemove| Remove[RoadBuilder.HandleRemoveInput]

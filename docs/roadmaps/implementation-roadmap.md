@@ -83,7 +83,7 @@ Phase 9: 打磨与优化
 | 任务 | 文件 | 状态 | 说明 |
 |------|------|------|------|
 | 工具枚举 | `Scripts/Tools/ToolType.cs` | ✅ 完成 | Select / Road / RoadRemove |
-| 工具管理器 | `Scripts/Tools/ToolManager.cs` | ✅ 完成 | Esc 回到 Select；R/E 不切换工具；保留输入转发和拖拽取消保护 |
+| 工具与按键管理 | `Scripts/Tools/ToolManager.cs`、`Scripts/Core/InputBindingManager.cs` | ✅ 完成 | ToolManager 只转发当前工具输入；GameHUD 通过可持久化动作处理默认 Q/R/E 工具切换和 Esc 暂停 |
 
 > ⚠️ 原始计划中的 `ITool` 接口未实现——工具种类少（当前仅 3 种），直接 switch 分发比接口模式更简洁。Phase 2 加入分区工具后若复杂度上升可重新评估。
 
@@ -91,8 +91,8 @@ Phase 9: 打磨与优化
 
 | 任务 | 文件 | 状态 | 说明 |
 |------|------|------|------|
-| HUD 组合根 | `Scripts/UI/GameHUD.cs` | ✅ 完成 | 组合 ConstructionDock、ToolContextPanel、DebugPanel、SystemControls |
-| 建造坞 / 工具托盘 | `Scripts/UI/ConstructionDock.cs` | ✅ 完成 | 五分类建造坞；Roads 托盘只显示无快捷键提示的“城市道路”按钮，Esc 回到 Select，RoadRemove 仅保留程序设置与无快捷键内建上下文 |
+| HUD 组合根 | `Scripts/UI/GameHUD.cs` | ✅ 完成 | 组合 ConstructionDock、ToolContextPanel、DebugPanel、PauseMenu |
+| 建造坞 / 工具托盘 | `Scripts/UI/ConstructionDock.cs` | ✅ 完成 | 五分类建造坞；Roads 托盘显示“城市道路”，工具上下文从 InputBindingManager 显示当前 Q/R/E 绑定，暂停动作由 PauseMenu 处理 |
 | 命令中心 Theme | `Scenes/UI/Themes/CommandCenterTheme.tres` | ✅ 完成 | 统一 Label / Button / Panel 样式 |
 | 面板管理器 | `Scripts/UI/UIManager.cs` | ✅ 完成 | 注册/显示/隐藏/模态面板生命周期 |
 
@@ -402,7 +402,7 @@ Scripts/
     ├── ConstructionDock.cs            # ✅ 底部建造坞和道路工具托盘
     ├── ToolContextPanel.cs            # ✅ 右侧只读工具上下文
     ├── DebugPanel.cs                  # ✅ 默认折叠调试指标
-    ├── SystemControls.cs              # ✅ 保存 / 加载系统操作区
+    ├── PauseMenu.cs                   # ✅ 暂停、保存 / 加载和设置
     ├── UIManager.cs                   # ✅ 面板生命周期管理（注册/显示/模态）
     ├── HUD.cs                         # ⚠️ 已重命名 → GameHUD（功能更完整）
     ├── ⚠️ DebugGUI.cs                # 已弃用 — Godot 原生 UI 替代 ImGui

@@ -19,6 +19,7 @@ public partial class SaveManager : Node
     private const string ManifestFile = "manifest.json";
 
     public string CurrentSlotName { get; private set; } = "autosave";
+    public int RegisteredSaveableCount => _saveables.Count;
 
     public override void _Ready()
     {
@@ -29,12 +30,31 @@ public partial class SaveManager : Node
     // 注册
     // ═══════════════════════════════════════════════
 
-    /// <summary>注册一个可持久化系统。通常在子系统的 _Ready() 中调用。</summary>
-    public void Register(ISaveable saveable)
+    /// <summary>
+    /// 注册一个可持久化系统。相同实例可重复调用；不同实例不能占用同一个 SaveFileName。
+    /// </summary>
+    public bool Register(ISaveable saveable)
     {
+        ArgumentNullException.ThrowIfNull(saveable);
+
         if (!_saveables.Contains(saveable))
+        {
+            ISaveable? conflict = _saveables.Find(existing =>
+                string.Equals(existing.SaveFileName, saveable.SaveFileName, StringComparison.Ordinal));
+            if (conflict != null)
+            {
+                GD.PushError($"SaveManager: duplicate active SaveFileName '{saveable.SaveFileName}' rejected.");
+                return false;
+            }
+
             _saveables.Add(saveable);
+        }
+
+        return true;
     }
+
+    /// <summary>注销离开场景树的可持久化系统；重复注销安全返回 false。</summary>
+    public bool Unregister(ISaveable saveable) => _saveables.Remove(saveable);
 
     // ═══════════════════════════════════════════════
     // 保存

@@ -2,9 +2,8 @@ using Godot;
 using System.Collections.Generic;
 
 /// <summary>
-/// UI 面板生命周期管理器 — 每个 GameHUD 拥有自己的实例，负责该 HUD 内真实受管面板的注册 / 显示 / 隐藏 / 模态栈。
-/// GameHUD 只向自己的 manager 注册需要外部可见性管理的组件，例如 ContextPanel、DebugPanel、SystemControls。
-/// ConstructionDock 始终可见，不通过 UIManager 管理。
+/// UI 面板生命周期管理器。每个 GameHUD 拥有独立实例，避免切换场景后残留全局 UI 状态。
+/// 只管理需要按名称显示、隐藏或模态化的面板；底部 ConstructionDock 始终可见，因此不在此注册。
 /// </summary>
 public partial class UIManager : Node
 {
@@ -83,6 +82,7 @@ public partial class UIManager : Node
         if (_panels.TryGetValue(name, out var panel))
         {
             panel.Visible = true;
+            // 栈顶永远代表当前需要优先关闭的面板，支持之后扩展为嵌套弹窗。
             _modalStack.Push(name);
         }
     }

@@ -13,8 +13,8 @@
 - 8 方向道路铺设与拆除
 - `RoadGraph` / `GraphNode` / `GraphEdge` / `RoadGroup` 拓扑维护
 - `EdgeAdded` / `EdgeRemoved` / `GraphCleared` 事件驱动道路渲染
-- 命令中心 HUD 由 `ConstructionDock`、`ToolContextPanel`、`DebugPanel`、`SystemControls` 组成，分别承载工具按钮/当前工具、catalog 上下文、FPS/格点/Group/Edge/Node 指标和保存加载状态
-- F5 / F9 固定 `autosave` 槽保存和加载 `road_network.json`、`camera.json`
+- 命令中心 HUD 由 `ConstructionDock`、`ToolContextPanel`、`DebugPanel` 和 `PauseMenu` 组成，分别承载工具按钮/当前工具、catalog 上下文、FPS/格点/Group/Edge/Node 指标，以及暂停中的保存加载状态
+- 暂停菜单固定使用 `autosave` 槽保存和加载 `road_network.json`、`camera.json`
 
 ### 未来设计目标
 

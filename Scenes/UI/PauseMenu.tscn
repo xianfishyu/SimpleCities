@@ -1,0 +1,211 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/UI/PauseMenu.cs" id="1_script"]
+[ext_resource type="Theme" uid="uid://c8hn82hv6p402" path="res://Scenes/UI/Themes/CommandCenterTheme.tres" id="2_theme"]
+
+[node name="PauseMenu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+theme = ExtResource("2_theme")
+script = ExtResource("1_script")
+
+[node name="Dimmer" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.0156863, 0.0235294, 0.0352941, 0.82)
+
+[node name="Center" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MainPanel" type="PanelContainer" parent="Center"]
+custom_minimum_size = Vector2(360, 0)
+layout_mode = 2
+
+[node name="MainContent" type="VBoxContainer" parent="Center/MainPanel"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="Center/MainPanel/MainContent"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.760784, 0.34902, 1)
+theme_override_font_sizes/font_size = 22
+text = "游戏暂停"
+horizontal_alignment = 1
+
+[node name="ContinueButton" type="Button" parent="Center/MainPanel/MainContent"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+text = "继续游戏"
+
+[node name="SaveButton" type="Button" parent="Center/MainPanel/MainContent"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+text = "保存"
+
+[node name="LoadButton" type="Button" parent="Center/MainPanel/MainContent"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+text = "读档"
+
+[node name="SettingsButton" type="Button" parent="Center/MainPanel/MainContent"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+text = "设置"
+
+[node name="ExitGameButton" type="Button" parent="Center/MainPanel/MainContent"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+text = "退出游戏"
+
+[node name="ExitDesktopButton" type="Button" parent="Center/MainPanel/MainContent"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+text = "退出到桌面"
+
+[node name="StatusLabel" type="Label" parent="Center/MainPanel/MainContent"]
+custom_minimum_size = Vector2(0, 22)
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = ""
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="SettingsContent" type="VBoxContainer" parent="Center/MainPanel"]
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="Center/MainPanel/SettingsContent"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.760784, 0.34902, 1)
+theme_override_font_sizes/font_size = 22
+text = "设置"
+horizontal_alignment = 1
+
+[node name="MasterVolumeLabel" type="Label" parent="Center/MainPanel/SettingsContent"]
+layout_mode = 2
+text = "主音量"
+
+[node name="MasterVolumeSlider" type="HSlider" parent="Center/MainPanel/SettingsContent"]
+custom_minimum_size = Vector2(0, 32)
+layout_mode = 2
+max_value = 100.0
+step = 1.0
+
+[node name="MasterVolumeValue" type="Label" parent="Center/MainPanel/SettingsContent"]
+layout_mode = 2
+text = "100%"
+horizontal_alignment = 2
+
+[node name="MuteToggle" type="CheckButton" parent="Center/MainPanel/SettingsContent"]
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+text = "静音"
+
+[node name="KeyBindingsButton" type="Button" parent="Center/MainPanel/SettingsContent"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+text = "按键设置"
+
+[node name="BackButton" type="Button" parent="Center/MainPanel/SettingsContent"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+text = "返回"
+
+[node name="BindingsContent" type="VBoxContainer" parent="Center/MainPanel"]
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="Center/MainPanel/BindingsContent"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.760784, 0.34902, 1)
+theme_override_font_sizes/font_size = 22
+text = "按键设置"
+horizontal_alignment = 1
+
+[node name="BindingsScroll" type="ScrollContainer" parent="Center/MainPanel/BindingsContent"]
+custom_minimum_size = Vector2(360, 260)
+layout_mode = 2
+horizontal_scroll_mode = 0
+vertical_scroll_mode = 1
+
+[node name="BindingsList" type="VBoxContainer" parent="Center/MainPanel/BindingsContent/BindingsScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="BindingStatusLabel" type="Label" parent="Center/MainPanel/BindingsContent"]
+custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = ""
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="BindingActions" type="HBoxContainer" parent="Center/MainPanel/BindingsContent"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ResetBindingsButton" type="Button" parent="Center/MainPanel/BindingsContent/BindingActions"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "恢复默认"
+
+[node name="BackButton" type="Button" parent="Center/MainPanel/BindingsContent/BindingActions"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "返回"
+
+[node name="ConfirmationContent" type="VBoxContainer" parent="Center/MainPanel"]
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="ConfirmationTitle" type="Label" parent="Center/MainPanel/ConfirmationContent"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.760784, 0.34902, 1)
+theme_override_font_sizes/font_size = 22
+text = "确认操作"
+horizontal_alignment = 1
+
+[node name="ConfirmationMessage" type="Label" parent="Center/MainPanel/ConfirmationContent"]
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+text = ""
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="ConfirmationButtons" type="HBoxContainer" parent="Center/MainPanel/ConfirmationContent"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ConfirmButton" type="Button" parent="Center/MainPanel/ConfirmationContent/ConfirmationButtons"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "确认"
+
+[node name="CancelButton" type="Button" parent="Center/MainPanel/ConfirmationContent/ConfirmationButtons"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "取消"

@@ -1,6 +1,6 @@
 # 存档系统当前参考
 
-> 状态：当前实现参考 + 未来目标 | 最后核对：2026-07-20
+> 状态：当前实现参考 + 未来目标 | 最后核对：2026-07-31
 
 本文记录当前可运行的存档系统，而不是旧提案。除“未来目标”章节外，所有描述都以当前源码为准。
 
@@ -27,6 +27,7 @@
 | 编辑器保存到 `res://saves` | 已在运行时验证。 |
 | 槽名仅允许 ASCII 字母、数字、`_` 和 `-` | 已在运行时验证。 |
 | 当前仅注册并保存 `RoadGraph` 和 `MainCamera` | 已按注册路径和运行时生成文件核对。 |
+| 场景退出会注销 `RoadGraph` 和 `MainCamera` | 已通过 `MapTest -> MainMenu -> MapTest` 运行时契约验证：主菜单为 0 个，新城市为 2 个，并可继续存读档。 |
 | 每个文件先写 `.tmp` 再替换正式文件 | 已按源码核对。 |
 | 整个存档槽的原子事务 | 不存在，当前未实现。 |
 | 加载顺序为逐文件顺序恢复，失败后不回滚已恢复对象 | 已按源码核对，失败场景尚无自动化回归。 |
@@ -37,18 +38,20 @@
 
 ## 2. 当前架构
 
-存档入口是 `Scripts/Core/SaveManager.cs`。它是 `SaveManager` Autoload 单例，维护一个运行时 `_saveables` 列表。子系统实现 `Scripts/Core/ISaveable.cs` 后，在初始化时调用 `SaveManager.Instance.Register(this)` 加入保存和加载流程。
+存档入口是 `Scripts/Core/SaveManager.cs`。它是 `SaveManager` Autoload 单例，维护一个运行时 `_saveables` 列表。子系统实现 `Scripts/Core/ISaveable.cs` 后，在初始化时调用 `SaveManager.Instance.Register(this)` 加入保存和加载流程，并在离开场景树时调用 `Unregister(this)`。不同活动对象不能占用同一个 `SaveFileName`。
 
-当前 `SaveManager` 只提供注册，不提供注销。公开 API 为：
+当前公开 API 为：
 
 | API | 当前行为 |
 |---|---|
-| `Register(ISaveable saveable)` | 将对象加入 `_saveables`，同一对象引用不会重复注册。 |
+| `Register(ISaveable saveable)` | 同一对象可幂等注册；不同活动对象使用相同 `SaveFileName` 时拒绝并返回 `false`。 |
+| `Unregister(ISaveable saveable)` | 移除离开场景树的对象；对象不存在时安全返回 `false`。 |
 | `Save(string slotName = "autosave")` | 保存所有已注册对象，成功返回 `true`，异常时记录错误并返回 `false`。 |
 | `Load(string slotName = "autosave")` | 读取 manifest 后按已注册对象匹配文件并依次恢复，成功返回 `true`。 |
 | `SaveSlotExists(string slotName)` | 检查该槽位下是否存在 `manifest.json`。 |
 | `DeleteSlot(string slotName)` | 当前调用 `DirAccess.RemoveAbsolute(slotDir)` 删除槽目录。 |
 | `CurrentSlotName` | 记录最近成功保存或加载的槽名，默认是 `autosave`。 |
+| `RegisteredSaveableCount` | 公开当前注册数量，供运行时生命周期契约检查。 |
 
 `ISaveable` 当前接口如下：
 
@@ -67,8 +70,8 @@ public interface ISaveable
 
 | 实现 | 注册位置 | 文件名 |
 |---|---|---|
-| `RoadGraph` | `Scripts/Road/RoadSystem.cs` 中创建 `Graph` 后注册 | `road_network.json` |
-| `MainCamera` | `Scripts/MainCamera.cs` 的 `_Ready()` | `camera.json` |
+| `RoadGraph` | `Scripts/Road/RoadSystem.cs` 创建 `Graph` 后注册，`_ExitTree()` 注销 | `road_network.json` |
+| `MainCamera` | `Scripts/MainCamera.cs` 的 `_Ready()` 注册，`_ExitTree()` 注销 | `camera.json` |
 
 不要把旧 `RoadNetwork` 当成活动模型。当前道路数据层是 `RoadGraph`、`GraphNode`、`GraphEdge` 和 `RoadGroup`。
 
@@ -257,12 +260,10 @@ private static readonly JsonSerializerOptions Options = new()
 
 | 入口 | 当前行为 |
 |---|---|
-| HUD 保存按钮 | 调用 `SaveManager.Instance.Save("autosave")`。 |
-| HUD 加载按钮 | 调用 `SaveManager.Instance.Load("autosave")`。 |
-| F5 | 快速保存到 `autosave`。 |
-| F9 | 从 `autosave` 快速加载。 |
+| 暂停菜单保存 | 调用 `SaveManager.Instance.Save("autosave")`。 |
+| 暂停菜单读档 | 调用 `SaveManager.Instance.Load("autosave")`。 |
 
-因此当前可观察行为是 F5 自动保存当前 RoadGraph 和 MainCamera，F9 从同一槽读取。没有手动槽选择 UI，也没有多槽列表 UI。
+因此当前可观察行为是暂停菜单将当前 RoadGraph 和 MainCamera 保存到 `autosave`，或从同一槽读取。没有手动槽选择 UI，也没有多槽列表 UI。
 
 ## 10. 添加新可存档系统
 
@@ -273,11 +274,10 @@ private static readonly JsonSerializerOptions Options = new()
 3. 让 `SaveFileName` 返回不含扩展名的稳定文件名。
 4. 在 `CaptureState()` 中返回 DTO。
 5. 在 `RestoreState(string json)` 中调用 `SaveJson.Deserialize<T>()`，再恢复运行时状态。
-6. 在系统初始化完成后调用 `SaveManager.Instance.Register(this)`。
-7. 如果恢复后有缓存、邻接关系、空间索引、渲染对象或事件订阅，必须在 `RestoreState` 中重建或发出明确事件。
-8. 设计 JSON 字段名时优先保持现有存档兼容。重命名运行时类型不等于可以重命名已经写出的 JSON 字段。
-
-当前没有 `Unregister`。如果可存档对象随场景反复创建销毁，必须先处理注册生命周期，否则可能留下过期对象引用或同名文件的重复写入风险。
+6. 在系统初始化完成后调用 `SaveManager.Instance.Register(this)`，并处理重复 `SaveFileName` 导致的 `false` 结果。
+7. 在对象离开场景树时调用 `SaveManager.Instance.Unregister(this)`，重复注销可以安全忽略。
+8. 如果恢复后有缓存、邻接关系、空间索引、渲染对象或事件订阅，必须在 `RestoreState` 中重建或发出明确事件。
+9. 设计 JSON 字段名时优先保持现有存档兼容。重命名运行时类型不等于可以重命名已经写出的 JSON 字段。
 
 ## 11. 已知限制
 
@@ -286,7 +286,6 @@ private static readonly JsonSerializerOptions Options = new()
 | 限制 | 当前风险 |
 |---|---|
 | 导出版本写入可执行文件旁 | 便于绿色版携带存档，但游戏目录只读时保存会失败；不适用于要求沙盒用户目录的平台。 |
-| 只有 `Register` | 场景重载后可能保留旧对象引用，或同一 `SaveFileName` 存在多个活动注册者。 |
 | 子系统文件有 `.tmp`，manifest 没有 | 子系统单文件降低半写风险，manifest 仍是直接覆盖。 |
 | 没有整个槽位事务 | 保存失败可能留下新旧文件混合的槽位。 |
 | 加载没有整体回滚 | 某个子系统加载失败时，之前恢复成功的子系统不会自动回到加载前。 |
@@ -301,8 +300,7 @@ private static readonly JsonSerializerOptions Options = new()
 
 1. 明确版本策略。为 manifest schema 和 RoadGraph payload 建立版本分派，当前 v2 走确定路径，缺少版本的旧数据走兼容路径，未知未来版本给出可诊断失败。
 2. 增加 RoadGraph 恢复校验和失败保护。加载前校验端点、Group/Edge 双向引用、重复 ID、枚举值和 `NextID`，全部通过后再替换当前图，失败时保留加载前状态。
-3. 增加 SaveManager 注销和注册冲突策略。支持 `Unregister(ISaveable)`，把 `RoadSystem`、`MainCamera` 等注册者绑定到场景生命周期，并明确同一 `SaveFileName` 的重复活动注册如何处理。
-4. 固化发布路径兼容边界。用真实 Windows 导出包验证可执行文件旁的 `saves`，定义只读安装目录失败提示，并在支持沙盒平台前重新评估平台专用路径策略。
-5. 加强槽位写入原子性。考虑槽级 staging 目录、manifest `.tmp` 替换、提交标记或旧槽回滚，避免保存失败后出现混合槽位。
-6. 建立加载事务边界。先读取和验证所有要加载文件，再统一提交到各子系统，或让每个子系统提供可回滚的临时恢复路径。
-7. 校准活动 schema 文档和测试。把 `junctions`、`segments`、`roads` 作为兼容字段写入回归测试，避免运行时命名迁移破坏旧 JSON。
+3. 固化发布路径兼容边界。用真实 Windows 导出包验证可执行文件旁的 `saves`，定义只读安装目录失败提示，并在支持沙盒平台前重新评估平台专用路径策略。
+4. 加强槽位写入原子性。考虑槽级 staging 目录、manifest `.tmp` 替换、提交标记或旧槽回滚，避免保存失败后出现混合槽位。
+5. 建立加载事务边界。先读取和验证所有要加载文件，再统一提交到各子系统，或让每个子系统提供可回滚的临时恢复路径。
+6. 校准活动 schema 文档和测试。把 `junctions`、`segments`、`roads` 作为兼容字段写入回归测试，避免运行时命名迁移破坏旧 JSON。

@@ -8,7 +8,7 @@
 [ext_resource type="Script" uid="uid://desqe03ui0aug" path="res://Scripts/Tools/ToolManager.cs" id="6_58v1x"]
 [ext_resource type="Resource" uid="uid://ebbitynntrvx" path="res://Scenes/road_config.tres" id="8_roadcfg"]
 [ext_resource type="PackedScene" uid="uid://dmapbgscen001" path="res://Scenes/map_background.tscn" id="9_2253v"]
-[ext_resource type="PackedScene" path="res://Scenes/UI/GameHUD.tscn" id="9_hudscene"]
+[ext_resource type="PackedScene" uid="uid://dvqwt5ow1cnik" path="res://Scenes/UI/GameHUD.tscn" id="9_hudscene"]
 
 [node name="MapTest" type="Node2D" unique_id=1358314178]
 

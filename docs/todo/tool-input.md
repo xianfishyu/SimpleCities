@@ -1,14 +1,16 @@
 # 工具输入系统待办清单
 
 > 系统 key：`tool-input`
-> 复核日期：2026-07-19
-> 证据：`.omo/backups/system-doc-split/docs/todo/todolist.md`、`.omo/evidence/split-system-docs/task-3/ownership-map.json`、当前工作区源码，以及旧版 `docs/todo/todolist.md`。
-> 主导原则：负责玩家交互、网格吸附、半格输入规则和 `RoadType` 选择入口。
+> 复核日期：2026-07-31
+> 证据：`.omo/backups/system-doc-split/docs/todo/todolist.md`、`.omo/evidence/split-system-docs/task-3/ownership-map.json`、`Scripts/Core/InputBindingManager.cs`、`Scripts/UI/GameHUD.cs`、`Scripts/UI/PauseMenu.cs`、输入相关回归测试，以及旧版 `docs/todo/todolist.md`。
+> 主导原则：负责玩家输入动作与绑定、网格吸附、半格输入规则和 `RoadType` 选择入口。
 
 ## 状态总览
 
-| 遗留 ID | 发现 | 当前状态 | 处置方式 |
+| ID | 发现 | 当前状态 | 处置方式 |
 |---|---|---|---|
+<a id="tool-input1.1"></a>
+| 1.1 | 相机、工具和暂停输入缺少统一可重绑入口 | 已完成 | 由 `InputBindingManager` 统一注册、冲突校验和持久化，HUD 负责工具动作分发 |
 <a id="tool-input8"></a>
 | 8 | `RoadBuilder` 仍有半格特殊分支 | 事实成立，但属于 UI 约束 | 当前不改；连续输入需求出现时再设计 |
 <a id="tool-inputp2"></a>
@@ -54,6 +56,13 @@
 
 ## 已解决基线
 
+<a id="tool-input1.1-baseline"></a>
+- [x] **1.1 建立可持久化的键盘绑定与工具动作分发。**
+  - 当前行为：镜头移动、选择、铺路、拆路和暂停共 8 个动作由 `InputBindingManager` 管理；暂停菜单可以逐项重绑、拒绝冲突并恢复默认值，结果保存到 `user://input_bindings.cfg`。
+  - 分层：`GameHUD` 消费暂停和工具动作，`MainCamera` 消费镜头动作；`ToolManager` 仍只维护工具状态并转发当前工具输入。
+  - 验证：`dotnet test SimpleCities.sln` 34/34 通过；`pause_menu_runtime_contract.gd` 验证 T 重绑、冲突拒绝、工具切换、上下文同步、435x480 布局、恢复默认和配置落盘；`command_center_runtime_contract.gd` 与 `roads_construction_category_contract.gd` 通过。
+  - 验收：重新启动时可从用户配置加载合法唯一绑定；损坏、重复或不可用配置不会覆盖默认动作。
+
 <a id="tool-inputdf59848d1fce"></a>
 - [x] **`CellSize` 已从 RoadGraph API 移除。** 网格吸附和半格输入留在 `RoadBuilder` / `GridSystem`。
   - 关联引用：`tool-input:D5.3`。
@@ -61,4 +70,4 @@
 
 ## 完成标准
 
-- 本系统当前仅包含暂不执行项；启用条件满足前不计入当前里程碑。
+- 本系统当前没有开放执行项；暂不执行项在各自启用条件满足前不计入当前里程碑。

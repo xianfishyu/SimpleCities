@@ -24,4 +24,12 @@ public partial class RoadSystem : Node2D
 
         SaveManager.Instance.Register(Graph);
     }
+
+    public override void _ExitTree()
+    {
+        if (Graph != null && SaveManager.Instance != null && GodotObject.IsInstanceValid(SaveManager.Instance))
+            SaveManager.Instance.Unregister(Graph);
+        if (ReferenceEquals(Instance, this))
+            Instance = null!;
+    }
 }

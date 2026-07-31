@@ -5,7 +5,7 @@
 [ext_resource type="Theme" uid="uid://c8hn82hv6p402" path="res://Scenes/UI/Themes/CommandCenterTheme.tres" id="3_theme"]
 [ext_resource type="Script" uid="uid://dp23c8uinl4ag" path="res://Scripts/UI/ToolContextPanel.cs" id="4_context_script"]
 [ext_resource type="Script" uid="uid://cd1sywlsg0skg" path="res://Scripts/UI/DebugPanel.cs" id="5_debug_script"]
-[ext_resource type="Script" uid="uid://m42sqtssjowt" path="res://Scripts/UI/SystemControls.cs" id="6_system_script"]
+[ext_resource type="PackedScene" path="res://Scenes/UI/PauseMenu.tscn" id="7_pause_menu"]
 
 [node name="GameHUD" type="CanvasLayer" unique_id=511014753]
 script = ExtResource("1_script")
@@ -122,47 +122,6 @@ text = "道路配置"
 layout_mode = 2
 text = "CellSize: --"
 
-[node name="SystemControls" type="PanelContainer" parent="." unique_id=1227609359]
-anchors_preset = -1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -336.0
-offset_top = 16.0
-offset_right = -16.0
-offset_bottom = 80.0
-theme = ExtResource("3_theme")
-script = ExtResource("6_system_script")
-
-[node name="PanelMargin" type="MarginContainer" parent="SystemControls" unique_id=877230326]
-layout_mode = 2
-theme_override_constants/margin_left = 12
-theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 12
-theme_override_constants/margin_bottom = 8
-
-[node name="Controls" type="VBoxContainer" parent="SystemControls/PanelMargin" unique_id=772950232]
-layout_mode = 2
-theme_override_constants/separation = 4
-
-[node name="Buttons" type="HBoxContainer" parent="SystemControls/PanelMargin/Controls" unique_id=609377821]
-layout_mode = 2
-theme_override_constants/separation = 8
-
-[node name="SaveButton" type="Button" parent="SystemControls/PanelMargin/Controls/Buttons" unique_id=1880377992]
-custom_minimum_size = Vector2(88, 36)
-layout_mode = 2
-text = "保存 F5"
-
-[node name="LoadButton" type="Button" parent="SystemControls/PanelMargin/Controls/Buttons" unique_id=333722867]
-custom_minimum_size = Vector2(88, 36)
-layout_mode = 2
-text = "加载 F9"
-
-[node name="StatusLabel" type="Label" parent="SystemControls/PanelMargin/Controls" unique_id=1621823674]
-layout_mode = 2
-theme_override_font_sizes/font_size = 12
-text = "系统就绪"
-
 [node name="DebugPanel" type="PanelContainer" parent="." unique_id=242022695]
 anchors_preset = -1
 offset_left = 16.0
@@ -171,6 +130,9 @@ offset_right = 316.0
 offset_bottom = 64.0
 theme = ExtResource("3_theme")
 script = ExtResource("5_debug_script")
+
+[node name="PauseMenu" parent="." instance=ExtResource("7_pause_menu")]
+layout_mode = 3
 
 [node name="PanelMargin" type="MarginContainer" parent="DebugPanel" unique_id=1732532388]
 layout_mode = 2

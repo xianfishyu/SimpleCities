@@ -1,7 +1,7 @@
 # 存档系统待办清单
 
 > 系统 key：`save-system`
-> 复核日期：2026-07-20
+> 复核日期：2026-07-31
 > 证据：`.omo/backups/system-doc-split/docs/todo/todolist.md`、`.omo/evidence/split-system-docs/task-3/ownership-map.json`、当前工作区源码，以及旧版 `docs/todo/todolist.md`。
 > 主导原则：负责存档 schema、迁移、槽位安全、注册生命周期和加载事务边界。
 
@@ -16,7 +16,7 @@
 <a id="save-systemroadtype"></a>
 | RoadType | 数据和存档已完成；视觉、选择与升级当前不需要 | 基础模型保留；产品功能延期 | 0.3 只补兼容回归；D5.1～D5.3 与 P6.5 等产品需求确认后启用 |
 <a id="save-systemsavesystem"></a>
-| SaveSystem | 导出路径与槽名边界已实现；自动化契约、注册生命周期和整槽加载事务仍未完成 | 部分完成 | 0.9 补测试；0.10 保持开放直到导出包实测；0.8、0.11 处理生命周期与整槽预检 |
+| SaveSystem | 导出路径、槽名边界和场景注册生命周期已实现；通用自动化契约与整槽加载事务仍未完成 | 部分完成 | 0.8 已完成；0.9 补通用契约测试；0.10 保持开放直到导出包实测；0.11 处理整槽预检 |
 
 ### 设计覆盖矩阵
 
@@ -57,11 +57,11 @@
   - 来源 key：`todo:item:0.5`。
 
 <a id="save-system0.8"></a>
-- [ ] **0.8 为 `SaveManager` 增加注销机制并绑定场景生命周期**
-  - 当前问题：`SaveManager.Register` 只登记对象引用，没有 `Unregister`；`RoadSystem._Ready` 每次创建并注册新的 `RoadGraph`，场景重载后可能保留过期 saveable。
-  - 修改：增加 `Unregister(ISaveable)`；`RoadSystem`、`MainCamera` 等注册者在退出树时注销对应实例；同一 `SaveFileName` 的重复活动注册需要明确拒绝或替换策略。
-  - 测试：连续加载/卸载主场景两次后保存与加载。
-  - 验收：注册表只包含当前场景的一份路网和相机；不会重复写同名文件，也不会调用已退出场景的对象。
+- [x] **0.8 为 `SaveManager` 增加注销机制并绑定场景生命周期**
+  - 原问题：`SaveManager.Register` 只登记对象引用，没有 `Unregister`；`RoadSystem._Ready` 每次创建并注册新的 `RoadGraph`，场景重载后可能保留过期 saveable。
+  - 修改：`SaveManager` 增加 `Unregister(ISaveable)` 和活动注册计数；重复注册同一实例保持幂等，不同实例占用相同 `SaveFileName` 时明确拒绝。`RoadSystem` 与 `MainCamera` 在 `_ExitTree()` 注销，相关场景单例也在退出时清理。
+  - 测试：`tests/godot/pause_menu_runtime_contract.gd` 通过暂停菜单从 `MapTest` 返回 `MainMenu`，再启动新的 `MapTest`，随后执行保存和加载。
+  - 验收证据：`godot --headless --path . --log-file .godot/qa-pause-menu-final.log --script tests/godot/pause_menu_runtime_contract.gd` 输出 `PASS pause menu runtime contract`；离开城市后 `RegisteredSaveableCount == 0`，新城市中 `== 2`，且新会话 `Save("autosave")` 与 `Load("autosave")` 均返回 `true`。
 
   - 来源 key：`todo:item:0.8`。
 
@@ -129,6 +129,9 @@
 <a id="save-system878b6f92c0cc"></a>
 - [x] **原问题 2：Edge/Group 的 `RoadType` 已写入并兼容恢复。** `Scripts/Road/RoadGraph.cs:195`、`Scripts/Road/RoadGraph.cs:211`、`Scripts/Road/RoadGraph.cs:738`
   - 来源 key：`todo:baseline:878b6f92c0cc`。
+
+- [x] **场景切换不会在 `SaveManager` 中保留旧场景 saveable。** `RoadSystem` 和 `MainCamera` 离开树时注销；主菜单注册数为 0，新 `MapTest` 只注册当前路网和相机，并可继续存读档。
+  - 关联引用：`save-system:0.8`。
 
 ## 完成标准
 

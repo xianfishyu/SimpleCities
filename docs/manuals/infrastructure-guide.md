@@ -23,6 +23,7 @@
 |----------|------|------|
 | `ImGuiRoot` | `addons/imgui-godot/data/ImGuiRoot.tscn` | ImGui.NET 插件根场景（脚本为 `scripts/ImGuiRoot.gd`） |
 | `SaveManager` | `Scripts/Core/SaveManager.cs` | 全局存档/读档管理器 |
+| `InputBindingManager` | `Scripts/Core/InputBindingManager.cs` | 可配置键盘动作、冲突校验和 `user://input_bindings.cfg` 持久化 |
 | `MCPGameBridge` | `addons/godot_mcp/game_bridge/mcp_game_bridge.gd` | Godot MCP 运行时桥接 |
 
 ### 1.3 目录结构
@@ -64,7 +65,7 @@ public interface ISaveable
 ```
 
 **约定**：
-- 各子系统在 `_Ready()` 中调用 `SaveManager.Instance.Register(this)` 注册
+- 各子系统在 `_Ready()` 中调用 `SaveManager.Instance.Register(this)` 注册并检查冲突结果，在 `_ExitTree()` 中调用 `Unregister(this)`
 - `CaptureState()` 返回一个 DTO 对象，由 `SaveJson.Serialize()` 转为 JSON
 - `RestoreState(string json)` 接收原始 JSON，内部自行反序列化和重建状态
 
@@ -74,13 +75,17 @@ public interface ISaveable
 // Autoload 单例，全局通过 SaveManager.Instance 访问
 public partial class SaveManager : Node
 {
-    public void Register(ISaveable saveable);
+    public bool Register(ISaveable saveable);
+    public bool Unregister(ISaveable saveable);
     public bool Save(string slotName = "autosave");
     public bool Load(string slotName = "autosave");
     public bool SaveSlotExists(string slotName);
     public void DeleteSlot(string slotName);
+    public int RegisteredSaveableCount { get; }
 }
 ```
+
+`Register` 对同一对象幂等，但会拒绝另一个活动对象占用相同 `SaveFileName`。`RoadSystem` 和 `MainCamera` 都在 `_ExitTree()` 注销，避免返回主菜单再进入城市后保留上一场景的对象。
 
 **存档流程**：遍历所有 `_saveables` → `CaptureState()` → `SaveJson.Serialize()` → 每个子系统文件先写 `.tmp` 再替换正式 `.json`。这只是单文件替换保护，不是整个槽位的原子事务。
 
@@ -168,14 +173,16 @@ public partial class ToolManager : Node2D
 }
 ```
 
-**键盘快捷键**：
+**键盘动作**由 `InputBindingManager` 定义并由 `GameHUD` 消费，以下是默认值，玩家可在暂停菜单中重绑：
 
 | 按键 | 工具 |
 |------|------|
-| `R` / `E` | 不切换工具 |
-| `Esc` | `Select` — 选择 |
+| `Q` | `Select` — 选择 |
+| `R` | `Road` — 铺路 |
+| `E` | `RoadRemove` — 拆路 |
+| `Esc` | 打开暂停菜单，不改变当前工具 |
 
-**约定**：`Road` 由 `RoadToolButton` 选择，`RoadRemove` 保留程序设置入口；`_Input()` 中根据 `CurrentTool` 将非 Esc 输入转发给 `RoadBuilder` 的对应方法。切出 `Road` 时调 `CancelPlaceDrag()`；切出/入 `RoadRemove` 时调 `SetRemoveHoverActive(bool)`。
+**约定**：`ToolManager._Input()` 不负责键盘切换，只根据 `CurrentTool` 将输入转发给 `RoadBuilder` 的对应方法。切出 `Road` 时调 `CancelPlaceDrag()`；切出/入 `RoadRemove` 时调 `SetRemoveHoverActive(bool)`。
 
 **注意**：`ToolManager.cs` 直接引用当前 `RoadBuilder` 类型。该类提供以下公共方法：
 
@@ -192,13 +199,14 @@ public void SetRemoveHoverActive(bool active);
 
 ### 5.1 GameHUD
 
-CanvasLayer 浮层，组合底部 ConstructionDock、右侧 ToolContextPanel、默认折叠 DebugPanel 和独立 SystemControls。
+CanvasLayer 浮层，组合底部 ConstructionDock、右侧 ToolContextPanel、默认折叠 DebugPanel 和全屏 PauseMenu。
 
 **依赖**（通过单例访问）：
 - `ToolManager.Instance` → 工具状态
 - `RoadSystem.Instance.Graph` → 路网统计
 - `MainCamera.Instance` → 鼠标世界坐标
 - `SaveManager.Instance` → 存读档
+- `InputBindingManager.Instance` → 暂停、工具动作和快捷键显示
 
 **当前状态**：`DebugPanel` 从 `RoadSystem.Instance.Graph` 读取 Group / Edge / Node 数量，并使用当前 GridSystem 显示鼠标格点；`ToolContextPanel` 读取道路工具目录显示只读说明。
 
@@ -246,6 +254,7 @@ Scripts/Core/ISaveable.cs
 Scripts/Core/SaveManager.cs
 Scripts/Core/SaveJson.cs
 Scripts/Core/SaveData.cs
+Scripts/Core/InputBindingManager.cs
 Scripts/Grid/GridSystem.cs
 Scripts/Grid/MapBackground.cs
 Scripts/Road/RoadGraph.cs
@@ -265,9 +274,12 @@ Scripts/UI/UIManager.cs
 Scripts/UI/ConstructionDock.cs
 Scripts/UI/ToolContextPanel.cs
 Scripts/UI/DebugPanel.cs
-Scripts/UI/SystemControls.cs
+Scripts/UI/PauseMenu.cs
+Scripts/UI/MainMenu.cs
 Scripts/MainCamera.cs
+Scenes/MainMenu.tscn
 Scenes/map_background.tscn
+Scenes/UI/PauseMenu.tscn
 Scenes/UI/GameHUD.tscn
 Shaders/MapTerrain.gdshader
 project.godot

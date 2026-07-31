@@ -1,5 +1,8 @@
 using Godot;
 
+/// <summary>
+/// 右侧工具上下文面板。根据当前工具和分类资源显示说明，并在窄屏时折叠为可展开入口。
+/// </summary>
 public partial class ToolContextPanel : PanelContainer
 {
     private const float WideWidth = 320f;
@@ -75,6 +78,9 @@ public partial class ToolContextPanel : PanelContainer
         Category = category;
     }
 
+    /// <summary>
+    /// 同步工具说明。优先使用资源化工具定义；选择和拆除等内置工具则使用底栏提供的后备文案。
+    /// </summary>
     public void UpdateContext(ToolType currentTool, RoadConfig? config)
     {
         Config = config;
@@ -86,13 +92,15 @@ public partial class ToolContextPanel : PanelContainer
         {
             _toolValue.Text = definition.DisplayName;
             _operationValue.Text = definition.Description;
-            _shortcutValue.Text = definition.ShortcutHint;
-            _shortcutRow.Visible = !string.IsNullOrWhiteSpace(definition.ShortcutHint);
+            string shortcutHint = ResolveShortcutHint(currentTool, definition.ShortcutHint);
+            _shortcutValue.Text = shortcutHint;
+            _shortcutRow.Visible = !string.IsNullOrWhiteSpace(shortcutHint);
         }
         else if (ConstructionDock.TryGetBuiltInToolPresentation(currentTool, out string displayName, out string description, out string shortcutHint))
         {
             _toolValue.Text = displayName;
             _operationValue.Text = description;
+            shortcutHint = ResolveShortcutHint(currentTool, shortcutHint);
             _shortcutValue.Text = shortcutHint;
             _shortcutRow.Visible = !string.IsNullOrWhiteSpace(shortcutHint);
         }
@@ -105,6 +113,7 @@ public partial class ToolContextPanel : PanelContainer
         _cellSizeValue.Text = Config == null ? "CellSize: unavailable" : $"CellSize: {Config.CellSize:F0}";
     }
 
+    /// <summary>非道路分类目前尚未实现时，显示分类名称和明确的不可用状态。</summary>
     public void ShowUnavailableCategory(string categoryDisplayName)
     {
         _categoryValue.Text = categoryDisplayName;
@@ -121,6 +130,9 @@ public partial class ToolContextPanel : PanelContainer
         ApplyResponsiveLayoutForViewport(GetViewportRect().Size);
     }
 
+    /// <summary>
+    /// 按视口和底边栏顶部位置重新计算面板边界，避免覆盖底栏；760px 以下使用紧凑模式。
+    /// </summary>
     public void ApplyResponsiveLayoutForViewport(Vector2 viewportSize)
     {
         if (_contentScroll == null || _content == null || _focusEntryButton == null) return;
@@ -179,6 +191,7 @@ public partial class ToolContextPanel : PanelContainer
         _panelMargin.AddThemeConstantOverride("margin_bottom", margin);
     }
 
+    /// <summary>窄屏下切换折叠入口和完整上下文内容。</summary>
     private void ToggleCompactExpanded()
     {
         Vector2 viewportSize = GetViewportRect().Size;
@@ -203,5 +216,14 @@ public partial class ToolContextPanel : PanelContainer
                 return tool;
 
         return null;
+    }
+
+    private static string ResolveShortcutHint(ToolType toolType, string fallback)
+    {
+        if (GodotObject.IsInstanceValid(InputBindingManager.Instance) &&
+            InputBindingManager.TryGetToolAction(toolType, out string actionName))
+            return InputBindingManager.Instance.GetBindingText(actionName);
+
+        return fallback;
     }
 }
