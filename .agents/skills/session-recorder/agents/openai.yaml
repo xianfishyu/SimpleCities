@@ -1,0 +1,4 @@
+interface:
+  display_name: "Session Recorder"
+  short_description: "Write durable project session notes"
+  default_prompt: "Use $session-recorder to preserve this session as a factual project note."

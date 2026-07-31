@@ -1,0 +1,4 @@
+interface:
+  display_name: "Godot C# QA"
+  short_description: "Verify C# and Godot project behavior"
+  default_prompt: "Use $godot-csharp-qa to select and run the appropriate SimpleCities verification tier."

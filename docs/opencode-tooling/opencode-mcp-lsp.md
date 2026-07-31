@@ -5,7 +5,7 @@
 相关文件：
 
 - [项目 OpenCode 配置](../../opencode.json)
-- [Godot C# QA 技能](../../.opencode/skills/godot-csharp-qa/SKILL.md)
+- [Godot C# QA 技能](../../.agents/skills/godot-csharp-qa/SKILL.md)
 - [项目 Skill 说明](skills.md#godot-csharp-qa)
 
 ## 一句话结论
@@ -135,7 +135,7 @@ lsp_diagnostics and related lsp_* tools
 2. 对一个相关 C# 文件运行一次聚焦诊断，例如 `Scripts/Road/RoadGraph.cs` 或本次要修改的 `.cs` 文件。
 3. 确认诊断工具有响应。没有诊断不等于没有响应，空结果可以表示该文件当前没有 LSP 问题。
 4. 如果本次改动涉及 C#，再运行 `dotnet build SimpleCities.sln`，以当次错误数和警告数为准。
-5. 如果本次改动涉及 Godot 场景、资源或运行行为，按 [项目 Skill 说明](skills.md#godot-csharp-qa) 或 [Godot C# QA Skill 源文件](../../.opencode/skills/godot-csharp-qa/SKILL.md) 选择对应 QA 层级。
+5. 如果本次改动涉及 Godot 场景、资源或运行行为，按 [项目 Skill 说明](skills.md#godot-csharp-qa) 或 [Godot C# QA Skill 源文件](../../.agents/skills/godot-csharp-qa/SKILL.md) 选择对应 QA 层级。
 
 一次健康的聚焦验证应该能回答两个问题：
 

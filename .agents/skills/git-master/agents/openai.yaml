@@ -1,0 +1,4 @@
+interface:
+  display_name: "Git Master"
+  short_description: "Handle repository history and atomic commits"
+  default_prompt: "Use $git-master for the requested Git history investigation or commit workflow."

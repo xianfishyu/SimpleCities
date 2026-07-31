@@ -1,0 +1,4 @@
+interface:
+  display_name: "Todo Manager"
+  short_description: "Maintain system-owned project roadmaps"
+  default_prompt: "Use $todo-manager to update the appropriate system roadmap with evidence-backed status."

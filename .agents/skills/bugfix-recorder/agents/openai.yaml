@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bugfix Recorder"
+  short_description: "Record verified fixes by owning system"
+  default_prompt: "Use $bugfix-recorder after verifying a bug fix to update the owning system's bugfix record."

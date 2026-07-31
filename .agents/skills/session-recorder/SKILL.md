@@ -1,11 +1,11 @@
 ---
 name: session-recorder
-description: "MUST USE when the user asks to record, summarize, preserve, hand off, or organize the current OpenCode session in a durable project note. Writes a factual session summary under docs/session-notes/, which may be tracked by Git. Do not use for project bugfix records, durable todo roadmaps, implementation plans, or ordinary conversational summaries unless the user asks for a session record."
+description: "MUST USE when the user asks to record, summarize, preserve, hand off, or organize the current Codex or OpenCode session in a durable project note. Writes a factual session summary under docs/session-notes/, which may be tracked by Git. Do not use for project bugfix records, durable todo roadmaps, implementation plans, or ordinary conversational summaries unless the user asks for a session record."
 ---
 
 # Session Recorder
 
-Use this Skill to preserve the useful context of the current OpenCode session in a project note that is available to later sessions and may be committed to the project repository. The canonical output directory for SimpleCities is:
+Use this Skill to preserve the useful context of the current Codex or OpenCode session in a project note that is available to later sessions and may be committed to the project repository. The canonical output directory for SimpleCities is:
 
 ```text
 docs/session-notes/
@@ -44,7 +44,7 @@ Use a short, readable Chinese phrase for `<简短中文主题>`. Keep establishe
 2026-07-20-OpenCode工具链与会话记录-2.md
 ```
 
-Before writing, verify that `docs/session-notes/` exists or can be created under the project documentation tree. The directory is allowed to be tracked by Git. Do not stage, commit, push, or change ignore rules unless the user explicitly requests that separate Git or configuration action.
+Before writing, verify that `docs/session-notes/` exists or can be created under the project documentation tree. The directory is allowed to be tracked by Git. Do not stage, commit, push, or change ignore rules unless the user also explicitly requests the corresponding Git or configuration action. When the user requests both a session record and a commit for the work recorded by that note, follow **Joint Archive Commit** below instead of treating the note as a separate documentation commit.
 
 ## Evidence Rules
 
@@ -122,12 +122,24 @@ Omit empty sections when they add no information, but keep `已验证` separate 
 5. **Validate the note**：check Markdown formatting, confirm the output path exists and has the intended Git visibility, and ensure no secret or accidental raw log was included.
 6. **Report back**：tell the user the exact local note path, what it contains, and any important facts that remain unverified.
 
+## Joint Archive Commit
+
+When the user explicitly requests both session archiving and committing the implementation described by the note:
+
+1. Finish and verify the implementation before finalizing the note.
+2. Write the note before staging the commit. Describe the verified work and the intended joint commit, but do not invent a commit hash that does not exist yet.
+3. Use `git-master` for all Git operations. Stage the note with that implementation, its direct tests, and its canonical bugfix/todo documentation as one atomic group.
+4. Do not split the session note into a later documentation-only commit merely because it lives under `docs/session-notes/`.
+5. Keep unrelated earlier notes and unrelated dirty files out of the commit.
+
+If the implementation is already committed but the note is not, adding it to the same commit requires amending or rewriting history. Do not create a separate archive commit as a silent fallback and do not rewrite history without explicit user authorization; report the state and request the required Git action.
+
 ## Boundaries with Other Skills
 
 - A verified repair belongs in `docs/bugfix/<system>.md` through `bugfix-recorder`; the session note may link to it but must not duplicate it as the canonical record.
 - A durable project task belongs in `docs/todo/<system>.md` through `todo-manager`; the session note may list it as pending but must not silently change its status.
 - A work plan belongs in the project planning workflow; the session note records the decision and plan path after the plan exists.
-- Git status may be recorded for context, but this Skill never stages, commits, pushes, resets, or cleans the repository.
+- Git status may be recorded for context, but this Skill never performs Git writes itself. When the user has explicitly requested a commit, delegate staging and committing to `git-master` and apply **Joint Archive Commit**.
 - The `docs/session-notes/` note is continuity state that may be tracked, but it is not a substitute for canonical project documentation.
 
 ## Completion Gate

@@ -1,30 +1,30 @@
 # 项目 Skill 说明
 
-本文介绍 SimpleCities 仓库中的项目级 OpenCode Skill：它们何时触发、解决什么问题、会修改哪些文档，以及彼此如何配合。实际执行规则以各 Skill 的 `SKILL.md` 为准；本文是面向维护者的索引和使用说明。
+本文介绍 SimpleCities 仓库中由 Codex 与 OpenCode 共用的项目级 Skill：它们何时触发、解决什么问题、会修改哪些文档，以及彼此如何配合。实际执行规则以各 Skill 的 `SKILL.md` 为准；本文是面向维护者的索引和使用说明。
 
 ## 存放与发现
 
 项目 Skill 位于：
 
 ```text
-.opencode/skills/<skill-name>/SKILL.md
+.agents/skills/<skill-name>/SKILL.md
 ```
 
-OpenCode 在当前工作区的新会话中发现这些目录，并读取 `SKILL.md` 顶部的 `name` 和 `description` 判断何时使用。`description` 中的 `MUST USE` 表示任务匹配时必须加载该 Skill，但是否触发仍取决于当前请求和实际改动范围。
+Codex 与 OpenCode 都会在当前工作区的新会话中发现这些目录，并读取 `SKILL.md` 顶部的 `name` 和 `description` 判断何时使用。Codex 还会读取可选的 `agents/openai.yaml` 展示元数据。`description` 中的 `MUST USE` 表示任务匹配时必须加载该 Skill，但是否触发仍取决于当前请求和实际改动范围。
 
 当前项目 Skill：
 
 | Skill | 主要职责 | 典型触发时机 | 权威规则 |
 |---|---|---|---|
-| `godot-csharp-qa` | 验证 C#、Godot 编辑器和运行时行为 | 修改 C#、场景、资源、项目设置或用户要求 QA | [SKILL.md](../../.opencode/skills/godot-csharp-qa/SKILL.md) |
-| `bugfix-recorder` | 记录已经实现并验证的 Bug 修复 | Bug 修复完成且验证通过后 | [SKILL.md](../../.opencode/skills/bugfix-recorder/SKILL.md) |
-| `todo-manager` | 维护跨会话、按系统拆分的项目路线图 | 新增、评审、延期、完成或重开长期事项 | [SKILL.md](../../.opencode/skills/todo-manager/SKILL.md) |
-| `git-master` | Git 历史调查和明确提交工作流 | 用户要求提交、追溯历史、blame、bisect、rebase 或 Git 证据 | [SKILL.md](../../.opencode/skills/git-master/SKILL.md) |
-| `session-recorder` | 记录当前会话的本地连续性笔记 | 用户要求整理、保存或交接当前会话 | [SKILL.md](../../.opencode/skills/session-recorder/SKILL.md) |
+| `godot-csharp-qa` | 验证 C#、Godot 编辑器和运行时行为 | 修改 C#、场景、资源、项目设置或用户要求 QA | [SKILL.md](../../.agents/skills/godot-csharp-qa/SKILL.md) |
+| `bugfix-recorder` | 记录已经实现并验证的 Bug 修复 | Bug 修复完成且验证通过后 | [SKILL.md](../../.agents/skills/bugfix-recorder/SKILL.md) |
+| `todo-manager` | 维护跨会话、按系统拆分的项目路线图 | 新增、评审、延期、完成或重开长期事项 | [SKILL.md](../../.agents/skills/todo-manager/SKILL.md) |
+| `git-master` | Git 历史调查和明确提交工作流 | 用户要求提交、追溯历史、blame、bisect、rebase 或 Git 证据 | [SKILL.md](../../.agents/skills/git-master/SKILL.md) |
+| `session-recorder` | 记录当前会话的本地连续性笔记 | 用户要求整理、保存或交接当前会话 | [SKILL.md](../../.agents/skills/session-recorder/SKILL.md) |
 
 ## `godot-csharp-qa`
 
-`godot-csharp-qa` 是验证流程 Skill，不负责决定产品需求，也不自动授权实现、提交或推送。它根据改动风险选择最小但充分的 QA 层级。规则以 [Skill 源文件](../../.opencode/skills/godot-csharp-qa/SKILL.md) 为准。
+`godot-csharp-qa` 是验证流程 Skill，不负责决定产品需求，也不自动授权实现、提交或推送。它根据改动风险选择最小但充分的 QA 层级。规则以 [Skill 源文件](../../.agents/skills/godot-csharp-qa/SKILL.md) 为准。
 
 ### 项目约定
 
@@ -225,7 +225,9 @@ docs/todo/<system>.md
 - 已验证 Bug 修复仍由 `bugfix-recorder` 写入 `docs/bugfix/<system>.md`。
 - 跨会话项目事项仍由 `todo-manager` 写入 `docs/todo/<system>.md`。
 - `session-recorder` 可以链接或摘要这些记录，但不改变它们的 canonical 状态。
-- 它可以记录 Git 状态，但不执行暂存、提交、推送、重置或清理。
+- 它可以记录 Git 状态，但不自行执行暂存、提交、推送、重置或清理。
+- 当用户同时明确要求归档会话和提交本次功能时，先完成验证并生成会话记录，再由 `git-master` 将该记录与它所描述的实现、直接测试及对应规范记录放入同一个原子提交，不另建“会话归档”提交。
+- 如果功能已经提交而会话记录尚未提交，合并两者需要 amend 或其他历史改写；没有用户对该 Git 操作的明确授权时不得自动改写，也不得静默退化为单独的归档提交。
 
 ### 状态规则
 
@@ -254,19 +256,20 @@ docs/todo/<system>.md
 - `bugfix-recorder` 只记录已验证修复，不负责维护未来路线图。
 - `todo-manager` 维护未来工作和状态，不把已完成 Bug 重复包装成待办。
 - `session-recorder` 保存本地会话上下文，不替代 Bugfix、Todo 或项目文档。
+- 同时请求归档与提交时，`session-recorder` 先写记录，`git-master` 再把记录和对应功能合并提交；单独的归档请求仍不授权 Git 写操作。
 - 这些 Skill 都不授权 Git 提交、推送或实现用户未要求的功能。
 - 当前会话的临时 todo 工具与 `docs/todo/` 是两套不同机制。
 
 ## 新会话中的使用
 
-新会话开始后，项目 Skill 会从 `.opencode/skills/` 重新发现。为了判断是否真的可用，可以：
+新会话开始后，Codex 与 OpenCode 会从 `.agents/skills/` 重新发现项目 Skill。为了判断是否真的可用，可以：
 
 1. 确认对应 `SKILL.md` 文件存在。
 2. 检查当前会话的可用 Skill 列表中是否出现对应名称。
 3. 对匹配任务观察 Agent 是否加载了 Skill。
 4. 对 `godot-csharp-qa`，还要分别确认 LSP、构建和 Godot MCP 通道实际可用，不能只依赖 Skill 被发现。
 
-`.opencode/` 当前由项目 `.gitignore` 忽略，因此这些项目 Skill 是当前工作区的本地配置，不会自动随普通 Git clone 分发到另一台机器。`docs/session-notes/` 可以进入 Git；`docs/opencode-tooling/` 下的说明文档也可以进入 Git，但它们不能代替实际的 `SKILL.md`。
+`.agents/skills/` 已纳入版本控制，因此项目 Skill 会随普通 Git clone 分发。`docs/session-notes/` 和 `docs/opencode-tooling/` 下的说明文档也可以进入 Git，但它们不能代替实际的 `SKILL.md`。
 
 ## 维护规则
 

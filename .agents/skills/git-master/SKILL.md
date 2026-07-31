@@ -52,6 +52,7 @@ Grouping rules:
 
 - Split different features, modules, generated artifacts, config, docs, and test-only changes unless they are inseparable.
 - Keep generated files with the source change that produced them when omitting them would leave the repo inconsistent.
+- When the user requests both a session archive and a commit, keep the new `docs/session-notes/` record with the exact implementation it documents. Treat it as provenance for that atomic change, not as an unrelated documentation concern.
 - Never hide failing or unrelated changes inside a broad commit.
 
 Final report: list commit hashes, messages, and any remaining uncommitted files.
@@ -141,6 +142,8 @@ For multi-file features or documentation work, short bullets are acceptable. Wra
 
 - Keep implementation together with its direct tests and required scene/resource metadata.
 - Keep a changed bugfix record in `docs/bugfix/` with the corresponding fix when it documents that exact change; do not create or stage an unrelated record solely to satisfy commit grouping.
+- Keep a newly requested `docs/session-notes/` record with the corresponding implementation when it archives that same work. Create the note before staging so the first commit already contains both; do not make a follow-up archive-only commit.
+- If the implementation was already committed without its requested session note, stop before creating another commit. Amending or rewriting the existing commit requires explicit user authorization and the normal Rebase Mode safety checks.
 - Split dependency or engine upgrades, project renames, unrelated cleanup, and independent features into separate commits.
 - Temporary diagnostics such as debug logging should normally be removed before committing. If the user explicitly wants diagnostic instrumentation preserved, use a clear `添加` or `更新` subject rather than `debug`.
 - A refactor and a behavior change belong in separate commits unless separating them would leave either commit uncompilable or misleading.
