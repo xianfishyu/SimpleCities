@@ -32,6 +32,14 @@ public sealed class GameHUDCompositionContractTests
     }
 
     [Fact]
+    public void GameHUDScene_HidesPauseMenuInstanceWhileAuthoringHud()
+    {
+        string pauseMenu = ExtractNodeBlock(File.ReadAllText(HudScenePath), "PauseMenu");
+
+        Assert.Contains("visible = false", pauseMenu, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void GameHUDScript_UsesCompositionRootPathsAndRoutesSaveLoadThroughPauseMenu()
     {
         string script = File.ReadAllText(HudScriptPath);

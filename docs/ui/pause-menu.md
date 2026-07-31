@@ -2,6 +2,12 @@
 
 `Scenes/UI/PauseMenu.tscn` 是 `GameHUD` 的全屏模态子场景，脚本为 `Scripts/UI/PauseMenu.cs`。正常游戏中由 `GameHUD._Input()` 处理 `pause_menu` 动作（默认 Esc）：将 `PauseMenu` 推入该 HUD 私有 `UIManager` 的模态栈，再调用 `PauseMenu.Open()`。打开时菜单将 `SceneTree.Paused` 设为 `true`；菜单自身使用 `ProcessModeEnum.Always`，所以暂停后仍可操作按钮和当前暂停绑定。
 
+## 编辑器内编排
+
+`PauseMenu.tscn` 的根节点保持可见，便于单独打开该场景设计全屏遮罩、面板和各级内容；`GameHUD.tscn` 中的 `PauseMenu` 实例则必须覆盖为 `visible = false`。普通 C# 场景脚本不会在编辑器编排 `MapTest` 时执行 `_Ready()`，因此不能只依赖 `PauseMenu._Ready()` 隐藏菜单，否则全屏遮罩会挡住主场景。运行时 `PauseMenu.Open()` 会显式恢复可见性，所以该实例覆盖不影响 Esc 打开菜单。
+
+直接修改 `GameHUD.tscn` 后，如果该场景已经在 Godot 标签中打开，应先确认没有未保存修改，再从磁盘重载 `GameHUD` 或重新打开项目；否则编辑器仍可能显示旧的内存场景。
+
 ## 主菜单操作
 
 | 操作 | 行为 |
@@ -43,4 +49,4 @@
 
 ## 验证
 
-静态动作目录、持久化和消费边界由 `tests/SimpleCities.RoadGraph.Tests/InputBindingManagerContractTests.cs` 与 `PauseMenuContractTests.cs` 验证。`tests/godot/command_center_runtime_contract.gd` 实例化真实 `MapTest`，验证默认绑定显示、暂停生命周期及现有 HUD 回归。`tests/godot/pause_menu_runtime_contract.gd` 覆盖焦点进入与恢复、T 工具重绑、F10 暂停重绑、旧暂停键失效、新暂停键开关菜单、冲突拒绝、配置落盘、上下文同步、435x480 布局、恢复默认、存取档、确认流程、返回主菜单后的 saveable 注销，以及再次进入城市后的存读档。
+静态动作目录、持久化和消费边界由 `tests/SimpleCities.RoadGraph.Tests/InputBindingManagerContractTests.cs`、`PauseMenuContractTests.cs` 与 `GameHUDCompositionContractTests.cs` 验证。`tests/godot/command_center_runtime_contract.gd` 实例化真实 `MapTest`，验证默认绑定显示、暂停生命周期及现有 HUD 回归。`tests/godot/pause_menu_runtime_contract.gd` 在节点进入场景树前验证 HUD 实例默认隐藏，并覆盖焦点进入与恢复、T 工具重绑、F10 暂停重绑、旧暂停键失效、新暂停键开关菜单、冲突拒绝、配置落盘、上下文同步、435x480 布局、恢复默认、存取档、确认流程、返回主菜单后的 saveable 注销，以及再次进入城市后的存读档。

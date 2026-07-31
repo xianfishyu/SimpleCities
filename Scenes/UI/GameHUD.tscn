@@ -131,9 +131,6 @@ offset_bottom = 64.0
 theme = ExtResource("3_theme")
 script = ExtResource("5_debug_script")
 
-[node name="PauseMenu" parent="." instance=ExtResource("7_pause_menu")]
-layout_mode = 3
-
 [node name="PanelMargin" type="MarginContainer" parent="DebugPanel" unique_id=1732532388]
 layout_mode = 2
 theme_override_constants/margin_left = 12
@@ -229,3 +226,6 @@ size_flags_horizontal = 3
 [node name="GraphNodeValue" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/GraphNodeRow" unique_id=1384781546]
 layout_mode = 2
 text = "--"
+
+[node name="PauseMenu" parent="." unique_id=1720245284 instance=ExtResource("7_pause_menu")]
+visible = false

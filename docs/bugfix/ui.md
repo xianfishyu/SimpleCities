@@ -391,3 +391,36 @@ Focused RED 来自 `tests/godot/command_center_runtime_contract.gd` 中同实例
 - BUG-13 `godot --headless --path . --log-file .godot/qa-roads-category-final.log --script tests/godot/roads_construction_category_contract.gd`：PASS。
 - BUG-13 `git diff --check`：clean。
 - 当前会话未暴露 `csharp-ls`、Godot editor bridge 或 `godot-minimal` DAP console，因此 focused LSP diagnostics、editor scene reload/effective-property inspection 和 DAP console gate 被阻塞，未声明通过。Godot CLI 的 root certificate store error 为环境输出；command-center contract 中 missing dependency / fallback Config warnings来自契约刻意覆盖的降级场景，contract 本身通过。
+
+---
+
+## BUG-14：编辑 MapTest 时暂停菜单遮挡整个主场景
+
+### 症状
+
+在 Godot 编辑器中打开 `MapTest.tscn` 时，全屏暂停遮罩和菜单直接显示在画布上，主场景被压暗并遮挡；只有运行游戏后，菜单才会按预期由初始化逻辑隐藏。
+
+### 根因分析
+
+`PauseMenu.tscn` 的根节点默认可见，便于单独设计菜单。此前 `GameHUD.tscn` 实例化该子场景时没有覆盖可见性，只依赖非 `@tool` 的 `PauseMenu._Ready()` 在运行时执行 `Visible = false`。编辑器编排 `MapTest` 时不会执行这段 C# 生命周期代码，因此继承到的默认可见状态一直生效。
+
+### 修复方案
+
+仅在 `Scenes/UI/GameHUD.tscn` 的 `PauseMenu` 实例上序列化 `visible = false`，保留 `PauseMenu.tscn` 根节点的可见默认值，使独立菜单场景仍可正常设计。`PauseMenu.Open()` 继续在运行时显式设置 `Visible = true`，所以 Esc 弹出行为不变。
+
+`GameHUDCompositionContractTests` 精确检查 `PauseMenu` 实例节点块中的隐藏覆盖；`pause_menu_runtime_contract.gd` 在 `MapTest` 实例进入场景树、执行 `_Ready()` 之前检查有效 `visible` 属性，防止运行时隐藏逻辑掩盖编辑期回归。
+
+### 影响范围
+
+影响 `GameHUD` 内暂停菜单的编辑期初始可见性、对应静态/运行时契约和暂停菜单设计文档。未改变暂停菜单独立场景的设计可见性、运行时 Esc 输入、暂停状态、存读档、设置、退出流程或底栏布局。
+
+### 验证状态
+
+- BUG-14 `dotnet build SimpleCities.sln --no-restore`：exit 0，0 warnings，0 errors。
+- BUG-14 focused `GameHUDCompositionContractTests|PauseMenuContractTests`：7 passed，0 failed，包含 `GameHUDScene_HidesPauseMenuInstanceWhileAuthoringHud`。
+- BUG-14 `dotnet test SimpleCities.sln --no-build`：35 passed，0 failed，0 skipped。
+- BUG-14 `csharp-ls --solution SimpleCities.sln --diagnose`：exit 0，成功加载解决方案；当前会话未暴露按文件请求 diagnostics 的 LSP 通道，因此未把该命令声明为 `GameHUDCompositionContractTests.cs` 的 focused diagnostics。
+- BUG-14 `godot-minimal_get_diagnostics` 针对 `tests/godot/pause_menu_runtime_contract.gd`：无 diagnostics。
+- BUG-14 `godot --headless --path . --log-file .godot/qa-pause-menu-editor-visibility.log --script tests/godot/pause_menu_runtime_contract.gd`：PASS；新增断言在 `_Ready()` 前确认 `GameHUD/PauseMenu.visible == false`，既有暂停、重绑、存读档、确认和场景切换流程继续通过。输出的 missing ToolManager warning 来自契约刻意覆盖的独立 HUD 场景。
+- BUG-14 `godot --headless --path . --log-file .godot/qa-command-center-editor-visibility.log --script tests/godot/command_center_runtime_contract.gd`：PASS；既有 HUD 响应式布局、焦点、Escape、save/load、道路拖拽和生命周期契约保持通过，degraded-state warnings 为该契约的预期场景。
+- Godot editor bridge 已确认连接到 `SimpleCities` 的正确项目；未执行会丢弃未保存修改的强制重载，而是在当前 `GameHUD` 内存场景中同步、读回 `/root/GameHUD/PauseMenu.visible == false` 并保存。父级 `MapTest` 标签仍持有旧子场景缓存，尝试同步该内存实例时 bridge transport 关闭，因此当前 `MapTest` 画布刷新未声明通过；磁盘场景的 pre-`_Ready()` 有效属性已由独立 Godot 契约验证。两次运行游戏后的结构读取也因 bridge timeout 被阻塞，项目均已停止，DAP 控制台无 error。

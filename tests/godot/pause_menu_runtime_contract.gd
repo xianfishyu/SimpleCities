@@ -12,6 +12,8 @@ func run() -> void:
 	var packed_map: PackedScene = load(MAP_SCENE)
 	assert_true(packed_map != null, "MapTest scene did not load")
 	var map: Node = packed_map.instantiate()
+	var authored_pause_menu: Control = map.get_node("GameHUD/PauseMenu")
+	assert_true(not authored_pause_menu.visible, "PauseMenu instance must be hidden before _Ready for editor authoring")
 	root.add_child(map)
 	current_scene = map
 	await process_frame
