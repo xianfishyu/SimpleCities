@@ -7,6 +7,7 @@ public partial class ConstructionToolDefinition : Resource
     [Export] public string DisplayName { get; set; } = string.Empty;
     [Export] public string ShortcutHint { get; set; } = string.Empty;
     [Export] public ToolType ToolType { get; set; }
+    [Export] public Texture2D? Icon { get; set; }
     [Export] public int SortOrder { get; set; }
     [Export(PropertyHint.MultilineText)] public string Description { get; set; } = string.Empty;
 

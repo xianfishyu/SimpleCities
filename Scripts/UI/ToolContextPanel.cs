@@ -25,6 +25,8 @@ public partial class ToolContextPanel : PanelContainer
     private Label _operationValue = null!;
     private Label _shortcutValue = null!;
     private Label _cellSizeValue = null!;
+    private VBoxContainer _shortcutRow = null!;
+    private VBoxContainer _cellSizeRow = null!;
 
     private bool _compact;
     private bool _compactExpanded;
@@ -39,7 +41,9 @@ public partial class ToolContextPanel : PanelContainer
         _categoryValue = GetNode<Label>("PanelMargin/Rows/ContextContentScroll/ContextContent/CategoryRow/CategoryValue");
         _toolValue = GetNode<Label>("PanelMargin/Rows/ContextContentScroll/ContextContent/CurrentToolRow/CurrentToolValue");
         _operationValue = GetNode<Label>("PanelMargin/Rows/ContextContentScroll/ContextContent/OperationRow/OperationValue");
+        _shortcutRow = GetNode<VBoxContainer>("PanelMargin/Rows/ContextContentScroll/ContextContent/ShortcutRow");
         _shortcutValue = GetNode<Label>("PanelMargin/Rows/ContextContentScroll/ContextContent/ShortcutRow/ShortcutValue");
+        _cellSizeRow = GetNode<VBoxContainer>("PanelMargin/Rows/ContextContentScroll/ContextContent/CellSizeRow");
         _cellSizeValue = GetNode<Label>("PanelMargin/Rows/ContextContentScroll/ContextContent/CellSizeRow/CellSizeValue");
         _focusEntryButton.FocusMode = FocusModeEnum.All;
         _focusEntryButton.Pressed += ToggleCompactExpanded;
@@ -74,12 +78,40 @@ public partial class ToolContextPanel : PanelContainer
     public void UpdateContext(ToolType currentTool, RoadConfig? config)
     {
         Config = config;
+        _shortcutRow.Visible = true;
+        _cellSizeRow.Visible = true;
         ConstructionToolDefinition? definition = FindTool(currentTool);
         _categoryValue.Text = Category?.DisplayName ?? "道路 unavailable";
-        _toolValue.Text = definition?.DisplayName ?? currentTool.ToString();
-        _operationValue.Text = definition?.Description ?? "工具定义不可用。";
-        _shortcutValue.Text = definition?.ShortcutHint ?? "--";
+        if (definition != null)
+        {
+            _toolValue.Text = definition.DisplayName;
+            _operationValue.Text = definition.Description;
+            _shortcutValue.Text = definition.ShortcutHint;
+            _shortcutRow.Visible = !string.IsNullOrWhiteSpace(definition.ShortcutHint);
+        }
+        else if (ConstructionDock.TryGetBuiltInToolPresentation(currentTool, out string displayName, out string description, out string shortcutHint))
+        {
+            _toolValue.Text = displayName;
+            _operationValue.Text = description;
+            _shortcutValue.Text = shortcutHint;
+            _shortcutRow.Visible = !string.IsNullOrWhiteSpace(shortcutHint);
+        }
+        else
+        {
+            _toolValue.Text = currentTool.ToString();
+            _operationValue.Text = "工具定义不可用。";
+            _shortcutValue.Text = "--";
+        }
         _cellSizeValue.Text = Config == null ? "CellSize: unavailable" : $"CellSize: {Config.CellSize:F0}";
+    }
+
+    public void ShowUnavailableCategory(string categoryDisplayName)
+    {
+        _categoryValue.Text = categoryDisplayName;
+        _toolValue.Text = "尚未开放";
+        _operationValue.Text = "尚未开放";
+        _shortcutRow.Visible = false;
+        _cellSizeRow.Visible = false;
     }
 
     public void ApplyResponsiveLayout()

@@ -1,23 +1,22 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene format=3 uid="uid://dvqwt5ow1cnik"]
 
-[ext_resource type="Script" path="res://Scripts/UI/GameHUD.cs" id="1_script"]
+[ext_resource type="Script" uid="uid://8l6uwm7qjh82" path="res://Scripts/UI/GameHUD.cs" id="1_script"]
 [ext_resource type="PackedScene" path="res://Scenes/UI/ConstructionDock.tscn" id="2_dock"]
-[ext_resource type="Theme" path="res://Scenes/UI/Themes/CommandCenterTheme.tres" id="3_theme"]
-[ext_resource type="Script" path="res://Scripts/UI/ToolContextPanel.cs" id="4_context_script"]
-[ext_resource type="Script" path="res://Scripts/UI/DebugPanel.cs" id="5_debug_script"]
-[ext_resource type="Script" path="res://Scripts/UI/SystemControls.cs" id="6_system_script"]
+[ext_resource type="Theme" uid="uid://c8hn82hv6p402" path="res://Scenes/UI/Themes/CommandCenterTheme.tres" id="3_theme"]
+[ext_resource type="Script" uid="uid://dp23c8uinl4ag" path="res://Scripts/UI/ToolContextPanel.cs" id="4_context_script"]
+[ext_resource type="Script" uid="uid://cd1sywlsg0skg" path="res://Scripts/UI/DebugPanel.cs" id="5_debug_script"]
+[ext_resource type="Script" uid="uid://m42sqtssjowt" path="res://Scripts/UI/SystemControls.cs" id="6_system_script"]
 
-[node name="GameHUD" type="CanvasLayer"]
+[node name="GameHUD" type="CanvasLayer" unique_id=511014753]
 script = ExtResource("1_script")
 
-[node name="ConstructionDock" parent="." instance=ExtResource("2_dock")]
+[node name="ConstructionDock" parent="." unique_id=1607708490 instance=ExtResource("2_dock")]
+layout_mode = 3
 
-[node name="ToolContextPanel" type="PanelContainer" parent="."]
+[node name="ToolContextPanel" type="PanelContainer" parent="." unique_id=1690473842]
 anchors_preset = -1
 anchor_left = 1.0
-anchor_top = 0.0
 anchor_right = 1.0
-anchor_bottom = 0.0
 offset_left = -336.0
 offset_top = 148.0
 offset_right = -16.0
@@ -25,112 +24,108 @@ offset_bottom = 356.0
 theme = ExtResource("3_theme")
 script = ExtResource("4_context_script")
 
-[node name="PanelMargin" type="MarginContainer" parent="ToolContextPanel"]
+[node name="PanelMargin" type="MarginContainer" parent="ToolContextPanel" unique_id=848930543]
 layout_mode = 2
 theme_override_constants/margin_left = 20
 theme_override_constants/margin_top = 20
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 20
 
-[node name="Rows" type="VBoxContainer" parent="ToolContextPanel/PanelMargin"]
+[node name="Rows" type="VBoxContainer" parent="ToolContextPanel/PanelMargin" unique_id=1431314285]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="ContextFocusEntryButton" type="Button" parent="ToolContextPanel/PanelMargin/Rows"]
+[node name="ContextFocusEntryButton" type="Button" parent="ToolContextPanel/PanelMargin/Rows" unique_id=1832176134]
 custom_minimum_size = Vector2(44, 36)
 layout_mode = 2
-focus_mode = 2
 text = "工具上下文"
 
-[node name="ContextContentScroll" type="ScrollContainer" parent="ToolContextPanel/PanelMargin/Rows"]
+[node name="ContextContentScroll" type="ScrollContainer" parent="ToolContextPanel/PanelMargin/Rows" unique_id=1981187994]
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
-vertical_scroll_mode = 1
 
-[node name="ContextContent" type="VBoxContainer" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll"]
+[node name="ContextContent" type="VBoxContainer" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll" unique_id=13250575]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 8
 
-[node name="Title" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent"]
+[node name="Title" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent" unique_id=1472780117]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.760784, 0.34902, 1)
 theme_override_font_sizes/font_size = 16
 text = "工具上下文"
 
-[node name="CategoryRow" type="VBoxContainer" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent"]
+[node name="CategoryRow" type="VBoxContainer" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent" unique_id=1356212302]
 layout_mode = 2
 
-[node name="CategoryLabel" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/CategoryRow"]
+[node name="CategoryLabel" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/CategoryRow" unique_id=549358035]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.654902, 0.686275, 0.729412, 1)
 theme_override_font_sizes/font_size = 13
 text = "当前分类"
 
-[node name="CategoryValue" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/CategoryRow"]
+[node name="CategoryValue" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/CategoryRow" unique_id=2012371594]
 layout_mode = 2
 text = "道路"
 
-[node name="CurrentToolRow" type="VBoxContainer" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent"]
+[node name="CurrentToolRow" type="VBoxContainer" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent" unique_id=169500902]
 layout_mode = 2
 
-[node name="CurrentToolLabel" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/CurrentToolRow"]
+[node name="CurrentToolLabel" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/CurrentToolRow" unique_id=436184146]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.654902, 0.686275, 0.729412, 1)
 theme_override_font_sizes/font_size = 13
 text = "当前工具"
 
-[node name="CurrentToolValue" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/CurrentToolRow"]
+[node name="CurrentToolValue" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/CurrentToolRow" unique_id=298462224]
 layout_mode = 2
 text = "选择"
 
-[node name="OperationRow" type="VBoxContainer" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent"]
+[node name="OperationRow" type="VBoxContainer" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent" unique_id=802698465]
 layout_mode = 2
 
-[node name="OperationLabel" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/OperationRow"]
+[node name="OperationLabel" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/OperationRow" unique_id=230446155]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.654902, 0.686275, 0.729412, 1)
 theme_override_font_sizes/font_size = 13
 text = "操作"
 
-[node name="OperationValue" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/OperationRow"]
+[node name="OperationValue" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/OperationRow" unique_id=800271137]
 layout_mode = 2
-autowrap_mode = 3
 text = "查看当前状态，取消建造操作。"
+autowrap_mode = 3
 
-[node name="ShortcutRow" type="VBoxContainer" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent"]
+[node name="ShortcutRow" type="VBoxContainer" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent" unique_id=1340706977]
 layout_mode = 2
 
-[node name="ShortcutLabel" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/ShortcutRow"]
+[node name="ShortcutLabel" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/ShortcutRow" unique_id=688969114]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.654902, 0.686275, 0.729412, 1)
 theme_override_font_sizes/font_size = 13
 text = "快捷键"
 
-[node name="ShortcutValue" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/ShortcutRow"]
+[node name="ShortcutValue" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/ShortcutRow" unique_id=542291971]
 layout_mode = 2
 text = "Esc"
 
-[node name="CellSizeRow" type="VBoxContainer" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent"]
+[node name="CellSizeRow" type="VBoxContainer" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent" unique_id=480719891]
 layout_mode = 2
 
-[node name="CellSizeLabel" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/CellSizeRow"]
+[node name="CellSizeLabel" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/CellSizeRow" unique_id=7540050]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.654902, 0.686275, 0.729412, 1)
 theme_override_font_sizes/font_size = 13
 text = "道路配置"
 
-[node name="CellSizeValue" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/CellSizeRow"]
+[node name="CellSizeValue" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/CellSizeRow" unique_id=1116057597]
 layout_mode = 2
 text = "CellSize: --"
 
-[node name="SystemControls" type="PanelContainer" parent="."]
+[node name="SystemControls" type="PanelContainer" parent="." unique_id=1227609359]
 anchors_preset = -1
 anchor_left = 1.0
-anchor_top = 0.0
 anchor_right = 1.0
-anchor_bottom = 0.0
 offset_left = -336.0
 offset_top = 16.0
 offset_right = -16.0
@@ -138,44 +133,38 @@ offset_bottom = 80.0
 theme = ExtResource("3_theme")
 script = ExtResource("6_system_script")
 
-[node name="PanelMargin" type="MarginContainer" parent="SystemControls"]
+[node name="PanelMargin" type="MarginContainer" parent="SystemControls" unique_id=877230326]
 layout_mode = 2
 theme_override_constants/margin_left = 12
 theme_override_constants/margin_top = 8
 theme_override_constants/margin_right = 12
 theme_override_constants/margin_bottom = 8
 
-[node name="Controls" type="VBoxContainer" parent="SystemControls/PanelMargin"]
+[node name="Controls" type="VBoxContainer" parent="SystemControls/PanelMargin" unique_id=772950232]
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="Buttons" type="HBoxContainer" parent="SystemControls/PanelMargin/Controls"]
+[node name="Buttons" type="HBoxContainer" parent="SystemControls/PanelMargin/Controls" unique_id=609377821]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="SaveButton" type="Button" parent="SystemControls/PanelMargin/Controls/Buttons"]
+[node name="SaveButton" type="Button" parent="SystemControls/PanelMargin/Controls/Buttons" unique_id=1880377992]
 custom_minimum_size = Vector2(88, 36)
 layout_mode = 2
-focus_mode = 2
 text = "保存 F5"
 
-[node name="LoadButton" type="Button" parent="SystemControls/PanelMargin/Controls/Buttons"]
+[node name="LoadButton" type="Button" parent="SystemControls/PanelMargin/Controls/Buttons" unique_id=333722867]
 custom_minimum_size = Vector2(88, 36)
 layout_mode = 2
-focus_mode = 2
 text = "加载 F9"
 
-[node name="StatusLabel" type="Label" parent="SystemControls/PanelMargin/Controls"]
+[node name="StatusLabel" type="Label" parent="SystemControls/PanelMargin/Controls" unique_id=1621823674]
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 text = "系统就绪"
 
-[node name="DebugPanel" type="PanelContainer" parent="."]
+[node name="DebugPanel" type="PanelContainer" parent="." unique_id=242022695]
 anchors_preset = -1
-anchor_left = 0.0
-anchor_top = 0.0
-anchor_right = 0.0
-anchor_bottom = 0.0
 offset_left = 16.0
 offset_top = 16.0
 offset_right = 316.0
@@ -183,84 +172,98 @@ offset_bottom = 64.0
 theme = ExtResource("3_theme")
 script = ExtResource("5_debug_script")
 
-[node name="PanelMargin" type="MarginContainer" parent="DebugPanel"]
+[node name="PanelMargin" type="MarginContainer" parent="DebugPanel" unique_id=1732532388]
 layout_mode = 2
 theme_override_constants/margin_left = 12
 theme_override_constants/margin_top = 8
 theme_override_constants/margin_right = 12
 theme_override_constants/margin_bottom = 8
 
-[node name="Rows" type="VBoxContainer" parent="DebugPanel/PanelMargin"]
+[node name="Rows" type="VBoxContainer" parent="DebugPanel/PanelMargin" unique_id=1487685134]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="DebugToggleButton" type="Button" parent="DebugPanel/PanelMargin/Rows"]
+[node name="DebugToggleButton" type="Button" parent="DebugPanel/PanelMargin/Rows" unique_id=477704803]
 custom_minimum_size = Vector2(112, 36)
 layout_mode = 2
-focus_mode = 2
 text = "Debug ▼"
 
-[node name="DebugContent" type="VBoxContainer" parent="DebugPanel/PanelMargin/Rows"]
+[node name="DebugContent" type="VBoxContainer" parent="DebugPanel/PanelMargin/Rows" unique_id=1223354734]
 visible = false
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="FpsRow" type="HBoxContainer" parent="DebugPanel/PanelMargin/Rows/DebugContent"]
+[node name="FpsRow" type="HBoxContainer" parent="DebugPanel/PanelMargin/Rows/DebugContent" unique_id=1584076338]
 layout_mode = 2
-[node name="FpsLabel" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/FpsRow"]
+
+[node name="FpsLabel" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/FpsRow" unique_id=2117340692]
 layout_mode = 2
 text = "FPS"
-[node name="FpsSpacer" type="Control" parent="DebugPanel/PanelMargin/Rows/DebugContent/FpsRow"]
+
+[node name="FpsSpacer" type="Control" parent="DebugPanel/PanelMargin/Rows/DebugContent/FpsRow" unique_id=1771161365]
 layout_mode = 2
 size_flags_horizontal = 3
-[node name="FpsValue" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/FpsRow"]
+
+[node name="FpsValue" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/FpsRow" unique_id=743643868]
 layout_mode = 2
 text = "--"
 
-[node name="GridRow" type="HBoxContainer" parent="DebugPanel/PanelMargin/Rows/DebugContent"]
+[node name="GridRow" type="HBoxContainer" parent="DebugPanel/PanelMargin/Rows/DebugContent" unique_id=2045389042]
 layout_mode = 2
-[node name="GridLabel" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/GridRow"]
+
+[node name="GridLabel" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/GridRow" unique_id=1379972847]
 layout_mode = 2
 text = "格点"
-[node name="GridSpacer" type="Control" parent="DebugPanel/PanelMargin/Rows/DebugContent/GridRow"]
+
+[node name="GridSpacer" type="Control" parent="DebugPanel/PanelMargin/Rows/DebugContent/GridRow" unique_id=606656031]
 layout_mode = 2
 size_flags_horizontal = 3
-[node name="GridValue" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/GridRow"]
+
+[node name="GridValue" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/GridRow" unique_id=1323416233]
 layout_mode = 2
 text = "--"
 
-[node name="RoadGroupRow" type="HBoxContainer" parent="DebugPanel/PanelMargin/Rows/DebugContent"]
+[node name="RoadGroupRow" type="HBoxContainer" parent="DebugPanel/PanelMargin/Rows/DebugContent" unique_id=301884421]
 layout_mode = 2
-[node name="RoadGroupLabel" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/RoadGroupRow"]
+
+[node name="RoadGroupLabel" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/RoadGroupRow" unique_id=182247382]
 layout_mode = 2
 text = "RoadGroup"
-[node name="RoadGroupSpacer" type="Control" parent="DebugPanel/PanelMargin/Rows/DebugContent/RoadGroupRow"]
+
+[node name="RoadGroupSpacer" type="Control" parent="DebugPanel/PanelMargin/Rows/DebugContent/RoadGroupRow" unique_id=664671129]
 layout_mode = 2
 size_flags_horizontal = 3
-[node name="RoadGroupValue" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/RoadGroupRow"]
+
+[node name="RoadGroupValue" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/RoadGroupRow" unique_id=1677075965]
 layout_mode = 2
 text = "--"
 
-[node name="GraphEdgeRow" type="HBoxContainer" parent="DebugPanel/PanelMargin/Rows/DebugContent"]
+[node name="GraphEdgeRow" type="HBoxContainer" parent="DebugPanel/PanelMargin/Rows/DebugContent" unique_id=1572964922]
 layout_mode = 2
-[node name="GraphEdgeLabel" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/GraphEdgeRow"]
+
+[node name="GraphEdgeLabel" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/GraphEdgeRow" unique_id=1073372280]
 layout_mode = 2
 text = "GraphEdge"
-[node name="GraphEdgeSpacer" type="Control" parent="DebugPanel/PanelMargin/Rows/DebugContent/GraphEdgeRow"]
+
+[node name="GraphEdgeSpacer" type="Control" parent="DebugPanel/PanelMargin/Rows/DebugContent/GraphEdgeRow" unique_id=1825124213]
 layout_mode = 2
 size_flags_horizontal = 3
-[node name="GraphEdgeValue" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/GraphEdgeRow"]
+
+[node name="GraphEdgeValue" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/GraphEdgeRow" unique_id=1052712644]
 layout_mode = 2
 text = "--"
 
-[node name="GraphNodeRow" type="HBoxContainer" parent="DebugPanel/PanelMargin/Rows/DebugContent"]
+[node name="GraphNodeRow" type="HBoxContainer" parent="DebugPanel/PanelMargin/Rows/DebugContent" unique_id=255176414]
 layout_mode = 2
-[node name="GraphNodeLabel" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/GraphNodeRow"]
+
+[node name="GraphNodeLabel" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/GraphNodeRow" unique_id=623556262]
 layout_mode = 2
 text = "GraphNode"
-[node name="GraphNodeSpacer" type="Control" parent="DebugPanel/PanelMargin/Rows/DebugContent/GraphNodeRow"]
+
+[node name="GraphNodeSpacer" type="Control" parent="DebugPanel/PanelMargin/Rows/DebugContent/GraphNodeRow" unique_id=952541169]
 layout_mode = 2
 size_flags_horizontal = 3
-[node name="GraphNodeValue" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/GraphNodeRow"]
+
+[node name="GraphNodeValue" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/GraphNodeRow" unique_id=1384781546]
 layout_mode = 2
 text = "--"

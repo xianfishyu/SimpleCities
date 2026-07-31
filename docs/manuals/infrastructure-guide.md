@@ -172,11 +172,10 @@ public partial class ToolManager : Node2D
 
 | 按键 | 工具 |
 |------|------|
-| `R` | `Road` — 铺路 |
-| `E` | `RoadRemove` — 拆路 |
+| `R` / `E` | 不切换工具 |
 | `Esc` | `Select` — 选择 |
 
-**约定**：`_Input()` 中根据 `CurrentTool` 将鼠标事件转发给 `RoadBuilder` 的对应方法。切出 `Road` 时调 `CancelPlaceDrag()`；切出/入 `RoadRemove` 时调 `SetRemoveHoverActive(bool)`。
+**约定**：`Road` 由 `RoadToolButton` 选择，`RoadRemove` 保留程序设置入口；`_Input()` 中根据 `CurrentTool` 将非 Esc 输入转发给 `RoadBuilder` 的对应方法。切出 `Road` 时调 `CancelPlaceDrag()`；切出/入 `RoadRemove` 时调 `SetRemoveHoverActive(bool)`。
 
 **注意**：`ToolManager.cs` 直接引用当前 `RoadBuilder` 类型。该类提供以下公共方法：
 

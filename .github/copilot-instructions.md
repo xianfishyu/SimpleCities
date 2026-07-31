@@ -11,7 +11,7 @@ SimpleCities 是 Godot 4.7 C# 城市建造原型。当前核心是无限网格�
 - 点击单条 `GraphEdge` 拆路，删除后自动清理孤立节点和修复共线拓扑
 - 完整重复路径无副作用拒绝；部分重叠只添加未覆盖区段
 - `RoadType` 数据模型：Dirt / Street / Arterial / Highway，并支持存档往返
-- 工具切换：选择 (Esc) / 铺路 (R) / 拆路 (E)
+- 工具切换：Esc 回到选择；铺路由 `RoadToolButton` 进入；拆路保留程序设置入口；R/E 不切换工具
 - F5 保存、F9 加载，支持 RoadGraph 和相机状态
 - 命令中心 HUD：底部道路建造坞、右侧工具上下文、默认折叠调试指标、独立保存/加载系统操作
 - Shader 驱动的无限网格背景
@@ -165,7 +165,7 @@ public partial class RoadSystem : Node2D
 ### ToolManager 与 UI
 
 - `ToolType` 当前为 `Select`、`Road`、`RoadRemove`
-- `R` / `E` / `Esc` 切换工具
+- `Esc` 切回 Select；原始 `R` / `E` 不改变当前工具
 - `ToolManager._Input()` 把输入转发给 `RoadBuilder.HandlePlaceInput()` 或 `HandleRemoveInput()`
 - `GameHUD` 组合 ConstructionDock、ToolContextPanel、DebugPanel、SystemControls；DebugPanel 从 `RoadSystem.Instance.Graph` 读取 Group / Edge / Node 计数
 - `UIManager` 管理面板注册、可见性和模态栈
@@ -307,7 +307,9 @@ public partial class RoadSystem : Node2D
 - `docs/design/overview.md` — 设计总览
 - `docs/roadmaps/implementation-roadmap.md` — 实现进度
 - `docs/reference/save-system-plan.md` — 存档系统当前参考与演进计划
-- `docs/reference/ui-architecture.md` — UI 架构
+- `docs/ui/README.md` — UI 文档导航
+- `docs/ui/design-system.md` — 当前 UI 视觉设计系统
+- `docs/ui/architecture.md` — 当前 UI 架构
 - `docs/reference/game-logic.md` — 系统逻辑图
 - `docs/design/simulation-systems.md` — 远期模拟系统设计
 - `docs/design/math-model.md` — 模拟数学模型

@@ -1,0 +1,44 @@
+[gd_scene format=3 uid="uid://bhc1qrir0v0xv"]
+
+[ext_resource type="Script" uid="uid://nbmldjongjkv" path="res://Scripts/UI/ConstructionDockButton.cs" id="1_script"]
+
+[node name="ConstructionDockButton" type="Button" unique_id=972151480]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_type_variation = &"ConstructionDockButton"
+toggle_mode = true
+focus_mode = 2
+script = ExtResource("1_script")
+
+[node name="Presentation" type="VBoxContainer" parent="." unique_id=1712395561]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+alignment = 1
+
+[node name="Icon" type="TextureRect" parent="Presentation" unique_id=674638676]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+size_flags_horizontal = 4
+mouse_filter = 2
+stretch_mode = 5
+
+[node name="Label" type="Label" parent="Presentation" unique_id=1513355956]
+layout_mode = 2
+size_flags_horizontal = 4
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="SelectedUnderline" type="ColorRect" parent="Presentation" unique_id=67286886]
+visible = false
+custom_minimum_size = Vector2(0, 3)
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2

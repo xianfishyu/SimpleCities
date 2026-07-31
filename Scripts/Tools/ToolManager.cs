@@ -41,12 +41,6 @@ public partial class ToolManager : Node2D
         {
             switch (keyEvent.Keycode)
             {
-                case Key.R:
-                    CurrentTool = ToolType.Road;
-                    return;
-                case Key.E:
-                    CurrentTool = ToolType.RoadRemove;
-                    return;
                 case Key.Escape:
                     CurrentTool = ToolType.Select;
                     return;

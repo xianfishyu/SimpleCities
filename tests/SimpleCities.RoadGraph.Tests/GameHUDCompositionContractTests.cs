@@ -46,4 +46,35 @@ public sealed class GameHUDCompositionContractTests
         Assert.DoesNotContain("RoadBtn", script, StringComparison.Ordinal);
         Assert.DoesNotContain("RemoveBtn", script, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void GameHUDScene_KeepsDebugPanelAtDesignedTopLeftMargin()
+    {
+        string debugPanel = ExtractNodeBlock(File.ReadAllText(HudScenePath), "DebugPanel");
+
+        Assert.Contains("offset_left = 16.0", debugPanel, StringComparison.Ordinal);
+        Assert.Contains("offset_top = 16.0", debugPanel, StringComparison.Ordinal);
+        Assert.Contains("offset_right = 316.0", debugPanel, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GameHUDScript_PreservesDebugPanelTopLeftOutsideRightSidePlacement()
+    {
+        string script = File.ReadAllText(HudScriptPath);
+
+        Assert.Contains("PlaceTopLeftDebugPanel", script, StringComparison.Ordinal);
+        Assert.Contains("new Vector2(PanelMargin, PanelMargin)", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("PlaceRightAligned(_debugPanel", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("_debugPanel.Position = new Vector2(_toolContextPanel.Position.X", script, StringComparison.Ordinal);
+    }
+
+    private static string ExtractNodeBlock(string scene, string nodeName)
+    {
+        string header = $"[node name=\"{nodeName}\"";
+        int start = scene.IndexOf(header, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Missing node block for {nodeName}");
+
+        int next = scene.IndexOf("\n[node ", start + header.Length, StringComparison.Ordinal);
+        return next < 0 ? scene[start..] : scene[start..next];
+    }
 }

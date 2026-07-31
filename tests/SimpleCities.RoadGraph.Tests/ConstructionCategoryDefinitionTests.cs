@@ -3,7 +3,7 @@ namespace SimpleCities.Tests;
 public sealed class ConstructionCategoryDefinitionTests
 {
     [Fact]
-    public void ToolType_ContainsExactRoadsCatalogTools()
+    public void ToolType_StillContainsKeyboardOnlySelectAndRoadRemove()
     {
         Assert.Equal(
             [ToolType.Select, ToolType.Road, ToolType.RoadRemove],
@@ -11,12 +11,12 @@ public sealed class ConstructionCategoryDefinitionTests
     }
 
     [Fact]
-    public void TryValidate_ExactRoadToolIds_ReturnsTrue()
+    public void TryValidate_CityRoadOnlyCatalog_ReturnsTrue()
     {
         Assert.True(ConstructionCategoryDefinition.TryValidate(
             "roads",
-            "Roads",
-            ["select", "road", "road-remove"],
+            "道路",
+            ["city-road"],
             out string error), error);
     }
 
@@ -28,7 +28,7 @@ public sealed class ConstructionCategoryDefinitionTests
         Assert.False(ConstructionCategoryDefinition.TryValidate(
             id,
             displayName,
-            ["select", "road", "road-remove"],
+            ["city-road"],
             out string error));
         Assert.NotEmpty(error);
     }
@@ -62,6 +62,21 @@ public sealed class ConstructionCategoryDefinitionTests
             null,
             out string error));
         Assert.Contains("tools array", error, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ConstructionToolDefinition_Icon_IsNullableExportedTextureResource()
+    {
+        System.Reflection.PropertyInfo? iconProperty = typeof(ConstructionToolDefinition).GetProperty("Icon");
+        Assert.NotNull(iconProperty);
+
+        Assert.Equal(typeof(Godot.Texture2D), iconProperty.PropertyType);
+        Assert.True(iconProperty.CanRead);
+        Assert.True(iconProperty.CanWrite);
+        Assert.NotNull(iconProperty.GetCustomAttributes(typeof(Godot.ExportAttribute), inherit: true).SingleOrDefault());
+        Assert.Equal(
+            System.Reflection.NullabilityState.Nullable,
+            new System.Reflection.NullabilityInfoContext().Create(iconProperty).ReadState);
     }
 
 }

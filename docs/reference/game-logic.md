@@ -201,13 +201,15 @@ flowchart LR
 flowchart LR
     Start((启动)) --> Select
 
-    Select["Select<br/>选择工具"] -->|按 R| Road["Road<br/>铺路工具"]
-    Select -->|按 E| Remove["RoadRemove<br/>拆除工具"]
+    Select["Select<br/>选择工具"] -->|RoadToolButton| Road["Road<br/>铺路工具"]
+    Select -->|程序设置| Remove["RoadRemove<br/>拆除工具"]
 
     Road -->|按 Esc| Select
-    Road -->|按 E| Remove
     Remove -->|按 Esc| Select
-    Remove -->|按 R| Road
+
+    Select -->|按 R/E: 保持| Select
+    Road -->|按 R/E: 保持| Road
+    Remove -->|按 R/E: 保持| Remove
 
     Road -.生命周期.-> RN["Enter: 无操作<br/>Tick: BeginDrag - UpdateProjection - EndDragAndCommit<br/>Exit: CancelPlaceDrag"]
     Remove -.生命周期.-> RMN["Enter: SetRemoveHoverActive true<br/>Tick: UpdateRemoveHover 悬停检测<br/>Exit: SetRemoveHoverActive false 清除高亮"]
@@ -296,7 +298,8 @@ flowchart LR
 
     subgraph Routing["输入路由"]
         TM[ToolManager._Input]
-        TM -->|R/E/Esc| TM_Self[切换工具]
+        TM -->|Esc| TM_Self[切换到 Select]
+        TM -->|R/E| Forward
         TM -->|按 CurrentTool| Forward[转发]
         Forward -->|Road| Place[RoadBuilder.HandlePlaceInput]
         Forward -->|RoadRemove| Remove[RoadBuilder.HandleRemoveInput]

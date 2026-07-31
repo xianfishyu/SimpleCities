@@ -1,6 +1,6 @@
 # SimpleCities 类与 API 参考
 
-> 最后更新：2026-07-17 | Godot 4.7 | Godot.NET.Sdk 4.7.0 | .NET 10.0 | C# 14.0 | Nullable enabled
+> 最后更新：2026-07-30 | Godot 4.7 | Godot.NET.Sdk 4.7.0 | .NET 10.0 | C# 14.0 | Nullable enabled
 
 本文档只覆盖项目自有 API：`Scripts/` 下 23 个 C# 文件和 `Shaders/MapTerrain.gdshader`。`addons/` 为第三方插件，不纳入本参考。
 
@@ -541,12 +541,11 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `Instance` | `public static ToolManager Instance { get; private set; } = null!` | 单例引用 |
 | `CurrentTool` | `public ToolType CurrentTool { get; set; }` | 切换工具，负责清理 Road/RoadRemove 状态 |
 | `_Ready` | `public override void _Ready()` | 设置单例并获取 `../RoadSystem/RoadBuilder` |
-| `_Input` | `public override void _Input(InputEvent @event)` | 快捷键切换工具并把输入转发给 `RoadBuilder` |
+| `_Input` | `public override void _Input(InputEvent @event)` | Esc 回到 Select，并按当前工具把其他输入转发给 `RoadBuilder` |
 
 | 输入 | 行为 |
 |---|---|
-| `R` | `CurrentTool = ToolType.Road` |
-| `E` | `CurrentTool = ToolType.RoadRemove` |
+| `R` / `E` | 不切换工具；按当前工具走既有输入转发 |
 | `Escape` | `CurrentTool = ToolType.Select` |
 | 当前工具为 `Road` | 转发到 `RoadBuilder.HandlePlaceInput(@event)` |
 | 当前工具为 `RoadRemove` | 转发到 `RoadBuilder.HandleRemoveInput(@event)` |
@@ -569,9 +568,9 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 
 | UI/快捷键 | 当前调用 | 说明 |
 |---|---|---|
-| 选择按钮 | `ConstructionDock` 调用 `ToolManager.CurrentTool = ToolType.Select` | 切换选择工具 |
-| 铺路按钮 | `ConstructionDock` 调用 `ToolManager.CurrentTool = ToolType.Road` | 切换铺路工具 |
-| 拆路按钮 | `ConstructionDock` 调用 `ToolManager.CurrentTool = ToolType.RoadRemove` | 切换拆路工具 |
+| Esc / 选择 | `ToolManager._Input()` 设置 `ToolType.Select`，UI 显示内建中文文案 | 回到选择/空工具，不在 Roads 子菜单创建按钮 |
+| 铺路按钮 | `ConstructionDock` 的 `RoadToolButton` 调用 `ToolManager.CurrentTool = ToolType.Road` | 切换铺路工具，按钮来自 Roads catalog |
+| 程序设置 / 拆路 | 设置 `ToolManager.CurrentTool = ToolType.RoadRemove`，UI 显示内建中文文案且隐藏空快捷键行 | 保留拆路工具能力，不提供键盘快捷键或 Roads 子菜单按钮 |
 | 保存按钮 | `OnSave()` | `SaveManager.Instance.Save("autosave")` |
 | 加载按钮 | `OnLoad()` | `SaveManager.Instance.Load("autosave")` |
 | F5 | `OnSave()` | autosave 保存 |
@@ -579,7 +578,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 
 | HUD 数据 | 所属组件 / 来源 |
 |---|---|
-| 当前工具显示和工具按钮 | `ConstructionDock` 读取 bundled Roads catalog，并写入 `ToolManager.Instance.CurrentTool` |
+| 建造分类和工具按钮 | `ConstructionDock` 读取 bundled Roads catalog，并写入 `ToolManager.Instance.CurrentTool` |
 | catalog 上下文 | `ToolContextPanel` 读取当前 `ToolType`、`RoadConfig` 和 `ConstructionCategoryDefinition` |
 | FPS | `DebugPanel` 读取 `Engine.GetFramesPerSecond()` |
 | 鼠标格点 | `DebugPanel` 读取 `MainCamera.Instance.GetGlobalMousePosition()` + `GridSystem.SnapToGrid(...)` |
@@ -592,8 +591,8 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 
 | 组件 | 说明 |
 |---|---|
-| `ConstructionDock` | 底部 Roads 分类、ToolTray、工具按钮创建和当前工具显示；工具按钮来自 bundled Roads catalog |
-| `ToolContextPanel` | 右侧只读 catalog 上下文，读取工具显示名、说明、快捷键和道路配置 |
+| `ConstructionDock` | 底部全宽五分类 CategoryBar 和 ToolTray；折叠高度 76px，展开高度 122px，由 46px 资产条加 76px 分类栏组成；Roads catalog 创建一个 `城市道路` 按钮；重复当前分类折叠/重开，不同分类切换内容并保持打开；没有当前工具标签或桌面宽度上限 |
+| `ToolContextPanel` | 右侧只读上下文，Road 读取 catalog；Select / RoadRemove 使用内建玩家文案但不要求 submenu/catalog 资源 |
 | `DebugPanel` | 默认折叠，拥有 FPS、鼠标格点、RoadGroup、GraphEdge、GraphNode 指标显示 |
 | `SystemControls` | 独立 Save / Load 操作区，显示成功或失败状态 |
 

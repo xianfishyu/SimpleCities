@@ -2,9 +2,7 @@ extends SceneTree
 
 const CATALOG_PATH := "res://Scenes/UI/RoadsConstructionCategory.tres"
 const EXPECTED_TOOLS := {
-	"select": {"display_name": "选择", "shortcut_hint": "Esc", "tool_type": 0, "sort_order": 0},
-	"road": {"display_name": "铺路", "shortcut_hint": "R", "tool_type": 1, "sort_order": 10},
-	"road-remove": {"display_name": "拆路", "shortcut_hint": "E", "tool_type": 2, "sort_order": 20},
+	"city-road": {"display_name": "城市道路", "shortcut_hint": "", "tool_type": 1, "sort_order": 10},
 }
 
 func _initialize() -> void:
@@ -23,7 +21,7 @@ func _initialize() -> void:
 		return
 
 	if category.Tools.size() != EXPECTED_TOOLS.size():
-		fail("Expected exactly three tools, got %d" % category.Tools.size())
+		fail("Expected exactly one city road tool, got %d" % category.Tools.size())
 		return
 
 	for tool in category.Tools:
@@ -48,13 +46,13 @@ func _initialize() -> void:
 		return
 
 	var duplicate_id_category := category.duplicate(true)
-	duplicate_id_category.Tools[2].Id = "road"
+	duplicate_id_category.Tools.append(duplicate_id_category.Tools[0].duplicate(true))
 	if duplicate_id_category.GetValidationResult().get("valid", true):
 		fail("Production validation accepted duplicate tool IDs")
 		return
 
 	var empty_ref_category := category.duplicate(true)
-	empty_ref_category.Tools[1] = null
+	empty_ref_category.Tools[0] = null
 	if empty_ref_category.GetValidationResult().get("valid", true):
 		fail("Production validation accepted an empty tool reference")
 		return
