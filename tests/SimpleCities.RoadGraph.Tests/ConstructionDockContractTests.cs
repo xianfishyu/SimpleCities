@@ -51,7 +51,7 @@ public sealed class ConstructionDockContractTests
         Assert.Contains("RoadToolButton", script, StringComparison.Ordinal);
         Assert.DoesNotContain("SelectToolButton", script, StringComparison.Ordinal);
         Assert.DoesNotContain("RoadRemoveToolButton", script, StringComparison.Ordinal);
-        Assert.Contains("[ToolType.Select] = new(\"选择\", \"查看当前状态，取消建造操作。\", \"Esc\")", script, StringComparison.Ordinal);
+        Assert.Contains("[ToolType.Select] = new(\"选择\", \"查看当前状态。\", string.Empty)", script, StringComparison.Ordinal);
         Assert.Contains("[ToolType.RoadRemove] = new(\"拆路\", \"点击已有道路进行拆除。\", string.Empty)", script, StringComparison.Ordinal);
         Assert.Contains("_shortcutRow.Visible = !string.IsNullOrWhiteSpace", File.ReadAllText(Path.Combine(ProjectRoot, "Scripts", "UI", "ToolContextPanel.cs")), StringComparison.Ordinal);
 
@@ -129,10 +129,16 @@ public sealed class ConstructionDockContractTests
         Assert.Contains("offset_bottom = 0.0", dock, StringComparison.Ordinal);
         Assert.DoesNotContain("MaximumWidth", script, StringComparison.Ordinal);
         Assert.Contains("CollapsedHeight = 76", script, StringComparison.Ordinal);
-        Assert.Contains("ExpandedHeight = 122", script, StringComparison.Ordinal);
+        Assert.Contains("ExpandedHeight = 140", script, StringComparison.Ordinal);
 
-        Assert.Contains("custom_minimum_size = Vector2(0, 76)", ExtractNodeBlock(scene, "CategoryBar"), StringComparison.Ordinal);
-        Assert.Contains("custom_minimum_size = Vector2(0, 46)", ExtractNodeBlock(scene, "ToolTray"), StringComparison.Ordinal);
+        string categoryScroll = ExtractNodeBlock(scene, "CategoryScroll");
+        string categoryBar = ExtractNodeBlock(scene, "CategoryBar");
+        Assert.Contains("custom_minimum_size = Vector2(0, 76)", categoryScroll, StringComparison.Ordinal);
+        Assert.Contains("horizontal_scroll_mode = 3", categoryScroll, StringComparison.Ordinal);
+        Assert.Contains("vertical_scroll_mode = 0", categoryScroll, StringComparison.Ordinal);
+        Assert.Contains("custom_minimum_size = Vector2(552, 76)", categoryBar, StringComparison.Ordinal);
+        Assert.Contains("custom_minimum_size = Vector2(0, 64)", ExtractNodeBlock(scene, "ToolTray"), StringComparison.Ordinal);
+        Assert.Contains("custom_minimum_size = Vector2(0, 64)", ExtractNodeBlock(scene, "ToolScroll"), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -144,6 +150,7 @@ public sealed class ConstructionDockContractTests
         Assert.Contains(ReadScrollMode(scroll, "horizontal_scroll_mode"), new[] { 1, 2, 3, 4 });
         Assert.Equal(0, ReadScrollMode(scroll, "vertical_scroll_mode"));
         Assert.Contains("name=\"ToolList\" type=\"HBoxContainer\"", scene, StringComparison.Ordinal);
+        Assert.Contains("alignment = 1", ExtractNodeBlock(scene, "ToolList"), StringComparison.Ordinal);
         Assert.True(File.Exists(DockButtonScenePath), $"Missing reusable category button scene: {DockButtonScenePath}");
 
         string buttonSceneId = ExtractUniqueExtResourceId(scene, "res://Scenes/UI/ConstructionDockButton.tscn");
@@ -169,6 +176,21 @@ public sealed class ConstructionDockContractTests
         Assert.DoesNotContain("name=\"CurrentToolLabel\"", scene, StringComparison.Ordinal);
         Assert.DoesNotContain("name=\"SelectToolButton\"", scene, StringComparison.Ordinal);
         Assert.DoesNotContain("name=\"RoadRemoveToolButton\"", scene, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ConstructionDockButtonScene_AnchorsPrimaryIndicatorAtDockBottom()
+    {
+        string scene = File.ReadAllText(DockButtonScenePath);
+        string indicator = ExtractNodeBlock(scene, "PrimarySelectionIndicator");
+
+        Assert.Contains("parent=\".\"", indicator, StringComparison.Ordinal);
+        Assert.Contains("anchor_top = 1.0", indicator, StringComparison.Ordinal);
+        Assert.Contains("anchor_right = 1.0", indicator, StringComparison.Ordinal);
+        Assert.Contains("anchor_bottom = 1.0", indicator, StringComparison.Ordinal);
+        Assert.Contains("offset_top = -4.0", indicator, StringComparison.Ordinal);
+        Assert.Contains("offset_bottom = 0.0", indicator, StringComparison.Ordinal);
+        Assert.DoesNotContain("SelectedUnderline", scene, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -199,7 +221,7 @@ public sealed class ConstructionDockContractTests
 
         Assert.Contains("Id = \"city-road\"", toolBlock, StringComparison.Ordinal);
         Assert.Contains("DisplayName = \"城市道路\"", toolBlock, StringComparison.Ordinal);
-        Assert.Contains("ShortcutHint = \"\"", toolBlock, StringComparison.Ordinal);
+        Assert.DoesNotContain("ShortcutHint =", toolBlock, StringComparison.Ordinal);
         Assert.Contains("ToolType = 1", toolBlock, StringComparison.Ordinal);
         Assert.Contains($"Icon = ExtResource(\"{roadIconId}\")", toolBlock, StringComparison.Ordinal);
         Assert.Equal($"Tools = Array[ExtResource(\"{toolScriptId}\")]([SubResource(\"{toolResourceId}\")])", toolsLine);

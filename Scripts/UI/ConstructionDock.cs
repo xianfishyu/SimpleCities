@@ -2,19 +2,25 @@ using System;
 using System.Collections.Generic;
 using Godot;
 
+/// <summary>
+/// 常驻底部建造栏：预置分类按钮，按资源动态生成当前分类的工具按钮，并与 ToolManager 双向同步选中状态。
+/// </summary>
 public partial class ConstructionDock : Control
 {
     private const string RoadsCategoryId = "roads";
     private const float CollapsedHeight = 76f;
-    private const float ExpandedHeight = 122f;
+    private const float ExpandedHeight = 140f;
     private const float CategoryBarHeight = 76f;
     private const float ToolTrayHeight = ExpandedHeight - CollapsedHeight;
     private const float DockButtonWidth = 104f;
+    private const float DockButtonSeparation = 8f;
+    private const float CompactToolIconSize = 24f;
 
+    // Select 与 RoadRemove 没有资源化定义，仍需在上下文面板中提供可读说明。
     private static readonly IReadOnlyDictionary<ToolType, BuiltInToolPresentation> BuiltInToolPresentations =
         new Dictionary<ToolType, BuiltInToolPresentation>
         {
-            [ToolType.Select] = new("选择", "查看当前状态，取消建造操作。", "Esc"),
+            [ToolType.Select] = new("选择", "查看当前状态。", string.Empty),
             [ToolType.RoadRemove] = new("拆路", "点击已有道路进行拆除。", string.Empty),
         };
 
@@ -65,6 +71,7 @@ public partial class ConstructionDock : Control
     private PanelContainer _dockPanel = null!;
     private PanelContainer _toolTray = null!;
     private ScrollContainer _toolScroll = null!;
+    private ScrollContainer _categoryScroll = null!;
     private HBoxContainer _categoryBar = null!;
     private HBoxContainer _toolList = null!;
     private readonly Dictionary<string, Button> _categoryButtons = new(StringComparer.Ordinal);
@@ -79,10 +86,9 @@ public partial class ConstructionDock : Control
     private bool _categoryValid;
     private string _activeCategoryId = RoadsCategoryId;
     private NodePath _contextFocusPath = new();
-    private NodePath _saveFocusPath = new();
-    private NodePath _loadFocusPath = new();
     private NodePath _debugFocusPath = new();
 
+    /// <summary>每次进入场景树时重建运行时按钮和信号绑定，支持 HUD 被移除后再次加入。</summary>
     public override void _EnterTree()
     {
         TeardownRuntimeState();
@@ -115,10 +121,12 @@ public partial class ConstructionDock : Control
         _dockPanel = null!;
         _toolTray = null!;
         _toolScroll = null!;
+        _categoryScroll = null!;
         _categoryBar = null!;
         _toolList = null!;
     }
 
+    /// <summary>释放上一次进入场景树创建的按钮和事件订阅，避免重复绑定。</summary>
     private void TeardownRuntimeState()
     {
         foreach (Action disconnect in _disconnectActions)
@@ -170,11 +178,9 @@ public partial class ConstructionDock : Control
             : null;
     }
 
-    public void ConfigureFocusChain(NodePath contextFocusPath, NodePath saveFocusPath, NodePath loadFocusPath, NodePath debugFocusPath)
+    public void ConfigureFocusChain(NodePath contextFocusPath, NodePath debugFocusPath)
     {
         _contextFocusPath = contextFocusPath;
-        _saveFocusPath = saveFocusPath;
-        _loadFocusPath = loadFocusPath;
         _debugFocusPath = debugFocusPath;
         UpdateFocusChain();
     }
@@ -184,7 +190,8 @@ public partial class ConstructionDock : Control
         _dockPanel = GetNode<PanelContainer>("DockPanel");
         _toolTray = GetNode<PanelContainer>("DockPanel/DockStack/ToolTray");
         _toolScroll = GetNode<ScrollContainer>("DockPanel/DockStack/ToolTray/TrayMargin/ToolScroll");
-        _categoryBar = GetNode<HBoxContainer>("DockPanel/DockStack/CategoryBar");
+        _categoryScroll = GetNode<ScrollContainer>("DockPanel/DockStack/CategoryScroll");
+        _categoryBar = GetNode<HBoxContainer>("DockPanel/DockStack/CategoryScroll/CategoryBar");
         _toolList = GetNode<HBoxContainer>("DockPanel/DockStack/ToolTray/TrayMargin/ToolScroll/ToolList");
     }
 
@@ -202,13 +209,17 @@ public partial class ConstructionDock : Control
         return false;
     }
 
+    /// <summary>为场景中预置的分类按钮写入显示数据，并登记各自的点击回调。</summary>
     private void BuildCategoryBar()
     {
         foreach (CategoryDescriptor category in Categories)
         {
-            Button button = GetNode<Button>($"DockPanel/DockStack/CategoryBar/{category.NodeName}");
+            Button button = GetNode<Button>($"DockPanel/DockStack/CategoryScroll/CategoryBar/{category.NodeName}");
             if (button is ConstructionDockButton dockButton)
+            {
                 dockButton.DisplayText = category.DisplayName;
+                dockButton.VisualRole = ConstructionDockButtonVisualRole.PrimaryCategory;
+            }
             button.ToggleMode = true;
             button.FocusMode = FocusModeEnum.All;
             button.Disabled = false;
@@ -221,6 +232,7 @@ public partial class ConstructionDock : Control
         }
     }
 
+    /// <summary>清空旧工具列表后，根据当前分类生成道路工具或未实现功能的占位项。</summary>
     private void RenderActiveMenu()
     {
         ClearToolList();
@@ -263,6 +275,7 @@ public partial class ConstructionDock : Control
             {
                 Name = placeholder.NodeName,
                 DisplayText = placeholder.DisplayName,
+                VisualRole = ConstructionDockButtonVisualRole.SecondaryTool,
                 Disabled = true,
                 FocusMode = FocusModeEnum.None,
                 CustomMinimumSize = new Vector2(DockButtonWidth, ToolTrayHeight),
@@ -273,12 +286,14 @@ public partial class ConstructionDock : Control
         }
     }
 
+    /// <summary>从资源定义创建可交互工具按钮，并将点击操作映射到对应 ToolType。</summary>
     private void AddToolButton(ConstructionToolDefinition tool)
     {
-            var button = new ConstructionDockButton
-            {
-                Name = ToolNodeName(tool.ToolType),
-                DisplayText = tool.DisplayName,
+        var button = new ConstructionDockButton
+        {
+            Name = ToolNodeName(tool.ToolType),
+            DisplayText = tool.DisplayName,
+            VisualRole = ConstructionDockButtonVisualRole.SecondaryTool,
             IconTexture = tool.Icon,
             ToggleMode = true,
             FocusMode = FocusModeEnum.All,
@@ -295,6 +310,7 @@ public partial class ConstructionDock : Control
         _toolDefinitions[toolType] = tool;
     }
 
+    /// <summary>为运行时生成的工具/占位按钮补齐图标、标签和分类选中指示器节点。</summary>
     private static void BuildDockButtonPresentation(ConstructionDockButton button)
     {
         var presentation = new VBoxContainer
@@ -303,14 +319,16 @@ public partial class ConstructionDock : Control
             MouseFilter = MouseFilterEnum.Ignore,
             Alignment = BoxContainer.AlignmentMode.Center,
         };
+        presentation.AddThemeConstantOverride("separation", 3);
         presentation.SetAnchorsPreset(LayoutPreset.FullRect);
 
         var icon = new TextureRect
         {
             Name = "Icon",
-            CustomMinimumSize = new Vector2(32f, 32f),
+            CustomMinimumSize = new Vector2(CompactToolIconSize, CompactToolIconSize),
             SizeFlagsHorizontal = SizeFlags.ShrinkCenter,
             MouseFilter = MouseFilterEnum.Ignore,
+            ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
             StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
         };
 
@@ -323,19 +341,25 @@ public partial class ConstructionDock : Control
             VerticalAlignment = VerticalAlignment.Center,
         };
 
-        var selectedUnderline = new ColorRect
+        var primarySelectionIndicator = new ColorRect
         {
-            Name = "SelectedUnderline",
+            Name = "PrimarySelectionIndicator",
             Visible = false,
-            CustomMinimumSize = new Vector2(0f, 3f),
-            SizeFlagsHorizontal = SizeFlags.ExpandFill,
             MouseFilter = MouseFilterEnum.Ignore,
         };
+        primarySelectionIndicator.AnchorLeft = 0f;
+        primarySelectionIndicator.AnchorTop = 1f;
+        primarySelectionIndicator.AnchorRight = 1f;
+        primarySelectionIndicator.AnchorBottom = 1f;
+        primarySelectionIndicator.OffsetLeft = 0f;
+        primarySelectionIndicator.OffsetTop = -4f;
+        primarySelectionIndicator.OffsetRight = 0f;
+        primarySelectionIndicator.OffsetBottom = 0f;
 
         presentation.AddChild(icon);
         presentation.AddChild(label);
-        presentation.AddChild(selectedUnderline);
         button.AddChild(presentation);
+        button.AddChild(primarySelectionIndicator);
     }
 
     private void DisableInvalidCategory()
@@ -357,6 +381,7 @@ public partial class ConstructionDock : Control
         _toolDefinitions.Clear();
     }
 
+    /// <summary>同类再次点击只切换托盘开关；切换分类则重建工具列表并展开托盘。</summary>
     private void OnCategoryPressed(string categoryId)
     {
         if (!_categoryValid)
@@ -375,9 +400,11 @@ public partial class ConstructionDock : Control
         _activeCategoryId = categoryId;
         RenderActiveMenu();
         SetTrayVisible(true);
+        _categoryScroll.EnsureControlVisible(_categoryButtons[categoryId]);
         NotifyContextDisplay();
     }
 
+    /// <summary>由 UI 发起工具切换；实际建造输入仍由 ToolManager 转交 RoadBuilder。</summary>
     private void OnToolPressed(ToolType toolType)
     {
         if (_toolManager == null)
@@ -402,6 +429,7 @@ public partial class ConstructionDock : Control
         TrayVisibilityChanged?.Invoke(visible);
     }
 
+    /// <summary>轮询外部工具切换，使底栏按钮与实际工具状态保持一致。</summary>
     private void SyncFromToolManager(bool force = false)
     {
         if (!_categoryValid) return;
@@ -438,15 +466,16 @@ public partial class ConstructionDock : Control
     {
         foreach ((string categoryId, Button button) in _categoryButtons)
         {
-            button.ButtonPressed = _toolTray.Visible && categoryId == _activeCategoryId;
+            button.ButtonPressed = categoryId == _activeCategoryId;
             if (button is ConstructionDockButton dockButton)
                 dockButton.Selected = button.ButtonPressed;
         }
     }
 
+    /// <summary>将底栏固定到视口底部，并根据展开状态及可用宽度计算可滚动分类栏的尺寸。</summary>
     private void ApplyDockLayout()
     {
-        if (_dockPanel == null || _toolTray == null || _toolScroll == null || _categoryBar == null)
+        if (_dockPanel == null || _toolTray == null || _toolScroll == null || _categoryScroll == null || _categoryBar == null)
             return;
 
         float height = _toolTray.Visible ? ExpandedHeight : CollapsedHeight;
@@ -467,9 +496,18 @@ public partial class ConstructionDock : Control
         _dockPanel.OffsetBottom = 0f;
         _toolTray.CustomMinimumSize = new Vector2(0f, ToolTrayHeight);
         _toolScroll.CustomMinimumSize = new Vector2(0f, ToolTrayHeight);
-        _categoryBar.CustomMinimumSize = new Vector2(0f, CategoryBarHeight);
+        _categoryScroll.CustomMinimumSize = new Vector2(0f, CategoryBarHeight);
+        float categoryButtonWidth = Mathf.Min(
+            DockButtonWidth,
+            Mathf.Max(72f, Mathf.Floor((Size.X - (Categories.Length - 1) * DockButtonSeparation) / Categories.Length)));
+        foreach (Button categoryButton in _categoryButtons.Values)
+            categoryButton.CustomMinimumSize = new Vector2(categoryButtonWidth, CategoryBarHeight);
+        _categoryBar.CustomMinimumSize = new Vector2(
+            Categories.Length * categoryButtonWidth + (Categories.Length - 1) * DockButtonSeparation,
+            CategoryBarHeight);
     }
 
+    /// <summary>把分类、展开后的当前工具和 HUD 其他面板串成可循环的键盘焦点顺序。</summary>
     private void UpdateFocusChain()
     {
         if (!IsInsideTree()) return;

@@ -45,7 +45,7 @@
 | Road data | `Direction.cs`, `GraphNode.cs`, `GraphEdge.cs`, `RoadGroup.cs`, `RoadType.cs`, `SpatialIndex.cs`, `RoadGraph.cs` | 方向、拓扑、路网、空间索引、持久化 |
 | Road scene | `RoadBuilder.cs`, `RoadConfig.cs`, `RoadRenderer.cs`, `RoadSystem.cs` | 输入投影、共享配置、事件驱动渲染、依赖注入 |
 | Tools | `ToolManager.cs`, `ToolType.cs` | 工具切换和输入转发 |
-| UI | `GameHUD.cs`, `ConstructionDock.cs`, `ToolContextPanel.cs`, `DebugPanel.cs`, `SystemControls.cs`, `UIManager.cs` | 命令中心 HUD、建造坞、上下文、诊断、系统操作和面板管理 |
+| UI | `GameHUD.cs`, `ConstructionDock.cs`, `ToolContextPanel.cs`, `DebugPanel.cs`, `PauseMenu.cs`, `UIManager.cs` | 命令中心 HUD、建造坞、上下文、诊断、暂停菜单和面板管理 |
 
 ---
 
@@ -63,8 +63,8 @@
 | 初始化阶段 | 关键调用 | 结果 |
 |---|---|---|
 | Core autoload | `SaveManager._Ready()` | 建立全局持久化入口 |
-| 相机 | `MainCamera._Ready()` | 设置 `Instance`，记录初始位置，注册到 `SaveManager` |
-| 道路系统 | `RoadSystem._Ready()` | 创建 `RoadGraph`，注入 `RoadRenderer` 和 `RoadBuilder`，设置 `GridSystem.Config`，注册 `RoadGraph` |
+| 相机 | `MainCamera._Ready()` / `_ExitTree()` | 设置 `Instance`、记录初始位置并注册到 `SaveManager`；退出时注销并清理单例 |
+| 道路系统 | `RoadSystem._Ready()` / `_ExitTree()` | 创建并注册 `RoadGraph`，注入 renderer/builder；退出时注销并清理单例 |
 | HUD | `GameHUD._Ready()` | 获取 `ToolManager` 和 `RoadSystem.Graph`，解析控件，绑定工具和存档按钮 |
 
 ---
@@ -95,8 +95,10 @@
 |---|---|---|
 | `Instance` | `public static SaveManager Instance { get; private set; }` | Autoload 单例 |
 | `CurrentSlotName` | `public string CurrentSlotName { get; private set; } = "autosave"` | 当前槽位名 |
+| `RegisteredSaveableCount` | `public int RegisteredSaveableCount` | 当前活动注册数量 |
 | `_Ready` | `public override void _Ready()` | 设置 `Instance` |
-| `Register` | `public void Register(ISaveable saveable)` | 注册可存档系统，重复注册会被忽略 |
+| `Register` | `public bool Register(ISaveable saveable)` | 同一对象幂等；拒绝另一活动对象使用相同 `SaveFileName` |
+| `Unregister` | `public bool Unregister(ISaveable saveable)` | 移除离开场景树的可存档对象 |
 | `Save` | `public bool Save(string slotName = "autosave")` | 保存所有已注册系统 |
 | `Load` | `public bool Load(string slotName = "autosave")` | 加载 manifest 中匹配已注册系统的文件 |
 | `SaveSlotExists` | `public bool SaveSlotExists(string slotName)` | 检查 manifest 是否存在 |
@@ -109,6 +111,23 @@
 | 写入策略 | 每个文件先写 `.tmp`，再移动为正式文件；这不是整槽原子事务 |
 | Manifest | `manifest.json`，字段来自 `ManifestData` |
 | 错误处理 | 捕获异常，`GD.PushError(...)`，返回 `false` |
+
+### InputBindingManager
+
+**文件**：`Scripts/Core/InputBindingManager.cs`
+**继承**：`public partial class InputBindingManager : Node`
+
+| 成员 | 签名 | 说明 |
+|---|---|---|
+| `Instance` | `public static InputBindingManager Instance { get; private set; }` | Autoload 单例 |
+| `Definitions` | `public static IReadOnlyList<BindingDefinition> Definitions` | WASD、Q/R/E 和暂停动作目录 |
+| `EventMatchesAction` | `public bool EventMatchesAction(InputEvent inputEvent, string actionName)` | 以当前物理键绑定匹配真实输入 |
+| `TryGetToolForEvent` | `public bool TryGetToolForEvent(InputEvent inputEvent, out ToolType tool)` | 把当前工具动作映射为 `ToolType` |
+| `TryRebind` | `public bool TryRebind(string actionName, Key key, out string error)` | 拒绝非法或冲突按键，成功时更新并持久化 |
+| `ResetToDefaults` | `public bool ResetToDefaults(out string error)` | 恢复全部默认绑定并持久化 |
+| `GetBindingText` | `public string GetBindingText(string actionName)` | 返回当前玩家可读键名 |
+
+配置写入 `user://input_bindings.cfg`。载入配置存在非法键或重复值时，整套保留默认绑定，不应用部分配置。
 
 ### SaveJson
 
@@ -189,6 +208,7 @@
 |---|---|---|
 | `Instance` | `public static MainCamera Instance { get; private set; }` | 单例引用 |
 | `_Ready` | `public override void _Ready()` | 设置单例、记录 `nextPos`、注册到 `SaveManager` |
+| `_ExitTree` | `public override void _ExitTree()` | 从 `SaveManager` 注销并清理当前单例 |
 | `_Process` | `public override void _Process(double delta)` | 更新键盘移动、缩放和中键拖拽 |
 | `_Input` | `public override void _Input(InputEvent @event)` | WASD、滚轮、中键输入 |
 | `SaveFileName` | `public string SaveFileName => "camera"` | 相机存档文件名 |
@@ -197,7 +217,7 @@
 
 | 输入动作 | 来源 | 作用 |
 |---|---|---|
-| `KeyBoard_MoveUp` / `Down` / `Left` / `Right` | `project.godot` | `Input.GetVector(...)` 平移相机 |
+| `KeyBoard_MoveUp` / `Down` / `Left` / `Right` | `InputBindingManager`，默认 W/A/S/D | `Input.GetVector(...)` 平移相机 |
 | `MouseButton.WheelUp` | `_Input` | `defaultScale += scaleFactor * defaultScale` |
 | `MouseButton.WheelDown` | `_Input` | `defaultScale -= scaleFactor * defaultScale` |
 | `MouseButton.Middle` | `_Input` / `_Process` | 记录鼠标世界坐标并拖拽平移 |
@@ -514,6 +534,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `Graph` | `public RoadGraph Graph { get; private set; } = null!` | 当前路网数据层 |
 | `Instance` | `public static RoadSystem Instance { get; private set; } = null!` | 单例引用 |
 | `_Ready` | `public override void _Ready()` | 创建 `RoadGraph`，注入 renderer/builder，设置 `GridSystem.Config`，注册存档 |
+| `_ExitTree` | `public override void _ExitTree()` | 注销 `RoadGraph` 并清理当前单例 |
 
 `RoadSystem` 是场景侧装配根。它不直接处理输入、不直接绘制道路，也不持有旧 `RoadNetwork` 对象。
 
@@ -541,12 +562,12 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `Instance` | `public static ToolManager Instance { get; private set; } = null!` | 单例引用 |
 | `CurrentTool` | `public ToolType CurrentTool { get; set; }` | 切换工具，负责清理 Road/RoadRemove 状态 |
 | `_Ready` | `public override void _Ready()` | 设置单例并获取 `../RoadSystem/RoadBuilder` |
-| `_Input` | `public override void _Input(InputEvent @event)` | Esc 回到 Select，并按当前工具把其他输入转发给 `RoadBuilder` |
+| `_Input` | `public override void _Input(InputEvent @event)` | 只按当前工具把输入转发给 `RoadBuilder`；键盘工具和暂停动作由 `GameHUD` 处理 |
 
 | 输入 | 行为 |
 |---|---|
-| `R` / `E` | 不切换工具；按当前工具走既有输入转发 |
-| `Escape` | `CurrentTool = ToolType.Select` |
+| 当前 `tool_select` / `tool_road` / `tool_remove` 绑定（默认 Q/R/E） | `GameHUD` 切换 `CurrentTool`；`ToolManager` 不解析按键 |
+| 当前 `pause_menu` 绑定（默认 Escape） | 不改变工具；由 `GameHUD` 打开暂停菜单 |
 | 当前工具为 `Road` | 转发到 `RoadBuilder.HandlePlaceInput(@event)` |
 | 当前工具为 `RoadRemove` | 转发到 `RoadBuilder.HandleRemoveInput(@event)` |
 
@@ -563,18 +584,17 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 |---|---|---|
 | `Config` | `[Export] public RoadConfig Config { get; set; } = null!` | HUD 将道路配置分发给上下文和调试组件 |
 | `_Ready` | `public override void _Ready()` | 作为命令中心组合协调器，解析子组件、确保本 HUD 的 `UIManager`、绑定组件事件 |
-| `_Input` | `public override void _Input(InputEvent @event)` | F5 保存，F9 加载 |
+| `_Input` | `public override void _Input(InputEvent @event)` | 通过 `InputBindingManager` 处理当前暂停和工具动作 |
 | `_Process` | `public override void _Process(double delta)` | 协调子组件刷新当前工具、catalog 上下文、调试指标和响应式布局 |
 
 | UI/快捷键 | 当前调用 | 说明 |
 |---|---|---|
-| Esc / 选择 | `ToolManager._Input()` 设置 `ToolType.Select`，UI 显示内建中文文案 | 回到选择/空工具，不在 Roads 子菜单创建按钮 |
+| 当前暂停绑定 / 默认 Esc | `GameHUD._Input()` 打开 `PauseMenu` | 暂停场景树且保留当前工具；再次按当前绑定或“继续游戏”恢复 |
+| 当前工具绑定 / 默认 Q/R/E | `GameHUD._Input()` 设置 `ToolManager.CurrentTool` | 模态菜单关闭时切换选择、铺路或拆路 |
 | 铺路按钮 | `ConstructionDock` 的 `RoadToolButton` 调用 `ToolManager.CurrentTool = ToolType.Road` | 切换铺路工具，按钮来自 Roads catalog |
-| 程序设置 / 拆路 | 设置 `ToolManager.CurrentTool = ToolType.RoadRemove`，UI 显示内建中文文案且隐藏空快捷键行 | 保留拆路工具能力，不提供键盘快捷键或 Roads 子菜单按钮 |
-| 保存按钮 | `OnSave()` | `SaveManager.Instance.Save("autosave")` |
-| 加载按钮 | `OnLoad()` | `SaveManager.Instance.Load("autosave")` |
-| F5 | `OnSave()` | autosave 保存 |
-| F9 | `OnLoad()` | autosave 加载 |
+| 拆路 | `tool_remove` 动作或程序设置 `ToolManager.CurrentTool = ToolType.RoadRemove` | UI 显示内建中文文案和当前绑定；仍不提供 Roads 子菜单按钮 |
+| 暂停菜单保存 | `OnPauseSave()` | `SaveManager.Instance.Save("autosave")` 并在菜单内回显结果 |
+| 暂停菜单读档 | `OnPauseLoad()` | `SaveManager.Instance.Load("autosave")` 并在菜单内回显结果 |
 
 | HUD 数据 | 所属组件 / 来源 |
 |---|---|
@@ -587,14 +607,14 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 
 ### Command Center UI Components
 
-**文件**：`Scripts/UI/ConstructionDock.cs`, `ToolContextPanel.cs`, `DebugPanel.cs`, `SystemControls.cs`
+**文件**：`Scripts/UI/ConstructionDock.cs`, `ToolContextPanel.cs`, `DebugPanel.cs`, `PauseMenu.cs`
 
 | 组件 | 说明 |
 |---|---|
-| `ConstructionDock` | 底部全宽五分类 CategoryBar 和 ToolTray；折叠高度 76px，展开高度 122px，由 46px 资产条加 76px 分类栏组成；Roads catalog 创建一个 `城市道路` 按钮；重复当前分类折叠/重开，不同分类切换内容并保持打开；没有当前工具标签或桌面宽度上限 |
+| `ConstructionDock` | 底部全宽五分类 CategoryBar 和 ToolTray；折叠高度 76px，展开高度 140px，由 64px 资产条加 76px 分类栏组成；Roads catalog 创建一个 `城市道路` 按钮；重复当前分类折叠/重开，不同分类切换内容并保持打开；没有当前工具标签或桌面宽度上限 |
 | `ToolContextPanel` | 右侧只读上下文，Road 读取 catalog；Select / RoadRemove 使用内建玩家文案但不要求 submenu/catalog 资源 |
 | `DebugPanel` | 默认折叠，拥有 FPS、鼠标格点、RoadGroup、GraphEdge、GraphNode 指标显示 |
-| `SystemControls` | 独立 Save / Load 操作区，显示成功或失败状态 |
+| `PauseMenu` | 当前暂停动作打开的全屏模态菜单；暂停场景树而保持菜单输入，可继续、保存、读档、调整会话音频、持久化键位，或经确认返回主菜单/退出桌面 |
 
 ### UIManager
 
@@ -648,9 +668,11 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 |---|---|---|
 | 注册 | `MainCamera._Ready()` | `SaveManager.Instance.Register(this)` |
 | 注册 | `RoadSystem._Ready()` | `SaveManager.Instance.Register(Graph)` |
-| 保存入口 | `GameHUD.OnSave()` 或 F5 | `SaveManager.Instance.Save("autosave")` |
+| 注销 | `MainCamera._ExitTree()` | `SaveManager.Instance.Unregister(this)` |
+| 注销 | `RoadSystem._ExitTree()` | `SaveManager.Instance.Unregister(Graph)` |
+| 保存入口 | `PauseMenu` 的保存操作 | `SaveManager.Instance.Save("autosave")` |
 | 保存文件 | `SaveManager.Save()` | 写 `camera.json`、`road_network.json`、`manifest.json` |
-| 加载入口 | `GameHUD.OnLoad()` 或 F9 | `SaveManager.Instance.Load("autosave")` |
+| 加载入口 | `PauseMenu` 的读档操作 | `SaveManager.Instance.Load("autosave")` |
 | RoadGraph 恢复 | `RoadGraph.RestoreState(json)` | 清图、恢复实体、重建邻接、重建空间索引、触发 `GraphCleared` |
 | 渲染恢复 | `RoadRenderer.OnGraphCleared()` | 清空并全量重建 `Line2D` |
 

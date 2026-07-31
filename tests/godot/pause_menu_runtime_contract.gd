@@ -41,7 +41,7 @@ func run() -> void:
 	var bindings_back_button: Button = pause_menu.get_node("Center/MainPanel/BindingsContent/BindingActions/BackButton")
 	var confirm_button: Button = pause_menu.get_node("Center/MainPanel/ConfirmationContent/ConfirmationButtons/ConfirmButton")
 	var cancel_button: Button = pause_menu.get_node("Center/MainPanel/ConfirmationContent/ConfirmationButtons/CancelButton")
-	var focus_source: Button = hud.get_node("ConstructionDock/DockPanel/DockStack/CategoryBar/RoadsCategoryButton")
+	var focus_source: Button = hud.get_node("ConstructionDock/DockPanel/DockStack/CategoryScroll/CategoryBar/RoadsCategoryButton")
 	var save_manager: Node = root.get_node("SaveManager")
 
 	manager.set("CurrentTool", 1)

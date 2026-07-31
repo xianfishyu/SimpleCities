@@ -1,15 +1,37 @@
 using Godot;
 
+/// <summary>区分分类按钮和工具按钮，决定选中指示器的呈现方式。</summary>
+public enum ConstructionDockButtonVisualRole
+{
+    PrimaryCategory,
+    SecondaryTool,
+}
+
+/// <summary>
+/// 建造栏按钮的通用呈现组件。场景中预置的分类按钮和运行时生成的工具按钮都复用它。
+/// </summary>
 public partial class ConstructionDockButton : Button
 {
     private TextureRect? _icon;
     private Label? _label;
-    private ColorRect? _selectedUnderline;
+    private ColorRect? _primarySelectionIndicator;
     private bool _isReady;
 
     private Texture2D? _iconTexture;
     private string _displayText = string.Empty;
     private bool _selected;
+    private ConstructionDockButtonVisualRole _visualRole = ConstructionDockButtonVisualRole.PrimaryCategory;
+
+    [Export]
+    public ConstructionDockButtonVisualRole VisualRole
+    {
+        get => _visualRole;
+        set
+        {
+            _visualRole = value;
+            SynchronizePresentation();
+        }
+    }
 
     [Export]
     public Texture2D? IconTexture
@@ -44,12 +66,13 @@ public partial class ConstructionDockButton : Button
         }
     }
 
+    /// <summary>取得由场景或 ConstructionDock 动态创建的视觉子节点后完成首次同步。</summary>
     public override void _Ready()
     {
         Text = string.Empty;
         _icon = GetNodeOrNull<TextureRect>("Presentation/Icon");
         _label = GetNodeOrNull<Label>("Presentation/Label");
-        _selectedUnderline = GetNodeOrNull<ColorRect>("Presentation/SelectedUnderline");
+        _primarySelectionIndicator = GetNodeOrNull<ColorRect>("PrimarySelectionIndicator");
         _isReady = true;
 
         SynchronizePresentation();
@@ -68,9 +91,10 @@ public partial class ConstructionDockButton : Button
         _isReady = false;
         _icon = null;
         _label = null;
-        _selectedUnderline = null;
+        _primarySelectionIndicator = null;
     }
 
+    /// <summary>将导出的图标、文字、选中态和主题色同步到内部视觉节点。</summary>
     private void SynchronizePresentation()
     {
         Text = string.Empty;
@@ -91,13 +115,15 @@ public partial class ConstructionDockButton : Button
             _label.AddThemeColorOverride("font_color", colors.Label);
         }
 
-        if (_selectedUnderline != null)
+        if (_primarySelectionIndicator != null)
         {
-            _selectedUnderline.Visible = _selected;
-            _selectedUnderline.Color = colors.Underline;
+            _primarySelectionIndicator.Visible = _selected
+                && _visualRole == ConstructionDockButtonVisualRole.PrimaryCategory;
+            _primarySelectionIndicator.Color = colors.Indicator;
         }
     }
 
+    /// <summary>依次按禁用、选中、默认状态解析语义主题色，并保留 Godot 默认主题作为后备。</summary>
     private PresentationColors ResolvePresentationColors()
     {
         if (Disabled)
@@ -141,5 +167,5 @@ public partial class ConstructionDockButton : Button
         return Colors.White;
     }
 
-    private readonly record struct PresentationColors(Color Icon, Color Label, Color Underline);
+    private readonly record struct PresentationColors(Color Icon, Color Label, Color Indicator);
 }

@@ -1,6 +1,9 @@
 using Godot;
 using System.Linq;
 
+/// <summary>
+/// 左上角的运行时诊断面板，展示帧率、鼠标网格位置和当前路网的规模统计。
+/// </summary>
 public partial class DebugPanel : PanelContainer
 {
     [Export] public RoadConfig? Config { get; set; }
@@ -38,6 +41,7 @@ public partial class DebugPanel : PanelContainer
             _toggleButton.Pressed -= ToggleDebugContent;
     }
 
+    /// <summary>注入 HUD 已解析的路网和配置，避免面板自行查找场景节点。</summary>
     public void SetDependencies(RoadGraph? network, RoadConfig? config)
     {
         _network = network;
@@ -50,6 +54,7 @@ public partial class DebugPanel : PanelContainer
         _toggleButton.FocusNext = nextPath;
     }
 
+    /// <summary>由 GameHUD 每帧调用，刷新轻量且可直接读取的调试指标。</summary>
     public void UpdateMetrics()
     {
         _fpsValue.Text = Engine.GetFramesPerSecond().ToString();
@@ -74,6 +79,7 @@ public partial class DebugPanel : PanelContainer
         _toggleButton.Text = _debugContent.Visible ? "Debug ▲" : "Debug ▼";
     }
 
+    /// <summary>将鼠标世界坐标吸附到网格，并标记该位置是否已有路口节点。</summary>
     private string GridText()
     {
         if (Config == null || MainCamera.Instance == null || !GodotObject.IsInstanceValid(MainCamera.Instance)) return "--";

@@ -300,3 +300,94 @@ Focused RED 来自 `tests/godot/command_center_runtime_contract.gd` 中同实例
 - BUG-10 `godot --headless --path . --script tests/godot/roads_construction_category_contract.gd`：PASS。
 - BUG-10 live frozen `MapTest` runtime：`ConstructionDock.theme.resource_path = res://Scenes/UI/Themes/ConstructionDockTheme.tres`；effective colors 为 base `(0.0588,0.0706,0.0902,0.92)`、asset strip `(0.0824,0.102,0.1333,0.96)`、primary `(0.949,0.9569,0.9686,1)`、hover `(1,0.8235,0.4784,1)`、selected `(1,0.7608,0.349,1)`、disabled `(0.3451,0.3765,0.4196,1)`、focus border `(1,0.8784,0.5412,1)`；selected/default/disabled styleboxes remained structurally distinct。
 - BUG-10 editor/runtime logs：scene reload 后 editor error log 无 task-caused errors；focused runtime `godot-minimal` stderr 为空；exec holder cleanup removed 0 temporary nodes and the test run was stopped。
+
+---
+
+## BUG-11：窄窗口中 ConstructionDock 分类按钮被裁剪
+
+### 症状
+
+当窗口宽度缩小到截图所示的约 435px 时，五个固定 104px 宽的分类按钮连同间距总宽超过底栏。`HBoxContainer` 居中后两端内容离开可视区域，分类栏看起来错位并出现文字、图标裁剪。
+
+### 根因分析
+
+`ConstructionDock` 只为分类按钮指定了固定 `DockButtonWidth = 104f`，但没有根据 dock 实际宽度重新分配按钮宽度。分类栏自身没有足够的窄屏几何约束，因此其最小内容宽度超过父级。
+
+### 修复方案
+
+分类栏放入仅负责裁剪边界的 `CategoryScroll`，并禁用横向滚动条以免其占用底栏高度。`ConstructionDock.ApplyDockLayout()` 根据实际 `Size.X` 把五个按钮宽度从 104px 按可用空间等比收缩，最低保持 72px；宽度向下取整，避免五个按钮的像素取整总和反向撑宽父容器。分类栏仍保留原有 76px 高度和宽窗口的居中布局。
+
+### 影响范围
+
+影响 `ConstructionDock` 的分类栏 scene tree、运行时尺寸计算、HUD 中道路分类按钮路径及相应的 C#/GDScript 契约。未改变分类内容、道路工具、主题、底栏展开高度、输入逻辑或存档。
+
+### 验证状态
+
+- `dotnet build SimpleCities.sln --no-restore`：exit 0，0 warnings，0 errors。
+- `dotnet test SimpleCities.sln --no-restore`：27 passed，0 failed，0 skipped。
+- `godot --headless --path . --log-file .tmp-godot-qa/command-center-final-5.log --script tests/godot/command_center_runtime_contract.gd`：PASS。新增 435x480 展开态断言确认五个分类按钮均未越出 dock、DockPanel 宽度正确、底边贴合且分类栏仍为 76px 高。
+- Godot 输出的 root certificate store error，以及 missing dependency / fallback Config warnings 来自环境和现有降级场景；运行时 contract 本身通过。
+
+---
+
+## BUG-12：ConstructionDock 子工具出现在托盘最左侧且文字被裁剪
+
+### 症状
+
+点击底栏“道路”分类后，`ToolTray` 虽然展开，但“城市道路”工具按钮出现在整条托盘的最左侧，没有从当前“道路”分类上方出现。按钮的 32px 图标、标签和状态下划线同时放入 46px 高的托盘后，标签底部越出按钮并被裁剪，因此视觉上像是子工具没有弹出。
+
+### 根因分析
+
+`ToolList` 是横向扩展的 `HBoxContainer`，默认从左侧排列内容；`ConstructionDock` 没有根据 `_activeCategoryId` 为托盘内容计算水平起点。与此同时，`BuildDockButtonPresentation()` 给动态工具图标设置了 32px 最小尺寸，`TextureRect` 默认还会保留纹理原始尺寸，导致动态图标与 13px 标签的组合高度超过 `ToolTrayHeight = 46f`。
+
+### 修复方案
+
+`ConstructionDock.ApplyDockLayout()` 现在调用 `AlignToolTrayToActiveCategory()`：根据分类组的居中位置、当前分类索引和工具组宽度计算 `TrayMargin` 的左边距，并在两侧窗口边界内钳制。道路分类只有一个 104px 工具按钮时，其中心与“道路”分类中心对齐；窄窗口下则贴边但不越界。
+
+动态工具和 placeholder 的图标改为 20px 紧凑尺寸，`TextureRect.ExpandMode` 设为 `IgnoreSize`，并将动态图标、标签之间的 `VBoxContainer` separation 设为 0，使图标和标签完整落在 46px 托盘内。分类栏自身的 32px 图标不受影响。
+
+### 影响范围
+
+影响 `Scripts/UI/ConstructionDock.cs` 中动态子工具的水平定位和紧凑展示，以及 `tests/godot/command_center_runtime_contract.gd` 的布局回归断言。未改变分类顺序、分类按钮尺寸、底栏 76/122px 折叠与展开高度、工具选择行为、主题、道路系统或存档。
+
+### 验证状态
+
+- BUG-12 focused RED：1600x900 展开态中 `RoadToolButton.x = 0`，按“道路”分类中心计算的预期值为 `524`；标签 rect 为 `(550,810,52,18.14584)`，按钮 rect 为 `(524,778,104,46)`，标签底部越过按钮底部。
+- BUG-12 `dotnet build SimpleCities.sln --no-restore`：exit 0，0 warnings，0 errors。
+- BUG-12 `godot --headless --path . --log-file .godot/qa-command-center-green-2.log --script tests/godot/command_center_runtime_contract.gd`：PASS。1600x900、640x480 和 435x480 展开态均验证工具组相对当前道路分类居中或按窗口边界钳制，工具按钮、图标、标签全部位于 46px 托盘内。
+- BUG-12 `dotnet test SimpleCities.sln --no-restore`：27 passed，0 failed，0 skipped。
+- BUG-12 `godot --headless --path . --log-file .godot/qa-roads-category.log --script tests/godot/roads_construction_category_contract.gd`：PASS。
+- 当前会话未暴露 `csharp-ls`、Godot editor bridge 或 `godot-minimal` DAP console，因此 focused LSP diagnostics、editor log 和 DAP console gate 无法执行；未用成功 build 或 headless contract 冒充这些 gate。Godot CLI 的 root certificate store error 为环境既有输出，两个运行时 contract 均通过。
+
+---
+
+## BUG-13：ConstructionDock 二级菜单偏离全局中心且两级选中标记混用
+
+### 症状
+
+二级工具组以当前一级分类的位置为锚点，因此切换到处于不同横向位置的分类时，二级内容会跟随分类左右移动，而不是稳定出现在整个底栏的视觉中心。与此同时，一级分类和二级工具共用 3px 下划线；二级下划线悬在两层菜单交界处，一级标记也没有落到 ConstructionDock 的绝对底边。原 46px 二级层还会迫使图标和中文标签使用过度紧凑的尺寸。
+
+### 根因分析
+
+`ConstructionDock` 把二级列表的水平位置耦合到 `_activeCategoryId` 和分类按钮几何，而 `ToolList` 本身没有全宽居中契约。`ConstructionDockButton` 又只提供通用 `SelectedUnderline`，并把它放在图标、标签所在的 `VBoxContainer` 中，组件无法区分“一级分类”和“二级工具”这两种不同层级的选中语义。122px 展开高度和 46px `ToolTray` 则延续了这套紧凑布局约束。
+
+### 修复方案
+
+展开高度改为 140px，`ToolTray` / `ToolScroll` 改为 64px；`ToolList` 作为全宽扩展的 `HBoxContainer` 使用 `Alignment = Center`，移除分类相对偏移，使所有二级工具和未来 placeholder 都按完整 dock 的水平中心排列。二级图标固定为 24px，工具按钮保持 104x64px。
+
+`ConstructionDockButton` 新增显式 `VisualRole`。一级分类使用 `PrimaryCategory`，直接在按钮根下放置 4px `PrimarySelectionIndicator` 并锚到按钮及 dock 绝对底边；二级工具使用 `SecondaryTool`，选中时只保留 pressed surface 和琥珀色图标/文字，不显示下划线。一级分类在托盘折叠后仍保持选中和底部标记。分类行在窄窗口中按 104px 到 72px 响应式缩放，低于可容纳宽度时使用不占高度的隐藏式横向滚动。
+
+### 影响范围
+
+影响 `ConstructionDock` 的展开几何、二级列表对齐、可复用按钮角色、一级/二级选中表现、分类滚动容器路径、HUD 焦点路径以及对应 UI 契约和文档。未改变道路 catalog 数据、`ToolManager` 的工具切换规则、道路建造输入、存档内容、Debug 指标或非 dock 主题。
+
+### 验证状态
+
+- BUG-13 focused RED：静态契约对旧 122/46 几何、缺失底部 indicator 和缺失 `ToolList` 居中产生 3 个失败；1600x900 运行时中 Zoning placeholder 组实际范围为 `[580, 796]`，未与 1600px dock 中心对齐。
+- BUG-13 `dotnet build SimpleCities.sln --no-restore`：exit 0，0 warnings，0 errors。
+- BUG-13 focused `ConstructionDockContractTests`：9 passed，0 failed，覆盖 140/64 几何、全局居中配置、按钮角色和 4px 绝对底部 indicator 结构。
+- BUG-13 `dotnet test SimpleCities.sln --no-restore`：28 passed，0 failed，0 skipped。
+- BUG-13 `godot --headless --path . --log-file .godot/qa-construction-dock-final.log --script tests/godot/command_center_runtime_contract.gd`：PASS。1600x900、640x480 和 435x480 下验证 76/140px dock、64px 托盘、道路工具和各 placeholder 组的全局中心、24px 二级图标、一级底部 indicator、二级无下划线、折叠选中状态及 HUD non-overlap；既有 focus、Escape、save/load、道路拖拽和生命周期断言继续通过。
+- BUG-13 `godot --headless --path . --log-file .godot/qa-roads-category-final.log --script tests/godot/roads_construction_category_contract.gd`：PASS。
+- BUG-13 `git diff --check`：clean。
+- 当前会话未暴露 `csharp-ls`、Godot editor bridge 或 `godot-minimal` DAP console，因此 focused LSP diagnostics、editor scene reload/effective-property inspection 和 DAP console gate 被阻塞，未声明通过。Godot CLI 的 root certificate store error 为环境输出；command-center contract 中 missing dependency / fallback Config warnings来自契约刻意覆盖的降级场景，contract 本身通过。

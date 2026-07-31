@@ -6,13 +6,13 @@ This is the canonical design system for the current SimpleCities command-center 
 
 SimpleCities uses a dark command-center HUD over the city map. The UI should feel like a low-light planning console: restrained surfaces, clear CJK labels, small tonal shifts for state, and no decorative bulk. Controls appear only when the player needs to build, inspect context, save, load, or read debug metrics.
 
-The broader HUD theme keeps the historical amber command-center accent for ContextPanel, SystemControls, DebugPanel, status feedback, and shared controls. ConstructionDock uses the same historical command-center neutral and amber palette while retaining its local Theme resource for scope isolation, so the full-width construction surface can be maintained without restyling Debug, System, or Context.
+The broader HUD theme keeps the historical amber command-center accent for ContextPanel, PauseMenu, DebugPanel, status feedback, and shared controls. ConstructionDock uses the same historical command-center neutral and amber palette while retaining its local Theme resource for scope isolation, so the full-width construction surface can be maintained without restyling Debug or Context.
 
 Current live build scope:
 
 | Area | Current runtime truth |
 | --- | --- |
-| ConstructionDock | Full-width, bottom-flush K dock with 76px collapsed height and 122px expanded height |
+| ConstructionDock | Full-width, bottom-flush K dock with 76px collapsed height and 140px expanded height |
 | Category tabs | Five enabled and focusable tabs: `道路`, `区域`, `公共设施`, `交通`, `景观` |
 | Roads asset | One enabled, focusable asset named `城市道路`, mapped to `ToolType.Road` |
 | Future assets | Disabled, non-focusable placeholders only. They show `尚未开放` and have no gameplay side effects |
@@ -24,7 +24,7 @@ Colors are Godot theme contracts. Use `Theme` colors, `StyleBoxFlat.bg_color`, `
 
 ### 2.1 Broader command-center tokens
 
-These tokens apply to ContextPanel, SystemControls, DebugPanel, non-dock HUD surfaces, and future shared controls.
+These tokens apply to ContextPanel, PauseMenu, DebugPanel, non-dock HUD surfaces, and future shared controls.
 
 | Role | Token | Hex or alpha | Godot use | Rule |
 | --- | --- | --- | --- | --- |
@@ -42,7 +42,7 @@ These tokens apply to ContextPanel, SystemControls, DebugPanel, non-dock HUD sur
 | Accent primary | `Accent.Primary` | `#FFC259` / 1.00 | Shared HUD headings and selected details | Amber remains the broader command-center accent |
 | Accent hover | `Accent.Hover` | `#FFD27A` / 1.00 | Shared hover details | Use in small areas only |
 | Accent pressed | `Accent.Pressed` | `#D99B32` / 1.00 | Shared pressed detail | Not an error color |
-| Accent road | `Accent.Road` | `#6F7884` / 1.00 | Road labels or map-adjacent road affordances | Not the dock selected cyan |
+| Accent road | `Accent.Road` | `#6F7884` / 1.00 | Road labels or map-adjacent road affordances | Not a dock selection color |
 | Status success | `Status.Success` | `#52C878` / 1.00 | Save success and valid feedback | Status only |
 | Status warning | `Status.Warning` | `#FFC259` / 1.00 | Recoverable warnings | Text must clarify warning meaning |
 | Status error | `Status.Error` | `#FF6B6B` / 1.00 | Load failure or destructive warning | Not for normal RoadRemove presentation |
@@ -60,7 +60,7 @@ These tokens are local to `Scenes/UI/Themes/ConstructionDockTheme.tres`. They in
 | Asset strip | `ConstructionDock.AssetStrip` | `#151A22` / 0.96 | `ConstructionDockAssetStrip/colors/asset_strip_color` |
 | Divider | `ConstructionDock.Divider` | `#242933` / 0.50 | Top strip divider and separator style |
 | Primary icon and label | `ConstructionDock.Primary` | `#F2F4F7` / 1.00 | Default icon and label color |
-| Selected icon, label, and underline | `ConstructionDock.Selected` | `#FFC259` / 1.00 | Selected category icon, label, and 3px underline |
+| Selected icon, label, and indicator | `ConstructionDock.Selected` | `#FFC259` / 1.00 | Selected icon/label and the primary category's 4px bottom indicator |
 | Disabled | `ConstructionDock.Disabled` | `#58606B` / 1.00 | Disabled icon and label color |
 | Hover accent | `ConstructionDock.HoverAccent` | `#FFD27A` / 1.00 | Hover icon and label color |
 | Hover surface | `ConstructionDock.HoverSurface` | `#243041` / 1.00 | Button hover tonal shift |
@@ -68,7 +68,7 @@ These tokens are local to `Scenes/UI/Themes/ConstructionDockTheme.tres`. They in
 | Disabled surface | `ConstructionDock.DisabledSurface` | `#11151B` / 0.72 | Disabled button background |
 | Focus | `ConstructionDock.Focus` | `#FFE08A` / 1.00 | Independent 1px keyboard focus ring |
 
-ConstructionDock selected state must never be color-only. It uses selected icon color, selected label color, and a visible 3px underline. Keyboard focus must stay independently visible through the 1px ring, even when the button is not hovered or selected.
+ConstructionDock has two selection levels. A primary category uses the pressed surface, selected icon/label colors, and one 4px amber indicator anchored to the absolute dock bottom. A secondary tool uses the pressed surface plus selected icon/label colors and never draws an underline. Keyboard focus stays independently visible through the 1px ring at both levels.
 
 ## 3. Typography and CJK
 
@@ -83,7 +83,7 @@ Use at most two font families: one UI sans family and one mono family. The UI sa
 | Caption | 12 | 400 | 16 | DebugPanel labels and timestamps |
 | Mono data | 12 | 500 | 16 | FPS, graph counts, coordinates |
 
-ConstructionDock category labels are exact CJK strings: `道路`, `区域`, `公共设施`, `交通`, `景观`. The Roads asset label is `城市道路`. Future placeholder tooltip text is `尚未开放`. No label may be replaced by an emoji, English enum, or icon-only affordance in the player path. CJK text must not clip at 1600x900 or 640x480.
+ConstructionDock category labels are exact CJK strings: `道路`, `区域`, `公共设施`, `交通`, `景观`. The Roads asset label is `城市道路`. Future placeholder tooltip text is `尚未开放`. No label may be replaced by an emoji, English enum, or icon-only affordance in the player path. CJK text must not clip at 1600x900, 640x480, or 435x480.
 
 ## 4. Spacing and layout
 
@@ -109,16 +109,17 @@ The K dock is a full-width bottom surface. It is not a narrow floating panel.
 | --- | --- |
 | `Scenes/UI/ConstructionDock.tscn` root | `anchor_left = 0.0`, `anchor_right = 1.0`, `anchor_bottom = 1.0`, left/right/bottom offsets `0.0` |
 | Collapsed dock | Exactly 76px tall, bottom flush with the viewport |
-| Expanded dock | Exactly 122px tall, consisting of 46px asset strip plus 76px category row |
-| `ToolTray` | 46px `PanelContainer` named asset strip, above the category row |
-| `ToolScroll` | Horizontal scrolling enabled, vertical scrolling disabled |
-| `ToolList` | `HBoxContainer` asset list |
-| `CategoryBar` | 76px `HBoxContainer`, five category controls, 8px separation |
-| Category buttons | Each is 104x76, icon over label, focusable and enabled |
+| Expanded dock | Exactly 140px tall, consisting of 64px asset strip plus 76px category row |
+| `ToolTray` | 64px `PanelContainer` named asset strip, above the category row |
+| `ToolScroll` | Full-width horizontal scrolling enabled without a visible scrollbar; vertical scrolling disabled |
+| `ToolList` | Expanding, center-aligned `HBoxContainer`; the complete secondary group centers against the dock, not the active category |
+| `CategoryScroll` / `CategoryBar` | 76px category viewport and centered `HBoxContainer`, five category controls, 8px separation; overflow can scroll without reserving scrollbar height |
+| Category buttons | Up to 104x76; shrink to a 72px minimum on narrow viewports, icon over label, focusable and enabled |
 | Category icon | 32x32 `TextureRect`, above its label |
-| Selected underline | 3px `ColorRect`, visible for selected category |
+| Secondary tool | 104x64 with a 24x24 icon and no selection underline |
+| Primary indicator | 4px `ColorRect`, direct child of the selected category button and anchored to the absolute dock bottom |
 
-At 1600x900, the dock spans the entire viewport width and sits flush against the bottom edge in both collapsed and expanded states. At 640x480, it keeps the same full-width, bottom-flush contract and the same 76px or 122px height. ContextPanel may use its compact 44px behavior, but ContextPanel, SystemControls, DebugPanel, and either dock state must remain inside the viewport and not overlap each other.
+At 1600x900, 640x480, and 435x480, the dock spans the viewport width and stays flush with the bottom edge in both collapsed and expanded states. It keeps the same 76px or 140px height, all five categories remain visible at 435px, and the secondary group remains globally centered. ContextPanel may use its compact 44px behavior, but ContextPanel, DebugPanel, and either dock state must remain inside the viewport and not overlap each other.
 
 ## 5. Components
 
@@ -141,8 +142,8 @@ Lifecycle rules:
 | Moment | Required behavior |
 | --- | --- |
 | `_EnterTree()` | Resolve nodes, validate category resources, build category buttons, render active menu, sync with ToolManager, apply layout |
-| `_Process()` | Sync current tool state with ToolManager without changing R/E semantics |
-| Resize notification | Reapply dock layout and preserve 76/122 height truth |
+| `_Process()` | Sync selected presentation with `ToolManager`, including changes from the dock or configurable Q/R/E actions |
+| Resize notification | Reapply dock layout and preserve 76/140 height truth |
 | `_ExitTree()` or reentry | Disconnect signals, clear runtime tool buttons, clear dictionaries, reset active state safely |
 
 Reentry must not duplicate signals, retain stale buttons, or leave old focus paths. Malformed or missing category resources degrade by disabling construction tools with a warning rather than throwing.
@@ -156,10 +157,10 @@ Button ConstructionDockButton
   VBoxContainer Presentation
     TextureRect Icon
     Label Label
-    ColorRect SelectedUnderline
+  ColorRect PrimarySelectionIndicator (absolute bottom overlay, 4px)
 ```
 
-The `Button` keeps native disabled, toggle, keyboard activation, tooltip, and focus semantics. `Presentation`, `Icon`, `Label`, and `SelectedUnderline` use `MouseFilter.Ignore` so the parent button receives pointer input. `IconTexture`, `DisplayText`, and selected state update the icon, label, and underline without per-frame polling.
+The `Button` keeps native disabled, toggle, keyboard activation, tooltip, and focus semantics. `Presentation`, `Icon`, `Label`, and `PrimarySelectionIndicator` use `MouseFilter.Ignore` so the parent button receives pointer input. `VisualRole` explicitly distinguishes `PrimaryCategory` from `SecondaryTool`: selected primary buttons show the indicator, while selected secondary buttons use only their surface and presentation colors.
 
 ### 5.3 Category tabs and assets
 
@@ -204,13 +205,15 @@ Production SVGs are original 32x32, monochrome, 2px rounded-stroke assets under 
 
 The approved concept K described these semantics, but the concept SVG remains historical and documentation-only. Runtime icon ownership is in scene/resource data: category textures are serialized in `Scenes/UI/ConstructionDock.tscn`, and the `城市道路` asset texture is serialized in `Scenes/UI/RoadsConstructionCategory.tres` through `ConstructionToolDefinition.Icon`.
 
-### 5.5 ContextPanel, SystemControls, and DebugPanel boundary
+### 5.5 ContextPanel, PauseMenu, and DebugPanel boundary
 
 ContextPanel remains a right-side read-only explanation panel. It shows current tool context, hides shortcut rows when no shortcut exists, and shows future category context as not open without claiming future tools are implemented.
 
-SystemControls remains independent from ConstructionDock. Save and Load keep F5/F9 semantics and shared command-center styling.
+PauseMenu owns the only player-facing save/load controls and their status feedback. It is modal rather than a persistent HUD surface; F5/F9 do not trigger save or load.
 
 DebugPanel remains independent from ConstructionDock. It keeps its scene, theme, top-left placement, default collapsed state, metrics, and behavior. Debug terms such as RoadGroup, GraphEdge, and GraphNode stay in DebugPanel or developer docs, not in the primary player dock.
+
+PauseMenu is a full-screen modal overlay using the command-center theme. It uses a dimming layer and one centered panel with mutually exclusive main, settings, bindings, and confirmation views. The main/settings/confirmation content has a 360px baseline; the binding list scrolls within the viewport and keeps every binding button at least 132px wide, including at 435x480. It is not a dock card or a decorative floating section. Main actions use the normal command button style; opening focuses Continue, confirmation deliberately focuses Cancel, and closing restores the prior valid HUD focus. See [pause-menu.md](pause-menu.md) for behavior and persistence boundaries.
 
 ## 6. Interaction and focus
 
@@ -221,13 +224,13 @@ Category behavior:
 | Select inactive category | Switch active category and open the asset strip |
 | Select active category again | Collapse or reopen the asset strip by repeat action |
 | Select `城市道路` | Set `ToolType.Road` |
-| Press Esc | Return to Select |
-| Press R or E | No tool switch |
+| Press the current `pause_menu` binding (default Esc) | Open PauseMenu and preserve the current tool |
+| Press the current `tool_select` / `tool_road` / `tool_remove` binding (default Q/R/E) | Set Select, Road, or RoadRemove while no modal is active |
 | Programmatic RoadRemove | Still supported outside the visible Roads asset list |
 
-Focus order starts with the five category buttons, then moves to enabled assets in the current strip, then to ContextPanel, SystemControls, and DebugPanel according to configured focus paths. Disabled future placeholders are not focusable and are skipped in forward and reverse focus traversal. Focus must remain visible separately from selected, hover, and disabled states.
+Focus order starts with the five category buttons, then moves to enabled assets in the current strip, then to ContextPanel and DebugPanel according to configured focus paths. Disabled future placeholders are not focusable and are skipped in forward and reverse focus traversal. PauseMenu temporarily owns focus while modal, then restores the previously focused valid control on close. Focus must remain visible separately from selected, hover, and disabled states.
 
-Hover uses the dock-local amber hover accent and neutral hover surface. Disabled uses disabled icon and label color, non-focusable state, no side effects, and the `尚未开放` tooltip. Selected uses amber icon color, amber label color, and underline together.
+Hover uses the dock-local amber hover accent and neutral hover surface. Disabled uses disabled icon and label color, non-focusable state, no side effects, and the `尚未开放` tooltip. Primary selection combines the pressed surface, amber icon/label, and bottom indicator; secondary selection combines only the pressed surface and amber icon/label.
 
 ## 7. Motion and surface depth
 
@@ -240,3 +243,9 @@ Depth is tonal-shift only. Shared HUD panels can use established command-center 
 Files in `docs/ui/concepts/` record visual exploration. They helped choose K semantics for the production dock, especially the lightweight four-station transit icon. They are not runtime resources and do not define current Godot scene behavior.
 
 Older narrow floating dock drafts and vertical tool-list descriptions are superseded for live ConstructionDock behavior. Keep them only as historical discussion when they appear in concept notes or session records. Current live truth is the full-width, bottom-flush K dock described in this document.
+
+## 9. ConstructionDock iteration record
+
+The two-level menu iteration in [`construction-dock-iteration.md`](construction-dock-iteration.md) was implemented and runtime-verified on 2026-07-31. It replaced the 46px secondary shelf with a 64px shelf, raised expanded height to 140px, globally centered secondary groups, reserved a 4px bottom-anchored amber indicator for primary categories, and removed the underline from secondary selection.
+
+The values in sections 1-8 are the current live contract. The iteration document preserves the decision context and acceptance evidence; historical bugfix entries may still mention superseded 46px, 122px, 20px, or category-relative behavior.

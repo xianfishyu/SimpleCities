@@ -244,7 +244,8 @@ public partial class GameHUD : CanvasLayer
     {
         if (_constructionDock == null) return;
 
-        Button categoryButton = _constructionDock.GetNode<Button>("DockPanel/DockStack/CategoryBar/RoadsCategoryButton");
+        Button categoryButton = _constructionDock.GetNode<Button>("DockPanel/DockStack/CategoryScroll/CategoryBar/RoadsCategoryButton");
+        _constructionDock.ConfigureFocusChain(_toolContextPanel.FocusEntryPath, _debugPanel.ToggleFocusPath);
         Control contextPrevious = _constructionDock.GetLastDockFocusControl() ?? categoryButton;
         _toolContextPanel.ConfigureFocus(contextPrevious.GetPath(), _debugPanel.ToggleFocusPath);
         _debugPanel.ConfigureFocus(_toolContextPanel.FocusEntryPath, categoryButton.GetPath());

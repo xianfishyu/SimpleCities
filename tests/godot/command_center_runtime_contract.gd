@@ -42,16 +42,12 @@ func run() -> void:
 	var dock: Control = hud.get_node("ConstructionDock")
 	var tray: Control = dock.get_node("DockPanel/DockStack/ToolTray")
 	var tool_scroll: ScrollContainer = dock.get_node("DockPanel/DockStack/ToolTray/TrayMargin/ToolScroll")
-	var category_button: Button = dock.get_node("DockPanel/DockStack/CategoryBar/RoadsCategoryButton")
+	var category_button: Button = dock.get_node("DockPanel/DockStack/CategoryScroll/CategoryBar/RoadsCategoryButton")
 	var context: Control = hud.get_node("ToolContextPanel")
 	var context_entry: Button = context.get_node("PanelMargin/Rows/ContextFocusEntryButton")
 	var debug_panel: Control = hud.get_node("DebugPanel")
 	var debug_button: Button = debug_panel.get_node("PanelMargin/Rows/DebugToggleButton")
 	var debug_content: Control = debug_panel.get_node("PanelMargin/Rows/DebugContent")
-	var system: Control = hud.get_node("SystemControls")
-	var save_button: Button = system.get_node("PanelMargin/Controls/Buttons/SaveButton")
-	var load_button: Button = system.get_node("PanelMargin/Controls/Buttons/LoadButton")
-	var status_label: Label = system.get_node("PanelMargin/Controls/StatusLabel")
 
 	assert_true(tool_scroll != null, "ToolTray is missing ToolScroll")
 	assert_true(not tray.visible, "Tray should start collapsed")
@@ -73,7 +69,7 @@ func run() -> void:
 	category_button.emit_signal("pressed")
 	await process_frame
 	assert_true(tray.visible, "Repeating Roads after collapse should reopen tray")
-	var zoning_button: Button = dock.get_node("DockPanel/DockStack/CategoryBar/ZoningCategoryButton")
+	var zoning_button: Button = dock.get_node("DockPanel/DockStack/CategoryScroll/CategoryBar/ZoningCategoryButton")
 	zoning_button.emit_signal("pressed")
 	await process_frame
 	assert_true(tray.visible, "Switching from Roads to Zoning should keep tray open")
@@ -89,7 +85,9 @@ func run() -> void:
 	assert_true(manager.get("CurrentTool") == 1, "Road button did not set Road tool")
 	assert_true(context.get_node("PanelMargin/Rows/ContextContentScroll/ContextContent/CurrentToolRow/CurrentToolValue").text == "城市道路", "Context did not read Road catalog display")
 	assert_true(context.get_node("PanelMargin/Rows/ContextContentScroll/ContextContent/OperationRow/OperationValue").text.contains("拖拽铺设道路"), "Context did not read Road catalog description")
-	assert_true(not context.get_node("PanelMargin/Rows/ContextContentScroll/ContextContent/ShortcutRow").visible, "Road context should hide its empty shortcut row")
+	assert_true(context.get_node("PanelMargin/Rows/ContextContentScroll/ContextContent/ShortcutRow").visible, "Road context should show its current binding")
+	assert_true(context.get_node("PanelMargin/Rows/ContextContentScroll/ContextContent/ShortcutRow/ShortcutValue").text == "R", "Road context should show the default R binding")
+	await assert_pause_menu(hud, manager)
 	await assert_removed_shortcuts_are_no_op(manager, dock, context)
 
 	await assert_future_menus_do_not_change_tool(dock, tray, manager, context)
@@ -101,59 +99,52 @@ func run() -> void:
 	manager.set("CurrentTool", 2)
 	await process_frame
 	assert_true(manager.get("CurrentTool") == 2, "Programmatic RoadRemove selection is unavailable")
-	assert_builtin_context(context, "拆路", "点击已有道路进行拆除。", "", "Programmatic RoadRemove")
+	assert_builtin_context(context, "拆路", "点击已有道路进行拆除。", "E", "Programmatic RoadRemove")
 	assert_true(dock.find_child("RoadRemoveToolButton", true, false) == null, "RoadRemove must stay absent from submenu")
 	manager._Input(key_event(KEY_ESCAPE))
 	await process_frame
-	assert_true(manager.get("CurrentTool") == 0, "Esc did not select Select")
-	assert_builtin_context(context, "选择", "查看当前状态，取消建造操作。", "Esc", "Esc Select")
-	assert_true(dock.find_child("SelectToolButton", true, false) == null, "Esc Select must stay absent from submenu")
+	assert_true(manager.get("CurrentTool") == 2, "ToolManager should not own Esc after pause menu integration")
+	assert_builtin_context(context, "拆路", "点击已有道路进行拆除。", "E", "RoadRemove after Esc")
+	assert_true(dock.find_child("SelectToolButton", true, false) == null, "Select must stay absent from submenu")
 
 	category_button.emit_signal("pressed")
 	await process_frame
 	assert_true(not tray.visible, "Repeating Roads before focus assertions should collapse tray")
-	assert_focus_link(category_button, dock.get_node("DockPanel/DockStack/CategoryBar/ZoningCategoryButton"), "roads -> zoning")
-	assert_focus_link(dock.get_node("DockPanel/DockStack/CategoryBar/ZoningCategoryButton"), dock.get_node("DockPanel/DockStack/CategoryBar/FacilitiesCategoryButton"), "zoning -> facilities")
-	assert_focus_link(dock.get_node("DockPanel/DockStack/CategoryBar/FacilitiesCategoryButton"), dock.get_node("DockPanel/DockStack/CategoryBar/TransitCategoryButton"), "facilities -> transit")
-	assert_focus_link(dock.get_node("DockPanel/DockStack/CategoryBar/TransitCategoryButton"), dock.get_node("DockPanel/DockStack/CategoryBar/LandscapingCategoryButton"), "transit -> landscaping")
-	assert_focus_link(dock.get_node("DockPanel/DockStack/CategoryBar/LandscapingCategoryButton"), context_entry, "landscaping -> context collapsed")
+	assert_focus_link(category_button, dock.get_node("DockPanel/DockStack/CategoryScroll/CategoryBar/ZoningCategoryButton"), "roads -> zoning")
+	assert_focus_link(dock.get_node("DockPanel/DockStack/CategoryScroll/CategoryBar/ZoningCategoryButton"), dock.get_node("DockPanel/DockStack/CategoryScroll/CategoryBar/FacilitiesCategoryButton"), "zoning -> facilities")
+	assert_focus_link(dock.get_node("DockPanel/DockStack/CategoryScroll/CategoryBar/FacilitiesCategoryButton"), dock.get_node("DockPanel/DockStack/CategoryScroll/CategoryBar/TransitCategoryButton"), "facilities -> transit")
+	assert_focus_link(dock.get_node("DockPanel/DockStack/CategoryScroll/CategoryBar/TransitCategoryButton"), dock.get_node("DockPanel/DockStack/CategoryScroll/CategoryBar/LandscapingCategoryButton"), "transit -> landscaping")
+	assert_focus_link(dock.get_node("DockPanel/DockStack/CategoryScroll/CategoryBar/LandscapingCategoryButton"), context_entry, "landscaping -> context collapsed")
 	context_entry.grab_focus()
 	await process_frame
 	Input.parse_input_event(action_event("ui_focus_prev"))
 	await process_frame
-	assert_true(root.gui_get_focus_owner() == dock.get_node("DockPanel/DockStack/CategoryBar/LandscapingCategoryButton"), "Reverse focus from collapsed context did not move to Landscaping")
+	assert_true(root.gui_get_focus_owner() == dock.get_node("DockPanel/DockStack/CategoryScroll/CategoryBar/LandscapingCategoryButton"), "Reverse focus from collapsed context did not move to Landscaping")
 	category_button.emit_signal("pressed")
 	await process_frame
 	assert_true(tray.visible, "Roads category should reopen tray for expanded focus assertions")
-	assert_focus_link(dock.get_node("DockPanel/DockStack/CategoryBar/LandscapingCategoryButton"), dock.find_child("RoadToolButton", true, false), "landscaping -> road tool")
+	assert_focus_link(dock.get_node("DockPanel/DockStack/CategoryScroll/CategoryBar/LandscapingCategoryButton"), dock.find_child("RoadToolButton", true, false), "landscaping -> road tool")
 	assert_focus_link(dock.find_child("RoadToolButton", true, false), context_entry, "road -> context")
 	context_entry.grab_focus()
 	await process_frame
 	Input.parse_input_event(action_event("ui_focus_prev"))
 	await process_frame
 	assert_true(root.gui_get_focus_owner() == dock.find_child("RoadToolButton", true, false), "Reverse focus from expanded context did not move to RoadToolButton")
-	assert_focus_link(context_entry, save_button, "context -> save")
-	assert_focus_link(save_button, load_button, "save -> load")
-	assert_focus_link(load_button, debug_button, "load -> debug")
+	assert_focus_link(context_entry, debug_button, "context -> debug")
+	assert_focus_link(debug_button, category_button, "debug -> roads")
 
 	category_button.grab_focus()
 	await process_frame
 	Input.parse_input_event(action_event("ui_focus_next"))
 	await process_frame
-	assert_true(root.gui_get_focus_owner() == dock.get_node("DockPanel/DockStack/CategoryBar/ZoningCategoryButton"), "Tab traversal did not move roads -> zoning")
+	assert_true(root.gui_get_focus_owner() == dock.get_node("DockPanel/DockStack/CategoryScroll/CategoryBar/ZoningCategoryButton"), "Tab traversal did not move roads -> zoning")
 
 	debug_button.emit_signal("pressed")
 	await process_frame
 	assert_true(debug_content.visible, "Debug toggle did not expand")
-	save_button.emit_signal("pressed")
-	await process_frame
-	assert_true(status_label.text.contains("已保存") or status_label.text.contains("存档失败"), "Save button did not update status")
-	load_button.emit_signal("pressed")
-	await process_frame
-	assert_true(status_label.text.contains("已加载") or status_label.text.contains("读档失败"), "Load button did not update status")
 	await assert_debug_metrics_continuity(map, debug_panel)
 
-	assert_default_bounds(dock, context, system, debug_panel, tray)
+	assert_default_bounds(dock, context, debug_panel, tray)
 	var dock_scene: PackedScene = load("res://Scenes/UI/ConstructionDock.tscn")
 	var sub_viewport := SubViewport.new()
 	sub_viewport.size = SMALL_VIEWPORT
@@ -161,7 +152,7 @@ func run() -> void:
 	sub_viewport.add_child(small_dock)
 	root.add_child(sub_viewport)
 	await process_frame
-	var small_category: Button = small_dock.get_node("DockPanel/DockStack/CategoryBar/RoadsCategoryButton")
+	var small_category: Button = small_dock.get_node("DockPanel/DockStack/CategoryScroll/CategoryBar/RoadsCategoryButton")
 	assert_category_buttons(small_dock)
 	assert_actual_dock_contains_panel(small_dock, "small collapsed")
 	small_category.emit_signal("pressed")
@@ -191,10 +182,8 @@ func test_missing_dependencies() -> void:
 	root.add_child(hud)
 	await process_frame
 	await process_frame
-	var system: Control = hud.get_node("SystemControls")
-	var status_label: Label = system.get_node("PanelMargin/Controls/StatusLabel")
 	assert_true(hud.get_node_or_null("ConstructionDock") != null, "Isolated HUD failed to instantiate")
-	assert_true(status_label.text.length() > 0, "Isolated HUD status unavailable")
+	assert_true(hud.get_node_or_null("PauseMenu") != null, "Isolated HUD pause menu unavailable")
 	hud.queue_free()
 	await process_frame
 
@@ -211,10 +200,9 @@ func test_small_viewport_context() -> void:
 	var context_entry: Button = context.get_node("PanelMargin/Rows/ContextFocusEntryButton")
 	var context_scroll: ScrollContainer = context.get_node("PanelMargin/Rows/ContextContentScroll")
 	var context_content: Control = context.get_node("PanelMargin/Rows/ContextContentScroll/ContextContent")
-	var system: Control = hud.get_node("SystemControls")
 	var dock: Control = hud.get_node("ConstructionDock")
 	var tray: Control = dock.get_node("DockPanel/DockStack/ToolTray")
-	var category_button: Button = dock.get_node("DockPanel/DockStack/CategoryBar/RoadsCategoryButton")
+	var category_button: Button = dock.get_node("DockPanel/DockStack/CategoryScroll/CategoryBar/RoadsCategoryButton")
 	var debug_panel: Control = hud.get_node("DebugPanel")
 	await process_frame
 	await process_frame
@@ -223,10 +211,8 @@ func test_small_viewport_context() -> void:
 	assert_true(is_equal_approx(compact_rect.size.x, 44.0), "Actual compact ContextPanel width is %.1f, expected 44" % compact_rect.size.x)
 	assert_rect_in_viewport(compact_rect, SMALL_VIEWPORT, "compact context")
 	assert_true(not context_scroll.visible, "Compact ContextContentScroll should not contribute minimum size")
-	assert_true(system.position.x + system.size.x <= 640.0, "SystemControls overflows small viewport")
 	assert_true(dock.position.y + dock.size.y <= 480.0, "Dock overflows small viewport")
 	assert_true(debug_panel.position.x >= 0.0 and debug_panel.position.y >= 0.0, "Debug panel is outside small viewport")
-	assert_rect_non_overlapping(compact_rect, actual_rect(system), "compact context overlaps system controls")
 	assert_rect_non_overlapping(compact_rect, actual_rect(debug_panel), "compact context overlaps debug panel")
 	assert_rect_non_overlapping(compact_rect, actual_rect(dock), "compact context overlaps collapsed dock")
 	category_button.emit_signal("pressed")
@@ -249,7 +235,6 @@ func test_small_viewport_context() -> void:
 	assert_true(expanded_rect.size.x > 44.0, "Compact context did not stay expanded with tray visible")
 	assert_rect_in_viewport(expanded_rect, SMALL_VIEWPORT, "expanded compact context")
 	assert_rect_non_overlapping(expanded_rect, actual_rect(dock), "expanded compact context overlaps dock")
-	assert_rect_non_overlapping(expanded_rect, actual_rect(system), "expanded compact context overlaps system controls")
 	assert_rect_non_overlapping(expanded_rect, actual_rect(debug_panel), "expanded compact context overlaps debug panel")
 	assert_true(context_scroll.size.y <= expanded_rect.size.y, "ContextContentScroll exceeds panel height")
 	assert_true(context_scroll.size.y > 0.0, "ContextContentScroll has no usable viewport height")
@@ -271,7 +256,7 @@ func test_same_hud_lifecycle_reentry() -> void:
 	await process_frame
 	var dock: Control = hud.get_node("ConstructionDock")
 	var tray: Control = dock.get_node("DockPanel/DockStack/ToolTray")
-	var roads_button: Button = dock.get_node("DockPanel/DockStack/CategoryBar/RoadsCategoryButton")
+	var roads_button: Button = dock.get_node("DockPanel/DockStack/CategoryScroll/CategoryBar/RoadsCategoryButton")
 	if not tray.visible:
 		roads_button.emit_signal("pressed")
 		await process_frame
@@ -293,14 +278,10 @@ func test_same_hud_lifecycle_reentry() -> void:
 func assert_reentered_hud_contract(hud: CanvasLayer, sub_viewport: SubViewport, cycle: int) -> void:
 	var dock: Control = hud.get_node("ConstructionDock")
 	var tray: Control = dock.get_node("DockPanel/DockStack/ToolTray")
-	var roads_button: Button = dock.get_node("DockPanel/DockStack/CategoryBar/RoadsCategoryButton")
+	var roads_button: Button = dock.get_node("DockPanel/DockStack/CategoryScroll/CategoryBar/RoadsCategoryButton")
 	var context: Control = hud.get_node("ToolContextPanel")
 	var context_entry: Button = context.get_node("PanelMargin/Rows/ContextFocusEntryButton")
 	var context_scroll: ScrollContainer = context.get_node("PanelMargin/Rows/ContextContentScroll")
-	var system: Control = hud.get_node("SystemControls")
-	var save_button: Button = system.get_node("PanelMargin/Controls/Buttons/SaveButton")
-	var load_button: Button = system.get_node("PanelMargin/Controls/Buttons/LoadButton")
-	var status_label: Label = system.get_node("PanelMargin/Controls/StatusLabel")
 	var debug_panel: Control = hud.get_node("DebugPanel")
 	var debug_button: Button = debug_panel.get_node("PanelMargin/Rows/DebugToggleButton")
 	var debug_content: Control = debug_panel.get_node("PanelMargin/Rows/DebugContent")
@@ -328,15 +309,6 @@ func assert_reentered_hud_contract(hud: CanvasLayer, sub_viewport: SubViewport, 
 	assert_true(debug_content.visible == debug_before, "%s second Debug press did not change content exactly once" % label)
 	await process_frame
 
-	status_label.text = "lifecycle-save-sentinel"
-	save_button.emit_signal("pressed")
-	await process_frame
-	assert_true(status_label.text != "lifecycle-save-sentinel" and (status_label.text.contains("已保存") or status_label.text.contains("存档失败")), "%s Save status did not respond" % label)
-	status_label.text = "lifecycle-load-sentinel"
-	load_button.emit_signal("pressed")
-	await process_frame
-	assert_true(status_label.text != "lifecycle-load-sentinel" and (status_label.text.contains("已加载") or status_label.text.contains("读档失败")), "%s Load status did not respond" % label)
-
 	var context_before := context_scroll.visible
 	context_entry.emit_signal("pressed")
 	await process_frame
@@ -345,9 +317,8 @@ func assert_reentered_hud_contract(hud: CanvasLayer, sub_viewport: SubViewport, 
 	await process_frame
 	assert_true(context_scroll.visible == context_before, "%s second compact Context press did not change content exactly once" % label)
 	await process_frame
-	assert_focus_link(context_entry, save_button, "%s context -> save" % label)
-	assert_focus_link(save_button, load_button, "%s save -> load" % label)
-	assert_focus_link(load_button, debug_button, "%s load -> debug" % label)
+	assert_focus_link(context_entry, debug_button, "%s context -> debug" % label)
+	assert_focus_link(debug_button, roads_button, "%s debug -> roads" % label)
 
 	sub_viewport.size = Vector2i(SMALL_VIEWPORT.x, SMALL_VIEWPORT.y + 1)
 	await process_frame
@@ -381,17 +352,17 @@ func test_two_hud_ui_manager_isolation() -> void:
 	var manager_two: Node = hud_two.get_node("UIManager")
 	var one_context: Control = hud_one.get_node("ToolContextPanel")
 	var one_debug: Control = hud_one.get_node("DebugPanel")
-	var one_system: Control = hud_one.get_node("SystemControls")
+	var one_pause_menu: Control = hud_one.get_node("PauseMenu")
 	assert_true(manager_one != manager_two, "HUDs shared one UIManager")
 	assert_true(manager_one.GetPanel("ContextPanel") == one_context, "HUD one manager resolved wrong ContextPanel")
 	assert_true(manager_one.GetPanel("DebugPanel") == one_debug, "HUD one manager resolved wrong DebugPanel")
-	assert_true(manager_one.GetPanel("SystemControls") == one_system, "HUD one manager resolved wrong SystemControls")
+	assert_true(manager_one.GetPanel("PauseMenu") == one_pause_menu, "HUD one manager resolved wrong PauseMenu")
 	assert_true(manager_two.GetPanel("ContextPanel") == hud_two.get_node("ToolContextPanel"), "HUD two manager resolved wrong ContextPanel")
 	hud_two.queue_free()
 	await process_frame
 	assert_true(manager_one.GetPanel("ContextPanel") == one_context, "Freeing HUD two corrupted HUD one ContextPanel")
 	assert_true(manager_one.GetPanel("DebugPanel") == one_debug, "Freeing HUD two corrupted HUD one DebugPanel")
-	assert_true(manager_one.GetPanel("SystemControls") == one_system, "Freeing HUD two corrupted HUD one SystemControls")
+	assert_true(manager_one.GetPanel("PauseMenu") == one_pause_menu, "Freeing HUD two corrupted HUD one PauseMenu")
 	hud_one.queue_free()
 	await process_frame
 
@@ -439,10 +410,10 @@ func assert_debug_metrics_continuity(map: Node, debug_panel: Control) -> void:
 func assert_k_runtime_contract(hud: CanvasLayer) -> void:
 	var dock: Control = hud.get_node("ConstructionDock")
 	var tray: Control = dock.get_node("DockPanel/DockStack/ToolTray")
-	var category_bar: Control = dock.get_node("DockPanel/DockStack/CategoryBar")
+	var category_bar: Control = dock.get_node("DockPanel/DockStack/CategoryScroll")
 	var tool_scroll: ScrollContainer = dock.get_node("DockPanel/DockStack/ToolTray/TrayMargin/ToolScroll")
 	var tool_list: Control = dock.get_node("DockPanel/DockStack/ToolTray/TrayMargin/ToolScroll/ToolList")
-	var roads_button: Button = dock.get_node("DockPanel/DockStack/CategoryBar/RoadsCategoryButton")
+	var roads_button: Button = dock.get_node("DockPanel/DockStack/CategoryScroll/CategoryBar/RoadsCategoryButton")
 	await collapse_primary_roads_dock(dock, tray, roads_button)
 	if failed:
 		return
@@ -458,6 +429,8 @@ func assert_k_runtime_contract(hud: CanvasLayer) -> void:
 	assert_true(tool_list is HBoxContainer, "K asset list must be a horizontal HBoxContainer")
 	assert_k_asset_scroll_modes(tool_scroll, "1600x900 expanded")
 	assert_k_icon_label_structure(dock)
+	assert_k_active_tool_tray_geometry(dock, "1600x900 expanded")
+	await assert_k_selection_hierarchy(dock, roads_button, "1600x900 expanded")
 	if failed:
 		return
 	assert_k_resources(dock)
@@ -485,6 +458,11 @@ func collapse_primary_roads_dock(dock: Control, tray: Control, roads_button: But
 	await process_frame
 	assert_true(not tray.visible, "K primary dock reset must hide ToolTray before collapsed geometry assertions")
 	assert_true(absf(actual_rect(dock).size.y - 76.0) <= 1.0, "K primary dock reset height must be 76: %.1f" % actual_rect(dock).size.y)
+	assert_true(roads_button.button_pressed, "K active primary category must remain selected while its tray is collapsed")
+	var indicator: ColorRect = roads_button.get_node_or_null("PrimarySelectionIndicator")
+	assert_true(indicator != null and indicator.visible, "K collapsed active primary category must keep its bottom indicator visible")
+	if indicator != null:
+		assert_true(absf(actual_rect(indicator).end.y - actual_rect(dock).end.y) <= 1.0, "K collapsed primary indicator must touch dock bottom")
 
 func assert_k_small_hud_contract(hud_scene: PackedScene) -> void:
 	var viewport := SubViewport.new()
@@ -496,7 +474,7 @@ func assert_k_small_hud_contract(hud_scene: PackedScene) -> void:
 	await process_frame
 	var dock: Control = hud.get_node("ConstructionDock")
 	var tray: Control = dock.get_node("DockPanel/DockStack/ToolTray")
-	var category_bar: Control = dock.get_node("DockPanel/DockStack/CategoryBar")
+	var category_bar: Control = dock.get_node("DockPanel/DockStack/CategoryScroll")
 	var tool_scroll: ScrollContainer = dock.get_node("DockPanel/DockStack/ToolTray/TrayMargin/ToolScroll")
 	var debug_panel: Control = hud.get_node("DebugPanel")
 	var debug_button: Button = debug_panel.get_node("PanelMargin/Rows/DebugToggleButton")
@@ -511,7 +489,7 @@ func assert_k_small_hud_contract(hud_scene: PackedScene) -> void:
 	assert_true(not debug_content.visible, "K stateful small HUD setup must collapse Debug content")
 	var collapsed_debug_height := debug_panel.get_combined_minimum_size().y
 	assert_true(collapsed_debug_height < expanded_debug_height, "K regression setup requires collapsed Debug minimum %.1f below expanded outer height %.1f" % [collapsed_debug_height, expanded_debug_height])
-	var roads_button: Button = dock.get_node("DockPanel/DockStack/CategoryBar/RoadsCategoryButton")
+	var roads_button: Button = dock.get_node("DockPanel/DockStack/CategoryScroll/CategoryBar/RoadsCategoryButton")
 	roads_button.emit_signal("pressed")
 	await process_frame
 	assert_true(tray.visible, "K stateful small HUD setup must expand the construction tray")
@@ -538,7 +516,15 @@ func assert_k_small_hud_contract(hud_scene: PackedScene) -> void:
 	if not assert_k_dock_geometry(dock, tray, category_bar, SMALL_VIEWPORT, true, "640x480 expanded"):
 		return
 	assert_k_asset_scroll_modes(tool_scroll, "640x480 expanded")
+	assert_k_active_tool_tray_geometry(dock, "640x480 expanded")
 	assert_hud_pairwise_bounds(hud, SMALL_VIEWPORT, "640x480 expanded")
+	viewport.size = Vector2i(435, 480)
+	await process_frame
+	await process_frame
+	if not assert_k_dock_geometry(dock, tray, category_bar, Vector2i(435, 480), true, "435x480 expanded"):
+		return
+	assert_all_categories_visible(dock, "435x480 expanded")
+	assert_k_active_tool_tray_geometry(dock, "435x480 expanded")
 	viewport.queue_free()
 	await process_frame
 
@@ -546,7 +532,6 @@ func capture_hud_layout(hud: CanvasLayer) -> Dictionary:
 	return {
 		"ConstructionDock": actual_rect(hud.get_node("ConstructionDock")),
 		"ToolContextPanel": actual_rect(hud.get_node("ToolContextPanel")),
-		"SystemControls": actual_rect(hud.get_node("SystemControls")),
 		"DebugPanel": actual_rect(hud.get_node("DebugPanel")),
 	}
 
@@ -555,7 +540,7 @@ func assert_k_stateful_small_hud_layout(layout: Dictionary, collapsed_debug_heig
 	var dock_rect: Rect2 = layout.ConstructionDock
 	assert_top_left_debug_rect(debug_rect, "K stateful 640x480 %s" % label)
 	assert_true(absf(debug_rect.size.y - collapsed_debug_height) <= 1.0, "K stateful 640x480 %s Debug outer height did not contract to collapsed combined minimum: rect=%s minimum=%.1f dock=%s" % [label, debug_rect, collapsed_debug_height, dock_rect])
-	var panels := ["ConstructionDock", "ToolContextPanel", "SystemControls", "DebugPanel"]
+	var panels := ["ConstructionDock", "ToolContextPanel", "DebugPanel"]
 	for panel_name in panels:
 		assert_rect_in_viewport(layout[panel_name], SMALL_VIEWPORT, "K stateful 640x480 %s %s" % [label, panel_name])
 	for first_index in range(panels.size()):
@@ -565,7 +550,7 @@ func assert_k_stateful_small_hud_layout(layout: Dictionary, collapsed_debug_heig
 func assert_k_dock_geometry(dock: Control, tray: Control, category_bar: Control, viewport: Vector2, expanded: bool, label: String) -> bool:
 	var dock_rect := actual_rect(dock)
 	var panel_rect := actual_rect(dock.get_node("DockPanel"))
-	var expected_height := 122.0 if expanded else 76.0
+	var expected_height := 140.0 if expanded else 76.0
 	if absf(dock_rect.position.x) > 1.0:
 		fail("K %s dock must start at viewport left: x=%.1f" % [label, dock_rect.position.x])
 		return false
@@ -577,14 +562,14 @@ func assert_k_dock_geometry(dock: Control, tray: Control, category_bar: Control,
 	assert_true(absf(category_bar.size.y - 76.0) <= 1.0, "K %s CategoryBar height must be 76: %.1f" % [label, category_bar.size.y])
 	if expanded:
 		assert_true(tray.visible, "K %s ToolTray should be visible" % label)
-		assert_true(absf(tray.size.y - 46.0) <= 1.0, "K %s ToolTray height must be 46: %.1f" % [label, tray.size.y])
+		assert_true(absf(tray.size.y - 64.0) <= 1.0, "K %s ToolTray height must be 64: %.1f" % [label, tray.size.y])
 	else:
 		assert_true(not tray.visible, "K %s ToolTray should be collapsed" % label)
 	return not failed
 
 func assert_k_icon_label_structure(dock: Control) -> void:
 	for category in CATEGORY_BUTTONS:
-		var button: Button = dock.get_node("DockPanel/DockStack/CategoryBar/%s" % category.name)
+		var button: Button = dock.get_node("DockPanel/DockStack/CategoryScroll/CategoryBar/%s" % category.name)
 		var layout := first_descendant_of_type(button, "VBoxContainer")
 		var icon := first_descendant_of_type(button, "TextureRect")
 		var label := first_descendant_of_type(button, "Label")
@@ -650,7 +635,7 @@ func assert_k_resources(dock: Control) -> void:
 			fail("K icon resource must load as Texture2D: %s" % path)
 			return
 	for category in CATEGORY_BUTTONS:
-		var button: Button = dock.get_node("DockPanel/DockStack/CategoryBar/%s" % category.name)
+		var button: Button = dock.get_node("DockPanel/DockStack/CategoryScroll/CategoryBar/%s" % category.name)
 		var icon: TextureRect = first_descendant_of_type(button, "TextureRect")
 		if icon == null:
 			fail("K %s is missing TextureRect before texture inspection" % category.name)
@@ -717,7 +702,7 @@ func assert_color_approx(actual: Color, expected: Color, label: String) -> void:
 	assert_true(absf(actual.r - expected.r) <= tolerance and absf(actual.g - expected.g) <= tolerance and absf(actual.b - expected.b) <= tolerance and absf(actual.a - expected.a) <= tolerance, "%s color mismatch: actual=%s expected=%s" % [label, actual, expected])
 
 func assert_k_states(dock: Control, selected: Button) -> void:
-	var default_button: Button = dock.get_node("DockPanel/DockStack/CategoryBar/ZoningCategoryButton")
+	var default_button: Button = dock.get_node("DockPanel/DockStack/CategoryScroll/CategoryBar/ZoningCategoryButton")
 	default_button.emit_signal("pressed")
 	await process_frame
 	var disabled: Button = dock.find_child("*Placeholder", true, false)
@@ -739,7 +724,6 @@ func assert_hud_pairwise_bounds(hud: CanvasLayer, viewport: Vector2, label: Stri
 	var panels: Array[Control] = [
 		hud.get_node("ConstructionDock"),
 		hud.get_node("ToolContextPanel"),
-		hud.get_node("SystemControls"),
 		hud.get_node("DebugPanel"),
 	]
 	for panel in panels:
@@ -752,14 +736,68 @@ func assert_k_asset_scroll_modes(tool_scroll: ScrollContainer, label: String) ->
 	assert_true(tool_scroll.horizontal_scroll_mode != ScrollContainer.SCROLL_MODE_DISABLED, "K %s asset strip horizontal scrolling must be enabled" % label)
 	assert_true(tool_scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED, "K %s asset strip vertical scrolling must be disabled" % label)
 
-func assert_default_bounds(dock: Control, context: Control, system: Control, debug_panel: Control, tray: Control) -> void:
+func assert_k_active_tool_tray_geometry(dock: Control, label: String) -> void:
+	var tray: Control = dock.get_node("DockPanel/DockStack/ToolTray")
+	var tool: Button = dock.find_child("RoadToolButton", true, false)
+	if tool == null:
+		fail("K %s Roads tray is missing RoadToolButton" % label)
+		return
+	var dock_rect := actual_rect(dock)
+	var tray_rect := actual_rect(tray)
+	var tool_rect := actual_rect(tool)
+	var expected_left := dock_rect.get_center().x - tool_rect.size.x / 2.0
+	assert_true(absf(tool_rect.position.x - expected_left) <= 1.0, "K %s city-road tool group must use dock global center: x=%.1f expected=%.1f" % [label, tool_rect.position.x, expected_left])
+	assert_true(tool_rect.position.y >= tray_rect.position.y - 1.0 and tool_rect.end.y <= tray_rect.end.y + 1.0, "K %s city-road tool escapes 64px tray: tool=%s tray=%s" % [label, tool_rect, tray_rect])
+	var icon: TextureRect = first_descendant_of_type(tool, "TextureRect")
+	var tool_label: Label = first_descendant_of_type(tool, "Label")
+	assert_true(icon != null and actual_rect(icon).position.y >= tool_rect.position.y - 1.0 and actual_rect(icon).end.y <= tool_rect.end.y + 1.0, "K %s city-road icon is clipped by tool button" % label)
+	assert_true(tool_label != null and actual_rect(tool_label).position.y >= tool_rect.position.y - 1.0 and actual_rect(tool_label).end.y <= tool_rect.end.y + 1.0, "K %s city-road label is clipped by tool button: label=%s tool=%s" % [label, actual_rect(tool_label) if tool_label != null else Rect2(), tool_rect])
+	assert_true(icon != null and absf(icon.custom_minimum_size.x - 24.0) <= 0.1 and absf(icon.custom_minimum_size.y - 24.0) <= 0.1, "K %s city-road icon must be 24px" % label)
+
+func assert_k_selection_hierarchy(dock: Control, roads_button: Button, label: String) -> void:
+	var primary_indicator: ColorRect = roads_button.get_node_or_null("PrimarySelectionIndicator")
+	assert_true(roads_button.get("VisualRole") == 0, "K %s Roads category must declare the primary visual role" % label)
+	assert_true(primary_indicator != null and primary_indicator.visible, "K %s selected primary category must show its indicator" % label)
+	if primary_indicator != null:
+		assert_true(absf(primary_indicator.size.y - 4.0) <= 0.1, "K %s primary indicator must be 4px high" % label)
+		assert_true(absf(actual_rect(primary_indicator).end.y - actual_rect(dock).end.y) <= 1.0, "K %s primary indicator must touch absolute dock bottom" % label)
+	var tool: Button = dock.find_child("RoadToolButton", true, false)
+	if tool == null:
+		fail("K %s Roads tray is missing RoadToolButton for selection hierarchy" % label)
+		return
+	tool.emit_signal("pressed")
+	await process_frame
+	var secondary_indicator: ColorRect = tool.get_node_or_null("PrimarySelectionIndicator")
+	assert_true(tool.get("VisualRole") == 1, "K %s city-road tool must declare the secondary visual role" % label)
+	assert_true(tool.button_pressed, "K %s selected secondary tool must retain native pressed surface state" % label)
+	assert_true(secondary_indicator != null and not secondary_indicator.visible, "K %s selected secondary tool must not render an underline" % label)
+
+func assert_secondary_group_globally_centered(dock: Control, label: String) -> void:
+	var tool_list: HBoxContainer = dock.get_node("DockPanel/DockStack/ToolTray/TrayMargin/ToolScroll/ToolList")
+	var children := tool_list.get_children()
+	if children.is_empty():
+		fail("%s secondary group is empty" % label)
+		return
+	var first := children[0] as Control
+	var last := children[-1] as Control
+	var group_left := actual_rect(first).position.x
+	var group_right := actual_rect(last).end.x
+	assert_true(absf((group_left + group_right) / 2.0 - actual_rect(dock).get_center().x) <= 1.0, "%s secondary group must remain globally centered: group=[%.1f, %.1f] dock=%s" % [label, group_left, group_right, actual_rect(dock)])
+
+func assert_all_categories_visible(dock: Control, label: String) -> void:
+	var dock_rect := actual_rect(dock)
+	for category in CATEGORY_BUTTONS:
+		var button: Control = dock.get_node("DockPanel/DockStack/CategoryScroll/CategoryBar/%s" % category.name)
+		var button_rect := actual_rect(button)
+		assert_true(button_rect.position.x >= dock_rect.position.x - 1.0, "%s %s left edge is clipped" % [label, category.name])
+		assert_true(button_rect.end.x <= dock_rect.end.x + 1.0, "%s %s right edge is clipped" % [label, category.name])
+
+func assert_default_bounds(dock: Control, context: Control, debug_panel: Control, tray: Control) -> void:
 	var viewport := root.get_viewport().get_visible_rect().size
 	assert_top_left_debug_rect(actual_rect(debug_panel), "default viewport")
 	assert_true(dock.position.y + dock.size.y <= viewport.y, "Dock overflows default viewport")
 	assert_true(context.position.x + context.size.x <= viewport.x, "Context overflows default viewport")
-	assert_true(system.position.x + system.size.x <= viewport.x, "SystemControls overflows default viewport")
 	assert_true(debug_panel.position.x + debug_panel.size.x < dock.position.x or debug_panel.position.y + debug_panel.size.y < dock.position.y, "Debug overlaps dock")
-	assert_true(system.position.y + system.size.y <= context.position.y, "SystemControls overlaps ContextPanel")
 	assert_true(dock.position.x + dock.size.x <= context.position.x or context.position.x + context.size.x <= dock.position.x or dock.position.y + dock.size.y <= context.position.y or context.position.y + context.size.y <= dock.position.y, "Expanded dock overlaps ContextPanel")
 	assert_true(tray.size.y <= floor(viewport.y / 3.0) + 1.0, "Tray exceeds viewport-third cap")
 
@@ -769,14 +807,18 @@ func assert_top_left_debug_rect(debug_rect: Rect2, label: String) -> void:
 
 func assert_small_dock_bounds(dock: Control, viewport_node: SubViewport) -> void:
 	var tray: Control = dock.get_node("DockPanel/DockStack/ToolTray")
-	var category_bar: Control = dock.get_node("DockPanel/DockStack/CategoryBar")
+	var category_scroll: ScrollContainer = dock.get_node("DockPanel/DockStack/CategoryScroll")
+	var category_bar: Control = category_scroll.get_node("CategoryBar")
 	var viewport := Vector2(viewport_node.size)
 	assert_true(dock.size.x <= viewport.x, "Dock overflows small viewport width")
 	assert_true(dock.position.y + dock.size.y <= viewport.y, "Dock overflows small viewport height")
-	assert_true(category_bar.size.x <= dock.size.x, "CategoryBar exceeds dock width at small viewport: %.1f > %.1f" % [category_bar.size.x, dock.size.x])
+	assert_true(category_scroll.size.x <= dock.size.x, "Category scroll exceeds dock width at small viewport: %.1f > %.1f" % [category_scroll.size.x, dock.size.x])
+	assert_true(category_scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_SHOW_NEVER, "Category strip must support narrow-window scrolling without reserving scrollbar space")
+	assert_true(category_scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED, "Category strip vertical scrolling must be disabled")
+	assert_true(category_bar.size.x >= 552.0, "Category strip content width must preserve all five buttons: %.1f" % category_bar.size.x)
 	for category in CATEGORY_BUTTONS:
-		var category_button: Control = dock.get_node("DockPanel/DockStack/CategoryBar/%s" % category.name)
-		assert_true(category_button.get_global_rect().end.x <= dock.get_global_rect().end.x + 1.0, "%s overflows small dock actual rect" % category.name)
+		var category_button: Control = dock.get_node("DockPanel/DockStack/CategoryScroll/CategoryBar/%s" % category.name)
+		assert_true(category_button.size.x <= category_bar.size.x, "%s width exceeds scroll content" % category.name)
 	assert_true(tray.size.y <= floor(viewport.y / 3.0) + 1.0, "Small tray exceeds viewport-third cap")
 
 func assert_actual_dock_contains_panel(dock: Control, label: String) -> void:
@@ -792,7 +834,7 @@ func assert_actual_dock_contains_panel(dock: Control, label: String) -> void:
 
 func assert_category_buttons(dock: Control) -> void:
 	for category in CATEGORY_BUTTONS:
-		var button: Button = dock.get_node("DockPanel/DockStack/CategoryBar/%s" % category.name)
+		var button: Button = dock.get_node("DockPanel/DockStack/CategoryScroll/CategoryBar/%s" % category.name)
 		assert_true(control_display_text(button) == category.text, "%s text mismatch" % category.name)
 		assert_true(not button.disabled, "%s should be enabled" % category.name)
 		assert_true(button.focus_mode == Control.FOCUS_ALL, "%s should receive focus" % category.name)
@@ -819,6 +861,21 @@ func assert_builtin_context(context: Control, expected_tool: String, expected_op
 	assert_true(context.get_node("PanelMargin/Rows/ContextContentScroll/ContextContent/ShortcutRow/ShortcutValue").text == expected_shortcut, "%s context shortcut mismatch" % label)
 	assert_true(context.get_node("PanelMargin/Rows/ContextContentScroll/ContextContent/ShortcutRow").visible == not expected_shortcut.is_empty(), "%s context shortcut row visibility mismatch" % label)
 
+func assert_pause_menu(hud: CanvasLayer, manager: Node) -> void:
+	var pause_menu: Control = hud.get_node("PauseMenu")
+	var continue_button: Button = pause_menu.get_node("Center/MainPanel/MainContent/ContinueButton")
+	assert_true(not pause_menu.visible, "Pause menu should start hidden")
+	assert_true(not paused, "Scene tree should start unpaused")
+	var tool_before_pause: Variant = manager.get("CurrentTool")
+	hud._Input(key_event(KEY_ESCAPE))
+	assert_true(pause_menu.visible, "Esc did not open the pause menu")
+	assert_true(pause_menu.get("IsOpen"), "Pause menu did not report open state")
+	assert_true(paused, "Opening the pause menu did not pause the scene tree")
+	assert_true(manager.get("CurrentTool") == tool_before_pause, "Opening pause menu changed the current tool")
+	continue_button.emit_signal("pressed")
+	assert_true(not pause_menu.visible, "Continue did not close the pause menu")
+	assert_true(not paused, "Continue did not resume the scene tree")
+
 func assert_removed_shortcuts_are_no_op(manager: Node, dock: Control, context: Control) -> void:
 	for initial_tool in [0, 1, 2]:
 		manager.set("CurrentTool", initial_tool)
@@ -828,31 +885,19 @@ func assert_removed_shortcuts_are_no_op(manager: Node, dock: Control, context: C
 			await process_frame
 			assert_true(manager.get("CurrentTool") == initial_tool, "%s changed tool %d" % [OS.get_keycode_string(keycode), initial_tool])
 
-	manager.set("CurrentTool", 0)
-	await process_frame
-	manager._Input(key_event(KEY_ESCAPE))
-	await process_frame
-	assert_true(manager.get("CurrentTool") == 0, "Esc changed Select away from Select")
-	assert_builtin_context(context, "选择", "查看当前状态，取消建造操作。", "Esc", "Select Esc")
-
-	dock.find_child("RoadToolButton", true, false).emit_signal("pressed")
-	await process_frame
-	manager._Input(key_event(KEY_ESCAPE))
-	await process_frame
-	assert_true(manager.get("CurrentTool") == 0, "Esc did not return Road to Select")
-
-	manager.set("CurrentTool", 2)
-	await process_frame
-	manager._Input(key_event(KEY_ESCAPE))
-	await process_frame
-	assert_true(manager.get("CurrentTool") == 0, "Esc did not return RoadRemove to Select")
+	for initial_tool in [0, 1, 2]:
+		manager.set("CurrentTool", initial_tool)
+		await process_frame
+		manager._Input(key_event(KEY_ESCAPE))
+		await process_frame
+		assert_true(manager.get("CurrentTool") == initial_tool, "ToolManager Esc changed tool %d" % initial_tool)
 
 func assert_future_menus_do_not_change_tool(dock: Control, tray: Control, manager: Node, context: Control) -> void:
 	for category in CATEGORY_BUTTONS:
 		if category.name == "RoadsCategoryButton":
 			continue
 		manager.set("CurrentTool", 1)
-		var button: Button = dock.get_node("DockPanel/DockStack/CategoryBar/%s" % category.name)
+		var button: Button = dock.get_node("DockPanel/DockStack/CategoryScroll/CategoryBar/%s" % category.name)
 		button.emit_signal("pressed")
 		await process_frame
 		assert_true(tray.visible, "%s should open the shared tray" % category.name)
@@ -860,6 +905,7 @@ func assert_future_menus_do_not_change_tool(dock: Control, tray: Control, manage
 		assert_true(dock.find_children("*ToolButton", "Button", true, false).is_empty(), "%s created real tool buttons" % category.name)
 		var placeholders := dock.find_children("*Placeholder", "Button", true, false)
 		assert_true(placeholders.size() == category.placeholder_count, "%s placeholder count mismatch" % category.name)
+		assert_secondary_group_globally_centered(dock, category.name)
 		for placeholder in placeholders:
 			assert_true(placeholder.disabled, "%s should be disabled" % placeholder.name)
 			assert_true(placeholder.focus_mode == Control.FOCUS_NONE, "%s should be non-focusable" % placeholder.name)
@@ -881,7 +927,7 @@ func assert_future_menus_do_not_change_tool(dock: Control, tray: Control, manage
 		assert_future_context_unchanged(context, category.text, "%s after E" % category.name)
 		manager._Input(key_event(KEY_ESCAPE))
 		await process_frame
-		assert_true(manager.get("CurrentTool") == 0, "%s Esc did not select Select" % category.name)
+		assert_true(manager.get("CurrentTool") == 1, "%s ToolManager Esc changed current tool" % category.name)
 		assert_future_context_unchanged(context, category.text, "%s after Esc" % category.name)
 
 func assert_future_context_unchanged(context: Control, category_text: String, label: String) -> void:
@@ -929,6 +975,7 @@ func assert_rect_non_overlapping(a: Rect2, b: Rect2, message: String) -> void:
 func key_event(keycode: int) -> InputEventKey:
 	var event := InputEventKey.new()
 	event.keycode = keycode
+	event.physical_keycode = keycode
 	event.pressed = true
 	return event
 
