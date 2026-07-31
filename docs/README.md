@@ -10,9 +10,14 @@
 - [UI 架构](ui/architecture.md)：当前命令中心实现与未来扩展边界。
 - [存档系统当前参考](reference/save-system-plan.md)
 
-## 当前路线图
+## 当前待办
 
+- [系统待办索引](todo/README.md)
+- [路网图待办](todo/road-graph.md)
 - [存档系统待办](todo/save-system.md)
+- [网格渲染待办](todo/grid-rendering.md)
+- [工具输入待办](todo/tool-input.md)
+- [交通模拟待办](todo/traffic-simulation.md)
 
 ## 已验证修复
 

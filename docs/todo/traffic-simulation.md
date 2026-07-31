@@ -1,8 +1,8 @@
 # 交通模拟系统待办清单
 
 > 系统 key：`traffic-simulation`
-> 复核日期：2026-07-19
-> 证据：`.omo/backups/system-doc-split/docs/todo/todolist.md`、`.omo/evidence/split-system-docs/task-3/ownership-map.json`、当前工作区源码，以及旧版 `docs/todo/todolist.md`。
+> 复核日期：2026-07-31
+> 证据：`.omo/backups/system-doc-split/docs/todo/todolist.md`（已移除旧版待办的归档）、`.omo/evidence/split-system-docs/task-3/ownership-map.json` 与当前工作区源码。
 > 主导原则：在图契约稳定后，负责 `TrafficGraph`、寻路、拥堵、增量同步和升级模拟。
 
 ## 状态总览

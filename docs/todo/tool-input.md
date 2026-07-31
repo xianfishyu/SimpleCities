@@ -2,7 +2,7 @@
 
 > 系统 key：`tool-input`
 > 复核日期：2026-07-31
-> 证据：`.omo/backups/system-doc-split/docs/todo/todolist.md`、`.omo/evidence/split-system-docs/task-3/ownership-map.json`、`Scripts/Core/InputBindingManager.cs`、`Scripts/UI/GameHUD.cs`、`Scripts/UI/PauseMenu.cs`、输入相关回归测试，以及旧版 `docs/todo/todolist.md`。
+> 证据：`.omo/backups/system-doc-split/docs/todo/todolist.md`（已移除旧版待办的归档）、`.omo/evidence/split-system-docs/task-3/ownership-map.json`、`Scripts/Core/InputBindingManager.cs`、`Scripts/UI/GameHUD.cs`、`Scripts/UI/PauseMenu.cs` 与输入相关回归测试。
 > 主导原则：负责玩家输入动作与绑定、网格吸附、半格输入规则和 `RoadType` 选择入口。
 
 ## 状态总览

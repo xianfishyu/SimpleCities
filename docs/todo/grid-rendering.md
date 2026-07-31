@@ -1,8 +1,8 @@
 # 网格渲染系统待办清单
 
 > 系统 key：`grid-rendering`
-> 复核日期：2026-07-19
-> 证据：`.omo/backups/system-doc-split/docs/todo/todolist.md`、`.omo/evidence/split-system-docs/task-3/ownership-map.json`、当前工作区源码，以及旧版 `docs/todo/todolist.md`。
+> 复核日期：2026-07-31
+> 证据：`.omo/backups/system-doc-split/docs/todo/todolist.md`（已移除旧版待办的归档）、`.omo/evidence/split-system-docs/task-3/ownership-map.json` 与当前工作区源码。
 > 主导原则：负责视觉配置、`RoadRenderer` 行为和 `RoadType` 样式输出。
 
 ## 状态总览

@@ -1,8 +1,8 @@
 # RoadGraph 系统待办清单
 
 > 系统 key：`road-graph`
-> 复核日期：2026-07-22
-> 证据：`.omo/backups/system-doc-split/docs/todo/todolist.md`、`.omo/evidence/split-system-docs/task-3/ownership-map.json`、当前工作区源码，以及旧版 `docs/todo/todolist.md`。
+> 复核日期：2026-07-31
+> 证据：`.omo/backups/system-doc-split/docs/todo/todolist.md`（已移除旧版待办的归档）、`.omo/evidence/split-system-docs/task-3/ownership-map.json` 与当前工作区源码。
 > 主导原则：负责拓扑、几何查询、空间索引行为、公共图 API、删除事务和并行边策略。
 
 ## 状态总览

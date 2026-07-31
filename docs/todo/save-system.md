@@ -2,7 +2,7 @@
 
 > 系统 key：`save-system`
 > 复核日期：2026-07-31
-> 证据：`.omo/backups/system-doc-split/docs/todo/todolist.md`、`.omo/evidence/split-system-docs/task-3/ownership-map.json`、当前工作区源码，以及旧版 `docs/todo/todolist.md`。
+> 证据：`.omo/backups/system-doc-split/docs/todo/todolist.md`（已移除旧版待办的归档）、`.omo/evidence/split-system-docs/task-3/ownership-map.json` 与当前工作区源码。
 > 主导原则：负责存档 schema、迁移、槽位安全、注册生命周期和加载事务边界。
 
 ## 状态总览
