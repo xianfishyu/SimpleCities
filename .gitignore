@@ -7,3 +7,4 @@ saves/
 **/bin/
 **/obj/
 docs/ui/concepts
+.playwright-mcp/

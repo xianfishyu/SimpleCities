@@ -1,0 +1,13 @@
+[mcp_servers.godot]
+command = "npx.cmd"
+args = ["-y", "@satelliteoflove/godot-mcp"]
+enabled = true
+startup_timeout_sec = 60
+tool_timeout_sec = 120
+
+[mcp_servers.godot-minimal]
+command = "npx.cmd"
+args = ["-y", "@ryanmazzolini/minimal-godot-mcp@0.1.6"]
+enabled = true
+startup_timeout_sec = 60
+tool_timeout_sec = 60
