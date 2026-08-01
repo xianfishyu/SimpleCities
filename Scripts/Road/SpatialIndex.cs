@@ -8,12 +8,14 @@ public interface ISpatialRef
 {
     Vector2 Position { get; }
     SpatialRefKind Kind { get; }
+    bool IntersectsCircle(Vector2 center, float radius);
 }
 
 public enum SpatialRefKind
 {
     Node,
-    EdgePoint
+    EdgePoint,
+    EdgeSegment
 }
 
 /// <summary>
@@ -24,6 +26,8 @@ public class NodeSpatialRef : ISpatialRef
     public int NodeID { get; }
     public Vector2 Position { get; }
     public SpatialRefKind Kind => SpatialRefKind.Node;
+    public bool IntersectsCircle(Vector2 center, float radius) =>
+        Position.DistanceSquaredTo(center) <= radius * radius;
 
     public NodeSpatialRef(int nodeID, Vector2 position)
     {
@@ -40,11 +44,43 @@ public class EdgePointRef : ISpatialRef
     public int EdgeID { get; }
     public Vector2 Position { get; }
     public SpatialRefKind Kind => SpatialRefKind.EdgePoint;
+    public bool IntersectsCircle(Vector2 center, float radius) =>
+        Position.DistanceSquaredTo(center) <= radius * radius;
 
     public EdgePointRef(int edgeID, Vector2 position)
     {
         EdgeID = edgeID;
         Position = position;
+    }
+}
+
+public class EdgeSegmentRef : ISpatialRef
+{
+    public int EdgeID { get; }
+    public Vector2 Start { get; }
+    public Vector2 End { get; }
+    public Vector2 Position => (Start + End) * 0.5f;
+    public SpatialRefKind Kind => SpatialRefKind.EdgeSegment;
+
+    public EdgeSegmentRef(int edgeID, Vector2 start, Vector2 end)
+    {
+        EdgeID = edgeID;
+        Start = start;
+        End = end;
+    }
+
+    public bool IntersectsCircle(Vector2 center, float radius) =>
+        DistanceSquaredTo(center) <= radius * radius;
+
+    private float DistanceSquaredTo(Vector2 point)
+    {
+        Vector2 segment = End - Start;
+        float lengthSquared = segment.LengthSquared();
+        if (lengthSquared <= 0f)
+            return Start.DistanceSquaredTo(point);
+
+        float t = Mathf.Clamp((point - Start).Dot(segment) / lengthSquared, 0f, 1f);
+        return (Start + segment * t).DistanceSquaredTo(point);
     }
 }
 
@@ -72,9 +108,13 @@ public class UniformGrid
     public void Insert(ISpatialRef entity)
     {
         var (bx, by) = WorldToBucket(entity.Position);
-        if (!_buckets.TryGetValue((bx, by), out var list))
-            _buckets[(bx, by)] = list = new List<ISpatialRef>();
-        list.Add(entity);
+        InsertIntoBucket(bx, by, entity);
+    }
+
+    public void InsertSegment(EdgeSegmentRef segment)
+    {
+        foreach (var (bx, by) in GetCoveredBuckets(segment.Start, segment.End))
+            InsertIntoBucket(bx, by, segment);
     }
 
     /// <summary>移除指定实体的所有条目。</summary>
@@ -83,6 +123,15 @@ public class UniformGrid
         var (bx, by) = WorldToBucket(entity.Position);
         if (_buckets.TryGetValue((bx, by), out var list))
             list.RemoveAll(r => r == entity);
+    }
+
+    public void RemoveSegment(EdgeSegmentRef segment)
+    {
+        foreach (var (bx, by) in GetCoveredBuckets(segment.Start, segment.End))
+        {
+            if (_buckets.TryGetValue((bx, by), out var list))
+                list.RemoveAll(reference => reference == segment);
+        }
     }
 
     /// <summary>
@@ -96,7 +145,7 @@ public class UniformGrid
         int minBY = WorldToBucketCoord(center.Y - radius);
         int maxBY = WorldToBucketCoord(center.Y + radius);
 
-        float radiusSq = radius * radius;
+        var returned = new HashSet<ISpatialRef>();
 
         for (int bx = minBX; bx <= maxBX; bx++)
         for (int by = minBY; by <= maxBY; by++)
@@ -104,7 +153,7 @@ public class UniformGrid
             if (!_buckets.TryGetValue((bx, by), out var list)) continue;
             foreach (var entity in list)
             {
-                if (entity.Position.DistanceSquaredTo(center) <= radiusSq)
+                if (returned.Add(entity) && entity.IntersectsCircle(center, radius))
                     yield return entity;
             }
         }
@@ -121,5 +170,24 @@ public class UniformGrid
     private int WorldToBucketCoord(float val)
     {
         return Mathf.FloorToInt(val / _bucketSize);
+    }
+
+    private void InsertIntoBucket(int bx, int by, ISpatialRef entity)
+    {
+        if (!_buckets.TryGetValue((bx, by), out var list))
+            _buckets[(bx, by)] = list = new List<ISpatialRef>();
+        list.Add(entity);
+    }
+
+    private IEnumerable<(int bx, int by)> GetCoveredBuckets(Vector2 start, Vector2 end)
+    {
+        int minBX = WorldToBucketCoord(Mathf.Min(start.X, end.X));
+        int maxBX = WorldToBucketCoord(Mathf.Max(start.X, end.X));
+        int minBY = WorldToBucketCoord(Mathf.Min(start.Y, end.Y));
+        int maxBY = WorldToBucketCoord(Mathf.Max(start.Y, end.Y));
+
+        for (int bx = minBX; bx <= maxBX; bx++)
+        for (int by = minBY; by <= maxBY; by++)
+            yield return (bx, by);
     }
 }

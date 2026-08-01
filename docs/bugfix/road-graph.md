@@ -385,3 +385,157 @@ path = InsertExistingNodeAnchors(path);
 - 已核对当前代码路径：存档捕获与恢复均处理 `RoadType`，且完整覆盖检查位于 `ResolveIntersections`、`SplitEdgesAtPathAnchors` 等变更操作之前
 - `road-graph:BUG-8` 自动化回归（2026-07-22）：`RoadGraphCoverageTests` 覆盖完全重复路径、带内部锚点的完全覆盖路径和拒绝后 ID 分配状态；临时移除前置覆盖检查时 2 个关键场景失败且命令退出码为 1，恢复后聚焦测试 3/3 通过。
 - `save-system:BUG-1` 的存档往返验证仍见 `docs/bugfix/save-system.md`；本条自动化证据只声明 `road-graph:BUG-8` 的重复铺路无副作用行为。
+
+---
+
+<a id="road-graph-bug-9"></a>
+## BUG-9：跨 RoadGroup 或 RoadType 的共线边被自动合并
+
+### 症状
+
+两次独立铺设的共线道路会合并为一条边，后创建的 `RoadGroup` 被移除，且其 `RoadType` 可能被第一条边覆盖。
+
+### 根因分析
+
+`TryMergeAtNode` 只检查两条边是否共线，随后选择较小的 `GroupID` 和 `edgeA.Type` 创建替代边，没有验证两条边属于同一玩家操作和道路类型。
+
+### 修复方案
+
+合并前要求 `GroupID` 与 `RoadType` 都一致，并保留原 Group ID。不同 Group 或 Type 的边保留共享节点和各自边。
+
+### 影响范围
+
+影响 `AddRoad`、`RemoveEdge` 和 `RemoveRoadGroup` 触发的共线合并；同 Group、同 Type 的内部压缩行为保持不变。
+
+---
+
+<a id="road-graph-bug-10"></a>
+## BUG-10：长边的中点命中和交叉候选检索遗漏
+
+### 症状
+
+没有 waypoint 的长边在中点无法被拆除工具命中；短边穿过该长边中段时，也不会创建连接交点。
+
+### 根因分析
+
+空间索引仅存储端点和 waypoint。`FindClosestEdge` 比较采样点距离，`QueryCandidateEdgeIDs` 也只能发现查询圆内的采样点，因此线段虽经过查询区域仍可能完全漏检。
+
+### 修复方案
+
+新增 `EdgeSegmentRef`，将每个边子线段登记到其 AABB 覆盖的 bucket，并按点到线段距离过滤半径查询。最近边查询在候选边集合内按完整折线的最小距离排序。
+
+### 影响范围
+
+影响道路拆除悬停、半格吸附、最近边查询和新增道路的交叉解析。bucket 覆盖可产生候选假阳性，但最终几何距离和交叉计算会过滤它们。
+
+---
+
+<a id="road-graph-bug-11"></a>
+## BUG-11：`GraphEdge.Points` 允许绕过 RoadGraph 修改几何
+
+### 症状
+
+调用方修改从 `GraphEdge.Points` 获得的数组，会直接改变存档几何，却不会同步长度或空间索引。
+
+### 根因分析
+
+`GraphEdge` 将构造参数数组直接公开，公共属性返回同一数组引用。
+
+### 修复方案
+
+构造时复制输入数组，公共 `Points` 属性返回防御性副本；图内部通过 `InternalPoints` 读取权威数组，渲染器一次取得副本后构建绘制点。
+
+### 影响范围
+
+外部调用方不再能原地修改道路几何；现有数组形状的公共 API 保持兼容。
+
+## BUG-9 至 BUG-11 验证状态
+
+- `dotnet test tests/SimpleCities.RoadGraph.Tests/SimpleCities.RoadGraph.Tests.csproj --no-restore`：39 通过、0 失败、0 跳过。
+- `dotnet build SimpleCities.sln --no-restore`：0 警告、0 错误。
+
+- 回归用例：`RoadGraphRegressionTests` 覆盖跨 Group/Type 合并、长边中点命中、长边中段交叉和 `Points` 防御性副本。
+- Godot `MapTest` 场景可启动且编辑器、运行时控制台无新增错误；运行时状态桥接在时间推进和状态读取时超时，未取得输入驱动的端到端断言。
+
+---
+
+<a id="road-graph-bug-12"></a>
+## BUG-12：删除道路后自动合并未删除的边
+
+### 症状
+
+删除穿过交点的整组道路后，原先被劈分的另一组道路会自动合并为替代边，交点节点随之消失。
+
+### 根因分析
+
+`RemoveRoadGroup` 在批量移除边后收集受影响节点并调用 `TryMergeAtNode`；公共 `RemoveEdge` 也允许删除后合并。该修复操作改变了未删除边的数量和节点拓扑。
+
+### 修复方案
+
+单边和整组删除均使用抑制合并的内部删除路径；删除仅清理目标边、孤立节点和空 Group，不再创建替代边。
+
+### 影响范围
+
+`AddRoad` 仍可在同一玩家操作内压缩共线边；`RemoveEdge` 与 `RemoveRoadGroup` 不再压缩其余道路拓扑。
+
+## BUG-12 验证状态
+
+- `RoadGraphRegressionTests.RemoveRoadGroup_CrossingRoad_DoesNotMergeRemainingSegments`：先创建十字路口，再删除交叉组；断言交点仍存在、具有两条剩余边，且道路组保留。
+- `dotnet test tests/SimpleCities.RoadGraph.Tests/SimpleCities.RoadGraph.Tests.csproj --no-restore`：40 通过、0 失败、0 跳过。
+- `dotnet build SimpleCities.sln --no-restore`：0 警告、0 错误。
+
+---
+
+<a id="road-graph-bug-13"></a>
+## BUG-13：任意角度共线边无法合并
+
+### 症状
+
+直接调用 `RoadGraph.AddRoad` 添加任意角度的共线多段路径时，同一操作内的边不会压缩为一条带 waypoint 的边。
+
+### 根因分析
+
+`TryMergeAtNode` 通过 `DirectionUtil` 的 8 方向匹配判断反向，非 8 方向向量无法得到方向枚举值。
+
+### 修复方案
+
+改为基于交点两侧局部向量的叉积和点积，要求向量共线且方向相反；现有 Group 和 Type 约束继续生效。
+
+### 影响范围
+
+影响数据层任意角度路径的共线压缩，不改变 `RoadBuilder` 的 8 方向输入限制。
+
+---
+
+<a id="road-graph-bug-14"></a>
+## BUG-14：最近边查询排除恰好位于半径边界的道路
+
+### 症状
+
+道路与查询圆相切时，空间索引已返回候选边，但 `FindClosestEdge` 返回 `null`。
+
+### 根因分析
+
+候选边的距离使用严格小于 `maxRadius` 的平方进行比较，和空间索引的包含边界语义不一致。
+
+### 修复方案
+
+距离比较改为小于或等于半径平方，使最终筛选和空间索引的圆形查询都包含边界。
+
+### 影响范围
+
+影响拆除、悬停和吸附在最大命中半径边界上的行为。
+
+## BUG-13 至 BUG-14 验证状态
+
+- `RoadGraphRegressionTests.AddRoad_ArbitraryAngleCollinearSegments_MergeWithinTheSameGroup` 与 `FindClosestEdge_EdgeAtRadiusBoundary_IsIncluded` 覆盖任意角度合并和半径边界命中。
+- `dotnet test tests/SimpleCities.RoadGraph.Tests/SimpleCities.RoadGraph.Tests.csproj --no-restore`：42 通过、0 失败、0 跳过。
+- `dotnet build SimpleCities.sln --no-restore`：0 警告、0 错误。
+
+## BUG-9 至 BUG-14 提交前复核
+
+- `dotnet test tests/SimpleCities.RoadGraph.Tests/SimpleCities.RoadGraph.Tests.csproj --no-restore`（2026-08-02）：52 通过、0 失败、0 跳过。
+- `dotnet build SimpleCities.sln --no-restore`（2026-08-02）：0 警告、0 错误。
+- `godot --headless --path . --log-file .godot/qa-roadgraph-commit.log --script tests/godot/pause_menu_runtime_contract.gd`（2026-08-02，沙箱外运行）：输出 `PASS pause menu runtime contract`，验证 `MapTest` 可装载、RoadGraph 可随场景注册并参与保存/加载；两条 `ConstructionDock` 缺少 `ToolManager.Instance` 的警告来自测试在节点进入树前读取 authored 状态，不属于本组道路修复。
+- Godot MCP 可启动 `MapTest`，停止后编辑器没有新增错误，DAP `stderr` 为空；`godot_game_time step` 与 `godot_exec` 状态桥接仍超时，因此没有声明输入驱动的铺路/拆路端到端断言通过。
+- 当前会话未提供 `csharp-ls` MCP，逐文件 LSP 诊断不可用；编译器与测试项目构建已覆盖全部改动 C# 文件。

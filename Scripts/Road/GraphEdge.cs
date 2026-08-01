@@ -8,7 +8,9 @@ public class GraphEdge
     public int NodeB { get; internal set; }
 
     /// <summary>中间途经点（不含两端节点坐标）。</summary>
-    public Vector2[] Points { get; }
+    private readonly Vector2[] _points;
+    public Vector2[] Points => (Vector2[])_points.Clone();
+    internal Vector2[] InternalPoints => _points;
 
     public int GroupID { get; internal set; }
     public RoadType Type { get; internal set; }
@@ -19,7 +21,7 @@ public class GraphEdge
         ID = id;
         NodeA = nodeA;
         NodeB = nodeB;
-        Points = points;
+        _points = (Vector2[])points.Clone();
         GroupID = groupID;
         Type = type;
         Length = length;
@@ -35,10 +37,10 @@ public class GraphEdge
         if (nodeA == null || nodeB == null)
             return Points;
 
-        var result = new Vector2[Points.Length + 2];
+        var result = new Vector2[_points.Length + 2];
         result[0] = nodeA.Position;
-        for (int i = 0; i < Points.Length; i++)
-            result[i + 1] = Points[i];
+        for (int i = 0; i < _points.Length; i++)
+            result[i + 1] = _points[i];
         result[result.Length - 1] = nodeB.Position;
         return result;
     }

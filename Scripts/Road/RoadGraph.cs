@@ -96,34 +96,16 @@ public class RoadGraph : ISaveable
         return group.ID;
     }
 
-    public bool RemoveEdge(int edgeID) => RemoveEdge(edgeID, suppressMerge: false);
+    public bool RemoveEdge(int edgeID) => RemoveEdge(edgeID, suppressMerge: true);
 
     public bool RemoveRoadGroup(int groupID)
     {
         if (!_groups.TryGetValue(groupID, out var group)) return false;
 
-        // Collect all endpoint node IDs before removal so we can merge after.
-        var touchedNodeIDs = new HashSet<int>();
-        foreach (int edgeID in group.EdgeIDs)
-        {
-            if (_edges.TryGetValue(edgeID, out var edge))
-            {
-                touchedNodeIDs.Add(edge.NodeA);
-                touchedNodeIDs.Add(edge.NodeB);
-            }
-        }
-
         foreach (int edgeID in group.EdgeIDs.ToList())
             RemoveEdge(edgeID, suppressMerge: true);
 
         _groups.Remove(groupID);
-
-        // Merge repair: collinear 2-edge nodes left exposed after bulk removal.
-        foreach (int nodeID in touchedNodeIDs)
-        {
-            if (_nodes.ContainsKey(nodeID))
-                TryMergeAtNode(nodeID, suppressMerge: true);
-        }
 
         return true;
     }
@@ -136,15 +118,23 @@ public class RoadGraph : ISaveable
     {
         int bestEdgeID = -1;
         float bestDistSq = maxRadius * maxRadius;
+        var candidateEdgeIDs = new HashSet<int>();
 
         foreach (var hit in _spatialIndex.QueryRadius(position, maxRadius))
         {
-            if (hit.Kind != SpatialRefKind.EdgePoint) continue;
-            float d2 = hit.Position.DistanceSquaredTo(position);
-            if (d2 < bestDistSq)
+            if (TryGetEdgeID(hit, out int edgeID))
+                candidateEdgeIDs.Add(edgeID);
+        }
+
+        foreach (int edgeID in candidateEdgeIDs)
+        {
+            var edge = GetEdge(edgeID);
+            if (edge == null) continue;
+            float d2 = DistanceSquaredToPath(edge.GetFullPath(GetNode), position);
+            if (d2 <= bestDistSq)
             {
                 bestDistSq = d2;
-                bestEdgeID = ((EdgePointRef)hit).EdgeID;
+                bestEdgeID = edgeID;
             }
         }
 
@@ -203,7 +193,7 @@ public class RoadGraph : ISaveable
                 TotalLength = edge.Length,
                 Type = (int)edge.Type,
             };
-            foreach (var point in edge.Points)
+            foreach (var point in edge.InternalPoints)
                 segmentData.Waypoints.Add(new Vector2Data(point));
             data.Segments.Add(segmentData);
         }
@@ -486,7 +476,7 @@ public class RoadGraph : ISaveable
     {
         foreach (var edge in _edges.Values)
         {
-            foreach (var wp in edge.Points)
+            foreach (var wp in edge.InternalPoints)
             {
                 if (wp.DistanceSquaredTo(pos) < GeometryEpsilon)
                 {
@@ -571,14 +561,58 @@ public class RoadGraph : ISaveable
 
         foreach (var hit in _spatialIndex.QueryRadius(a, radius))
         {
-            if (hit.Kind == SpatialRefKind.EdgePoint)
-                result.Add(((EdgePointRef)hit).EdgeID);
+            if (TryGetEdgeID(hit, out int edgeID)) result.Add(edgeID);
         }
         foreach (var hit in _spatialIndex.QueryRadius(b, radius))
         {
-            if (hit.Kind == SpatialRefKind.EdgePoint)
-                result.Add(((EdgePointRef)hit).EdgeID);
+            if (TryGetEdgeID(hit, out int edgeID)) result.Add(edgeID);
         }
+    }
+
+    private static bool TryGetEdgeID(ISpatialRef spatialRef, out int edgeID)
+    {
+        switch (spatialRef)
+        {
+            case EdgePointRef pointRef:
+                edgeID = pointRef.EdgeID;
+                return true;
+            case EdgeSegmentRef segmentRef:
+                edgeID = segmentRef.EdgeID;
+                return true;
+            default:
+                edgeID = -1;
+                return false;
+        }
+    }
+
+    private static float DistanceSquaredToPath(IReadOnlyList<Vector2> path, Vector2 position)
+    {
+        float bestDistanceSquared = float.MaxValue;
+        for (int i = 0; i < path.Count - 1; i++)
+            bestDistanceSquared = Mathf.Min(bestDistanceSquared, DistanceSquaredToSegment(path[i], path[i + 1], position));
+        return bestDistanceSquared;
+    }
+
+    private static float DistanceSquaredToSegment(Vector2 start, Vector2 end, Vector2 point)
+    {
+        Vector2 segment = end - start;
+        float lengthSquared = segment.LengthSquared();
+        if (lengthSquared < GeometryEpsilon)
+            return start.DistanceSquaredTo(point);
+
+        float t = Mathf.Clamp((point - start).Dot(segment) / lengthSquared, 0f, 1f);
+        return (start + segment * t).DistanceSquaredTo(point);
+    }
+
+    private static bool AreOppositeCollinear(Vector2 node, Vector2 pointA, Vector2 pointB)
+    {
+        Vector2 toA = pointA - node;
+        Vector2 toB = pointB - node;
+        float lengthProduct = Mathf.Sqrt(toA.LengthSquared() * toB.LengthSquared());
+        if (lengthProduct < GeometryEpsilon) return false;
+
+        float cross = toA.X * toB.Y - toA.Y * toB.X;
+        return Mathf.Abs(cross) <= GeometryEpsilon * lengthProduct && toA.Dot(toB) < 0f;
     }
 
     private IEnumerable<int> FindEdgesContainingInteriorPoint(Vector2 pos)
@@ -608,21 +642,16 @@ public class RoadGraph : ISaveable
         if (!_edges.TryGetValue(refs[0].EdgeID, out var edgeA)) return false;
         if (!_edges.TryGetValue(refs[1].EdgeID, out var edgeB)) return false;
         if (edgeA.ID == edgeB.ID) return false;
+        if (edgeA.GroupID != edgeB.GroupID || edgeA.Type != edgeB.Type) return false;
 
         var (farAID, seqAToNode) = OrientTowardsNode(edgeA, nodeID);
         var (farBID, seqBToNode) = OrientTowardsNode(edgeB, nodeID);
         if (farAID == farBID) return false;
         if (seqAToNode.Count < 2 || seqBToNode.Count < 2) return false;
 
-        var dirA = DirectionUtil.FromDisplacementAnyLength(node.Position, seqAToNode[^2]);
-        var dirB = DirectionUtil.FromDisplacementAnyLength(node.Position, seqBToNode[^2]);
-        if (dirA == null || dirB == null) return false;
+        if (!AreOppositeCollinear(node.Position, seqAToNode[^2], seqBToNode[^2])) return false;
 
-        var dispA = DirectionUtil.GetDisplacement(dirA.Value);
-        var dispB = DirectionUtil.GetDisplacement(dirB.Value);
-        if (dispA.X + dispB.X != 0 || dispA.Y + dispB.Y != 0) return false;
-
-        int keepGroupID = Math.Min(edgeA.GroupID, edgeB.GroupID);
+        int keepGroupID = edgeA.GroupID;
         RoadType type = edgeA.Type;
         var mergedPoints = new List<Vector2>();
         for (int i = 1; i < seqAToNode.Count - 1; i++)
@@ -688,20 +717,34 @@ public class RoadGraph : ISaveable
         var nodeB = GetNode(edge.NodeB);
 
         if (nodeA != null) refs.Add(new EdgePointRef(edge.ID, nodeA.Position));
-        foreach (var point in edge.Points)
+        foreach (var point in edge.InternalPoints)
             refs.Add(new EdgePointRef(edge.ID, point));
         if (nodeB != null) refs.Add(new EdgePointRef(edge.ID, nodeB.Position));
 
+        var path = edge.GetFullPath(GetNode);
+        for (int i = 0; i < path.Length - 1; i++)
+            refs.Add(new EdgeSegmentRef(edge.ID, path[i], path[i + 1]));
+
         _edgeRefs[edge.ID] = refs;
         foreach (var edgeRef in refs)
-            _spatialIndex.Insert(edgeRef);
+        {
+            if (edgeRef is EdgeSegmentRef segmentRef)
+                _spatialIndex.InsertSegment(segmentRef);
+            else
+                _spatialIndex.Insert(edgeRef);
+        }
     }
 
     private void RemoveEdgeSpatialRefs(int edgeID)
     {
         if (!_edgeRefs.TryGetValue(edgeID, out var refs)) return;
         foreach (var edgeRef in refs)
-            _spatialIndex.Remove(edgeRef);
+        {
+            if (edgeRef is EdgeSegmentRef segmentRef)
+                _spatialIndex.RemoveSegment(segmentRef);
+            else
+                _spatialIndex.Remove(edgeRef);
+        }
         _edgeRefs.Remove(edgeID);
     }
 

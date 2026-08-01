@@ -82,10 +82,11 @@ public partial class RoadRenderer : Node2D
         if (nodeA == null || nodeB == null) return;
 
         // 构建点序列：NodeA → Points → NodeB
-        var points = new Vector2[2 + edge.Points.Length];
+        var edgePoints = edge.Points;
+        var points = new Vector2[2 + edgePoints.Length];
         points[0] = nodeA.Position;
-        for (int i = 0; i < edge.Points.Length; i++)
-            points[i + 1] = edge.Points[i];
+        for (int i = 0; i < edgePoints.Length; i++)
+            points[i + 1] = edgePoints[i];
         points[^1] = nodeB.Position;
 
         var line = new Line2D
@@ -147,10 +148,11 @@ public partial class RoadRenderer : Node2D
                 var nodeB = _network.GetNode(edge.NodeB);
                 if (nodeA != null && nodeB != null)
                 {
-                    var pts = new Vector2[2 + edge.Points.Length];
+                    var edgePoints = edge.Points;
+                    var pts = new Vector2[2 + edgePoints.Length];
                     pts[0] = nodeA.Position;
-                    for (int i = 0; i < edge.Points.Length; i++)
-                        pts[i + 1] = edge.Points[i];
+                    for (int i = 0; i < edgePoints.Length; i++)
+                        pts[i + 1] = edgePoints[i];
                     pts[^1] = nodeB.Position;
                     DrawPolyline(pts, Config.HoverHighlightColor, Config.HoverHighlightWidth);
                     // 同时高亮端点
