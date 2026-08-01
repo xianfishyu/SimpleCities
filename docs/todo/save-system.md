@@ -1,141 +1,196 @@
 # 存档系统待办清单
 
 > 系统 key：`save-system`
-> 复核日期：2026-07-31
-> 证据：`.omo/backups/system-doc-split/docs/todo/todolist.md`（已移除旧版待办的归档）、`.omo/evidence/split-system-docs/task-3/ownership-map.json` 与当前工作区源码。
-> 主导原则：负责存档 schema、迁移、槽位安全、注册生命周期和加载事务边界。
+> 复核日期：2026-08-02
+> 证据：`Scripts/Core/SaveManager.cs`、`Scripts/Core/SaveData.cs`、`Scripts/Road/RoadGraph.cs`、当前存档测试及 `docs/manuals/road-system-v2-gen.md` 附录 D。
+> 主导原则：第二代提供多个玩家命名的道路网络存档；道路数据独立 JSON，其他系统以后按相同注册机制扩展，但不纳入第二代保存内容。
 
 ## 状态总览
 
-| 遗留 ID | 发现 | 当前状态 | 处置方式 |
-|---|---|---|---|
 <a id="save-system2"></a>
-| 2 | 存档丢失 `RoadType` | 已修复；v2 命名迁移未完成 | 补兼容性测试；字段改名延期 |
 <a id="save-system11"></a>
-| 11 | 命名过时且 `RoadType` 视觉样式未落地 | 事实成立；RoadType 产品功能暂不需要 | 命名迁移独立处理；分级样式和类型选择延期 |
 <a id="save-systemroadtype"></a>
-| RoadType | 数据和存档已完成；视觉、选择与升级当前不需要 | 基础模型保留；产品功能延期 | 0.3 只补兼容回归；D5.1～D5.3 与 P6.5 等产品需求确认后启用 |
 <a id="save-systemsavesystem"></a>
-| SaveSystem | 导出路径、槽名边界和场景注册生命周期已实现；通用自动化契约与整槽加载事务仍未完成 | 部分完成 | 0.8 已完成；0.9 补通用契约测试；0.10 保持开放直到导出包实测；0.11 处理整槽预检 |
+
+| ID | 发现 | 当前状态 | 处置方式 |
+|---|---|---|---|
+| 0.3 | V2 道路 JSON 仍保存 RoadType 并包含旧格式回退 | 未完成 | 从第二代 schema 移除分级数据和旧兼容路径 |
+| 0.4 | 路网和 manifest 没有严格版本拒绝 | 未完成 | 只接受新的第二代版本，旧/缺失/未来版本安全失败 |
+| 0.5 | RoadGraph 恢复前缺少完整引用校验 | 未完成 | 临时解析、全量校验后一次提交 |
+| 0.8 | SaveManager 场景注册生命周期 | 已完成 | 保留注册和注销基线 |
+| 0.9 | SaveManager 缺少稳定自动化契约 | 未完成 | 建立道路槽位成功与失败测试 |
+| 0.10 | 文件夹槽名与玩家显示名称混为一体 | 部分完成 | 分离安全内部 ID 和玩家可命名显示名 |
+| 0.11 | 加载会在完整预检前调用 RestoreState | 未完成 | 先预检 manifest 和道路 JSON，再提交 RoadGraph |
+| 1.1 | 没有可列举的命名存档目录与完整元数据 | 未完成 | 建立存档目录 API 和 manifest 元数据 |
+| 1.2 | 暂停菜单只固定保存/加载 autosave | 未完成 | 实现另存为、覆盖确认、加载和删除工作流 |
+| 1.3 | 没有独立自动存档策略 | 未完成 | 自动槽不得覆盖玩家命名存档 |
+| 1.4 | 当前注册对象会把镜头等状态写入同一槽 | 未完成 | 第二代只持久化 RoadGraph，同时保留未来独立 JSON 扩展点 |
+| 5.3 | 活动道路 schema 仍使用 Junction/Segment/Road 旧字段 | 未完成 | 新 V2 schema 直接使用 Node/Edge/Group，不迁移旧存档 |
+| 6.3 | 存档参考文档与最终 V2 范围不一致 | 未完成 | 同步命名槽、元数据、新 schema 和失败语义 |
 
 ### 设计覆盖矩阵
 
-| 设计范围 | 当前事实 | 关联待办或基线 |
-|---|---|---|
 <a id="save-system111e2827dafb"></a>
-| §10 迁移与存档兼容 | A/B 主体迁移已完成；旧 JSON 字段兼容存在；编辑器写入 `res://saves`，导出版本写入可执行文件旁的 `saves`，槽名限制已实现；仍缺少版本拒绝、损坏数据保护、导出包路径实测和整槽事务 | 0.3～0.5、0.9～0.11、5.3、6.1～6.3 |
+
+| 设计范围 | 当前事实 | 关联待办 |
+|---|---|---|
+| 多命名存档 | SaveManager 接受 slotName，但没有列举 API、显示名模型或管理界面 | 0.9～0.10、1.1～1.3 |
+| 道路网络持久化 | RoadGraph 已有独立 JSON，但包含 RoadType 和旧 DTO 字段，失败会先清空当前图 | 0.3～0.5、0.11、5.3 |
+| 可扩展边界 | ISaveable 注册和 manifest 文件列表已存在；当前场景同时注册 RoadGraph 与相机 | 0.8、1.4 |
+| 原生曲线 | 当前只保存 waypoint，不能恢复曲线类型和控制参数 | `road-graph:2.5`～`road-graph:2.6`、5.3 |
 
 ## 执行顺序
 
-### 阶段 0：建立回归保护
+### 阶段 0：建立新 V2 道路存档契约
 
 <a id="save-system0.3"></a>
-- [ ] **0.3 固化 `RoadType` 存档往返行为（原问题 2）**
-  - 性质：类型写入与旧存档回退已完成，本项仅补兼容性回归证据。
-  - 当前证据：Edge 与 Group 的类型分别在 `Scripts/Road/RoadGraph.cs:204`、`Scripts/Road/RoadGraph.cs:217` 写入；恢复兼容逻辑位于 `Scripts/Road/RoadGraph.cs:746`。
-  - 测试场景：Dirt、Street、Arterial、Highway 分别保存并恢复；另加载无 `Type` 的旧存档。
-  - 验收：v2 往返保留全部类型；旧存档稳定回退为 `Street`。
 
-  - 来源 key：`todo:item:0.3`。
+- [ ] **0.3 从第二代道路存档移除 RoadType 数据**
+  - 当前问题：Edge 和 Group JSON 写入 Type，恢复时还为旧存档回退 Street；道路分级已明确移至第三代。
+  - 修改：第二代 RoadGraph API 和 JSON 不保存、不恢复 RoadType；第三代以后通过新 schema 版本重新引入。
+  - 依赖：`road-graph:2.7`。
+  - 集成负责人：`save-system`。
+  - 测试：新道路存档不包含类型字段；保存加载不依赖默认 Street；现有含 Type 的旧文件按不兼容版本拒绝。
+  - 验收：第二代 schema 中不存在道路分级字段或兼容回退分支。
+  - 来源 key：`todo:item:0.3`（已按 2026-08-02 范围决定取代原 RoadType 往返回归）。
 
 <a id="save-system0.4"></a>
-- [ ] **0.4 固化路网与清单的存档版本策略**
-  - 当前问题：`RoadGraph` 写出 `version = 2`，manifest 写出 `schemaVersion = 1`，但 `RoadGraph.RestoreState` 和 `SaveManager.Load` 都没有依据版本执行迁移或拒绝加载。
-  - 修改：为已知版本建立显式分派；缺少版本的旧存档走兼容路径；未知未来版本必须以可诊断错误失败。
-  - 测试：当前 v2 路网、缺少 `version` 的旧存档、未知路网版本、未知 manifest schema。
-  - 验收：支持版本走确定的迁移路径；未知不兼容版本不会被静默读取；原问题 2 的旧存档兼容保持不变。
 
+- [ ] **0.4 固化只接受新第二代格式的版本策略**
+  - 当前问题：RoadGraph 写出 version，manifest 写出 schemaVersion，但加载没有统一版本分派或拒绝规则。
+  - 修改：为新的 V2 manifest 和 road graph schema 设定明确版本；缺少版本、旧版本和未知未来版本都返回可诊断失败，不执行迁移。
+  - 测试：当前版本、缺少版本、旧版本、未来版本及版本字段类型错误。
+  - 验收：只有精确支持的版本进入数据校验；不兼容存档不会调用 RoadGraph 恢复。
   - 来源 key：`todo:item:0.4`。
 
 <a id="save-system0.5"></a>
-- [ ] **0.5 为 `RoadGraph` 恢复增加引用校验与失败保护**
-  - 当前问题：`RestoreState` 在 `Scripts/Road/RoadGraph.cs:228` 先清空当前图，再直接信任存档中的 Node、Edge、Group ID；缺失端点、重复 ID、悬空 Group/Edge 引用没有统一校验。
-  - 修改：先反序列化并校验临时数据，全部通过后再替换当前图；失败时保留加载前状态并返回可诊断错误。
-  - 校验：所有 Edge 两端节点存在；Group/Edge 双向引用一致；实体 ID 不重复；枚举值合法；`NextID` 大于全部实体 ID。
-  - 验收：损坏存档不会产生半恢复图；加载失败后原图的节点、边、Group 和 ID 分配状态不变。
 
+- [ ] **0.5 为 RoadGraph 恢复增加引用与曲线参数校验**
+  - 当前问题：RestoreState 会先清空当前图，再信任 Node、Edge、Group 和 waypoint 数据。
+  - 修改：先解析临时模型，校验 ID 唯一性、端点、邻接/Group 引用、NextID、有限数值、几何段类型和控制参数，全部通过后一次替换当前图。
+  - 依赖：`road-graph:2.5`、`road-graph:4.1`。
+  - 集成负责人：`save-system`。
+  - 测试：缺失端点、重复 ID、悬空引用、非法曲线类型、NaN/Infinity、退化曲线和错误 NextID。
+  - 验收：任何损坏存档失败后，加载前的道路拓扑、曲线参数和 ID 分配状态完全不变。
   - 来源 key：`todo:item:0.5`。
 
 <a id="save-system0.8"></a>
-- [x] **0.8 为 `SaveManager` 增加注销机制并绑定场景生命周期**
-  - 原问题：`SaveManager.Register` 只登记对象引用，没有 `Unregister`；`RoadSystem._Ready` 每次创建并注册新的 `RoadGraph`，场景重载后可能保留过期 saveable。
-  - 修改：`SaveManager` 增加 `Unregister(ISaveable)` 和活动注册计数；重复注册同一实例保持幂等，不同实例占用相同 `SaveFileName` 时明确拒绝。`RoadSystem` 与 `MainCamera` 在 `_ExitTree()` 注销，相关场景单例也在退出时清理。
-  - 测试：`tests/godot/pause_menu_runtime_contract.gd` 通过暂停菜单从 `MapTest` 返回 `MainMenu`，再启动新的 `MapTest`，随后执行保存和加载。
-  - 验收证据：`godot --headless --path . --log-file .godot/qa-pause-menu-final.log --script tests/godot/pause_menu_runtime_contract.gd` 输出 `PASS pause menu runtime contract`；离开城市后 `RegisteredSaveableCount == 0`，新城市中 `== 2`，且新会话 `Save("autosave")` 与 `Load("autosave")` 均返回 `true`。
 
+- [x] **0.8 SaveManager 注册生命周期已绑定场景退出。** Register/Unregister 和重复文件名拒绝已经存在，后续 1.4 只调整第二代实际保存范围。
   - 来源 key：`todo:item:0.8`。
 
 <a id="save-system0.9"></a>
-- [ ] **0.9 建立 `SaveManager` 自动化契约测试**
-  - 依赖：0.1 的自动化测试入口可运行。
-  - 当前问题：`SaveManager` 的保存、加载、manifest、`.tmp` 替换、缺失文件和错误返回行为缺少可重复测试；后续路径迁移和整槽事务修改没有保护网。
-  - 修改：为 `Scripts/Core/SaveManager.cs` 建立可注入或可隔离的测试场景，使用测试 `ISaveable` 验证 `Register`、`Save`、`Load`、`SaveSlotExists`、`CurrentSlotName`、manifest 文件清单和失败返回，不改变当前运行时目标行为。
-  - 测试：成功保存两个 saveable；manifest 缺失；manifest 列出文件但 JSON 文件缺失；saveable 恢复抛错；保存失败时返回 `false` 且不伪造成功日志。
-  - 验收：单条自动化命令能稳定验证 `SaveManager` 当前契约；至少一个失败路径断言 `Load` 返回 `false` 且 `CurrentSlotName` 不更新；本项不要求 0.10 或 0.11 的新行为已经实现。
 
-  - 关联引用：`save-system:0.9`。
+- [ ] **0.9 建立 SaveManager 道路槽位自动化契约测试**
+  - 当前问题：保存、加载、manifest、临时文件替换、列举和失败返回缺少统一自动化入口。
+  - 修改：以隔离目录和测试 RoadGraph 覆盖 Save、Load、SaveSlotExists、ListSlots、DeleteSlot、CurrentSlotID、manifest 与失败清理。
+  - 测试：成功保存/加载、manifest 缺失、道路 JSON 缺失、序列化失败、恢复失败、重复显示名和删除失败。
+  - 验收：单条命令稳定运行全部槽位契约；失败不会伪造成功日志、改变当前槽位或留下可见半成品。
   - 来源 key：`todo:item:0.9`。
 
 <a id="save-system0.10"></a>
-- [ ] **0.10 固化编辑器与导出版本的存档根目录和槽名边界**
-  - 依赖：0.9 已锁定当前保存契约和失败路径。
-  - 当前进展：`SaveManager.GetSaveBaseDir()` 已使用 `OS.HasFeature("editor")` 分流；编辑器写入 `res://saves`，导出版本写入 `OS.GetExecutablePath()` 所在目录下的 `saves`。槽名只允许 ASCII 字母、数字、`_` 和 `-`，非法名称在所有公开槽位操作中安全失败。
-  - 当前风险：游戏位于只读安装目录时，导出版本无法创建或更新存档；尚未通过真实导出包验证 `<exe>/saves/autosave`，也未建立旧开发存档的迁移策略。
-  - 测试：默认 `autosave` 在编辑器写入 `res://saves/autosave`，在 Windows 导出包写入 `<exe>/saves/autosave`；含 `../`、反斜杠、正斜杠、绝对路径、非 ASCII 字符和空白槽名均失败且不创建外部目录；只读目录失败时返回 `false` 且 `CurrentSlotName` 不更新。
-  - 验收：真实导出包的所有成功保存都落在可执行文件旁的 `saves` 根目录内；非法槽名不会读写根目录外文件；不可写根目录以可诊断错误失败；0.9 的既有契约测试继续通过。
 
+- [ ] **0.10 分离内部槽位 ID、玩家存档名称和存储路径**
+  - 当前问题：slotName 同时充当文件夹名和显示名，只接受 ASCII 字母、数字、下划线和连字符，无法安全支持玩家自由命名。
+  - 修改：使用不可冲突的安全内部 ID 作为目录名，将玩家输入名称写入 manifest；所有目录操作验证目标位于存档根目录内，并确认编辑器和导出版本的可写路径。
+  - 测试：中文、空格、同名存档、超长名称、路径字符、空名称、只读目录和真实 Windows 导出包。
+  - 验收：合法玩家名称不直接成为文件路径；任何名称都不能越过存档根目录；不可写位置明确失败。
   - 来源 key：`todo:item:0.10`。
 
 <a id="save-system0.11"></a>
-- [ ] **0.11 建立整槽加载预检与提交边界**
-  - 当前问题：`SaveManager.Load` 只依据 manifest 顺序匹配当前注册对象，逐个读取并立即调用 `RestoreState`；某个文件缺失或某个系统恢复失败时，之前已经恢复的系统不会自动回到加载前状态。
-  - 修改：在 `SaveManager` 层引入整槽预检，先读取 manifest、校验 schema、确认所有将加载的已注册系统文件存在并可读取，再进入提交阶段；与 0.5 的 `RoadGraph` 内部预校验互补，0.11 只定义跨 saveable 的槽位边界，不重复实现 RoadGraph 引用校验。
-  - 测试：manifest 缺失；manifest schema 未知；已注册系统文件缺失；第二个 saveable 恢复失败；manifest 包含未注册文件；所有文件有效时完整加载。
-  - 验收：预检失败时任何已注册 saveable 都不会收到 `RestoreState`；manifest 中未注册系统的文件继续忽略且不阻断已注册系统加载；提交阶段失败时返回 `false`，`CurrentSlotName` 不更新，并且测试记录已提交系统的状态边界；RoadGraph 损坏引用仍由 0.5 的专用测试负责。
 
-  - 关联引用：`save-system:0.11`。
+- [ ] **0.11 在修改 RoadGraph 前完成槽位预检**
+  - 当前问题：Load 读取 manifest 后立即逐个调用 RestoreState，缺少完整道路文件和元数据预检。
+  - 修改：先读取并校验 manifest、版本、道路文件存在性、JSON 可解析性和 RoadGraph 临时模型，再执行一次提交；第二代不要求多个业务系统之间的回滚事务。
+  - 测试：manifest/道路文件缺失、版本错误、损坏 JSON、损坏引用、缩略图缺失和全部有效。
+  - 验收：任何预检失败都不会改变当前道路图、当前槽位或存档目录；有效存档完整加载。
   - 来源 key：`todo:item:0.11`。
 
-### 阶段 5：兼容性命名整理（原问题 11）
+### 阶段 1：多个命名存档体验
+
+<a id="save-system1.1"></a>
+
+- [ ] **1.1 建立可列举的存档目录和元数据模型**
+  - 当前问题：只有 SaveSlotExists，没有按时间排序的槽位列表；manifest 只有 slotName、timestamp、cityName 和 files。
+  - 修改：提供 ListSlots，并记录内部 ID、存档名称、UTC 保存时间、城市名称、人口、资金、缩略图引用和文件列表；无实际系统数据时城市名称、人口和资金使用明确占位值。
+  - 测试：零个/多个存档、同名显示名、损坏 manifest、缺失缩略图、排序稳定性和占位字段。
+  - 验收：存档列表无需加载 RoadGraph 即可安全读取全部摘要；单个损坏槽不会阻断其他槽显示。
+
+<a id="save-system1.2"></a>
+
+- [ ] **1.2 实现命名保存、另存为、覆盖确认、加载和删除工作流**
+  - 当前问题：暂停菜单固定调用 autosave，没有存档列表、名称输入、覆盖确认或删除确认。
+  - 修改：增加存档管理界面并接入 1.1；新名称创建独立槽，选中已有槽可明确覆盖，加载和删除都显示目标摘要；删除必须安全移除非空槽目录。
+  - 依赖：`save-system:0.9`～`save-system:0.11`、`save-system:1.1`。
+  - 集成负责人：`save-system`。
+  - 测试：新建、另存为、同名处理、确认/取消覆盖、加载、确认/取消删除、损坏槽提示和键盘/鼠标操作。
+  - 验收：玩家可管理多个命名存档；任何破坏性操作都不会在未确认时发生。
+
+<a id="save-system1.3"></a>
+
+- [ ] **1.3 实现独立自动存档槽**
+  - 当前问题：autosave 只是暂停菜单硬编码名称，没有独立触发规则或与手动槽隔离的契约。
+  - 修改：定义可配置的自动存档触发周期；自动槽使用保留内部 ID，并在列表中明确标识，绝不覆盖玩家命名手动槽。
+  - 依赖：`save-system:1.1`、`save-system:1.2`。
+  - 集成负责人：`save-system`。
+  - 测试：首次自动保存、周期触发、手动同名显示、自动保存失败和加载自动槽。
+  - 验收：自动存档可识别、可加载且与手动存档隔离；失败不影响最近一次有效自动存档。
+
+<a id="save-system1.4"></a>
+
+- [ ] **1.4 将第二代保存内容限定为 RoadGraph 并保留扩展接口**
+  - 当前问题：SaveManager 会保存全部已注册对象，当前场景还注册相机；这超出“第二代只保存道路网络”的范围。
+  - 修改：第二代槽只要求 road graph JSON；相机和其他系统不作为 V2 验收数据。保留每系统独立 SaveFileName 和 manifest 文件列表，使未来系统可新增独立 JSON。
+  - 测试：保存后必有且仅要求道路 JSON；加载只恢复道路，不改变未纳入的相机或其他状态；注册未来测试系统时生成独立文件且不修改道路 schema。
+  - 验收：第二代保存/加载的业务状态只有道路网络；扩展新系统无需修改 RoadGraph DTO。
+
+### 阶段 5：新 schema 命名
 
 <a id="save-system5.3"></a>
-- [ ] **5.3 独立处理 Junction → Node 命名迁移**
-  - 范围：`JunctionRadius`/`JunctionColor` 及旧存档字段 `Junctions`、`Segments`、`Roads`。
-  - 约束：命名迁移不能破坏旧 `.tres` 与旧存档兼容；必要时保留旧 JSON 字段或提供版本迁移器。
-  - 验收：旧存档、旧资源可加载；新代码公共语义统一使用 Node/Edge/Group。
 
+- [ ] **5.3 让新第二代道路 schema 使用 Node、Edge 和 Group 命名**
+  - 当前问题：活动 JSON 仍使用 junctions、segments、roads、FromJunctionID 和 RoadID 等旧字段。
+  - 修改：新 V2 schema 直接使用 nodes、edges、groups 和对应 ID 字段，并保存原生曲线段类型及控制参数；不提供旧 JSON 字段迁移。
+  - 依赖：`road-graph:2.5`、`save-system:0.4`。
   - 集成负责人：`save-system`。
-  - 关联引用：`grid-rendering:5.3`。
+  - 测试：新 schema 往返、旧字段文件拒绝、曲线参数往返和未知几何段拒绝。
+  - 验收：新存档公共语义统一，旧存档明确失败而不是部分读取。
   - 来源 key：`todo:item:5.3`。
 
-### 阶段 6：校准下一代道路设计文档
+### 阶段 6：同步存档文档
 
 <a id="save-system6.3"></a>
-- [ ] **6.3 同步活动存档 schema 与迁移策略**
-  - 当前进展：`docs/reference/save-system-plan.md` 已在 2026-07-20 复核为当前实现参考，并补充文档责任、导航和验证状态；`docs/reference/class-reference.md`、`docs/manuals/infrastructure-guide.md`、`docs/reference/game-logic.md` 和 `docs/README.md` 已改为摘要与相对链接入口。
-  - 当前问题：运行时迁移、版本拒绝、自动化契约、真实导出包路径实测和预检事务仍由 0.4、0.5、0.9～0.11 保持开放；因此本项只记录文档校准进展，不能标记完成。
-  - 修改：把上述文档中的活动 schema、旧字段兼容边界、manifest 与路网版本职责、保存路径目标、槽名边界和整槽加载边界同步到源码和 `docs/reference/save-system-plan.md`；旧 JSON 字段名作为兼容基线保留，除非另有经过测试的迁移器。
-  - 验收：所有相关文档中的示例 JSON、版本分派、保存路径和加载失败语义与实际加载测试一致；旧 DTO 明确标注为遗留结构而非活动序列化入口。
 
-  - 关联引用：`save-system:0.4`、`save-system:0.11`。
+- [ ] **6.3 同步命名槽、元数据和新道路 schema 文档**
+  - 修改：更新 `docs/reference/save-system-plan.md` 及相关导航，描述内部槽位 ID、显示名、元数据占位、自动槽、道路唯一业务载荷、新版本拒绝和未来独立 JSON 扩展边界。
+  - 依赖：`save-system:0.3`～`save-system:1.4`、`save-system:5.3`。
+  - 验证：文档示例 JSON 与实际 manifest/road graph 自动化输出逐字段一致。
+  - 验收：文档不再宣称旧存档兼容、RoadType 往返或第二代保存相机。
   - 来源 key：`todo:item:6.3`。
 
 ## 暂不执行
 
-旧版列表中没有任何暂不执行项属于该系统。
+### 第三代道路分级存档
+
+- RoadType 数据、样式、选择和升级全部在第三代以新 schema 版本重新设计；不得复用第二代的兼容回退作为既定契约。
+
+### 后续多系统事务
+
+- 第二代保留独立 JSON 扩展机制，但只验收 RoadGraph。多个业务系统同时提交和失败回滚的整槽事务在新增第二个正式持久化系统时重新开启。
 
 ## 已解决基线
 
 <a id="save-system878b6f92c0cc"></a>
-- [x] **原问题 2：Edge/Group 的 `RoadType` 已写入并兼容恢复。** `Scripts/Road/RoadGraph.cs:195`、`Scripts/Road/RoadGraph.cs:211`、`Scripts/Road/RoadGraph.cs:738`
-  - 来源 key：`todo:baseline:878b6f92c0cc`。
 
-- [x] **场景切换不会在 `SaveManager` 中保留旧场景 saveable。** `RoadSystem` 和 `MainCamera` 离开树时注销；主菜单注册数为 0，新 `MapTest` 只注册当前路网和相机，并可继续存读档。
-  - 关联引用：`save-system:0.8`。
+- [x] **SaveManager 已支持 ISaveable 注册/注销和每系统独立文件名。**
+- [x] **单文件保存使用临时文件后替换。** 后续修改必须继续保证失败不会把半写入 JSON 暴露为有效槽位。
 
 ## 完成标准
 
 <a id="save-systemaf4fd4e8bade"></a>
-- 5. 在 Godot 主场景真实完成铺路、交叉、拆除、保存、加载、非法槽名拒绝和加载失败保护验证，并记录实际观察结果；RoadType 产品功能启用后再增加类型选择和样式验证。
-  - 关联引用：`save-system:0.10`、`save-system:0.11`、`grid-rendering:D5.1`、`tool-input:D5.3`。
-  - 来源 key：`todo:completion:af4fd4e8bade`。
+
+1. 0.3～0.5、0.9～0.11、1.1～1.4、5.3 和 6.3 全部通过自动化与 Godot 运行时验证。
+2. 玩家可以创建、列出、覆盖、加载和删除多个命名手动存档；自动存档与手动存档隔离。
+3. 列表包含存档名称、保存时间、城市名称、人口、资金和缩略图，暂无来源的数据使用明确占位值。
+4. 第二代只恢复道路网络；旧、缺失版本、未来版本和损坏存档均安全拒绝且不改变当前道路图。
+5. RoadType 和旧存档迁移不属于第二代完成条件。

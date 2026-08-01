@@ -1,6 +1,6 @@
 # 系统待办索引
 
-> 复核日期：2026-07-20
+> 复核日期：2026-08-02
 > 来源：`.omo/backups/system-doc-split/docs/todo/todolist.md` 和 `.omo/evidence/split-system-docs/task-3/ownership-map.json`。
 > 范围：仅包含导航、遗留 source key 映射、组合说明、集成负责人和总体依赖说明。本 README 不包含独立要求。
 
@@ -14,9 +14,12 @@
 
 ## 组合说明与集成负责人
 
-- `todo:item:5.3` 已拆分为 `save-system:5.3` 和 `grid-rendering:5.3`。集成负责人：`save-system`。`save-system:5.3` 保留复选框状态和存档兼容性验收；`grid-rendering:5.3` 只保留视觉资源命名部分，不新增带状态的复选框。
+- 第二代最终范围和未完成事项保存在 `docs/manuals/road-system-v2-gen.md` 附录 D；最终集成负责人是 `road-graph:7.1`，完成后保留附录作为历史验收记录。
+- `todo:item:5.3` 的第二代活动范围只保留 `save-system:5.3` 的新 Node/Edge/Group schema；旧存档不兼容。`grid-rendering:5.3` 是非阻塞资源命名清理，不计入第二代完成条件。
 
 ## 遗留来源 Key 映射
+
+> 下表的“遗留文本或 ID”仅用于追溯拆分前的原文，不代表当前要求；与活动系统待办或附录 D 冲突时，以后两者为准。
 
 | 遗留 source key | 类型 | 遗留文本或 ID | 目标引用 | 备注 |
 |---|---|---|---|---|

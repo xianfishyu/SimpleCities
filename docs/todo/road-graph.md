@@ -1,9 +1,9 @@
 # RoadGraph 系统待办清单
 
 > 系统 key：`road-graph`
-> 复核日期：2026-07-31
-> 证据：`.omo/backups/system-doc-split/docs/todo/todolist.md`（已移除旧版待办的归档）、`.omo/evidence/split-system-docs/task-3/ownership-map.json` 与当前工作区源码。
-> 主导原则：负责拓扑、几何查询、空间索引行为、公共图 API、删除事务和并行边策略。
+> 复核日期：2026-08-02
+> 证据：当前工作区源码、RoadGraph 自动化测试及 `docs/manuals/road-system-v2-gen.md` 附录 D。
+> 主导原则：负责拓扑、原生曲线几何、空间索引、公共路径 API、删除事务和第二代最终集成验收；不负责 RoadType 或交通模拟。
 
 ## 状态总览
 
@@ -13,13 +13,13 @@
 | <a id="road-graph1"></a>   |                                             |                                                  |                                                                |
 | 1                          | `AddRoad` 返回 `-1` 时泄漏副作用        | 已修复并有自动化回归                             | 保持前置覆盖检查，不再修改流程                                 |
 | <a id="road-graph3"></a>   |                                             |                                                  |                                                                |
-| 3                          | 几何查询仍有全表扫描                        | 成立                                             | 优化候选边查询并建立性能基线                                   |
+| 3                          | 几何查询仍有全表扫描                        | 成立                                             | 10k Edge 按 60 FPS 硬门槛优化；100k Edge 压力测试              |
 | <a id="road-graph4"></a>   |                                             |                                                  |                                                                |
 | 4                          | 数据层强制 8 方向                           | 成立                                             | 将方向约束移回`RoadBuilder`                                  |
 | <a id="road-graph5"></a>   |                                             |                                                  |                                                                |
 | 5                          | `RemoveEdge` 自动清理节点导致合并补回节点 | 部分成立，属于架构债务                           | 在行为测试保护下重构删除事务                                   |
 | <a id="road-graph6"></a>   |                                             |                                                  |                                                                |
-| 6                          | `RoadGroup` 在合并时丢失用户操作语义      | 成立                                             | 禁止跨 Group/Type 自动合并                                     |
+| 6                          | `RoadGroup` 在合并时丢失用户操作语义      | 成立                                             | 禁止跨 Group 自动合并；RoadType 移至第三代                      |
 | <a id="road-graph7"></a>   |                                             |                                                  |                                                                |
 | 7                          | `FindClosestEdge` 只命中离散采样点        | 成立                                             | 改为候选筛选 + 点到折线精确距离                                |
 | <a id="road-graph9"></a>   |                                             |                                                  |                                                                |
@@ -35,7 +35,10 @@
 | <a id="road-graphp5"></a>  |                                             |                                                  |                                                                |
 | P5                         | 最小化并可验证图不变式                      | 部分完成；自动化入口已建立，图不变式验证仍待补齐 | 由阶段 0 与阶段 4 建立校验、事务和封装边界                     |
 | <a id="road-graphapi"></a> |                                             |                                                  |                                                                |
-| API                        | 文档定义的公共`AddEdge` 契约              | 未实现                                           | 2.4 先验证契约，再实现或明确以文档修订取代                     |
+| API                        | 独立于 RoadBuilder 的公共路径提交契约       | 未实现                                           | 2.4 提交任意原生几何路径并返回结构化结果                       |
+| Geometry                   | Edge 只保存折线 waypoint                    | 未实现原生曲线                                   | 2.5～2.6 支持 Bézier、样条、圆弧/圆锥曲线和回旋线等缓和曲线    |
+| RoadType                   | GraphEdge/RoadGroup/API 仍包含类型字段       | 超出第二代范围                                   | 2.7 从 V2 契约移除，第三代重新引入                              |
+| V2                         | 完整系统评估                                | 等待全部前置项                                   | 7.1 负责跨图、输入、渲染和存档的最终验收                       |
 
 ### 设计覆盖矩阵
 
@@ -53,6 +56,7 @@
 | §6.1 AddRoad 与交叉/覆盖算法       | 主流程已落地；完整覆盖检查已前置，交叉与 waypoint 拆分已有修复                                        | 0.2、0.6、2.1～2.4、3.3；已解决基线 |
 | <a id="road-graph541e1cb3f3d8"></a> |                                                                                                       |                                     |
 | §6.3、§7 查询和公共 API           | 最近节点 API 已有；最近边语义不完整；文档中的公共`AddEdge` 缺失                                     | 1.2、2.4、3.2、4.2                  |
+| 附录 D 原生曲线与 V2 API           | 当前 Edge 只有 waypoint 折线，所有几何算法按直线子段工作                                             | 2.4～2.7、3.1～3.3、4.1～4.4       |
 
 ## 执行顺序
 
@@ -80,6 +84,8 @@
 
 <a id="road-graph0.6"></a>
 
+> 当前进展（2026-08-01）：`RoadGraphRegressionTests.AddRoad_CrossingLongUnsegmentedEdge_CreatesConnectedIntersectionNode`、`AddRoad_CrossingDiagonalRoads_CreatesOneFourWayIntersection`、`AddRoad_CrossingExistingWaypoint_SplitsTheExistingEdgeAtTheWaypoint`、`RemoveEdge_CrossingRoad_DoesNotMergeTheRemainingSegments` 与 `RemoveRoadGroup_CrossingRoad_DoesNotMergeRemainingSegments` 已通过；正交或对角交叉均创建唯一四连接节点，waypoint 交叉会拆分既有边，单边或整组删除不会合并剩余边。空间引用和图不变式的显式校验仍待补齐。
+
 - [ ] **0.6 固化交叉、waypoint 拆分和删除不自动合并的目标行为**
   - 场景：正交交叉、对角交叉、交点恰好位于 waypoint、单边删除、整组删除。
   - 验收：交点产生唯一节点；边正确拆分；不存在悬空 EdgeRef；删除单边或整组后不创建替代 Edge、不自动合并相邻边，且图不变式成立。
@@ -98,23 +104,26 @@
 
 <a id="road-graph1.1"></a>
 
-- [ ] **1.1 禁止跨 `RoadGroup` 或跨 `RoadType` 自动合并（原问题 6）**
-  - 问题：`TryMergeAtNode` 当前用较小 Group ID，并无条件沿用 `edgeA.Type`，见 `Scripts/Road/RoadGraph.cs:625`。
-  - 修改：合并前要求 `edgeA.GroupID == edgeB.GroupID` 且 `edgeA.Type == edgeB.Type`；不满足时保留节点和两条边。
-  - 测试：同 Group 同 Type 可合并；不同 Group 不合并；不同 Type 不合并。
-  - 验收：`RoadGroup` 始终保持“用户一次操作的标签”语义，合并不会让另一个 Group 静默消失，也不会覆盖道路类型。
+> 当前进展（2026-08-01）：`RoadGraphRegressionTests.AddRoad_CollinearRoadsFromSeparateOperations_PreserveBothGroupsAndTypes` 已通过；不同 Group 的共线连接已保留各自分组。测试中的 Type 行为只作为当前实现事实，后续由 2.7 移出第二代契约。
+
+- [ ] **1.1 禁止跨 RoadGroup 自动合并（原问题 6）**
+  - 问题：自动合并不能破坏 RoadGroup 表示“一次用户提交”的语义；RoadType 已移至第三代，不再决定 V2 合并行为。
+  - 修改：只有同一 Group 内满足几何连续条件的边才可合并；不同 Group 始终保留独立边和节点语义。
+  - 测试：同 Group 共线可合并、不同 Group 不合并，以及 2.7 移除 RoadType 后行为不变。
+  - 验收：RoadGroup 始终保持用户提交边界，不会因自动合并静默消失。
   - 关联引用：`road-graph:1.1`。
   - 来源 key：`todo:item:1.1`。
 
 <a id="road-graph1.2"></a>
 
-- [ ] **1.2 将 `FindClosestEdge` 改为真实折线距离查询（原问题 7）**
-  - 问题：当前只比较端点和 waypoint 的距离，见 `Scripts/Road/RoadGraph.cs:135` 与 `Scripts/Road/RoadGraph.cs:684`。
-  - 修改：空间索引只负责收集候选 Edge ID；最终结果按鼠标点到 Edge 完整折线各子段的最小距离排序。
-  - 注意：候选查询必须覆盖穿过查询圆但所有采样点都在圆外的线段，不能仅在现有 `EdgePointRef` 查询结果上做精算。
-  - 测试：长正交边中点、长对角边中点、折线拐角、两条相邻道路的最近边选择、半径外返回 `null`。
-  - 验收：只要可见线段与查询圆相交就能命中，并返回几何距离最近的 Edge。
-  - 关联引用：`road-graph:3.2`。
+> 当前进展（2026-08-01）：`RoadGraphRegressionTests.FindClosestEdge_LongStraightEdge_HitsItsMiddle`、`FindClosestEdge_LongDiagonalEdge_HitsItsMiddle`、`FindClosestEdge_ChoosesTheGeometricallyNearestCandidate`、`FindClosestEdge_EdgeAtRadiusBoundary_IsIncluded` 与 `FindClosestEdge_OutsideRadius_ReturnsNull` 已通过；正交和对角长边中点均可命中，重叠查询候选会选择几何距离最近的边，半径外返回 `null`。折线拐角场景仍待补齐。
+
+- [ ] **1.2 将 FindClosestEdge 改为权威几何距离查询（原问题 7）**
+  - 问题：当前只比较折线端点和 waypoint；第二代还必须命中原生曲线的中段和高曲率区域。
+  - 修改：空间索引只收集候选 Edge，最终结果按 2.5/2.6 的权威几何最近点计算排序，不使用显示采样作为真相。
+  - 测试：长直线中点、折线拐角、Bézier/样条/圆弧/回旋线中段、相邻道路选择、半径边界和半径外返回 null。
+  - 验收：只要权威道路几何与查询圆相交就能命中，并返回几何距离最近的 Edge。
+  - 关联引用：`road-graph:2.5`、`road-graph:2.6`、`road-graph:3.2`。
   - 来源 key：`todo:item:1.2`。
 
 <a id="road-graph1.3"></a>
@@ -131,35 +140,68 @@
 <a id="road-graph2.1"></a>
 
 - [ ] **2.1 为任意 R² 折线路径补数据层测试（原问题 4）**
-  - 当前问题：`IsPathValid` 在 `Scripts/Road/RoadGraph.cs:500` 调用 `DirectionUtil.FromDisplacementAnyLength`，拒绝非 8 方向线段。
-  - 测试：任意角度直线、非 8 方向多段折线、重复点、自相交或回到已有路径点。
-  - 验收定义：任意非零角度路径可进入数据层；重复点和明确禁止的退化路径仍被拒绝。
+  - 当前问题：AddRoad 已能通过部分任意角度测试，但 `IsPathValid` 仍保留 DirectionUtil 八方向判断且当前未被调用，数据层有效路径契约不清晰。
+  - 测试：任意角度直线、非 8 方向多段折线、重复点、自相交、回到已有路径点和非有限坐标。
+  - 验收定义：任意非零角度路径可进入数据层；重复点和明确禁止的退化路径以结构化原因拒绝。
   - 来源 key：`todo:item:2.1`。
 
 <a id="road-graph2.2"></a>
 
 - [ ] **2.2 从 `RoadGraph.IsPathValid` 移除 8 方向判断**
-  - 修改：数据层只校验非零段、重复点及必要的几何不变式；8 方向投影继续由 `RoadBuilder.UpdateProjection` 保证。
-  - 验收：`RoadBuilder` 的玩家操作仍保持 8 方向；直接调用 `RoadGraph.AddRoad` 可添加任意角度道路。
+  - 修改：删除或重写未使用的 IsPathValid，使数据层只校验有限数值、非零段、重复点及必要几何不变式；网格投影完全由可替换输入策略负责。
+  - 验收：RoadGraph 不引用 Direction/DirectionUtil/GridSystem/CellSize；当前米字型玩法由 `tool-input:1.2` 保持，公共路径 API 可添加任意角度和原生曲线。
   - 来源 key：`todo:item:2.2`。
 
 <a id="road-graph2.3"></a>
 
-- [ ] **2.3 复核依赖方向枚举的合并逻辑**
+> 已完成（2026-08-01）：`RoadGraphRegressionTests.AddRoad_ArbitraryAngleCollinearSegments_MergeWithinTheSameGroup` 与 `AddRoad_SlightlyBentSegments_DoNotMergeAtTheBend` 已通过；同一 Group/Type 的任意角度共线边会合并，0.01f 偏移的浅角转弯保留两个边段。
+
+- [x] **2.3 复核依赖方向枚举的合并逻辑**
   - 问题：`TryMergeAtNode` 在 `Scripts/Road/RoadGraph.cs:617` 仍通过 `DirectionUtil` 判断反向。
   - 修改：改用向量叉积/点积判断两侧是否共线且反向，使合并支持任意角度。
   - 验收：任意角度共线边可按 Group/Type 规则合并；小角度转弯不被误合并。
+  - 验证：`dotnet test tests/SimpleCities.RoadGraph.Tests/SimpleCities.RoadGraph.Tests.csproj --no-restore`，2026-08-01，46 通过、0 失败。
   - 来源 key：`todo:item:2.3`。
 
 <a id="road-graph2.4"></a>
 
-- [ ] **2.4 落实设计文档定义的公共 `AddEdge` 契约**
-  - 当前问题：`RoadGraph` 只有接收 `GraphNode` 的私有 `AddEdge`；§7.1 定义的 `AddEdge(Vector2, Vector2, Vector2[], int, RoadType)` 尚未提供，边创建规则只能通过 `AddRoad` 间接使用。
-  - 修改：先定义有效边、近邻节点复用、自环拒绝、未知 Group、事件、Group 归属和空间索引更新契约；实现统一的公共边创建入口并让内部创建路径复用，或在确认不需要公开原语后由 6.1 明确修订设计文档。
-  - 测试：合法边、近节点复用、自环返回 `-1`、未知 Group 策略、`EdgeAdded`、Group membership、节点邻接和空间查询。
-  - 验收：边创建只有一条权威写入路径，失败无副作用，成功后字典、邻接、Group、空间索引和事件全部一致；若拒绝该 API，必须有明确架构决定和同步后的文档。
-  - 关联引用：`road-graph:6.1`。
+- [ ] **2.4 提供独立于 RoadBuilder 的公共路径提交 API**
+  - 当前问题：外部调用方只能使用面向当前折线实现的 `AddRoad(start, end, waypoints, type)`，没有统一的原生几何路径请求和结构化失败结果。
+  - 修改：定义不含网格或 RoadType 的 `RoadPath`/`RoadGeometrySegment` 请求，以及包含成功状态、创建实体、变更摘要和错误原因的结果；内部边创建继续只有一条权威写入路径。
+  - 依赖：`road-graph:2.5`。
+  - 集成负责人：`road-graph`。
+  - 测试：合法直线/曲线路径、近节点复用、自环、退化段、未知几何类型、重复覆盖、交叉、事件和失败原子性。
+  - 验收：测试、未来工具和输入策略可直接提交任意合法路径；失败无副作用且原因可诊断，成功后拓扑、Group、空间索引和事件一致。
+  - 关联引用：`tool-input:1.2`、`road-graph:6.1`。
   - 来源 key：`todo:item:2.4`。
+
+<a id="road-graph2.5"></a>
+
+- [ ] **2.5 建立保留真实语义的原生曲线几何模型**
+  - 当前问题：GraphEdge 只保存 waypoint 数组，曲线只能被预先离散为折线，无法恢复控制点、曲率或缓和曲线参数。
+  - 修改：定义可序列化的直线、Bézier、样条、圆弧/圆锥曲线和铁路常用缓和曲线段，缓和曲线至少包含回旋线/clothoid；每种段提供参数域、位置、切线、包围盒、长度和无损拆分契约。显示采样不得成为权威数据。
+  - 测试：各几何段构造、有限参数校验、端点/切线连续性、长度、包围盒、拆分后重组等价和序列化往返。
+  - 验收：GraphEdge 保存曲线类型与控制参数；捕获、恢复、拆分和重建后保持同一几何语义，而非只保留采样点。
+
+<a id="road-graph2.6"></a>
+
+- [ ] **2.6 让拓扑操作完整支持原生曲线**
+  - 当前问题：覆盖、最近点、交叉、锚点插入和拆边全部按直线子段运算，无法正确处理原生曲线。
+  - 修改：基于 2.5 的统一几何接口实现曲线最近点、点上判定、曲线/曲线交点、重叠、切触和参数位置拆分；同一二维平面内的几何交叉一律创建拓扑节点。
+  - 依赖：`road-graph:2.5`、`road-graph:1.3`。
+  - 集成负责人：`road-graph`。
+  - 测试：直线-曲线、Bézier-Bézier、样条、圆弧/圆锥曲线和回旋线等缓和曲线的端点接触、内部交叉、多交点、相切、重叠与无交叉。
+  - 验收：交叉节点位置和拆分后的子曲线参数稳定；桥梁、隧道和高程不在本项建模，二维交叉始终连接。
+
+<a id="road-graph2.7"></a>
+
+- [ ] **2.7 从第二代 RoadGraph 契约移除 RoadType**
+  - 当前问题：GraphEdge、RoadGroup、AddRoad、合并和保存均携带 RoadType，但道路分级已明确属于第三代。
+  - 修改：第二代图实体、公共路径 API、合并规则、事件和存档不依赖 RoadType；第三代通过新契约和 schema 版本重新引入分级。
+  - 依赖：`road-graph:2.4`。
+  - 集成负责人：`road-graph`。
+  - 测试：无类型参数的新增、交叉、合并、拆分、删除和保存加载；搜索第二代运行路径不再存在类型分支。
+  - 验收：RoadType 不再是 V2 图状态或行为的一部分；移除后既有拓扑和统一视觉继续工作。
 
 ### 阶段 3：消除几何查询的全图扫描
 
@@ -167,25 +209,29 @@
 
 - [ ] **3.1 建立当前 `AddRoad` 性能基线（原问题 3）**
   - 当前热点：`CollectExistingSubSegments` 在 `Scripts/Road/RoadGraph.cs:555`、`FindEdgesContainingInteriorPoint` 在 `Scripts/Road/RoadGraph.cs:584`、`FindEdgesWithWaypointAt` 在 `Scripts/Road/RoadGraph.cs:485` 均遍历全部 Edge。
-  - 场景：1k、10k、50k Edge 下添加短路、长路、完全覆盖道路和多交叉道路。
-  - 验收：记录耗时、候选 Edge 数与全表遍历次数，作为优化前基线。
+  - 场景：1k、10k 和 100k Edge 下添加短路、长路、原生曲线、完全覆盖道路和多交叉道路，并执行命中和删除。
+  - 指标：记录平均/P95 操作耗时、候选 Edge 数、全表遍历次数和分配量；10k 场景的交互操作 P95 不超过 16.67 ms，100k 只记录压力测试结果。
+  - 验收：形成固定数据集和可重复命令，明确优化前基线；10k 满足 60 FPS 硬门槛，100k 结果不阻塞完成。
   - 来源 key：`todo:item:3.1`。
 
 <a id="road-graph3.2"></a>
 
-- [ ] **3.2 为“线段经过的空间桶”建立候选查询能力**
-  - 修改：扩展 `UniformGrid`，让每个 Edge 子线段占据其穿越的全部 bucket，或提供等价可靠的 AABB/线段候选索引；查询结果按 Edge ID 去重，避免使用过大的圆形范围退化成区域全扫。
-  - 设计修正：索引必须表达线段占据的桶或提供可靠的线段/AABB 查询，不能仅依赖端点和 waypoint 采样；文档中的 `O(1 + k)` 只可作为受桶数与桶内元素数约束的平均情况，不能作为无条件保证。
-  - 测试：一条没有中间 waypoint 的长边被短路从中点穿过；长边跨越多个空桶；不同 bucket size 下重复同一交叉场景。
-  - 验收：不会遗漏跨桶长边或其中点交叉；候选数量主要随查询覆盖桶数和局部密度变化，而不是随全图 Edge 总数线性增长。
+> 当前进展（2026-08-01）：`RoadGraphRegressionTests.AddRoad_CrossingLongUnsegmentedEdge_CreatesConnectedIntersectionNode` 与 `AddRoad_CrossingLongEdge_RemainsConnectedAcrossIndexBucketSizes` 已通过，作为长边中点候选检索的回归基线；在 8、64 和 256 单位 bucket 中，交叉均创建四连接节点。候选数量与局部密度的性能测量仍待补充。
+
+- [ ] **3.2 为直线和原生曲线建立完整空间占据索引**
+  - 修改：索引每个几何段的保守包围范围或自适应子区间，使直线、Bézier、样条、圆弧/圆锥曲线和回旋线等缓和曲线覆盖其穿越的全部 bucket；查询结果按 Edge ID 去重。
+  - 设计修正：索引只能作为可重建候选服务，不能以采样点代替权威曲线；文档中的复杂度必须受查询桶数、局部密度和曲线细分上界约束。
+  - 依赖：`road-graph:2.5`～`road-graph:2.6`。
+  - 测试：跨多个空桶的长直线和大曲率曲线、包围盒边界、不同 bucket size、多曲线重叠候选和索引重建。
+  - 验收：不会遗漏曲线中段交叉或命中；候选数量主要随覆盖范围和局部密度变化，而不是随全图 Edge 总数线性增长。
   - 来源 key：`todo:item:3.2`。
 
 <a id="road-graph3.3"></a>
 
 - [ ] **3.3 优化覆盖与交点查询**
-  - 修改：`IsPathCovered` 仅扫描路径段附近候选边；`FindEdgesContainingInteriorPoint` 使用局部候选；`FindEdgesWithWaypointAt` 直接查询 waypoint 空间引用；AddRoad 的交叉、覆盖、锚点和 waypoint 查询路径不再遍历 `_edges.Values`。
-  - 测试：优化前阶段 0 的全部几何场景必须保持一致。
-  - 验收：局部短路操作不再调用 `_edges.Values` 全表扫描；性能基线显示增长由全图规模主导转为局部候选规模主导。
+  - 修改：覆盖、最近点、交点、锚点和拆分查询只精确计算 3.2 返回的候选；直线与曲线共享同一局部查询入口，不再遍历 `_edges.Values`。
+  - 测试：阶段 0 和 2.6 的全部几何场景在优化前后结果一致，并在 10k/100k 固定数据集重复测量。
+  - 验收：局部操作不执行全图 Edge 扫描；10k 满足 60 FPS 单帧预算，100k 压测记录候选规模和耗时。
   - 来源 key：`todo:item:3.3`。
 
 ### 阶段 4：整理删除与合并事务（原问题 5）
@@ -198,6 +244,8 @@
   - 来源 key：`todo:item:4.1`。
 
 <a id="road-graph4.2"></a>
+
+> 当前进展（2026-08-01）：`RoadGraphRegressionTests.GraphEdgePoints_CannotMutateGraphStateOutsideRoadGraphApi` 已通过；外部修改取得的 `Points` 数组不会改变图或存档状态。
 
 - [ ] **4.2 封闭 `RoadGraph` 的可变内部状态暴露**
   - 当前问题：`GetAllEdges`/`GetAllNodes`/`GetAllGroups` 返回实时字典视图；`GraphEdge.Points` 暴露可原地修改的数组；端点缺失时 `GetFullPath` 返回不完整的 `Points`，会掩盖损坏拓扑。
@@ -236,9 +284,21 @@
 
 - [ ] **6.2 同步当前合并、命中和空间索引语义**
   - 修正：文档明确当前 Add/Remove 都可能触发 `TryMergeAtNode`；`FindClosestEdge` 当前只基于 EdgePoint；`UniformGrid.QueryRadius` 成本取决于覆盖桶数与桶内元素数，Remove 还会扫描桶内 List。
-  - 关联：最终语义以阶段 1、3、4 完成后的实现为准，避免先把即将变化的缺陷固化成长期设计。
+  - 关联：最终语义以阶段 1～4 完成后的实现为准，并同步原生曲线、可替换输入、10k/100k 性能和 RoadType 移出 V2 的决定。
   - 验收：文档描述可由对应测试或代码位置验证，不再宣称无条件 `O(1)` 删除或 `O(1 + k)` 查询。
   - 来源 key：`todo:item:6.2`。
+
+### 阶段 7：第二代完整系统评估
+
+<a id="road-graph7.1"></a>
+
+- [ ] **7.1 完成第二代道路系统端到端评估**
+  - 当前问题：单项自动化通过不足以证明铺路、曲线、删除、撤销重做、渲染和多个命名存档在真实场景中共同成立。
+  - 修改：在所有所属系统条目完成后执行一次完整评估，并将结果永久记录在 `docs/manuals/road-system-v2-gen.md` 附录 D；不删除该附录。
+  - 依赖：`road-graph:0.6`～`road-graph:6.2` 中的活动项、`tool-input:1.2`～`tool-input:1.6`、`grid-rendering:1.1`～`grid-rendering:1.2`、`save-system:0.3`～`save-system:1.4`、`save-system:5.3`、`save-system:6.3`。
+  - 集成负责人：`road-graph`。
+  - 验证：运行完整自动化、dotnet build、Godot 运行时场景、10k 硬门槛和 100k 压测；在主场景手工验证连续铺路、全部原生曲线、二维交叉、单删/连续删/框选删、撤销重做、命名保存、另存为、覆盖、删除、自动存档和损坏加载保护。
+  - 验收：所有硬性场景通过且证据已记录；100k 只要求压测结果；RoadType、交通模拟、高程道路和旧存档兼容不参与第二代完成判定。
 
 ## 暂不执行
 
@@ -271,33 +331,16 @@
 ## 完成标准
 
 <a id="road-graph822fd09c14ca"></a>
+<a id="road-graph57b3e1c6c3fa"></a>
+<a id="road-graph936efe9cdd8b"></a>
+<a id="road-graphc78164d23e9b"></a>
+<a id="road-graphbfd7554b1b07"></a>
+<a id="road-graphcb8d79634afd"></a>
 
-- 1. 当前清理里程碑要求阶段 0～6 中保留的活动项全部完成，包括 2.4；RoadType 产品功能 D5.1～D5.3、`P6.*` 与其他需求触发项明确排除，直到满足各自启用条件。
-- 关联引用：`road-graph:0.1`、`save-system:0.3`、`grid-rendering:D5.1`、`tool-input:D5.3`、`traffic-simulation:P6.1`。
-
-  - 来源 key：`todo:completion:822fd09c14ca`。
-    <a id="road-graph57b3e1c6c3fa"></a>
-- 2. 每个行为项先有失败的自动化测试，再做最小实现并通过完整回归；不能仅凭源码检查标记完成。
-- 关联引用：`road-graph:0.1`、`save-system:0.5`、`save-system:0.9`。
-
-  - 来源 key：`todo:completion:57b3e1c6c3fa`。
-    <a id="road-graph936efe9cdd8b"></a>
-- 3. 几何、拓扑、删除事务、存档兼容、`SaveManager` 契约、保存路径边界、整槽加载预检和公共 API 测试全部通过；当前只要求 RoadType 数据/旧存档兼容回归，不要求类型样式或选择 UI。
-- 关联引用：`save-system:0.5`、`save-system:0.3`、`save-system:0.9`、`save-system:0.10`、`save-system:0.11`。
-
-  - 来源 key：`todo:completion:936efe9cdd8b`。
-    <a id="road-graphc78164d23e9b"></a>
-- 4. `dotnet build` 退出码为 0，修改文件无新增诊断；构建成功不能替代自动化或运行时测试证据。
-- 关联引用：`road-graph:0.1`、`save-system:0.9`。
-
-  - 来源 key：`todo:completion:c78164d23e9b`。
-    <a id="road-graphbfd7554b1b07"></a>
-- 6. 10k+ Edge 性能场景有可复现的优化前后数据，且局部查询不再随全图规模线性退化。
-
-  - 关联引用：`road-graph:3.1`、`road-graph:3.3`。
-  - 来源 key：`todo:completion:bfd7554b1b07`。
-    <a id="road-graphcb8d79634afd"></a>
-- 7. 文档项必须引用最终代码或测试事实；只有在对应测试和必要的 Godot 运行验证完成后，才能把目标描述为已实现。
-- 关联引用：`road-graph:6.1`、`save-system:6.3`。
-
-  - 来源 key：`todo:completion:cb8d79634afd`。
+1. RoadGraph 所有活动项以及 `tool-input:1.2`～`1.6`、`grid-rendering:1.1`～`1.2` 和 `save-system` 的第二代活动项均已由实际证据完成。
+2. 原生曲线的类型、控制参数和拆分结果在图、渲染和存档之间保持一致；所有二维几何交叉形成拓扑连接。
+3. 当前米字型玩法可用，三角形与六边形策略证明输入约束可替换；连续铺路、批量拆路和撤销重做通过主场景验证。
+4. 10k Edge 的交互路径满足 60 FPS 硬门槛；100k Edge 完成压力测试并记录结果，但不作为完成阻塞项。
+5. 多个命名道路存档、自动存档和损坏加载保护通过；旧存档不兼容且不执行迁移。
+6. `dotnet build`、完整自动化、Godot 运行时和 `road-graph:7.1` 全部通过；最终证据保留在第二代设计文档附录 D。
+7. RoadType、交通模拟、桥梁/隧道/立交和旧存档兼容明确排除，不得作为第二代完成条件。

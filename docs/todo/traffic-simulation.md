@@ -1,7 +1,7 @@
 # 交通模拟系统待办清单
 
 > 系统 key：`traffic-simulation`
-> 复核日期：2026-07-31
+> 复核日期：2026-08-02
 > 证据：`.omo/backups/system-doc-split/docs/todo/todolist.md`（已移除旧版待办的归档）、`.omo/evidence/split-system-docs/task-3/ownership-map.json` 与当前工作区源码。
 > 主导原则：在图契约稳定后，负责 `TrafficGraph`、寻路、拥堵、增量同步和升级模拟。
 
@@ -10,7 +10,7 @@
 | 遗留 ID | 发现 | 当前状态 | 处置方式 |
 |---|---|---|---|
 <a id="traffic-simulationphase-6"></a>
-| Phase 6 | `TrafficGraph`、A*、拥堵和增量同步 | 未实现，按路线图延期 | P6.1～P6.5 在当前 RoadGraph 契约稳定后启用 |
+| Phase 6 | `TrafficGraph`、A*、拥堵和增量同步 | 不属于第二代，且晚于第三代道路分级 | P6.1～P6.5 在第二代 RoadGraph 和第三代 RoadType 完成后另行启用 |
 
 ### 设计覆盖矩阵
 
@@ -26,7 +26,7 @@
 ## 暂不执行
 
 <a id="traffic-simulationdef6b8230b9f"></a>
-### 产品阶段 6：交通模拟与道路升级
+### 第二代和第三代之后：交通模拟与道路升级
 
 <a id="traffic-simulationp6.1"></a>
 - [ ] **P6.1 构建 `TrafficGraph` 只读带权有向视图**
