@@ -200,7 +200,7 @@
   - 集成负责人：`road-graph`。
   - 测试：直线-曲线、Bézier-Bézier、样条、圆弧/圆锥曲线和回旋线等缓和曲线的端点接触、内部交叉、多交点、相切、重叠与无交叉。
   - 验收：交叉节点位置和拆分后的子曲线参数稳定；桥梁、隧道和高程不在本项建模，二维交叉始终连接。
-  - 当前进展（2026-08-03）：`RoadGeometrySegment.FindClosestPoint` 已提供统一最近点，`TryFindPointOnGeometry` 返回权威参数及端点/内部分类。`RoadGeometryIntersectionQuery.FindIntersections` 对直线组合复用解析/单参数入口；非直线组合以双方原生子曲线 `Bounds` 进行二维参数分支限界，收敛候选同时按双方参数聚簇并以最小残差决胜，稳定返回 `Crossing`/`Tangent`/`EndpointTouch`。`RoadGeometryOverlap` 以升序第一参数区间和与其起止点对应的第二参数表示重叠，第二参数降序明确表示反向；双方端点先通过权威点上判定建立候选对应，再递归验证整个映射区间的位置和切线，版本化参数完全相同的封闭曲线使用无歧义快路径。直线及 Bézier、Hermite、圆弧（含整圆）、clothoid、rational quadratic 均覆盖同向/反向整段或部分重叠，不把连续重叠伪装成离散交点。`RoadGraph.FindClosestEdge` 已接入统一最近点。相关几何聚焦测试合计 84/84、解决方案测试 300/300、构建 0 警告/0 错误。按多个交点/重叠边界参数拆分和 RoadGraph 写入链集成仍未实现，本项保持开放。
+  - 当前进展（2026-08-03）：`RoadGeometrySegment.FindClosestPoint`、`TryFindPointOnGeometry`、`RoadGeometryIntersectionQuery.FindIntersections` 和 `RoadGeometryOverlap` 已统一提供最近点、点上参数、离散交点/相切及同向/反向重叠参数区间。直线及 Bézier、Hermite、圆弧（含整圆）、clothoid、rational quadratic 均覆盖交叉和整段/部分重叠，不把连续重叠伪装成离散交点。`RoadGeometrySubdivision.SplitAtParameters` 接受无序全局参数，忽略端点、按显式容差合并重复值，并逐次映射到剩余子曲线的局部参数；返回每个原生同类型子段及其原几何参数范围。六类几何在多参数拆分后保持端点与局部到全局参数映射。`RoadGraph.FindClosestEdge` 已接入统一最近点。相关几何聚焦测试合计 98/98、解决方案测试 314/314、构建 0 警告/0 错误。RoadGraph 尚未把 Edge 各段的交点/重叠边界转换为拓扑节点并原子替换 Edge、Group、空间索引和事件，本项保持开放。
 
 <a id="road-graph2.7"></a>
 
