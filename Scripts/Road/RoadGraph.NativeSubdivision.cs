@@ -105,9 +105,13 @@ public partial class RoadGraph
                 continue;
 
             RoadGeometrySegment segment = edge.GeometrySegments[splitPoint.GeometrySegmentIndex];
+            Vector2 position = segment.GetPosition(splitPoint.SegmentParameter);
+            if (ArePositionsApproximatelyEqual(position, edge.GeometrySegments[0].Start) ||
+                ArePositionsApproximatelyEqual(position, edge.GeometrySegments[^1].End))
+                continue;
             candidates.Add(new NormalizedEdgeSplitPoint(
                 edgeParameter,
-                segment.GetPosition(splitPoint.SegmentParameter)));
+                position));
         }
 
         candidates.Sort((left, right) => left.EdgeParameter.CompareTo(right.EdgeParameter));

@@ -18,7 +18,9 @@ public partial class RoadGraph
         if (coveredSegments.All(covered => covered))
             return RoadPathSubmissionResult.Rejected(RoadPathSubmissionError.FullyCovered);
 
+        NativePathIntersectionPlan intersectionPlan = PlanNativePathIntersections(segments);
         EntitySnapshot entitiesBefore = CaptureEntitySnapshot();
+        ApplyExistingEdgeSplits(intersectionPlan);
         var group = new RoadGroup(NextID(), RoadType.Street);
         _groups.Add(group.ID, group);
 
@@ -28,11 +30,20 @@ public partial class RoadGraph
             if (coveredSegments[index])
                 continue;
 
-            RoadGeometrySegment segment = segments[index];
-            GraphNode nodeA = GetOrCreateNode(segment.Start);
-            GraphNode nodeB = GetOrCreateNode(segment.End);
-            if (AddEdge(nodeA, nodeB, new[] { segment }, group.ID, RoadType.Street) is not null)
-                anyAdded = true;
+            foreach (RoadGeometrySubsegment subsegment in SubdivideIncomingSegment(
+                         segments[index],
+                         intersectionPlan.IncomingSplitParameters[index]))
+            {
+                GraphNode nodeA = GetOrCreateExactNode(subsegment.Geometry.Start);
+                GraphNode nodeB = GetOrCreateExactNode(subsegment.Geometry.End);
+                if (AddEdge(
+                        nodeA,
+                        nodeB,
+                        new[] { subsegment.Geometry },
+                        group.ID,
+                        RoadType.Street) is not null)
+                    anyAdded = true;
+            }
         }
 
         if (!anyAdded)
