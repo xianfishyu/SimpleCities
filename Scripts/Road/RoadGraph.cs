@@ -63,6 +63,7 @@ public class RoadGraph : ISaveable
         if (IsPathFullyCovered(path))
             return RoadPathSubmissionResult.Rejected(RoadPathSubmissionError.FullyCovered);
 
+        EntitySnapshot entitiesBefore = CaptureEntitySnapshot();
         path = ResolveIntersections(path);
         SplitEdgesAtPathAnchors(path);
         path = InsertExistingNodeAnchors(path);
@@ -107,8 +108,26 @@ public class RoadGraph : ISaveable
         if (_groups.TryGetValue(group.ID, out var maybeEmpty) && maybeEmpty.IsEmpty)
             _groups.Remove(group.ID);
 
-        return RoadPathSubmissionResult.Succeeded(group.ID);
+        return RoadPathSubmissionResult.Succeeded(group.ID, DescribeChanges(entitiesBefore));
     }
+
+    private EntitySnapshot CaptureEntitySnapshot() => new(
+        [.. _nodes.Keys],
+        [.. _edges.Keys],
+        [.. _groups.Keys]);
+
+    private RoadGraphChangeSummary DescribeChanges(EntitySnapshot before) => new(
+        _nodes.Keys.Except(before.NodeIDs),
+        _edges.Keys.Except(before.EdgeIDs),
+        _groups.Keys.Except(before.GroupIDs),
+        before.NodeIDs.Except(_nodes.Keys),
+        before.EdgeIDs.Except(_edges.Keys),
+        before.GroupIDs.Except(_groups.Keys));
+
+    private readonly record struct EntitySnapshot(
+        HashSet<int> NodeIDs,
+        HashSet<int> EdgeIDs,
+        HashSet<int> GroupIDs);
 
     public bool RemoveEdge(int edgeID) => RemoveEdge(edgeID, suppressMerge: true);
 
