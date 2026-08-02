@@ -253,68 +253,21 @@ public partial class RoadGraph : ISaveable
     private void SplitEdgeAtPosition(int edgeID, Vector2 splitPos)
     {
         if (!_edges.TryGetValue(edgeID, out var edge)) return;
-
-        var fullPath = edge.GetFullPath(GetNode);
-        if (fullPath.Length < 2) return;
-
-        int hitIndex = FindSubSegmentContaining(fullPath, splitPos);
-
-        // If splitPos matches an interior waypoint exactly (sub-segment boundary),
-        // FindSubSegmentContaining won't find it. Detect by direct point match.
-        if (hitIndex < 0)
+        for (int segmentIndex = 0; segmentIndex < edge.GeometrySegments.Count; segmentIndex++)
         {
-            for (int i = 1; i < fullPath.Length - 1; i++)
-            {
-                if (fullPath[i].DistanceSquaredTo(splitPos) < GeometryEpsilon)
-                {
-                    // Split at waypoint index i: left = fullPath[0..i], right = fullPath[i..end]
-                    var leftPts = new List<Vector2>();
-                    var rightPts = new List<Vector2>();
-                    for (int k = 1; k < i; k++)
-                        leftPts.Add(fullPath[k]);
-                    for (int k = i + 1; k < fullPath.Length - 1; k++)
-                        rightPts.Add(fullPath[k]);
+            RoadGeometrySegment geometry = edge.GeometrySegments[segmentIndex];
+            if (!geometry.TryFindPointOnGeometry(
+                    splitPos,
+                    out RoadGeometryPointHit hit,
+                    Mathf.Sqrt(GeometryEpsilon),
+                    GeometryParameterTolerance))
+                continue;
 
-                    int groupID = edge.GroupID;
-                    RoadType type = edge.Type;
-                    var start = fullPath[0];
-                    var end = fullPath[^1];
-
-                    RemoveEdge(edge.ID, suppressMerge: true);
-
-                    var splitNode = GetOrCreateNode(splitPos);
-                    var nodeA = GetOrCreateNode(start);
-                    var nodeB = GetOrCreateNode(end);
-
-                    AddEdge(nodeA, splitNode, leftPts.ToArray(), groupID, type);
-                    AddEdge(splitNode, nodeB, rightPts.ToArray(), groupID, type);
-                    return;
-                }
-            }
-            return; // splitPos not found anywhere on this edge
+            SplitEdgeAtGeometryParameters(
+                edgeID,
+                [new EdgeGeometrySplitPoint(segmentIndex, hit.Parameter)]);
+            return;
         }
-
-        var leftPoints = new List<Vector2>();
-        var rightPoints = new List<Vector2>();
-
-        for (int i = 1; i <= hitIndex; i++)
-            leftPoints.Add(fullPath[i]);
-        for (int i = hitIndex + 1; i < fullPath.Length - 1; i++)
-            rightPoints.Add(fullPath[i]);
-
-        int grpID = edge.GroupID;
-        RoadType edgeType = edge.Type;
-        var pathStart = fullPath[0];
-        var pathEnd = fullPath[^1];
-
-        RemoveEdge(edge.ID, suppressMerge: true);
-
-        var split = GetOrCreateNode(splitPos);
-        var nA = GetOrCreateNode(pathStart);
-        var nB = GetOrCreateNode(pathEnd);
-
-        AddEdge(nA, split, leftPoints.ToArray(), grpID, edgeType);
-        AddEdge(split, nB, rightPoints.ToArray(), grpID, edgeType);
     }
 
     private GraphNode GetOrCreateNode(Vector2 pos)
