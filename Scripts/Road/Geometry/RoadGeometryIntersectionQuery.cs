@@ -32,7 +32,93 @@ public sealed class RoadGeometryIntersectionResult
 public static class RoadGeometryIntersectionQuery
 {
     private const int MaxSubdivisionDepth = 24;
+    private const int MaxPairSubdivisionDepth = 48;
     private const float TangentCrossTolerance = 1e-3f;
+
+    public static RoadGeometryIntersectionResult FindIntersections(
+        RoadGeometrySegment first,
+        RoadGeometrySegment second,
+        float spatialTolerance = 1e-3f,
+        float endpointParameterTolerance = 1e-4f)
+    {
+        ArgumentNullException.ThrowIfNull(first);
+        ArgumentNullException.ThrowIfNull(second);
+        ValidateTolerances(spatialTolerance, endpointParameterTolerance);
+
+        if (first is LineRoadGeometrySegment firstLine)
+            return FindLineIntersections(
+                firstLine, second, spatialTolerance, endpointParameterTolerance);
+        if (second is LineRoadGeometrySegment secondLine)
+            return SwapResult(FindLineIntersections(
+                secondLine, first, spatialTolerance, endpointParameterTolerance));
+        if (RoadGeometrySerializer.Serialize(first) == RoadGeometrySerializer.Serialize(second))
+            return new RoadGeometryIntersectionResult([], hasOverlap: true);
+
+        var candidates = new List<RoadGeometryIntersection>();
+        var stack = new Stack<PairSearchInterval>();
+        stack.Push(new PairSearchInterval(first, 0f, 1f, second, 0f, 1f, 0));
+
+        while (stack.TryPop(out PairSearchInterval interval))
+        {
+            if (!BoundsOverlap(
+                    interval.First.Bounds,
+                    interval.Second.Bounds,
+                    spatialTolerance))
+                continue;
+
+            float firstSize = MaxDimension(interval.First.Bounds);
+            float secondSize = MaxDimension(interval.Second.Bounds);
+            bool converged = (firstSize <= spatialTolerance && secondSize <= spatialTolerance) ||
+                             (interval.FirstParameterEnd - interval.FirstParameterStart <= 1e-6f &&
+                              interval.SecondParameterEnd - interval.SecondParameterStart <= 1e-6f) ||
+                             interval.Depth >= MaxPairSubdivisionDepth;
+            if (converged)
+            {
+                TryAddPairLeafHit(
+                    first,
+                    second,
+                    interval,
+                    spatialTolerance,
+                    endpointParameterTolerance,
+                    candidates);
+                continue;
+            }
+
+            if (firstSize >= secondSize)
+            {
+                RoadGeometrySplit split = interval.First.Split(0.5f);
+                float midpoint = (interval.FirstParameterStart + interval.FirstParameterEnd) * 0.5f;
+                stack.Push(interval.WithFirst(
+                    split.After, midpoint, interval.FirstParameterEnd));
+                stack.Push(interval.WithFirst(
+                    split.Before, interval.FirstParameterStart, midpoint));
+            }
+            else
+            {
+                RoadGeometrySplit split = interval.Second.Split(0.5f);
+                float midpoint = (interval.SecondParameterStart + interval.SecondParameterEnd) * 0.5f;
+                stack.Push(interval.WithSecond(
+                    split.After, midpoint, interval.SecondParameterEnd));
+                stack.Push(interval.WithSecond(
+                    split.Before, interval.SecondParameterStart, midpoint));
+            }
+        }
+
+        List<RoadGeometryIntersection> intersections = CoalescePairHits(
+            first,
+            second,
+            candidates,
+            spatialTolerance,
+            endpointParameterTolerance);
+        intersections.Sort((left, right) =>
+        {
+            int firstOrder = left.FirstParameter.CompareTo(right.FirstParameter);
+            return firstOrder != 0
+                ? firstOrder
+                : left.SecondParameter.CompareTo(right.SecondParameter);
+        });
+        return new RoadGeometryIntersectionResult(intersections, hasOverlap: false);
+    }
 
     public static RoadGeometryIntersectionResult FindLineIntersections(
         LineRoadGeometrySegment line,
@@ -160,6 +246,104 @@ public static class RoadGeometryIntersectionQuery
             position,
             RoadGeometryIntersectionKind.EndpointTouch);
         return new RoadGeometryIntersectionResult([endpointHit], hasOverlap: false);
+    }
+
+    private static RoadGeometryIntersectionResult SwapResult(
+        RoadGeometryIntersectionResult result)
+    {
+        var swapped = new List<RoadGeometryIntersection>(result.Intersections.Count);
+        foreach (RoadGeometryIntersection intersection in result.Intersections)
+        {
+            swapped.Add(new RoadGeometryIntersection(
+                intersection.SecondParameter,
+                intersection.FirstParameter,
+                intersection.Position,
+                intersection.Kind));
+        }
+        return new RoadGeometryIntersectionResult(swapped, result.HasOverlap);
+    }
+
+    private static void TryAddPairLeafHit(
+        RoadGeometrySegment first,
+        RoadGeometrySegment second,
+        PairSearchInterval interval,
+        float spatialTolerance,
+        float endpointParameterTolerance,
+        List<RoadGeometryIntersection> candidates)
+    {
+        float firstParameter =
+            (interval.FirstParameterStart + interval.FirstParameterEnd) * 0.5f;
+        float secondParameter =
+            (interval.SecondParameterStart + interval.SecondParameterEnd) * 0.5f;
+        Vector2 firstPosition = first.GetPosition(firstParameter);
+        Vector2 secondPosition = second.GetPosition(secondParameter);
+        if (firstPosition.DistanceSquaredTo(secondPosition) > spatialTolerance * spatialTolerance)
+            return;
+
+        candidates.Add(CreateHit(
+            first,
+            second,
+            firstParameter,
+            secondParameter,
+            endpointParameterTolerance));
+    }
+
+    private static List<RoadGeometryIntersection> CoalescePairHits(
+        RoadGeometrySegment first,
+        RoadGeometrySegment second,
+        List<RoadGeometryIntersection> candidates,
+        float spatialTolerance,
+        float endpointParameterTolerance)
+    {
+        if (candidates.Count <= 1)
+            return candidates;
+
+        float firstTolerance = ParameterClusterTolerance(first, spatialTolerance);
+        float secondTolerance = ParameterClusterTolerance(second, spatialTolerance);
+        var visited = new bool[candidates.Count];
+        var result = new List<RoadGeometryIntersection>();
+        var queue = new Queue<int>();
+
+        for (int start = 0; start < candidates.Count; start++)
+        {
+            if (visited[start]) continue;
+            visited[start] = true;
+            queue.Enqueue(start);
+            RoadGeometryIntersection best = candidates[start];
+            float bestResidual = IntersectionResidualSquared(first, second, best);
+
+            while (queue.TryDequeue(out int current))
+            {
+                RoadGeometryIntersection currentHit = candidates[current];
+                float residual = IntersectionResidualSquared(first, second, currentHit);
+                if (residual < bestResidual)
+                {
+                    best = currentHit;
+                    bestResidual = residual;
+                }
+
+                for (int candidateIndex = 0; candidateIndex < candidates.Count; candidateIndex++)
+                {
+                    if (visited[candidateIndex]) continue;
+                    RoadGeometryIntersection candidate = candidates[candidateIndex];
+                    if (Mathf.Abs(candidate.FirstParameter - currentHit.FirstParameter) <= firstTolerance &&
+                        Mathf.Abs(candidate.SecondParameter - currentHit.SecondParameter) <= secondTolerance)
+                    {
+                        visited[candidateIndex] = true;
+                        queue.Enqueue(candidateIndex);
+                    }
+                }
+            }
+
+            result.Add(CreateHit(
+                first,
+                second,
+                best.FirstParameter,
+                best.SecondParameter,
+                endpointParameterTolerance));
+        }
+
+        return result;
     }
 
     private static bool BoundsCanMeetLine(
@@ -292,6 +476,20 @@ public static class RoadGeometryIntersectionQuery
         first.GetPosition(intersection.FirstParameter).DistanceSquaredTo(
             second.GetPosition(intersection.SecondParameter));
 
+    private static bool BoundsOverlap(Rect2 first, Rect2 second, float tolerance) =>
+        first.Position.X <= second.End.X + tolerance &&
+        first.End.X + tolerance >= second.Position.X &&
+        first.Position.Y <= second.End.Y + tolerance &&
+        first.End.Y + tolerance >= second.Position.Y;
+
+    private static float MaxDimension(Rect2 bounds) =>
+        Mathf.Max(bounds.Size.X, bounds.Size.Y);
+
+    private static float ParameterClusterTolerance(
+        RoadGeometrySegment geometry,
+        float spatialTolerance) =>
+        Mathf.Max(2e-6f, spatialTolerance / Mathf.Max(geometry.Length, spatialTolerance) * 8f);
+
     private static RoadGeometryIntersection CreateHit(
         RoadGeometrySegment first,
         RoadGeometrySegment second,
@@ -341,4 +539,40 @@ public static class RoadGeometryIntersectionQuery
         float ParameterStart,
         float ParameterEnd,
         int Depth);
+
+    private readonly record struct PairSearchInterval(
+        RoadGeometrySegment First,
+        float FirstParameterStart,
+        float FirstParameterEnd,
+        RoadGeometrySegment Second,
+        float SecondParameterStart,
+        float SecondParameterEnd,
+        int Depth)
+    {
+        public PairSearchInterval WithFirst(
+            RoadGeometrySegment geometry,
+            float parameterStart,
+            float parameterEnd) =>
+            new(
+                geometry,
+                parameterStart,
+                parameterEnd,
+                Second,
+                SecondParameterStart,
+                SecondParameterEnd,
+                Depth + 1);
+
+        public PairSearchInterval WithSecond(
+            RoadGeometrySegment geometry,
+            float parameterStart,
+            float parameterEnd) =>
+            new(
+                First,
+                FirstParameterStart,
+                FirstParameterEnd,
+                geometry,
+                parameterStart,
+                parameterEnd,
+                Depth + 1);
+    }
 }
