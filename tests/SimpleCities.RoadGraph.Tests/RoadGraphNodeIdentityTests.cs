@@ -105,7 +105,7 @@ public sealed class RoadGraphNodeIdentityTests
     private static RoadGraph RestoreWithReversedNodeOrder(RoadGraph source)
     {
         var root = Assert.IsType<JsonObject>(JsonNode.Parse(SaveJson.Serialize(source.CaptureState())));
-        var nodes = Assert.IsType<JsonArray>(root["junctions"]);
+        var nodes = Assert.IsType<JsonArray>(root["nodes"]);
         var reversedNodes = nodes.Select(node => node!.DeepClone()).Reverse().ToArray();
         nodes.Clear();
         foreach (var node in reversedNodes)

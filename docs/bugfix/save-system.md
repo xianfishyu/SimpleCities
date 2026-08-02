@@ -73,6 +73,14 @@ else
 - Godot 编辑器桥接确认项目路径为当前仓库、Godot 4.7、主场景为 `MapTest`，`project.godot` 无磁盘/编辑器差异；磁盘版 `PauseMenu.tscn` 的四个视图已由编辑器有效场景树读取。
 - 当前会话未暴露 `csharp-ls`，因此没有逐文件 C# LSP 诊断；真实编译、完整 .NET 测试和 Godot 运行时契约均已通过。Headless 输出中的 Windows 根证书读取错误和缺失依赖降级警告与本修复无关，契约仍以 0 退出并输出 PASS。既有编辑器运行会话持续报告 `Remote debugger: Packet too large`，导致 live runtime 查询超时；minimal DAP `stderr` 缓冲为空，因此没有把该连接故障当作本修复的运行时通过证据。
 
+### BUG-3
+
+- `dotnet test tests/SimpleCities.RoadGraph.Tests/SimpleCities.RoadGraph.Tests.csproj --configuration Debug --no-restore --filter "FullyQualifiedName~RoadGraphPersistenceV2Tests|FullyQualifiedName~RoadGraphNodeIdentityTests|FullyQualifiedName~GraphEdgeGeometryTests"`：24 个聚焦测试全部通过。
+- `dotnet test SimpleCities.sln --configuration Debug --no-restore`：204 个测试全部通过，无失败或跳过。
+- `dotnet build SimpleCities.sln --configuration Debug --no-restore`：成功，0 个警告、0 个错误。
+- `godot --headless --path . --log-file .godot/qa-roadgraph-v2-persistence.log --script tests/godot/pause_menu_runtime_contract.gd`：输出 `PASS pause menu runtime contract`；主场景完成两轮 `autosave` 保存加载。两条未挂载 `ToolManager` 的 HUD 警告来自契约脚本既有隔离场景，与 RoadGraph 恢复无关。
+- 当前会话未暴露 `csharp-ls` MCP，逐文件 LSP 诊断被阻塞；编译器、xUnit 和 Godot 主场景运行时验证均已通过。
+
 ---
 
 <a id="save-system-bug-2"></a>
@@ -97,3 +105,29 @@ else
 ### 影响范围
 
 修复影响 `SaveManager` 的活动注册生命周期，以及 `RoadSystem`、`MainCamera` 的场景退出行为。保存格式、manifest、槽名、RoadGraph JSON 和现有 `autosave` 内容均未改变。重复 `SaveFileName` 现在会拒绝后注册者，而不是允许两个对象竞争同一文件。
+
+---
+
+<a id="save-system-bug-3"></a>
+## BUG-3：损坏的 RoadGraph 存档会在校验失败前清空活动道路图
+
+> 修复日期：2026-08-03
+> 关联事项：`save-system:0.5`、`save-system:5.3`
+
+### 症状
+
+加载包含缺失端点、悬空 Group、重复 ID、非法几何或错误 `nextID` 的道路 JSON 时，`RestoreState()` 可能先删除当前城市的全部道路，再在重建过程中抛出异常。调用方虽然会报告加载失败，但玩家加载前的有效道路图已经丢失，后续 ID 分配状态也可能改变。
+
+### 根因分析
+
+旧实现反序列化 `RoadGraphSaveData` 后立即调用 `ClearGraph()` 并写入 `_nextID`，随后才逐项创建 Node、Group 和 Edge。DTO 没有在提交前检查全局 ID 唯一性、双向 Group 成员关系、几何参数、段连续性、节点端点或 `nextID` 上界，因此任何中途异常都会暴露一个空图或部分恢复图。
+
+### 修复方案
+
+将持久化逻辑集中到 `Scripts/Road/RoadGraph.Persistence.cs`。`ParseAndValidateState()` 使用严格 `schemaVersion = 1` 的 Node/Edge/Group DTO，在临时字典中完成全部结构、引用和原生几何校验，并构造完整的 `GraphNode`、`GraphEdge`、`RoadGroup` 集合。只有临时状态全部有效时，`RestoreState()` 才清空活动图、复制实体、恢复 `_nextID`、重建邻接与空间索引并发出一次 `GraphCleared`。
+
+失败路径不再执行任何活动图写入。回归测试将恢复前后的 `CaptureState()` JSON 逐字比较，因此同时覆盖拓扑、原生曲线参数和下一 ID 分配状态；并断言失败时不发出 `GraphCleared`。
+
+### 影响范围
+
+影响 RoadGraph 道路 JSON 的捕获与恢复。新 schema 不迁移旧 `junctions/segments/roads` payload，也不保存 `RoadType`、waypoint 或派生长度；六类原生几何直接保存类型和控制参数。`SaveManager` 的 manifest、槽目录和多系统加载顺序尚未改变，整槽预检仍由 `save-system:0.4`、`0.11` 后续完成。

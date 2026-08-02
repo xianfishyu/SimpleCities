@@ -1,8 +1,8 @@
 # 存档系统待办清单
 
 > 系统 key：`save-system`
-> 复核日期：2026-08-02
-> 证据：`Scripts/Core/SaveManager.cs`、`Scripts/Core/SaveData.cs`、`Scripts/Road/RoadGraph.cs`、当前存档测试及 `docs/manuals/road-system-v2-gen.md` 附录 D。
+> 复核日期：2026-08-03
+> 证据：`Scripts/Core/SaveManager.cs`、`Scripts/Core/SaveData.cs`、`Scripts/Road/RoadGraph.Persistence.cs`、当前存档测试及 `docs/manuals/road-system-v2-gen.md` 附录 D。
 > 主导原则：第二代提供多个玩家命名的道路网络存档；道路数据独立 JSON，其他系统以后按相同注册机制扩展，但不纳入第二代保存内容。
 
 ## 状态总览
@@ -14,9 +14,9 @@
 
 | ID | 发现 | 当前状态 | 处置方式 |
 |---|---|---|---|
-| 0.3 | V2 道路 JSON 仍保存 RoadType 并包含旧格式回退 | 未完成 | 从第二代 schema 移除分级数据和旧兼容路径 |
-| 0.4 | 路网和 manifest 没有严格版本拒绝 | 未完成 | 只接受新的第二代版本，旧/缺失/未来版本安全失败 |
-| 0.5 | RoadGraph 恢复前缺少完整引用校验 | 未完成 | 临时解析、全量校验后一次提交 |
+| 0.3 | V2 道路 JSON 仍保存 RoadType 并包含旧格式回退 | 部分完成 | 新道路 schema 已移除类型；等待 `road-graph:2.7` 移除运行时契约 |
+| 0.4 | 路网和 manifest 没有严格版本拒绝 | 部分完成 | RoadGraph 已精确拒绝版本；manifest 仍待收敛 |
+| 0.5 | RoadGraph 恢复前缺少完整引用校验 | 已完成 | 临时解析、全量校验后一次提交 |
 | 0.8 | SaveManager 场景注册生命周期 | 已完成 | 保留注册和注销基线 |
 | 0.9 | SaveManager 缺少稳定自动化契约 | 未完成 | 建立道路槽位成功与失败测试 |
 | 0.10 | 文件夹槽名与玩家显示名称混为一体 | 部分完成 | 分离安全内部 ID 和玩家可命名显示名 |
@@ -25,7 +25,7 @@
 | 1.2 | 暂停菜单只固定保存/加载 autosave | 未完成 | 实现另存为、覆盖确认、加载和删除工作流 |
 | 1.3 | 没有独立自动存档策略 | 未完成 | 自动槽不得覆盖玩家命名存档 |
 | 1.4 | 当前注册对象会把镜头等状态写入同一槽 | 未完成 | 第二代只持久化 RoadGraph，同时保留未来独立 JSON 扩展点 |
-| 5.3 | 活动道路 schema 仍使用 Junction/Segment/Road 旧字段 | 未完成 | 新 V2 schema 直接使用 Node/Edge/Group，不迁移旧存档 |
+| 5.3 | 活动道路 schema 仍使用 Junction/Segment/Road 旧字段 | 已完成 | 新 V2 schema 直接使用 Node/Edge/Group，不迁移旧存档 |
 | 6.3 | 存档参考文档与最终 V2 范围不一致 | 未完成 | 同步命名槽、元数据、新 schema 和失败语义 |
 
 ### 设计覆盖矩阵
@@ -35,9 +35,9 @@
 | 设计范围 | 当前事实 | 关联待办 |
 |---|---|---|
 | 多命名存档 | SaveManager 接受 slotName，但没有列举 API、显示名模型或管理界面 | 0.9～0.10、1.1～1.3 |
-| 道路网络持久化 | RoadGraph 已有独立 JSON，但包含 RoadType 和旧 DTO 字段，失败会先清空当前图 | 0.3～0.5、0.11、5.3 |
+| 道路网络持久化 | RoadGraph 已使用严格 Node/Edge/Group schema 和事务式恢复；manifest 与整槽预检仍待完成 | 0.3～0.5、0.11、5.3 |
 | 可扩展边界 | ISaveable 注册和 manifest 文件列表已存在；当前场景同时注册 RoadGraph 与相机 | 0.8、1.4 |
-| 原生曲线 | 当前只保存 waypoint，不能恢复曲线类型和控制参数 | `road-graph:2.5`～`road-graph:2.6`、5.3 |
+| 原生曲线 | RoadGraph 已原生往返六类几何；曲线拓扑运算仍待完成 | `road-graph:2.5`～`road-graph:2.6`、5.3 |
 
 ## 执行顺序
 
@@ -52,6 +52,7 @@
   - 集成负责人：`save-system`。
   - 测试：新道路存档不包含类型字段；保存加载不依赖默认 Street；现有含 Type 的旧文件按不兼容版本拒绝。
   - 验收：第二代 schema 中不存在道路分级字段或兼容回退分支。
+  - 当前进展（2026-08-03）：`RoadGraphSaveData`、Edge 和 Group DTO 已不包含 `RoadType`、`type` 或旧格式类型回退；schema 测试锁定输出中无类型字段。运行时 `GraphEdge`、`RoadGroup` 和兼容 `AddRoad` 仍持有类型，等待 `road-graph:2.7` 后再完成本项。
   - 来源 key：`todo:item:0.3`（已按 2026-08-02 范围决定取代原 RoadType 往返回归）。
 
 <a id="save-system0.4"></a>
@@ -61,17 +62,19 @@
   - 修改：为新的 V2 manifest 和 road graph schema 设定明确版本；缺少版本、旧版本和未知未来版本都返回可诊断失败，不执行迁移。
   - 测试：当前版本、缺少版本、旧版本、未来版本及版本字段类型错误。
   - 验收：只有精确支持的版本进入数据校验；不兼容存档不会调用 RoadGraph 恢复。
+  - 当前进展（2026-08-03）：RoadGraph schema 使用 `schemaVersion = 1`，缺失、旧版、未来版和错误字段类型均在任何图变更前以 `JsonException` 拒绝；旧 `version/junctions/segments/roads` payload 不迁移。manifest 的精确版本拒绝仍未实现，因此本项保持开放。
   - 来源 key：`todo:item:0.4`。
 
 <a id="save-system0.5"></a>
 
-- [ ] **0.5 为 RoadGraph 恢复增加引用与曲线参数校验**
+- [x] **0.5 为 RoadGraph 恢复增加引用与曲线参数校验**
   - 当前问题：RestoreState 会先清空当前图，再信任 Node、Edge、Group 和 waypoint 数据。
   - 修改：先解析临时模型，校验 ID 唯一性、端点、邻接/Group 引用、NextID、有限数值、几何段类型和控制参数，全部通过后一次替换当前图。
-  - 依赖：`road-graph:2.5`、`road-graph:4.1`。
+  - 依赖：使用 `road-graph:2.5` 已完成的几何序列化契约；加载事务已独立验证，不再依赖删除事务 `road-graph:4.1`。
   - 集成负责人：`save-system`。
   - 测试：缺失端点、重复 ID、悬空引用、非法曲线类型、NaN/Infinity、退化曲线和错误 NextID。
   - 验收：任何损坏存档失败后，加载前的道路拓扑、曲线参数和 ID 分配状态完全不变。
+  - 完成证据（2026-08-03）：`RoadGraph.Persistence.cs` 在临时 Node/Edge/Group 字典中校验全局 ID 唯一性、有限坐标、端点与 Group 引用、双向 Group 成员关系、孤立节点、原生几何版本/类型/参数、段连续性、节点端点和 `nextID`，全部成功后才清空并一次提交。`RoadGraphPersistenceV2Tests` 覆盖重复/跨类型 ID、悬空引用、成员不一致、非法与退化几何、非有限坐标、连续性/端点错误和错误 `nextID`；失败后序列化状态与 `GraphCleared` 计数保持不变。解决方案测试 204/204、构建 0 警告/0 错误，Godot 主场景暂停菜单契约两轮保存加载通过。
   - 来源 key：`todo:item:0.5`。
 
 <a id="save-system0.8"></a>
@@ -148,13 +151,14 @@
 
 <a id="save-system5.3"></a>
 
-- [ ] **5.3 让新第二代道路 schema 使用 Node、Edge 和 Group 命名**
+- [x] **5.3 让新第二代道路 schema 使用 Node、Edge 和 Group 命名**
   - 当前问题：活动 JSON 仍使用 junctions、segments、roads、FromJunctionID 和 RoadID 等旧字段。
   - 修改：新 V2 schema 直接使用 nodes、edges、groups 和对应 ID 字段，并保存原生曲线段类型及控制参数；不提供旧 JSON 字段迁移。
   - 依赖：`road-graph:2.5`、`save-system:0.4`。
   - 集成负责人：`save-system`。
   - 测试：新 schema 往返、旧字段文件拒绝、曲线参数往返和未知几何段拒绝。
   - 验收：新存档公共语义统一，旧存档明确失败而不是部分读取。
+  - 完成证据（2026-08-03）：新 JSON 只使用 `schemaVersion`、`nextID`、`nodes`、`edges`、`groups`、`nodeAID`、`nodeBID`、`groupID`、`geometry` 和 `edgeIDs`；Edge 的每个原生几何段使用版本化 `RoadGeometryData` 保存类型与控制参数。测试完成 line、cubic Bézier、cubic Hermite、circular arc、clothoid、rational quadratic 六类语义往返，并拒绝旧字段与未知几何类型。解决方案测试 204/204、构建 0 警告/0 错误。
   - 来源 key：`todo:item:5.3`。
 
 ### 阶段 6：同步存档文档
@@ -184,6 +188,8 @@
 
 - [x] **SaveManager 已支持 ISaveable 注册/注销和每系统独立文件名。**
 - [x] **单文件保存使用临时文件后替换。** 后续修改必须继续保证失败不会把半写入 JSON 暴露为有效槽位。
+- [x] **RoadGraph 损坏 payload 不得改变活动图。** 恢复必须先完成 schema、引用、成员关系、几何和 `nextID` 全量校验，再一次提交并发出 `GraphCleared`。
+- [x] **第二代道路 JSON 使用 Node/Edge/Group 与原生几何参数。** 不得重新写入旧 Junction/Segment/Road、waypoint、长度或 RoadType 字段。
 
 ## 完成标准
 

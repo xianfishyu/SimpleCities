@@ -2,10 +2,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 
-public class RoadGraph : ISaveable
+public partial class RoadGraph : ISaveable
 {
     private const float SnapRadius = 0.5f;
     private const float GeometryEpsilon = 1e-4f;
@@ -206,68 +204,6 @@ public class RoadGraph : ISaveable
     public IEnumerable<GraphEdge> GetAllEdges() => _edges.Values;
     public IEnumerable<GraphNode> GetAllNodes() => _nodes.Values;
     public IEnumerable<RoadGroup> GetAllGroups() => _groups.Values;
-
-    public object CaptureState()
-    {
-        var data = new RoadGraphSaveData
-        {
-            Version = 2,
-            NextID = _nextID,
-        };
-
-        foreach (var node in _nodes.Values)
-        {
-            data.Junctions.Add(new JunctionData
-            {
-                ID = node.ID,
-                X = node.Position.X,
-                Y = node.Position.Y,
-            });
-        }
-
-        foreach (var edge in _edges.Values)
-        {
-            var segmentData = new SegmentData
-            {
-                ID = edge.ID,
-                FromJunctionID = edge.NodeA,
-                ToJunctionID = edge.NodeB,
-                RoadID = edge.GroupID,
-                TotalLength = edge.Length,
-                Type = (int)edge.Type,
-            };
-            foreach (var point in edge.InternalPoints)
-                segmentData.Waypoints.Add(new Vector2Data(point));
-            data.Segments.Add(segmentData);
-        }
-
-        foreach (var group in _groups.Values)
-        {
-            data.Roads.Add(new RoadData
-            {
-                ID = group.ID,
-                SegmentIDs = group.EdgeIDs.ToList(),
-                Type = (int)group.Type,
-            });
-        }
-
-        return data;
-    }
-
-    public void RestoreState(string json)
-    {
-        var data = SaveJson.Deserialize<RoadGraphSaveData>(json);
-
-        ClearGraph();
-        _nextID = data.NextID;
-
-        RestoreFromSavedData(data);
-        RebuildNodeEdges();
-        RebuildSpatialIndex();
-        EnsureNextIDBeyondLoadedEntities();
-
-        GraphCleared?.Invoke();
-    }
 
     private GraphEdge? AddEdge(GraphNode nodeA, GraphNode nodeB, Vector2[] points, int groupID, RoadType type)
     {
@@ -858,63 +794,6 @@ public class RoadGraph : ISaveable
             InsertEdgeSpatialRefs(edge);
     }
 
-    private void RestoreFromSavedData(RoadGraphSaveData data)
-    {
-        foreach (var nodeData in data.Junctions)
-        {
-            var node = new GraphNode(nodeData.ID, new Vector2(nodeData.X, nodeData.Y));
-            _nodes[node.ID] = node;
-        }
-
-        foreach (var groupData in data.Roads)
-        {
-            var groupType = groupData.Type.HasValue ? (RoadType)groupData.Type.Value : RoadType.Street;
-            var group = new RoadGroup(groupData.ID, groupType);
-            foreach (int edgeID in groupData.SegmentIDs)
-                group.AddEdge(edgeID);
-            _groups[group.ID] = group;
-        }
-
-        foreach (var edgeData in data.Segments)
-        {
-            var points = edgeData.Waypoints.Select(p => p.ToVector2()).ToArray();
-            var nodeA = GetNode(edgeData.FromJunctionID);
-            var nodeB = GetNode(edgeData.ToJunctionID);
-            if (nodeA == null || nodeB == null)
-                throw new InvalidOperationException($"Edge {edgeData.ID} references a missing endpoint node.");
-            var geometrySegments = CreatePolylineGeometry(nodeA.Position, nodeB.Position, points);
-
-            // Edge type resolution order:
-            //   1. Explicit type on the segment (v2+ saves).
-            //   2. Owning group's type if the group carried one (v2+ saves).
-            //   3. RoadType.Street (legacy v1 saves).
-            RoadType edgeType;
-            if (edgeData.Type.HasValue)
-                edgeType = (RoadType)edgeData.Type.Value;
-            else if (_groups.TryGetValue(edgeData.RoadID, out var existingGroup))
-                edgeType = existingGroup.Type;
-            else
-                edgeType = RoadType.Street;
-
-            var edge = new GraphEdge(
-                edgeData.ID,
-                edgeData.FromJunctionID,
-                edgeData.ToJunctionID,
-                geometrySegments,
-                edgeData.RoadID,
-                edgeType
-            );
-            _edges[edge.ID] = edge;
-
-            if (!_groups.TryGetValue(edge.GroupID, out var group))
-            {
-                group = new RoadGroup(edge.GroupID, edgeType);
-                _groups[group.ID] = group;
-            }
-            group.AddEdge(edge.ID);
-        }
-    }
-
     private void ClearGraph()
     {
         _nodes.Clear();
@@ -923,15 +802,6 @@ public class RoadGraph : ISaveable
         _nodeRefs.Clear();
         _edgeRefs.Clear();
         _spatialIndex.Clear();
-    }
-
-    private void EnsureNextIDBeyondLoadedEntities()
-    {
-        int maxID = -1;
-        if (_nodes.Count > 0) maxID = Mathf.Max(maxID, _nodes.Keys.Max());
-        if (_edges.Count > 0) maxID = Mathf.Max(maxID, _edges.Keys.Max());
-        if (_groups.Count > 0) maxID = Mathf.Max(maxID, _groups.Keys.Max());
-        if (_nextID <= maxID) _nextID = maxID + 1;
     }
 
     private static RoadGeometrySegment[] CreatePolylineGeometry(
@@ -1057,21 +927,4 @@ public class RoadGraph : ISaveable
         return true;
     }
 
-    private class RoadGraphSaveData
-    {
-        [JsonPropertyName("version")]
-        public int Version { get; set; }
-
-        [JsonPropertyName("nextID")]
-        public int NextID { get; set; }
-
-        [JsonPropertyName("junctions")]
-        public List<JunctionData> Junctions { get; set; } = new();
-
-        [JsonPropertyName("segments")]
-        public List<SegmentData> Segments { get; set; } = new();
-
-        [JsonPropertyName("roads")]
-        public List<RoadData> Roads { get; set; } = new();
-    }
 }
