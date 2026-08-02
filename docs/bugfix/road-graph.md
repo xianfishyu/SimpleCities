@@ -568,3 +568,32 @@ path = InsertExistingNodeAnchors(path);
 - `dotnet test SimpleCities.sln --configuration Debug --no-build --no-restore`：59 通过、0 失败、0 跳过。
 - `dotnet build SimpleCities.sln --configuration Debug --no-restore`：0 警告、0 错误。
 - 当前会话未提供 `csharp-ls` MCP，逐文件 LSP 诊断不可用；本修复属于无场景树依赖的 RoadGraph 数据层行为，未执行 Godot 场景运行验证。
+
+---
+
+<a id="road-graph-bug-16"></a>
+## BUG-16：近似共享端点被误判为内部交叉并重建既有边
+
+### 症状
+
+已有道路端点位于 `(0,0)` 时，从几何 epsilon 内的 `(0,0.005)` 铺设一条斜穿道路，会把两端视为独立点并计算出极靠近端点的内部交叉。新增道路能够完成，但既有 Edge 被拆除并以新 ID 重建，产生不必要的拓扑和事件变更。
+
+### 根因分析
+
+`TryComputeInteriorCross` 仅使用 `Vector2 ==` 排除共享端点。两个端点只要存在任何浮点偏差，就会继续执行直线交点计算；当交点参数仍落在 `(GeometryEpsilon, 1 - GeometryEpsilon)` 内时，`ResolveIntersections` 会收集该交点并拆分既有边。该严格相等规则与 RoadGraph 其他几何位置使用距离平方 epsilon 的语义不一致。
+
+### 修复方案
+
+新增 `ArePositionsApproximatelyEqual`，统一使用 `DistanceSquaredTo < GeometryEpsilon` 判断端点近似相等。`TryComputeInteriorCross` 在计算交点前检查四种端点组合；近似共享端点直接退出，非端点内部交叉继续沿原参数和叉积逻辑处理。
+
+### 影响范围
+
+影响 `AddRoad` 的直线子段交叉解析，尤其是浮点计算或未来曲线离散入口产生的近端点坐标。平行判断、交点参数范围、节点 `SnapRadius`、存档和输入网格均未改变。
+
+## BUG-16 验证状态
+
+- 修复前 `RoadGraphRegressionTests` 21 项中 1 项失败：`0.005f` 近似共享端点导致原 Edge ID 消失；完全相同端点和真实内部交叉通过。
+- 修复后 `RoadGraphRegressionTests`：21/21 通过。
+- `dotnet test SimpleCities.sln --configuration Debug --no-build --no-restore`：63 通过、0 失败、0 跳过。
+- `dotnet build SimpleCities.sln --configuration Debug --no-restore`：0 警告、0 错误。
+- 当前会话未提供 `csharp-ls` MCP，逐文件 LSP 诊断不可用；本修复为无场景树依赖的 RoadGraph 几何逻辑，未执行 Godot 场景运行验证。

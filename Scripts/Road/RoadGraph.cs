@@ -955,11 +955,20 @@ public class RoadGraph : ISaveable
         return projection.DistanceSquaredTo(q) < GeometryEpsilon;
     }
 
+    private static bool ArePositionsApproximatelyEqual(Vector2 a, Vector2 b)
+    {
+        return a.DistanceSquaredTo(b) < GeometryEpsilon;
+    }
+
     private static bool TryComputeInteriorCross(Vector2 p1, Vector2 p2, Vector2 q1, Vector2 q2, out Vector2 cross, out float t)
     {
         cross = default;
         t = 0f;
-        if (p1 == q1 || p1 == q2 || p2 == q1 || p2 == q2) return false;
+        if (ArePositionsApproximatelyEqual(p1, q1) ||
+            ArePositionsApproximatelyEqual(p1, q2) ||
+            ArePositionsApproximatelyEqual(p2, q1) ||
+            ArePositionsApproximatelyEqual(p2, q2))
+            return false;
 
         Vector2 r = p2 - p1;
         Vector2 s = q2 - q1;

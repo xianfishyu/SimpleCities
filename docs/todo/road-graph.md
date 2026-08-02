@@ -27,7 +27,7 @@
 | <a id="road-graph9"></a>   |                                             |                                                  |                                                                |
 | 9                          | `GetNeighborIDs().Distinct()` 隐藏平行边  | 当前为设计选择                                   | 保留；明确邻居查询与边查询语义                                 |
 | <a id="road-graph10"></a>  |                                             |                                                  |                                                                |
-| 10                         | 交点判断使用严格浮点相等                    | 成立，低风险                                     | 统一改用 epsilon 判断                                          |
+| 10                         | 交点判断使用严格浮点相等                    | 已修复并有自动化回归                             | 1.3 统一使用距离平方 epsilon，并保留真实内部交叉                |
 | <a id="road-graphp1"></a>  |                                             |                                                  |                                                                |
 | P1                         | 图是节点、边和分组的唯一事实来源            | 主体已完成；一致性未自动验证                     | 保留为基线；由 0.1、0.5、4.1、4.2 验证和收紧                   |
 | <a id="road-graphp3"></a>  |                                             |                                                  |                                                                |
@@ -129,11 +129,12 @@
 
 <a id="road-graph1.3"></a>
 
-- [ ] **1.3 用 epsilon 替代交点端点的严格相等（原问题 10）**
-  - 问题：`TryComputeInteriorCross` 在 `Scripts/Road/RoadGraph.cs:913` 使用 `Vector2 ==` 排除共享端点。
+- [X] **1.3 用 epsilon 替代交点端点的严格相等（原问题 10）**
+  - 问题：`TryComputeInteriorCross` 使用 `Vector2 ==` 排除共享端点，无法识别几何 epsilon 内的近似共享端点。
   - 修改：使用统一的距离平方 epsilon 辅助函数判断端点近似重合。
   - 测试：完全相同端点、epsilon 内偏差、epsilon 外的真实内部交叉。
   - 验收：近似共享端点不产生重复交点；真实交叉仍被识别。
+  - 完成证据（2026-08-02）：`TryComputeInteriorCross` 通过 `ArePositionsApproximatelyEqual` 对四种端点组合执行 `DistanceSquaredTo < GeometryEpsilon` 判断。`AddRoad_EndpointWithinGeometryEpsilon_DoesNotSplitExistingEdge` 验证完全相同和偏移 `0.005f` 的端点不会重建既有 Edge；`AddRoad_IntersectionOutsideEndpointEpsilon_CreatesFourWayNode` 验证远离端点的真实交叉仍产生四连接节点。修复前聚焦回归 21 项中 1 项失败，修复后 21/21、解决方案测试 63/63 通过，`dotnet build SimpleCities.sln --configuration Debug --no-restore` 为 0 警告、0 错误。
   - 来源 key：`todo:item:1.3`。
 
 ### 阶段 2：解除数据层方向约束

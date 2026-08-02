@@ -148,6 +148,40 @@ public sealed class RoadGraphRegressionTests
     }
 
     [Theory]
+    [InlineData(0f)]
+    [InlineData(0.005f)]
+    public void AddRoad_EndpointWithinGeometryEpsilon_DoesNotSplitExistingEdge(float endpointOffset)
+    {
+        var graph = new RoadGraph();
+        int existingGroupID = graph.AddRoad(Vector2.Zero, new Vector2(10, 0), []);
+        int existingEdgeID = Assert.Single(
+            Assert.IsType<RoadGroup>(graph.GetGroup(existingGroupID)).EdgeIDs);
+
+        graph.AddRoad(new Vector2(0, endpointOffset), new Vector2(1, -1), []);
+
+        Assert.NotNull(graph.GetEdge(existingEdgeID));
+        Assert.Single(Assert.IsType<RoadGroup>(graph.GetGroup(existingGroupID)).EdgeIDs);
+        AssertGraphInvariants(graph);
+    }
+
+    [Fact]
+    public void AddRoad_IntersectionOutsideEndpointEpsilon_CreatesFourWayNode()
+    {
+        var graph = new RoadGraph();
+        int existingGroupID = graph.AddRoad(Vector2.Zero, new Vector2(10, 0), []);
+        int existingEdgeID = Assert.Single(
+            Assert.IsType<RoadGroup>(graph.GetGroup(existingGroupID)).EdgeIDs);
+
+        graph.AddRoad(new Vector2(0, 1), new Vector2(2, -1), []);
+
+        Assert.Null(graph.GetEdge(existingEdgeID));
+        var crossing = graph.FindClosestNode(new Vector2(1, 0), 0.001f);
+        Assert.NotNull(crossing);
+        Assert.Equal(4, crossing!.EdgeCount);
+        AssertGraphInvariants(graph);
+    }
+
+    [Theory]
     [InlineData(8f)]
     [InlineData(64f)]
     [InlineData(256f)]
