@@ -597,3 +597,32 @@ path = InsertExistingNodeAnchors(path);
 - `dotnet test SimpleCities.sln --configuration Debug --no-build --no-restore`：63 通过、0 失败、0 跳过。
 - `dotnet build SimpleCities.sln --configuration Debug --no-restore`：0 警告、0 错误。
 - 当前会话未提供 `csharp-ls` MCP，逐文件 LSP 诊断不可用；本修复为无场景树依赖的 RoadGraph 几何逻辑，未执行 Godot 场景运行验证。
+
+---
+
+<a id="road-graph-bug-17"></a>
+## BUG-17：曲线与直线内部相切被重复报告为大量交点
+
+### 症状
+
+一条 cubic Bézier 在内部参数处与直线相切时，递归交点查询把相切点附近落入空间容差带的连续叶节点分别返回，聚焦测试得到 75 个 `Crossing`，而不是一个 `Tangent`。
+
+### 根因分析
+
+`RoadGeometryIntersectionQuery.FindLineIntersections` 对每个收敛子曲线独立生成候选，只按极小的位置阈值即时去重。相切曲线在切点附近与直线的距离呈二次增长，多个相邻参数叶节点都满足空间容差；这些候选之间超过即时位置阈值，因此没有被识别为同一个几何根，且偏离精确切点的候选切线叉积仍被分类为交叉。
+
+### 修复方案
+
+候选按曲线参数排序，并依据空间容差与曲线长度推导参数归并阈值，将连续叶节点组成同一参数簇。每个簇只保留两条原生几何之间残差最小的候选，再用该候选的权威切线重新分类。独立交点之间存在不命中的参数间隔，仍形成不同簇。
+
+### 影响范围
+
+影响直线与任意原生曲线的相切结果数量和 `Tangent` 分类。直线解析交叉、直线重叠标记、曲线权威参数、显示采样和 RoadGraph 写入链均未改变。
+
+## BUG-17 验证状态
+
+- 修复前 `RoadGeometryLineIntersectionTests.LineBezier_InteriorTangencyIsClassified` 返回 75 个候选；修复后只返回一个参数接近 `0.5` 的 `Tangent`。
+- `RoadGeometryLineIntersectionTests`：15/15 通过，覆盖解析直线交叉、端点接触、重叠、平行分离、多交点、内部相切、圆弧双交点、四类一般曲线的已知参数交点及非法容差拒绝。
+- `dotnet test SimpleCities.sln --configuration Debug --no-build --no-restore`：271 通过、0 失败、0 跳过。
+- `dotnet build SimpleCities.sln --configuration Debug --no-restore`：0 警告、0 错误。
+- 当前会话未提供 `csharp-ls` MCP，逐文件 LSP 诊断不可用；本修复为纯几何查询行为，未执行 Godot 场景运行验证。

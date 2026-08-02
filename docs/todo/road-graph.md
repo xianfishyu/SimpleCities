@@ -200,7 +200,7 @@
   - 集成负责人：`road-graph`。
   - 测试：直线-曲线、Bézier-Bézier、样条、圆弧/圆锥曲线和回旋线等缓和曲线的端点接触、内部交叉、多交点、相切、重叠与无交叉。
   - 验收：交叉节点位置和拆分后的子曲线参数稳定；桥梁、隧道和高程不在本项建模，二维交叉始终连接。
-  - 当前进展（2026-08-03）：`RoadGeometrySegment.FindClosestPoint` 已提供统一的参数、位置和距离平方结果。line 使用解析投影并夹紧端点，circular arc 使用有向扫角内的径向投影并在扫角外比较端点；cubic Bézier、cubic Hermite、clothoid 和 rational quadratic 使用原生包围盒下界与同类型 `Split(0.5)` 的分支限界搜索，按请求空间容差收敛，不以显示采样为权威。等距结果稳定选择较小参数。`TryFindPointOnGeometry` 在显式空间容差内返回权威参数、位置、距离及 `Start`/`Interior`/`End` 分类，端点参数容差与空间命中容差独立。`RoadGraph.FindClosestEdge` 已接入同一权威查询，按候选 Edge 的所有原生段选取最小距离并以较小 Edge ID 决胜。最近点、点上判定与空间查询聚焦测试合计 40/40、解决方案测试 256/256、构建 0 警告/0 错误。曲线交点、重叠/相切和 RoadGraph 拆分接入仍未实现，本项保持开放。
+  - 当前进展（2026-08-03）：`RoadGeometrySegment.FindClosestPoint` 已提供统一的参数、位置和距离平方结果。line 使用解析投影并夹紧端点，circular arc 使用有向扫角内的径向投影并在扫角外比较端点；cubic Bézier、cubic Hermite、clothoid 和 rational quadratic 使用原生包围盒下界与同类型 `Split(0.5)` 的分支限界搜索，按请求空间容差收敛，不以显示采样为权威。等距结果稳定选择较小参数。`TryFindPointOnGeometry` 在显式空间容差内返回权威参数、位置、距离及 `Start`/`Interior`/`End` 分类，端点参数容差与空间命中容差独立。`RoadGeometryIntersectionQuery.FindLineIntersections` 已用解析解处理直线-直线交叉、端点接触和重叠，并以原生包围盒参数细分处理直线与其余五类几何的多交点和内部相切；连续容差叶节点按参数簇归并，返回稳定的双方参数与 `Crossing`/`Tangent`/`EndpointTouch` 分类。`RoadGraph.FindClosestEdge` 已接入统一最近点。相关几何聚焦测试合计 55/55、解决方案测试 271/271、构建 0 警告/0 错误。曲线-曲线交点、曲线重叠和 RoadGraph 拆分接入仍未实现，本项保持开放。
 
 <a id="road-graph2.7"></a>
 
