@@ -7,8 +7,12 @@ public partial class RoadGraph
         IReadOnlyList<RoadGeometrySegment> incomingSegments)
     {
         var incomingSplitParameters = new List<float>[incomingSegments.Count];
+        var incomingOverlapIntervals = new List<ParameterInterval>[incomingSegments.Count];
         for (int index = 0; index < incomingSplitParameters.Length; index++)
+        {
             incomingSplitParameters[index] = new List<float>();
+            incomingOverlapIntervals[index] = new List<ParameterInterval>();
+        }
 
         var existingEdgeSplits = new Dictionary<int, List<EdgeGeometrySplitPoint>>();
         foreach (GraphEdge edge in _edges.Values.OrderBy(edge => edge.ID))
@@ -41,11 +45,38 @@ public partial class RoadGraph
                             existingSegmentIndex,
                             intersection.SecondParameter));
                     }
+                    foreach (RoadGeometryOverlap overlap in result.Overlaps)
+                    {
+                        incomingSplitParameters[incomingSegmentIndex].Add(
+                            overlap.FirstParameterStart);
+                        incomingSplitParameters[incomingSegmentIndex].Add(
+                            overlap.FirstParameterEnd);
+                        incomingOverlapIntervals[incomingSegmentIndex].Add(new ParameterInterval(
+                            overlap.FirstParameterStart,
+                            overlap.FirstParameterEnd));
+
+                        if (!existingEdgeSplits.TryGetValue(
+                                edge.ID,
+                                out List<EdgeGeometrySplitPoint>? edgeSplitPoints))
+                        {
+                            edgeSplitPoints = new List<EdgeGeometrySplitPoint>();
+                            existingEdgeSplits.Add(edge.ID, edgeSplitPoints);
+                        }
+                        edgeSplitPoints.Add(new EdgeGeometrySplitPoint(
+                            existingSegmentIndex,
+                            overlap.SecondParameterAtFirstStart));
+                        edgeSplitPoints.Add(new EdgeGeometrySplitPoint(
+                            existingSegmentIndex,
+                            overlap.SecondParameterAtFirstEnd));
+                    }
                 }
             }
         }
 
-        return new NativePathIntersectionPlan(existingEdgeSplits, incomingSplitParameters);
+        return new NativePathIntersectionPlan(
+            existingEdgeSplits,
+            incomingSplitParameters,
+            incomingOverlapIntervals);
     }
 
     private void ApplyExistingEdgeSplits(NativePathIntersectionPlan plan)
@@ -59,16 +90,60 @@ public partial class RoadGraph
         RoadGeometrySegment geometry,
         IEnumerable<float> splitParameters)
     {
-        IEnumerable<float> interiorParameters = splitParameters.Where(parameter =>
-            !ArePositionsApproximatelyEqual(geometry.GetPosition(parameter), geometry.Start) &&
-            !ArePositionsApproximatelyEqual(geometry.GetPosition(parameter), geometry.End));
+        List<float> candidates = splitParameters
+            .Where(parameter =>
+                !ArePositionsApproximatelyEqual(geometry.GetPosition(parameter), geometry.Start) &&
+                !ArePositionsApproximatelyEqual(geometry.GetPosition(parameter), geometry.End))
+            .Order()
+            .ToList();
+        var interiorParameters = new List<float>(candidates.Count);
+        foreach (float candidate in candidates)
+        {
+            if (interiorParameters.Count > 0 &&
+                (candidate - interiorParameters[^1] <= GeometryParameterTolerance ||
+                 ArePositionsApproximatelyEqual(
+                     geometry.GetPosition(candidate),
+                     geometry.GetPosition(interiorParameters[^1]))))
+                continue;
+            interiorParameters.Add(candidate);
+        }
         return RoadGeometrySubdivision.SplitAtParameters(
             geometry,
             interiorParameters,
             GeometryParameterTolerance);
     }
 
+    private static IReadOnlyList<NativePathPiece> PlanIncomingPieces(
+        IReadOnlyList<RoadGeometrySegment> incomingSegments,
+        IReadOnlyList<bool> coveredSegments,
+        NativePathIntersectionPlan plan)
+    {
+        var pieces = new List<NativePathPiece>();
+        for (int segmentIndex = 0; segmentIndex < incomingSegments.Count; segmentIndex++)
+        {
+            foreach (RoadGeometrySubsegment subsegment in SubdivideIncomingSegment(
+                         incomingSegments[segmentIndex],
+                         plan.IncomingSplitParameters[segmentIndex]))
+            {
+                float midpoint = (subsegment.ParameterStart + subsegment.ParameterEnd) * 0.5f;
+                bool covered = coveredSegments[segmentIndex] ||
+                    plan.IncomingOverlapIntervals[segmentIndex].Any(interval =>
+                        midpoint >= interval.Start - GeometryParameterTolerance &&
+                        midpoint <= interval.End + GeometryParameterTolerance);
+                pieces.Add(new NativePathPiece(subsegment.Geometry, covered));
+            }
+        }
+        return pieces;
+    }
+
     private sealed record NativePathIntersectionPlan(
         Dictionary<int, List<EdgeGeometrySplitPoint>> ExistingEdgeSplits,
-        IReadOnlyList<List<float>> IncomingSplitParameters);
+        IReadOnlyList<List<float>> IncomingSplitParameters,
+        IReadOnlyList<List<ParameterInterval>> IncomingOverlapIntervals);
+
+    private readonly record struct ParameterInterval(float Start, float End);
+
+    private readonly record struct NativePathPiece(
+        RoadGeometrySegment Geometry,
+        bool Covered);
 }

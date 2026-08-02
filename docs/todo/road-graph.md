@@ -37,8 +37,8 @@
 | <a id="road-graphp5"></a>  |                                             |                                                  |                                                                |
 | P5                         | 最小化并可验证图不变式                      | 部分完成；自动化入口已建立，图不变式验证仍待补齐 | 由阶段 0 与阶段 4 建立校验、事务和封装边界                     |
 | <a id="road-graphapi"></a> |                                             |                                                  |                                                                |
-| API                        | 独立于 RoadBuilder 的公共路径提交契约       | 原生曲线写入、结构化失败和完整变更摘要已建立；曲线交互待集成 | 2.4、2.6 继续补交叉、重叠和拆分验收          |
-| Geometry                   | Edge 已保存原生几何并由新 V2 schema 往返    | 几何族与持久化已完成；曲线拓扑运算未完成                 | 2.5～2.6 继续完成权威拆分、交叉和查询                 |
+| API                        | 独立于 RoadBuilder 的公共路径提交契约       | 已完成                                           | `SubmitPath` 支持六类原生几何、结构化失败、交叉、重叠和完整变更摘要 |
+| Geometry                   | Edge 已保存原生几何并由新 V2 schema 往返    | 已完成                                           | 六类几何的查询、拆分、拓扑替换和持久化均保持原生语义   |
 | RoadType                   | GraphEdge/RoadGroup/API 仍包含类型字段       | 超出第二代范围                                   | 2.7 从 V2 契约移除，第三代重新引入                              |
 | V2                         | 完整系统评估                                | 等待全部前置项                                   | 7.1 负责跨图、输入、渲染和存档的最终验收                       |
 
@@ -49,16 +49,16 @@
 | <a id="road-graph8e20b5c5228b"></a> |                                                                                                       |                                     |
 | §2 P1、§3 纯图架构、§4 数据结构  | `RoadGraph`、`GraphNode`、`GraphEdge`、`RoadGroup` 已落地；仍需封装可变状态并验证跨容器一致性 | 0.1、0.5、4.1、4.2；已解决基线      |
 | <a id="road-graphadbff35eb926"></a> |                                                                                                       |                                     |
-| §2 P3、§5 SpatialIndex            | `UniformGrid` 可从图重建，但边只按端点/waypoint 索引，查询仍有全表扫描                              | 1.2、3.1～3.3                       |
+| §2 P3、§5 SpatialIndex            | `UniformGrid` 已按原生几何包围盒索引并可从图重建；覆盖与交点计划仍扫描全部 Edge                      | 1.2、3.1～3.3                       |
 | <a id="road-graph5a1f82051412"></a> |                                                                                                       |                                     |
 | §2 P4、§6.2 删除算法              | 旧位置字典和连通分量拆分已删除，但单边和整组删除仍触发`TryMergeAtNode`                              | 0.6、4.1、4.3、4.4                  |
 | <a id="road-graph07fc815075a3"></a> |                                                                                                       |                                     |
 | §2 P5 不变式最小化                 | 旧位置字典不变式已消失；节点邻接、Group、空间引用、事件和存档仍需事务性同步                           | 0.4～0.7、4.1～4.4                  |
 | <a id="road-graph6c685ce73a7e"></a> |                                                                                                       |                                     |
-| §6.1 AddRoad 与交叉/覆盖算法       | 主流程已落地；完整覆盖检查已前置，交叉与 waypoint 拆分已有修复                                        | 0.2、0.6、2.1～2.4、3.3；已解决基线 |
+| §6.1 AddRoad 与交叉/覆盖算法       | 折线兼容入口和原生 `SubmitPath` 均已落地；完整覆盖无副作用，离散交点、相切和重叠按原生参数拆分          | 0.2、0.6、2.1～2.4、3.3；已解决基线 |
 | <a id="road-graph541e1cb3f3d8"></a> |                                                                                                       |                                     |
-| §6.3、§7 查询和公共 API           | 最近节点 API 已有；最近边语义不完整；文档中的公共`AddEdge` 缺失                                     | 1.2、2.4、3.2、4.2                  |
-| 附录 D 原生曲线与 V2 API           | Edge 与存档已保留原生几何；提交、交叉、查询、删除等拓扑算法仍按折线路径工作                           | 2.4～2.7、3.1～3.3、4.1～4.4       |
+| §6.3、§7 查询和公共 API           | 最近节点、权威最近 Edge 和结构化 `SubmitPath` 已有；遍历快照与查询性能仍待收紧                         | 1.2、2.4、3.1～3.3、4.2             |
+| 附录 D 原生曲线与 V2 API           | Edge、提交、查询、交叉、重叠、拆分和存档已保持原生几何；RoadType、性能、删除事务及渲染集成仍待后续阶段 | 2.4～2.7、3.1～3.3、4.1～4.4       |
 
 ## 执行顺序
 
@@ -171,36 +171,36 @@
 
 <a id="road-graph2.4"></a>
 
-- [ ] **2.4 提供独立于 RoadBuilder 的公共路径提交 API**
+- [x] **2.4 提供独立于 RoadBuilder 的公共路径提交 API**
   - 当前问题：外部调用方只能使用面向当前折线实现的 `AddRoad(start, end, waypoints, type)`，没有统一的原生几何路径请求和结构化失败结果。
   - 修改：定义不含网格或 RoadType 的 `RoadPath`/`RoadGeometrySegment` 请求，以及包含成功状态、创建实体、变更摘要和错误原因的结果；内部边创建继续只有一条权威写入路径。
   - 依赖：`road-graph:2.5`。
   - 集成负责人：`road-graph`。
   - 测试：合法直线/曲线路径、近节点复用、自环、退化段、未知几何类型、重复覆盖、交叉、事件和失败原子性。
   - 验收：测试、未来工具和输入策略可直接提交任意合法路径；失败无副作用且原因可诊断，成功后拓扑、Group、空间索引和事件一致。
-  - 当前进展（2026-08-03）：`SubmitPolyline(IReadOnlyList<Vector2>)` 已提供无 RoadType/网格参数的结构化折线入口，覆盖非法输入与完整覆盖的无副作用拒绝，并让旧 `AddRoad` 复用权威写入链。不可变 `RoadPath` 保存原生段请求快照；`RoadPathSubmissionResult` 以 `RoadGraphChangeSummary` 返回确定排序的创建/删除 Node、Edge、Group ID。新增 `SubmitPath(RoadPath)`，在任何写图前拒绝缺失/空请求、null 段、未知运行时类型、非有限/退化段、断裂、节点身份塌缩、重复锚点和不支持的端点吸附；六类原生几何与连续复合路径可直接创建权威 Edge。Bézier、Hermite 和 rational quadratic 吸附时保持类型并调整相应控制参数；圆弧与 clothoid 只接受两端同量平移，否则结构化拒绝。重复原生曲线返回 `FullyCovered`，曲线与同端点弦不会互相误判覆盖；成功变更摘要、Edge 事件、近节点复用和 V2 存档往返均有测试。原生提交测试 12/12，路径提交与拓扑聚焦测试 34/34，最新解决方案测试 216/216、构建 0 警告/0 错误，Godot 主场景保存加载契约通过。曲线与既有道路的交叉、重叠、拆分及对应事件仍依赖 `road-graph:2.6`，本项保持开放。
+  - 完成证据（2026-08-03）：`SubmitPolyline(IReadOnlyList<Vector2>)` 提供无网格参数的结构化折线兼容入口，旧 `AddRoad` 复用同一写入链；不可变 `RoadPath` 与 `SubmitPath(RoadPath)` 可由非 UI 调用方提交六类原生几何和连续复合路径。校验在任何写图前区分缺失/空请求、null/未知段、非有限或退化几何、断裂、节点身份塌缩、重复锚点、不支持的端点吸附和完整覆盖；拒绝结果无实体、ID 或事件副作用。成功结果以 `RoadGraphChangeSummary` 确定排序地报告创建/删除 Node、Edge、Group，近节点吸附按类型保持控制参数。离散交点、相切和同向/反向重叠均通过 `road-graph:2.6` 的原生参数计划接入，拓扑、Group、空间索引、事件和 V2 存档往返一致。原生提交、交点与重叠集成测试 47/47，相关回归 105/105，解决方案测试 359/359，构建 0 警告/0 错误，Godot 主场景运行契约通过。
   - 关联引用：`tool-input:1.2`、`road-graph:6.1`。
   - 来源 key：`todo:item:2.4`。
 
 <a id="road-graph2.5"></a>
 
-- [ ] **2.5 建立保留真实语义的原生曲线几何模型**
+- [x] **2.5 建立保留真实语义的原生曲线几何模型**
   - 当前问题：GraphEdge 只保存 waypoint 数组，曲线只能被预先离散为折线，无法恢复控制点、曲率或缓和曲线参数。
   - 修改：定义可序列化的直线、Bézier、样条、圆弧/圆锥曲线和铁路常用缓和曲线段，缓和曲线至少包含回旋线/clothoid；每种段提供参数域、位置、切线、包围盒、长度和无损拆分契约。显示采样不得成为权威数据。
   - 测试：各几何段构造、有限参数校验、端点/切线连续性、长度、包围盒、拆分后重组等价和序列化往返。
   - 验收：GraphEdge 保存曲线类型与控制参数；捕获、恢复、拆分和重建后保持同一几何语义，而非只保留采样点。
-  - 当前进展（2026-08-03）：新增统一 `RoadGeometrySegment` 契约及 line、cubic Bézier、cubic Hermite、circular arc、clothoid 和 rational quadratic 实现，覆盖附录 D 要求的直线、Bézier、样条、圆弧/一般圆锥曲线和铁路回旋线。所有类型统一使用 `[0, 1]` 参数域并提供位置、单位切线、正向包围盒、长度和开放区间同类型拆分；权威数据不包含显示采样。rational quadratic 以三个控制点和三个正齐次权重表达一般圆锥曲线，解析求导数极值包围盒，以正权重凸包上下界计算长度，并通过齐次 De Casteljau 保持拆分闭包。clothoid 以弧长和线性曲率保存缓和曲线语义，一般位置使用自适应 Simpson 积分。`RoadGeometryData` 与 `RoadGeometrySerializer` 以显式版本和稳定判别字段往返全部类型，并在构造运行时对象前结构化拒绝无效数据；`GraphEdge.GeometrySegments` 以只读连续段列表保存权威运行时几何。新 `RoadGraph` V2 schema 已直接捕获每个 Edge 的原生几何段，并在严格预检后恢复；六类类型和控制参数完成双重往返，未知类型、非法参数、段不连续和节点端点不一致均安全拒绝。全部几何聚焦测试 103/103，最新解决方案测试 204/204、构建 0 警告/0 错误，Godot 主场景保存加载契约通过。存档缺口已关闭；RoadGraph 的交叉、拆分和重建路径仍未原生处理曲线，因此本项保持开放并继续由 `road-graph:2.6` 集成。
+  - 完成证据（2026-08-03）：统一 `RoadGeometrySegment` 契约及 line、cubic Bézier、cubic Hermite、circular arc、clothoid 和 rational quadratic 覆盖附录 D 的直线、Bézier、样条、圆弧/一般圆锥曲线和铁路回旋线。全部类型使用 `[0, 1]` 参数域并提供位置、单位切线、正向包围盒、长度、最近点、点上判定和保持类型的拆分；权威数据不包含显示采样。Bezier/Hermite 使用解析极值，圆弧保留有符号扫角，clothoid 保留弧长与线性曲率，rational quadratic 保留正齐次权重。`GraphEdge.GeometrySegments` 是只读连续权威几何；版本化 `RoadGeometrySerializer` 与严格 V2 RoadGraph schema 捕获、恢复全部类型和控制参数，并拒绝未知、非法、不连续或端点不一致数据。几何模型、序列化、Edge 拆分及重叠提交后存档往返均通过；解决方案测试 359/359、构建 0 警告/0 错误，Godot 主场景运行契约通过。
 
 <a id="road-graph2.6"></a>
 
-- [ ] **2.6 让拓扑操作完整支持原生曲线**
+- [x] **2.6 让拓扑操作完整支持原生曲线**
   - 当前问题：覆盖、最近点、交叉、锚点插入和拆边全部按直线子段运算，无法正确处理原生曲线。
   - 修改：基于 2.5 的统一几何接口实现曲线最近点、点上判定、曲线/曲线交点、重叠、切触和参数位置拆分；同一二维平面内的几何交叉一律创建拓扑节点。
   - 依赖：`road-graph:2.5`、`road-graph:1.3`。
   - 集成负责人：`road-graph`。
   - 测试：直线-曲线、Bézier-Bézier、样条、圆弧/圆锥曲线和回旋线等缓和曲线的端点接触、内部交叉、多交点、相切、重叠与无交叉。
   - 验收：交叉节点位置和拆分后的子曲线参数稳定；桥梁、隧道和高程不在本项建模，二维交叉始终连接。
-  - 当前进展（2026-08-03）：`RoadGeometrySegment.FindClosestPoint`、`TryFindPointOnGeometry`、`RoadGeometryIntersectionQuery.FindIntersections` 和 `RoadGeometryOverlap` 已统一提供最近点、点上参数、离散交点/相切及同向/反向重叠参数区间。直线及 Bézier、Hermite、圆弧（含整圆）、clothoid、rational quadratic 均覆盖交叉和整段/部分重叠，不把连续重叠伪装成离散交点。`RoadGeometrySubdivision.SplitAtParameters` 接受无序全局参数，忽略端点、按显式容差合并重复值，并逐次映射到剩余子曲线的局部参数；返回每个原生同类型子段及其原几何参数范围。六类几何在多参数拆分后保持端点与局部到全局参数映射。`RoadGraph.FindClosestEdge` 已接入统一最近点。新增 Edge 级 `SplitEdgeAtGeometryParameters`：将无序的段索引/局部参数归一化为整条 Edge 的有序边界，合并重复值与相邻段共享边界，忽略整条 Edge 端点，并一次替换原 Edge；替代边保留原生几何类型、端点 Node ID、Group、双向 `EdgeRef`、空间索引和 Edge 事件。旧 `SplitEdgeAtPosition` 已改用原生点上参数并复用该入口，不再通过 waypoint 折线重建曲线。`SubmitPath` 现会在写图前查询所有新旧原生段的离散交点，按既有 Edge 和新路径段分别汇总参数；既有 Edge 每条只替换一次，新路径直接由同类型子段创建 Edge。六类直线-曲线交叉、Bézier 多交点、内部相切和端点接触均形成共享拓扑节点，数值端点同时按参数与空间身份过滤，避免创建极短空拓扑。离散交点集成测试 9/9、相关回归 59/59、解决方案测试 333/333、构建 0 警告/0 错误，Godot 主场景存档运行契约通过。`SubmitPath` 尚未消费 `RoadGeometryOverlap` 的双方区间并去除已覆盖子段，因此本项保持开放。
+  - 完成证据（2026-08-03）：统一最近点、点上参数、曲线/曲线离散交点、相切及同向/反向重叠区间覆盖六类几何，连续重叠不伪装成离散命中。`RoadGeometrySubdivision` 与 Edge 级 `SplitEdgeAtGeometryParameters` 将无序段参数稳定映射为同类型子曲线，合并参数或空间身份相同的边界，忽略整条 Edge 端点，并一次替换旧 Edge；端点 Node ID、Group、双向 `EdgeRef`、空间索引和事件保持一致。`SubmitPath` 在写图前汇总新旧双方的离散交点和 overlap 区间边界；完全覆盖无副作用，部分同向/反向覆盖只创建未覆盖新子段，复合路径的覆盖边界仍拆分旧 Edge 并连接后续新几何。直线-曲线、Bézier 多交点、圆弧/圆锥曲线、Hermite、clothoid、端点接触、内部相切、同向/反向整段和部分重叠及无交点均有自动化覆盖。重叠集成测试 26/26、相关回归 105/105、解决方案测试 359/359、构建 0 警告/0 错误，Godot 主场景运行契约通过。
 
 <a id="road-graph2.7"></a>
 

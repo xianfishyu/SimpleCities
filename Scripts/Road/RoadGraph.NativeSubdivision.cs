@@ -119,7 +119,8 @@ public partial class RoadGraph
         foreach (NormalizedEdgeSplitPoint candidate in candidates)
         {
             if (normalized.Count > 0 &&
-                candidate.EdgeParameter - normalized[^1].EdgeParameter <= GeometryParameterTolerance)
+                (candidate.EdgeParameter - normalized[^1].EdgeParameter <= GeometryParameterTolerance ||
+                 ArePositionsApproximatelyEqual(candidate.Position, normalized[^1].Position)))
                 continue;
             normalized.Add(candidate);
         }

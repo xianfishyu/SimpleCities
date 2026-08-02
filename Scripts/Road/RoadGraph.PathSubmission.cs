@@ -19,31 +19,31 @@ public partial class RoadGraph
             return RoadPathSubmissionResult.Rejected(RoadPathSubmissionError.FullyCovered);
 
         NativePathIntersectionPlan intersectionPlan = PlanNativePathIntersections(segments);
+        IReadOnlyList<NativePathPiece> incomingPieces =
+            PlanIncomingPieces(segments, coveredSegments, intersectionPlan);
+        if (incomingPieces.All(piece => piece.Covered))
+            return RoadPathSubmissionResult.Rejected(RoadPathSubmissionError.FullyCovered);
+
         EntitySnapshot entitiesBefore = CaptureEntitySnapshot();
         ApplyExistingEdgeSplits(intersectionPlan);
         var group = new RoadGroup(NextID(), RoadType.Street);
         _groups.Add(group.ID, group);
 
         bool anyAdded = false;
-        for (int index = 0; index < segments.Length; index++)
+        foreach (NativePathPiece piece in incomingPieces)
         {
-            if (coveredSegments[index])
+            if (piece.Covered)
                 continue;
 
-            foreach (RoadGeometrySubsegment subsegment in SubdivideIncomingSegment(
-                         segments[index],
-                         intersectionPlan.IncomingSplitParameters[index]))
-            {
-                GraphNode nodeA = GetOrCreateExactNode(subsegment.Geometry.Start);
-                GraphNode nodeB = GetOrCreateExactNode(subsegment.Geometry.End);
-                if (AddEdge(
-                        nodeA,
-                        nodeB,
-                        new[] { subsegment.Geometry },
-                        group.ID,
-                        RoadType.Street) is not null)
-                    anyAdded = true;
-            }
+            GraphNode nodeA = GetOrCreateExactNode(piece.Geometry.Start);
+            GraphNode nodeB = GetOrCreateExactNode(piece.Geometry.End);
+            if (AddEdge(
+                    nodeA,
+                    nodeB,
+                    new[] { piece.Geometry },
+                    group.ID,
+                    RoadType.Street) is not null)
+                anyAdded = true;
         }
 
         if (!anyAdded)
