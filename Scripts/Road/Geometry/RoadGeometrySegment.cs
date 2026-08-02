@@ -24,6 +24,22 @@ public readonly record struct RoadGeometryClosestPoint(
     public float Distance => Mathf.Sqrt(DistanceSquared);
 }
 
+public enum RoadGeometryPointLocation
+{
+    Start,
+    Interior,
+    End,
+}
+
+public readonly record struct RoadGeometryPointHit(
+    float Parameter,
+    Vector2 Position,
+    float DistanceSquared,
+    RoadGeometryPointLocation Location)
+{
+    public float Distance => Mathf.Sqrt(DistanceSquared);
+}
+
 public abstract class RoadGeometrySegment
 {
     public const float ParameterStart = 0f;
@@ -78,6 +94,47 @@ public abstract class RoadGeometrySegment
         }
 
         return best;
+    }
+
+    public bool TryFindPointOnGeometry(
+        Vector2 point,
+        out RoadGeometryPointHit hit,
+        float distanceTolerance = 1e-3f,
+        float endpointParameterTolerance = 1e-4f)
+    {
+        EnsureClosestPointArguments(point, distanceTolerance);
+        if (!float.IsFinite(endpointParameterTolerance) ||
+            endpointParameterTolerance < 0f ||
+            endpointParameterTolerance >= 0.5f)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(endpointParameterTolerance),
+                endpointParameterTolerance,
+                "Endpoint parameter tolerance must be finite and in [0, 0.5)."
+            );
+        }
+
+        float searchTolerance = Mathf.Max(
+            Mathf.Min(distanceTolerance * 0.01f, 1e-4f),
+            float.Epsilon);
+        RoadGeometryClosestPoint closest = FindClosestPoint(point, searchTolerance);
+        if (closest.DistanceSquared > distanceTolerance * distanceTolerance)
+        {
+            hit = default;
+            return false;
+        }
+
+        RoadGeometryPointLocation location = closest.Parameter <= endpointParameterTolerance
+            ? RoadGeometryPointLocation.Start
+            : closest.Parameter >= ParameterEnd - endpointParameterTolerance
+                ? RoadGeometryPointLocation.End
+                : RoadGeometryPointLocation.Interior;
+        hit = new RoadGeometryPointHit(
+            closest.Parameter,
+            closest.Position,
+            closest.DistanceSquared,
+            location);
+        return true;
     }
 
     protected static void EnsureParameterInDomain(float parameter)
