@@ -38,7 +38,7 @@
 | P5                         | 最小化并可验证图不变式                      | 部分完成；自动化入口已建立，图不变式验证仍待补齐 | 由阶段 0 与阶段 4 建立校验、事务和封装边界                     |
 | <a id="road-graphapi"></a> |                                             |                                                  |                                                                |
 | API                        | 独立于 RoadBuilder 的公共路径提交契约       | 折线基础已完成；原生曲线请求尚未实现             | 2.4 等待 2.5 后补几何段、完整变更摘要和曲线路径验收            |
-| Geometry                   | Edge 只保存折线 waypoint                    | 统一契约、直线和 cubic Bézier 已完成；尚未集成 Edge | 2.5～2.6 继续实现其余曲线、序列化和权威拓扑运算              |
+| Geometry                   | Edge 只保存折线 waypoint                    | 统一契约、直线、cubic Bézier 及其序列化已完成；尚未集成 Edge | 2.5～2.6 继续实现其余曲线和权威拓扑运算              |
 | RoadType                   | GraphEdge/RoadGroup/API 仍包含类型字段       | 超出第二代范围                                   | 2.7 从 V2 契约移除，第三代重新引入                              |
 | V2                         | 完整系统评估                                | 等待全部前置项                                   | 7.1 负责跨图、输入、渲染和存档的最终验收                       |
 
@@ -188,7 +188,7 @@
   - 修改：定义可序列化的直线、Bézier、样条、圆弧/圆锥曲线和铁路常用缓和曲线段，缓和曲线至少包含回旋线/clothoid；每种段提供参数域、位置、切线、包围盒、长度和无损拆分契约。显示采样不得成为权威数据。
   - 测试：各几何段构造、有限参数校验、端点/切线连续性、长度、包围盒、拆分后重组等价和序列化往返。
   - 验收：GraphEdge 保存曲线类型与控制参数；捕获、恢复、拆分和重建后保持同一几何语义，而非只保留采样点。
-  - 当前进展（2026-08-03）：新增 `RoadGeometrySegment`、`RoadGeometryKind`、`RoadGeometrySplit`、`LineRoadGeometrySegment` 和 `CubicBezierRoadGeometrySegment`，统一使用 `[0, 1]` 参数域并提供位置、单位切线、正向包围盒、长度和开放区间无损拆分契约；权威数据不包含显示采样。cubic Bézier 保留四个控制点，通过导数根计算精确极值包围盒，以弦长/控制多边形上下界递归计算误差受控弧长，并用 De Casteljau 保留拆分后的 cubic 语义。`RoadGeometrySegmentTests` 24/24 覆盖直线和 Bézier 的有限性、参数边界、控制点、端点单侧切线、线性/二次导数极值包围盒、拆分参数映射和长度重组，解决方案测试 109/109、构建 0 警告/0 错误。样条、圆弧/圆锥曲线、回旋线、序列化及 GraphEdge 集成尚未实现，本项保持开放。
+  - 当前进展（2026-08-03）：新增 `RoadGeometrySegment`、`RoadGeometryKind`、`RoadGeometrySplit`、`LineRoadGeometrySegment` 和 `CubicBezierRoadGeometrySegment`，统一使用 `[0, 1]` 参数域并提供位置、单位切线、正向包围盒、长度和开放区间无损拆分契约；权威数据不包含显示采样。cubic Bézier 保留四个控制点，通过导数根计算精确极值包围盒，以弦长/控制多边形上下界递归计算误差受控弧长，并用 De Casteljau 保留拆分后的 cubic 语义。`RoadGeometryData` 以显式 `version` 和稳定字符串 `kind` 保存直线端点或 cubic 控制点；`RoadGeometrySerializer` 在创建运行时对象前拒绝空载荷、畸形 JSON、缺失/未知版本与类型、缺失/多余字段、非有限坐标和退化几何，失败结果不包含部分几何。几何与序列化聚焦测试 41/41、解决方案测试 126/126、构建 0 警告/0 错误。样条、圆弧/圆锥曲线、回旋线及 GraphEdge 集成尚未实现，本项保持开放。
 
 <a id="road-graph2.6"></a>
 
