@@ -7,6 +7,7 @@ public partial class RoadGraph
 {
     public RoadPathSubmissionResult SubmitPath(RoadPath? path)
     {
+        BeginMeasuredOperation();
         RoadPathSubmissionError validationError = ValidateNativePath(path);
         if (validationError != RoadPathSubmissionError.None)
             return RoadPathSubmissionResult.Rejected(validationError);
@@ -219,7 +220,7 @@ public partial class RoadGraph
             return IsNativeLineCovered(line);
 
         string serialized = SaveJson.Serialize(RoadGeometrySerializer.ToData(geometry));
-        return _edges.Values.Any(edge =>
+        return EnumerateEdgesForGeometryScan().Any(edge =>
             edge.GeometrySegments.Count == 1 &&
             SaveJson.Serialize(RoadGeometrySerializer.ToData(edge.GeometrySegments[0])) == serialized);
     }
@@ -228,7 +229,7 @@ public partial class RoadGraph
     {
         Vector2 direction = line.End - line.Start;
         var intervals = new List<(float Start, float End)>();
-        foreach (LineRoadGeometrySegment existing in _edges.Values
+        foreach (LineRoadGeometrySegment existing in EnumerateEdgesForGeometryScan()
             .SelectMany(edge => edge.GeometrySegments)
             .OfType<LineRoadGeometrySegment>())
         {

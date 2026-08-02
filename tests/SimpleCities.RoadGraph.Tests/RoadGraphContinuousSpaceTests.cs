@@ -74,4 +74,25 @@ public sealed class RoadGraphContinuousSpaceTests
         Assert.DoesNotContain("RoadType", saveData, StringComparison.Ordinal);
         Assert.False(File.Exists(Path.Combine(RoadScriptsPath, "RoadType.cs")));
     }
+
+    [Fact]
+    public void OperationMetrics_DistinguishSpatialCandidatesFromFullGeometryScans()
+    {
+        var graph = new RoadGraph();
+        graph.AddRoad(Vector2.Zero, new Vector2(10f, 0f), []);
+        graph.AddRoad(new Vector2(100f, 0f), new Vector2(110f, 0f), []);
+
+        Assert.NotNull(graph.FindClosestEdge(new Vector2(5f, 0f), 1f));
+        Assert.Equal(1, graph.LastOperationMetrics.SpatialCandidateEdgeCount);
+        Assert.Equal(0, graph.LastOperationMetrics.FullEdgeScanPassCount);
+        Assert.Equal(0, graph.LastOperationMetrics.FullEdgeVisitCount);
+
+        RoadPathSubmissionResult result = graph.SubmitPath(new RoadPath([
+            new LineRoadGeometrySegment(new Vector2(200f, 0f), new Vector2(210f, 0f))]));
+
+        Assert.True(result.Success);
+        Assert.Equal(0, graph.LastOperationMetrics.SpatialCandidateEdgeCount);
+        Assert.Equal(2, graph.LastOperationMetrics.FullEdgeScanPassCount);
+        Assert.Equal(4, graph.LastOperationMetrics.FullEdgeVisitCount);
+    }
 }

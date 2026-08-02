@@ -44,6 +44,7 @@ public partial class RoadGraph : ISaveable
 
     public RoadPathSubmissionResult SubmitPolyline(IReadOnlyList<Vector2>? points)
     {
+        BeginMeasuredOperation();
         var validationError = ValidatePolyline(points);
         if (validationError != RoadPathSubmissionError.None)
             return RoadPathSubmissionResult.Rejected(validationError);
@@ -124,10 +125,15 @@ public partial class RoadGraph : ISaveable
         HashSet<int> EdgeIDs,
         HashSet<int> GroupIDs);
 
-    public bool RemoveEdge(int edgeID) => RemoveEdge(edgeID, suppressMerge: true);
+    public bool RemoveEdge(int edgeID)
+    {
+        BeginMeasuredOperation();
+        return RemoveEdge(edgeID, suppressMerge: true);
+    }
 
     public bool RemoveRoadGroup(int groupID)
     {
+        BeginMeasuredOperation();
         if (!_groups.TryGetValue(groupID, out var group)) return false;
 
         foreach (int edgeID in group.EdgeIDs.ToList())
@@ -144,6 +150,7 @@ public partial class RoadGraph : ISaveable
 
     public GraphEdge? FindClosestEdge(Vector2 position, float maxRadius)
     {
+        BeginMeasuredOperation();
         int bestEdgeID = -1;
         float bestDistSq = maxRadius * maxRadius;
         var candidateEdgeIDs = new HashSet<int>();
@@ -153,6 +160,7 @@ public partial class RoadGraph : ISaveable
             if (TryGetEdgeID(hit, out int edgeID))
                 candidateEdgeIDs.Add(edgeID);
         }
+        RecordSpatialCandidates(candidateEdgeIDs.Count);
 
         foreach (int edgeID in candidateEdgeIDs)
         {
@@ -288,6 +296,7 @@ public partial class RoadGraph : ISaveable
             var a = path[i];
             var b = path[i + 1];
             QueryCandidateEdgeIDs(a, b, candidateEdges);
+            RecordSpatialCandidates(candidateEdges.Count);
 
             foreach (int edgeID in candidateEdges.ToList())
             {
@@ -385,7 +394,7 @@ public partial class RoadGraph : ISaveable
 
     private IEnumerable<int> FindEdgesWithWaypointAt(Vector2 pos)
     {
-        foreach (var edge in _edges.Values)
+        foreach (var edge in EnumerateEdgesForGeometryScan())
         {
             foreach (var wp in edge.InternalPoints)
             {
@@ -496,7 +505,7 @@ public partial class RoadGraph : ISaveable
 
     private IEnumerable<(Vector2 a, Vector2 b)> CollectExistingSubSegments()
     {
-        foreach (var edge in _edges.Values)
+        foreach (var edge in EnumerateEdgesForGeometryScan())
         {
             var path = edge.GetFullPath(GetNode);
             for (int i = 0; i < path.Length - 1; i++)
@@ -572,7 +581,7 @@ public partial class RoadGraph : ISaveable
 
     private IEnumerable<int> FindEdgesContainingInteriorPoint(Vector2 pos)
     {
-        foreach (var edge in _edges.Values)
+        foreach (var edge in EnumerateEdgesForGeometryScan())
         {
             var path = edge.GetFullPath(GetNode);
             if (FindSubSegmentContaining(path, pos) >= 0)
