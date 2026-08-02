@@ -22,7 +22,6 @@ public class GraphEdge
     internal Vector2[] InternalPoints => _points;
 
     public int GroupID { get; internal set; }
-    public RoadType Type { get; internal set; }
     public float Length { get; }
 
     public GraphEdge(
@@ -30,8 +29,7 @@ public class GraphEdge
         int nodeA,
         int nodeB,
         IReadOnlyList<RoadGeometrySegment> geometrySegments,
-        int groupID,
-        RoadType type)
+        int groupID)
     {
         ArgumentNullException.ThrowIfNull(geometrySegments);
         if (geometrySegments.Count == 0)
@@ -52,7 +50,6 @@ public class GraphEdge
         _readOnlyGeometrySegments = Array.AsReadOnly(_geometrySegments);
         _points = _geometrySegments.Take(_geometrySegments.Length - 1).Select(segment => segment.End).ToArray();
         GroupID = groupID;
-        Type = type;
         Length = _geometrySegments.Sum(segment => segment.Length);
     }
 

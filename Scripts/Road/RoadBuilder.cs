@@ -134,7 +134,7 @@ public partial class RoadBuilder : Node2D
             );
         }
 
-        _graph.AddRoad(_dragStartPos, endPos, waypoints, RoadType.Street);
+        _graph.AddRoad(_dragStartPos, endPos, waypoints);
         _currentLength = 0;
     }
 

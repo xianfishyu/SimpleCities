@@ -122,7 +122,7 @@ public partial class RoadGraph
                     throw new JsonException($"Group {id} contains an invalid or duplicate edge ID.");
             }
 
-            groups.Add(id, new RoadGroup(id, RoadType.Street));
+            groups.Add(id, new RoadGroup(id));
             savedGroupEdges.Add(id, edgeIDs);
         }
 
@@ -166,7 +166,7 @@ public partial class RoadGraph
             GraphEdge edge;
             try
             {
-                edge = new GraphEdge(id, nodeAID, nodeBID, geometry, groupID, RoadType.Street);
+                edge = new GraphEdge(id, nodeAID, nodeBID, geometry, groupID);
             }
             catch (ArgumentException exception)
             {

@@ -21,7 +21,7 @@
 | <a id="road-graph5"></a>   |                                             |                                                  |                                                                |
 | 5                          | `RemoveEdge` 自动清理节点导致合并补回节点 | 部分成立，属于架构债务                           | 在行为测试保护下重构删除事务                                   |
 | <a id="road-graph6"></a>   |                                             |                                                  |                                                                |
-| 6                          | `RoadGroup` 在合并时丢失用户操作语义      | 已修复并有自动化回归                             | 1.1 已锁定 Group 边界；2.7 负责从第二代契约移除 RoadType        |
+| 6                          | `RoadGroup` 在合并时丢失用户操作语义      | 已修复并有自动化回归                             | 1.1 已锁定 Group 边界；2.7 已移除第二代 RoadType 契约           |
 | <a id="road-graph7"></a>   |                                             |                                                  |                                                                |
 | 7                          | `FindClosestEdge` 只命中离散采样点        | 已完成                                           | 原生几何占据索引收集候选，并按权威最近点稳定排序                |
 | <a id="road-graph9"></a>   |                                             |                                                  |                                                                |
@@ -39,7 +39,7 @@
 | <a id="road-graphapi"></a> |                                             |                                                  |                                                                |
 | API                        | 独立于 RoadBuilder 的公共路径提交契约       | 已完成                                           | `SubmitPath` 支持六类原生几何、结构化失败、交叉、重叠和完整变更摘要 |
 | Geometry                   | Edge 已保存原生几何并由新 V2 schema 往返    | 已完成                                           | 六类几何的查询、拆分、拓扑替换和持久化均保持原生语义   |
-| RoadType                   | GraphEdge/RoadGroup/API 仍包含类型字段       | 超出第二代范围                                   | 2.7 从 V2 契约移除，第三代重新引入                              |
+| RoadType                   | GraphEdge/RoadGroup/API 曾包含类型字段       | 已完成                                           | 2.7 已从 V2 契约移除，第三代以新契约重新引入                    |
 | V2                         | 完整系统评估                                | 等待全部前置项                                   | 7.1 负责跨图、输入、渲染和存档的最终验收                       |
 
 ### 设计覆盖矩阵
@@ -58,7 +58,7 @@
 | §6.1 AddRoad 与交叉/覆盖算法       | 折线兼容入口和原生 `SubmitPath` 均已落地；完整覆盖无副作用，离散交点、相切和重叠按原生参数拆分          | 0.2、0.6、2.1～2.4、3.3；已解决基线 |
 | <a id="road-graph541e1cb3f3d8"></a> |                                                                                                       |                                     |
 | §6.3、§7 查询和公共 API           | 最近节点、权威最近 Edge 和结构化 `SubmitPath` 已有；遍历快照与查询性能仍待收紧                         | 1.2、2.4、3.1～3.3、4.2             |
-| 附录 D 原生曲线与 V2 API           | Edge、提交、查询、交叉、重叠、拆分和存档已保持原生几何；RoadType、性能、删除事务及渲染集成仍待后续阶段 | 2.4～2.7、3.1～3.3、4.1～4.4       |
+| 附录 D 原生曲线与 V2 API           | Edge、提交、查询、交叉、重叠、拆分和存档已保持原生几何，RoadType 已移除；性能、删除事务及渲染集成仍待后续阶段 | 2.4～2.7、3.1～3.3、4.1～4.4       |
 
 ## 执行顺序
 
@@ -109,9 +109,9 @@
 - [X] **1.1 禁止跨 RoadGroup 自动合并（原问题 6）**
   - 问题：自动合并不能破坏 RoadGroup 表示“一次用户提交”的语义；RoadType 已移至第三代，不再决定 V2 合并行为。
   - 修改：只有同一 Group 内满足几何连续条件的边才可合并；不同 Group 始终保留独立边和节点语义。
-  - 测试：同 Group 共线可合并；同类型或不同类型的不同 Group 均不合并。RoadType 从第二代契约移除后的回归由 `road-graph:2.7` 负责。
+  - 测试：同 Group 共线可合并；不同 Group 始终不合并；RoadType 从第二代契约移除后 Group 仍是唯一合并边界。
   - 验收：RoadGroup 始终保持用户提交边界，不会因自动合并静默消失。
-  - 完成证据（2026-08-02）：`TryMergeAtNode` 在几何合并前要求两条 Edge 的 `GroupID` 相同；`RoadGraphRegressionTests.AddRoad_CollinearSameTypeRoadsFromSeparateOperations_PreserveBothGroups` 隔离验证相同 RoadType 不会掩盖 Group 边界，原有不同 Group/Type 场景和 `AddRoad_ArbitraryAngleCollinearSegments_MergeWithinTheSameGroup` 分别验证不同 Group 保留及同 Group 合并。聚焦回归 18/18、解决方案测试 60/60 通过，`dotnet build SimpleCities.sln --configuration Debug --no-restore` 为 0 警告、0 错误。
+  - 完成证据（2026-08-03）：`TryMergeAtNode` 在几何合并前只要求两条 Edge 的 `GroupID` 相同，不存在类型分支；`RoadGraphRegressionTests` 分别验证不同 Group 保留及同 Group 共线合并。RoadType 移除批次聚焦测试 98/98、解决方案测试 359/359 通过，`dotnet build SimpleCities.sln --configuration Debug --no-restore` 为 0 警告、0 错误。
   - 关联引用：`road-graph:1.1`。
   - 来源 key：`todo:item:1.1`。
 
@@ -204,13 +204,14 @@
 
 <a id="road-graph2.7"></a>
 
-- [ ] **2.7 从第二代 RoadGraph 契约移除 RoadType**
+- [x] **2.7 从第二代 RoadGraph 契约移除 RoadType**
   - 当前问题：GraphEdge、RoadGroup、AddRoad、合并和保存均携带 RoadType，但道路分级已明确属于第三代。
   - 修改：第二代图实体、公共路径 API、合并规则、事件和存档不依赖 RoadType；第三代通过新契约和 schema 版本重新引入分级。
   - 依赖：`road-graph:2.4`。
   - 集成负责人：`road-graph`。
   - 测试：无类型参数的新增、交叉、合并、拆分、删除和保存加载；搜索第二代运行路径不再存在类型分支。
   - 验收：RoadType 不再是 V2 图状态或行为的一部分；移除后既有拓扑和统一视觉继续工作。
+  - 完成证据（2026-08-03）：删除 `RoadType.cs` 及其 UID；`GraphEdge`、`RoadGroup`、`RoadGraph.AddRoad`、`SubmitPolyline`、Edge 创建、拆分、合并、恢复和 `RoadBuilder` 均不再接收、保存或分支处理类型。`RoadGraphContinuousSpaceTests.SecondGenerationRoadRuntime_DoesNotReferenceRoadType` 扫描 `Scripts/Road/*.cs` 与 `Scripts/Core/SaveData.cs` 不含 `RoadType`，并确认旧类型源码不存在。相关聚焦测试 98/98、解决方案测试 359/359、构建 0 警告/0 错误、Godot 主场景运行契约 `PASS pause menu runtime contract`；编辑器扫描退出码 0，但既有根证书、缓存 UID、MCP 端口占用和设置写入错误使编辑器日志门禁保持受限。
 
 ### 阶段 3：消除几何查询的全图扫描
 

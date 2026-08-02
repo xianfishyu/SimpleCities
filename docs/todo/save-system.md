@@ -14,7 +14,7 @@
 
 | ID | 发现 | 当前状态 | 处置方式 |
 |---|---|---|---|
-| 0.3 | V2 道路 JSON 仍保存 RoadType 并包含旧格式回退 | 部分完成 | 新道路 schema 已移除类型；等待 `road-graph:2.7` 移除运行时契约 |
+| 0.3 | V2 道路 JSON 曾保存 RoadType 并包含旧格式回退 | 已完成 | 运行时、schema 和旧 DTO 均已移除类型与回退字段 |
 | 0.4 | 路网和 manifest 没有严格版本拒绝 | 部分完成 | RoadGraph 已精确拒绝版本；manifest 仍待收敛 |
 | 0.5 | RoadGraph 恢复前缺少完整引用校验 | 已完成 | 临时解析、全量校验后一次提交 |
 | 0.8 | SaveManager 场景注册生命周期 | 已完成 | 保留注册和注销基线 |
@@ -37,7 +37,7 @@
 | 多命名存档 | SaveManager 接受 slotName，但没有列举 API、显示名模型或管理界面 | 0.9～0.10、1.1～1.3 |
 | 道路网络持久化 | RoadGraph 已使用严格 Node/Edge/Group schema 和事务式恢复；manifest 与整槽预检仍待完成 | 0.3～0.5、0.11、5.3 |
 | 可扩展边界 | ISaveable 注册和 manifest 文件列表已存在；当前场景同时注册 RoadGraph 与相机 | 0.8、1.4 |
-| 原生曲线 | RoadGraph 已原生往返六类几何；曲线拓扑运算仍待完成 | `road-graph:2.5`～`road-graph:2.6`、5.3 |
+| 原生曲线 | RoadGraph 已原生往返六类几何，并完成交点、重叠和参数化拆分 | `road-graph:2.5`～`road-graph:2.6`、5.3 |
 
 ## 执行顺序
 
@@ -45,14 +45,14 @@
 
 <a id="save-system0.3"></a>
 
-- [ ] **0.3 从第二代道路存档移除 RoadType 数据**
+- [x] **0.3 从第二代道路存档移除 RoadType 数据**
   - 当前问题：Edge 和 Group JSON 写入 Type，恢复时还为旧存档回退 Street；道路分级已明确移至第三代。
   - 修改：第二代 RoadGraph API 和 JSON 不保存、不恢复 RoadType；第三代以后通过新 schema 版本重新引入。
   - 依赖：`road-graph:2.7`。
   - 集成负责人：`save-system`。
   - 测试：新道路存档不包含类型字段；保存加载不依赖默认 Street；现有含 Type 的旧文件按不兼容版本拒绝。
   - 验收：第二代 schema 中不存在道路分级字段或兼容回退分支。
-  - 当前进展（2026-08-03）：`RoadGraphSaveData`、Edge 和 Group DTO 已不包含 `RoadType`、`type` 或旧格式类型回退；schema 测试锁定输出中无类型字段。运行时 `GraphEdge`、`RoadGroup` 和兼容 `AddRoad` 仍持有类型，等待 `road-graph:2.7` 后再完成本项。
+  - 完成证据（2026-08-03）：`RoadGraphSaveData`、Edge 和 Group DTO 不包含 `RoadType`、`type` 或旧格式类型回退；`GraphEdge`、`RoadGroup`、兼容 `AddRoad` 和恢复链也不再持有类型。`Scripts/Core/SaveData.cs` 已删除无人引用的旧 `RoadNetworkData`、`JunctionData`、`SegmentData`、`RoadData` 和 `Vector2Data`，避免遗留 DTO 保留错误契约。源码边界测试锁定道路生产源码与存档 DTO 无 `RoadType` 且旧类型文件不存在；相关聚焦测试 98/98、解决方案测试 359/359、构建 0 警告/0 错误、Godot 主场景两轮 autosave 运行契约通过。含旧字段的 payload 继续由严格 schema 未映射字段拒绝。
   - 来源 key：`todo:item:0.3`（已按 2026-08-02 范围决定取代原 RoadType 往返回归）。
 
 <a id="save-system0.4"></a>

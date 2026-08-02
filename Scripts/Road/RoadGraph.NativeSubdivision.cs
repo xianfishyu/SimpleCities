@@ -73,13 +73,12 @@ public partial class RoadGraph
         }
 
         int groupID = edge.GroupID;
-        RoadType type = edge.Type;
         DetachEdgeForReplacement(edge);
         EdgeRemoved?.Invoke(edge);
 
         for (int index = 0; index < replacementGeometry.Count; index++)
         {
-            if (AddEdge(nodes[index], nodes[index + 1], replacementGeometry[index], groupID, type) is null)
+            if (AddEdge(nodes[index], nodes[index + 1], replacementGeometry[index], groupID) is null)
                 throw new InvalidOperationException("Edge subdivision failed to create a replacement edge.");
         }
         return true;

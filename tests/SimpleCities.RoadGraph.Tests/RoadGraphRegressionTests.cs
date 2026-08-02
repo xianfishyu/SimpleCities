@@ -5,30 +5,12 @@ namespace SimpleCities.Tests;
 public sealed class RoadGraphRegressionTests
 {
     [Fact]
-    public void AddRoad_CollinearRoadsFromSeparateOperations_PreserveBothGroupsAndTypes()
+    public void AddRoad_CollinearRoadsFromSeparateOperations_PreserveBothGroups()
     {
         var graph = new RoadGraph();
 
-        int firstGroupID = graph.AddRoad(new Vector2(-100, 0), Vector2.Zero, [], RoadType.Dirt);
-        int secondGroupID = graph.AddRoad(Vector2.Zero, new Vector2(100, 0), [], RoadType.Highway);
-
-        var firstGroup = graph.GetGroup(firstGroupID);
-        var secondGroup = graph.GetGroup(secondGroupID);
-
-        Assert.NotNull(firstGroup);
-        Assert.NotNull(secondGroup);
-        Assert.Equal(RoadType.Dirt, firstGroup!.Type);
-        Assert.Equal(RoadType.Highway, secondGroup!.Type);
-        Assert.Equal(2, graph.GetAllGroups().Count());
-    }
-
-    [Fact]
-    public void AddRoad_CollinearSameTypeRoadsFromSeparateOperations_PreserveBothGroups()
-    {
-        var graph = new RoadGraph();
-
-        int firstGroupID = graph.AddRoad(new Vector2(-100, 0), Vector2.Zero, [], RoadType.Street);
-        int secondGroupID = graph.AddRoad(Vector2.Zero, new Vector2(100, 0), [], RoadType.Street);
+        int firstGroupID = graph.AddRoad(new Vector2(-100, 0), Vector2.Zero, []);
+        int secondGroupID = graph.AddRoad(Vector2.Zero, new Vector2(100, 0), []);
 
         Assert.NotEqual(firstGroupID, secondGroupID);
         Assert.Single(Assert.IsType<RoadGroup>(graph.GetGroup(firstGroupID)).EdgeIDs);

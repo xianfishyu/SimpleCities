@@ -33,19 +33,16 @@ public partial class RoadGraph : ISaveable
 
     private int NextID() => _nextID++;
 
-    public int AddRoad(Vector2 start, Vector2 end, Vector2[] waypoints, RoadType type = RoadType.Street)
+    public int AddRoad(Vector2 start, Vector2 end, Vector2[] waypoints)
     {
         var path = new List<Vector2>(waypoints.Length + 2) { start };
         path.AddRange(waypoints);
         path.Add(end);
 
-        return SubmitPolyline(path, type).GroupID ?? -1;
+        return SubmitPolyline(path).GroupID ?? -1;
     }
 
-    public RoadPathSubmissionResult SubmitPolyline(IReadOnlyList<Vector2>? points) =>
-        SubmitPolyline(points, RoadType.Street);
-
-    private RoadPathSubmissionResult SubmitPolyline(IReadOnlyList<Vector2>? points, RoadType type)
+    public RoadPathSubmissionResult SubmitPolyline(IReadOnlyList<Vector2>? points)
     {
         var validationError = ValidatePolyline(points);
         if (validationError != RoadPathSubmissionError.None)
@@ -69,7 +66,7 @@ public partial class RoadGraph : ISaveable
         if (IsPathFullyCovered(path))
             return RoadPathSubmissionResult.Rejected(RoadPathSubmissionError.FullyCovered);
 
-        var group = new RoadGroup(NextID(), type);
+        var group = new RoadGroup(NextID());
         _groups[group.ID] = group;
 
         bool anyAdded = false;
@@ -86,7 +83,7 @@ public partial class RoadGraph : ISaveable
             var nodeB = GetOrCreateNode(b);
             if (nodeA.ID == nodeB.ID) continue;
 
-            if (AddEdge(nodeA, nodeB, Array.Empty<Vector2>(), group.ID, type) != null)
+            if (AddEdge(nodeA, nodeB, Array.Empty<Vector2>(), group.ID) != null)
             {
                 anyAdded = true;
                 touchedNodeIDs.Add(nodeA.ID);
@@ -208,10 +205,10 @@ public partial class RoadGraph : ISaveable
     public IEnumerable<GraphNode> GetAllNodes() => _nodes.Values;
     public IEnumerable<RoadGroup> GetAllGroups() => _groups.Values;
 
-    private GraphEdge? AddEdge(GraphNode nodeA, GraphNode nodeB, Vector2[] points, int groupID, RoadType type)
+    private GraphEdge? AddEdge(GraphNode nodeA, GraphNode nodeB, Vector2[] points, int groupID)
     {
         var geometrySegments = CreatePolylineGeometry(nodeA.Position, nodeB.Position, points);
-        return AddEdge(nodeA, nodeB, geometrySegments, groupID, type);
+        return AddEdge(nodeA, nodeB, geometrySegments, groupID);
     }
 
     private bool RemoveEdge(int edgeID, bool suppressMerge)
@@ -600,7 +597,7 @@ public partial class RoadGraph : ISaveable
         if (!_edges.TryGetValue(refs[0].EdgeID, out var edgeA)) return false;
         if (!_edges.TryGetValue(refs[1].EdgeID, out var edgeB)) return false;
         if (edgeA.ID == edgeB.ID) return false;
-        if (edgeA.GroupID != edgeB.GroupID || edgeA.Type != edgeB.Type) return false;
+        if (edgeA.GroupID != edgeB.GroupID) return false;
 
         var (farAID, seqAToNode) = OrientTowardsNode(edgeA, nodeID);
         var (farBID, seqBToNode) = OrientTowardsNode(edgeB, nodeID);
@@ -610,7 +607,6 @@ public partial class RoadGraph : ISaveable
         if (!AreOppositeCollinear(node.Position, seqAToNode[^2], seqBToNode[^2])) return false;
 
         int keepGroupID = edgeA.GroupID;
-        RoadType type = edgeA.Type;
         var mergedPoints = new List<Vector2>();
         for (int i = 1; i < seqAToNode.Count - 1; i++)
             mergedPoints.Add(seqAToNode[i]);
@@ -638,7 +634,7 @@ public partial class RoadGraph : ISaveable
             InsertNodeSpatialRef(farB);
         }
 
-        AddEdge(farA, farB, mergedPoints.ToArray(), keepGroupID, type);
+        AddEdge(farA, farB, mergedPoints.ToArray(), keepGroupID);
         _ = suppressMerge;
         return true;
     }

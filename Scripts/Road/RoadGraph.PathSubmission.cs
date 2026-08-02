@@ -26,7 +26,7 @@ public partial class RoadGraph
 
         EntitySnapshot entitiesBefore = CaptureEntitySnapshot();
         ApplyExistingEdgeSplits(intersectionPlan);
-        var group = new RoadGroup(NextID(), RoadType.Street);
+        var group = new RoadGroup(NextID());
         _groups.Add(group.ID, group);
 
         bool anyAdded = false;
@@ -41,8 +41,7 @@ public partial class RoadGraph
                     nodeA,
                     nodeB,
                     new[] { piece.Geometry },
-                    group.ID,
-                    RoadType.Street) is not null)
+                    group.ID) is not null)
                 anyAdded = true;
         }
 
@@ -260,18 +259,17 @@ public partial class RoadGraph
         GraphNode nodeA,
         GraphNode nodeB,
         IReadOnlyList<RoadGeometrySegment> geometrySegments,
-        int groupID,
-        RoadType type)
+        int groupID)
     {
         if (nodeA.ID == nodeB.ID)
             return null;
 
-        var edge = new GraphEdge(NextID(), nodeA.ID, nodeB.ID, geometrySegments, groupID, type);
+        var edge = new GraphEdge(NextID(), nodeA.ID, nodeB.ID, geometrySegments, groupID);
         _edges.Add(edge.ID, edge);
 
         if (!_groups.TryGetValue(groupID, out RoadGroup? group))
         {
-            group = new RoadGroup(groupID, type);
+            group = new RoadGroup(groupID);
             _groups.Add(groupID, group);
         }
         group.AddEdge(edge.ID);

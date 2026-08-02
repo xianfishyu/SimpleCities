@@ -47,7 +47,7 @@ public sealed class GraphEdgeGeometryTests
             new Vector2(10f, 2f));
         RoadGeometrySegment[] callerOwnedSegments = [cubic];
 
-        var edge = new GraphEdge(1, 2, 3, callerOwnedSegments, 4, RoadType.Street);
+        var edge = new GraphEdge(1, 2, 3, callerOwnedSegments, 4);
         callerOwnedSegments[0] = new LineRoadGeometrySegment(Vector2.Zero, Vector2.One);
 
         var stored = Assert.IsType<CubicBezierRoadGeometrySegment>(Assert.Single(edge.GeometrySegments));
@@ -87,7 +87,7 @@ public sealed class GraphEdgeGeometryTests
     public void Constructor_RejectsEmptyOrDiscontinuousGeometry()
     {
         Assert.Throws<ArgumentException>(() =>
-            new GraphEdge(1, 2, 3, [], 4, RoadType.Street));
+            new GraphEdge(1, 2, 3, [], 4));
 
         RoadGeometrySegment[] discontinuous =
         [
@@ -95,7 +95,7 @@ public sealed class GraphEdgeGeometryTests
             new LineRoadGeometrySegment(Vector2.Right, new Vector2(2f, 0f)),
         ];
         Assert.Throws<ArgumentException>(() =>
-            new GraphEdge(1, 2, 3, discontinuous, 4, RoadType.Street));
+            new GraphEdge(1, 2, 3, discontinuous, 4));
     }
 
     private static void AssertLine(RoadGeometrySegment segment, Vector2 start, Vector2 end)

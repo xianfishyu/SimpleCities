@@ -13,6 +13,8 @@ public sealed class RoadGraphContinuousSpaceTests
         "..",
         ".."));
     private static readonly string RoadGraphPath = Path.Combine(ProjectRoot, "Scripts", "Road", "RoadGraph.cs");
+    private static readonly string RoadScriptsPath = Path.Combine(ProjectRoot, "Scripts", "Road");
+    private static readonly string SaveDataPath = Path.Combine(ProjectRoot, "Scripts", "Core", "SaveData.cs");
 
     [Fact]
     public void AddRoad_ArbitraryAngleStraightLine_PreservesExactEndpoints()
@@ -58,5 +60,18 @@ public sealed class RoadGraphContinuousSpaceTests
         Assert.DoesNotContain("DirectionUtil", source, StringComparison.Ordinal);
         Assert.DoesNotContain("GridSystem", source, StringComparison.Ordinal);
         Assert.DoesNotContain("CellSize", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SecondGenerationRoadRuntime_DoesNotReferenceRoadType()
+    {
+        string roadSources = string.Join('\n',
+            Directory.EnumerateFiles(RoadScriptsPath, "*.cs", SearchOption.TopDirectoryOnly)
+                .Select(File.ReadAllText));
+        string saveData = File.ReadAllText(SaveDataPath);
+
+        Assert.DoesNotContain("RoadType", roadSources, StringComparison.Ordinal);
+        Assert.DoesNotContain("RoadType", saveData, StringComparison.Ordinal);
+        Assert.False(File.Exists(Path.Combine(RoadScriptsPath, "RoadType.cs")));
     }
 }
