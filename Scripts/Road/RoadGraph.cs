@@ -207,25 +207,8 @@ public partial class RoadGraph : ISaveable
 
     private GraphEdge? AddEdge(GraphNode nodeA, GraphNode nodeB, Vector2[] points, int groupID, RoadType type)
     {
-        if (nodeA.ID == nodeB.ID) return null;
-
         var geometrySegments = CreatePolylineGeometry(nodeA.Position, nodeB.Position, points);
-        var edge = new GraphEdge(NextID(), nodeA.ID, nodeB.ID, geometrySegments, groupID, type);
-        _edges[edge.ID] = edge;
-
-        if (!_groups.TryGetValue(groupID, out var group))
-        {
-            group = new RoadGroup(groupID, type);
-            _groups[groupID] = group;
-        }
-        group.AddEdge(edge.ID);
-
-        nodeA.AddEdge(edge.ID, nodeB.ID);
-        nodeB.AddEdge(edge.ID, nodeA.ID);
-        InsertEdgeSpatialRefs(edge);
-
-        EdgeAdded?.Invoke(edge);
-        return edge;
+        return AddEdge(nodeA, nodeB, geometrySegments, groupID, type);
     }
 
     private bool RemoveEdge(int edgeID, bool suppressMerge)

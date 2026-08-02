@@ -37,7 +37,7 @@
 | <a id="road-graphp5"></a>  |                                             |                                                  |                                                                |
 | P5                         | 最小化并可验证图不变式                      | 部分完成；自动化入口已建立，图不变式验证仍待补齐 | 由阶段 0 与阶段 4 建立校验、事务和封装边界                     |
 | <a id="road-graphapi"></a> |                                             |                                                  |                                                                |
-| API                        | 独立于 RoadBuilder 的公共路径提交契约       | RoadPath 请求和完整变更摘要已建立；原生曲线写入尚未实现 | 2.4 继续补曲线路径校验、写入和事件验收            |
+| API                        | 独立于 RoadBuilder 的公共路径提交契约       | 原生曲线写入、结构化失败和完整变更摘要已建立；曲线交互待集成 | 2.4、2.6 继续补交叉、重叠和拆分验收          |
 | Geometry                   | Edge 已保存原生几何并由新 V2 schema 往返    | 几何族与持久化已完成；曲线拓扑运算未完成                 | 2.5～2.6 继续完成权威拆分、交叉和查询                 |
 | RoadType                   | GraphEdge/RoadGroup/API 仍包含类型字段       | 超出第二代范围                                   | 2.7 从 V2 契约移除，第三代重新引入                              |
 | V2                         | 完整系统评估                                | 等待全部前置项                                   | 7.1 负责跨图、输入、渲染和存档的最终验收                       |
@@ -177,7 +177,7 @@
   - 集成负责人：`road-graph`。
   - 测试：合法直线/曲线路径、近节点复用、自环、退化段、未知几何类型、重复覆盖、交叉、事件和失败原子性。
   - 验收：测试、未来工具和输入策略可直接提交任意合法路径；失败无副作用且原因可诊断，成功后拓扑、Group、空间索引和事件一致。
-  - 当前进展（2026-08-03）：`SubmitPolyline(IReadOnlyList<Vector2>)` 已提供无 RoadType/网格参数的结构化折线入口，覆盖非法输入与完整覆盖的无副作用拒绝，并让旧 `AddRoad` 复用权威写入链。新增不可变 `RoadPath` 原生段请求快照；`RoadPathSubmissionResult` 改为只能通过内部工厂创建的 sealed record class，并以 `RoadGraphChangeSummary` 返回确定排序的创建/删除 Node、Edge、Group ID。现有折线提交按操作前后权威实体集合计算摘要，交叉拆边和合并产生的替换实体不会遗漏；失败结果始终带非空且无变化的摘要。路径提交与拓扑聚焦测试 47/47、解决方案测试 192/192、构建 0 警告/0 错误。仍缺 `SubmitPath(RoadPath)` 的原生曲线校验/写入、未知类型实际拒绝，以及曲线成功事件一致性验收，本项保持开放。
+  - 当前进展（2026-08-03）：`SubmitPolyline(IReadOnlyList<Vector2>)` 已提供无 RoadType/网格参数的结构化折线入口，覆盖非法输入与完整覆盖的无副作用拒绝，并让旧 `AddRoad` 复用权威写入链。不可变 `RoadPath` 保存原生段请求快照；`RoadPathSubmissionResult` 以 `RoadGraphChangeSummary` 返回确定排序的创建/删除 Node、Edge、Group ID。新增 `SubmitPath(RoadPath)`，在任何写图前拒绝缺失/空请求、null 段、未知运行时类型、非有限/退化段、断裂、节点身份塌缩、重复锚点和不支持的端点吸附；六类原生几何与连续复合路径可直接创建权威 Edge。Bézier、Hermite 和 rational quadratic 吸附时保持类型并调整相应控制参数；圆弧与 clothoid 只接受两端同量平移，否则结构化拒绝。重复原生曲线返回 `FullyCovered`，曲线与同端点弦不会互相误判覆盖；成功变更摘要、Edge 事件、近节点复用和 V2 存档往返均有测试。原生提交测试 12/12，路径提交与拓扑聚焦测试 34/34，最新解决方案测试 216/216、构建 0 警告/0 错误，Godot 主场景保存加载契约通过。曲线与既有道路的交叉、重叠、拆分及对应事件仍依赖 `road-graph:2.6`，本项保持开放。
   - 关联引用：`tool-input:1.2`、`road-graph:6.1`。
   - 来源 key：`todo:item:2.4`。
 

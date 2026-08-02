@@ -18,6 +18,7 @@ public enum RoadPathSubmissionError
     NullGeometrySegment,
     UnknownGeometryType,
     DiscontinuousGeometry,
+    UnsupportedEndpointSnap,
 }
 
 public sealed class RoadGraphChangeSummary
