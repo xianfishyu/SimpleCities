@@ -37,24 +37,38 @@ public class RoadGraph : ISaveable
 
     public int AddRoad(Vector2 start, Vector2 end, Vector2[] waypoints, RoadType type = RoadType.Street)
     {
-        if (start == end) return -1;
-
         var path = new List<Vector2>(waypoints.Length + 2) { start };
         path.AddRange(waypoints);
         path.Add(end);
+
+        return SubmitPolyline(path, type).GroupID ?? -1;
+    }
+
+    public RoadPathSubmissionResult SubmitPolyline(IReadOnlyList<Vector2>? points) =>
+        SubmitPolyline(points, RoadType.Street);
+
+    private RoadPathSubmissionResult SubmitPolyline(IReadOnlyList<Vector2>? points, RoadType type)
+    {
+        var validationError = ValidatePolyline(points);
+        if (validationError != RoadPathSubmissionError.None)
+            return RoadPathSubmissionResult.Rejected(validationError);
+
+        var path = points!.ToList();
 
         // Coverage check must run BEFORE any mutating step (ResolveIntersections,
         // SplitEdgesAtPathAnchors) — otherwise a fully-covered AddRoad still splits
         // existing edges at the incoming path's anchors and then returns -1, leaving
         // the graph churned. Coverage of the polyline in R² does not depend on how
         // the path is later subdivided by anchors.
-        if (IsPathFullyCovered(path)) return -1;
+        if (IsPathFullyCovered(path))
+            return RoadPathSubmissionResult.Rejected(RoadPathSubmissionError.FullyCovered);
 
         path = ResolveIntersections(path);
         SplitEdgesAtPathAnchors(path);
         path = InsertExistingNodeAnchors(path);
 
-        if (IsPathFullyCovered(path)) return -1;
+        if (IsPathFullyCovered(path))
+            return RoadPathSubmissionResult.Rejected(RoadPathSubmissionError.FullyCovered);
 
         var group = new RoadGroup(NextID(), type);
         _groups[group.ID] = group;
@@ -84,7 +98,7 @@ public class RoadGraph : ISaveable
         if (!anyAdded)
         {
             _groups.Remove(group.ID);
-            return -1;
+            return RoadPathSubmissionResult.Rejected(RoadPathSubmissionError.NoChanges);
         }
 
         foreach (int nodeID in touchedNodeIDs.ToList())
@@ -93,7 +107,7 @@ public class RoadGraph : ISaveable
         if (_groups.TryGetValue(group.ID, out var maybeEmpty) && maybeEmpty.IsEmpty)
             _groups.Remove(group.ID);
 
-        return group.ID;
+        return RoadPathSubmissionResult.Succeeded(group.ID);
     }
 
     public bool RemoveEdge(int edgeID) => RemoveEdge(edgeID, suppressMerge: true);
@@ -491,6 +505,63 @@ public class RoadGraph : ISaveable
                 }
             }
         }
+    }
+
+    private RoadPathSubmissionError ValidatePolyline(IReadOnlyList<Vector2>? path)
+    {
+        if (path == null || path.Count < 2)
+            return RoadPathSubmissionError.TooFewPoints;
+
+        foreach (var point in path)
+        {
+            if (!float.IsFinite(point.X) || !float.IsFinite(point.Y))
+                return RoadPathSubmissionError.NonFiniteCoordinate;
+        }
+
+        for (int i = 0; i < path.Count - 1; i++)
+        {
+            if (ArePositionsApproximatelyEqual(path[i], path[i + 1]))
+                return RoadPathSubmissionError.DegenerateSegment;
+
+            if (path[i].DistanceSquaredTo(path[i + 1]) <= SnapRadius * SnapRadius)
+                return RoadPathSubmissionError.CollapsedByNodeIdentity;
+
+            var nodeA = FindClosestIndexedNode(path[i], SnapRadius);
+            var nodeB = FindClosestIndexedNode(path[i + 1], SnapRadius);
+            if (nodeA != null && nodeA.ID == nodeB?.ID)
+                return RoadPathSubmissionError.CollapsedByNodeIdentity;
+        }
+
+        for (int i = 0; i < path.Count; i++)
+        for (int j = i + 2; j < path.Count; j++)
+        {
+            if (ArePositionsApproximatelyEqual(path[i], path[j]))
+                return RoadPathSubmissionError.RepeatedPoint;
+        }
+
+        for (int i = 0; i < path.Count - 2; i++)
+        {
+            if (PointOnSegmentInterior(path[i], path[i + 1], path[i + 2]) ||
+                PointOnSegmentInterior(path[i + 1], path[i + 2], path[i]))
+                return RoadPathSubmissionError.SelfIntersection;
+        }
+
+        for (int i = 0; i < path.Count - 1; i++)
+        for (int j = i + 2; j < path.Count - 1; j++)
+        {
+            var a = path[i];
+            var b = path[i + 1];
+            var c = path[j];
+            var d = path[j + 1];
+            if (TryComputeInteriorCross(a, b, c, d, out _, out _) ||
+                PointOnSegmentInteriorOrEndpoint(a, b, c) ||
+                PointOnSegmentInteriorOrEndpoint(a, b, d) ||
+                PointOnSegmentInteriorOrEndpoint(c, d, a) ||
+                PointOnSegmentInteriorOrEndpoint(c, d, b))
+                return RoadPathSubmissionError.SelfIntersection;
+        }
+
+        return RoadPathSubmissionError.None;
     }
 
     private bool IsPathFullyCovered(IReadOnlyList<Vector2> path)
