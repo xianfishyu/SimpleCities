@@ -53,6 +53,7 @@ public sealed class RoadGeometryData
     public const string CubicHermiteKind = "cubicHermite";
     public const string CircularArcKind = "circularArc";
     public const string ClothoidKind = "clothoid";
+    public const string RationalQuadraticKind = "rationalQuadratic";
 
     [JsonPropertyName("version")]
     public int? Version { get; set; }
@@ -101,6 +102,15 @@ public sealed class RoadGeometryData
 
     [JsonPropertyName("arcLength")]
     public float? ArcLength { get; set; }
+
+    [JsonPropertyName("startWeight")]
+    public float? StartWeight { get; set; }
+
+    [JsonPropertyName("controlWeight")]
+    public float? ControlWeight { get; set; }
+
+    [JsonPropertyName("endWeight")]
+    public float? EndWeight { get; set; }
 
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? ExtraFields { get; set; }
@@ -164,6 +174,17 @@ public static class RoadGeometrySerializer
                 EndCurvature = clothoid.EndCurvature,
                 ArcLength = clothoid.ArcLength,
             },
+            RationalQuadraticRoadGeometrySegment rational => new RoadGeometryData
+            {
+                Version = RoadGeometryData.CurrentVersion,
+                Kind = RoadGeometryData.RationalQuadraticKind,
+                Start = new RoadGeometryPointData(rational.Start),
+                StartWeight = rational.StartWeight,
+                Control1 = new RoadGeometryPointData(rational.Control),
+                ControlWeight = rational.ControlWeight,
+                End = new RoadGeometryPointData(rational.End),
+                EndWeight = rational.EndWeight,
+            },
             _ => throw new NotSupportedException($"Unsupported road geometry type: {geometry.GetType().Name}.")
         };
     }
@@ -206,6 +227,7 @@ public static class RoadGeometrySerializer
             RoadGeometryData.CubicHermiteKind => DeserializeCubicHermite(data),
             RoadGeometryData.CircularArcKind => DeserializeCircularArc(data),
             RoadGeometryData.ClothoidKind => DeserializeClothoid(data),
+            RoadGeometryData.RationalQuadraticKind => DeserializeRationalQuadratic(data),
             _ => Failure(RoadGeometryDataError.UnknownGeometryKind),
         };
     }
@@ -218,6 +240,8 @@ public static class RoadGeometrySerializer
         if (HasArcParameters(data))
             return Failure(RoadGeometryDataError.UnexpectedParameter);
         if (HasClothoidParameters(data))
+            return Failure(RoadGeometryDataError.UnexpectedParameter);
+        if (HasRationalParameters(data))
             return Failure(RoadGeometryDataError.UnexpectedParameter);
         if (!TryReadPoint(data.Start, out Vector2 start, out RoadGeometryDataError error) ||
             !TryReadPoint(data.End, out Vector2 end, out error))
@@ -233,6 +257,8 @@ public static class RoadGeometrySerializer
         if (HasArcParameters(data))
             return Failure(RoadGeometryDataError.UnexpectedParameter);
         if (HasClothoidParameters(data))
+            return Failure(RoadGeometryDataError.UnexpectedParameter);
+        if (HasRationalParameters(data))
             return Failure(RoadGeometryDataError.UnexpectedParameter);
         if (!TryReadPoint(data.Start, out Vector2 start, out RoadGeometryDataError error) ||
             !TryReadPoint(data.Control1, out Vector2 control1, out error) ||
@@ -251,6 +277,8 @@ public static class RoadGeometrySerializer
             return Failure(RoadGeometryDataError.UnexpectedParameter);
         if (HasClothoidParameters(data))
             return Failure(RoadGeometryDataError.UnexpectedParameter);
+        if (HasRationalParameters(data))
+            return Failure(RoadGeometryDataError.UnexpectedParameter);
         if (!TryReadPoint(data.Start, out Vector2 start, out RoadGeometryDataError error) ||
             !TryReadPoint(data.StartTangent, out Vector2 startTangent, out error) ||
             !TryReadPoint(data.End, out Vector2 end, out error) ||
@@ -268,6 +296,8 @@ public static class RoadGeometrySerializer
             return Failure(RoadGeometryDataError.UnexpectedParameter);
         if (HasClothoidParameters(data))
             return Failure(RoadGeometryDataError.UnexpectedParameter);
+        if (HasRationalParameters(data))
+            return Failure(RoadGeometryDataError.UnexpectedParameter);
         if (!TryReadPoint(data.Center, out Vector2 center, out RoadGeometryDataError error) ||
             !TryReadFinite(data.Radius, out float radius, out error) ||
             !TryReadFinite(data.StartAngle, out float startAngle, out error) ||
@@ -283,6 +313,8 @@ public static class RoadGeometrySerializer
         if (data.End is not null || data.Control1 is not null || data.Control2 is not null ||
             data.StartTangent is not null || data.EndTangent is not null || HasArcParameters(data))
             return Failure(RoadGeometryDataError.UnexpectedParameter);
+        if (HasRationalParameters(data))
+            return Failure(RoadGeometryDataError.UnexpectedParameter);
         if (!TryReadPoint(data.Start, out Vector2 start, out RoadGeometryDataError error) ||
             !TryReadFinite(data.StartHeading, out float startHeading, out error) ||
             !TryReadFinite(data.StartCurvature, out float startCurvature, out error) ||
@@ -292,6 +324,23 @@ public static class RoadGeometrySerializer
 
         return CreateGeometry(() => new ClothoidRoadGeometrySegment(
             start, startHeading, startCurvature, endCurvature, arcLength));
+    }
+
+    private static RoadGeometryDeserializationResult DeserializeRationalQuadratic(RoadGeometryData data)
+    {
+        if (data.Control2 is not null || data.StartTangent is not null || data.EndTangent is not null ||
+            HasArcParameters(data) || HasClothoidParameters(data))
+            return Failure(RoadGeometryDataError.UnexpectedParameter);
+        if (!TryReadPoint(data.Start, out Vector2 start, out RoadGeometryDataError error) ||
+            !TryReadFinite(data.StartWeight, out float startWeight, out error) ||
+            !TryReadPoint(data.Control1, out Vector2 control, out error) ||
+            !TryReadFinite(data.ControlWeight, out float controlWeight, out error) ||
+            !TryReadPoint(data.End, out Vector2 end, out error) ||
+            !TryReadFinite(data.EndWeight, out float endWeight, out error))
+            return Failure(error);
+
+        return CreateGeometry(() => new RationalQuadraticRoadGeometrySegment(
+            start, startWeight, control, controlWeight, end, endWeight));
     }
 
     private static bool TryReadPoint(
@@ -362,6 +411,9 @@ public static class RoadGeometrySerializer
     private static bool HasClothoidParameters(RoadGeometryData data) =>
         data.StartHeading is not null || data.StartCurvature is not null ||
         data.EndCurvature is not null || data.ArcLength is not null;
+
+    private static bool HasRationalParameters(RoadGeometryData data) =>
+        data.StartWeight is not null || data.ControlWeight is not null || data.EndWeight is not null;
 
     private static bool HasExtraFields(Dictionary<string, JsonElement>? fields) => fields?.Count > 0;
 

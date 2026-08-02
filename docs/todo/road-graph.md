@@ -38,7 +38,7 @@
 | P5                         | 最小化并可验证图不变式                      | 部分完成；自动化入口已建立，图不变式验证仍待补齐 | 由阶段 0 与阶段 4 建立校验、事务和封装边界                     |
 | <a id="road-graphapi"></a> |                                             |                                                  |                                                                |
 | API                        | 独立于 RoadBuilder 的公共路径提交契约       | 折线基础已完成；原生曲线请求尚未实现             | 2.4 等待 2.5 后补几何段、完整变更摘要和曲线路径验收            |
-| Geometry                   | Edge 只保存折线 waypoint                    | GraphEdge 已持有直线、Bézier、Hermite、圆弧与 clothoid；一般圆锥曲线和新存档未完成 | 2.5～2.6 继续实现一般圆锥曲线、V2 存档和权威拓扑运算              |
+| Geometry                   | Edge 只保存折线 waypoint                    | 要求的运行时几何族已完成；新 V2 曲线存档与拓扑运算未完成 | 2.5～2.6 继续完成 V2 存档和权威拓扑运算              |
 | RoadType                   | GraphEdge/RoadGroup/API 仍包含类型字段       | 超出第二代范围                                   | 2.7 从 V2 契约移除，第三代重新引入                              |
 | V2                         | 完整系统评估                                | 等待全部前置项                                   | 7.1 负责跨图、输入、渲染和存档的最终验收                       |
 
@@ -188,7 +188,7 @@
   - 修改：定义可序列化的直线、Bézier、样条、圆弧/圆锥曲线和铁路常用缓和曲线段，缓和曲线至少包含回旋线/clothoid；每种段提供参数域、位置、切线、包围盒、长度和无损拆分契约。显示采样不得成为权威数据。
   - 测试：各几何段构造、有限参数校验、端点/切线连续性、长度、包围盒、拆分后重组等价和序列化往返。
   - 验收：GraphEdge 保存曲线类型与控制参数；捕获、恢复、拆分和重建后保持同一几何语义，而非只保留采样点。
-  - 当前进展（2026-08-03）：新增 `RoadGeometrySegment`、`RoadGeometryKind`、`RoadGeometrySplit`、`LineRoadGeometrySegment`、`CubicBezierRoadGeometrySegment`、`CubicHermiteRoadGeometrySegment`、`CircularArcRoadGeometrySegment` 和 `ClothoidRoadGeometrySegment`，统一使用 `[0, 1]` 参数域并提供位置、单位切线、正向包围盒、长度和开放区间无损拆分契约；权威数据不包含显示采样。Bézier、Hermite 与圆弧分别保留各自控制参数并解析或误差受控地计算几何。clothoid 以起点、起始航向、起终曲率和正弧长保存铁路缓和曲线语义，曲率沿弧长线性变化；直线/常曲率退化使用解析积分，一般位置使用自适应 Simpson 积分，长度精确等于弧长，拆分保留位置、航向和曲率边界，包围盒由弧长给出不依赖采样的保守范围。`RoadGeometryData` 以显式 `version` 和稳定字符串 `kind` 保存各类型控制参数；`RoadGeometrySerializer` 在创建运行时对象前结构化拒绝无效数据。`GraphEdge.GeometrySegments` 以只读连续段列表保存权威运行时几何。全部几何聚焦测试 89/89、解决方案测试 174/174、构建 0 警告/0 错误。一般圆锥曲线，以及由 `save-system:0.4`、`0.5`、`5.3` 负责的新 V2 原生曲线存档仍未实现，本项保持开放。
+  - 当前进展（2026-08-03）：新增统一 `RoadGeometrySegment` 契约及 line、cubic Bézier、cubic Hermite、circular arc、clothoid 和 rational quadratic 实现，覆盖附录 D 要求的直线、Bézier、样条、圆弧/一般圆锥曲线和铁路回旋线。所有类型统一使用 `[0, 1]` 参数域并提供位置、单位切线、正向包围盒、长度和开放区间同类型拆分；权威数据不包含显示采样。rational quadratic 以三个控制点和三个正齐次权重表达一般圆锥曲线，解析求导数极值包围盒，以正权重凸包上下界计算长度，并通过齐次 De Casteljau 保持拆分闭包。clothoid 以弧长和线性曲率保存缓和曲线语义，一般位置使用自适应 Simpson 积分。`RoadGeometryData` 与 `RoadGeometrySerializer` 以显式版本和稳定判别字段往返全部类型，并在构造运行时对象前结构化拒绝无效数据；`GraphEdge.GeometrySegments` 以只读连续段列表保存权威运行时几何。全部几何聚焦测试 103/103、解决方案测试 188/188、构建 0 警告/0 错误。由 `save-system:0.4`、`0.5`、`5.3` 负责的新 V2 GraphEdge 曲线捕获/恢复仍未实现，因此本项保持开放。
 
 <a id="road-graph2.6"></a>
 

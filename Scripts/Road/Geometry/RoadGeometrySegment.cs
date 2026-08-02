@@ -8,6 +8,7 @@ public enum RoadGeometryKind
     CubicHermiteSpline,
     CircularArc,
     Clothoid,
+    RationalQuadratic,
 }
 
 public readonly record struct RoadGeometrySplit(
