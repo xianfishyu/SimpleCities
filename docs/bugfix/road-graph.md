@@ -539,3 +539,32 @@ path = InsertExistingNodeAnchors(path);
 - `godot --headless --path . --log-file .godot/qa-roadgraph-commit.log --script tests/godot/pause_menu_runtime_contract.gd`（2026-08-02，沙箱外运行）：输出 `PASS pause menu runtime contract`，验证 `MapTest` 可装载、RoadGraph 可随场景注册并参与保存/加载；两条 `ConstructionDock` 缺少 `ToolManager.Instance` 的警告来自测试在节点进入树前读取 authored 状态，不属于本组道路修复。
 - Godot MCP 可启动 `MapTest`，停止后编辑器没有新增错误，DAP `stderr` 为空；`godot_game_time step` 与 `godot_exec` 状态桥接仍超时，因此没有声明输入驱动的铺路/拆路端到端断言通过。
 - 当前会话未提供 `csharp-ls` MCP，逐文件 LSP 诊断不可用；编译器与测试项目构建已覆盖全部改动 C# 文件。
+
+---
+
+<a id="road-graph-bug-15"></a>
+## BUG-15：节点吸附在半径边界和多候选场景下选择不一致
+
+### 症状
+
+`FindClosestNode` 无法命中恰好位于查询半径边界上的节点。`AddRoad` 在新端点同时落入多个节点的 `0.5f` 吸附半径时，`GetOrCreateNode` 会复用空间索引首先枚举的节点，即使另一个候选更近；当存档中的节点恢复顺序变化时，等距候选的选择也会随插入顺序变化。
+
+### 根因分析
+
+节点查询和节点复用维护了两套不同逻辑：`FindClosestNode` 使用严格小于半径平方的比较，因此排除边界；`GetOrCreateNode` 则在 `UniformGrid.QueryRadius` 中遇到第一个 Node ref 后立即返回，没有比较全部候选的距离，也没有稳定的等距决胜规则。空间桶和字典的枚举顺序不属于节点身份契约，不能决定拓扑焊接结果。
+
+### 修复方案
+
+新增统一的 `FindClosestIndexedNode` 选择路径，由 `FindClosestNode` 和 `GetOrCreateNode` 共同使用。它检查半径内全部有效 Node ref，选择几何距离最近的节点；距离由 `Mathf.IsEqualApprox` 判定为相同时选择较小 Node ID，并允许首个候选位于半径边界。`SnapRadius` 保持 `0.5f`，不引用 `CellSize` 或 UI 网格设置。
+
+### 影响范围
+
+影响 `FindClosestNode` 查询，以及新增道路、交叉拆分和其他通过 `GetOrCreateNode` 复用节点的 RoadGraph 操作。存档 schema、节点坐标、空间索引结构和当前输入网格策略均未改变。
+
+## BUG-15 验证状态
+
+- `RoadGraphNodeIdentityTests` 修复前 7 项中 3 项失败，分别证明边界遗漏、错误复用较远节点和恢复顺序影响等距选择；修复后 7/7 通过。
+- `RoadGraphRegressionTests`：17/17 通过，既有交叉、拆分、删除和空间命中行为未回归。
+- `dotnet test SimpleCities.sln --configuration Debug --no-build --no-restore`：59 通过、0 失败、0 跳过。
+- `dotnet build SimpleCities.sln --configuration Debug --no-restore`：0 警告、0 错误。
+- 当前会话未提供 `csharp-ls` MCP，逐文件 LSP 诊断不可用；本修复属于无场景树依赖的 RoadGraph 数据层行为，未执行 Godot 场景运行验证。

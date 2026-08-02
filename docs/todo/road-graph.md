@@ -10,6 +10,8 @@
 | 遗留 ID                    | 发现                                        | 当前状态                                         | 处置方式                                                       |
 | -------------------------- | ------------------------------------------- | ------------------------------------------------ | -------------------------------------------------------------- |
 | 0.1                        | RoadGraph 自动化测试入口                    | 已完成                                           | xUnit 测试项目已接入解决方案，可由单条`dotnet test` 命令运行 |
+| 0.6                        | 交叉、waypoint 拆分和删除不自动合并回归    | 已完成                                           | 五类场景已验证拓扑、Group、空间命中和删除后 Edge ID 单调减少   |
+| 0.7                        | 节点身份吸附半径与多候选规则                | 已完成                                           | 半径包含边界；最近优先，近似等距时选择较小 Node ID             |
 | <a id="road-graph1"></a>   |                                             |                                                  |                                                                |
 | 1                          | `AddRoad` 返回 `-1` 时泄漏副作用        | 已修复并有自动化回归                             | 保持前置覆盖检查，不再修改流程                                 |
 | <a id="road-graph3"></a>   |                                             |                                                  |                                                                |
@@ -19,7 +21,7 @@
 | <a id="road-graph5"></a>   |                                             |                                                  |                                                                |
 | 5                          | `RemoveEdge` 自动清理节点导致合并补回节点 | 部分成立，属于架构债务                           | 在行为测试保护下重构删除事务                                   |
 | <a id="road-graph6"></a>   |                                             |                                                  |                                                                |
-| 6                          | `RoadGroup` 在合并时丢失用户操作语义      | 成立                                             | 禁止跨 Group 自动合并；RoadType 移至第三代                      |
+| 6                          | `RoadGroup` 在合并时丢失用户操作语义      | 已修复并有自动化回归                             | 1.1 已锁定 Group 边界；2.7 负责从第二代契约移除 RoadType        |
 | <a id="road-graph7"></a>   |                                             |                                                  |                                                                |
 | 7                          | `FindClosestEdge` 只命中离散采样点        | 成立                                             | 改为候选筛选 + 点到折线精确距离                                |
 | <a id="road-graph9"></a>   |                                             |                                                  |                                                                |
@@ -31,7 +33,7 @@
 | <a id="road-graphp3"></a>  |                                             |                                                  |                                                                |
 | P3                         | SpatialIndex 是可重建查询服务               | 部分完成；尚未表达线段占据范围                   | 由 1.2、3.1～3.3 完成真实边查询和局部候选                      |
 | <a id="road-graphp4"></a>  |                                             |                                                  |                                                                |
-| P4                         | 删除操作不触发拓扑修复链                    | 未完成                                           | 由 0.6、4.1、4.3、4.4 移除删除后的自动合并                     |
+| P4                         | 删除操作不触发拓扑修复链                    | 未完成                                           | 0.6 已锁定外部行为；由 4.1、4.3、4.4 收敛内部删除事务          |
 | <a id="road-graphp5"></a>  |                                             |                                                  |                                                                |
 | P5                         | 最小化并可验证图不变式                      | 部分完成；自动化入口已建立，图不变式验证仍待补齐 | 由阶段 0 与阶段 4 建立校验、事务和封装边界                     |
 | <a id="road-graphapi"></a> |                                             |                                                  |                                                                |
@@ -84,33 +86,32 @@
 
 <a id="road-graph0.6"></a>
 
-> 当前进展（2026-08-01）：`RoadGraphRegressionTests.AddRoad_CrossingLongUnsegmentedEdge_CreatesConnectedIntersectionNode`、`AddRoad_CrossingDiagonalRoads_CreatesOneFourWayIntersection`、`AddRoad_CrossingExistingWaypoint_SplitsTheExistingEdgeAtTheWaypoint`、`RemoveEdge_CrossingRoad_DoesNotMergeTheRemainingSegments` 与 `RemoveRoadGroup_CrossingRoad_DoesNotMergeRemainingSegments` 已通过；正交或对角交叉均创建唯一四连接节点，waypoint 交叉会拆分既有边，单边或整组删除不会合并剩余边。空间引用和图不变式的显式校验仍待补齐。
-
-- [ ] **0.6 固化交叉、waypoint 拆分和删除不自动合并的目标行为**
+- [X] **0.6 固化交叉、waypoint 拆分和删除不自动合并的目标行为**
   - 场景：正交交叉、对角交叉、交点恰好位于 waypoint、单边删除、整组删除。
   - 验收：交点产生唯一节点；边正确拆分；不存在悬空 EdgeRef；删除单边或整组后不创建替代 Edge、不自动合并相邻边，且图不变式成立。
+  - 完成证据（2026-08-02）：`RoadGraphRegressionTests` 的五类目标场景均调用共享 `AssertGraphInvariants`，显式验证 Edge 两端节点、Node EdgeRef 双向关系、Group 与 Edge 归属、无孤立节点，并通过 `FindClosestNode`/`FindClosestEdge` 验证存活实体仍可由空间索引命中；两个删除场景还断言删除后所有 Edge ID 都来自操作前集合，被删 Edge 不再存在，因此没有自动合并产生的替代 Edge。聚焦测试 17/17 通过，解决方案测试 52/52 通过，`dotnet build SimpleCities.sln --configuration Debug --no-restore` 为 0 警告、0 错误。完整删除事务级不变式仍由 `road-graph:4.1`～`road-graph:4.4` 负责。
   - 来源 key：`todo:item:0.6`。
 
 <a id="road-graph0.7"></a>
 
-- [ ] **0.7 明确并固化节点身份吸附半径**
+- [X] **0.7 明确并固化节点身份吸附半径**
   - 当前问题：`RoadGraph.GetOrCreateNode` 使用私有 `SnapRadius = 0.5f` 将半径内坐标隐式焊接为同一节点，但设计文档的“连续空间”没有定义这一身份规则及多候选选择规则。
   - 测试：距离小于、等于、大于 `0.5f` 的位置；半径内存在多个候选节点；保存加载后在近似位置继续铺路。
   - 验收：节点复用边界被测试锁定；多候选时选择规则明确且稳定；该容差不与 `CellSize` 或 UI 网格吸附混为一谈。
   - 约束：本项先定义并锁定契约，不在缺少行为证据时随意修改 `0.5f`。
+  - 完成证据（2026-08-02）：`FindClosestNode` 与 `GetOrCreateNode` 统一使用 `FindClosestIndexedNode`；`SnapRadius = 0.5f` 保持为 RoadGraph 连续空间中的节点身份容差，半径边界包含在内，多候选先按几何距离选择，`Mathf.IsEqualApprox` 判定等距时选择较小 Node ID。`RoadGraphNodeIdentityTests` 覆盖边界内、边界上、边界外、双候选最近节点、反转存档节点恢复顺序后的等距决胜，以及恢复后继续近点铺路；修复前 7 项中 3 项失败，修复后聚焦测试 7/7、解决方案测试 59/59 通过，`dotnet build SimpleCities.sln --configuration Debug --no-restore` 为 0 警告、0 错误。
   - 来源 key：`todo:item:0.7`。
 
 ### 阶段 1：修复当前语义与交互问题
 
 <a id="road-graph1.1"></a>
 
-> 当前进展（2026-08-01）：`RoadGraphRegressionTests.AddRoad_CollinearRoadsFromSeparateOperations_PreserveBothGroupsAndTypes` 已通过；不同 Group 的共线连接已保留各自分组。测试中的 Type 行为只作为当前实现事实，后续由 2.7 移出第二代契约。
-
-- [ ] **1.1 禁止跨 RoadGroup 自动合并（原问题 6）**
+- [X] **1.1 禁止跨 RoadGroup 自动合并（原问题 6）**
   - 问题：自动合并不能破坏 RoadGroup 表示“一次用户提交”的语义；RoadType 已移至第三代，不再决定 V2 合并行为。
   - 修改：只有同一 Group 内满足几何连续条件的边才可合并；不同 Group 始终保留独立边和节点语义。
-  - 测试：同 Group 共线可合并、不同 Group 不合并，以及 2.7 移除 RoadType 后行为不变。
+  - 测试：同 Group 共线可合并；同类型或不同类型的不同 Group 均不合并。RoadType 从第二代契约移除后的回归由 `road-graph:2.7` 负责。
   - 验收：RoadGroup 始终保持用户提交边界，不会因自动合并静默消失。
+  - 完成证据（2026-08-02）：`TryMergeAtNode` 在几何合并前要求两条 Edge 的 `GroupID` 相同；`RoadGraphRegressionTests.AddRoad_CollinearSameTypeRoadsFromSeparateOperations_PreserveBothGroups` 隔离验证相同 RoadType 不会掩盖 Group 边界，原有不同 Group/Type 场景和 `AddRoad_ArbitraryAngleCollinearSegments_MergeWithinTheSameGroup` 分别验证不同 Group 保留及同 Group 合并。聚焦回归 18/18、解决方案测试 60/60 通过，`dotnet build SimpleCities.sln --configuration Debug --no-restore` 为 0 警告、0 错误。
   - 关联引用：`road-graph:1.1`。
   - 来源 key：`todo:item:1.1`。
 

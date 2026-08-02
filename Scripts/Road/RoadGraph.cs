@@ -143,18 +143,28 @@ public class RoadGraph : ISaveable
 
     public GraphNode? FindClosestNode(Vector2 position, float maxRadius)
     {
+        return FindClosestIndexedNode(position, maxRadius);
+    }
+
+    private GraphNode? FindClosestIndexedNode(Vector2 position, float maxRadius)
+    {
         int bestNodeID = -1;
         float bestDistSq = maxRadius * maxRadius;
 
         foreach (var hit in _spatialIndex.QueryRadius(position, maxRadius))
         {
             if (hit.Kind != SpatialRefKind.Node) continue;
-            float d2 = hit.Position.DistanceSquaredTo(position);
-            if (d2 < bestDistSq)
-            {
-                bestDistSq = d2;
-                bestNodeID = ((NodeSpatialRef)hit).NodeID;
-            }
+            int nodeID = ((NodeSpatialRef)hit).NodeID;
+            var node = GetNode(nodeID);
+            if (node == null) continue;
+
+            float d2 = node.Position.DistanceSquaredTo(position);
+            bool sameDistance = Mathf.IsEqualApprox(d2, bestDistSq);
+            if (bestNodeID >= 0 && !sameDistance && d2 > bestDistSq) continue;
+            if (bestNodeID >= 0 && sameDistance && nodeID > bestNodeID) continue;
+
+            bestDistSq = d2;
+            bestNodeID = nodeID;
         }
 
         return bestNodeID >= 0 ? GetNode(bestNodeID) : null;
@@ -354,12 +364,8 @@ public class RoadGraph : ISaveable
 
     private GraphNode GetOrCreateNode(Vector2 pos)
     {
-        foreach (var hit in _spatialIndex.QueryRadius(pos, SnapRadius))
-        {
-            if (hit.Kind != SpatialRefKind.Node) continue;
-            var existing = GetNode(((NodeSpatialRef)hit).NodeID);
-            if (existing != null) return existing;
-        }
+        var existing = FindClosestIndexedNode(pos, SnapRadius);
+        if (existing != null) return existing;
 
         var node = new GraphNode(NextID(), pos);
         _nodes[node.ID] = node;
