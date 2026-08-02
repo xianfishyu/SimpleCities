@@ -4,6 +4,7 @@ using System;
 public enum RoadGeometryKind
 {
     Line,
+    CubicBezier,
 }
 
 public readonly record struct RoadGeometrySplit(
