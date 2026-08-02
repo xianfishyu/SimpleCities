@@ -23,7 +23,7 @@
 | <a id="road-graph6"></a>   |                                             |                                                  |                                                                |
 | 6                          | `RoadGroup` 在合并时丢失用户操作语义      | 已修复并有自动化回归                             | 1.1 已锁定 Group 边界；2.7 负责从第二代契约移除 RoadType        |
 | <a id="road-graph7"></a>   |                                             |                                                  |                                                                |
-| 7                          | `FindClosestEdge` 只命中离散采样点        | 成立                                             | 改为候选筛选 + 点到折线精确距离                                |
+| 7                          | `FindClosestEdge` 只命中离散采样点        | 已完成                                           | 原生几何占据索引收集候选，并按权威最近点稳定排序                |
 | <a id="road-graph9"></a>   |                                             |                                                  |                                                                |
 | 9                          | `GetNeighborIDs().Distinct()` 隐藏平行边  | 当前为设计选择                                   | 保留；明确邻居查询与边查询语义                                 |
 | <a id="road-graph10"></a>  |                                             |                                                  |                                                                |
@@ -31,7 +31,7 @@
 | <a id="road-graphp1"></a>  |                                             |                                                  |                                                                |
 | P1                         | 图是节点、边和分组的唯一事实来源            | 主体已完成；一致性未自动验证                     | 保留为基线；由 0.1、0.5、4.1、4.2 验证和收紧                   |
 | <a id="road-graphp3"></a>  |                                             |                                                  |                                                                |
-| P3                         | SpatialIndex 是可重建查询服务               | 部分完成；尚未表达线段占据范围                   | 由 1.2、3.1～3.3 完成真实边查询和局部候选                      |
+| P3                         | SpatialIndex 是可重建查询服务               | 原生几何占据已完成；性能与其余查询局部化待验证   | 由 3.1～3.3 完成候选规模测量和其余几何查询局部化               |
 | <a id="road-graphp4"></a>  |                                             |                                                  |                                                                |
 | P4                         | 删除操作不触发拓扑修复链                    | 未完成                                           | 0.6 已锁定外部行为；由 4.1、4.3、4.4 收敛内部删除事务          |
 | <a id="road-graphp5"></a>  |                                             |                                                  |                                                                |
@@ -119,11 +119,12 @@
 
 > 当前进展（2026-08-01）：`RoadGraphRegressionTests.FindClosestEdge_LongStraightEdge_HitsItsMiddle`、`FindClosestEdge_LongDiagonalEdge_HitsItsMiddle`、`FindClosestEdge_ChoosesTheGeometricallyNearestCandidate`、`FindClosestEdge_EdgeAtRadiusBoundary_IsIncluded` 与 `FindClosestEdge_OutsideRadius_ReturnsNull` 已通过；正交和对角长边中点均可命中，重叠查询候选会选择几何距离最近的边，半径外返回 `null`。折线拐角场景仍待补齐。
 
-- [ ] **1.2 将 FindClosestEdge 改为权威几何距离查询（原问题 7）**
+- [x] **1.2 将 FindClosestEdge 改为权威几何距离查询（原问题 7）**
   - 问题：当前只比较折线端点和 waypoint；第二代还必须命中原生曲线的中段和高曲率区域。
   - 修改：空间索引只收集候选 Edge，最终结果按 2.5/2.6 的权威几何最近点计算排序，不使用显示采样作为真相。
   - 测试：长直线中点、折线拐角、Bézier/样条/圆弧/回旋线中段、相邻道路选择、半径边界和半径外返回 null。
   - 验收：只要权威道路几何与查询圆相交就能命中，并返回几何距离最近的 Edge。
+  - 完成证据（2026-08-03）：`UniformGrid` 以每个 `RoadGeometrySegment.Bounds` 覆盖的 bucket 登记可重建 `EdgeGeometryRef`，候选圆相交和 `RoadGraph.FindClosestEdge` 的最终排序均调用原生 `FindClosestPoint`；同一 Edge 的多段引用按 Edge ID 去重，等距时稳定选择较小 Edge ID。`RoadGraphCurveSpatialQueryTests` 12/12 覆盖六类原生几何中段、高曲率 Bézier 远离端点弦、真实最近曲线、包含半径边界且拒绝半径外、等距决胜、存档恢复重建和删除清理；解决方案测试 241/241、构建 0 警告/0 错误，Godot 主场景两轮 autosave 保存加载通过。折线和复合路径由每个原生 line 段独立索引，因此既有长直线、对角线和折线拐角回归继续通过。
   - 关联引用：`road-graph:2.5`、`road-graph:2.6`、`road-graph:3.2`。
   - 来源 key：`todo:item:1.2`。
 
@@ -199,7 +200,7 @@
   - 集成负责人：`road-graph`。
   - 测试：直线-曲线、Bézier-Bézier、样条、圆弧/圆锥曲线和回旋线等缓和曲线的端点接触、内部交叉、多交点、相切、重叠与无交叉。
   - 验收：交叉节点位置和拆分后的子曲线参数稳定；桥梁、隧道和高程不在本项建模，二维交叉始终连接。
-  - 当前进展（2026-08-03）：`RoadGeometrySegment.FindClosestPoint` 已提供统一的参数、位置和距离平方结果。line 使用解析投影并夹紧端点，circular arc 使用有向扫角内的径向投影并在扫角外比较端点；cubic Bézier、cubic Hermite、clothoid 和 rational quadratic 使用原生包围盒下界与同类型 `Split(0.5)` 的分支限界搜索，按请求空间容差收敛，不以显示采样为权威。等距结果稳定选择较小参数。`RoadGeometryClosestPointTests` 13/13、解决方案测试 229/229、构建 0 警告/0 错误。点上判定、曲线交点、重叠/相切和 RoadGraph 拆分接入仍未实现，本项保持开放。
+  - 当前进展（2026-08-03）：`RoadGeometrySegment.FindClosestPoint` 已提供统一的参数、位置和距离平方结果。line 使用解析投影并夹紧端点，circular arc 使用有向扫角内的径向投影并在扫角外比较端点；cubic Bézier、cubic Hermite、clothoid 和 rational quadratic 使用原生包围盒下界与同类型 `Split(0.5)` 的分支限界搜索，按请求空间容差收敛，不以显示采样为权威。等距结果稳定选择较小参数。`RoadGraph.FindClosestEdge` 已接入同一权威查询，按候选 Edge 的所有原生段选取最小距离并以较小 Edge ID 决胜。最近点与空间查询聚焦测试合计 25/25、解决方案测试 241/241、构建 0 警告/0 错误。点上判定、曲线交点、重叠/相切和 RoadGraph 拆分接入仍未实现，本项保持开放。
 
 <a id="road-graph2.7"></a>
 
@@ -232,6 +233,7 @@
   - 依赖：`road-graph:2.5`～`road-graph:2.6`。
   - 测试：跨多个空桶的长直线和大曲率曲线、包围盒边界、不同 bucket size、多曲线重叠候选和索引重建。
   - 验收：不会遗漏曲线中段交叉或命中；候选数量主要随覆盖范围和局部密度变化，而不是随全图 Edge 总数线性增长。
+  - 当前进展（2026-08-03）：空间索引已从端点/waypoint 弦引用迁移为每个原生几何段一个 `EdgeGeometryRef`，按段的保守 `Bounds` 覆盖全部 bucket，并在候选返回前使用原生最近点执行圆相交过滤；保存恢复通过图状态重建引用，删除按同一包围范围移除引用。`RoadGraphCurveSpatialQueryTests` 12/12 证明六类几何中段、高曲率区域、边界、重建和删除不会漏命中。当前实现使用整段包围盒，候选规模、不同 bucket size 曲线场景及 10k/100k 性能尚未测量，因此本项保持开放。
   - 来源 key：`todo:item:3.2`。
 
 <a id="road-graph3.3"></a>

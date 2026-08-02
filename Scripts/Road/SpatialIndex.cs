@@ -15,7 +15,8 @@ public enum SpatialRefKind
 {
     Node,
     EdgePoint,
-    EdgeSegment
+    EdgeSegment,
+    EdgeGeometry,
 }
 
 /// <summary>
@@ -84,6 +85,30 @@ public class EdgeSegmentRef : ISpatialRef
     }
 }
 
+public sealed class EdgeGeometryRef : ISpatialRef
+{
+    private const float QueryTolerance = 1e-4f;
+
+    public int EdgeID { get; }
+    public RoadGeometrySegment Geometry { get; }
+    public Rect2 Bounds => Geometry.Bounds;
+    public Vector2 Position => Bounds.GetCenter();
+    public SpatialRefKind Kind => SpatialRefKind.EdgeGeometry;
+
+    public EdgeGeometryRef(int edgeID, RoadGeometrySegment geometry)
+    {
+        EdgeID = edgeID;
+        Geometry = geometry;
+    }
+
+    public bool IntersectsCircle(Vector2 center, float radius)
+    {
+        RoadGeometryClosestPoint closest = Geometry.FindClosestPoint(center, QueryTolerance);
+        float inclusiveRadius = radius + QueryTolerance;
+        return closest.DistanceSquared <= inclusiveRadius * inclusiveRadius;
+    }
+}
+
 /// <summary>
 /// 基于均匀网格的空间哈希索引。
 /// 世界空间被划分为 BucketSize × BucketSize 的方形桶。
@@ -117,6 +142,12 @@ public class UniformGrid
             InsertIntoBucket(bx, by, segment);
     }
 
+    public void InsertGeometry(EdgeGeometryRef geometry)
+    {
+        foreach (var (bx, by) in GetCoveredBuckets(geometry.Bounds))
+            InsertIntoBucket(bx, by, geometry);
+    }
+
     /// <summary>移除指定实体的所有条目。</summary>
     public void Remove(ISpatialRef entity)
     {
@@ -131,6 +162,15 @@ public class UniformGrid
         {
             if (_buckets.TryGetValue((bx, by), out var list))
                 list.RemoveAll(reference => reference == segment);
+        }
+    }
+
+    public void RemoveGeometry(EdgeGeometryRef geometry)
+    {
+        foreach (var (bx, by) in GetCoveredBuckets(geometry.Bounds))
+        {
+            if (_buckets.TryGetValue((bx, by), out var list))
+                list.RemoveAll(reference => reference == geometry);
         }
     }
 
@@ -185,6 +225,18 @@ public class UniformGrid
         int maxBX = WorldToBucketCoord(Mathf.Max(start.X, end.X));
         int minBY = WorldToBucketCoord(Mathf.Min(start.Y, end.Y));
         int maxBY = WorldToBucketCoord(Mathf.Max(start.Y, end.Y));
+
+        for (int bx = minBX; bx <= maxBX; bx++)
+        for (int by = minBY; by <= maxBY; by++)
+            yield return (bx, by);
+    }
+
+    private IEnumerable<(int bx, int by)> GetCoveredBuckets(Rect2 bounds)
+    {
+        int minBX = WorldToBucketCoord(bounds.Position.X);
+        int maxBX = WorldToBucketCoord(bounds.End.X);
+        int minBY = WorldToBucketCoord(bounds.Position.Y);
+        int maxBY = WorldToBucketCoord(bounds.End.Y);
 
         for (int bx = minBX; bx <= maxBX; bx++)
         for (int by = minBY; by <= maxBY; by++)

@@ -161,8 +161,11 @@ public partial class RoadGraph : ISaveable
         {
             var edge = GetEdge(edgeID);
             if (edge == null) continue;
-            float d2 = DistanceSquaredToPath(edge.GetFullPath(GetNode), position);
-            if (d2 <= bestDistSq)
+            float d2 = edge.GeometrySegments
+                .Min(segment => segment.FindClosestPoint(position).DistanceSquared);
+            bool sameDistance = Mathf.IsEqualApprox(d2, bestDistSq);
+            if (d2 < bestDistSq ||
+                (sameDistance && (bestEdgeID < 0 || edgeID < bestEdgeID)))
             {
                 bestDistSq = d2;
                 bestEdgeID = edgeID;
@@ -578,6 +581,9 @@ public partial class RoadGraph : ISaveable
             case EdgeSegmentRef segmentRef:
                 edgeID = segmentRef.EdgeID;
                 return true;
+            case EdgeGeometryRef geometryRef:
+                edgeID = geometryRef.EdgeID;
+                return true;
             default:
                 edgeID = -1;
                 return false;
@@ -712,23 +718,16 @@ public partial class RoadGraph : ISaveable
     private void InsertEdgeSpatialRefs(GraphEdge edge)
     {
         var refs = new List<ISpatialRef>();
-        var nodeA = GetNode(edge.NodeA);
-        var nodeB = GetNode(edge.NodeB);
-
-        if (nodeA != null) refs.Add(new EdgePointRef(edge.ID, nodeA.Position));
-        foreach (var point in edge.InternalPoints)
-            refs.Add(new EdgePointRef(edge.ID, point));
-        if (nodeB != null) refs.Add(new EdgePointRef(edge.ID, nodeB.Position));
-
-        var path = edge.GetFullPath(GetNode);
-        for (int i = 0; i < path.Length - 1; i++)
-            refs.Add(new EdgeSegmentRef(edge.ID, path[i], path[i + 1]));
+        foreach (RoadGeometrySegment geometry in edge.GeometrySegments)
+            refs.Add(new EdgeGeometryRef(edge.ID, geometry));
 
         _edgeRefs[edge.ID] = refs;
         foreach (var edgeRef in refs)
         {
             if (edgeRef is EdgeSegmentRef segmentRef)
                 _spatialIndex.InsertSegment(segmentRef);
+            else if (edgeRef is EdgeGeometryRef geometryRef)
+                _spatialIndex.InsertGeometry(geometryRef);
             else
                 _spatialIndex.Insert(edgeRef);
         }
@@ -741,6 +740,8 @@ public partial class RoadGraph : ISaveable
         {
             if (edgeRef is EdgeSegmentRef segmentRef)
                 _spatialIndex.RemoveSegment(segmentRef);
+            else if (edgeRef is EdgeGeometryRef geometryRef)
+                _spatialIndex.RemoveGeometry(geometryRef);
             else
                 _spatialIndex.Remove(edgeRef);
         }
