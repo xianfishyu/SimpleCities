@@ -493,22 +493,6 @@ public class RoadGraph : ISaveable
         }
     }
 
-    private bool IsPathValid(IReadOnlyList<Vector2> path)
-    {
-        for (int i = 0; i < path.Count - 1; i++)
-        {
-            if (DirectionUtil.FromDisplacementAnyLength(path[i], path[i + 1]) == null)
-                return false;
-        }
-
-        for (int i = 0; i < path.Count; i++)
-        for (int j = i + 1; j < path.Count; j++)
-            if (path[i].DistanceSquaredTo(path[j]) < GeometryEpsilon)
-                return false;
-
-        return true;
-    }
-
     private bool IsPathFullyCovered(IReadOnlyList<Vector2> path)
     {
         if (path.Count < 2) return false;

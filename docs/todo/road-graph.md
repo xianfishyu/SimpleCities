@@ -17,7 +17,7 @@
 | <a id="road-graph3"></a>   |                                             |                                                  |                                                                |
 | 3                          | 几何查询仍有全表扫描                        | 成立                                             | 10k Edge 按 60 FPS 硬门槛优化；100k Edge 压力测试              |
 | <a id="road-graph4"></a>   |                                             |                                                  |                                                                |
-| 4                          | 数据层强制 8 方向                           | 成立                                             | 将方向约束移回`RoadBuilder`                                  |
+| 4                          | 数据层强制 8 方向                           | 方向依赖已解除；非法路径契约仍未完成             | 2.2 已完成；2.1 保留结构化路径校验工作                         |
 | <a id="road-graph5"></a>   |                                             |                                                  |                                                                |
 | 5                          | `RemoveEdge` 自动清理节点导致合并补回节点 | 部分成立，属于架构债务                           | 在行为测试保护下重构删除事务                                   |
 | <a id="road-graph6"></a>   |                                             |                                                  |                                                                |
@@ -142,16 +142,19 @@
 <a id="road-graph2.1"></a>
 
 - [ ] **2.1 为任意 R² 折线路径补数据层测试（原问题 4）**
-  - 当前问题：AddRoad 已能通过部分任意角度测试，但 `IsPathValid` 仍保留 DirectionUtil 八方向判断且当前未被调用，数据层有效路径契约不清晰。
+  - 当前问题：AddRoad 已能接受任意角度直线和非 8 方向多段折线，但重复点、自相交、回到已有路径点和非有限坐标尚无完整校验，数据层有效路径契约仍不清晰。
   - 测试：任意角度直线、非 8 方向多段折线、重复点、自相交、回到已有路径点和非有限坐标。
   - 验收定义：任意非零角度路径可进入数据层；重复点和明确禁止的退化路径以结构化原因拒绝。
+  - 当前进展（2026-08-02）：`RoadGraphContinuousSpaceTests` 已验证任意角度直线保持精确端点、非 8 方向多段折线保持全部转折；结构化拒绝结果归属 `road-graph:2.4`，因此本项保持开放且不降低验收标准。
+  - 关联引用：`road-graph:2.4`。
   - 来源 key：`todo:item:2.1`。
 
 <a id="road-graph2.2"></a>
 
-- [ ] **2.2 从 `RoadGraph.IsPathValid` 移除 8 方向判断**
+- [X] **2.2 从 `RoadGraph.IsPathValid` 移除 8 方向判断**
   - 修改：删除或重写未使用的 IsPathValid，使数据层只校验有限数值、非零段、重复点及必要几何不变式；网格投影完全由可替换输入策略负责。
   - 验收：RoadGraph 不引用 Direction/DirectionUtil/GridSystem/CellSize；当前米字型玩法由 `tool-input:1.2` 保持，公共路径 API 可添加任意角度和原生曲线。
+  - 完成证据（2026-08-02）：删除未被调用的私有 `IsPathValid` 后，`Scripts/Road/RoadGraph.cs` 对 `Direction`、`DirectionUtil`、`GridSystem`、`CellSize` 和 `IsPathValid` 的扫描均无命中；`RoadGraphContinuousSpaceTests` 通过源码契约测试锁定该分层边界，并以任意角度直线和非 8 方向多段折线验证数据层正向行为。聚焦测试 3/3、解决方案测试 66/66 通过，`dotnet build SimpleCities.sln --configuration Debug --no-restore` 为 0 警告、0 错误。非法路径的结构化拒绝仍由 `road-graph:2.1`、`road-graph:2.4` 负责。
   - 来源 key：`todo:item:2.2`。
 
 <a id="road-graph2.3"></a>
@@ -329,6 +332,9 @@
     <a id="road-graph4efd03c22f37"></a>
 - [X] **P1 主体和纯图数据模型已经落地。** 权威实体位于 `_nodes`、`_edges`、`_groups`；旧位置字典已移除，空间索引可重建。
   - 来源 key：`todo:baseline:4efd03c22f37`。
+
+- [X] **RoadGraph 数据层不依赖输入层的方向或网格概念。** `RoadGraphContinuousSpaceTests` 锁定源码依赖边界，并验证任意角度直线和折线可进入图。
+  - 来源 key：`todo:baseline:continuous-space`。
 
 ## 完成标准
 
