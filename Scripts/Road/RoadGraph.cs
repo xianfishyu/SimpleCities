@@ -254,8 +254,8 @@ public class RoadGraph : ISaveable
     {
         if (nodeA.ID == nodeB.ID) return null;
 
-        float length = ComputeLength(nodeA.Position, nodeB.Position, points);
-        var edge = new GraphEdge(NextID(), nodeA.ID, nodeB.ID, points, groupID, type, length);
+        var geometrySegments = CreatePolylineGeometry(nodeA.Position, nodeB.Position, points);
+        var edge = new GraphEdge(NextID(), nodeA.ID, nodeB.ID, geometrySegments, groupID, type);
         _edges[edge.ID] = edge;
 
         if (!_groups.TryGetValue(groupID, out var group))
@@ -859,6 +859,11 @@ public class RoadGraph : ISaveable
         foreach (var edgeData in data.Segments)
         {
             var points = edgeData.Waypoints.Select(p => p.ToVector2()).ToArray();
+            var nodeA = GetNode(edgeData.FromJunctionID);
+            var nodeB = GetNode(edgeData.ToJunctionID);
+            if (nodeA == null || nodeB == null)
+                throw new InvalidOperationException($"Edge {edgeData.ID} references a missing endpoint node.");
+            var geometrySegments = CreatePolylineGeometry(nodeA.Position, nodeB.Position, points);
 
             // Edge type resolution order:
             //   1. Explicit type on the segment (v2+ saves).
@@ -876,12 +881,9 @@ public class RoadGraph : ISaveable
                 edgeData.ID,
                 edgeData.FromJunctionID,
                 edgeData.ToJunctionID,
-                points,
+                geometrySegments,
                 edgeData.RoadID,
-                edgeType,
-                edgeData.TotalLength > 0f
-                    ? edgeData.TotalLength
-                    : ComputeLength(edgeData.FromJunctionID, edgeData.ToJunctionID, points)
+                edgeType
             );
             _edges[edge.ID] = edge;
 
@@ -913,25 +915,20 @@ public class RoadGraph : ISaveable
         if (_nextID <= maxID) _nextID = maxID + 1;
     }
 
-    private float ComputeLength(int nodeAID, int nodeBID, Vector2[] points)
+    private static RoadGeometrySegment[] CreatePolylineGeometry(
+        Vector2 start,
+        Vector2 end,
+        IReadOnlyList<Vector2> points)
     {
-        var nodeA = GetNode(nodeAID);
-        var nodeB = GetNode(nodeBID);
-        if (nodeA == null || nodeB == null) return 0f;
-        return ComputeLength(nodeA.Position, nodeB.Position, points);
-    }
-
-    private static float ComputeLength(Vector2 start, Vector2 end, Vector2[] points)
-    {
-        float length = 0f;
-        var previous = start;
-        foreach (var point in points)
+        var geometrySegments = new RoadGeometrySegment[points.Count + 1];
+        Vector2 previous = start;
+        for (int i = 0; i < points.Count; i++)
         {
-            length += previous.DistanceTo(point);
-            previous = point;
+            geometrySegments[i] = new LineRoadGeometrySegment(previous, points[i]);
+            previous = points[i];
         }
-        length += previous.DistanceTo(end);
-        return length;
+        geometrySegments[^1] = new LineRoadGeometrySegment(previous, end);
+        return geometrySegments;
     }
 
     private static List<Vector2> InsertCollectedPoints(List<Vector2> path, List<(int pathSegIndex, float t, Vector2 pos)> collected)

@@ -1,5 +1,8 @@
 using Godot;
 using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
 
 public class GraphEdge
 {
@@ -7,7 +10,13 @@ public class GraphEdge
     public int NodeA { get; internal set; }
     public int NodeB { get; internal set; }
 
-    /// <summary>中间途经点（不含两端节点坐标）。</summary>
+    private readonly RoadGeometrySegment[] _geometrySegments;
+    private readonly ReadOnlyCollection<RoadGeometrySegment> _readOnlyGeometrySegments;
+
+    /// <summary>保留类型与控制参数的权威原生几何段。</summary>
+    public IReadOnlyList<RoadGeometrySegment> GeometrySegments => _readOnlyGeometrySegments;
+
+    /// <summary>几何段之间的中间锚点（不含两端节点坐标）。</summary>
     private readonly Vector2[] _points;
     public Vector2[] Points => (Vector2[])_points.Clone();
     internal Vector2[] InternalPoints => _points;
@@ -16,15 +25,35 @@ public class GraphEdge
     public RoadType Type { get; internal set; }
     public float Length { get; }
 
-    public GraphEdge(int id, int nodeA, int nodeB, Vector2[] points, int groupID, RoadType type, float length)
+    public GraphEdge(
+        int id,
+        int nodeA,
+        int nodeB,
+        IReadOnlyList<RoadGeometrySegment> geometrySegments,
+        int groupID,
+        RoadType type)
     {
+        ArgumentNullException.ThrowIfNull(geometrySegments);
+        if (geometrySegments.Count == 0)
+            throw new ArgumentException("An edge must contain at least one geometry segment.", nameof(geometrySegments));
+
+        _geometrySegments = geometrySegments.ToArray();
+        for (int i = 0; i < _geometrySegments.Length; i++)
+        {
+            if (_geometrySegments[i] is null)
+                throw new ArgumentException("Geometry segments cannot contain null.", nameof(geometrySegments));
+            if (i > 0 && _geometrySegments[i - 1].End != _geometrySegments[i].Start)
+                throw new ArgumentException("Geometry segments must form a continuous path.", nameof(geometrySegments));
+        }
+
         ID = id;
         NodeA = nodeA;
         NodeB = nodeB;
-        _points = (Vector2[])points.Clone();
+        _readOnlyGeometrySegments = Array.AsReadOnly(_geometrySegments);
+        _points = _geometrySegments.Take(_geometrySegments.Length - 1).Select(segment => segment.End).ToArray();
         GroupID = groupID;
         Type = type;
-        Length = length;
+        Length = _geometrySegments.Sum(segment => segment.Length);
     }
 
     /// <summary>
