@@ -50,6 +50,7 @@ public sealed class RoadGeometryData
     public const int CurrentVersion = 1;
     public const string LineKind = "line";
     public const string CubicBezierKind = "cubicBezier";
+    public const string CubicHermiteKind = "cubicHermite";
 
     [JsonPropertyName("version")]
     public int? Version { get; set; }
@@ -68,6 +69,12 @@ public sealed class RoadGeometryData
 
     [JsonPropertyName("end")]
     public RoadGeometryPointData? End { get; set; }
+
+    [JsonPropertyName("startTangent")]
+    public RoadGeometryPointData? StartTangent { get; set; }
+
+    [JsonPropertyName("endTangent")]
+    public RoadGeometryPointData? EndTangent { get; set; }
 
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? ExtraFields { get; set; }
@@ -102,6 +109,15 @@ public static class RoadGeometrySerializer
                 Control1 = new RoadGeometryPointData(cubic.Control1),
                 Control2 = new RoadGeometryPointData(cubic.Control2),
                 End = new RoadGeometryPointData(cubic.End),
+            },
+            CubicHermiteRoadGeometrySegment hermite => new RoadGeometryData
+            {
+                Version = RoadGeometryData.CurrentVersion,
+                Kind = RoadGeometryData.CubicHermiteKind,
+                Start = new RoadGeometryPointData(hermite.Start),
+                StartTangent = new RoadGeometryPointData(hermite.StartTangent),
+                End = new RoadGeometryPointData(hermite.End),
+                EndTangent = new RoadGeometryPointData(hermite.EndTangent),
             },
             _ => throw new NotSupportedException($"Unsupported road geometry type: {geometry.GetType().Name}.")
         };
@@ -142,13 +158,15 @@ public static class RoadGeometrySerializer
         {
             RoadGeometryData.LineKind => DeserializeLine(data),
             RoadGeometryData.CubicBezierKind => DeserializeCubicBezier(data),
+            RoadGeometryData.CubicHermiteKind => DeserializeCubicHermite(data),
             _ => Failure(RoadGeometryDataError.UnknownGeometryKind),
         };
     }
 
     private static RoadGeometryDeserializationResult DeserializeLine(RoadGeometryData data)
     {
-        if (data.Control1 is not null || data.Control2 is not null)
+        if (data.Control1 is not null || data.Control2 is not null ||
+            data.StartTangent is not null || data.EndTangent is not null)
             return Failure(RoadGeometryDataError.UnexpectedParameter);
         if (!TryReadPoint(data.Start, out Vector2 start, out RoadGeometryDataError error) ||
             !TryReadPoint(data.End, out Vector2 end, out error))
@@ -159,6 +177,8 @@ public static class RoadGeometrySerializer
 
     private static RoadGeometryDeserializationResult DeserializeCubicBezier(RoadGeometryData data)
     {
+        if (data.StartTangent is not null || data.EndTangent is not null)
+            return Failure(RoadGeometryDataError.UnexpectedParameter);
         if (!TryReadPoint(data.Start, out Vector2 start, out RoadGeometryDataError error) ||
             !TryReadPoint(data.Control1, out Vector2 control1, out error) ||
             !TryReadPoint(data.Control2, out Vector2 control2, out error) ||
@@ -166,6 +186,20 @@ public static class RoadGeometrySerializer
             return Failure(error);
 
         return CreateGeometry(() => new CubicBezierRoadGeometrySegment(start, control1, control2, end));
+    }
+
+    private static RoadGeometryDeserializationResult DeserializeCubicHermite(RoadGeometryData data)
+    {
+        if (data.Control1 is not null || data.Control2 is not null)
+            return Failure(RoadGeometryDataError.UnexpectedParameter);
+        if (!TryReadPoint(data.Start, out Vector2 start, out RoadGeometryDataError error) ||
+            !TryReadPoint(data.StartTangent, out Vector2 startTangent, out error) ||
+            !TryReadPoint(data.End, out Vector2 end, out error) ||
+            !TryReadPoint(data.EndTangent, out Vector2 endTangent, out error))
+            return Failure(error);
+
+        return CreateGeometry(() =>
+            new CubicHermiteRoadGeometrySegment(start, startTangent, end, endTangent));
     }
 
     private static bool TryReadPoint(
