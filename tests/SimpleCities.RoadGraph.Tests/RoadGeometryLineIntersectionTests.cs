@@ -50,6 +50,11 @@ public sealed class RoadGeometryLineIntersectionTests
         Assert.False(touch.HasOverlap);
         Assert.Empty(overlap.Intersections);
         Assert.True(overlap.HasOverlap);
+        RoadGeometryOverlap interval = Assert.Single(overlap.Overlaps);
+        Assert.Equal(0.4f, interval.FirstParameterStart, 5);
+        Assert.Equal(1f, interval.FirstParameterEnd);
+        Assert.Equal(0f, interval.SecondParameterAtFirstStart, 5);
+        Assert.Equal(0.75f, interval.SecondParameterAtFirstEnd, 5);
     }
 
     [Fact]

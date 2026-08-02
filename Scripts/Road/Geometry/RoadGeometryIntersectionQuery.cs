@@ -15,17 +15,27 @@ public readonly record struct RoadGeometryIntersection(
     Vector2 Position,
     RoadGeometryIntersectionKind Kind);
 
+public readonly record struct RoadGeometryOverlap(
+    float FirstParameterStart,
+    float FirstParameterEnd,
+    float SecondParameterAtFirstStart,
+    float SecondParameterAtFirstEnd)
+{
+    public bool SameDirection => SecondParameterAtFirstEnd >= SecondParameterAtFirstStart;
+}
+
 public sealed class RoadGeometryIntersectionResult
 {
     public IReadOnlyList<RoadGeometryIntersection> Intersections { get; }
-    public bool HasOverlap { get; }
+    public IReadOnlyList<RoadGeometryOverlap> Overlaps { get; }
+    public bool HasOverlap => Overlaps.Count > 0;
 
     public RoadGeometryIntersectionResult(
         IReadOnlyList<RoadGeometryIntersection> intersections,
-        bool hasOverlap)
+        IReadOnlyList<RoadGeometryOverlap> overlaps)
     {
         Intersections = Array.AsReadOnly([.. intersections]);
-        HasOverlap = hasOverlap;
+        Overlaps = Array.AsReadOnly([.. overlaps]);
     }
 }
 
@@ -52,7 +62,14 @@ public static class RoadGeometryIntersectionQuery
             return SwapResult(FindLineIntersections(
                 secondLine, first, spatialTolerance, endpointParameterTolerance));
         if (RoadGeometrySerializer.Serialize(first) == RoadGeometrySerializer.Serialize(second))
-            return new RoadGeometryIntersectionResult([], hasOverlap: true);
+            return new RoadGeometryIntersectionResult([], [new RoadGeometryOverlap(0f, 1f, 0f, 1f)]);
+        if (TryFindCurveOverlap(
+                first,
+                second,
+                spatialTolerance,
+                endpointParameterTolerance,
+                out RoadGeometryOverlap overlap))
+            return new RoadGeometryIntersectionResult([], [overlap]);
 
         var candidates = new List<RoadGeometryIntersection>();
         var stack = new Stack<PairSearchInterval>();
@@ -117,7 +134,7 @@ public static class RoadGeometryIntersectionQuery
                 ? firstOrder
                 : left.SecondParameter.CompareTo(right.SecondParameter);
         });
-        return new RoadGeometryIntersectionResult(intersections, hasOverlap: false);
+        return new RoadGeometryIntersectionResult(intersections, []);
     }
 
     public static RoadGeometryIntersectionResult FindLineIntersections(
@@ -187,7 +204,7 @@ public static class RoadGeometryIntersectionQuery
             int first = left.FirstParameter.CompareTo(right.FirstParameter);
             return first != 0 ? first : left.SecondParameter.CompareTo(right.SecondParameter);
         });
-        return new RoadGeometryIntersectionResult(coalesced, hasOverlap: false);
+        return new RoadGeometryIntersectionResult(coalesced, []);
     }
 
     private static RoadGeometryIntersectionResult FindLineLine(
@@ -208,7 +225,7 @@ public static class RoadGeometryIntersectionQuery
             float secondParameter = Cross(offset, r) / cross;
             if (!ParameterWithinSegment(firstParameter, endpointParameterTolerance) ||
                 !ParameterWithinSegment(secondParameter, endpointParameterTolerance))
-                return new RoadGeometryIntersectionResult([], hasOverlap: false);
+                return new RoadGeometryIntersectionResult([], []);
 
             firstParameter = Mathf.Clamp(firstParameter, 0f, 1f);
             secondParameter = Mathf.Clamp(secondParameter, 0f, 1f);
@@ -218,12 +235,12 @@ public static class RoadGeometryIntersectionQuery
                 firstParameter,
                 secondParameter,
                 endpointParameterTolerance);
-            return new RoadGeometryIntersectionResult([hit], hasOverlap: false);
+            return new RoadGeometryIntersectionResult([hit], []);
         }
 
         float distanceToFirstLine = Mathf.Abs(Cross(offset, r)) / r.Length();
         if (distanceToFirstLine > spatialTolerance)
-            return new RoadGeometryIntersectionResult([], hasOverlap: false);
+            return new RoadGeometryIntersectionResult([], []);
 
         float secondStartOnFirst = offset.Dot(r) / r.LengthSquared();
         float secondEndOnFirst = (second.End - first.Start).Dot(r) / r.LengthSquared();
@@ -231,10 +248,19 @@ public static class RoadGeometryIntersectionQuery
         float overlapEnd = Mathf.Min(1f, Mathf.Max(secondStartOnFirst, secondEndOnFirst));
         float parameterSpatialTolerance = spatialTolerance / r.Length();
         if (overlapEnd < overlapStart - parameterSpatialTolerance)
-            return new RoadGeometryIntersectionResult([], hasOverlap: false);
+            return new RoadGeometryIntersectionResult([], []);
 
         if (overlapEnd - overlapStart > parameterSpatialTolerance)
-            return new RoadGeometryIntersectionResult([], hasOverlap: true);
+        {
+            Vector2 overlapStartPosition = first.GetPosition(overlapStart);
+            Vector2 overlapEndPosition = first.GetPosition(overlapEnd);
+            float secondAtStart = Mathf.Clamp(
+                (overlapStartPosition - second.Start).Dot(s) / s.LengthSquared(), 0f, 1f);
+            float secondAtEnd = Mathf.Clamp(
+                (overlapEndPosition - second.Start).Dot(s) / s.LengthSquared(), 0f, 1f);
+            return new RoadGeometryIntersectionResult([], [new RoadGeometryOverlap(
+                overlapStart, overlapEnd, secondAtStart, secondAtEnd)]);
+        }
 
         float firstParameterAtTouch = Mathf.Clamp((overlapStart + overlapEnd) * 0.5f, 0f, 1f);
         Vector2 position = first.GetPosition(firstParameterAtTouch);
@@ -245,7 +271,7 @@ public static class RoadGeometryIntersectionQuery
             secondParameterAtTouch,
             position,
             RoadGeometryIntersectionKind.EndpointTouch);
-        return new RoadGeometryIntersectionResult([endpointHit], hasOverlap: false);
+        return new RoadGeometryIntersectionResult([endpointHit], []);
     }
 
     private static RoadGeometryIntersectionResult SwapResult(
@@ -260,7 +286,154 @@ public static class RoadGeometryIntersectionQuery
                 intersection.Position,
                 intersection.Kind));
         }
-        return new RoadGeometryIntersectionResult(swapped, result.HasOverlap);
+        var swappedOverlaps = new List<RoadGeometryOverlap>(result.Overlaps.Count);
+        foreach (RoadGeometryOverlap overlap in result.Overlaps)
+            swappedOverlaps.Add(SwapOverlap(overlap));
+        return new RoadGeometryIntersectionResult(swapped, swappedOverlaps);
+    }
+
+    private static RoadGeometryOverlap SwapOverlap(RoadGeometryOverlap overlap)
+    {
+        if (overlap.SecondParameterAtFirstStart <= overlap.SecondParameterAtFirstEnd)
+        {
+            return new RoadGeometryOverlap(
+                overlap.SecondParameterAtFirstStart,
+                overlap.SecondParameterAtFirstEnd,
+                overlap.FirstParameterStart,
+                overlap.FirstParameterEnd);
+        }
+
+        return new RoadGeometryOverlap(
+            overlap.SecondParameterAtFirstEnd,
+            overlap.SecondParameterAtFirstStart,
+            overlap.FirstParameterEnd,
+            overlap.FirstParameterStart);
+    }
+
+    private static bool TryFindCurveOverlap(
+        RoadGeometrySegment first,
+        RoadGeometrySegment second,
+        float spatialTolerance,
+        float endpointParameterTolerance,
+        out RoadGeometryOverlap overlap)
+    {
+        overlap = default;
+        if (first.Kind != second.Kind)
+            return false;
+
+        var correspondences = new List<(float first, float second)>();
+        AddEndpointCorrespondence(
+            first, 0f, second, isFirstEndpoint: true, correspondences, spatialTolerance);
+        AddEndpointCorrespondence(
+            first, 1f, second, isFirstEndpoint: true, correspondences, spatialTolerance);
+        AddEndpointCorrespondence(
+            second, 0f, first, isFirstEndpoint: false, correspondences, spatialTolerance);
+        AddEndpointCorrespondence(
+            second, 1f, first, isFirstEndpoint: false, correspondences, spatialTolerance);
+
+        float bestSpan = 0f;
+        for (int i = 0; i < correspondences.Count - 1; i++)
+        for (int j = i + 1; j < correspondences.Count; j++)
+        {
+            var left = correspondences[i];
+            var right = correspondences[j];
+            if (right.first < left.first)
+                (left, right) = (right, left);
+            float firstSpan = right.first - left.first;
+            float secondSpan = Mathf.Abs(right.second - left.second);
+            if (firstSpan <= endpointParameterTolerance ||
+                secondSpan <= endpointParameterTolerance ||
+                firstSpan <= bestSpan)
+                continue;
+            if (!MappedIntervalsCoincide(
+                    first,
+                    second,
+                    left.first,
+                    right.first,
+                    left.second,
+                    right.second,
+                    spatialTolerance,
+                    depth: 0))
+                continue;
+
+            bestSpan = firstSpan;
+            overlap = new RoadGeometryOverlap(
+                left.first,
+                right.first,
+                left.second,
+                right.second);
+        }
+
+        return bestSpan > 0f;
+    }
+
+    private static void AddEndpointCorrespondence(
+        RoadGeometrySegment endpointOwner,
+        float endpointParameter,
+        RoadGeometrySegment target,
+        bool isFirstEndpoint,
+        List<(float first, float second)> correspondences,
+        float spatialTolerance)
+    {
+        Vector2 point = endpointOwner.GetPosition(endpointParameter);
+        if (!target.TryFindPointOnGeometry(
+                point,
+                out RoadGeometryPointHit hit,
+                spatialTolerance,
+                endpointParameterTolerance: 0f))
+            return;
+
+        var correspondence = isFirstEndpoint
+            ? (endpointParameter, hit.Parameter)
+            : (hit.Parameter, endpointParameter);
+        if (!correspondences.Exists(existing =>
+                Mathf.Abs(existing.first - correspondence.Item1) <= 1e-5f &&
+                Mathf.Abs(existing.second - correspondence.Item2) <= 1e-5f))
+            correspondences.Add(correspondence);
+    }
+
+    private static bool MappedIntervalsCoincide(
+        RoadGeometrySegment first,
+        RoadGeometrySegment second,
+        float firstStart,
+        float firstEnd,
+        float secondStart,
+        float secondEnd,
+        float spatialTolerance,
+        int depth)
+    {
+        float firstMid = (firstStart + firstEnd) * 0.5f;
+        float secondMid = (secondStart + secondEnd) * 0.5f;
+        float toleranceSquared = spatialTolerance * spatialTolerance;
+        if (first.GetPosition(firstStart).DistanceSquaredTo(second.GetPosition(secondStart)) > toleranceSquared ||
+            first.GetPosition(firstMid).DistanceSquaredTo(second.GetPosition(secondMid)) > toleranceSquared ||
+            first.GetPosition(firstEnd).DistanceSquaredTo(second.GetPosition(secondEnd)) > toleranceSquared)
+            return false;
+
+        Vector2 firstTangent = first.GetUnitTangent(firstMid);
+        Vector2 secondTangent = second.GetUnitTangent(secondMid);
+        bool sameDirection = (firstEnd - firstStart) * (secondEnd - secondStart) >= 0f;
+        float tangentDot = firstTangent.Dot(secondTangent);
+        if (Mathf.Abs(Cross(firstTangent, secondTangent)) > TangentCrossTolerance ||
+            (sameDirection ? tangentDot < 0f : tangentDot > 0f))
+            return false;
+
+        float estimatedSpan = Mathf.Max(
+            first.Length * Mathf.Abs(firstEnd - firstStart),
+            second.Length * Mathf.Abs(secondEnd - secondStart));
+        if (estimatedSpan <= spatialTolerance || depth >= 20)
+            return true;
+
+        return MappedIntervalsCoincide(
+                   first, second,
+                   firstStart, firstMid,
+                   secondStart, secondMid,
+                   spatialTolerance, depth + 1) &&
+               MappedIntervalsCoincide(
+                   first, second,
+                   firstMid, firstEnd,
+                   secondMid, secondEnd,
+                   spatialTolerance, depth + 1);
     }
 
     private static void TryAddPairLeafHit(
