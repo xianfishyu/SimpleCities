@@ -199,6 +199,7 @@
   - 集成负责人：`road-graph`。
   - 测试：直线-曲线、Bézier-Bézier、样条、圆弧/圆锥曲线和回旋线等缓和曲线的端点接触、内部交叉、多交点、相切、重叠与无交叉。
   - 验收：交叉节点位置和拆分后的子曲线参数稳定；桥梁、隧道和高程不在本项建模，二维交叉始终连接。
+  - 当前进展（2026-08-03）：`RoadGeometrySegment.FindClosestPoint` 已提供统一的参数、位置和距离平方结果。line 使用解析投影并夹紧端点，circular arc 使用有向扫角内的径向投影并在扫角外比较端点；cubic Bézier、cubic Hermite、clothoid 和 rational quadratic 使用原生包围盒下界与同类型 `Split(0.5)` 的分支限界搜索，按请求空间容差收敛，不以显示采样为权威。等距结果稳定选择较小参数。`RoadGeometryClosestPointTests` 13/13、解决方案测试 229/229、构建 0 警告/0 错误。点上判定、曲线交点、重叠/相切和 RoadGraph 拆分接入仍未实现，本项保持开放。
 
 <a id="road-graph2.7"></a>
 

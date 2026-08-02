@@ -53,4 +53,12 @@ public sealed class LineRoadGeometrySegment : RoadGeometrySegment
             new LineRoadGeometrySegment(Start, splitPoint),
             new LineRoadGeometrySegment(splitPoint, End));
     }
+
+    public override RoadGeometryClosestPoint FindClosestPoint(Vector2 point, float tolerance = 1e-3f)
+    {
+        EnsureClosestPointArguments(point, tolerance);
+        Vector2 displacement = End - Start;
+        float parameter = Mathf.Clamp((point - Start).Dot(displacement) / displacement.LengthSquared(), 0f, 1f);
+        return CreateClosestPointCandidate(point, parameter);
+    }
 }

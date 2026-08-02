@@ -60,6 +60,28 @@ public sealed class CircularArcRoadGeometrySegment : RoadGeometrySegment
             new CircularArcRoadGeometrySegment(Center, Radius, StartAngle + beforeSweep, SweepAngle - beforeSweep));
     }
 
+    public override RoadGeometryClosestPoint FindClosestPoint(Vector2 point, float tolerance = 1e-3f)
+    {
+        EnsureClosestPointArguments(point, tolerance);
+        Vector2 offset = point - Center;
+        if (offset == Vector2.Zero)
+            return CreateClosestPointCandidate(point, ParameterStart);
+
+        float angle = Mathf.Atan2(offset.Y, offset.X);
+        float directedDelta = SweepAngle > 0f
+            ? Mathf.PosMod(angle - StartAngle, Mathf.Tau)
+            : Mathf.PosMod(StartAngle - angle, Mathf.Tau);
+        if (directedDelta <= Mathf.Abs(SweepAngle) + SweepEpsilon)
+        {
+            float parameter = Mathf.Clamp(directedDelta / Mathf.Abs(SweepAngle), 0f, 1f);
+            return CreateClosestPointCandidate(point, parameter);
+        }
+
+        return ChooseCloser(
+            CreateClosestPointCandidate(point, ParameterStart),
+            CreateClosestPointCandidate(point, ParameterEnd));
+    }
+
     private Rect2 ComputeBounds()
     {
         Vector2 start = Start;
