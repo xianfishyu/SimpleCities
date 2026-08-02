@@ -51,6 +51,7 @@ public sealed class RoadGeometryData
     public const string LineKind = "line";
     public const string CubicBezierKind = "cubicBezier";
     public const string CubicHermiteKind = "cubicHermite";
+    public const string CircularArcKind = "circularArc";
 
     [JsonPropertyName("version")]
     public int? Version { get; set; }
@@ -75,6 +76,18 @@ public sealed class RoadGeometryData
 
     [JsonPropertyName("endTangent")]
     public RoadGeometryPointData? EndTangent { get; set; }
+
+    [JsonPropertyName("center")]
+    public RoadGeometryPointData? Center { get; set; }
+
+    [JsonPropertyName("radius")]
+    public float? Radius { get; set; }
+
+    [JsonPropertyName("startAngle")]
+    public float? StartAngle { get; set; }
+
+    [JsonPropertyName("sweepAngle")]
+    public float? SweepAngle { get; set; }
 
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? ExtraFields { get; set; }
@@ -119,6 +132,15 @@ public static class RoadGeometrySerializer
                 End = new RoadGeometryPointData(hermite.End),
                 EndTangent = new RoadGeometryPointData(hermite.EndTangent),
             },
+            CircularArcRoadGeometrySegment arc => new RoadGeometryData
+            {
+                Version = RoadGeometryData.CurrentVersion,
+                Kind = RoadGeometryData.CircularArcKind,
+                Center = new RoadGeometryPointData(arc.Center),
+                Radius = arc.Radius,
+                StartAngle = arc.StartAngle,
+                SweepAngle = arc.SweepAngle,
+            },
             _ => throw new NotSupportedException($"Unsupported road geometry type: {geometry.GetType().Name}.")
         };
     }
@@ -159,6 +181,7 @@ public static class RoadGeometrySerializer
             RoadGeometryData.LineKind => DeserializeLine(data),
             RoadGeometryData.CubicBezierKind => DeserializeCubicBezier(data),
             RoadGeometryData.CubicHermiteKind => DeserializeCubicHermite(data),
+            RoadGeometryData.CircularArcKind => DeserializeCircularArc(data),
             _ => Failure(RoadGeometryDataError.UnknownGeometryKind),
         };
     }
@@ -167,6 +190,8 @@ public static class RoadGeometrySerializer
     {
         if (data.Control1 is not null || data.Control2 is not null ||
             data.StartTangent is not null || data.EndTangent is not null)
+            return Failure(RoadGeometryDataError.UnexpectedParameter);
+        if (HasArcParameters(data))
             return Failure(RoadGeometryDataError.UnexpectedParameter);
         if (!TryReadPoint(data.Start, out Vector2 start, out RoadGeometryDataError error) ||
             !TryReadPoint(data.End, out Vector2 end, out error))
@@ -178,6 +203,8 @@ public static class RoadGeometrySerializer
     private static RoadGeometryDeserializationResult DeserializeCubicBezier(RoadGeometryData data)
     {
         if (data.StartTangent is not null || data.EndTangent is not null)
+            return Failure(RoadGeometryDataError.UnexpectedParameter);
+        if (HasArcParameters(data))
             return Failure(RoadGeometryDataError.UnexpectedParameter);
         if (!TryReadPoint(data.Start, out Vector2 start, out RoadGeometryDataError error) ||
             !TryReadPoint(data.Control1, out Vector2 control1, out error) ||
@@ -192,6 +219,8 @@ public static class RoadGeometrySerializer
     {
         if (data.Control1 is not null || data.Control2 is not null)
             return Failure(RoadGeometryDataError.UnexpectedParameter);
+        if (HasArcParameters(data))
+            return Failure(RoadGeometryDataError.UnexpectedParameter);
         if (!TryReadPoint(data.Start, out Vector2 start, out RoadGeometryDataError error) ||
             !TryReadPoint(data.StartTangent, out Vector2 startTangent, out error) ||
             !TryReadPoint(data.End, out Vector2 end, out error) ||
@@ -200,6 +229,21 @@ public static class RoadGeometrySerializer
 
         return CreateGeometry(() =>
             new CubicHermiteRoadGeometrySegment(start, startTangent, end, endTangent));
+    }
+
+    private static RoadGeometryDeserializationResult DeserializeCircularArc(RoadGeometryData data)
+    {
+        if (data.Start is not null || data.End is not null || data.Control1 is not null ||
+            data.Control2 is not null || data.StartTangent is not null || data.EndTangent is not null)
+            return Failure(RoadGeometryDataError.UnexpectedParameter);
+        if (!TryReadPoint(data.Center, out Vector2 center, out RoadGeometryDataError error) ||
+            !TryReadFinite(data.Radius, out float radius, out error) ||
+            !TryReadFinite(data.StartAngle, out float startAngle, out error) ||
+            !TryReadFinite(data.SweepAngle, out float sweepAngle, out error))
+            return Failure(error);
+
+        return CreateGeometry(() =>
+            new CircularArcRoadGeometrySegment(center, radius, startAngle, sweepAngle));
     }
 
     private static bool TryReadPoint(
@@ -240,6 +284,32 @@ public static class RoadGeometrySerializer
             return Failure(RoadGeometryDataError.InvalidGeometry);
         }
     }
+
+    private static bool TryReadFinite(
+        float? data,
+        out float value,
+        out RoadGeometryDataError error)
+    {
+        value = default;
+        if (data is null)
+        {
+            error = RoadGeometryDataError.MissingRequiredParameter;
+            return false;
+        }
+        if (!float.IsFinite(data.Value))
+        {
+            error = RoadGeometryDataError.NonFiniteCoordinate;
+            return false;
+        }
+
+        value = data.Value;
+        error = RoadGeometryDataError.None;
+        return true;
+    }
+
+    private static bool HasArcParameters(RoadGeometryData data) =>
+        data.Center is not null || data.Radius is not null ||
+        data.StartAngle is not null || data.SweepAngle is not null;
 
     private static bool HasExtraFields(Dictionary<string, JsonElement>? fields) => fields?.Count > 0;
 

@@ -6,6 +6,7 @@ public enum RoadGeometryKind
     Line,
     CubicBezier,
     CubicHermiteSpline,
+    CircularArc,
 }
 
 public readonly record struct RoadGeometrySplit(
