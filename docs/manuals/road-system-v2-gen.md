@@ -619,6 +619,7 @@ public class RoadGraph
     public GraphNode? FindClosestNode(Vector2 position, float maxRadius);
 
     // ── 遍历 ──
+    // 返回调用时稳定快照；后续图变更不会使既有枚举失效或改变其成员。
     public IEnumerable<GraphEdge> GetAllEdges();
     public IEnumerable<GraphNode> GetAllNodes();
     public IEnumerable<RoadGroup> GetAllGroups();

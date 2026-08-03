@@ -61,7 +61,8 @@ public class GraphEdge
         var nodeA = getNode(NodeA);
         var nodeB = getNode(NodeB);
         if (nodeA == null || nodeB == null)
-            return Points;
+            throw new InvalidOperationException(
+                $"Edge {ID} cannot build a full path because endpoint nodes {NodeA} and {NodeB} must both exist.");
 
         var result = new Vector2[_points.Length + 2];
         result[0] = nodeA.Position;

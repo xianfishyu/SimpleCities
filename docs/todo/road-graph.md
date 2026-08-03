@@ -29,7 +29,7 @@
 | <a id="road-graph10"></a>  |                                             |                                                  |                                                                |
 | 10                         | 交点判断使用严格浮点相等                    | 已修复并有自动化回归                             | 1.3 统一使用距离平方 epsilon，并保留真实内部交叉                |
 | <a id="road-graphp1"></a>  |                                             |                                                  |                                                                |
-| P1                         | 图是节点、边和分组的唯一事实来源            | 一致性已自动验证；可变状态暴露仍待封装           | 4.1 已建立内部断言；由 4.2 收紧公共边界                        |
+| P1                         | 图是节点、边和分组的唯一事实来源            | 已完成                                           | 4.1 已建立内部断言；4.2 已封闭公共可变状态                     |
 | <a id="road-graphp3"></a>  |                                             |                                                  |                                                                |
 | P3                         | SpatialIndex 是可重建查询服务               | 已完成                                           | 3.1～3.3 已验证完整占据、局部候选、10k 门槛和 100k 压测        |
 | <a id="road-graphp4"></a>  |                                             |                                                  |                                                                |
@@ -47,7 +47,7 @@
 | 设计范围                            | 当前事实                                                                                              | 关联待办或基线                      |
 | ----------------------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------- |
 | <a id="road-graph8e20b5c5228b"></a> |                                                                                                       |                                     |
-| §2 P1、§3 纯图架构、§4 数据结构  | `RoadGraph`、`GraphNode`、`GraphEdge`、`RoadGroup` 已落地；内部断言已验证跨容器一致性，公共遍历仍待封装 | 0.1、0.5、4.1；4.2                 |
+| §2 P1、§3 纯图架构、§4 数据结构  | `RoadGraph`、`GraphNode`、`GraphEdge`、`RoadGroup` 已落地；内部断言验证跨容器一致性，公共读取不再暴露可变集合 | 0.1、0.5、4.1、4.2；已解决基线     |
 | <a id="road-graphadbff35eb926"></a> |                                                                                                       |                                     |
 | §2 P3、§5 SpatialIndex            | `UniformGrid` 按原生几何包围盒索引并可从图重建；覆盖、交点、锚点和拆分均使用矩形 bucket 候选         | 1.2、3.1～3.3；已解决基线           |
 | <a id="road-graph5a1f82051412"></a> |                                                                                                       |                                     |
@@ -57,7 +57,7 @@
 | <a id="road-graph6c685ce73a7e"></a> |                                                                                                       |                                     |
 | §6.1 AddRoad 与交叉/覆盖算法       | 折线兼容入口和原生 `SubmitPath` 均已落地；完整覆盖无副作用，离散交点、相切和重叠按原生参数拆分          | 0.2、0.6、2.1～2.4、3.3；已解决基线 |
 | <a id="road-graph541e1cb3f3d8"></a> |                                                                                                       |                                     |
-| §6.3、§7 查询和公共 API           | 最近节点、权威最近 Edge 和结构化 `SubmitPath` 已有；几何查询性能已通过 10k 硬门槛                    | 1.2、2.4、3.1～3.3；4.2             |
+| §6.3、§7 查询和公共 API           | 最近节点、权威最近 Edge 和结构化 `SubmitPath` 已有；几何查询性能已通过 10k 硬门槛，公共遍历返回稳定快照 | 1.2、2.4、3.1～3.3、4.2；已解决基线 |
 | 附录 D 原生曲线与 V2 API           | Edge、提交、查询、交叉、重叠、拆分、存档和性能已保持原生几何，RoadType 已移除；删除事务及渲染集成仍待后续阶段 | 2.4～2.7、3.1～3.3、4.1～4.4       |
 
 ## 执行顺序
@@ -262,11 +262,12 @@
 
 > 当前进展（2026-08-01）：`RoadGraphRegressionTests.GraphEdgePoints_CannotMutateGraphStateOutsideRoadGraphApi` 已通过；外部修改取得的 `Points` 数组不会改变图或存档状态。
 
-- [ ] **4.2 封闭 `RoadGraph` 的可变内部状态暴露**
-  - 当前问题：`GetAllEdges`/`GetAllNodes`/`GetAllGroups` 返回实时字典视图；`GraphEdge.Points` 暴露可原地修改的数组；端点缺失时 `GetFullPath` 返回不完整的 `Points`，会掩盖损坏拓扑。
+- [x] **4.2 封闭 `RoadGraph` 的可变内部状态暴露**
+  - 原问题：`GetAllEdges`/`GetAllNodes`/`GetAllGroups` 返回实时字典视图；`GraphEdge.Points` 曾缺少明确的防御性契约；端点缺失时 `GetFullPath` 返回不完整的 `Points`，会掩盖损坏拓扑。
   - 修改：公共遍历返回稳定快照或不可变快照；Edge 几何对外只读或防御性复制；缺失端点时返回明确失败而不是部分路径。
   - 测试：尝试修改已取得的 Points；取得遍历结果后修改图；构造缺失端点的损坏 Edge。
   - 验收：外部代码不能绕过图 API 改变几何、长度、空间索引或存档内容；图变化不会使既有快照枚举失效；损坏边不会伪装成有效折线。
+  - 完成证据（2026-08-04）：`GetAllEdges`/`GetAllNodes`/`GetAllGroups` 在调用时复制实体数组，后续增删不会改变既有枚举；`GraphNode.Edges` 使用 `ReadOnlyCollection`，`RoadGroup.EdgeIDs` 返回防御性数组，`GraphEdge.GeometrySegments` 保持只读包装，`Points` 保持防御性复制。`GraphEdge.GetFullPath` 缺任一端点时抛出包含 Edge/Node 身份的 `InvalidOperationException`。`RoadGraphEncapsulationTests` 3/3 覆盖稳定快照、强制转换后的修改尝试和损坏端点；既有 Points 防御性测试继续通过，完整解决方案测试 368/368，Debug 构建 0 警告、0 错误。
   - 来源 key：`todo:item:4.2`。
 
 <a id="road-graph4.3"></a>

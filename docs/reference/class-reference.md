@@ -344,7 +344,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `Type` | `public RoadType Type { get; internal set; }` | 道路类型 |
 | `Length` | `public float Length { get; }` | 几何长度 |
 | 构造函数 | `public GraphEdge(int id, int nodeA, int nodeB, Vector2[] points, int groupID, RoadType type, float length)` | 创建边 |
-| `GetFullPath` | `public Vector2[] GetFullPath(Func<int, GraphNode?> getNode)` | 返回 `[NodeA.Position, ...Points, NodeB.Position]`，端点缺失时返回 `Points` |
+| `GetFullPath` | `public Vector2[] GetFullPath(Func<int, GraphNode?> getNode)` | 返回 `[NodeA.Position, ...Points, NodeB.Position]`；端点缺失时抛出 `InvalidOperationException` |
 
 ### RoadGroup
 
@@ -430,9 +430,9 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `GetGroup` | `public RoadGroup? GetGroup(int groupID)` | 取组 |
 | `FindClosestEdge` | `public GraphEdge? FindClosestEdge(Vector2 position, float maxRadius)` | 基于空间索引查最近边点 |
 | `FindClosestNode` | `public GraphNode? FindClosestNode(Vector2 position, float maxRadius)` | 基于空间索引查最近节点 |
-| `GetAllEdges` | `public IEnumerable<GraphEdge> GetAllEdges()` | 枚举边 |
-| `GetAllNodes` | `public IEnumerable<GraphNode> GetAllNodes()` | 枚举节点 |
-| `GetAllGroups` | `public IEnumerable<RoadGroup> GetAllGroups()` | 枚举道路组 |
+| `GetAllEdges` | `public IEnumerable<GraphEdge> GetAllEdges()` | 返回调用时的边稳定快照 |
+| `GetAllNodes` | `public IEnumerable<GraphNode> GetAllNodes()` | 返回调用时的节点稳定快照 |
+| `GetAllGroups` | `public IEnumerable<RoadGroup> GetAllGroups()` | 返回调用时的道路组稳定快照 |
 | `CaptureState` | `public object CaptureState()` | 返回私有 `RoadGraphSaveData`，写入 version 2、NextID、junctions、segments、roads |
 | `RestoreState` | `public void RestoreState(string json)` | 反序列化、清图、恢复实体、重建邻接和索引、触发 `GraphCleared` |
 

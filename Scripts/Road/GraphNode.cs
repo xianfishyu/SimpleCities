@@ -1,5 +1,6 @@
 using Godot;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 
 public readonly struct EdgeRef
@@ -20,13 +21,15 @@ public class GraphNode
     public Vector2 Position { get; }
 
     private readonly List<EdgeRef> _edges = new();
-    public IReadOnlyList<EdgeRef> Edges => _edges;
+    private readonly ReadOnlyCollection<EdgeRef> _readOnlyEdges;
+    public IReadOnlyList<EdgeRef> Edges => _readOnlyEdges;
     public int EdgeCount => _edges.Count;
 
     public GraphNode(int id, Vector2 position)
     {
         ID = id;
         Position = position;
+        _readOnlyEdges = _edges.AsReadOnly();
     }
 
     internal void AddEdge(int edgeID, int neighborNodeID)

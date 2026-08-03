@@ -209,9 +209,9 @@ public partial class RoadGraph : ISaveable
         return bestNodeID >= 0 ? GetNode(bestNodeID) : null;
     }
 
-    public IEnumerable<GraphEdge> GetAllEdges() => _edges.Values;
-    public IEnumerable<GraphNode> GetAllNodes() => _nodes.Values;
-    public IEnumerable<RoadGroup> GetAllGroups() => _groups.Values;
+    public IEnumerable<GraphEdge> GetAllEdges() => _edges.Values.ToArray();
+    public IEnumerable<GraphNode> GetAllNodes() => _nodes.Values.ToArray();
+    public IEnumerable<RoadGroup> GetAllGroups() => _groups.Values.ToArray();
 
     private GraphEdge? AddEdge(GraphNode nodeA, GraphNode nodeB, Vector2[] points, int groupID)
     {
