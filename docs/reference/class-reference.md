@@ -43,7 +43,7 @@
 | Camera | `MainCamera.cs` | 2D 相机移动、缩放和可扩展状态捕获；V2 槽不选择相机 |
 | Grid | `GridSystem.cs`, `MapBackground.cs`, `MapTerrain.gdshader` | 网格数学、背景 CanvasLayer、Shader 网格绘制 |
 | Road data | `Direction.cs`, `GraphNode.cs`, `GraphEdge.cs`, `RoadGroup.cs`, `RoadPath.cs`, `SpatialIndex.cs`, `RoadGraph*.cs`, `Geometry/*.cs` | 输入方向、拓扑、原生几何、空间索引、提交与持久化 |
-| Road scene | `RoadBuilder.cs`, `RoadConfig.cs`, `RoadRenderer.cs`, `RoadSystem.cs` | 输入投影、共享配置、事件驱动渲染、依赖注入 |
+| Road scene | `RoadBuilder.cs`, `Input/*.cs`, `RoadConfig.cs`, `RoadRenderer.cs`, `RoadSystem.cs` | 输入生命周期、可替换投影策略、共享配置、事件驱动渲染、依赖注入 |
 | Tools | `ToolManager.cs`, `ToolType.cs` | 工具切换和输入转发 |
 | UI | `GameHUD.cs`, `ConstructionDock.cs`, `ToolContextPanel.cs`, `DebugPanel.cs`, `PauseMenu.cs`, `UIManager.cs` | 命令中心 HUD、建造坞、上下文、诊断、暂停菜单和面板管理 |
 
@@ -494,20 +494,38 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 |---|---|---|
 | `Config` | `[Export] public RoadConfig Config { get; set; } = null!` | 场景注入共享配置 |
 | `SetGraph` | `public void SetGraph(RoadGraph graph)` | 注入数据层 |
-| `_Ready` | `public override void _Ready()` | 获取相邻 `RoadRenderer`，校验 `Config` |
+| `SetInputStrategy` | `public void SetInputStrategy(IRoadInputStrategy inputStrategy)` | 取消当前拖拽并替换输入策略 |
+| `_Ready` | `public override void _Ready()` | 获取相邻 `RoadRenderer`，校验 `Config`，按需创建默认米字型策略 |
 | `HandlePlaceInput` | `public void HandlePlaceInput(InputEvent @event)` | 左键按下开始拖拽，释放提交 |
-| `_Process` | `public override void _Process(double delta)` | 拖拽时更新 8 方向投影，拆除工具时更新 hover |
+| `BeginPlace` | `public bool BeginPlace(Vector2 pointerPosition)` | 通过策略吸附起点并建立空草稿；失败时不进入拖拽 |
+| `UpdatePlace` | `public void UpdatePlace(Vector2 pointerPosition)` | 请求当前策略重建草稿并更新预览 |
+| `CommitPlace` | `public bool CommitPlace(Vector2 pointerPosition)` | 用最新指针刷新草稿，经 `RoadGraph.SubmitPath` 提交并清理预览 |
+| `_Process` | `public override void _Process(double delta)` | 拖拽时更新策略草稿，拆除工具时更新 hover |
 | `HandleRemoveInput` | `public void HandleRemoveInput(InputEvent @event)` | 左键点击删除最近 `GraphEdge` |
 | `CancelPlaceDrag` | `public void CancelPlaceDrag()` | 切出铺路工具时取消拖拽并清预览 |
 | `SetRemoveHoverActive` | `public void SetRemoveHoverActive(bool active)` | 切入/切出拆除工具时开关 hover |
 
 | 当前铺路行为 | 说明 |
 |---|---|
-| 拖拽语义 | 一次拖拽生成一条单方向直路，方向从 8 个方向中按投影选择 |
-| 半格起点 | 起点不在整格时仅允许对角延伸，并反向定位整格 anchor |
-| 提交 | `EndDragAndCommit()` 调用 `_graph.AddRoad(_dragStartPos, endPos, waypoints)` |
+| 拖拽语义 | `RoadBuilder` 只管理开始、更新、预览、提交和取消；当前默认策略仍生成单方向直路 |
+| 半格起点 | `SquareEightRoadInputStrategy` 对偏移起点只允许对角延伸，并反向定位整格 anchor |
+| 提交 | `CommitPlace()` 把不可变草稿中的 `RoadPath` 交给 `_graph.SubmitPath(...)` |
 | 道路类型 | 第二代输入与数据层不包含 RoadType |
-| 拆除 | 优先按 snap 位置查边，再按原始鼠标位置查边 |
+| 拆除 | 使用当前策略的吸附点和 `InteractionRadius` 查边，再回退到原始指针位置 |
+
+### Road 输入策略
+
+**文件**：`Scripts/Road/Input/IRoadInputStrategy.cs`、`RoadPathDraft.cs`、`SquareEightRoadInputStrategy.cs`
+
+| 类型/成员 | 签名 | 说明 |
+|---|---|---|
+| `IRoadInputStrategy.InteractionRadius` | `float InteractionRadius { get; }` | 当前策略用于道路起点吸附和拆除命中的半径 |
+| `IRoadInputStrategy.SnapPointer` | `Vector2 SnapPointer(Vector2 worldPosition)` | 把世界指针映射到策略定义的吸附点 |
+| `IRoadInputStrategy.BuildDraft` | `RoadPathDraft BuildDraft(Vector2 startPosition, Vector2 pointerPosition)` | 生成预览点和可选的权威 `RoadPath` |
+| `RoadPathDraft` | `public sealed class RoadPathDraft` | 防御性复制预览点；`Path == null` 表示当前不可提交 |
+| `SquareEightRoadInputStrategy` | `public sealed class SquareEightRoadInputStrategy : IRoadInputStrategy` | 封装方格吸附、八方向投影、半格对角约束和逐格原生直线段 |
+
+`RoadBuilder` 不直接引用 `Direction`、`DirectionUtil`、`GridSystem` 或 `CellSize`。未来策略可以产生不同吸附与邻接规则，只要返回连续的 `RoadPathDraft`；RoadGraph 不需要按网格类型增加分支。
 
 ### RoadRenderer
 
@@ -652,10 +670,10 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | 步骤 | 调用 | 数据变化 |
 |---|---|---|
 | 1 | `ToolManager._Input()` | 当前工具为 `Road` 时转发输入 |
-| 2 | `RoadBuilder.HandlePlaceInput()` | 左键按下记录 `_dragStartPos`，释放提交 |
-| 3 | `RoadBuilder._Process()` | `UpdateProjection()` 计算 8 方向预览 |
-| 4 | `RoadBuilder.EndDragAndCommit()` | 生成 waypoints，不向数据层传递 RoadType |
-| 5 | `RoadGraph.AddRoad(...)` | 创建/复用节点，拆分交点，跳过覆盖段，创建 group/edge |
+| 2 | `RoadBuilder.HandlePlaceInput()` | 左键按下/释放转发到公开铺路生命周期 |
+| 3 | `RoadBuilder.BeginPlace()` / `UpdatePlace()` | 当前策略吸附起点并生成不可变 `RoadPathDraft` 预览 |
+| 4 | `RoadBuilder.CommitPlace()` | 刷新最终草稿并提交其中的 `RoadPath`，不向数据层传递网格或 RoadType |
+| 5 | `RoadGraph.SubmitPath(...)` | 校验原生几何，创建/复用节点，拆分交点，跳过覆盖段，创建 group/edge |
 | 6 | `RoadGraph.EdgeAdded` | 通知渲染器创建 `Line2D` |
 | 7 | `GameHUD._Process()` -> `DebugPanel.UpdateMetrics()` | 调试组件轮询并显示 Group/Edge/Node 数量 |
 

@@ -279,6 +279,9 @@ Scripts/Road/GraphEdge.cs
 Scripts/Road/RoadGroup.cs
 Scripts/Road/RoadSystem.cs
 Scripts/Road/RoadBuilder.cs
+Scripts/Road/Input/IRoadInputStrategy.cs
+Scripts/Road/Input/RoadPathDraft.cs
+Scripts/Road/Input/SquareEightRoadInputStrategy.cs
 Scripts/Road/RoadRenderer.cs
 Scripts/Road/SpatialIndex.cs
 Scripts/Road/RoadConfig.cs
@@ -303,4 +306,4 @@ project.godot
 
 ### 未来设计边界
 
-`IGridGeometry`、`Square8Grid`、`TrafficGraph`、A* 寻路、道路分级 UI 和按 RoadType 差异化渲染仍属于未来设计。第二代道路 JSON 只使用严格版本化的 `nodes/edges/groups` 与原生几何；第三代若引入 RoadType，必须提升 schema 并定义新的迁移或拒绝规则。
+可替换铺路边界已经由 `IRoadInputStrategy`、`RoadPathDraft` 和默认 `SquareEightRoadInputStrategy` 落地；`RoadBuilder` 只管理输入生命周期并经 `RoadGraph.SubmitPath` 提交。三角形/六边形策略、连续多段铺路、`TrafficGraph`、A* 寻路、道路分级 UI 和按 RoadType 差异化渲染仍属于未来工作。第二代道路 JSON 只使用严格版本化的 `nodes/edges/groups` 与原生几何；第三代若引入 RoadType，必须提升 schema 并定义新的迁移或拒绝规则。

@@ -1,8 +1,8 @@
 # 工具输入系统待办清单
 
 > 系统 key：`tool-input`
-> 复核日期：2026-08-02
-> 证据：`Scripts/Road/RoadBuilder.cs`、`Scripts/Grid/GridSystem.cs`、`Scripts/Road/Direction.cs`、输入相关测试及 `docs/manuals/road-system-v2-gen.md` 附录 D。
+> 复核日期：2026-08-04
+> 证据：`Scripts/Road/RoadBuilder.cs`、`Scripts/Road/Input/`、`tests/SimpleCities.RoadGraph.Tests/RoadInputStrategyTests.cs`、`tests/godot/road_input_strategy_runtime_contract.gd` 及 `docs/manuals/road-system-v2-gen.md` 附录 D。
 > 主导原则：负责玩家输入动作、可替换铺路策略、连续铺路、拆路选择和操作历史；网格规则不得进入 RoadGraph 数据层。
 
 ## 状态总览
@@ -14,7 +14,7 @@
 | ID | 发现 | 当前状态 | 处置方式 |
 |---|---|---|---|
 | 1.1 | 相机、工具和暂停输入缺少统一可重绑入口 | 已完成 | 由 `InputBindingManager` 统一管理 |
-| 1.2 | `RoadBuilder` 直接依赖静态方格和八方向枚举 | 未完成 | 抽取可替换铺路策略 |
+| 1.2 | `RoadBuilder` 直接依赖静态方格和八方向枚举 | 已完成 | 默认米字型规则已迁入可替换策略 |
 | 1.3 | 其他网格不能在不改 RoadBuilder/RoadGraph 的情况下测试 | 未完成 | 实现三角形与六边形测试策略 |
 | 1.4 | 一次拖拽只能生成单方向直路 | 未完成 | 增加连续多段铺路、拐点、预览和取消 |
 | 1.5 | 拆路只支持单点命中 | 未完成 | 增加连续拆除和框选删除 |
@@ -27,8 +27,8 @@
 
 | 设计范围 | 当前事实 | 关联待办 |
 |---|---|---|
-| V2 数据层与输入层分离 | `CellSize` 已退出 RoadGraph API，但 `RoadBuilder` 仍直接调用 `GridSystem` 和 `DirectionUtil.All` | 1.2、`road-graph:2.1`～`road-graph:2.2` |
-| V2 可替换网格 | 当前没有铺路策略接口，测试其他网格必须修改 RoadBuilder | 1.2～1.3 |
+| V2 数据层与输入层分离 | `RoadBuilder` 只消费 `IRoadInputStrategy`；方格尺寸和八方向投影位于 `SquareEightRoadInputStrategy` | 1.2、`road-graph:2.1`～`road-graph:2.2` |
+| V2 可替换网格 | 策略接口、不可变 `RoadPathDraft` 和默认米字型实现已完成；三角形与六边形实现仍待 1.3 | 1.2～1.3 |
 | V2 成熟铺路交互 | 当前是单次拖拽、单方向直路，拆除为单 Edge 命中 | 1.4～1.6 |
 
 ## 执行顺序
@@ -37,13 +37,14 @@
 
 <a id="tool-input1.2"></a>
 
-- [ ] **1.2 抽取可替换的铺路输入策略**
+- [x] **1.2 抽取可替换的铺路输入策略**
   - 当前问题：`RoadBuilder` 直接使用 `GridSystem.SnapToGrid`、`DirectionUtil.All`、`Direction` 和 `Config.CellSize`，输入生命周期与米字型规则耦合。
   - 修改：定义策略接口和稳定的路径草稿结果；RoadBuilder 只管理开始、更新、预览、提交和取消，当前米字型规则迁入默认策略。
   - 依赖：`road-graph:2.2`、`road-graph:2.4`。
   - 集成负责人：`tool-input`。
   - 测试：默认米字型策略保持当前吸附、方向和最小长度行为；替换策略时不修改 RoadBuilder 或 RoadGraph。
   - 验收：RoadBuilder 不再直接枚举八方向或计算方格步长；策略输出可通过公共路径 API 提交。
+  - 完成证据（2026-08-04）：新增 `IRoadInputStrategy`、不可变 `RoadPathDraft` 和 `SquareEightRoadInputStrategy`；`RoadBuilder` 通过 `BeginPlace`、`UpdatePlace`、`CommitPlace`、`CancelPlaceDrag` 管理生命周期，并只用 `RoadGraph.SubmitPath` 提交策略结果。拆除吸附与命中半径也由当前策略提供。策略测试 8/8、完整解决方案测试 434/434、Debug 构建 0 警告/0 错误；Godot 主场景策略契约、真实鼠标事件命令中心契约和授权后的暂停菜单契约均输出 PASS。逐文件 LSP、Godot editor bridge 与 DAP console 因当前会话未提供对应通道而阻塞。
 
 <a id="tool-input1.3"></a>
 
@@ -116,7 +117,7 @@
 
 - [x] **1.1 建立可持久化的键盘绑定与工具动作分发。** 输入动作由 `InputBindingManager` 管理，既有自动化和 Godot 运行时契约已通过。
 <a id="tool-inputdf59848d1fce"></a>
-- [x] **CellSize 已从 RoadGraph API 移除。** 当前网格吸附仍留在 RoadBuilder/GridSystem，后续由 1.2 收拢为策略实现。
+- [x] **CellSize 已从 RoadGraph API 与 RoadBuilder 生命周期移除。** 当前米字型吸附、步长和半格约束由 `SquareEightRoadInputStrategy` 封装；`GridSystem` 仍供其他 UI/调试组件使用。
 
 ## 完成标准
 

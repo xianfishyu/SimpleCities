@@ -148,8 +148,9 @@ GameHUD              — 鼠标格点坐标显示
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │ Layer 3: UI / Input                                         │
-│   RoadBuilder     — 鼠标拖拽 → 8 方向投影 → 生成拓扑操作请求   │
-│   GridSystem      — SnapToGrid, IsSnapGrid（纯 UI 工具）     │
+│   RoadBuilder     — 铺路输入生命周期、预览、提交与取消          │
+│   InputStrategy   — 指针吸附/投影 → 不可变 RoadPathDraft      │
+│   SquareEight...  — 当前米字型吸附、八方向和半格约束           │
 │   ToolManager     — 工具切换，输入路由                        │
 ├─────────────────────────────────────────────────────────────┤
 │ Layer 2: Topology (Pure Graph)                              │
@@ -765,8 +766,8 @@ RoadGraphSaveData {
 | `FromJunctionID` / `ToJunctionID` | `NodeA` / `NodeB` | 无向语义 |
 | `_posToJunctionID` | *删除* | 并入 SpatialIndex，当前已完成 |
 | `_posToSegmentID` | *删除* | 并入 SpatialIndex，当前已完成 |
-| `Direction`, `DirectionUtil` | *保留但仅用于 UI 层* | RoadBuilder 仍需要 8 方向投影 |
-| `GridSystem` | *保留但不再被数据层引用* | 纯 UI 工具 |
+| `Direction`, `DirectionUtil` | *保留但仅用于默认输入策略* | `SquareEightRoadInputStrategy` 执行 8 方向投影 |
+| `GridSystem` | *保留但不再被 RoadGraph/RoadBuilder 引用* | 供其他 UI 与调试组件使用 |
 | `RoadConfig` | *当前保留；第三代可扩展 RoadTypeStyle[]* | 第二代只使用统一样式 |
 
 ## 附录 B：不变式对比
@@ -778,7 +779,7 @@ RoadGraphSaveData {
 | 删段后 `MaybeReindexJunctionInPosDict` 必须补回共享条目 | **无此不变式** — 空间索引独立维护，删边不影响其他边 |
 | `_inMergeOperation` 必须设 true 防止递归合并 | **无此不变式** — 删段不触发合并 |
 | `SplitRoadIntoConnectedComponents` 必须保证 Group 内连通 | **无此不变式** — Group 允许不连通 |
-| `RoadBuilder` 必须在半格起点时限定对角方向 | 移入 `RoadBuilder` 的局部约束，与数据层无关 |
+| 半格起点必须限定对角方向 | 移入 `SquareEightRoadInputStrategy` 的局部约束，与生命周期和数据层无关 |
 
 ---
 
@@ -905,6 +906,8 @@ RoadGraphSaveData {
 - 旧存档迁移和旧 JSON 字段兼容不属于第二代。
 
 ### D.4 未完成事项
+
+> 2026-08-04 进度：`tool-input:1.2` 已完成策略接口、不可变草稿、默认米字型实现及 RoadBuilder 生命周期接入；V2-6 仍等待 `tool-input:1.3` 的三角形与六边形策略验收。
 
 | ID | 未完成事项 | 所属系统 | 验收摘要 |
 |---|---|---|---|
