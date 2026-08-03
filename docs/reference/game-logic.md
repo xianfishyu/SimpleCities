@@ -117,7 +117,7 @@ flowchart TD
         C7 -->|否| C8["不入历史 图不变并保留会话"]
         C7 -->|是| C9["状态变化时前后状态进入撤销栈<br/>并清空重做栈"]
         C9 --> C10["发布 Edge 事件并清空会话预览"]
-        C10 --> C11["RoadRenderer 从原生段采样并创建 Line2D"]
+        C10 --> C11["RoadRenderer 缓存显示点列并安排合并 ribbon 重建"]
     end
 
     Phase1 --> Phase2
@@ -155,7 +155,7 @@ flowchart TD
         R11 --> R12["一次清理孤立 Node 和空 Group"]
         R12 --> R13["验证不变式后按 ID 发布 EdgeRemoved"]
         R13 --> R14["成功状态进入撤销栈并清空重做栈"]
-        R14 --> R15["RoadRenderer 回收 Line2D 并清预览"]
+        R14 --> R15["RoadRenderer 移除点列并安排合并静态批次重建"]
     end
 
     Phase1 --> Phase2
@@ -348,12 +348,12 @@ flowchart LR
     end
 
     subgraph Render["渲染层"]
-        Event1 --> RR_Add["RoadRenderer.OnEdgeAdded<br/>创建 Line2D"]
-        Event2 --> RR_Del["RoadRenderer.OnEdgeRemoved<br/>回收 Line2D"]
-        Event3 --> RR_Rebuild["RoadRenderer.OnGraphCleared<br/>全量重建 Line2D"]
+        Event1 --> RR_Add["RoadRenderer.OnEdgeAdded<br/>缓存点列并安排合并重建"]
+        Event2 --> RR_Del["RoadRenderer.OnEdgeRemoved<br/>移除点列并安排合并重建"]
+        Event3 --> RR_Rebuild["RoadRenderer.OnGraphCleared<br/>全量重建静态批次"]
         RR_Add --> Sample["RoadGeometryDisplaySampler<br/>原生段 -> 确定显示点列"]
         RR_Rebuild --> Sample
-        Sample --> Draw["Line2D.Points / QueueRedraw"]
+        Sample --> Draw["ArrayMesh ribbon / 节点 MultiMesh"]
         RR_Del --> Draw
     end
 

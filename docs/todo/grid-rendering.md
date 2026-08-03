@@ -2,7 +2,7 @@
 
 > 系统 key：`grid-rendering`
 > 复核日期：2026-08-04
-> 证据：`Scripts/Road/RoadGeometryDisplaySampler.cs`、`RoadRenderer.cs`、`RoadBuilder.cs`、`RoadConfig.cs`、`tests/SimpleCities.RoadGraph.Tests/RoadGeometryDisplaySamplerTests.cs`、`tests/godot/road_curve_rendering_runtime_contract.gd` 及 `docs/manuals/road-system-v2-gen.md` 附录 D。
+> 证据：`Scripts/Road/RoadGeometryDisplaySampler.cs`、`RoadRenderer.cs`、`RoadBuilder.cs`、`RoadConfig.cs`、`tests/SimpleCities.RoadGraph.Tests/RoadGeometryDisplaySamplerTests.cs`、`tests/godot/road_curve_rendering_runtime_contract.gd`、`tests/godot/road_rendering_performance_contract.gd`、`docs/performance/road-rendering-v2-baseline.md` 及 `docs/manuals/road-system-v2-gen.md` 附录 D。
 > 主导原则：负责道路权威几何的可视化、建造预览和大规模渲染；道路分级样式属于第三代。
 
 ## 状态总览
@@ -10,7 +10,7 @@
 | ID | 发现 | 当前状态 | 处置方式 |
 |---|---|---|---|
 | 1.1 | RoadRenderer 只消费折线点，不能按原生曲线参数渲染 | 已完成 | 六类 V2 几何共用确定的只读显示细分 |
-| 1.2 | 10k Edge 的渲染与预览没有 60 FPS 验收 | 未完成 | 建立帧时间与绘制对象基线并优化 |
+| 1.2 | 10k Edge 的渲染与预览没有 60 FPS 验收 | 已完成 | 连续道路网格与节点 MultiMesh 通过 10k 门槛并完成 100k 压测 |
 | 5.3 | Junction 视觉资源字段仍使用旧命名 | 非 V2 阻塞项 | 后续资源清理时单独决定资源兼容策略 |
 | D5.1～D5.2 | RoadType 分级样式 | 第三代 | 第二代统一道路视觉 |
 
@@ -21,7 +21,7 @@
 | 设计范围 | 当前事实 | 关联待办 |
 |---|---|---|
 | V2 原生曲线显示 | 六类权威几何已由统一采样器生成稳定显示折线；提交道路、拆除高亮和有效建造预览复用同一点列 | 1.1（已完成）、`road-graph:2.5`～`road-graph:2.6`（已完成） |
-| V2 规模验收 | RoadGraph 操作性能已通过 10k 门槛并记录 100k 压测；事件驱动渲染尚无同规模数据 | 1.2、`road-graph:3.1`～`road-graph:3.3`（已完成） |
+| V2 规模验收 | RoadGraph 操作和事件驱动渲染均已通过 10k 门槛并记录 100k 压测；静态道路渲染固定为 2 个子节点 | 1.2（已完成）、`road-graph:3.1`～`road-graph:3.3`（已完成） |
 
 ## 执行顺序
 
@@ -41,13 +41,14 @@
 
 <a id="grid-rendering1.2"></a>
 
-- [ ] **1.2 验证 10k Edge 的 60 FPS 渲染门槛并记录 100k 压测**
-  - 当前问题：每条 Edge 独立 Line2D 的规模成本尚未测量，无法证明成熟城市下的交互帧率。
-  - 修改：建立固定镜头、固定可见范围和固定曲线细分容差的 10k/100k Edge 场景；记录平均帧时间、P95 帧时间、绘制对象数量和预览更新成本，并依据结果批处理或裁剪。
+- [x] **1.2 验证 10k Edge 的 60 FPS 渲染门槛并记录 100k 压测**
+  - 当前问题：优化前每条 Edge 独立 `Line2D`，10k 有 30,002 draw calls / objects，三个交互场景 P95 为 32.057～33.426 ms；100k 的逐节点 `DrawCircle` 触发 RenderingDevice RID 元素上限。
+  - 修改：建立固定镜头、固定可见范围和固定曲线细分容差的 10k/100k Edge 场景；把全部道路显示点列构造成一个连续抗锯齿 `ArrayMesh` ribbon，把端点和交叉口放入一个圆形 shader `MultiMeshInstance2D`，并将同一事件循环内的 Edge 增删合并为一次批次重建；记录平均/P95 帧时间、重建、draw calls、objects、primitives 和预览/高亮成本。
   - 依赖：`grid-rendering:1.1`、`road-graph:3.1`～`road-graph:3.3`。
   - 集成负责人：`grid-rendering`。
   - 验证：10k Edge 场景执行镜头移动、铺路预览、命中高亮和图重建；100k 使用相同方法压力测试。
   - 验收：固定 10k Edge 场景的 P95 总帧时间不超过 16.67 ms；100k 结果完整记录但不阻塞第二代完成。
+  - 完成证据（2026-08-04）：真实 `MapTest` / Vulkan Forward+ 契约关闭 VSync 后，10k 镜头/预览/高亮 P95 分别为 0.788/0.717/0.436 ms，重建 159.151 ms；100k P95 分别为 5.240/4.612/4.739 ms，重建 1,170.055 ms。两个规模的静态/高亮帧均为 4 draw calls / 4 objects，预览帧为 5 / 56，`RoadRenderer` 静态子节点固定为 2；100k 完整清理后输出 `PASS road rendering performance contract`。道路输入契约直接验证三条 Edge 批删在下一帧合并发布最终 mesh；连续 ribbon 的六类曲线截图无段缝或珠状轮廓，聚焦测试 8/8、完整测试 473/473、Debug 构建 0 警告/0 错误，命令中心和暂停菜单回归均通过。完整口径见 `docs/performance/road-rendering-v2-baseline.md`。
 
 ## 暂不执行
 
@@ -82,7 +83,8 @@
 <a id="grid-rendering0854f0250cc2"></a>
 
 - [x] **事件驱动 Edge 渲染与加载后全量重建已经落地。** `RoadRenderer.SetGraph` 监听 `EdgeAdded`、`EdgeRemoved` 和 `GraphCleared`。
-- [x] **六类 V2 原生几何共享只读显示采样。** 显示容差只影响派生 `Line2D` / 预览点列，缩放、重建和存档往返不修改权威控制参数。
+- [x] **六类 V2 原生几何共享只读显示采样。** 显示容差只影响派生道路 ribbon / 预览点列，缩放、重建和存档往返不修改权威控制参数。
+- [x] **大规模静态道路保持常数级渲染节点。** 道路 `ArrayMesh` 与节点 `MultiMesh` 把 10k/100k 的 `RoadRenderer` 子节点固定为 2；10k 三类连续交互 P95 均满足 16.67 ms。
 
 ## 完成标准
 

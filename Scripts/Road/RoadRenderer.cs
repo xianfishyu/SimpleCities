@@ -9,11 +9,13 @@ public partial class RoadRenderer : Node2D
 
     private RoadGraph? _network;
 
-    // Edge.ID → Line2D 节点映射
-    private readonly Dictionary<int, Line2D> _edgeLines = new();
+    // Edge.ID → 确定显示点列；静态道路和动态高亮共用。
+    private readonly Dictionary<int, Vector2[]> _edgePoints = new();
 
-    // 交叉口渲染层（放在所有 Line2D 之后，保证渲染在最上层）
-    private Node2D _junctionLayer = null!;
+    private MeshInstance2D _roadBatchLayer = null!;
+    private MultiMeshInstance2D _nodeBatchLayer = null!;
+    private int _roadMeshVertexCount;
+    private bool _staticBatchRebuildScheduled;
 
     // 施工预览
     private Vector2[] _previewPoints = [];
@@ -38,11 +40,15 @@ public partial class RoadRenderer : Node2D
 
     public int GetRemovalPreviewEdgeCount() => _removalPreviewEdgeIDs.Length;
 
-    public int GetRenderedEdgeCount() => _edgeLines.Count;
+    public int GetRenderedEdgeCount() => _edgePoints.Count;
 
-    public int GetRenderedPointCount(int edgeID) => _edgeLines[edgeID].Points.Length;
+    public int GetRenderedPointCount(int edgeID) => _edgePoints[edgeID].Length;
 
-    public Vector2 GetRenderedPoint(int edgeID, int pointIndex) => _edgeLines[edgeID].Points[pointIndex];
+    public Vector2 GetRenderedPoint(int edgeID, int pointIndex) => _edgePoints[edgeID][pointIndex];
+
+    public int GetStaticRenderNodeCount() => 2;
+
+    public int GetRoadMeshVertexCount() => _roadMeshVertexCount;
 
     /// <summary>拆除工具悬停的 Edge ID（null = 未悬停在任何 Edge 上）</summary>
     public int? HoveredEdgeID { get; set; }
@@ -60,10 +66,17 @@ public partial class RoadRenderer : Node2D
             Config.CurveDisplayTolerance = RoadGeometryDisplaySampler.DefaultTolerance;
         }
 
-        // 交叉口层：最后添加，渲染在所有 Line2D 之上
-        _junctionLayer = new Node2D();
-        AddChild(_junctionLayer);
-        _junctionLayer.Draw += OnDrawJunctions;
+        _roadBatchLayer = new MeshInstance2D
+        {
+            ZIndex = 0,
+            Modulate = Config.RoadColor,
+            Material = CreateRoadMaterial(),
+        };
+        AddChild(_roadBatchLayer);
+
+        _nodeBatchLayer = CreateBatchLayer(useColors: true, zIndex: 1);
+        _nodeBatchLayer.Material = CreateCircleMaterial();
+        AddChild(_nodeBatchLayer);
     }
 
     public void SetGraph(RoadGraph graph)
@@ -84,78 +97,218 @@ public partial class RoadRenderer : Node2D
 
     private void OnGraphCleared()
     {
-        // 清除所有现有 Line2D 节点
-        foreach (var line in _edgeLines.Values)
-            line.QueueFree();
-        _edgeLines.Clear();
+        _staticBatchRebuildScheduled = false;
+        _edgePoints.Clear();
 
-        // 重建所有 Edge 的 Line2D
         if (_network == null) return;
         foreach (var edge in _network.GetAllEdges())
-            CreateEdgeLine(edge);
+            CacheEdgePoints(edge);
 
-        _junctionLayer.QueueRedraw();
+        RebuildStaticBatches();
     }
 
-    // ── Edge 增删 → Line2D 同步 ──
+    // ── Edge 增删 → 显示点缓存与静态批次同步 ──
 
     private void OnEdgeAdded(GraphEdge edge)
     {
-        CreateEdgeLine(edge);
-        _junctionLayer.QueueRedraw();
+        CacheEdgePoints(edge);
+        ScheduleStaticBatchRebuild();
     }
 
-    private void CreateEdgeLine(GraphEdge edge)
+    private void CacheEdgePoints(GraphEdge edge)
     {
         if (_network == null) return;
 
-        Vector2[] points = RoadGeometryDisplaySampler.SampleSegments(
+        _edgePoints[edge.ID] = RoadGeometryDisplaySampler.SampleSegments(
             edge.GeometrySegments,
             Config.CurveDisplayTolerance);
-
-        var line = new Line2D
-        {
-            Points = points,
-            Width = Config.RoadWidth,
-            DefaultColor = Config.RoadColor,
-            JointMode = Line2D.LineJointMode.Sharp,
-            BeginCapMode = Line2D.LineCapMode.None,
-            EndCapMode = Line2D.LineCapMode.None,
-        };
-
-        // 插入到 JunctionLayer 之前
-        AddChild(line);
-        MoveChild(line, _junctionLayer.GetIndex());
-        _edgeLines[edge.ID] = line;
     }
 
     private void OnEdgeRemoved(GraphEdge edge)
     {
-        if (_edgeLines.TryGetValue(edge.ID, out var line))
-        {
-            line.QueueFree();
-            _edgeLines.Remove(edge.ID);
-        }
-        _junctionLayer.QueueRedraw();
+        _edgePoints.Remove(edge.ID);
+        ScheduleStaticBatchRebuild();
     }
 
-    // ── 交叉口绘制 ──
+    // ── 静态道路和节点批处理 ──
 
-    private void OnDrawJunctions()
+    private void ScheduleStaticBatchRebuild()
+    {
+        if (_staticBatchRebuildScheduled)
+            return;
+
+        _staticBatchRebuildScheduled = true;
+        Callable.From(FlushScheduledStaticBatchRebuild).CallDeferred();
+    }
+
+    private void FlushScheduledStaticBatchRebuild()
+    {
+        if (!_staticBatchRebuildScheduled)
+            return;
+
+        _staticBatchRebuildScheduled = false;
+        if (IsInsideTree())
+            RebuildStaticBatches();
+    }
+
+    private void RebuildStaticBatches()
     {
         if (_network == null) return;
 
-        foreach (var node in _network.GetAllNodes())
+        var roadVertices = new List<Vector2>();
+        var roadUvs = new List<Vector2>();
+        var roadIndices = new List<int>();
+        foreach (Vector2[] points in _edgePoints.OrderBy(pair => pair.Key).Select(pair => pair.Value))
+            AppendRoadRibbon(points, Config.RoadWidth * 0.5f, roadVertices, roadUvs, roadIndices);
+
+        _roadMeshVertexCount = roadVertices.Count;
+        _roadBatchLayer.Mesh = CreateRoadMesh(roadVertices, roadUvs, roadIndices);
+
+        GraphNode[] nodes = _network.GetAllNodes()
+            .Where(node => node.EdgeCount >= 2 || (node.EdgeCount == 1 && Config.EndpointRadius > 0f))
+            .OrderBy(node => node.ID)
+            .ToArray();
+        MultiMesh nodeBatch = _nodeBatchLayer.Multimesh;
+        nodeBatch.InstanceCount = nodes.Length;
+        for (int index = 0; index < nodes.Length; index++)
         {
-            if (node.EdgeCount >= 2)
-            {
-                _junctionLayer.DrawCircle(node.Position, Config.JunctionRadius, Config.JunctionColor);
-            }
-            else if (node.EdgeCount == 1 && Config.EndpointRadius > 0f)
-            {
-                _junctionLayer.DrawCircle(node.Position, Config.EndpointRadius, Config.EndpointColor);
-            }
+            GraphNode node = nodes[index];
+            bool junction = node.EdgeCount >= 2;
+            float diameter = (junction ? Config.JunctionRadius : Config.EndpointRadius) * 2f;
+            var transform = new Transform2D(0f, node.Position)
+                .ScaledLocal(new Vector2(diameter, diameter));
+            nodeBatch.SetInstanceTransform2D(index, transform);
+            nodeBatch.SetInstanceColor(index, junction ? Config.JunctionColor : Config.EndpointColor);
         }
+    }
+
+    private static void AppendRoadRibbon(
+        IReadOnlyList<Vector2> points,
+        float halfWidth,
+        List<Vector2> vertices,
+        List<Vector2> uvs,
+        List<int> indices)
+    {
+        if (points.Count < 2)
+            return;
+
+        int vertexOffset = vertices.Count;
+        for (int index = 0; index < points.Count; index++)
+        {
+            Vector2 offset = CalculateRoadOffset(points, index, halfWidth);
+            vertices.Add(points[index] - offset);
+            uvs.Add(Vector2.Zero);
+            vertices.Add(points[index] + offset);
+            uvs.Add(Vector2.Down);
+        }
+
+        for (int index = 1; index < points.Count; index++)
+        {
+            int previous = vertexOffset + (index - 1) * 2;
+            int current = vertexOffset + index * 2;
+            indices.Add(previous);
+            indices.Add(previous + 1);
+            indices.Add(current);
+            indices.Add(current);
+            indices.Add(previous + 1);
+            indices.Add(current + 1);
+        }
+    }
+
+    private static Vector2 CalculateRoadOffset(IReadOnlyList<Vector2> points, int index, float halfWidth)
+    {
+        Vector2 previousDirection = index == 0
+            ? Vector2.Zero
+            : (points[index] - points[index - 1]).Normalized();
+        Vector2 nextDirection = index == points.Count - 1
+            ? Vector2.Zero
+            : (points[index + 1] - points[index]).Normalized();
+        if (previousDirection.IsZeroApprox())
+            previousDirection = nextDirection;
+        if (nextDirection.IsZeroApprox())
+            nextDirection = previousDirection;
+        if (previousDirection.IsZeroApprox())
+            return Vector2.Zero;
+
+        var previousNormal = new Vector2(-previousDirection.Y, previousDirection.X);
+        var nextNormal = new Vector2(-nextDirection.Y, nextDirection.X);
+        Vector2 miter = (previousNormal + nextNormal).Normalized();
+        float denominator = miter.Dot(nextNormal);
+        if (miter.IsZeroApprox() || Mathf.Abs(denominator) < 0.25f)
+            return nextNormal * halfWidth;
+
+        float miterLength = Mathf.Clamp(halfWidth / denominator, -halfWidth * 4f, halfWidth * 4f);
+        return miter * miterLength;
+    }
+
+    private static ArrayMesh? CreateRoadMesh(
+        IReadOnlyCollection<Vector2> vertices,
+        IReadOnlyCollection<Vector2> uvs,
+        IReadOnlyCollection<int> indices)
+    {
+        if (vertices.Count == 0)
+            return null;
+
+        var arrays = new Godot.Collections.Array();
+        arrays.Resize((int)Mesh.ArrayType.Max);
+        arrays[(int)Mesh.ArrayType.Vertex] = vertices.ToArray();
+        arrays[(int)Mesh.ArrayType.TexUV] = uvs.ToArray();
+        arrays[(int)Mesh.ArrayType.Index] = indices.ToArray();
+        var mesh = new ArrayMesh();
+        mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
+        return mesh;
+    }
+
+    private static MultiMeshInstance2D CreateBatchLayer(bool useColors, int zIndex)
+    {
+        var batch = new MultiMesh
+        {
+            TransformFormat = MultiMesh.TransformFormatEnum.Transform2D,
+            UseColors = useColors,
+            Mesh = new QuadMesh { Size = Vector2.One },
+        };
+        return new MultiMeshInstance2D
+        {
+            Multimesh = batch,
+            ZIndex = zIndex,
+        };
+    }
+
+    private static ShaderMaterial CreateCircleMaterial()
+    {
+        var shader = new Shader
+        {
+            Code = """
+                shader_type canvas_item;
+
+                void fragment() {
+                    vec2 centered = UV * 2.0 - 1.0;
+                    float distance_to_center = length(centered);
+                    float antialias_width = fwidth(distance_to_center);
+                    float coverage = 1.0 - smoothstep(1.0 - antialias_width, 1.0, distance_to_center);
+                    COLOR.a *= coverage;
+                }
+                """,
+        };
+        return new ShaderMaterial { Shader = shader };
+    }
+
+    private static ShaderMaterial CreateRoadMaterial()
+    {
+        var shader = new Shader
+        {
+            Code = """
+                shader_type canvas_item;
+
+                void fragment() {
+                    float edge_distance = abs(UV.y - 0.5);
+                    float antialias_width = fwidth(edge_distance);
+                    float coverage = 1.0 - smoothstep(0.5 - antialias_width, 0.5, edge_distance);
+                    COLOR.a *= coverage;
+                }
+                """,
+        };
+        return new ShaderMaterial { Shader = shader };
     }
 
     // ── RoadRenderer._Draw() 只画施工预览 ──
@@ -191,10 +344,10 @@ public partial class RoadRenderer : Node2D
         if (nodeA == null || nodeB == null)
             return;
 
-        if (!_edgeLines.TryGetValue(edgeID, out Line2D? line))
+        if (!_edgePoints.TryGetValue(edgeID, out Vector2[]? points))
             return;
 
-        DrawPolyline(line.Points, Config.HoverHighlightColor, Config.HoverHighlightWidth);
+        DrawPolyline(points, Config.HoverHighlightColor, Config.HoverHighlightWidth);
         DrawCircle(nodeA.Position, Config.JunctionRadius * 1.3f, Config.HoverHighlightColor);
         DrawCircle(nodeB.Position, Config.JunctionRadius * 1.3f, Config.HoverHighlightColor);
     }

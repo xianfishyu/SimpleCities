@@ -172,6 +172,7 @@ func run() -> void:
 		road_builder.GetRemovalSelectionCount() == 3 and road_renderer.GetRemovalPreviewEdgeCount() == 3,
 		"Continuous removal did not select the three crossed edges exactly once"):
 		return
+	var mesh_vertices_before_continuous_remove: int = road_renderer.GetRoadMeshVertexCount()
 	road_builder.HandleRemoveInput(mouse_button_event(
 		MOUSE_BUTTON_LEFT,
 		false,
@@ -179,6 +180,16 @@ func run() -> void:
 	if not assert_true(
 		not road_builder.HasActiveRemoveSession() and road_renderer.GetRemovalPreviewEdgeCount() == 0,
 		"Continuous removal did not commit and clear its preview"):
+		return
+	if not assert_true(
+		road_renderer.GetRenderedEdgeCount() == 4 and
+		road_renderer.GetRoadMeshVertexCount() == mesh_vertices_before_continuous_remove,
+		"Continuous removal did not defer its merged static batch rebuild"):
+		return
+	await process_frame
+	if not assert_true(
+		road_renderer.GetRoadMeshVertexCount() == road_renderer.GetRenderedEdgeCount() * 4,
+		"Continuous removal did not publish the merged static batch on the next frame"):
 		return
 	if not assert_true(save_manager.Save(slot_id), "Continuous removal save failed"):
 		return

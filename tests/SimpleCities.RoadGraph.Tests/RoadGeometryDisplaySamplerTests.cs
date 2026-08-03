@@ -79,7 +79,11 @@ public sealed class RoadGeometryDisplaySamplerTests
         Assert.Contains("RoadGeometryDisplaySampler.SampleSegments(", renderer, StringComparison.Ordinal);
         Assert.Contains("edge.GeometrySegments", renderer, StringComparison.Ordinal);
         Assert.Contains("RoadGeometryDisplaySampler.SampleSegments(draft.Path.Segments", builder, StringComparison.Ordinal);
-        Assert.Contains("DrawPolyline(line.Points", renderer, StringComparison.Ordinal);
+        Assert.Contains("_edgePoints.TryGetValue", renderer, StringComparison.Ordinal);
+        Assert.Contains("AppendRoadRibbon", renderer, StringComparison.Ordinal);
+        Assert.Contains("Mesh.PrimitiveType.Triangles", renderer, StringComparison.Ordinal);
+        Assert.Contains("ScheduleStaticBatchRebuild()", renderer, StringComparison.Ordinal);
+        Assert.Contains("Callable.From(FlushScheduledStaticBatchRebuild).CallDeferred()", renderer, StringComparison.Ordinal);
     }
 
     private static RoadGeometrySegment[] CreateNativeCurves() =>

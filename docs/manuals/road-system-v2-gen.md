@@ -159,7 +159,7 @@ GameHUD              — 鼠标格点坐标显示
 │   RoadGroup       — 逻辑分组（替代当前 Road 概念）             │
 ├─────────────────────────────────────────────────────────────┤
 │ Layer 1: Rendering                                          │
-│   RoadRenderer    — 监听图事件，同步 Line2D / 交叉口渲染      │
+│   RoadRenderer    — 监听图事件，同步道路网格 / 节点批处理      │
 │   RoadStyle       — 第三代候选：RoadType → Color/Width/etc    │
 └─────────────────────────────────────────────────────────────┘
 
@@ -565,9 +565,9 @@ public class RoadGraph
 
 ```
 RoadGraph 事件:
-  EdgeAdded    → RoadRenderer.CreateEdgeLine(edge)
-  EdgeRemoved  → RoadRenderer.RemoveEdgeLine(edge)
-  GraphCleared → RoadRenderer.ClearAllLines() + RebuildAll()
+  EdgeAdded    → RoadRenderer.CacheEdgePoints(edge) + 安排合并批次重建
+  EdgeRemoved  → RoadRenderer 移除缓存点列 + 安排合并批次重建
+  GraphCleared → 清空缓存 + 从全部 Edge 重新采样和批处理
 ```
 
 这个事件驱动模型 **不需要改动**。当前已经做得很好了。
@@ -576,7 +576,7 @@ RoadGraph 事件:
 
 `RoadGeometryDisplaySampler` 只读取 `RoadGeometrySegment` 的 `Start`、`End`、`Length`、`GetPosition()` 和 `Split()`，以 `RoadConfig.CurveDisplayTolerance` 控制确定的世界空间误差。默认容差为 `0.25`，在相机最大 `4x` 缩放下对应约 1 个屏幕像素；曲线最多递归细分 16 层，line 使用精确两点快路径。每个源段的最后一点强制使用权威 `End`，相邻段共用连接点且不重复。
 
-显示点列是可重建派生数据，不写回 `GraphEdge.GeometrySegments`，也不进入道路 JSON。`RoadRenderer` 创建 Edge `Line2D` 时按原生段采样，拆除高亮直接复用该 `Line2D.Points`；`RoadBuilder` 对带有效 `RoadPath` 的草稿使用同一采样器，因此曲线预览和提交后形状使用一致求值路径。相机缩放不会改变世界空间点列；存档恢复触发 `GraphCleared` 后会从原生参数确定性重建。
+显示点列是可重建派生数据，不写回 `GraphEdge.GeometrySegments`，也不进入道路 JSON。`RoadRenderer` 按 Edge ID 缓存采样点列，拆除高亮直接复用缓存；静态道路将全部点列构造成一个共享边界的连续 `ArrayMesh` ribbon。同一事件循环内的 Edge 增删只触发一次延迟批次重建，避免批量删除或交叉拆分重复重建全图；`RoadBuilder` 对带有效 `RoadPath` 的草稿使用同一采样器，因此曲线预览和提交后形状使用一致求值路径。相机缩放不会改变世界空间点列；存档恢复触发 `GraphCleared` 后会从原生参数同步确定性重建。
 
 ### 8.3 节点渲染简化
 
@@ -594,9 +594,15 @@ foreach node in GetAllNodes():
     else if node.EdgeCount == 1 → 画 Endpoint 圆点
 ```
 
-逻辑完全一致。唯一变化是属性名从 `ConnectionCount` 变为 `EdgeCount`。
+判定逻辑一致，属性名从 `ConnectionCount` 变为 `EdgeCount`。实现不再逐节点调用 `DrawCircle`：全部端点与交叉口写入一个启用实例颜色的 `MultiMeshInstance2D`，共享圆形 canvas shader 和单位 `QuadMesh`。
 
-### 8.4 道路分级视觉
+### 8.4 批处理与规模基线
+
+静态道路由一个抗锯齿 `ArrayMesh` ribbon 和一个节点 `MultiMesh` 组成，`RoadRenderer` 子节点数固定为 2。真实 `MapTest` / Vulkan 性能契约在 10k 和 100k 的固定直线数据集上测量镜头移动、施工预览、命中高亮与图恢复重建；连续帧测量关闭 VSync，避免 60 Hz 等待时间污染实际提交成本。
+
+10k 的镜头/预览/高亮 P95 分别为 0.788/0.717/0.436 ms，满足 16.67 ms 硬门槛；100k 分别为 5.240/4.612/4.739 ms。两个规模的静态/高亮帧均为 4 draw calls / 4 objects，预览帧为 5 / 56，静态渲染子节点固定为 2。10k/100k 全图恢复及批次重建分别为 159.151 ms 和 1,170.055 ms，作为独立加载基线记录，不混入连续帧 P95。完整数据、优化前对照与测量口径见 `docs/performance/road-rendering-v2-baseline.md`。
+
+### 8.5 道路分级视觉
 
 未来按道路分级显示时，渲染层可按 RoadType 查表决定样式：
 
@@ -613,14 +619,13 @@ public class RoadTypeStyle
 }
 ```
 
-渲染时：
+未来渲染时需要按样式拆分 ribbon 批次：
 ```csharp
 var style = Config.GetStyle(edge.Type);
-line.DefaultColor = style.Color;
-line.Width = style.Width;
+styleBatches[style].Append(edgePoints, style.Width, style.Color);
 ```
 
-> 这保持了全局 `RoadConfig` 的模式，同时支持未来按等级差异化。当前 RoadRenderer 仍统一使用 RoadConfig 的基础颜色和线宽。
+> 这保持了全局 `RoadConfig` 的模式，同时支持未来按等级差异化。当前 `RoadRenderer` 只有一个道路 ribbon，统一使用 `RoadConfig` 的基础颜色和线宽。
 
 ---
 
@@ -935,7 +940,7 @@ RoadGraphSaveData {
 
 ### D.4 未完成事项
 
-> 2026-08-04 进度：V2-6 与 V2-7 已完成；V2-8 的 `grid-rendering:1.1` 已完成，六类原生几何的提交道路、拆除高亮和有效建造预览共用确定的只读显示采样，缩放、保存和重载不改变权威参数。`grid-rendering:1.2` 的 10k/100k 渲染规模验收仍未完成。
+> 2026-08-04 进度：V2-6、V2-7 与 V2-8 已完成。六类原生几何共用确定的只读显示采样和连续道路 ribbon；`grid-rendering:1.2` 已通过 10k 的 16.67 ms 硬门槛并完成 100k Vulkan 压测。V2-10 的 `save-system:0.10` 仍缺只读 ACL 与真实 Windows 导出包证据；该前置项完成后才能执行 V2-11 的 `road-graph:7.1`。
 
 | ID | 未完成事项 | 所属系统 | 验收摘要 |
 |---|---|---|---|

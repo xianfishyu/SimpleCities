@@ -47,9 +47,11 @@ func run() -> void:
 	var original_points := snapshot_rendered_points(renderer)
 	if not require(original_points.size() == 6, "Rendered point snapshot is incomplete"):
 		return
+	var expected_road_mesh_vertex_count := 0
 	for edge_index in range(6):
 		var edge_id := 13 + edge_index
 		var points: Array = original_points[edge_id]
+		expected_road_mesh_vertex_count += points.size() * 2
 		var start_node: Dictionary = fixture.nodes[edge_index * 2]
 		var end_node: Dictionary = fixture.nodes[edge_index * 2 + 1]
 		var expected_start := Vector2(start_node.x, start_node.y)
@@ -66,6 +68,8 @@ func run() -> void:
 				return
 			if not require(maximum_chord_deviation(points) > 5.0, "Native curve edge %d has no visible curvature" % edge_id):
 				return
+	if not require(renderer.GetRoadMeshVertexCount() == expected_road_mesh_vertex_count, "Curve samples were not assembled into the continuous road mesh"):
+		return
 
 	var camera: Camera2D = test_map.get_node("Camera2D")
 	camera.zoom = Vector2(0.125, 0.125)

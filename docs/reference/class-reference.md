@@ -592,20 +592,22 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `RemovalPreviewEdgeIDs` | `public int[] RemovalPreviewEdgeIDs { get; set; }` | 防御性保存并排序去重的拆除预览 Edge ID |
 | `RemovalSelectionBounds` | `public Rect2? RemovalSelectionBounds { get; set; }` | 矩形拆除选择的当前世界坐标边界 |
 | `GetRemovalPreviewEdgeCount` | `public int GetRemovalPreviewEdgeCount()` | Godot 运行时契约读取拆除预览数量 |
-| `GetRenderedEdgeCount` | `public int GetRenderedEdgeCount()` | Godot 运行时契约与诊断读取当前已实例化道路数量 |
+| `GetRenderedEdgeCount` | `public int GetRenderedEdgeCount()` | Godot 运行时契约与诊断读取当前已缓存道路数量 |
 | `GetRenderedPointCount` / `GetRenderedPoint` | 运行时查询方法 | Godot 契约读取指定 Edge 的确定显示点列 |
+| `GetStaticRenderNodeCount` | `public int GetStaticRenderNodeCount()` | 返回固定的道路 mesh 与节点 MultiMesh 子节点数 2 |
+| `GetRoadMeshVertexCount` | `public int GetRoadMeshVertexCount()` | Godot 契约读取连续道路 ribbon 顶点数 |
 | `HoveredEdgeID` | `public int? HoveredEdgeID { get; set; }` | 拆除工具悬停边 |
-| `_Ready` | `public override void _Ready()` | 校验 `Config`，创建 junction 绘制层 |
+| `_Ready` | `public override void _Ready()` | 校验 `Config`，创建道路 `MeshInstance2D` 与节点 `MultiMeshInstance2D` |
 | `SetGraph` | `public void SetGraph(RoadGraph graph)` | 订阅 `EdgeAdded`、`EdgeRemoved`、`GraphCleared` |
 | `_Draw` | `public override void _Draw()` | 绘制拆除 hover/稳定选择/矩形框线和完整多段施工虚线预览 |
 
 | 事件响应 | 行为 |
 |---|---|
-| `EdgeAdded` | `CreateEdgeLine(edge)`，创建 `Line2D`，更新节点层 |
-| `EdgeRemoved` | 删除对应 `Line2D`，更新节点层 |
-| `GraphCleared` | 清空所有 `Line2D`，用 `GetAllEdges()` 全量重建 |
+| `EdgeAdded` | 缓存 Edge 的确定显示点列，安排同一事件循环合并的静态批次重建 |
+| `EdgeRemoved` | 删除对应缓存点列，安排同一事件循环合并的静态批次重建 |
+| `GraphCleared` | 清空缓存，用 `GetAllEdges()` 重新采样并全量重建批次 |
 
-当前 `CreateEdgeLine` 用 `RoadGeometryDisplaySampler` 从 `GraphEdge.GeometrySegments` 生成 `Line2D.Points`；拆除高亮复用同一点列，`RoadBuilder` 对有效原生草稿也使用相同采样入口。显示点列不写回图或存档，缩放与 `GraphCleared` 重建不会改变控制参数。道路仍统一使用 `RoadConfig.RoadWidth` 和 `RoadConfig.RoadColor`；按 `RoadType` 分别绘制宽度、颜色或材质属于第三代，当前 `GraphEdge` 不包含类型字段。
+当前 `CacheEdgePoints` 用 `RoadGeometryDisplaySampler` 从 `GraphEdge.GeometrySegments` 生成缓存点列；拆除高亮复用同一点列，`RoadBuilder` 对有效原生草稿也使用相同采样入口。`AppendRoadRibbon` 为每个点生成共享左右边界并把全部 Edge 合成一个抗锯齿 `ArrayMesh`，端点/交叉口写入一个圆形 shader `MultiMesh`。Edge 增删事件通过 `ScheduleStaticBatchRebuild` 在同一事件循环中合并，`GraphCleared` 仍同步完成全量重建。显示点列不写回图或存档，缩放与重建不会改变控制参数。道路仍统一使用 `RoadConfig.RoadWidth` 和 `RoadConfig.RoadColor`；按 `RoadType` 分批绘制宽度、颜色或材质属于第三代，当前 `GraphEdge` 不包含类型字段。
 
 ### RoadSystem
 
@@ -735,7 +737,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | 3 | `RoadBuilder.BeginPlace()` / `UpdatePlace()` | 当前策略吸附起点并生成不可变 `RoadPathDraft` 预览 |
 | 4 | `RoadBuilder.CommitPlace()` | 刷新最终草稿并通过 `RoadEditHistory.Execute(...)` 提交其中的 `RoadPath`，不向数据层传递网格或 RoadType |
 | 5 | `RoadGraph.SubmitPath(...)` | 校验原生几何，创建/复用节点，拆分交点，跳过覆盖段，创建 group/edge；成功状态变化进入撤销栈 |
-| 6 | `RoadGraph.EdgeAdded` | 通知渲染器创建 `Line2D` |
+| 6 | `RoadGraph.EdgeAdded` | 通知渲染器缓存显示点列并安排合并静态批次重建 |
 | 7 | `GameHUD._Process()` -> `DebugPanel.UpdateMetrics()` | 调试组件轮询并显示 Group/Edge/Node 数量 |
 
 ### 拆路数据流
@@ -748,7 +750,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | 4 | `RoadBuilder.HandleRemoveInput()` | 左键拖动累积轨迹命中，`Shift+左键` 从当前矩形生成选择；预览阶段不写图 |
 | 5 | `RoadBuilder.ConfirmRemove()` | 松开左键后通过 `RoadEditHistory.Execute(...)` 将排序去重的 Edge ID 集一次性交给 `RoadGraph.RemoveEdges(...)` |
 | 6 | `RoadGraph.RemoveEdges(...)` | 跳过失效目标，批量 detach 后只执行一次清理和不变式验证；成功状态变化进入撤销栈 |
-| 7 | `RoadGraph.EdgeRemoved` | 按稳定 ID 顺序通知渲染器释放对应 `Line2D` |
+| 7 | `RoadGraph.EdgeRemoved` | 按稳定 ID 顺序通知渲染器移除缓存点列并安排合并静态批次重建 |
 
 ### 道路编辑历史流
 
@@ -757,7 +759,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | 记录 | `RoadEditHistory.Execute(...)` | 捕获成功道路编辑前后的严格 RoadGraph JSON；容量超过 64 时淘汰最旧事务 |
 | 撤销/重做入口 | `GameHUD` -> `ToolManager` -> `RoadBuilder` | 当前 `edit_undo` / `edit_redo` 绑定触发；先取消尚未提交的铺路/拆路会话 |
 | 恢复 | `RoadEditHistory.Undo/Redo()` -> `RoadGraph.RestoreState(...)` | 恢复完整拓扑、原生几何、Group、ID 和 `_nextID`；实体对象引用重建 |
-| 渲染同步 | `RoadGraph.GraphCleared` -> `RoadRenderer.OnGraphCleared()` | 清空旧 `Line2D` 并按恢复后的全部 Edge 重建 |
+| 渲染同步 | `RoadGraph.GraphCleared` -> `RoadRenderer.OnGraphCleared()` | 清空旧缓存并按恢复后的全部 Edge 重建道路 mesh 与节点 MultiMesh |
 | 历史失效 | 外部 `GraphCleared` 或状态不匹配 | 清空旧撤销/重做栈，避免把外部图变化覆盖掉 |
 
 ### 存档流
@@ -777,7 +779,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | 加载入口 | `PauseMenu` 确认目标摘要 | `SaveManager.Load(slotID)`；取消不改变当前槽位或活动道路 |
 | 删除入口 | `PauseMenu` 确认目标摘要 | `SaveManager.DeleteSlot(slotID)` 递归删除非空有效或损坏槽 |
 | RoadGraph 恢复 | `SaveSlotStore.Load()` -> `RoadGraph.PrepareRestoreState/RestorePreparedState` | 整槽预检后一次提交，重建邻接与空间索引并触发 `GraphCleared` |
-| 渲染恢复 | `RoadRenderer.OnGraphCleared()` | 清空并全量重建 `Line2D` |
+| 渲染恢复 | `RoadRenderer.OnGraphCleared()` | 清空并全量重建连续道路 mesh 与节点 MultiMesh |
 
 ---
 

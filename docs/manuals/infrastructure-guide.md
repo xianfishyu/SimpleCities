@@ -218,6 +218,8 @@ public bool RedoLastEdit();
 
 `RoadGeometryDisplaySampler` 以默认 `0.25` 世界单位容差和最多 16 层递归，把六类权威几何确定性细分为显示折线；直线保持两个精确端点。已提交 Edge、拆除高亮和曲线建造预览复用同一派生点列，显示采样不会写回 RoadGraph 或存档。
 
+`RoadRenderer` 按 Edge ID 缓存这些点列，并将全部静态道路合并为一个带 miter 边界和像素抗锯齿的 `ArrayMesh` ribbon；端点/交叉口由一个圆形 shader `MultiMeshInstance2D` 绘制。同一事件循环内的 Edge 增删会合并为一次延迟批次重建，`GraphCleared` 则同步全量重建；静态渲染固定为 2 个子节点。真实 Vulkan 基线中，10k 镜头/预览/高亮 P95 为 0.788/0.717/0.436 ms，100k 为 5.240/4.612/4.739 ms；完整口径见 `docs/performance/road-rendering-v2-baseline.md`。
+
 拆路采用“先选择、后提交”：普通左键拖动沿轨迹累积 Edge，`Shift+左键` 动态框选与矩形相交的 Edge；松开左键后才把排序去重的稳定 ID 集交给一次 `RoadGraph.RemoveEdges`。右键、切出拆路工具或替换输入策略会取消整个选择，图保持不变；简单点击仍是单 Edge 拆除。
 
 铺路和拆路的成功提交由 `RoadEditHistory` 包装为完整图状态事务，最多保留 64 次。撤销/重做前取消未提交的铺路或拆路会话，再通过严格 RoadGraph 恢复重建拓扑、原生几何和渲染；Node/Edge/Group ID 保持，但运行时实体对象引用会重建。失败编辑不入栈，外部恢复或其他外部图修改会使旧历史失效。
@@ -325,4 +327,4 @@ project.godot
 
 ### 未来设计边界
 
-可替换铺路边界已经由 `IRoadInputStrategy` 和 `RoadPathDraft` 落地；默认米字型、三角单元中心和六边形单元中心策略均通过共享契约。`RoadPlacementSession` 与 `RoadBuilder` 已支持连续多段、拐点回退、完整预览、确认和取消，并只经 `RoadGraph.SubmitPath` 一次提交；`RoadRemovalSession` 已支持连续轨迹和矩形框选，并只经 `RoadGraph.RemoveEdges` 一次提交。`RoadEditHistory` 已用完整 RoadGraph 状态提供容量受限的撤销重做，并经 `GraphCleared` 让渲染同步重建。六类原生曲线显示采样现已落地；10k/100k 渲染规模验收、`TrafficGraph`、A* 寻路、道路分级 UI 和按 RoadType 差异化渲染仍属于未来工作。第二代道路 JSON 只使用严格版本化的 `nodes/edges/groups` 与原生几何；第三代若引入 RoadType，必须提升 schema 并定义新的迁移或拒绝规则。
+可替换铺路边界已经由 `IRoadInputStrategy` 和 `RoadPathDraft` 落地；默认米字型、三角单元中心和六边形单元中心策略均通过共享契约。`RoadPlacementSession` 与 `RoadBuilder` 已支持连续多段、拐点回退、完整预览、确认和取消，并只经 `RoadGraph.SubmitPath` 一次提交；`RoadRemovalSession` 已支持连续轨迹和矩形框选，并只经 `RoadGraph.RemoveEdges` 一次提交。`RoadEditHistory` 已用完整 RoadGraph 状态提供容量受限的撤销重做，并经 `GraphCleared` 让渲染同步重建。六类原生曲线显示采样与 10k/100k 批处理规模验收均已完成；`TrafficGraph`、A* 寻路、道路分级 UI 和按 RoadType 差异化渲染仍属于未来工作。第二代道路 JSON 只使用严格版本化的 `nodes/edges/groups` 与原生几何；第三代若引入 RoadType，必须提升 schema 并定义新的迁移或拒绝规则。
