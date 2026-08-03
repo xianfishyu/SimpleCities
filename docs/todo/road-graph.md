@@ -301,10 +301,11 @@
 
 <a id="road-graph6.2"></a>
 
-- [ ] **6.2 同步当前合并、命中和空间索引语义**
-  - 修正：文档明确当前 Add/Remove 都可能触发 `TryMergeAtNode`；`FindClosestEdge` 当前只基于 EdgePoint；`UniformGrid.QueryRadius` 成本取决于覆盖桶数与桶内元素数，Remove 还会扫描桶内 List。
+- [x] **6.2 同步当前合并、命中和空间索引语义**
+  - 修正：文档明确当前提交路径可在同 Group 内触发 `TryMergeAtNode`，公开单删/整组删不触发合并；`FindClosestEdge` 从 `EdgeGeometryRef` 局部候选执行原生几何最近点；`UniformGrid` 成本取决于覆盖桶数与桶内元素数，Remove 还会扫描桶内 List。
   - 关联：最终语义以阶段 1～4 完成后的实现为准，并同步原生曲线、可替换输入、10k/100k 性能和 RoadType 移出 V2 的决定。
   - 验收：文档描述可由对应测试或代码位置验证，不再宣称无条件 `O(1)` 删除或 `O(1 + k)` 查询。
+  - 完成证据（2026-08-04）：`docs/manuals/road-system-v2-gen.md` 第 3～7、10 节与 `docs/reference/class-reference.md` 的 RoadGraph 章节已同步当前源码：GraphEdge 权威保存原生几何，RoadType 从第二代运行时/API/schema 移除；`SubmitPath` / `SubmitPolyline` 返回结构化结果和稳定变更摘要；单删、整组删、拆分与合并在提交后按“全部移除、全部新增”发布事件；最近 Edge 使用 `EdgeGeometryRef` 候选和原生 `FindClosestPoint`；UniformGrid 按 Bounds 覆盖桶，复杂度不再写成无条件常数；私有存档使用严格 `schemaVersion = 1` 与 `nodes` / `edges` / `groups`，预检失败不修改活动图。以上事实已与 RoadGraph、SpatialIndex、GraphEdge、RoadGroup、持久化源码及 372 项测试、10k/100k 性能证据交叉复核。
   - 来源 key：`todo:item:6.2`。
 
 ### 阶段 7：第二代完整系统评估

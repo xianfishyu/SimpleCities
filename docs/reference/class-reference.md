@@ -1,8 +1,8 @@
 # SimpleCities 类与 API 参考
 
-> 最后更新：2026-07-30 | Godot 4.7 | Godot.NET.Sdk 4.7.0 | .NET 10.0 | C# 14.0 | Nullable enabled
+> 最后更新：2026-08-04 | Godot 4.7 | Godot.NET.Sdk 4.7.0 | .NET 10.0 | C# 14.0 | Nullable enabled
 
-本文档只覆盖项目自有 API：`Scripts/` 下 23 个 C# 文件和 `Shaders/MapTerrain.gdshader`。`addons/` 为第三方插件，不纳入本参考。
+本文档聚焦项目自有 API；当前事实源包括 `Scripts/` 下 49 个 C# 文件和 `Shaders/MapTerrain.gdshader`。`addons/` 为第三方插件，不纳入本参考。
 
 ---
 
@@ -35,14 +35,14 @@
 | 主场景 | `uid://baxamkfym8atd` | `project.godot` |
 | Autoload | `ImGuiRoot`, `SaveManager`, `MCPGameBridge` | `project.godot` |
 
-当前道路运行时模型已经从旧术语迁移到新术语：`RoadGraph` 是纯数据核心，`GraphNode` 是拓扑节点，`GraphEdge` 是几何边，`RoadGroup` 是一次铺路操作形成的边集合。旧 `RoadNetwork` / `Road` / `Segment` / `Junction` 不再是运行时类，只在存档 DTO 的类型名、属性名和 JSON 字段名中作为兼容词汇保留。
+当前道路运行时模型已经从旧术语迁移到新术语：`RoadGraph` 是纯数据核心，`GraphNode` 是拓扑节点，`GraphEdge` 是原生几何边，`RoadGroup` 是一次铺路操作形成的边集合。旧 `RoadNetwork` / `Road` / `Segment` / `Junction` 不再是运行时类，只在未被当前 RoadGraph 使用的 legacy 公开 DTO 中保留；当前私有 v2 payload 使用 `nodes` / `edges` / `groups`。
 
 | 模块 | 文件 | 职责 |
 |---|---|---|
 | Core | `ISaveable.cs`, `SaveManager.cs`, `SaveJson.cs`, `SaveData.cs` | 独立 JSON 存档、manifest、DTO |
 | Camera | `MainCamera.cs` | 2D 相机移动、缩放、相机存档 |
 | Grid | `GridSystem.cs`, `MapBackground.cs`, `MapTerrain.gdshader` | 网格数学、背景 CanvasLayer、Shader 网格绘制 |
-| Road data | `Direction.cs`, `GraphNode.cs`, `GraphEdge.cs`, `RoadGroup.cs`, `RoadType.cs`, `SpatialIndex.cs`, `RoadGraph.cs` | 方向、拓扑、路网、空间索引、持久化 |
+| Road data | `Direction.cs`, `GraphNode.cs`, `GraphEdge.cs`, `RoadGroup.cs`, `RoadPath.cs`, `SpatialIndex.cs`, `RoadGraph*.cs`, `Geometry/*.cs` | 输入方向、拓扑、原生几何、空间索引、提交与持久化 |
 | Road scene | `RoadBuilder.cs`, `RoadConfig.cs`, `RoadRenderer.cs`, `RoadSystem.cs` | 输入投影、共享配置、事件驱动渲染、依赖注入 |
 | Tools | `ToolManager.cs`, `ToolType.cs` | 工具切换和输入转发 |
 | UI | `GameHUD.cs`, `ConstructionDock.cs`, `ToolContextPanel.cs`, `DebugPanel.cs`, `PauseMenu.cs`, `UIManager.cs` | 命令中心 HUD、建造坞、上下文、诊断、暂停菜单和面板管理 |
@@ -323,7 +323,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `EdgeRef` | 构造函数 | `public EdgeRef(int edgeID, int neighborNodeID)` | 创建邻接引用 |
 | `GraphNode` | `ID` | `public int ID { get; }` | 节点 ID |
 | `GraphNode` | `Position` | `public Vector2 Position { get; }` | 世界坐标 |
-| `GraphNode` | `Edges` | `public IReadOnlyList<EdgeRef> Edges => _edges` | 邻接表只读视图 |
+| `GraphNode` | `Edges` | `public IReadOnlyList<EdgeRef> Edges` | 由 `ReadOnlyCollection` 提供的实时只读视图 |
 | `GraphNode` | `EdgeCount` | `public int EdgeCount => _edges.Count` | 邻接边数 |
 | `GraphNode` | 构造函数 | `public GraphNode(int id, Vector2 position)` | 创建节点 |
 | `GraphNode` | `GetNeighborIDs` | `public IEnumerable<int> GetNeighborIDs()` | 去重后的邻居节点 ID |
@@ -339,11 +339,11 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `ID` | `public int ID { get; }` | 边 ID |
 | `NodeA` | `public int NodeA { get; internal set; }` | 起点节点 ID |
 | `NodeB` | `public int NodeB { get; internal set; }` | 终点节点 ID |
-| `Points` | `public Vector2[] Points { get; }` | 中间途经点，不含端点 |
+| `GeometrySegments` | `public IReadOnlyList<RoadGeometrySegment> GeometrySegments` | 保留类型与控制参数的权威原生几何，只读包装 |
+| `Points` | `public Vector2[] Points { get; }` | 原生段边界的防御性兼容副本，不含端点 |
 | `GroupID` | `public int GroupID { get; internal set; }` | 所属 `RoadGroup` |
-| `Type` | `public RoadType Type { get; internal set; }` | 道路类型 |
 | `Length` | `public float Length { get; }` | 几何长度 |
-| 构造函数 | `public GraphEdge(int id, int nodeA, int nodeB, Vector2[] points, int groupID, RoadType type, float length)` | 创建边 |
+| 构造函数 | `public GraphEdge(int id, int nodeA, int nodeB, IReadOnlyList<RoadGeometrySegment> geometrySegments, int groupID)` | 创建至少包含一个连续原生几何段的边 |
 | `GetFullPath` | `public Vector2[] GetFullPath(Func<int, GraphNode?> getNode)` | 返回 `[NodeA.Position, ...Points, NodeB.Position]`；端点缺失时抛出 `InvalidOperationException` |
 
 ### RoadGroup
@@ -353,26 +353,16 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | 成员 | 签名 | 说明 |
 |---|---|---|
 | `ID` | `public int ID { get; }` | 组 ID |
-| `Type` | `public RoadType Type { get; internal set; }` | 组道路类型 |
-| `EdgeIDs` | `public IReadOnlyCollection<int> EdgeIDs => _edgeIDs` | 组内边 ID |
+| `EdgeIDs` | `public IReadOnlyCollection<int> EdgeIDs` | 组内边 ID 的防御性快照 |
 | `EdgeCount` | `public int EdgeCount => _edgeIDs.Count` | 边数量 |
 | `IsEmpty` | `public bool IsEmpty => _edgeIDs.Count == 0` | 是否为空 |
-| 构造函数 | `public RoadGroup(int id, RoadType type = RoadType.Street)` | 默认类型 `Street` |
+| 构造函数 | `public RoadGroup(int id)` | 创建空分组 |
 
 `AddEdge(int)` 和 `RemoveEdge(int)` 是 `internal`，只由 `RoadGraph` 更新。
 
-### RoadType
+### RoadType 边界
 
-**文件**：`Scripts/Road/RoadType.cs`
-
-| 枚举值 | 数值 | 当前用途 |
-|---|---:|---|
-| `Dirt` | `0` | 数据和存档支持 |
-| `Street` | `1` | 当前 `RoadBuilder` 固定创建的类型 |
-| `Arterial` | `2` | 数据和存档支持 |
-| `Highway` | `3` | 数据和存档支持 |
-
-当前 `RoadType` 已贯穿 `RoadGroup`、`GraphEdge` 和存档往返。当前 UI 和 `RoadBuilder.EndDragAndCommit()` 固定调用 `AddRoad(..., RoadType.Street)`，`RoadRenderer` 也尚未按 `RoadType` 改变颜色、宽度或其他视觉样式。
+第二代运行时、公共提交 API 和 `RoadGraph` v2 存档 schema 均不包含 `RoadType`，仓库中不存在 `Scripts/Road/RoadType.cs`。道路分级、差异化样式、类型选择和升级工具属于第三代；届时必须使用新契约和新 schema 版本引入，不得把旧字段静默映射为默认类型。
 
 ### SpatialIndex
 
@@ -382,27 +372,25 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 |---|---|---|---|
 | `ISpatialRef` | `Position` | `Vector2 Position { get; }` | 空间位置 |
 | `ISpatialRef` | `Kind` | `SpatialRefKind Kind { get; }` | 引用类别 |
-| `SpatialRefKind` | 枚举值 | `Node`, `EdgePoint` | 节点或边途经点 |
+| `ISpatialRef` | `IntersectsCircle` | `bool IntersectsCircle(Vector2 center, float radius)` | 权威圆形命中过滤 |
+| `SpatialRefKind` | 枚举值 | `Node`, `EdgePoint`, `EdgeSegment`, `EdgeGeometry` | 节点、兼容点、直线段或原生几何 |
 | `NodeSpatialRef` | `NodeID` | `public int NodeID { get; }` | 节点 ID |
 | `NodeSpatialRef` | `Position` | `public Vector2 Position { get; }` | 节点位置 |
-| `NodeSpatialRef` | `Kind` | `public SpatialRefKind Kind => SpatialRefKind.Node` | 类别 |
-| `NodeSpatialRef` | 构造函数 | `public NodeSpatialRef(int nodeID, Vector2 position)` | 创建节点引用 |
-| `EdgePointRef` | `EdgeID` | `public int EdgeID { get; }` | 边 ID |
-| `EdgePointRef` | `Position` | `public Vector2 Position { get; }` | 端点或 waypoint 位置 |
-| `EdgePointRef` | `Kind` | `public SpatialRefKind Kind => SpatialRefKind.EdgePoint` | 类别 |
-| `EdgePointRef` | 构造函数 | `public EdgePointRef(int edgeID, Vector2 position)` | 创建边点引用 |
+| `EdgeGeometryRef` | `EdgeID` / `Geometry` / `Bounds` | 原生几何引用及其保守包围盒 | 当前 RoadGraph 的 Edge 索引引用 |
 | `UniformGrid` | 构造函数 | `public UniformGrid(float bucketSize)` | bucket 下限为 `1f` |
 | `UniformGrid` | `Insert` | `public void Insert(ISpatialRef entity)` | 插入引用 |
 | `UniformGrid` | `Remove` | `public void Remove(ISpatialRef entity)` | 按对象引用移除 |
+| `UniformGrid` | `InsertGeometry` / `RemoveGeometry` | `public void ...(EdgeGeometryRef geometry)` | 按原生几何 Bounds 覆盖的全部桶增删引用 |
 | `UniformGrid` | `QueryRadius` | `public IEnumerable<ISpatialRef> QueryRadius(Vector2 center, float radius)` | 半径查询，桶过滤加精确距离 |
+| `UniformGrid` | `QueryBounds` | `public IEnumerable<ISpatialRef> QueryBounds(Rect2 bounds)` | 返回覆盖桶内去重引用，调用方再做权威几何过滤 |
 | `UniformGrid` | `Clear` | `public void Clear()` | 清空索引 |
 
-空间索引是查询加速结构，不是权威数据源。`RoadGraph` 同步维护 `_nodes`、`_edges`、`_groups`、`_nodeRefs`、`_edgeRefs` 和 `_spatialIndex`。
+空间索引是查询加速结构，不是权威数据源。`RoadGraph` 同步维护 `_nodes`、`_edges`、`_groups`、`_nodeRefs`、`_edgeRefs` 和 `_spatialIndex`。成本取决于查询或几何 Bounds 覆盖的桶数以及这些桶内的引用数；跨桶引用会在查询时去重，移除会扫描每个覆盖桶内的 `List<ISpatialRef>`，因此不宣称无条件 `O(1)` 删除或 `O(1 + k)` 查询。
 
 ### RoadGraph
 
 **文件**：`Scripts/Road/RoadGraph.cs`
-**类型**：`public class RoadGraph : ISaveable`
+**类型**：`public partial class RoadGraph : ISaveable`
 
 | 常量/内部结构 | 当前值/职责 |
 |---|---|
@@ -417,26 +405,28 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | 公开成员 | 签名 | 说明 |
 |---|---|---|
 | `SaveFileName` | `public string SaveFileName => "road_network"` | 路网存档文件名 |
-| `EdgeAdded` | `public event Action<GraphEdge>? EdgeAdded` | 新边创建后触发 |
-| `EdgeRemoved` | `public event Action<GraphEdge>? EdgeRemoved` | 边删除后触发 |
+| `EdgeAdded` | `public event Action<GraphEdge>? EdgeAdded` | 新边所在变更提交完成后触发 |
+| `EdgeRemoved` | `public event Action<GraphEdge>? EdgeRemoved` | 删边所在变更提交完成后触发 |
 | `GraphCleared` | `public event Action? GraphCleared` | 加载并重建后触发 |
 | 构造函数 | `public RoadGraph()` | 使用默认 `IndexBucketSize` |
 | 构造函数 | `public RoadGraph(float bucketSize)` | 指定空间索引 bucket |
-| `AddRoad` | `public int AddRoad(Vector2 start, Vector2 end, Vector2[] waypoints, RoadType type = RoadType.Street)` | 添加折线路径，返回 group ID，失败或完全重复返回 `-1` |
-| `RemoveEdge` | `public bool RemoveEdge(int edgeID)` | 删除单边并修复孤立节点与共线节点 |
-| `RemoveRoadGroup` | `public bool RemoveRoadGroup(int groupID)` | 批量删除组内边，再统一 merge repair |
+| `AddRoad` | `public int AddRoad(Vector2 start, Vector2 end, Vector2[] waypoints)` | 折线兼容入口，返回 group ID，失败或完全覆盖返回 `-1` |
+| `SubmitPolyline` | `public RoadPathSubmissionResult SubmitPolyline(IReadOnlyList<Vector2>? points)` | 无网格参数的结构化折线提交入口 |
+| `SubmitPath` | `public RoadPathSubmissionResult SubmitPath(RoadPath? path)` | 提交连续原生几何路径并返回完整变更摘要 |
+| `RemoveEdge` | `public bool RemoveEdge(int edgeID)` | 删除单边，一次清理孤立节点与空 Group，不触发合并 |
+| `RemoveRoadGroup` | `public bool RemoveRoadGroup(int groupID)` | 按 Edge ID 稳定顺序批量 detach，一次清理后发布事件，不触发合并 |
 | `GetEdge` | `public GraphEdge? GetEdge(int edgeID)` | 取边 |
 | `GetNode` | `public GraphNode? GetNode(int nodeID)` | 取节点 |
 | `GetGroup` | `public RoadGroup? GetGroup(int groupID)` | 取组 |
-| `FindClosestEdge` | `public GraphEdge? FindClosestEdge(Vector2 position, float maxRadius)` | 基于空间索引查最近边点 |
+| `FindClosestEdge` | `public GraphEdge? FindClosestEdge(Vector2 position, float maxRadius)` | 从原生几何空间候选中计算权威最近点；等距时选较小 Edge ID |
 | `FindClosestNode` | `public GraphNode? FindClosestNode(Vector2 position, float maxRadius)` | 基于空间索引查最近节点 |
 | `GetAllEdges` | `public IEnumerable<GraphEdge> GetAllEdges()` | 返回调用时的边稳定快照 |
 | `GetAllNodes` | `public IEnumerable<GraphNode> GetAllNodes()` | 返回调用时的节点稳定快照 |
 | `GetAllGroups` | `public IEnumerable<RoadGroup> GetAllGroups()` | 返回调用时的道路组稳定快照 |
-| `CaptureState` | `public object CaptureState()` | 返回私有 `RoadGraphSaveData`，写入 version 2、NextID、junctions、segments、roads |
-| `RestoreState` | `public void RestoreState(string json)` | 反序列化、清图、恢复实体、重建邻接和索引、触发 `GraphCleared` |
+| `CaptureState` | `public object CaptureState()` | 返回私有 `RoadGraphSaveData`，写入 `schemaVersion = 1`、`nextID`、`nodes`、`edges`、`groups` |
+| `RestoreState` | `public void RestoreState(string json)` | 先全量解析校验临时状态；成功后替换图、重建邻接与索引并触发 `GraphCleared` |
 
-| `AddRoad` 关键阶段 | 行为 |
+| 折线提交关键阶段 | 行为 |
 |---|---|
 | 1 | 起终点相同直接返回 `-1` |
 | 2 | 组装 `start + waypoints + end` |
@@ -449,12 +439,16 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | 9 | 没有实际新增边时清理空组并返回 `-1` |
 | 10 | 对触及节点执行共线合并，清理可能变空的组 |
 
+`SubmitPath` 对六类原生几何执行类型、有限值、连续性、节点身份、交叉、相切、重叠与覆盖校验。成功结果的 `RoadGraphChangeSummary` 按 ID 排序列出创建/删除的 Node、Edge、Group；拒绝结果不修改图且返回结构化 `RoadPathSubmissionError`。
+
+单删、整组删、原生拆分和共线合并都在完整 detach/替代 Edge 创建后调用一次提交清理。Debug 构建在事件发布前执行 `AssertInvariants`；复合操作先发布全部移除事件，再发布全部新增事件，事件处理器观察到的是最终一致图。
+
 | 存档恢复阶段 | 行为 |
 |---|---|
-| `RestoreFromSavedData` | 先恢复节点和组，再恢复边；边类型依次取 `SegmentData.Type`、所属 `RoadGroup.Type`，两者都不可用时回退 `Street` |
+| `ParseAndValidateState` | 严格要求 `schemaVersion = 1`，拒绝未知字段、重复/冲突 ID、缺失引用、孤立节点、空 Group、Group 双向不一致、非法原生几何和无效 `nextID` |
+| 提交恢复状态 | 只有全量预检成功后才清空活动图并装入临时 Node/Edge/Group；失败保持原图不变 |
 | `RebuildNodeEdges` | 根据 `_edges` 重建 `GraphNode` 邻接表 |
-| `RebuildSpatialIndex` | 清空并重新插入所有节点和边点引用 |
-| `EnsureNextIDBeyondLoadedEntities` | 确保 `_nextID` 大于已加载实体最大 ID |
+| `RebuildSpatialIndex` | 清空并重新插入所有节点及每个原生几何段的 `EdgeGeometryRef` |
 
 ---
 
@@ -497,8 +491,8 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 |---|---|
 | 拖拽语义 | 一次拖拽生成一条单方向直路，方向从 8 个方向中按投影选择 |
 | 半格起点 | 起点不在整格时仅允许对角延伸，并反向定位整格 anchor |
-| 提交 | `EndDragAndCommit()` 调用 `_graph.AddRoad(_dragStartPos, endPos, waypoints, RoadType.Street)` |
-| 道路类型 | 当前固定创建 `RoadType.Street` |
+| 提交 | `EndDragAndCommit()` 调用 `_graph.AddRoad(_dragStartPos, endPos, waypoints)` |
+| 道路类型 | 第二代输入与数据层不包含 RoadType |
 | 拆除 | 优先按 snap 位置查边，再按原始鼠标位置查边 |
 
 ### RoadRenderer
@@ -522,7 +516,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `EdgeRemoved` | 删除对应 `Line2D`，更新节点层 |
 | `GraphCleared` | 清空所有 `Line2D`，用 `GetAllEdges()` 全量重建 |
 
-当前 `CreateEdgeLine` 只使用 `RoadConfig.RoadWidth` 和 `RoadConfig.RoadColor`。虽然 `GraphEdge.Type` 已存在，渲染器尚未按 `RoadType` 分别绘制宽度、颜色或材质。
+当前 `CreateEdgeLine` 统一使用 `RoadConfig.RoadWidth` 和 `RoadConfig.RoadColor`。按 `RoadType` 分别绘制宽度、颜色或材质属于第三代，当前 `GraphEdge` 不包含类型字段。
 
 ### RoadSystem
 
@@ -647,7 +641,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | 1 | `ToolManager._Input()` | 当前工具为 `Road` 时转发输入 |
 | 2 | `RoadBuilder.HandlePlaceInput()` | 左键按下记录 `_dragStartPos`，释放提交 |
 | 3 | `RoadBuilder._Process()` | `UpdateProjection()` 计算 8 方向预览 |
-| 4 | `RoadBuilder.EndDragAndCommit()` | 生成 waypoints，固定 `RoadType.Street` |
+| 4 | `RoadBuilder.EndDragAndCommit()` | 生成 waypoints，不向数据层传递 RoadType |
 | 5 | `RoadGraph.AddRoad(...)` | 创建/复用节点，拆分交点，跳过覆盖段，创建 group/edge |
 | 6 | `RoadGraph.EdgeAdded` | 通知渲染器创建 `Line2D` |
 | 7 | `GameHUD._Process()` -> `DebugPanel.UpdateMetrics()` | 调试组件轮询并显示 Group/Edge/Node 数量 |
@@ -686,8 +680,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `JunctionData` | `GraphNode` 存档行 | 仅 DTO 词汇 |
 | `SegmentData` | `GraphEdge` 存档行 | 仅 DTO 词汇 |
 | `RoadData` | `RoadGroup` 存档行 | 仅 DTO 词汇 |
-| JSON 字段 `junctions` | 节点列表 | 为兼容旧存档保留 |
-| JSON 字段 `segments` | 边列表 | 为兼容旧存档保留 |
-| JSON 字段 `roads` | 道路组列表 | 为兼容旧存档保留 |
+| JSON 字段 `junctions` / `segments` / `roads` | legacy 公开 DTO 字段 | 当前私有 v2 payload 不读取这些字段 |
+| JSON 字段 `nodes` / `edges` / `groups` | 当前 RoadGraph 私有存档字段 | 与 `schemaVersion = 1` 一同严格校验，不作为旧存档兼容层 |
 
-文档中不再保留旧运行时 `RoadNetwork`、`Road`、`Segment`、`Junction` 的类章节。若后续添加道路分级 UI，应从工具或 HUD 把用户选择传入 `RoadGraph.AddRoad(..., RoadType type)`，并同步扩展 `RoadRenderer` 的视觉规则，而不是只修改 `RoadType` 枚举或存档 DTO。
+文档中不再保留旧运行时 `RoadNetwork`、`Road`、`Segment`、`Junction` 的类章节。第三代若引入道路分级，必须同时定义新的提交 API、运行时字段、渲染规则、存档 schema 版本和迁移/拒绝策略，不能向第二代契约静默补回 `RoadType`。

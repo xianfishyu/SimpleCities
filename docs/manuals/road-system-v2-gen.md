@@ -21,7 +21,7 @@
 11. [路线图与优先级](#11-路线图与优先级)
 12. [附录 A：命名对照表](#附录-a命名对照表)
 13. [附录 B：不变式对比](#附录-b不变式对比)
-14. [附录 C：当前完成程度评估](#附录-c当前完成程度评估)
+14. [附录 C：范围确认前的历史完成度快照](#附录-c范围确认前的历史完成度快照)
 15. [附录 D：第二代最终范围与未完成事项](#附录-d第二代最终范围与未完成事项)
 
 ---
@@ -154,12 +154,12 @@ GameHUD              — 鼠标格点坐标显示
 ├─────────────────────────────────────────────────────────────┤
 │ Layer 2: Topology (Pure Graph)                              │
 │   RoadGraph       — 节点 + 边的增删改查，图遍历，拓扑操作      │
-│   SpatialIndex    — 空间哈希网格，O(1) 邻近查询               │
+│   SpatialIndex    — 空间哈希网格，提供局部几何候选             │
 │   RoadGroup       — 逻辑分组（替代当前 Road 概念）             │
 ├─────────────────────────────────────────────────────────────┤
 │ Layer 1: Rendering                                          │
 │   RoadRenderer    — 监听图事件，同步 Line2D / 交叉口渲染      │
-│   RoadStyle       — 样式映射（RoadType → Color/Width/etc）    │
+│   RoadStyle       — 第三代候选：RoadType → Color/Width/etc    │
 └─────────────────────────────────────────────────────────────┘
 
 关键变化：
@@ -194,14 +194,13 @@ GraphEdge (边)
   ├── ID: int
   ├── NodeA: int               ← 端点 A 的 NodeID
   ├── NodeB: int               ← 端点 B 的 NodeID
-  ├── Points: Vector2[]        ← 中间途经点（可为空）
-  ├── GroupID: int             ← 所属 RoadGroup
-  └── Type: RoadType           ← 道路等级（土路/普通/主干/高速）
+  ├── GeometrySegments         ← 权威原生几何段及控制参数
+  ├── Points: Vector2[]        ← 段边界兼容副本（非曲线真相）
+  └── GroupID: int             ← 所属 RoadGroup
 
 RoadGroup (逻辑分组)
   ├── ID: int
-  ├── EdgeIDs: HashSet<int>    ← 玩家一次操作产生的边集合
-  └── Type: RoadType           ← 该组道路的等级
+  └── EdgeIDs: HashSet<int>    ← 玩家一次操作产生的边集合
 
 SpatialIndex (空间索引)
   ├── BucketSize: float        ← 哈希桶边长（≈ CellSize，但仅用于索引粒度）
@@ -276,9 +275,9 @@ public class GraphEdge
     public int ID { get; }
     public int NodeA { get; internal set; }
     public int NodeB { get; internal set; }
-    public Vector2[] Points { get; }       // NodeA → pts[0] → pts[1] → ... → NodeB
+    public IReadOnlyList<RoadGeometrySegment> GeometrySegments { get; }
+    public Vector2[] Points { get; }       // 原生段边界的防御性兼容副本
     public int GroupID { get; internal set; }
-    public RoadType Type { get; internal set; }
 
     /// <summary>总几何长度（含首尾段）。</summary>
     public float Length { get; }
@@ -313,7 +312,6 @@ public class GraphEdge
 public class RoadGroup
 {
     public int ID { get; }
-    public RoadType Type { get; internal set; }
 
     private readonly HashSet<int> _edgeIDs = new();
 
@@ -332,7 +330,7 @@ public class RoadGroup
 - 如果某时刻需要知道"这些边是否还连通"，在查询时计算，不在写操作时修复
 - 拆除中间段导致 Group 分裂为两个连通分量 → **是合法状态**。两个分量共用一个 GroupID，仅仅表示"它们曾是同一次拖拽铺的"
 
-### 4.4 RoadType（新增）
+### 4.4 RoadType（第三代未来契约）
 
 ```csharp
 public enum RoadType
@@ -344,7 +342,7 @@ public enum RoadType
 }
 ```
 
-> RoadType 已进入当前数据和存档模型。当前 UI 仍固定创建 `Street`，按 RoadType 差异化渲染和道路升级工具仍是未来工作。
+> 上述枚举是早期设计草案，不是第二代当前实现。附录 D 已将 RoadType 分级数据、样式、选择和升级移至第三代；当前 `GraphEdge`、`RoadGroup`、提交 API 和 v2 存档 schema 均不含类型字段。
 
 ---
 
@@ -356,124 +354,13 @@ public enum RoadType
 
 ### 5.2 UniformGrid（空间哈希网格）
 
-```csharp
-/// <summary>
-/// 基于均匀网格的空间哈希索引。
-/// 世界空间被划分为 BucketSize × BucketSize 的方形桶。
-/// 每个桶存储落入该范围的所有 ISpatialRef 引用。
-///
-/// 性能：
-///   - 插入/移除：O(1)（哈希表 + List 操作）
-///   - 半径查询：O(1 + k) 其中 k = 命中桶内的实体数（小常数）
-///   - 适用于城市规模（数千节点 + 数万边）的场景
-/// </summary>
-public class UniformGrid
-{
-    private readonly float _bucketSize;
-    private readonly Dictionary<(int bx, int by), List<ISpatialRef>> _buckets = new();
+当前 `UniformGrid` 以 `ISpatialRef` 为值存储。Node 注册到一个桶；每个 `EdgeGeometryRef` 以原生几何的保守 `Bounds` 注册到全部覆盖桶。`QueryRadius` 先遍历半径包围盒覆盖的桶、按引用身份去重，再调用引用的 `IntersectsCircle` 做权威过滤；`QueryBounds` 返回覆盖桶内的去重候选，由调用方完成几何相交、覆盖或拆分判定。
 
-    public UniformGrid(float bucketSize)
-    {
-        _bucketSize = Mathf.Max(bucketSize, 1f);
-    }
-
-    /// <summary>插入一个空间引用。同一实体可多次插入（如一个边插入其所有途经点）。</summary>
-    public void Insert(ISpatialRef entity)
-    {
-        var (bx, by) = WorldToBucket(entity.Position);
-        if (!_buckets.TryGetValue((bx, by), out var list))
-            _buckets[(bx, by)] = list = new List<ISpatialRef>();
-        list.Add(entity);
-    }
-
-    /// <summary>移除指定实体的所有条目。</summary>
-    public void Remove(ISpatialRef entity)
-    {
-        var (bx, by) = WorldToBucket(entity.Position);
-        if (_buckets.TryGetValue((bx, by), out var list))
-            list.RemoveAll(r => r == entity);
-    }
-
-    /// <summary>
-    /// 查询以 center 为圆心、radius 为半径范围内的所有实体。
-    /// 返回结果可能包含少量超出半径的实体（桶级预过滤），调用方应做精确距离检查。
-    /// </summary>
-    public IEnumerable<ISpatialRef> QueryRadius(Vector2 center, float radius)
-    {
-        int minBX = WorldToBucketCoord(center.X - radius);
-        int maxBX = WorldToBucketCoord(center.X + radius);
-        int minBY = WorldToBucketCoord(center.Y - radius);
-        int maxBY = WorldToBucketCoord(center.Y + radius);
-
-        float radiusSq = radius * radius;
-
-        for (int bx = minBX; bx <= maxBX; bx++)
-        for (int by = minBY; by <= maxBY; by++)
-        {
-            if (!_buckets.TryGetValue((bx, by), out var list)) continue;
-            foreach (var entity in list)
-            {
-                if (entity.Position.DistanceSquaredTo(center) <= radiusSq)
-                    yield return entity;
-            }
-        }
-    }
-
-    /// <summary>清空所有索引。</summary>
-    public void Clear() => _buckets.Clear();
-
-    // — 内部 —
-
-    private (int bx, int by) WorldToBucket(Vector2 pos)
-    {
-        return (WorldToBucketCoord(pos.X), WorldToBucketCoord(pos.Y));
-    }
-
-    private int WorldToBucketCoord(float val)
-    {
-        return Mathf.FloorToInt(val / _bucketSize);
-    }
-}
-
-/// <summary>
-/// 可被空间索引引用的实体必须实现此接口。
-/// </summary>
-public interface ISpatialRef
-{
-    Vector2 Position { get; }
-    SpatialRefKind Kind { get; }  // Node / Edge / 未来可扩展
-}
-
-public enum SpatialRefKind
-{
-    Node,
-    EdgePoint   // 代表边上的一个途经点
-}
-```
+复杂度取决于覆盖桶数和桶内引用数。跨桶几何的插入/移除会访问每个覆盖桶，移除还会扫描桶内 `List<ISpatialRef>`；半径与矩形查询也会遍历全部覆盖桶并对候选去重。因此本文不再使用无条件 `O(1)` 插入/删除或 `O(1 + k)` 查询的表述。固定 10k/100k 数据集的实际结果由性能基线和 `--enforce-budget` 验证。
 
 ### 5.3 使用模式
 
-```csharp
-// 插入：节点和边的所有途经点都注册到空间索引
-foreach (var node in _nodes.Values)
-    _spatialIndex.Insert(new NodeSpatialRef(node));
-
-foreach (var edge in _edges.Values)
-{
-    var nodeA = _nodes[edge.NodeA];
-    var nodeB = _nodes[edge.NodeB];
-    // 也插入端点位置（归属那条边），使得点击端点附近也能命中这条边
-    _spatialIndex.Insert(new EdgePointRef(edge.ID, nodeA.Position));
-    _spatialIndex.Insert(new EdgePointRef(edge.ID, nodeB.Position));
-    foreach (var pt in edge.Points)
-        _spatialIndex.Insert(new EdgePointRef(edge.ID, pt));
-}
-
-// 查询：玩家点击位置附近有什么
-var hits = _spatialIndex.QueryRadius(clickPos, snapRadius);
-// hits 包含 NodeSpatialRef 和 EdgePointRef
-// 调用方按 Kind 筛选 + 按距离排序 + 取最近者
-```
+`RoadGraph` 在 `_nodeRefs` / `_edgeRefs` 中保留已登记引用，以便按对象身份精确移除和从权威图重建索引。最近 Edge 查询从 `EdgeGeometryRef` 收集局部候选后，对每条候选的原生几何执行 `FindClosestPoint`；覆盖、交点、锚点和拆分使用 `QueryBounds` 候选，不把显示采样或 Edge 端点折线当作曲线真相。
 
 **关键优势**：
 - 不再区分"整格点"和"半格点" — 所有位置一律平等
@@ -496,10 +383,10 @@ var hits = _spatialIndex.QueryRadius(clickPos, snapRadius);
 6. 拓扑去重
 7. 合并降级（TryMergeAtJunction）
 
-**RoadGraph 目标流程**：
+**RoadGraph 当前流程**：
 
 ```
-AddRoad(fromPos, toPos, waypoints, groupID, roadType):
+SubmitPolyline(points) / SubmitPath(nativeGeometry):
 
   1. 构建完整路径 P = [fromPos, ...waypoints, toPos]
      — 无需 8 方向校验（RoadGraph 不关心方向，只关心几何位置）
@@ -520,15 +407,15 @@ AddRoad(fromPos, toPos, waypoints, groupID, roadType):
        ELSE:
          a. GetOrCreateNode(P[a])  → nodeA
          b. GetOrCreateNode(P[a+1]) → nodeB
-         c. 创建 GraphEdge(nodeA, nodeB, 中间点, groupID, roadType)
-         d. 在 SpatialIndex 中注册边的途经点
+         c. 创建 GraphEdge(nodeA, nodeB, 原生几何段, groupID)
+         d. 按每个原生几何段的保守 Bounds 在 SpatialIndex 中注册引用
 
   4. 合并降级（可选，性能优化）：
      IF 某节点连接数 == 2 且两侧边共线:
        合并为一条边
      — 这是一个"压缩"操作，不影响正确性，仅减少节点/边数量
 
-  5. 返回 groupID
+  5. 返回结构化 RoadPathSubmissionResult；AddRoad 兼容入口仅映射为 groupID / -1
 ```
 
 **简化了什么**：
@@ -548,17 +435,15 @@ AddRoad(fromPos, toPos, waypoints, groupID, roadType):
 4. 从 Road 摘除 Segment → Road 空则清 → 否则 `SplitRoadIntoConnectedComponents`
 5. 触发 `TryMergeAtJunction`（含 `_inMergeOperation` 守卫）
 
-**RoadGraph 目标流程**：
+**RoadGraph 当前流程**：
 
 ```
 RemoveEdge(edgeID):
 
-  1. 从 _edges 字典移除边
-  2. 从 SpatialIndex 移除边的所有途经点引用
-  3. 从两端节点的 EdgeRef 列表中移除此边
-  4. 若某端节点 EdgeCount == 0 → 移除该节点 + 从 SpatialIndex 移除
-  5. 从 RoadGroup 中摘除此边（Group 为空则移除）
-  6. 触发 EdgeRemoved 事件（渲染层响应）
+  1. DetachEdge：从 _edges、SpatialIndex、两端 EdgeRef 和 RoadGroup 中移除边
+  2. CommitEdgeMutation：一次清理受影响的孤立节点和空 Group
+  3. Debug 构建在事件发布前验证完整图不变式
+  4. 触发 EdgeRemoved 事件（处理器看到最终提交图）
 
   — END —
 ```
@@ -578,11 +463,12 @@ RemoveEdge(edgeID):
 FindClosestEdge(position, radius):
 
   1. hits = _spatialIndex.QueryRadius(position, radius)
-  2. 筛选 EdgePointRef → 取距离最近的 → 返回 edgeID
-  3. 若未命中，筛选 NodeRef → 取距离最近的 → 返回该节点上任一条边的 edgeID
+  2. 从 EdgeGeometryRef 收集去重 Edge 候选
+  3. 对每条候选的原生几何段执行权威 FindClosestPoint
+  4. 取距离最近的 Edge；近似等距时选择较小 Edge ID
 ```
 
-对比迁移前的三级回退（字典 → waypoint 扫描 → Junction ConnectedSegment），新方案是单次空间索引查询 + 按需过滤。
+对比迁移前的三级回退（字典 → waypoint 扫描 → Junction ConnectedSegment），当前方案是局部空间候选 + 原生几何精确过滤。成本取决于半径覆盖桶数和桶内引用数，不宣称无条件 `O(1 + k)`。
 
 ---
 
@@ -594,14 +480,14 @@ FindClosestEdge(position, radius):
 public class RoadGraph
 {
     // ── 创建 ──
-    public int AddEdge(Vector2 posA, Vector2 posB, Vector2[] points,
-                       int groupID, RoadType type);
-    // 返回 edgeID；失败返回 -1。
-    // 自动 GetOrCreate 两端节点。若 posA/B 附近已有节点，复用。
+    public RoadPathSubmissionResult SubmitPath(RoadPath? path);
+    // 原生几何权威入口；成功返回完整变更摘要，失败返回结构化原因且无副作用。
 
-    public int AddRoad(Vector2 start, Vector2 end, Vector2[] waypoints,
-                       RoadType type);
-    // 封装 AddEdge 的便利方法：自动创建 RoadGroup，切分交叉边，合并降级。
+    public RoadPathSubmissionResult SubmitPolyline(IReadOnlyList<Vector2>? points);
+    // 折线结构化入口。
+
+    public int AddRoad(Vector2 start, Vector2 end, Vector2[] waypoints);
+    // 兼容入口：复用 SubmitPolyline，成功返回 groupID，失败返回 -1。
 
     // ── 删除 ──
     public bool RemoveEdge(int edgeID);
@@ -638,7 +524,7 @@ public class RoadGraph
 
 | legacy 方法 | 当前 RoadGraph 方法 | 变化 |
 |----------|-----------|------|
-| `AddRoad(from, to, wps, cellSize, extendRoadID)` | `AddRoad(start, end, wps, type)` | 去掉 `cellSize`，去掉 `extendRoadID`（占位），加 `type` |
+| `AddRoad(from, to, wps, cellSize, extendRoadID)` | `AddRoad(start, end, wps)` / `SubmitPolyline(points)` / `SubmitPath(path)` | 去掉 `cellSize`、`extendRoadID` 和 RoadType；新增结构化折线与原生几何入口 |
 | `RemoveSegment(segmentID)` | `RemoveEdge(edgeID)` | 行为简化（不再触发拓扑修复链） |
 | `RemoveRoad(roadID)` | `RemoveRoadGroup(groupID)` | 行为等价 |
 | `FindSegmentAt(pos)` | `FindClosestEdge(pos, radius)` | 语义从"精确位置匹配"变为"最近邻查询" |
@@ -713,7 +599,7 @@ line.Width = style.Width;
 
 ### 9.1 交通模拟需要的接口
 
-Phase 6 的交通模拟（A* 寻路、OD 矩阵、拥堵模型）需要以下路网查询能力：
+第三代道路分级完成后的交通模拟（A* 寻路、OD 矩阵、拥堵模型）需要以下路网查询能力：
 
 ```csharp
 // RoadGraph 提供的遍历接口（已存在于 GetAllNodes / GetAllEdges）
@@ -751,7 +637,7 @@ EdgeAdded   → TrafficGraph 增量插入新边 + 重新计算受影响区域的
 EdgeRemoved → TrafficGraph 移除边 + 标记经过此边的所有路径为"需要重算"
 ```
 
-增量更新（而非每次重建整个 TrafficGraph）是性能关键，但属于 Phase 6 的实现细节。
+增量更新（而非每次重建整个 TrafficGraph）是未来性能关键，但属于第三代之后的模拟实现细节。
 
 ---
 
@@ -821,19 +707,20 @@ EdgeRemoved → TrafficGraph 移除边 + 标记经过此边的所有路径为"�
 
 ### 10.3 存档兼容性
 
-legacy 存档格式（`RoadNetworkData`）包含字段名如 `Junctions`、`Segments`、`Roads`。当前 RoadGraph 写入 private v2 payload，但 JSON 兼容字段名仍保留为 `junctions`、`segments`、`roads`。不要仅因运行时类型改名破坏这些字段。
+legacy 公开 DTO `RoadNetworkData` 仍包含 `Junctions`、`Segments`、`Roads`，但当前 `RoadGraph` 不使用它。第二代写入 private v2 payload：`schemaVersion = 1`、`nextID`、`nodes`、`edges`、`groups`；Edge 的 `geometry` 保存原生类型、版本和控制参数。
 
 ```csharp
-// RoadNetworkData 保留 legacy public DTO
-// RoadGraph v2 payload 继续使用 junctions / segments / roads 兼容字段
-
-// 当时的备选提案：引入版本号
-public class RoadNetworkData
-{
-    public int Version { get; set; } = 1;  // 迁移前示例；当前 RoadGraph payload 已写出 version 2
-    // ...
+// 当前私有 payload 的逻辑形状
+RoadGraphSaveData {
+    schemaVersion: 1,
+    nextID,
+    nodes,
+    edges: [{ nodeAID, nodeBID, groupID, geometry }],
+    groups
 }
 ```
+
+加载先在临时状态中全量校验版本、未知字段、ID、引用、Group 双向关系、孤立节点、原生几何和 `nextID`，只有成功后才替换活动图。缺失版本、旧格式、未知未来版本和损坏内容均拒绝且不修改当前图；旧道路存档兼容不属于第二代。
 
 ---
 
@@ -880,7 +767,7 @@ public class RoadNetworkData
 | `_posToSegmentID` | *删除* | 并入 SpatialIndex，当前已完成 |
 | `Direction`, `DirectionUtil` | *保留但仅用于 UI 层* | RoadBuilder 仍需要 8 方向投影 |
 | `GridSystem` | *保留但不再被数据层引用* | 纯 UI 工具 |
-| `RoadConfig` | *保留 + 扩展 RoadTypeStyle[]* | 全局配置模式不变 |
+| `RoadConfig` | *当前保留；第三代可扩展 RoadTypeStyle[]* | 第二代只使用统一样式 |
 
 ## 附录 B：不变式对比
 
@@ -895,17 +782,17 @@ public class RoadNetworkData
 
 ---
 
-## 附录 C：当前完成程度评估
+## 附录 C：范围确认前的历史完成度快照
 
 > 评估基准：当前工作区源码、主场景集成状态、`docs/todo/README.md`，以及本指南第 2～11 节的目标定义。
 >
-> 本节用于区分“架构已经落地”和“仍需继续完善的行为”，不把当前明确延期的产品功能视为 V2 基础架构缺陷。
+> 本节记录范围确认当时对“架构已经落地”和“仍需继续完善行为”的判断，不把当时明确延期的产品功能视为 V2 基础架构缺陷。
 >
-> 本节保留范围确认前的实现快照；其中关于 RoadType、旧存档兼容和阶段边界的描述不再定义第二代目标，最终交付范围与完成判定以附录 D 为准。
+> 本节保留范围确认前的实现快照，不是当前状态表。其中关于 RoadType、旧存档兼容、删除、空间索引和阶段边界的描述已经过时；当前事实见第 3～11 节，最终交付范围与完成判定以附录 D 和 `docs/todo/` 为准。
 
-### C.1 总体结论
+### C.1 当时的总体结论
 
-当前 V2 道路系统已经完成了**核心架构迁移**，但尚未完成设计指南中定义的全部行为和后续产品能力。
+范围确认时，V2 道路系统已经完成了**核心架构迁移**，但尚未完成设计指南中定义的全部行为和后续产品能力。
 
 准确结论是：
 
@@ -913,7 +800,7 @@ public class RoadNetworkData
 
 当前实现已经可以作为游戏中的基础路网使用，支持连续坐标节点、交叉拆边、空间索引、事件驱动渲染、存档恢复和基础道路编辑。但它还不能宣称完全实现本指南，因为删除事务、完整线段空间查询、数据层几何自由度、公共 API 契约和自动化验证仍未全部闭合。
 
-### C.2 分层完成状态
+### C.2 当时的分层完成状态
 
 | 范围 | 状态 | 已完成内容 | 尚未完成或需要确认 |
 |---|---|---|---|
@@ -932,7 +819,7 @@ public class RoadNetworkData
 | RoadType 产品功能 | **按需求延期** | 枚举、Edge/Group 数据和旧存档回退已保留 | 类型样式、选择 UI、道路升级当前不开发 |
 | 车流模拟 | **未开始，按路线图延期** | 设计接口已在本指南中定义 | `TrafficGraph`、A*、拥堵权重和增量同步均未实现 |
 
-### C.3 P1～P5 完成度
+### C.3 当时的 P1～P5 完成度
 
 | 原则 | 当前判断 | 完成度说明 |
 |---|---|---|
@@ -942,7 +829,7 @@ public class RoadNetworkData
 | **P4 添加比修改简单，修改比删除简单** | **未完成** | 删除仍会触发自动合并和节点修复链，尚未达到“删除不触发拓扑压缩”的设计目标。 |
 | **P5 不变式最小化** | **部分完成** | 旧位置字典不变式已删除，但图字典、邻接、Group、空间索引、事件和存档仍需共同维护。 |
 
-### C.4 V2 阶段状态
+### C.4 当时的 V2 阶段状态
 
 | 阶段 | 状态 | 结论 |
 |---|---|---|
@@ -950,9 +837,9 @@ public class RoadNetworkData
 | 阶段 B：API 清理、移除网格依赖、存档兼容 | **大部分完成** | 核心命名和主要 API 已迁移；公共 `AddEdge`、数据层方向约束、删除语义和存档失败保护仍未闭合。 |
 | 阶段 C：TrafficGraph、A*、增量模拟同步 | **未开始** | 按 Phase 6 路线图延期，不作为当前 V2 基础清理的阻塞项。 |
 
-### C.5 当前版本可以宣称的能力
+### C.5 当时版本可以宣称的能力
 
-当前版本可以准确宣称：
+当时版本可以准确宣称：
 
 - 使用 `RoadGraph` 作为连续空间路网数据层。
 - 使用 `GraphNode`、`GraphEdge` 和 `RoadGroup` 管理道路拓扑。
@@ -961,7 +848,7 @@ public class RoadNetworkData
 - 使用事件驱动方式同步道路 Line2D 渲染。
 - 支持道路图保存、加载和旧格式类型回退。
 
-当前版本不应宣称：
+当时版本不应宣称：
 
 - 已完成无网格约束的任意角度数据层。
 - 已完成真正的线段级最近道路查询和局部空间查询性能目标。
@@ -969,7 +856,7 @@ public class RoadNetworkData
 - 已完成 RoadType 分级视觉、类型选择或道路升级。
 - 已完成 TrafficGraph、A*、拥堵模拟或车流增量同步。
 
-### C.6 完成 V2 基础清理的剩余条件
+### C.6 当时列出的 V2 基础清理剩余条件
 
 在不启用 RoadType 产品功能和 Phase 6 车流系统的前提下，V2 基础清理仍需完成：
 
