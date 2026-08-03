@@ -172,6 +172,19 @@ public sealed class SaveManagerSlotContractTests : IDisposable
     }
 
     [Fact]
+    public void DeleteSlot_TransactionPathFailurePreservesExistingSlot()
+    {
+        var store = CreateStore();
+        store.Save("manual-1", "Manual 1", [new TestSaveable("road_network", 42)]);
+        File.WriteAllText(Path.Combine(_saveRoot, ".manual-1.backup"), "occupied");
+
+        Assert.Throws<IOException>(() => store.Delete("manual-1"));
+
+        Assert.True(Directory.Exists(Path.Combine(_saveRoot, "manual-1")));
+        Assert.True(File.Exists(Path.Combine(_saveRoot, "manual-1", "manifest.json")));
+    }
+
+    [Fact]
     public void Save_CaptureFailureDoesNotPublishSlot()
     {
         var store = CreateStore();
@@ -181,7 +194,82 @@ public sealed class SaveManagerSlotContractTests : IDisposable
 
         string slotDir = Path.Combine(_saveRoot, "broken");
         Assert.False(store.Exists("broken"));
-        Assert.Empty(Directory.GetFiles(slotDir));
+        Assert.False(Directory.Exists(slotDir));
+    }
+
+    [Fact]
+    public void Save_SerializationFailurePreservesExistingSlot()
+    {
+        var store = CreateStore();
+        store.Save("manual-1", "Original", [new TestSaveable("road_network", 42)]);
+        IReadOnlyDictionary<string, string> before = SnapshotSlot("manual-1");
+
+        Assert.Throws<JsonException>(() => store.Save(
+            "manual-1",
+            "Replacement",
+            [new TestSaveable("road_network", 99), new CyclicSaveable()]));
+
+        Assert.Equal(before, SnapshotSlot("manual-1"));
+        Assert.Empty(TransactionDirectories());
+    }
+
+    [Fact]
+    public void Save_PublishFailureRestoresExistingSlotAndCleansTransactions()
+    {
+        var store = CreateStore();
+        store.Save("manual-1", "Original", [new TestSaveable("road_network", 42)]);
+        IReadOnlyDictionary<string, string> before = SnapshotSlot("manual-1");
+        var failingStore = new SaveSlotStore(_saveRoot, phase =>
+        {
+            if (phase == SavePublicationPhase.PreviousSlotMoved)
+                throw new IOException("Injected publish failure.");
+        });
+
+        Assert.Throws<IOException>(() => failingStore.Save(
+            "manual-1",
+            "Replacement",
+            [new TestSaveable("road_network", 99)]));
+
+        Assert.Equal(before, SnapshotSlot("manual-1"));
+        Assert.Empty(TransactionDirectories());
+    }
+
+    [Fact]
+    public void Save_RecoversInterruptedBackupAndDiscardsStaleStaging()
+    {
+        var store = CreateStore();
+        store.Save("manual-1", "Original", [new TestSaveable("road_network", 42)]);
+        string slotDir = Path.Combine(_saveRoot, "manual-1");
+        string backupDir = Path.Combine(_saveRoot, ".manual-1.backup");
+        string stagingDir = Path.Combine(_saveRoot, ".manual-1.staging");
+        Directory.Move(slotDir, backupDir);
+        Directory.CreateDirectory(stagingDir);
+        File.WriteAllText(Path.Combine(stagingDir, "partial.json"), "partial");
+
+        var loaded = new TestSaveable("road_network", 0);
+        Assert.Equal(1, store.Load("manual-1", [loaded]));
+        Assert.Equal(42, loaded.Value);
+        Assert.Empty(TransactionDirectories());
+
+        store.Save("manual-1", "Recovered", [new TestSaveable("road_network", 99)]);
+        loaded.Value = 0;
+        Assert.Equal(1, store.Load("manual-1", [loaded]));
+        Assert.Equal(99, loaded.Value);
+        Assert.Equal("Recovered", store.ReadManifest("manual-1").DisplayName);
+        Assert.Empty(TransactionDirectories());
+    }
+
+    [Fact]
+    public void ListSlots_IgnoresPublicationTransactionDirectories()
+    {
+        var store = CreateStore();
+        store.Save("manual-1", "Manual 1", []);
+        Directory.CreateDirectory(Path.Combine(_saveRoot, ".manual-1.staging"));
+        Directory.CreateDirectory(Path.Combine(_saveRoot, ".manual-1.backup"));
+
+        SaveSlotSummary summary = Assert.Single(store.ListSlots());
+
+        Assert.Equal("manual-1", summary.SlotID);
     }
 
     [Fact]
@@ -400,6 +488,15 @@ public sealed class SaveManagerSlotContractTests : IDisposable
 
     private SaveSlotStore CreateStore() => new(_saveRoot);
 
+    private IReadOnlyDictionary<string, string> SnapshotSlot(string slotID) =>
+        Directory.GetFiles(Path.Combine(_saveRoot, slotID))
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToDictionary(path => Path.GetFileName(path), File.ReadAllText, StringComparer.Ordinal);
+
+    private string[] TransactionDirectories() => Directory.Exists(_saveRoot)
+        ? Directory.GetDirectories(_saveRoot, ".*.*", SearchOption.TopDirectoryOnly)
+        : [];
+
     private void RewriteManifest(string slotID, Action<ManifestData> update)
     {
         string manifestPath = Path.Combine(_saveRoot, slotID, "manifest.json");
@@ -443,6 +540,25 @@ public sealed class SaveManagerSlotContractTests : IDisposable
         public object CaptureState() => throw new InvalidOperationException("Capture failed.");
 
         public void RestoreState(string json) => throw new NotSupportedException();
+    }
+
+    private sealed class CyclicSaveable : ISaveable
+    {
+        public string SaveFileName => "cyclic";
+
+        public object CaptureState()
+        {
+            var state = new CyclicState();
+            state.Self = state;
+            return state;
+        }
+
+        public void RestoreState(string json) => throw new NotSupportedException();
+
+        private sealed class CyclicState
+        {
+            public CyclicState? Self { get; set; }
+        }
     }
 
     private sealed class PreparedTestSaveable(string saveFileName) : IPreparedSaveable

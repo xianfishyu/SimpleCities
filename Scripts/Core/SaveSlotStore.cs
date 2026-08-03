@@ -8,15 +8,21 @@ using System.Text.Json;
 internal sealed class SaveSlotStore
 {
     private const string ManifestFile = "manifest.json";
+    private const string StagingSuffix = ".staging";
+    private const string BackupSuffix = ".backup";
     internal const int MaxDisplayNameLength = 128;
     private readonly string _saveBaseDir;
+    private readonly Action<SavePublicationPhase>? _publicationObserver;
 
-    public SaveSlotStore(string saveBaseDir)
+    public SaveSlotStore(
+        string saveBaseDir,
+        Action<SavePublicationPhase>? publicationObserver = null)
     {
         if (string.IsNullOrWhiteSpace(saveBaseDir))
             throw new ArgumentException("Save base directory cannot be empty.", nameof(saveBaseDir));
 
         _saveBaseDir = Path.GetFullPath(saveBaseDir);
+        _publicationObserver = publicationObserver;
     }
 
     public string Create(string displayName, IReadOnlyList<ISaveable> saveables)
@@ -38,33 +44,42 @@ internal sealed class SaveSlotStore
     {
         ValidateDisplayName(displayName);
         string slotDir = GetSlotDir(slotID);
-        var saveTargets = new List<(ISaveable Saveable, string FileName)>(saveables.Count);
+        string stagingDir = GetTransactionDir(slotID, StagingSuffix);
+        string backupDir = GetTransactionDir(slotID, BackupSuffix);
+        var payloads = new List<(string FileName, string Json)>(saveables.Count);
         foreach (ISaveable saveable in saveables)
-            saveTargets.Add((saveable, GetDataFileName(saveable.SaveFileName)));
-
-        Directory.CreateDirectory(slotDir);
-        var savedFiles = new List<string>();
-
-        foreach ((ISaveable saveable, string fileName) in saveTargets)
         {
-            string temporaryPath = Path.Combine(slotDir, fileName + ".tmp");
-            string finalPath = Path.Combine(slotDir, fileName);
+            string fileName = GetDataFileName(saveable.SaveFileName);
             string json = SaveJson.Serialize(saveable.CaptureState());
-
-            File.WriteAllText(temporaryPath, json, Encoding.UTF8);
-            if (File.Exists(finalPath))
-                File.Delete(finalPath);
-            File.Move(temporaryPath, finalPath);
-            savedFiles.Add(fileName);
+            payloads.Add((fileName, json));
         }
 
-        WriteManifest(slotDir, slotID, displayName, savedFiles);
-        return savedFiles.Count;
+        Directory.CreateDirectory(_saveBaseDir);
+        RecoverSlotPublication(slotDir, stagingDir, backupDir);
+        Directory.CreateDirectory(stagingDir);
+
+        try
+        {
+            foreach ((string fileName, string json) in payloads)
+                File.WriteAllText(Path.Combine(stagingDir, fileName), json, Encoding.UTF8);
+
+            WriteManifest(stagingDir, slotID, displayName, payloads.Select(item => item.FileName).ToList());
+            _publicationObserver?.Invoke(SavePublicationPhase.Staged);
+            PublishSlot(slotDir, stagingDir, backupDir);
+        }
+        catch
+        {
+            TryRestoreBackup(slotDir, backupDir);
+            TryDeleteTransactionDirectory(stagingDir);
+            throw;
+        }
+
+        return payloads.Count;
     }
 
     public int Load(string slotID, IReadOnlyList<ISaveable> saveables)
     {
-        string slotDir = GetSlotDir(slotID);
+        string slotDir = GetRecoveredSlotDir(slotID);
         if (!Directory.Exists(slotDir))
             throw new DirectoryNotFoundException($"Save slot '{slotID}' not found.");
 
@@ -114,7 +129,7 @@ internal sealed class SaveSlotStore
 
     public ManifestData ReadManifest(string slotID)
     {
-        string manifestPath = Path.Combine(GetSlotDir(slotID), ManifestFile);
+        string manifestPath = Path.Combine(GetRecoveredSlotDir(slotID), ManifestFile);
         if (!File.Exists(manifestPath))
             throw new FileNotFoundException($"Manifest not found in slot '{slotID}'.", manifestPath);
 
@@ -131,10 +146,13 @@ internal sealed class SaveSlotStore
         if (!Directory.Exists(_saveBaseDir))
             return Array.Empty<SaveSlotSummary>();
 
+        RecoverInterruptedPublications();
         var summaries = new List<SaveSlotSummary>();
         foreach (string slotDir in Directory.EnumerateDirectories(_saveBaseDir))
         {
             string slotID = Path.GetFileName(slotDir);
+            if (IsTransactionDirectoryName(slotID))
+                continue;
             try
             {
                 ManifestData manifest = ReadManifest(slotID);
@@ -180,15 +198,17 @@ internal sealed class SaveSlotStore
             .ToArray();
     }
 
-    public bool Exists(string slotID) => File.Exists(Path.Combine(GetSlotDir(slotID), ManifestFile));
+    public bool Exists(string slotID) => File.Exists(Path.Combine(GetRecoveredSlotDir(slotID), ManifestFile));
 
     public bool Delete(string slotID)
     {
-        string slotDir = GetSlotDir(slotID);
+        string slotDir = GetRecoveredSlotDir(slotID);
         if (!Directory.Exists(slotDir))
             return false;
 
         Directory.Delete(slotDir, recursive: true);
+        TryDeleteTransactionDirectory(GetTransactionDir(slotID, StagingSuffix));
+        TryDeleteTransactionDirectory(GetTransactionDir(slotID, BackupSuffix));
         return true;
     }
 
@@ -207,6 +227,151 @@ internal sealed class SaveSlotStore
 
         return slotDir;
     }
+
+    private string GetRecoveredSlotDir(string slotID)
+    {
+        string slotDir = GetSlotDir(slotID);
+        if (Directory.Exists(_saveBaseDir))
+        {
+            RecoverSlotPublication(
+                slotDir,
+                GetTransactionDir(slotID, StagingSuffix),
+                GetTransactionDir(slotID, BackupSuffix));
+        }
+
+        return slotDir;
+    }
+
+    private string GetTransactionDir(string slotID, string suffix)
+    {
+        string directoryName = $".{slotID}{suffix}";
+        string transactionDir = Path.GetFullPath(Path.Combine(_saveBaseDir, directoryName));
+        string relativePath = Path.GetRelativePath(_saveBaseDir, transactionDir);
+        if (!string.Equals(relativePath, directoryName, StringComparison.Ordinal))
+            throw new InvalidOperationException($"Transaction path for slot '{slotID}' resolves outside the save root.");
+        if (Directory.Exists(transactionDir) &&
+            File.GetAttributes(transactionDir).HasFlag(FileAttributes.ReparsePoint))
+        {
+            throw new IOException($"Transaction path for slot '{slotID}' cannot be a filesystem link.");
+        }
+
+        return transactionDir;
+    }
+
+    private void RecoverSlotPublication(string slotDir, string stagingDir, string backupDir)
+    {
+        if (File.Exists(stagingDir) || File.Exists(backupDir))
+            throw new IOException("Save transaction path is occupied by a file.");
+
+        TryDeleteTransactionDirectory(stagingDir);
+        if (!Directory.Exists(backupDir))
+            return;
+
+        if (!Directory.Exists(slotDir))
+        {
+            Directory.Move(backupDir, slotDir);
+            return;
+        }
+
+        if (!File.Exists(Path.Combine(slotDir, ManifestFile)))
+        {
+            Directory.Delete(slotDir, recursive: true);
+            Directory.Move(backupDir, slotDir);
+            return;
+        }
+
+        Directory.Delete(backupDir, recursive: true);
+    }
+
+    private void RecoverInterruptedPublications()
+    {
+        var slotIDs = new HashSet<string>(StringComparer.Ordinal);
+        foreach (string transactionDir in Directory.EnumerateDirectories(_saveBaseDir))
+        {
+            string directoryName = Path.GetFileName(transactionDir);
+            if (TryGetTransactionSlotID(directoryName, StagingSuffix, out string stagingSlotID))
+                slotIDs.Add(stagingSlotID);
+            else if (TryGetTransactionSlotID(directoryName, BackupSuffix, out string backupSlotID))
+                slotIDs.Add(backupSlotID);
+        }
+
+        foreach (string slotID in slotIDs)
+            GetRecoveredSlotDir(slotID);
+    }
+
+    private static bool TryGetTransactionSlotID(
+        string directoryName,
+        string suffix,
+        out string slotID)
+    {
+        slotID = "";
+        if (directoryName.Length <= suffix.Length + 1 ||
+            directoryName[0] != '.' ||
+            !directoryName.EndsWith(suffix, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        string candidate = directoryName[1..^suffix.Length];
+        try
+        {
+            ValidateSlotID(candidate);
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+
+        slotID = candidate;
+        return true;
+    }
+
+    private void PublishSlot(string slotDir, string stagingDir, string backupDir)
+    {
+        if (Directory.Exists(slotDir))
+        {
+            Directory.Move(slotDir, backupDir);
+            _publicationObserver?.Invoke(SavePublicationPhase.PreviousSlotMoved);
+        }
+
+        Directory.Move(stagingDir, slotDir);
+        try
+        {
+            TryDeleteTransactionDirectory(backupDir);
+        }
+        catch (IOException)
+        {
+            // The new slot is already fully published. A hidden backup can be
+            // cleaned by the next save without turning success into failure.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Same as above: preserve the successfully published slot.
+        }
+    }
+
+    private static void TryRestoreBackup(string slotDir, string backupDir)
+    {
+        if (Directory.Exists(slotDir) || !Directory.Exists(backupDir))
+            return;
+
+        Directory.Move(backupDir, slotDir);
+    }
+
+    private static void TryDeleteTransactionDirectory(string transactionDir)
+    {
+        if (!Directory.Exists(transactionDir))
+            return;
+        if (File.GetAttributes(transactionDir).HasFlag(FileAttributes.ReparsePoint))
+            throw new IOException($"Save transaction directory '{Path.GetFileName(transactionDir)}' cannot be a filesystem link.");
+
+        Directory.Delete(transactionDir, recursive: true);
+    }
+
+    private static bool IsTransactionDirectoryName(string directoryName) =>
+        directoryName.Length > 0 && directoryName[0] == '.' &&
+        (directoryName.EndsWith(StagingSuffix, StringComparison.Ordinal) ||
+         directoryName.EndsWith(BackupSuffix, StringComparison.Ordinal));
 
     private static string GetDataFileName(string saveFileName)
     {
@@ -296,4 +461,10 @@ internal sealed class SaveSlotStore
             SaveJson.Serialize(manifest),
             Encoding.UTF8);
     }
+}
+
+internal enum SavePublicationPhase
+{
+    Staged,
+    PreviousSlotMoved,
 }

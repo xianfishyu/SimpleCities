@@ -227,3 +227,35 @@ manifest 缺少 `schemaVersion`，或只提供大小写错误的 `SchemaVersion`
 - `dotnet build SimpleCities.sln --configuration Debug --no-restore`：0 警告、0 错误。
 - `godot --headless --path . --log-file .godot/qa-save-slot-prevalidation-final.log --script tests/godot/pause_menu_runtime_contract.gd`：输出预期的损坏 RoadGraph 加载错误及 `PASS pause menu runtime contract`；失败后 `CurrentSlotID` 保持手动槽，临时手动槽已删除，autosave 已成功重建。两条 `ConstructionDock` 警告来自既有隔离场景。
 - 当前会话未提供 `csharp-ls` MCP，无法执行逐文件 C# LSP 诊断。
+
+---
+
+<a id="save-system-bug-7"></a>
+## BUG-7：覆盖存档中途失败会留下新旧文件混合槽
+
+> 修复日期：2026-08-04
+> 关联事项：`save-system:0.9`
+
+### 症状
+
+覆盖已有槽位时，每个系统文件会依次替换。如果前面的文件已经写入，而后续系统在捕获、序列化或写盘时失败，旧 manifest 仍然可见，却指向部分新、部分旧的业务 JSON；加载可能得到跨保存时刻混合的城市状态。
+
+### 根因分析
+
+旧 `SaveSlotStore.Save` 直接在活动槽目录内逐文件写 `.tmp` 并替换正式文件，只把 manifest 放在最后写入。manifest 的延迟发布只能隐藏新槽的失败，无法回滚覆盖过程中已经替换的旧文件，也没有进程中断后的目录级恢复记录。
+
+### 修复方案
+
+保存现在先在内存中完成全部捕获与序列化，再将所有 JSON 和 manifest 写入同级 staging 目录。发布时把旧槽改名为 backup，再把完整 staging 改名为正式槽；任何发布异常都会把 backup 恢复为原槽。读、列举、存在性检查、删除和后续保存都会恢复中断留下的 backup 并清理 staging；保留事务目录不作为玩家槽列出。
+
+### 影响范围
+
+影响新建、覆盖、读取、列举和删除槽位的磁盘事务。活动槽的公开目录结构和 manifest 字段不变；成功发布后的 backup 清理失败不会把完整新槽误报为保存失败，残留会在下一次入口清理。
+
+## BUG-7 验证状态
+
+- `dotnet test tests/SimpleCities.RoadGraph.Tests/SimpleCities.RoadGraph.Tests.csproj --filter "FullyQualifiedName~SaveManagerSlotContractTests|FullyQualifiedName~SaveManagerManifestVersionTests"`：48/48 通过，覆盖序列化失败保留旧槽、旧槽移至 backup 后故障注入回滚、读入口恢复崩溃残留、事务目录隐藏和删除失败保护。
+- `dotnet test SimpleCities.sln --configuration Debug --no-restore`：420 通过、0 失败、0 跳过。
+- `dotnet build SimpleCities.sln --configuration Debug --no-restore`：0 警告、0 错误。
+- `godot --headless --path . --log-file .godot/qa-save-slot-atomic-publish.log --script tests/godot/pause_menu_runtime_contract.gd`：不存在手动槽保存、非法槽删除和损坏 RoadGraph 加载均产生预期错误且不改变 `CurrentSlotID`；临时手动槽删除、autosave 重建后输出 `PASS pause menu runtime contract`。两条 `ConstructionDock` 警告来自既有隔离场景。
+- 当前会话未提供 `csharp-ls` MCP，无法执行逐文件 C# LSP 诊断。

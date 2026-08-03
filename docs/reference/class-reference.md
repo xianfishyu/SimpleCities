@@ -114,12 +114,12 @@
 | 基础目录 | 编辑器使用全局化的 `res://saves/<slotID>/`；导出版本使用可执行文件旁的 `saves/<slotID>/` |
 | 命名边界 | 目录只使用受限内部 ID；玩家显示名只进入 manifest，最大 128 个 UTF-16 字符 |
 | 单系统文件 | `<SaveFileName>.json` |
-| 写入策略 | 每个文件先写 `.tmp`，再移动为正式文件；这不是整槽原子事务 |
+| 写入策略 | 捕获与序列化全部完成后写同级 `.staging` 目录；旧槽移到 `.backup` 后切换完整目录，失败恢复旧槽，读写入口自动恢复崩溃残留 |
 | Manifest | `manifest.json`，字段来自 `ManifestData` |
 | 加载策略 | manifest、必需文件、JSON 语法及 `IPreparedSaveable` 临时模型全部成功后才进入提交阶段 |
 | 错误处理 | 捕获异常，`GD.PushError(...)`，返回 `false` |
 
-`SaveSlotStore` 是不依赖 Godot Node 的内部文件存储边界，负责生成 `manual-<GUID>` ID、约束槽目录与系统文件名、读写 manifest、存在性检查和递归删除；`SaveManager` 负责注册生命周期、Godot 日志和 `CurrentSlotID`。隔离目录 xUnit 直接验证 `SaveSlotStore`，Godot 运行时契约验证适配层。
+`SaveSlotStore` 是不依赖 Godot Node 的内部文件存储边界，负责生成 `manual-<GUID>` ID、约束路径、整槽 staging/backup 发布、事务残留恢复、读写 manifest、存在性检查和递归删除；事务目录使用保留名称且不会进入 `ListSlots`。`SaveManager` 负责注册生命周期、Godot 日志和 `CurrentSlotID`。隔离目录 xUnit 直接验证 `SaveSlotStore`，Godot 运行时契约验证适配层。
 
 ### InputBindingManager
 
