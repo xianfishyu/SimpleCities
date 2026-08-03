@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 internal sealed class SaveSlotStore
@@ -103,6 +104,60 @@ internal sealed class SaveSlotStore
         return manifest;
     }
 
+    public IReadOnlyList<SaveSlotSummary> ListSlots()
+    {
+        if (!Directory.Exists(_saveBaseDir))
+            return Array.Empty<SaveSlotSummary>();
+
+        var summaries = new List<SaveSlotSummary>();
+        foreach (string slotDir in Directory.EnumerateDirectories(_saveBaseDir))
+        {
+            string slotID = Path.GetFileName(slotDir);
+            try
+            {
+                ManifestData manifest = ReadManifest(slotID);
+                if (!DateTimeOffset.TryParse(
+                        manifest.Timestamp,
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        System.Globalization.DateTimeStyles.AssumeUniversal |
+                            System.Globalization.DateTimeStyles.AdjustToUniversal,
+                        out DateTimeOffset savedAtUtc))
+                {
+                    throw new InvalidDataException($"Manifest timestamp '{manifest.Timestamp}' is not valid UTC time.");
+                }
+
+                summaries.Add(new SaveSlotSummary
+                {
+                    SlotID = slotID,
+                    DisplayName = manifest.DisplayName,
+                    SavedAtUtc = savedAtUtc,
+                    CityName = manifest.CityName,
+                    Population = manifest.Population,
+                    Funds = manifest.Funds,
+                    ThumbnailPath = ResolveThumbnailPath(slotDir, manifest.ThumbnailFile),
+                    Files = manifest.Files.ToArray(),
+                    IsValid = true,
+                });
+            }
+            catch (Exception e)
+            {
+                summaries.Add(new SaveSlotSummary
+                {
+                    SlotID = slotID,
+                    DisplayName = slotID,
+                    IsValid = false,
+                    Error = e.Message,
+                });
+            }
+        }
+
+        return summaries
+            .OrderByDescending(summary => summary.IsValid)
+            .ThenByDescending(summary => summary.SavedAtUtc)
+            .ThenBy(summary => summary.SlotID, StringComparer.Ordinal)
+            .ToArray();
+    }
+
     public bool Exists(string slotID) => File.Exists(Path.Combine(GetSlotDir(slotID), ManifestFile));
 
     public bool Delete(string slotID)
@@ -148,6 +203,23 @@ internal sealed class SaveSlotStore
         }
 
         return saveFileName + ".json";
+    }
+
+    private static string? ResolveThumbnailPath(string slotDir, string? thumbnailFile)
+    {
+        if (string.IsNullOrWhiteSpace(thumbnailFile))
+            return null;
+        if (!string.Equals(Path.GetFileName(thumbnailFile), thumbnailFile, StringComparison.Ordinal))
+            return null;
+
+        string thumbnailPath = Path.GetFullPath(Path.Combine(slotDir, thumbnailFile));
+        string relativePath = Path.GetRelativePath(slotDir, thumbnailPath);
+        if (!string.Equals(relativePath, thumbnailFile, StringComparison.Ordinal) || !File.Exists(thumbnailPath))
+            return null;
+        if (File.GetAttributes(thumbnailPath).HasFlag(FileAttributes.ReparsePoint))
+            return null;
+
+        return thumbnailPath;
     }
 
     private static void ValidateSlotID(string slotID)

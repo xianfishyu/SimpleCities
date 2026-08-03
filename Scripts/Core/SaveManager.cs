@@ -146,6 +146,26 @@ public partial class SaveManager : Node
         }
     }
 
+    public IReadOnlyList<SaveSlotSummary> ListSlots()
+    {
+        try
+        {
+            IReadOnlyList<SaveSlotSummary> summaries = CreateSlotStore().ListSlots();
+            foreach (SaveSlotSummary summary in summaries)
+            {
+                if (!summary.IsValid)
+                    GD.PushWarning($"[SaveManager] Invalid slot '{summary.SlotID}': {summary.Error}");
+            }
+
+            return summaries;
+        }
+        catch (Exception e)
+        {
+            GD.PushError($"[SaveManager] Cannot list save slots: {e.Message}");
+            return Array.Empty<SaveSlotSummary>();
+        }
+    }
+
     public bool DeleteSlot(string slotID)
     {
         try
@@ -201,6 +221,10 @@ public partial class SaveManager : Node
             throw new JsonException("Save manifest slotId is missing.");
         if (string.IsNullOrWhiteSpace(manifest.DisplayName))
             throw new JsonException("Save manifest displayName is missing.");
+        if (string.IsNullOrWhiteSpace(manifest.CityName))
+            throw new JsonException("Save manifest cityName is missing.");
+        if (manifest.Files is null)
+            throw new JsonException("Save manifest files are missing.");
         try
         {
             SaveSlotStore.ValidateDisplayName(manifest.DisplayName);

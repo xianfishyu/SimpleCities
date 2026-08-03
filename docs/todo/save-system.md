@@ -18,10 +18,10 @@
 | 0.4 | 路网和 manifest 没有严格版本拒绝 | 已完成 | 两层 schema 均只接受精确当前版本，缺失/旧版/未来版安全拒绝 |
 | 0.5 | RoadGraph 恢复前缺少完整引用校验 | 已完成 | 临时解析、全量校验后一次提交 |
 | 0.8 | SaveManager 场景注册生命周期 | 已完成 | 保留注册和注销基线 |
-| 0.9 | SaveManager 缺少稳定自动化契约 | 部分完成 | 已建立纯存储基线；待多槽 API、恢复失败和整槽原子提交 |
+| 0.9 | SaveManager 缺少稳定自动化契约 | 部分完成 | 已覆盖多槽列举；待恢复失败和整槽原子提交 |
 | 0.10 | 文件夹槽名与玩家显示名称混为一体 | 部分完成 | 核心 ID/显示名与路径防护已完成；待只读位置和 Windows 导出包实测 |
 | 0.11 | 加载会在完整预检前调用 RestoreState | 未完成 | 先预检 manifest 和道路 JSON，再提交 RoadGraph |
-| 1.1 | 没有可列举的命名存档目录与完整元数据 | 未完成 | 建立存档目录 API 和 manifest 元数据 |
+| 1.1 | 没有可列举的命名存档目录与完整元数据 | 已完成 | 摘要含占位元数据、缩略图状态和损坏槽诊断 |
 | 1.2 | 暂停菜单只固定保存/加载 autosave | 未完成 | 实现另存为、覆盖确认、加载和删除工作流 |
 | 1.3 | 没有独立自动存档策略 | 未完成 | 自动槽不得覆盖玩家命名存档 |
 | 1.4 | 当前注册对象会把镜头等状态写入同一槽 | 未完成 | 第二代只持久化 RoadGraph，同时保留未来独立 JSON 扩展点 |
@@ -89,7 +89,7 @@
   - 修改：以隔离目录和测试 RoadGraph 覆盖 Save、Load、SaveSlotExists、ListSlots、DeleteSlot、CurrentSlotID、manifest 与失败清理。
   - 测试：成功保存/加载、manifest 缺失、道路 JSON 缺失、序列化失败、恢复失败、重复显示名和删除失败。
   - 验收：单条命令稳定运行全部槽位契约；失败不会伪造成功日志、改变当前槽位或留下可见半成品。
-  - 当前进展（2026-08-04）：提取不依赖 Godot Node 的 `SaveSlotStore`，`SaveManager` 只负责注册、日志和当前槽状态；隔离临时目录测试已覆盖当前版本保存/加载与 manifest、manifest 缺失、道路 JSON 缺失、不兼容版本、捕获失败不发布 manifest、非空槽递归删除、`CurrentSlotID` 所需 ID 契约、重复显示名及路径拒绝。存档聚焦测试 28/28，完整解决方案测试 400/400，Debug 构建 0 警告/0 错误，Godot 暂停菜单两轮 autosave 运行契约通过。由于 `ListSlots`、恢复中途失败和整槽原子发布尚未实现，本项保持开放；这些接口分别与 0.11、1.1 协同完成。
+  - 当前进展（2026-08-04）：提取不依赖 Godot Node 的 `SaveSlotStore`，`SaveManager` 只负责注册、日志和当前槽状态；隔离临时目录测试已覆盖当前版本保存/加载与 manifest、manifest 缺失、道路 JSON 缺失、不兼容版本、捕获失败不发布 manifest、非空槽递归删除、`CurrentSlotID`、重复显示名、路径拒绝及 `ListSlots`。存档聚焦测试 33/33，完整解决方案测试 405/405，Debug 构建 0 警告/0 错误，Godot 暂停菜单两轮 autosave 运行契约通过。由于恢复中途失败和整槽原子发布尚未实现，本项保持开放，并与 0.11 协同完成。
   - 来源 key：`todo:item:0.9`。
 
 <a id="save-system0.10"></a>
@@ -115,11 +115,12 @@
 
 <a id="save-system1.1"></a>
 
-- [ ] **1.1 建立可列举的存档目录和元数据模型**
+- [x] **1.1 建立可列举的存档目录和元数据模型**
   - 当前问题：只有 SaveSlotExists，没有按时间排序的槽位列表；manifest 只有 slotName、timestamp、cityName 和 files。
   - 修改：提供 ListSlots，并记录内部 ID、存档名称、UTC 保存时间、城市名称、人口、资金、缩略图引用和文件列表；无实际系统数据时城市名称、人口和资金使用明确占位值。
   - 测试：零个/多个存档、同名显示名、损坏 manifest、缺失缩略图、排序稳定性和占位字段。
   - 验收：存档列表无需加载 RoadGraph 即可安全读取全部摘要；单个损坏槽不会阻断其他槽显示。
+  - 完成证据（2026-08-04）：`ManifestData` 增加可空 `population`、`funds`、`thumbnailFile`，城市名使用 `Unknown City` 明确占位；`SaveSlotSummary` 同时表达有效摘要和带错误信息的损坏槽。`SaveSlotStore.ListSlots` 只读取目录与 manifest，不调用 `RestoreState`；有效槽按解析后的 UTC 时间倒序、同时间按内部 ID 稳定排序，损坏槽排在末尾且不阻断其他槽。缩略图缺失、越界或链接均返回 `null` 占位。聚焦测试 33/33、完整测试 405/405、Debug 构建 0 警告/0 错误，Godot 两轮 autosave 运行契约通过。
 
 <a id="save-system1.2"></a>
 

@@ -104,6 +104,7 @@
 | `SaveAs` | `public bool SaveAs(string displayName)` | 以玩家可见名称创建具有独立安全 ID 的手动槽位 |
 | `Load` | `public bool Load(string slotID = AutosaveSlotID)` | 按内部 ID 加载 manifest 中匹配已注册系统的文件 |
 | `SaveSlotExists` | `public bool SaveSlotExists(string slotID)` | 按内部 ID 检查 manifest 是否存在 |
+| `ListSlots` | `public IReadOnlyList<SaveSlotSummary> ListSlots()` | 无需加载业务 JSON 即可列举有效及损坏槽摘要 |
 | `DeleteSlot` | `public bool DeleteSlot(string slotID)` | 按内部 ID 递归删除非空槽位；当前槽被删时回到 `autosave` |
 
 | 存档规则 | 当前实现 |
@@ -162,8 +163,12 @@
 | `ManifestData` | `public string SlotID { get; set; }` | `slotId` | 内部目录标识 |
 | `ManifestData` | `public string DisplayName { get; set; }` | `displayName` | 玩家可见名称，不参与路径计算 |
 | `ManifestData` | `public string Timestamp { get; set; }` | `timestamp` | `""` |
-| `ManifestData` | `public string CityName { get; set; }` | `cityName` | `"My City"` |
+| `ManifestData` | `public string CityName { get; set; }` | `cityName` | `"Unknown City"` 占位值 |
+| `ManifestData` | `public long? Population { get; set; }` | `population` | `null` 表示暂无数据源 |
+| `ManifestData` | `public decimal? Funds { get; set; }` | `funds` | `null` 表示暂无数据源 |
+| `ManifestData` | `public string? ThumbnailFile { get; set; }` | `thumbnailFile` | `null` 表示使用 UI 占位图 |
 | `ManifestData` | `public List<string> Files { get; set; }` | `files` | 文件名列表 |
+| `SaveSlotSummary` | `SlotID`、`DisplayName`、`SavedAtUtc`、城市元数据、`ThumbnailPath`、`Files`、`IsValid`、`Error` | 非 JSON 摘要 | 有效槽按 UTC 时间倒序并以 ID 稳定排序；损坏槽排在末尾 |
 | `RoadNetworkData` | `public int NextID { get; set; }` | `nextID` | 未被当前 `RoadGraph` 直接使用的旧结构公开 DTO |
 | `RoadNetworkData` | `public float CellSize { get; set; }` | `cellSize` | 同上 |
 | `RoadNetworkData` | `public List<JunctionData> Junctions { get; set; }` | `junctions` | 同上 |

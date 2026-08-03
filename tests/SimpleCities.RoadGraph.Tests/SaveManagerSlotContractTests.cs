@@ -209,6 +209,102 @@ public sealed class SaveManagerSlotContractTests : IDisposable
         Assert.False(File.Exists(Path.Combine(_saveRoot, "manual-1", "manifest.json")));
     }
 
+    [Fact]
+    public void ListSlots_MissingRootReturnsEmptyList()
+    {
+        var store = CreateStore();
+
+        Assert.Empty(store.ListSlots());
+    }
+
+    [Fact]
+    public void ListSlots_ReturnsMetadataWithoutLoadingSystemState()
+    {
+        var store = CreateStore();
+        var saveable = new TestSaveable("road_network", 42);
+        store.Save("manual-1", "第一座城市", [saveable]);
+
+        SaveSlotSummary summary = Assert.Single(store.ListSlots());
+
+        Assert.True(summary.IsValid);
+        Assert.Equal("manual-1", summary.SlotID);
+        Assert.Equal("第一座城市", summary.DisplayName);
+        Assert.Equal("Unknown City", summary.CityName);
+        Assert.Null(summary.Population);
+        Assert.Null(summary.Funds);
+        Assert.Null(summary.ThumbnailPath);
+        Assert.Equal(["road_network.json"], summary.Files);
+        Assert.NotNull(summary.SavedAtUtc);
+        Assert.Equal(TimeSpan.Zero, summary.SavedAtUtc.Value.Offset);
+        Assert.Equal(0, saveable.RestoreCount);
+    }
+
+    [Fact]
+    public void ListSlots_SortsNewestFirstAndUsesSlotIDAsStableTieBreaker()
+    {
+        var store = CreateStore();
+        store.Save("manual-b", "同名", []);
+        store.Save("manual-a", "同名", []);
+        store.Save("manual-new", "最新", []);
+        RewriteManifest("manual-b", manifest => manifest.Timestamp = "2026-08-03T00:00:00Z");
+        RewriteManifest("manual-a", manifest => manifest.Timestamp = "2026-08-03T00:00:00Z");
+        RewriteManifest("manual-new", manifest => manifest.Timestamp = "2026-08-04T00:00:00Z");
+
+        IReadOnlyList<SaveSlotSummary> summaries = store.ListSlots();
+
+        Assert.Equal(["manual-new", "manual-a", "manual-b"], summaries.Select(item => item.SlotID));
+        Assert.Equal(["最新", "同名", "同名"], summaries.Select(item => item.DisplayName));
+    }
+
+    [Fact]
+    public void ListSlots_CorruptSlotDoesNotBlockValidSlots()
+    {
+        var store = CreateStore();
+        store.Save("valid", "有效存档", []);
+        Directory.CreateDirectory(Path.Combine(_saveRoot, "broken"));
+        File.WriteAllText(Path.Combine(_saveRoot, "broken", "manifest.json"), "not json");
+
+        IReadOnlyList<SaveSlotSummary> summaries = store.ListSlots();
+
+        Assert.Collection(
+            summaries,
+            valid =>
+            {
+                Assert.True(valid.IsValid);
+                Assert.Equal("valid", valid.SlotID);
+            },
+            broken =>
+            {
+                Assert.False(broken.IsValid);
+                Assert.Equal("broken", broken.SlotID);
+                Assert.False(string.IsNullOrWhiteSpace(broken.Error));
+            });
+    }
+
+    [Fact]
+    public void ListSlots_MissingThumbnailUsesPlaceholderUntilFileExists()
+    {
+        var store = CreateStore();
+        store.Save("manual-1", "Manual 1", []);
+        RewriteManifest("manual-1", manifest =>
+        {
+            manifest.CityName = "Harbor City";
+            manifest.Population = 12345;
+            manifest.Funds = 67890.50m;
+            manifest.ThumbnailFile = "thumbnail.png";
+        });
+
+        SaveSlotSummary missingThumbnail = Assert.Single(store.ListSlots());
+        Assert.Equal("Harbor City", missingThumbnail.CityName);
+        Assert.Equal(12345, missingThumbnail.Population);
+        Assert.Equal(67890.50m, missingThumbnail.Funds);
+        Assert.Null(missingThumbnail.ThumbnailPath);
+
+        string thumbnailPath = Path.Combine(_saveRoot, "manual-1", "thumbnail.png");
+        File.WriteAllBytes(thumbnailPath, [0x89, 0x50, 0x4E, 0x47]);
+        Assert.Equal(thumbnailPath, Assert.Single(store.ListSlots()).ThumbnailPath);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_saveRoot))
@@ -216,6 +312,14 @@ public sealed class SaveManagerSlotContractTests : IDisposable
     }
 
     private SaveSlotStore CreateStore() => new(_saveRoot);
+
+    private void RewriteManifest(string slotID, Action<ManifestData> update)
+    {
+        string manifestPath = Path.Combine(_saveRoot, slotID, "manifest.json");
+        ManifestData manifest = SaveManager.ParseAndValidateManifest(File.ReadAllText(manifestPath));
+        update(manifest);
+        File.WriteAllText(manifestPath, SaveJson.Serialize(manifest));
+    }
 
     public enum MissingSlotPart
     {
