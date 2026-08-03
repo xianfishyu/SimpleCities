@@ -263,7 +263,8 @@ public partial class RoadGraph
         GraphNode nodeA,
         GraphNode nodeB,
         IReadOnlyList<RoadGeometrySegment> geometrySegments,
-        int groupID)
+        int groupID,
+        bool emitEvent = true)
     {
         if (nodeA.ID == nodeB.ID)
             return null;
@@ -282,7 +283,8 @@ public partial class RoadGraph
         nodeB.AddEdge(edge.ID, nodeA.ID);
         InsertEdgeSpatialRefs(edge);
 
-        EdgeAdded?.Invoke(edge);
+        if (emitEvent)
+            EdgeAdded?.Invoke(edge);
         return edge;
     }
 }

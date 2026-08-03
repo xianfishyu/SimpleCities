@@ -99,7 +99,7 @@ public partial class RoadGraph : ISaveable
         }
 
         foreach (int nodeID in touchedNodeIDs.ToList())
-            TryMergeAtNode(nodeID, suppressMerge: true);
+            TryMergeAtNode(nodeID);
 
         if (_groups.TryGetValue(group.ID, out var maybeEmpty) && maybeEmpty.IsEmpty)
             _groups.Remove(group.ID);
@@ -128,7 +128,12 @@ public partial class RoadGraph : ISaveable
     public bool RemoveEdge(int edgeID)
     {
         BeginMeasuredOperation();
-        return RemoveEdge(edgeID, suppressMerge: true);
+        if (!_edges.TryGetValue(edgeID, out GraphEdge? edge)) return false;
+
+        DetachEdge(edge);
+        CommitEdgeMutation([edge.NodeA, edge.NodeB], [edge.GroupID]);
+        EdgeRemoved?.Invoke(edge);
+        return true;
     }
 
     public bool RemoveRoadGroup(int groupID)
@@ -136,10 +141,20 @@ public partial class RoadGraph : ISaveable
         BeginMeasuredOperation();
         if (!_groups.TryGetValue(groupID, out var group)) return false;
 
-        foreach (int edgeID in group.EdgeIDs.ToList())
-            RemoveEdge(edgeID, suppressMerge: true);
+        var removedEdges = new List<GraphEdge>();
+        var affectedNodeIDs = new HashSet<int>();
+        foreach (int edgeID in group.EdgeIDs.Order())
+        {
+            if (!_edges.TryGetValue(edgeID, out GraphEdge? edge)) continue;
+            removedEdges.Add(edge);
+            affectedNodeIDs.Add(edge.NodeA);
+            affectedNodeIDs.Add(edge.NodeB);
+            DetachEdge(edge);
+        }
 
-        _groups.Remove(groupID);
+        CommitEdgeMutation(affectedNodeIDs, [groupID]);
+        foreach (GraphEdge edge in removedEdges)
+            EdgeRemoved?.Invoke(edge);
 
         return true;
     }
@@ -213,39 +228,15 @@ public partial class RoadGraph : ISaveable
     public IEnumerable<GraphNode> GetAllNodes() => _nodes.Values.ToArray();
     public IEnumerable<RoadGroup> GetAllGroups() => _groups.Values.ToArray();
 
-    private GraphEdge? AddEdge(GraphNode nodeA, GraphNode nodeB, Vector2[] points, int groupID)
+    private GraphEdge? AddEdge(
+        GraphNode nodeA,
+        GraphNode nodeB,
+        Vector2[] points,
+        int groupID,
+        bool emitEvent = true)
     {
         var geometrySegments = CreatePolylineGeometry(nodeA.Position, nodeB.Position, points);
-        return AddEdge(nodeA, nodeB, geometrySegments, groupID);
-    }
-
-    private bool RemoveEdge(int edgeID, bool suppressMerge)
-    {
-        if (!_edges.TryGetValue(edgeID, out var edge)) return false;
-
-        var nodeA = GetNode(edge.NodeA);
-        var nodeB = GetNode(edge.NodeB);
-        DetachEdge(edge);
-
-        RemoveNodeIfIsolated(nodeA);
-        if (nodeB != nodeA) RemoveNodeIfIsolated(nodeB);
-
-        if (_groups.TryGetValue(edge.GroupID, out var group))
-        {
-            if (group.IsEmpty) _groups.Remove(group.ID);
-        }
-
-        EdgeRemoved?.Invoke(edge);
-
-        if (!suppressMerge)
-        {
-            if (nodeA != null && _nodes.ContainsKey(nodeA.ID))
-                TryMergeAtNode(nodeA.ID, suppressMerge: true);
-            if (nodeB != null && nodeB != nodeA && _nodes.ContainsKey(nodeB.ID))
-                TryMergeAtNode(nodeB.ID, suppressMerge: true);
-        }
-
-        return true;
+        return AddEdge(nodeA, nodeB, geometrySegments, groupID, emitEvent);
     }
 
     private void SplitEdgeAtPosition(int edgeID, Vector2 splitPos)
@@ -611,7 +602,7 @@ public partial class RoadGraph : ISaveable
         return -1;
     }
 
-    private bool TryMergeAtNode(int nodeID, bool suppressMerge)
+    private bool TryMergeAtNode(int nodeID)
     {
         if (!_nodes.TryGetValue(nodeID, out var node)) return false;
         if (node.EdgeCount != 2) return false;
@@ -642,13 +633,20 @@ public partial class RoadGraph : ISaveable
         if (farA == null || farB == null) return false;
 
         DetachEdge(edgeA);
-        EdgeRemoved?.Invoke(edgeA);
         DetachEdge(edgeB);
-        EdgeRemoved?.Invoke(edgeB);
+        GraphEdge? mergedEdge = AddEdge(
+            farA,
+            farB,
+            mergedPoints.ToArray(),
+            keepGroupID,
+            emitEvent: false);
+        if (mergedEdge is null)
+            throw new InvalidOperationException("Collinear edge merge failed to create a replacement edge.");
 
-        AddEdge(farA, farB, mergedPoints.ToArray(), keepGroupID);
-        RemoveNodeIfIsolated(node);
-        _ = suppressMerge;
+        CommitEdgeMutation([nodeID], [keepGroupID]);
+        EdgeRemoved?.Invoke(edgeA);
+        EdgeRemoved?.Invoke(edgeB);
+        EdgeAdded?.Invoke(mergedEdge);
         return true;
     }
 
@@ -716,6 +714,23 @@ public partial class RoadGraph : ISaveable
         _nodes.Remove(node.ID);
         RemoveNodeSpatialRef(node.ID);
     }
+
+    private void CommitEdgeMutation(IEnumerable<int> affectedNodeIDs, IEnumerable<int> affectedGroupIDs)
+    {
+        foreach (int nodeID in affectedNodeIDs.Distinct())
+            RemoveNodeIfIsolated(GetNode(nodeID));
+
+        foreach (int groupID in affectedGroupIDs.Distinct())
+        {
+            if (_groups.TryGetValue(groupID, out RoadGroup? group) && group.IsEmpty)
+                _groups.Remove(groupID);
+        }
+
+        AssertCommittedInvariants();
+    }
+
+    [System.Diagnostics.Conditional("DEBUG")]
+    private void AssertCommittedInvariants() => AssertInvariants();
 
     private void RebuildNodeEdges()
     {

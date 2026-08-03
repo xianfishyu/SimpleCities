@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 public partial class RoadGraph
 {
@@ -74,13 +75,25 @@ public partial class RoadGraph
 
         int groupID = edge.GroupID;
         DetachEdge(edge);
-        EdgeRemoved?.Invoke(edge);
+        var replacementEdges = new List<GraphEdge>(replacementGeometry.Count);
 
         for (int index = 0; index < replacementGeometry.Count; index++)
         {
-            if (AddEdge(nodes[index], nodes[index + 1], replacementGeometry[index], groupID) is null)
+            GraphEdge? replacement = AddEdge(
+                nodes[index],
+                nodes[index + 1],
+                replacementGeometry[index],
+                groupID,
+                emitEvent: false);
+            if (replacement is null)
                 throw new InvalidOperationException("Edge subdivision failed to create a replacement edge.");
+            replacementEdges.Add(replacement);
         }
+
+        CommitEdgeMutation(nodes.Select(node => node.ID), [groupID]);
+        EdgeRemoved?.Invoke(edge);
+        foreach (GraphEdge replacement in replacementEdges)
+            EdgeAdded?.Invoke(replacement);
         return true;
     }
 

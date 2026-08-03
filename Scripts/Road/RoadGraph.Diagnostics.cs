@@ -93,9 +93,9 @@ public partial class RoadGraph
                 $"Edge {edge.ID} references missing group {edge.GroupID}.");
             Require(group!.EdgeIDs.Contains(edge.ID),
                 $"Group {group.ID} does not reference edge {edge.ID}.");
-            Require(edge.GeometrySegments[0].Start == nodeA.Position,
+            Require(ArePositionsApproximatelyEqual(edge.GeometrySegments[0].Start, nodeA.Position),
                 $"Edge {edge.ID} geometry does not start at node {edge.NodeA}.");
-            Require(edge.GeometrySegments[^1].End == nodeB.Position,
+            Require(ArePositionsApproximatelyEqual(edge.GeometrySegments[^1].End, nodeB.Position),
                 $"Edge {edge.ID} geometry does not end at node {edge.NodeB}.");
 
             Require(_edgeRefs.TryGetValue(edge.ID, out List<ISpatialRef>? edgeRefs),

@@ -626,3 +626,32 @@ path = InsertExistingNodeAnchors(path);
 - `dotnet test SimpleCities.sln --configuration Debug --no-build --no-restore`：271 通过、0 失败、0 跳过。
 - `dotnet build SimpleCities.sln --configuration Debug --no-restore`：0 警告、0 错误。
 - 当前会话未提供 `csharp-ls` MCP，逐文件 LSP 诊断不可用；本修复为纯几何查询行为，未执行 Godot 场景运行验证。
+
+---
+
+<a id="road-graph-bug-18"></a>
+## BUG-18：图不变式严格比较原生拆分端点
+
+### 症状
+
+在 `RoadGraph.AssertInvariants` 已接入原生 Edge 拆分提交后，圆弧和回旋线的既有拆分用例抛出 `InvalidOperationException: Edge 6 geometry does not end at node 2.`。直线等能够精确复现端点的几何不受影响。
+
+### 根因分析
+
+`RoadGraph.AssertInvariants` 使用严格 `Vector2 ==` 比较 Edge 首尾几何端点与 Node 位置。`CircularArcRoadGeometrySegment` 和 `ClothoidRoadGeometrySegment` 的解析拆分会产生约 `1e-6` 的合法浮点残差；该比较把满足项目 `GeometryEpsilon` 空间契约的端点误判为图损坏。
+
+### 修复方案
+
+端点不变式改用 RoadGraph 已有的 `ArePositionsApproximatelyEqual`，与交点、覆盖和拆分共用 `GeometryEpsilon` 位置语义。其余 Node/Edge ID、邻接、Group 和空间引用断言仍保持严格检查。
+
+### 影响范围
+
+影响 Debug 构建中圆弧、回旋线及其他可能产生合法浮点残差的原生几何拆分诊断。Release 行为、序列化格式、拓扑身份、节点吸附半径和生产几何数据均未改变。
+
+## BUG-18 验证状态
+
+- 修复前原生拆分聚焦测试中 `CircularArcRoadGeometrySegment` 与 `ClothoidRoadGeometrySegment` 两项失败；修复后相关聚焦测试 19/19 通过。
+- `dotnet test SimpleCities.sln --configuration Debug --no-restore`：372 通过、0 失败、0 跳过。
+- `dotnet build SimpleCities.sln --configuration Debug --no-restore`：0 警告、0 错误。
+- `dotnet run --project tests/SimpleCities.RoadGraph.Performance/SimpleCities.RoadGraph.Performance.csproj --configuration Release --no-restore -- --enforce-budget`：10k 全部场景通过 16.67 ms P95 硬门槛，单边删除 P95 为 0.038 ms。
+- 当前会话未提供 `csharp-ls` MCP，无法执行逐文件 C# LSP 诊断；Godot 运行时契约授权重跑输出 `PASS pause menu runtime contract`，两轮 autosave 保存/加载通过。
