@@ -225,21 +225,17 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    subgraph Save["暂停菜单：存档"]
-        SM_S[SaveManager] -->|Register| IS[ISaveable]
-        SM_S -->|遍历已注册| RN_S[RoadGraph]
-        SM_S -->|CaptureState| RN_Data[RoadGraphSaveData 私有根 DTO]
-        SM_S -->|遍历已注册| MC_S[MainCamera]
-        SM_S -->|CaptureState| MC_Data[CameraData]
-        RN_Data -->|SaveJson.Serialize| JSON_J["road_network.json"]
-        MC_Data -->|SaveJson.Serialize| JSON_C["camera.json"]
+    subgraph Save["命名保存或周期自动保存"]
+        Entry["PauseMenu / AutosaveController"] --> SM_S["SaveManager<br/>选择 V2 配置"]
+        SM_S -->|只选择 road_network| RN_S[RoadGraph]
+        RN_S -->|CaptureState| RN_Data["RoadGraphSaveData<br/>Node / Edge / Group"]
+        RN_Data --> Stage["完整 staging 槽<br/>road_network.json + manifest.json"]
+        Stage --> Publish["整槽发布<br/>失败恢复 backup"]
     end
 
-    subgraph Load["暂停菜单：读档"]
-        JSON_J_R["road_network.json"] -->|SaveJson.Deserialize| RN_Data_R[RoadGraphSaveData]
-        JSON_C_R["camera.json"] -->|SaveJson.Deserialize| MC_Data_R[CameraData]
-        RN_Data_R -->|RestoreState| RN_L[RoadGraph]
-        MC_Data_R -->|RestoreState| MC_L[MainCamera]
+    subgraph Load["暂停菜单：加载"]
+        Slot["manifest.json + road_network.json"] --> Validate["版本、文件表、JSON 与 RoadGraph 临时模型预检"]
+        Validate -->|全部成功后提交| RN_L[RoadGraph]
         RN_L -->|RebuildNodeEdges + RebuildSpatialIndex| RN_L
         RN_L -->|GraphCleared 事件| RR[RoadRenderer 重建显示]
     end
@@ -284,7 +280,7 @@ flowchart TD
     Guard3 -->|否| Skip
     Guard3 -->|是| Guard4{"farA 不等于 farB"}
     Guard4 -->|否| Skip
-    Guard4 -->|是| Merge["RemoveEdge A and B<br/>AddEdge farA to farB<br/>保留 GroupID 和 RoadType"]
+    Guard4 -->|是| Merge["RemoveEdge A and B<br/>AddEdge farA to farB<br/>保留 GroupID"]
 ```
 
 ---

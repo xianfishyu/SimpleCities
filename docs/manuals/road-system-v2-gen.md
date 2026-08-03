@@ -707,7 +707,7 @@ EdgeRemoved → TrafficGraph 移除边 + 标记经过此边的所有路径为"�
 
 ### 10.3 存档兼容性
 
-legacy 公开 DTO `RoadNetworkData` 仍包含 `Junctions`、`Segments`、`Roads`，但当前 `RoadGraph` 不使用它。第二代写入 private v2 payload：`schemaVersion = 1`、`nextID`、`nodes`、`edges`、`groups`；Edge 的 `geometry` 保存原生类型、版本和控制参数。
+旧公开 `RoadNetworkData`、`JunctionData`、`SegmentData`、`RoadData` 和 `Vector2Data` 已删除。第二代只写 private V2 payload：`schemaVersion = 1`、`nextID`、`nodes`、`edges`、`groups`；Edge 的 `geometry` 保存原生类型、版本和控制参数。
 
 ```csharp
 // 当前私有 payload 的逻辑形状
@@ -720,7 +720,7 @@ RoadGraphSaveData {
 }
 ```
 
-加载先在临时状态中全量校验版本、未知字段、ID、引用、Group 双向关系、孤立节点、原生几何和 `nextID`，只有成功后才替换活动图。缺失版本、旧格式、未知未来版本和损坏内容均拒绝且不修改当前图；旧道路存档兼容不属于第二代。
+加载先在临时状态中全量校验版本、未知字段、ID、引用、Group 双向关系、孤立节点、原生几何和 `nextID`，只有成功后才替换活动图。缺失版本、旧 `version/junctions/segments/roads` 格式、未知未来版本和损坏内容均拒绝且不修改当前图；旧道路存档兼容不属于第二代。
 
 ---
 

@@ -1,8 +1,8 @@
 # 存档系统当前参考
 
-> 状态：当前实现参考 + 未来目标 | 最后核对：2026-07-31
+> 状态：第二代当前实现参考 | 最后核对：2026-08-04
 
-本文记录当前可运行的存档系统，而不是旧提案。除“未来目标”章节外，所有描述都以当前源码为准。
+本文记录当前可运行的第二代存档契约。源码和自动化输出是最终事实来源；未来工作只在“扩展边界与已知限制”中说明，不与已实现能力混写。
 
 ## 0. 文档责任与导航
 
@@ -10,297 +10,271 @@
 
 | 文档 | 责任 |
 |---|---|
-| `docs/reference/save-system-plan.md` | 当前存档契约、运行时事实、验证状态、已知限制与未来目标的主参考。 |
-| `docs/reference/class-reference.md` | 类与 API 的速查索引，只保留接口级摘要。 |
-| `docs/reference/game-logic.md` | 游戏流程概览，只保留存档流程的高层视图。 |
-| `docs/manuals/infrastructure-guide.md` | 基础设施说明，只保留实现边界和维护提示。 |
-| `docs/todo/save-system.md` | 存档系统的长期待办与未完成验收。 |
-| `docs/bugfix/save-system.md` | 存档系统已验证修复记录。 |
-| `docs/bugfix/` | 已验证修复记录索引，不承担当前契约说明。 |
+| `docs/reference/save-system-plan.md` | 当前槽位、manifest、道路 schema、事务、UI、自动存档和扩展边界。 |
+| `docs/reference/class-reference.md` | 类与 API 速查。 |
+| `docs/reference/game-logic.md` | 游戏流程中的高层保存/加载路径。 |
+| `docs/manuals/infrastructure-guide.md` | 基础设施接入约定。 |
+| `docs/manuals/road-system-v2-gen.md` 附录 D | 第二代最终产品范围。 |
+| `docs/todo/save-system.md` | 长期待办、未完成验收和已解决基线。 |
+| `docs/bugfix/save-system.md` | 已验证 bug 修复记录。 |
 
-## 1. 验证状态
+## 1. 第二代范围与当前状态
 
-以下状态以本次复核记录和当前源码为准。
+第二代提供多个玩家命名的手动槽和一个独立自动槽。存档的唯一业务载荷是 `RoadGraph` 的 `road_network.json`；人口、资金和缩略图只有 manifest 元数据位置，当前使用明确占位值。`MainCamera` 仍实现并注册 `ISaveable`，但不在第二代持久化配置中，因此不会写入或恢复 `camera.json`。
 
-| 项目 | 状态 |
+| 能力 | 当前状态 |
 |---|---|
-| 编辑器保存到 `res://saves` | 已在运行时验证。 |
-| 槽名仅允许 ASCII 字母、数字、`_` 和 `-` | 已在运行时验证。 |
-| 当前仅注册并保存 `RoadGraph` 和 `MainCamera` | 已按注册路径和运行时生成文件核对。 |
-| 场景退出会注销 `RoadGraph` 和 `MainCamera` | 已通过 `MapTest -> MainMenu -> MapTest` 运行时契约验证：主菜单为 0 个，新城市为 2 个，并可继续存读档。 |
-| 每个文件先写 `.tmp` 再替换正式文件 | 已按源码核对。 |
-| 整个存档槽的原子事务 | 不存在，当前未实现。 |
-| 加载顺序为逐文件顺序恢复，失败后不回滚已恢复对象 | 已按源码核对，失败场景尚无自动化回归。 |
-| `schemaVersion` 与 `RoadGraph.version` 未做强制版本分派或拒绝 | 已按源码核对。 |
-| `DeleteSlot` 对非空槽目录的实际删除结果 | 未验证。 |
-| 导出可执行文件旁的 `saves` 行为 | 未验证，原因是 Godot 4.7 Mono export templates 缺失。 |
-| `dotnet build SimpleCities.sln` | 已通过。 |
+| 命名手动槽 | 支持自由显示名、同名槽、另存为、列表、覆盖、加载和删除。 |
+| 自动槽 | 保留内部 ID `autosave`，场景内默认每 300 秒覆盖一次，不切换当前手动槽。 |
+| 槽位发布 | 全部文件和 manifest 通过同级 staging/backup 目录整槽发布；失败恢复旧槽。 |
+| 加载 | 先完成 manifest、全部必需文件、JSON 和临时模型预检，再提交 RoadGraph。 |
+| 版本 | manifest、RoadGraph 和每个原生几何段都只接受精确当前版本。 |
+| 旧存档 | 不迁移；旧 Junction/Segment/Road、RoadType 或缺失版本 payload 安全拒绝。 |
+| 第二代业务数据 | 只有道路网络；相机、经济、人口、时间等运行状态不进入槽位。 |
 
 ## 2. 当前架构
 
-存档入口是 `Scripts/Core/SaveManager.cs`。它是 `SaveManager` Autoload 单例，维护一个运行时 `_saveables` 列表。子系统实现 `Scripts/Core/ISaveable.cs` 后，在初始化时调用 `SaveManager.Instance.Register(this)` 加入保存和加载流程，并在离开场景树时调用 `Unregister(this)`。不同活动对象不能占用同一个 `SaveFileName`。
+| 组件 | 责任 |
+|---|---|
+| `SaveManager` | Autoload 适配层；维护注册生命周期、选择 V2 保存配置、更新 `CurrentSlotID` 并输出 Godot 日志。 |
+| `SaveSlotStore` | 不依赖 Godot Node 的文件边界；管理路径、manifest、整槽发布/恢复、列举和递归删除。 |
+| `ISaveable` | 定义稳定 `SaveFileName`、状态捕获和 JSON 恢复入口。 |
+| `IPreparedSaveable` | 在不修改运行时状态的前提下准备恢复模型，再由统一提交阶段应用。 |
+| `RoadGraph` | 当前 V2 唯一业务系统；捕获并严格恢复 Node/Edge/Group 与原生几何。 |
+| `AutosaveController` | `MapTest` 场景内的周期调度器；调用 `SaveManager.SaveAutosave()`。 |
+| `PauseMenu` | 命名槽管理 UI；显示摘要并确认覆盖、加载和删除。 |
 
-当前公开 API 为：
+`RoadSystem` 和 `MainCamera` 在进入/离开场景树时注册和注销。相同实例可幂等注册；不同活动对象不能使用相同 `SaveFileName`。注册表是扩展机制，不等于所有注册对象都会进入当前 V2 槽。
+
+### 2.1 SaveManager API
 
 | API | 当前行为 |
 |---|---|
-| `Register(ISaveable saveable)` | 同一对象可幂等注册；不同活动对象使用相同 `SaveFileName` 时拒绝并返回 `false`。 |
-| `Unregister(ISaveable saveable)` | 移除离开场景树的对象；对象不存在时安全返回 `false`。 |
-| `Save(string slotName = "autosave")` | 保存所有已注册对象，成功返回 `true`，异常时记录错误并返回 `false`。 |
-| `Load(string slotName = "autosave")` | 读取 manifest 后按已注册对象匹配文件并依次恢复，成功返回 `true`。 |
-| `SaveSlotExists(string slotName)` | 检查该槽位下是否存在 `manifest.json`。 |
-| `DeleteSlot(string slotName)` | 当前调用 `DirAccess.RemoveAbsolute(slotDir)` 删除槽目录。 |
-| `CurrentSlotName` | 记录最近成功保存或加载的槽名，默认是 `autosave`。 |
-| `RegisteredSaveableCount` | 公开当前注册数量，供运行时生命周期契约检查。 |
+| `Register/Unregister` | 维护活动 `ISaveable`，拒绝文件名冲突。 |
+| `Save(slotID)` | 覆盖已存在槽并在成功后选择该槽；首次创建只允许保留的 `autosave`。 |
+| `SaveAs(displayName)` | 生成独立 `manual-<GUID>`，保存后选择新手动槽。 |
+| `SaveAutosave()` | 覆盖保留自动槽，但不改变 `CurrentSlotID`。 |
+| `Load(slotID)` | 整槽预检成功后恢复道路，并选择加载的槽。 |
+| `SaveSlotExists(slotID)` | 检查恢复后的槽目录是否含 manifest。 |
+| `ListSlots()` | 只读取目录和 manifest，返回有效及损坏槽摘要。 |
+| `DeleteSlot(slotID)` | 递归删除有效或损坏的非空槽；删除当前槽后回到 `autosave`。 |
 
-`ISaveable` 当前接口如下：
+## 3. 槽位身份、名称与目录
 
-```csharp
-public interface ISaveable
-{
-    string SaveFileName { get; }
-    object CaptureState();
-    void RestoreState(string json);
-}
-```
+内部槽位 ID、玩家显示名和文件路径是三个独立概念。
 
-`RestoreState` 接收的是原始 JSON 字符串。每个实现自己用 `SaveJson.Deserialize<T>()` 反序列化为对应 DTO。
+| 概念 | 规则 |
+|---|---|
+| 自动槽 ID | 固定为 `autosave`。 |
+| 手动槽 ID | `manual-` 加无连字符 GUID，例如 `manual-0123456789abcdef0123456789abcdef`。 |
+| 内部 ID 字符 | 只允许 ASCII 字母、数字、`_`、`-`。 |
+| 显示名 | 非空白，最多 128 个 UTF-16 字符；可含中文、空格、重复名称和路径字符。 |
+| 身份判定 | 自动/手动只按内部 ID 判定，不按显示名推断。 |
+| 路径边界 | 槽必须是存档根的直接子目录，不能解析到根外，也不能是重解析点/文件系统链接。 |
 
-当前实际注册并保存的实现只有两个：
+因此玩家可以创建显示名同为“自动存档”的手动槽；它仍使用独立手动 ID，不会被周期自动保存覆盖。
 
-| 实现 | 注册位置 | 文件名 |
-|---|---|---|
-| `RoadGraph` | `Scripts/Road/RoadSystem.cs` 创建 `Graph` 后注册，`_ExitTree()` 注销 | `road_network.json` |
-| `MainCamera` | `Scripts/MainCamera.cs` 的 `_Ready()` 注册，`_ExitTree()` 注销 | `camera.json` |
-
-不要把旧 `RoadNetwork` 当成活动模型。当前道路数据层是 `RoadGraph`、`GraphNode`、`GraphEdge` 和 `RoadGroup`。
-
-## 3. 存档目录和文件
-
-当前保存根目录按运行环境分流：Godot 编辑器版本通过 `ProjectSettings.GlobalizePath("res://saves")` 写入项目目录；导出版本通过 `OS.GetExecutablePath()` 定位可执行文件所在目录，并写入其旁边的 `saves`。默认槽位结构是：
+编辑器使用全局化的 `res://saves`。导出版本使用可执行文件所在目录旁的 `saves`。一个典型目录如下：
 
 ```text
-<save-root>/autosave/
-├── manifest.json
-├── road_network.json
-└── camera.json
+<save-root>/
+├── autosave/
+│   ├── manifest.json
+│   └── road_network.json
+├── manual-0123456789abcdef0123456789abcdef/
+│   ├── manifest.json
+│   └── road_network.json
+├── .autosave.staging/    # 仅事务期间存在，不进入列表
+└── .autosave.backup/     # 仅覆盖/恢复期间存在，不进入列表
 ```
 
-槽名由调用方传入。当前 `GameHUD` 的保存和加载都使用固定槽名 `autosave`。
+## 4. `manifest.json`
 
-槽名当前只允许 ASCII 字母、数字、`_` 和 `-`，因此不能包含路径分隔符、`.`、空白或绝对路径前缀。导出版本采用用户指定的可执行文件旁存档方案；游戏若安装在只读目录（例如受保护的 `Program Files`）会保存失败，因此发布形式需要保证游戏目录可写。
-
-## 4. 保存流程
-
-`Save(slotName)` 当前流程：
-
-1. 校验槽名，并根据运行环境计算 `<save-root>/<slotName>`：编辑器使用全局化的 `res://saves`，导出版本使用可执行文件旁的 `saves`。
-2. 用 `DirAccess.MakeDirRecursiveAbsolute(slotDir)` 确保槽目录存在。
-3. 遍历 `_saveables`。
-4. 对每个对象调用 `CaptureState()`，再用 `SaveJson.Serialize(state)` 生成格式化 JSON。
-5. 每个子系统先写 `<file>.json.tmp`，写完后删除旧 `<file>.json`，再把 `.tmp` 移动为正式文件。这只保护单个文件，不是整槽原子提交。
-6. 收集本次写出的文件名。
-7. 最后写 `manifest.json`。
-8. 更新 `CurrentSlotName`。
-
-`.tmp` 保护只作用于单个子系统文件。当前实现没有整个槽位级事务，也没有 staging 目录或回滚清单。如果保存中途失败，已经替换成功的某些子系统文件会留在槽里，`manifest.json` 只有在所有子系统文件写完后才会重新写入。换句话说，单文件写入降低了半写文件风险，但不保证整个存档槽原子更新。
-
-`manifest.json` 本身当前直接写最终文件，没有 `.tmp` 替换步骤，也不参与整槽事务。
-
-## 5. 加载流程
-
-`Load(slotName)` 当前流程：
-
-1. 校验槽名，解析当前运行环境的 `<save-root>/<slotName>`，并检查槽目录是否存在。
-2. 检查并读取 `manifest.json`。
-3. 反序列化为 `ManifestData`。
-4. 从 `manifest.files` 建立文件集合。
-5. 遍历当前 `_saveables`，只把 `SaveFileName + ".json"` 出现在 manifest 中的对象加入加载映射。
-6. 按映射逐个读取对应 JSON 文件。
-7. 调用对应对象的 `RestoreState(json)`。
-8. 全部 dispatch 完成后更新 `CurrentSlotName`。
-
-加载是顺序执行的。当前没有整个槽位级回滚，也没有先验证所有子系统再提交的两阶段恢复。如果某个已匹配文件缺失，或某个 `RestoreState` 抛出异常，`Load` 会返回 `false`，但之前已经成功恢复的子系统不会自动回滚到加载前状态。
-
-manifest 中列出但当前未注册的文件会被忽略。当前已注册对象如果不在 manifest 文件清单中，也不会加载。
-
-## 6. JSON 工具和通用 manifest
-
-`Scripts/Core/SaveJson.cs` 统一使用 `System.Text.Json`：
-
-```csharp
-private static readonly JsonSerializerOptions Options = new()
-{
-    WriteIndented = true,
-    PropertyNameCaseInsensitive = true
-};
-```
-
-当前 manifest DTO 在 `Scripts/Core/SaveData.cs`：
+当前写出的逻辑形状如下；时间值每次保存都会变化。
 
 ```json
 {
   "schemaVersion": 1,
-  "slotName": "autosave",
-  "timestamp": "2026-07-19T00:00:00.0000000Z",
-  "cityName": "My City",
+  "slotId": "autosave",
+  "displayName": "自动存档",
+  "timestamp": "2026-08-04T00:00:00.0000000Z",
+  "cityName": "Unknown City",
+  "population": null,
+  "funds": null,
+  "thumbnailFile": null,
   "files": [
-    "road_network.json",
-    "camera.json"
+    "road_network.json"
   ]
 }
 ```
 
-字段说明：
-
-| 字段 | 当前来源和含义 |
+| 字段 | 当前契约 |
 |---|---|
-| `schemaVersion` | `ManifestData.SchemaVersion` 默认值，当前为 `1`。加载时尚未按该值做版本分派或拒绝。 |
-| `slotName` | 保存时传入的槽名。 |
-| `timestamp` | `DateTime.UtcNow.ToString("O")`。 |
-| `cityName` | DTO 默认值 `"My City"`，当前没有 UI 或城市系统写入真实城市名。 |
-| `files` | 本次保存成功写出的子系统 JSON 文件名列表。 |
+| `schemaVersion` | 必须是数值 `1`；字段名区分大小写，缺失、旧版、未来版和错误类型均拒绝。 |
+| `slotId` | 必须与所在目录名精确一致。 |
+| `displayName` | 玩家可见名称；遵守 1～128 字符边界，但不参与路径计算。 |
+| `timestamp` | `DateTime.UtcNow.ToString("O")`；必须能解析为 UTC 且偏移为零。 |
+| `cityName` | 当前固定占位 `Unknown City`，不能为空白。 |
+| `population` / `funds` | 当前为 `null`，表示尚无业务数据源。 |
+| `thumbnailFile` | 当前为 `null`；非空时只接受槽内直接文件，缺失、越界或链接降级为无缩略图。 |
+| `files` | 安全、无重复的系统 JSON 文件名；V2 必须包含 `road_network.json`。 |
 
-## 7. `road_network.json`
+`ListSlots()` 不加载道路数据。有效槽按保存时间倒序，同一时间按内部 ID 排序；损坏槽位于有效槽之后并携带诊断，不阻断其它槽。UI 对暂无人口、资金和缩略图显示占位信息。
 
-活动实现是 `RoadGraph`，文件名是 `road_network.json`。它的运行时类型已经是 Node、Edge、Group，但 JSON 字段名继续沿用兼容名称 `junctions`、`segments`、`roads`。
+## 5. 保存与整槽发布
 
-当前 `RoadGraph.CaptureState()` 写出的 payload 版本是 `2`：
+`Save`、`SaveAs` 和 `SaveAutosave` 使用同一文件事务：
+
+1. 从注册表精确选择当前 V2 配置要求的 `road_network`；缺少必需系统时在写盘前失败。
+2. 对全部选中系统执行 `CaptureState()` 并在内存中完成 JSON 序列化；任一失败都不会创建可见槽。
+3. 恢复该槽可能遗留的 staging/backup 事务目录。
+4. 在同级 `.<slotID>.staging` 中写完全部系统 JSON 和 `manifest.json`。
+5. 覆盖时把旧槽移动为 `.<slotID>.backup`，再把完整 staging 目录移动为正式槽。
+6. 发布成功后清理 backup；发布失败时恢复旧槽并清理 staging。
+
+`Exists`、`ReadManifest`、`Load`、`ListSlots`、`Delete` 和后续 `Save` 都会先恢复可识别的中断事务。若正式槽缺失则恢复 backup；若正式槽完整则保留正式槽并清理旧 backup。事务目录不会显示为玩家槽。
+
+保存成功后的槽只包含同一次捕获产生的一组文件。失败不会把新旧 `road_network.json` 与 manifest 混成一个可见槽，也不会破坏上一份有效 autosave。
+
+## 6. 加载与失败原子性
+
+当前 `Load(slotID)` 流程：
+
+1. 校验内部 ID并恢复中断发布。
+2. 读取 manifest，验证版本、槽 ID、UTC 时间、显示名和文件表。
+3. 确认当前 V2 要求的 `road_network.json` 已列入 manifest 且实际存在。
+4. 读取全部目标 JSON，并先用 `JsonDocument` 验证语法。
+5. 对 `IPreparedSaveable` 调用 `PrepareRestoreState(json)`；RoadGraph 在此阶段构造完整临时图并执行全部语义校验。
+6. 所有准备成功后调用 `RestorePreparedState(...)` 提交。
+7. 仅在全部完成后更新 `CurrentSlotID`。
+
+RoadGraph 准备阶段至少校验：大小写敏感的 schema、未知字段、全局 ID 唯一性、非负引用、有限坐标、端点与 Group 存在性、Group/Edge 双向成员一致、无孤立节点、原生几何版本/类型/参数、几何连续性、几何端点与 Node 一致，以及 `nextID` 大于全部实体 ID。
+
+任何读取、JSON 或准备失败都不会清空活动图、改变 ID 分配状态、触发 `GraphCleared` 或切换当前槽。成功提交会重建节点邻接和空间索引，再触发 `GraphCleared` 让渲染层全量重建。
+
+当前 V2 只有 RoadGraph 一个业务提交。框架会先准备未来多个系统，但提交阶段还没有跨系统回滚；引入第二个正式持久化系统时必须重新开启该事务边界。
+
+## 7. 命名槽 UI 与自动存档
+
+`PauseMenu` 的单一存档管理视图提供名称输入、槽位列表、摘要和操作按钮。
+
+| 槽状态 | 允许操作 |
+|---|---|
+| 有效手动槽 | 覆盖、加载、删除；每个破坏性操作先显示目标摘要并确认。 |
+| 有效自动槽 | 与手动槽一样可加载、覆盖或删除，但列表和确认文案明确标识“自动”。 |
+| 损坏槽 | 显示诊断，禁用覆盖和加载，只允许确认删除。 |
+
+取消覆盖不会写文件；取消加载不会改变 `CurrentSlotID` 或活动道路；取消删除不会移除目录。列表行、摘要和确认文案都按内部 ID显示“自动”或“手动”。
+
+`AutosaveController` 挂载在 `MapTest`，默认 `IntervalSeconds = 300`，可通过导出属性配置正有限周期。内部 `Timer` 继承场景树暂停状态，因此暂停菜单打开时不推进；离开游戏场景后随节点释放。控制器还提供显式启停、立即触发、成功/失败计数和 `AutosaveCompleted(bool)` 信号。周期保存只调用 `SaveAutosave()`，不会覆盖或选择玩家当前手动槽。
+
+## 8. `road_network.json`
+
+当前道路根 schema 只使用 Node、Edge 和 Group 词汇。下面示例是一条直线 Edge 的完整逻辑形状：
 
 ```json
 {
-  "version": 2,
-  "nextID": 42,
-  "junctions": [
-    { "id": 1, "x": 0.0, "y": 0.0 }
+  "schemaVersion": 1,
+  "nextID": 4,
+  "nodes": [
+    { "id": 0, "x": 0.0, "y": 0.0 },
+    { "id": 1, "x": 8.0, "y": 3.0 }
   ],
-  "segments": [
+  "edges": [
     {
       "id": 2,
-      "fromJunctionID": 1,
-      "toJunctionID": 3,
-      "roadID": 4,
-      "waypoints": [
-        { "x": 64.0, "y": 0.0 }
-      ],
-      "totalLength": 128.0,
-      "type": 1
+      "nodeAID": 0,
+      "nodeBID": 1,
+      "groupID": 3,
+      "geometry": [
+        {
+          "version": 1,
+          "kind": "line",
+          "start": { "x": 0.0, "y": 0.0 },
+          "control1": null,
+          "control2": null,
+          "end": { "x": 8.0, "y": 3.0 },
+          "startTangent": null,
+          "endTangent": null,
+          "center": null,
+          "radius": null,
+          "startAngle": null,
+          "sweepAngle": null,
+          "startHeading": null,
+          "startCurvature": null,
+          "endCurvature": null,
+          "arcLength": null,
+          "startWeight": null,
+          "controlWeight": null,
+          "endWeight": null
+        }
+      ]
     }
   ],
-  "roads": [
-    {
-      "id": 4,
-      "segmentIDs": [2],
-      "type": 1
-    }
+  "groups": [
+    { "id": 3, "edgeIDs": [2] }
   ]
 }
 ```
 
-字段说明：
+每个 Edge 的 `geometry` 至少包含一个连续原生几何段。几何段 `version` 当前固定为 `1`，`kind` 与参数必须精确匹配：
 
-| JSON 字段 | 当前运行时含义 |
+| `kind` | 必需参数 |
 |---|---|
-| `version` | `RoadGraphSaveData.Version`，当前写出 `2`。加载时尚未拒绝未知版本。 |
-| `nextID` | `RoadGraph` 的下一个实体 ID。恢复后还会用当前最大 ID 修正，避免小于已加载实体。 |
-| `junctions` | 兼容命名，表示 `GraphNode` 列表。 |
-| `segments` | 兼容命名，表示 `GraphEdge` 列表。 |
-| `roads` | 兼容命名，表示 `RoadGroup` 列表。 |
-| `segments[].type` | Edge 的 `RoadType` 整数值。nullable，旧存档缺失时回退。 |
-| `roads[].type` | Group 的 `RoadType` 整数值。nullable，旧存档缺失时回退。 |
+| `line` | `start`、`end` |
+| `cubicBezier` | `start`、`control1`、`control2`、`end` |
+| `cubicHermite` | `start`、`startTangent`、`end`、`endTangent` |
+| `circularArc` | `center`、`radius`、`startAngle`、`sweepAngle` |
+| `clothoid` | `start`、`startHeading`、`startCurvature`、`endCurvature`、`arcLength` |
+| `rationalQuadratic` | `start`、`startWeight`、`control1`、`controlWeight`、`end`、`endWeight` |
 
-恢复流程在 `RoadGraph.RestoreState(string json)` 中完成：
+根对象、Node、Edge、Group 和几何对象都拒绝未知字段。序列化会把当前类型未使用的已知几何字段写为 `null`；加载拒绝这些字段携带非 `null` 的多余参数。`junctions`、`segments`、`roads`、`fromJunctionID`、`waypoints`、`totalLength`、`roadID`、`type` 和 RoadType 回退都不属于当前 schema。
 
-1. 反序列化 `RoadGraphSaveData`。
-2. `ClearGraph()` 清空 `_nodes`、`_edges`、`_groups`、`_nodeRefs`、`_edgeRefs` 和 `_spatialIndex`。
-3. 把 `_nextID` 设为存档中的 `nextID`。
-4. `RestoreFromSavedData(data)` 先恢复 `GraphNode`，再恢复 `RoadGroup`，最后恢复 `GraphEdge`。
-5. `RebuildNodeEdges()` 根据 Edge 两端节点重建节点邻接表。
-6. `RebuildSpatialIndex()` 清空并重建节点与边途经点的空间索引。
-7. `EnsureNextIDBeyondLoadedEntities()` 确保 `_nextID` 大于已加载 Node、Edge、Group 的最大 ID。
-8. 触发 `GraphCleared`。
+## 9. 版本与旧数据策略
 
-`GraphCleared` 是加载后通知渲染层重建显示的当前机制。`RoadRenderer.SetGraph(Graph)` 订阅该事件，收到后清空现有线条并按 `GetAllEdges()` 全量重建。
+| 层级 | 当前版本 | 不兼容处理 |
+|---|---:|---|
+| `manifest.json` | `schemaVersion = 1` | 缺失、旧版、未来版、错误类型或错误大小写字段拒绝。 |
+| `road_network.json` | `schemaVersion = 1` | 同上，并拒绝未知根/实体字段。 |
+| 原生几何段 | `version = 1` | 缺失、未知版本、未知 `kind`、缺失/多余参数或非法几何拒绝。 |
 
-兼容规则：
-
-| 情况 | 当前行为 |
-|---|---|
-| v2 存档有 `segments[].type` | Edge 使用该类型。 |
-| Edge 缺少 `type` 但所属 Group 有 `type` | Edge 使用 Group 类型。 |
-| Edge 和 Group 都缺少 `type` | 回退为 `RoadType.Street`。 |
-| 缺少或未知 `version` | 当前没有显式版本拒绝或迁移分派。 |
-| 缺失端点、重复 ID、悬空引用 | 当前没有预校验和失败保护，后续图状态取决于恢复过程。 |
-
-## 8. `camera.json`
-
-`MainCamera` 的文件名是 `camera.json`。当前保存位置、缩放值，并在加载时恢复 `Position`、`nextPos` 和 `defaultScale`。
-
-当前 JSON：
-
-```json
-{
-  "positionX": 500.0,
-  "positionY": 300.0,
-  "zoom": 1.5
-}
-```
-
-字段说明：
-
-| 字段 | 当前含义 |
-|---|---|
-| `positionX` | `MainCamera.Position.X`。 |
-| `positionY` | `MainCamera.Position.Y`。 |
-| `zoom` | 内部 `defaultScale`，加载后由 `_Process()` 中的缩放插值反映到 `Camera2D.Zoom`。 |
-
-## 9. 玩家触发点
-
-`Scripts/UI/GameHUD.cs` 负责当前用户入口：
-
-| 入口 | 当前行为 |
-|---|---|
-| 暂停菜单保存 | 调用 `SaveManager.Instance.Save("autosave")`。 |
-| 暂停菜单读档 | 调用 `SaveManager.Instance.Load("autosave")`。 |
-
-因此当前可观察行为是暂停菜单将当前 RoadGraph 和 MainCamera 保存到 `autosave`，或从同一槽读取。没有手动槽选择 UI，也没有多槽列表 UI。
+第二代没有旧道路存档迁移。旧 `version/junctions/segments/roads` payload 不会尝试映射到新模型，也不会把缺失 RoadType 静默回退为 Street。未来改变任何一层契约时必须提升对应版本并明确选择迁移或拒绝策略。
 
 ## 10. 添加新可存档系统
 
-新增系统时按当前框架接入：
+注册新 `ISaveable` 只会让它进入活动注册表；不会自动改变第二代槽内容。正式扩展 V2 之后的持久化配置时需要同时完成：
 
-1. 定义只包含 JSON 数据的 DTO，避免直接序列化 Godot 节点或带循环引用的运行时对象。
-2. 在系统类实现 `ISaveable`。
-3. 让 `SaveFileName` 返回不含扩展名的稳定文件名。
-4. 在 `CaptureState()` 中返回 DTO。
-5. 在 `RestoreState(string json)` 中调用 `SaveJson.Deserialize<T>()`，再恢复运行时状态。
-6. 在系统初始化完成后调用 `SaveManager.Instance.Register(this)`，并处理重复 `SaveFileName` 导致的 `false` 结果。
-7. 在对象离开场景树时调用 `SaveManager.Instance.Unregister(this)`，重复注销可以安全忽略。
-8. 如果恢复后有缓存、邻接关系、空间索引、渲染对象或事件订阅，必须在 `RestoreState` 中重建或发出明确事件。
-9. 设计 JSON 字段名时优先保持现有存档兼容。重命名运行时类型不等于可以重命名已经写出的 JSON 字段。
+1. 使用稳定、安全且唯一的 `SaveFileName`，生成独立 `<name>.json`。
+2. 用纯 DTO 捕获状态，不直接序列化 Godot Node 或缓存对象。
+3. 实现 `IPreparedSaveable`，在准备阶段完成全部解析和校验，提交阶段只应用已验证模型。
+4. 把文件名显式加入新的保存配置；不要修改 `RoadGraph` DTO 来容纳其它系统。
+5. 更新 manifest 文件表、版本策略、加载失败场景和槽级自动化。
+6. 在第二个正式业务系统进入同一槽时，设计跨系统提交失败的回滚或无失败提交保证。
+7. 更新本文、类参考、游戏流程和系统待办。
 
-## 11. 已知限制
+未来加入 `economy.json`、`population.json` 等文件时，每个系统继续拥有独立 schema。道路 schema 不因新增系统而变化。
 
-当前限制不是未来目标的完成状态，不能写成已实现能力：
+## 11. 验证状态
 
-| 限制 | 当前风险 |
+截至 2026-08-04：
+
+| 证据 | 结果 |
 |---|---|
-| 导出版本写入可执行文件旁 | 便于绿色版携带存档，但游戏目录只读时保存会失败；不适用于要求沙盒用户目录的平台。 |
-| 子系统文件有 `.tmp`，manifest 没有 | 子系统单文件降低半写风险，manifest 仍是直接覆盖。 |
-| 没有整个槽位事务 | 保存失败可能留下新旧文件混合的槽位。 |
-| 加载没有整体回滚 | 某个子系统加载失败时，之前恢复成功的子系统不会自动回到加载前。 |
-| 版本只写不管 | manifest `schemaVersion` 和 RoadGraph `version` 目前没有显式迁移或未知版本拒绝。 |
-| RoadGraph 恢复缺少预校验 | 悬空引用、重复 ID、非法枚举等损坏数据没有统一失败保护。 |
-| 删除槽目录实现有限 | `DeleteSlot` 直接调用 `DirAccess.RemoveAbsolute(slotDir)`，对非空目录的实际删除能力需要再验证。 |
-| 当前只保存 RoadGraph 和 MainCamera | 时间、分区、经济、人口等系统尚未接入。 |
+| 存档版本、槽位、预检、发布、元数据和自动存档聚焦测试 | 通过；当前自动存档批次聚焦为 43/43。 |
+| `dotnet test SimpleCities.sln --configuration Debug --no-restore` | 426/426 通过。 |
+| `dotnet build SimpleCities.sln --configuration Debug --no-restore` | 0 警告、0 错误。 |
+| `tests/godot/autosave_runtime_contract.gd` | 输出 `PASS autosave runtime contract`；覆盖周期、隔离、失败保护与加载。 |
+| `tests/godot/pause_menu_runtime_contract.gd` | 输出 `PASS pause menu runtime contract`；覆盖命名槽、确认/取消、损坏槽和小视口。 |
+| 逐文件 `csharp-ls`、Godot editor bridge、DAP console | 当前会话没有对应通道，未声明通过。 |
 
-## 12. 未来目标
+## 12. 已知限制与后续边界
 
-以下是下一步实现目标，不是当前实现。优先级按数据安全和路线图依赖排序。
+| 限制 | 当前影响 |
+|---|---|
+| 导出版本写可执行文件旁 `saves` | 普通不可写路径已验证失败且不发布 manifest；真实 Windows 导出包和只读 ACL 仍待模板与环境验证。 |
+| 元数据来源 | 城市名为 `Unknown City`，人口、资金和缩略图为暂无；尚未接入真实城市系统或截图生成。 |
+| 自动存档配置入口 | 周期是场景导出属性，当前没有玩家设置 UI。 |
+| 多系统提交回滚 | 当前 V2 只有 RoadGraph；新增第二个正式业务系统前必须补齐跨系统提交失败语义。 |
+| 旧存档 | 明确不兼容，不提供迁移工具。 |
 
-1. 明确版本策略。为 manifest schema 和 RoadGraph payload 建立版本分派，当前 v2 走确定路径，缺少版本的旧数据走兼容路径，未知未来版本给出可诊断失败。
-2. 增加 RoadGraph 恢复校验和失败保护。加载前校验端点、Group/Edge 双向引用、重复 ID、枚举值和 `NextID`，全部通过后再替换当前图，失败时保留加载前状态。
-3. 固化发布路径兼容边界。用真实 Windows 导出包验证可执行文件旁的 `saves`，定义只读安装目录失败提示，并在支持沙盒平台前重新评估平台专用路径策略。
-4. 加强槽位写入原子性。考虑槽级 staging 目录、manifest `.tmp` 替换、提交标记或旧槽回滚，避免保存失败后出现混合槽位。
-5. 建立加载事务边界。先读取和验证所有要加载文件，再统一提交到各子系统，或让每个子系统提供可回滚的临时恢复路径。
-6. 校准活动 schema 文档和测试。把 `junctions`、`segments`、`roads` 作为兼容字段写入回归测试，避免运行时命名迁移破坏旧 JSON。
+可执行后续工作与完成证据以 `docs/todo/save-system.md` 为准。

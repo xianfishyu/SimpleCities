@@ -8,7 +8,7 @@
 - [系统逻辑与运行流程](reference/game-logic.md)
 - [UI 文档导航](ui/README.md)：当前 UI 设计、架构、概念稿和修复记录入口。
 - [UI 架构](ui/architecture.md)：当前命令中心实现与未来扩展边界。
-- [存档系统当前参考](reference/save-system-plan.md)
+- [存档系统当前参考](reference/save-system-plan.md)：命名槽、自动存档、manifest、道路 schema 与失败语义的详细契约。
 
 ## 当前待办
 

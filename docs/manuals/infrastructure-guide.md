@@ -52,22 +52,29 @@ Shaders/
 
 本章只说明基础设施边界。存档目录、schema、运行时验证状态、已知限制和未来目标见 [存档系统当前参考](../reference/save-system-plan.md)。
 
-### 2.1 ISaveable 接口
+### 2.1 ISaveable 与两阶段恢复
 
 ```csharp
 // 文件: Scripts/Core/ISaveable.cs
 public interface ISaveable
 {
-    string SaveFileName { get; }           // 存档文件名，如 "road_network"
-    object CaptureState();                 // 返回纯数据 DTO
-    void RestoreState(string json);        // 从 JSON 恢复
+    string SaveFileName { get; }
+    object CaptureState();
+    void RestoreState(string json);
+}
+
+public interface IPreparedSaveable : ISaveable
+{
+    object PrepareRestoreState(string json);
+    void RestorePreparedState(object preparedState);
 }
 ```
 
 **约定**：
 - 各子系统在 `_Ready()` 中调用 `SaveManager.Instance.Register(this)` 注册并检查冲突结果，在 `_ExitTree()` 中调用 `Unregister(this)`
 - `CaptureState()` 返回一个 DTO 对象，由 `SaveJson.Serialize()` 转为 JSON
-- `RestoreState(string json)` 接收原始 JSON，内部自行反序列化和重建状态
+- 正式业务系统应实现 `IPreparedSaveable`，在准备阶段完成解析与校验，统一提交阶段只应用已验证模型
+- 注册表是扩展入口；当前 V2 配置只选择 `RoadGraph.SaveFileName == "road_network"`
 
 ### 2.2 SaveManager
 
@@ -77,28 +84,36 @@ public partial class SaveManager : Node
 {
     public bool Register(ISaveable saveable);
     public bool Unregister(ISaveable saveable);
-    public bool Save(string slotName = "autosave");
-    public bool Load(string slotName = "autosave");
-    public bool SaveSlotExists(string slotName);
-    public void DeleteSlot(string slotName);
+    public bool Save(string slotID = AutosaveSlotID);
+    public bool SaveAs(string displayName);
+    public bool SaveAutosave();
+    public bool Load(string slotID = AutosaveSlotID);
+    public bool SaveSlotExists(string slotID);
+    public IReadOnlyList<SaveSlotSummary> ListSlots();
+    public bool DeleteSlot(string slotID);
+    public string CurrentSlotID { get; }
     public int RegisteredSaveableCount { get; }
 }
 ```
 
-`Register` 对同一对象幂等，但会拒绝另一个活动对象占用相同 `SaveFileName`。`RoadSystem` 和 `MainCamera` 都在 `_ExitTree()` 注销，避免返回主菜单再进入城市后保留上一场景的对象。
+`Register` 对同一对象幂等，但会拒绝另一个活动对象占用相同 `SaveFileName`。`RoadSystem` 和 `MainCamera` 都在 `_ExitTree()` 注销，避免返回主菜单再进入城市后保留上一场景的对象；相机不进入当前 V2 槽。
 
-**存档流程**：遍历所有 `_saveables` → `CaptureState()` → `SaveJson.Serialize()` → 每个子系统文件先写 `.tmp` 再替换正式 `.json`。这只是单文件替换保护，不是整个槽位的原子事务。
+**存档流程**：选择当前配置 → 全部 `CaptureState()` 和内存序列化 → 写完整 `.<slotID>.staging` → 旧槽移动为 backup → 整目录发布。失败恢复旧槽，读写入口会恢复中断事务。
+
+**加载流程**：验证 manifest 和全部必需文件 → 解析全部 JSON → 准备全部临时模型 → 统一提交。当前 V2 只有 RoadGraph 一个业务提交；未来多系统提交回滚仍需单独设计。
 
 **存档目录结构**：
 ```
-<save-root>/autosave/
-├── manifest.json          ← 元数据
-├── road_network.json      ← RoadGraph 路网数据
-├── camera.json            ← 相机数据
-└── ...
+<save-root>/
+├── autosave/
+│   ├── manifest.json
+│   └── road_network.json
+└── manual-<GUID>/
+    ├── manifest.json
+    └── road_network.json
 ```
 
-编辑器的 `<save-root>` 是全局化后的 `res://saves`；导出版本的 `<save-root>` 是可执行文件所在目录下的 `saves`。槽名只允许 ASCII 字母、数字、`_` 和 `-`。
+编辑器的 `<save-root>` 是全局化后的 `res://saves`；导出版本的 `<save-root>` 是可执行文件所在目录下的 `saves`。内部槽 ID 只允许安全 ASCII 字符；玩家显示名独立写入 manifest，可使用中文、空格或重复名称。
 
 ### 2.3 SaveJson
 
@@ -115,21 +130,22 @@ public static class SaveJson
 
 ### 2.4 SaveData.cs - DTO 定义
 
-`Scripts/Core/SaveData.cs` 包含存档 DTO 类。当前公开 DTO 名称保留 legacy RoadNetworkData 系列，RoadGraph 的私有 v2 payload 也继续写入兼容 JSON 字段名，避免破坏已有存档：
+`Scripts/Core/SaveData.cs` 只保留通用 manifest/摘要和相机 DTO；RoadGraph 的严格 V2 DTO 位于 `RoadGraph.Persistence.cs` 私有边界：
 
 ```csharp
-ManifestData     - 存档槽元数据（schemaVersion, slotName, timestamp, files[]）
-CameraData       - 相机位置 + 缩放（positionX, positionY, zoom）
-Vector2Data      - Vector2 的 JSON 安全表示（{x, y}），含 ToVector2() 方法
-RoadNetworkData  - public legacy DTO，保留给兼容读取与外部说明
+ManifestData     - schemaVersion, slotId, displayName, timestamp,
+                   cityName, population, funds, thumbnailFile, files[]
+SaveSlotSummary  - 列表摘要、有效/损坏状态和 IsAutosave
+CameraData       - 注册扩展仍使用的相机 DTO，不进入当前 V2 槽
 
-RoadGraph v2 payload 使用的 JSON 字段名仍为：
-  ├── junctions
-  ├── segments
-  └── roads
+RoadGraph V2 私有 payload：
+  ├── schemaVersion / nextID
+  ├── nodes
+  ├── edges + geometry
+  └── groups
 ```
 
-**约定**：DTO 类是纯数据 POCO，用 `[JsonPropertyName("...")]` 标注字段名。不引用任何 Godot 运行时类型（除了 `Vector2Data` 替代 `Vector2`）。不要仅因运行时类型已改为 GraphNode / GraphEdge / RoadGroup 就重命名兼容字段。
+**约定**：DTO 是纯数据 POCO，用 `[JsonPropertyName("...")]` 固定字段名。第二代不兼容旧 `junctions/segments/roads` 或 RoadType 字段；格式变化必须提升版本并显式决定迁移或拒绝。
 
 ---
 
@@ -287,4 +303,4 @@ project.godot
 
 ### 未来设计边界
 
-`IGridGeometry`、`Square8Grid`、`TrafficGraph`、A* 寻路、道路分级 UI 和按 RoadType 差异化渲染仍属于未来设计。实现这些目标时应保留当前兼容 JSON 字段名 `junctions`、`segments`、`roads`，并以源码和场景实际加载状态为最终事实来源。
+`IGridGeometry`、`Square8Grid`、`TrafficGraph`、A* 寻路、道路分级 UI 和按 RoadType 差异化渲染仍属于未来设计。第二代道路 JSON 只使用严格版本化的 `nodes/edges/groups` 与原生几何；第三代若引入 RoadType，必须提升 schema 并定义新的迁移或拒绝规则。

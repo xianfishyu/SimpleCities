@@ -26,7 +26,7 @@
 | 1.3 | 没有独立自动存档策略 | 已完成 | 场景内周期调度写入保留自动槽，且不切换玩家当前手动槽 |
 | 1.4 | 当前注册对象会把镜头等状态写入同一槽 | 已完成 | V2 配置只选择 RoadGraph，注册机制继续保留扩展点 |
 | 5.3 | 活动道路 schema 仍使用 Junction/Segment/Road 旧字段 | 已完成 | 新 V2 schema 直接使用 Node/Edge/Group，不迁移旧存档 |
-| 6.3 | 存档参考文档与最终 V2 范围不一致 | 未完成 | 同步命名槽、元数据、新 schema 和失败语义 |
+| 6.3 | 存档参考文档与最终 V2 范围不一致 | 已完成 | 主参考与导航已同步命名槽、元数据、严格 schema 和失败语义 |
 
 ### 设计覆盖矩阵
 
@@ -172,11 +172,12 @@
 
 <a id="save-system6.3"></a>
 
-- [ ] **6.3 同步命名槽、元数据和新道路 schema 文档**
+- [x] **6.3 同步命名槽、元数据和新道路 schema 文档**
   - 修改：更新 `docs/reference/save-system-plan.md` 及相关导航，描述内部槽位 ID、显示名、元数据占位、自动槽、道路唯一业务载荷、新版本拒绝和未来独立 JSON 扩展边界。
   - 依赖：`save-system:0.3`～`save-system:1.4`、`save-system:5.3`。
   - 验证：文档示例 JSON 与实际 manifest/road graph 自动化输出逐字段一致。
   - 验收：文档不再宣称旧存档兼容、RoadType 往返或第二代保存相机。
+  - 完成证据（2026-08-04）：重写 `docs/reference/save-system-plan.md`，按当前源码记录内部槽 ID/显示名、自动槽、元数据占位、整槽 staging/backup 发布、两阶段恢复、RoadGraph-only V2 配置、严格 manifest/Node/Edge/Group/原生几何 schema、旧数据拒绝和未来独立 JSON 扩展边界；同步 `docs/reference/game-logic.md`、`docs/manuals/infrastructure-guide.md`、`docs/manuals/road-system-v2-gen.md` 与文档索引，删除相机入槽、逐文件 `.tmp`、旧字段兼容和 RoadType 回退等过时当前态。`SaveManagerManifestVersionTests`、`RoadGraphPersistenceV2Tests` 与 `AutosaveContractTests` 合计 25/25 通过；主参考 2 个 JSON 示例均成功解析，5 份相关文档的 29 个本地链接全部存在，`git diff --check` 通过。
   - 来源 key：`todo:item:6.3`。
 
 ## 暂不执行
@@ -194,7 +195,7 @@
 <a id="save-system878b6f92c0cc"></a>
 
 - [x] **SaveManager 已支持 ISaveable 注册/注销和每系统独立文件名。**
-- [x] **单文件保存使用临时文件后替换。** 后续修改必须继续保证失败不会把半写入 JSON 暴露为有效槽位。
+- [x] **保存使用整槽 staging/backup 发布。** 后续修改必须继续保证失败不会暴露半写槽位，并能从可识别的中断事务恢复旧槽或完整新槽。
 - [x] **RoadGraph 损坏 payload 不得改变活动图。** 恢复必须先完成 schema、引用、成员关系、几何和 `nextID` 全量校验，再一次提交并发出 `GraphCleared`。
 - [x] **第二代道路 JSON 使用 Node/Edge/Group 与原生几何参数。** 不得重新写入旧 Junction/Segment/Road、waypoint、长度或 RoadType 字段。
 - [x] **命名槽破坏性操作必须先显示目标并确认。** 覆盖、加载和删除的取消路径不得修改槽文件、当前槽位或活动道路；损坏槽只能删除。
