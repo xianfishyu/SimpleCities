@@ -2,7 +2,6 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using System.Text.Json;
 
 /// <summary>
@@ -17,8 +16,7 @@ public partial class SaveManager : Node
 
     private const string EditorSaveBaseDir = "res://saves";
     private const string ExportSaveDirectoryName = "saves";
-    private const string ManifestFile = "manifest.json";
-    private const int ManifestSchemaVersion = 1;
+    internal const int ManifestSchemaVersion = 1;
 
     private static readonly JsonSerializerOptions ManifestJsonOptions = new()
     {
@@ -72,34 +70,10 @@ public partial class SaveManager : Node
     {
         try
         {
-            string slotDir = GetSlotDir(slotName);
-            DirAccess.MakeDirRecursiveAbsolute(slotDir);
-
-            var savedFiles = new List<string>();
-
-            foreach (var saveable in _saveables)
-            {
-                string fileName = saveable.SaveFileName + ".json";
-                string tmpPath = Path.Combine(slotDir, fileName + ".tmp");
-                string finalPath = Path.Combine(slotDir, fileName);
-
-                object state = saveable.CaptureState();
-                string json = SaveJson.Serialize(state);
-
-                // 先写 .tmp，成功后再 rename（防断电写坏文件）
-                File.WriteAllText(tmpPath, json, Encoding.UTF8);
-                if (File.Exists(finalPath))
-                    File.Delete(finalPath);
-                File.Move(tmpPath, finalPath);
-
-                savedFiles.Add(fileName);
-            }
-
-            // 写入 manifest
-            WriteManifest(slotDir, slotName, savedFiles);
+            int savedFileCount = CreateSlotStore().Save(slotName, _saveables);
 
             CurrentSlotName = slotName;
-            GD.Print($"[SaveManager] Saved to slot '{slotName}' ({savedFiles.Count} files)");
+            GD.Print($"[SaveManager] Saved to slot '{slotName}' ({savedFileCount} files)");
             return true;
         }
         catch (Exception e)
@@ -118,55 +92,10 @@ public partial class SaveManager : Node
     {
         try
         {
-            string slotDir = GetSlotDir(slotName);
-
-            if (!DirAccess.DirExistsAbsolute(slotDir))
-            {
-                GD.PushError($"[SaveManager] Save slot '{slotName}' not found");
-                return false;
-            }
-
-            // 读取 manifest
-            string manifestPath = Path.Combine(slotDir, ManifestFile);
-            if (!File.Exists(manifestPath))
-            {
-                GD.PushError($"[SaveManager] Manifest not found in slot '{slotName}'");
-                return false;
-            }
-            string manifestJson = File.ReadAllText(manifestPath, Encoding.UTF8);
-            ManifestData manifest = ParseAndValidateManifest(manifestJson);
-
-            // 从清单中收集可加载的文件
-            var fileSet = new HashSet<string>(manifest.Files);
-            var systemMap = new Dictionary<string, ISaveable>();
-            foreach (var saveable in _saveables)
-            {
-                string fileName = saveable.SaveFileName + ".json";
-                if (fileSet.Contains(fileName))
-                    systemMap[fileName] = saveable;
-            }
-
-            // 逐个加载
-            foreach (var (fileName, saveable) in systemMap)
-            {
-                string filePath = Path.Combine(slotDir, fileName);
-                if (!File.Exists(filePath))
-                {
-                    GD.PushError($"[SaveManager] File '{fileName}' missing in slot '{slotName}'");
-                    return false;
-                }
-
-                string json = File.ReadAllText(filePath, Encoding.UTF8);
-
-                // 需要知道 DTO 类型 → 通过反射从 CaptureState 返回值推断
-                // 这里用一个技巧：先调 CaptureState 看类型，再用该类型反序列化
-                // 但在 restore 前我们不想要副作用，所以约定 RestoreState 接收 raw json
-                // → 改用泛型或 json 字符串传递
-                saveable.RestoreState(json);
-            }
+            int loadedFileCount = CreateSlotStore().Load(slotName, _saveables);
 
             CurrentSlotName = slotName;
-            GD.Print($"[SaveManager] Loaded from slot '{slotName}' ({systemMap.Count} files)");
+            GD.Print($"[SaveManager] Loaded from slot '{slotName}' ({loadedFileCount} files)");
             return true;
         }
         catch (Exception e)
@@ -184,8 +113,7 @@ public partial class SaveManager : Node
     {
         try
         {
-            string manifestPath = Path.Combine(GetSlotDir(slotName), ManifestFile);
-            return File.Exists(manifestPath);
+            return CreateSlotStore().Exists(slotName);
         }
         catch (Exception e)
         {
@@ -194,30 +122,28 @@ public partial class SaveManager : Node
         }
     }
 
-    public void DeleteSlot(string slotName)
+    public bool DeleteSlot(string slotName)
     {
         try
         {
-            string slotDir = GetSlotDir(slotName);
-            if (DirAccess.DirExistsAbsolute(slotDir))
-            {
-                DirAccess.RemoveAbsolute(slotDir);
-                GD.Print($"[SaveManager] Deleted slot '{slotName}'");
-            }
+            if (!CreateSlotStore().Delete(slotName))
+                return false;
+            if (string.Equals(CurrentSlotName, slotName, StringComparison.Ordinal))
+                CurrentSlotName = "autosave";
+
+            GD.Print($"[SaveManager] Deleted slot '{slotName}'");
+            return true;
         }
         catch (Exception e)
         {
             GD.PushError($"[SaveManager] Delete failed for slot '{slotName}': {e.Message}");
+            return false;
         }
     }
 
-    private static string GetSlotDir(string slotName)
-    {
-        ValidateSlotName(slotName);
-        return Path.Combine(GetSaveBaseDir(), slotName);
-    }
+    private SaveSlotStore CreateSlotStore() => new(GetSaveBaseDir());
 
-    private static string GetSaveBaseDir()
+    private string GetSaveBaseDir()
     {
         if (OS.HasFeature("editor"))
             return ProjectSettings.GlobalizePath(EditorSaveBaseDir);
@@ -231,33 +157,6 @@ public partial class SaveManager : Node
             throw new InvalidOperationException($"Cannot resolve executable directory from '{executablePath}'.");
 
         return Path.Combine(executableDir, ExportSaveDirectoryName);
-    }
-
-    private static void ValidateSlotName(string slotName)
-    {
-        if (string.IsNullOrWhiteSpace(slotName))
-            throw new ArgumentException("Save slot name cannot be empty.", nameof(slotName));
-
-        foreach (char character in slotName)
-        {
-            bool isAllowed = char.IsAsciiLetterOrDigit(character) || character is '_' or '-';
-            if (!isAllowed)
-                throw new ArgumentException("Save slot name may only contain ASCII letters, digits, '_' or '-'.", nameof(slotName));
-        }
-    }
-
-    private static void WriteManifest(string slotDir, string slotName, List<string> files)
-    {
-        var manifest = new ManifestData
-        {
-            SchemaVersion = ManifestSchemaVersion,
-            SlotName = slotName,
-            Timestamp = DateTime.UtcNow.ToString("O"),
-            Files = files
-        };
-        string json = SaveJson.Serialize(manifest);
-        string path = Path.Combine(slotDir, ManifestFile);
-        File.WriteAllText(path, json, Encoding.UTF8);
     }
 
     internal static ManifestData ParseAndValidateManifest(string json)

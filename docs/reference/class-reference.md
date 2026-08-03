@@ -39,7 +39,7 @@
 
 | 模块 | 文件 | 职责 |
 |---|---|---|
-| Core | `ISaveable.cs`, `SaveManager.cs`, `SaveJson.cs`, `SaveData.cs` | 独立 JSON 存档、manifest、DTO |
+| Core | `ISaveable.cs`, `SaveManager.cs`, `SaveSlotStore.cs`, `SaveJson.cs`, `SaveData.cs` | Godot 存档适配、纯文件存储、manifest、DTO |
 | Camera | `MainCamera.cs` | 2D 相机移动、缩放、相机存档 |
 | Grid | `GridSystem.cs`, `MapBackground.cs`, `MapTerrain.gdshader` | 网格数学、背景 CanvasLayer、Shader 网格绘制 |
 | Road data | `Direction.cs`, `GraphNode.cs`, `GraphEdge.cs`, `RoadGroup.cs`, `RoadPath.cs`, `SpatialIndex.cs`, `RoadGraph*.cs`, `Geometry/*.cs` | 输入方向、拓扑、原生几何、空间索引、提交与持久化 |
@@ -102,7 +102,7 @@
 | `Save` | `public bool Save(string slotName = "autosave")` | 保存所有已注册系统 |
 | `Load` | `public bool Load(string slotName = "autosave")` | 加载 manifest 中匹配已注册系统的文件 |
 | `SaveSlotExists` | `public bool SaveSlotExists(string slotName)` | 检查 manifest 是否存在 |
-| `DeleteSlot` | `public void DeleteSlot(string slotName)` | 对槽位目录调用一次 `DirAccess.RemoveAbsolute(...)`；当前实现不检查删除结果 |
+| `DeleteSlot` | `public bool DeleteSlot(string slotName)` | 递归删除非空槽位；当前槽被删时回到 `autosave`，不存在或失败返回 `false` |
 
 | 存档规则 | 当前实现 |
 |---|---|
@@ -111,6 +111,8 @@
 | 写入策略 | 每个文件先写 `.tmp`，再移动为正式文件；这不是整槽原子事务 |
 | Manifest | `manifest.json`，字段来自 `ManifestData` |
 | 错误处理 | 捕获异常，`GD.PushError(...)`，返回 `false` |
+
+`SaveSlotStore` 是不依赖 Godot Node 的内部文件存储边界，负责槽目录、系统 JSON、manifest、存在性检查和递归删除；`SaveManager` 负责注册生命周期、Godot 日志和 `CurrentSlotName`。隔离目录 xUnit 直接验证 `SaveSlotStore`，Godot 运行时契约验证适配层。
 
 ### InputBindingManager
 

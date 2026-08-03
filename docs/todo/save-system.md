@@ -18,7 +18,7 @@
 | 0.4 | 路网和 manifest 没有严格版本拒绝 | 已完成 | 两层 schema 均只接受精确当前版本，缺失/旧版/未来版安全拒绝 |
 | 0.5 | RoadGraph 恢复前缺少完整引用校验 | 已完成 | 临时解析、全量校验后一次提交 |
 | 0.8 | SaveManager 场景注册生命周期 | 已完成 | 保留注册和注销基线 |
-| 0.9 | SaveManager 缺少稳定自动化契约 | 未完成 | 建立道路槽位成功与失败测试 |
+| 0.9 | SaveManager 缺少稳定自动化契约 | 部分完成 | 已建立纯存储基线；待多槽 API、恢复失败和整槽原子提交 |
 | 0.10 | 文件夹槽名与玩家显示名称混为一体 | 部分完成 | 分离安全内部 ID 和玩家可命名显示名 |
 | 0.11 | 加载会在完整预检前调用 RestoreState | 未完成 | 先预检 manifest 和道路 JSON，再提交 RoadGraph |
 | 1.1 | 没有可列举的命名存档目录与完整元数据 | 未完成 | 建立存档目录 API 和 manifest 元数据 |
@@ -89,6 +89,7 @@
   - 修改：以隔离目录和测试 RoadGraph 覆盖 Save、Load、SaveSlotExists、ListSlots、DeleteSlot、CurrentSlotID、manifest 与失败清理。
   - 测试：成功保存/加载、manifest 缺失、道路 JSON 缺失、序列化失败、恢复失败、重复显示名和删除失败。
   - 验收：单条命令稳定运行全部槽位契约；失败不会伪造成功日志、改变当前槽位或留下可见半成品。
+  - 当前进展（2026-08-04）：提取不依赖 Godot Node 的 `SaveSlotStore`，`SaveManager` 只负责注册、日志和当前槽状态；隔离临时目录测试已覆盖当前版本保存/加载与 manifest、manifest 缺失、道路 JSON 缺失、不兼容版本、捕获失败不发布 manifest，以及非空槽递归删除。`SaveManagerSlotContractTests` 与版本测试聚焦 12/12，完整解决方案测试 384/384，Debug 构建 0 警告/0 错误，Godot 暂停菜单两轮 autosave 运行契约通过。由于 `ListSlots`、`CurrentSlotID`、重复显示名、恢复中途失败和整槽原子发布尚未实现，本项保持开放；这些接口分别与 0.10、0.11、1.1 协同完成。
   - 来源 key：`todo:item:0.9`。
 
 <a id="save-system0.10"></a>
