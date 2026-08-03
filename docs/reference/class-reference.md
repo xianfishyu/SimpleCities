@@ -149,7 +149,8 @@
 | 成员 | 签名 | 说明 |
 |---|---|---|
 | `Instance` | `public static InputBindingManager Instance { get; private set; }` | Autoload 单例 |
-| `Definitions` | `public static IReadOnlyList<BindingDefinition> Definitions` | WASD、Q/R/E 和暂停动作目录 |
+| `Definitions` | `public static IReadOnlyList<BindingDefinition> Definitions` | WASD、Q/R/E、Z/Y 编辑和暂停动作目录 |
+| `EditUndoAction` / `EditRedoAction` | `"edit_undo"` / `"edit_redo"` | 默认 Z/Y 的道路编辑撤销与重做动作名 |
 | `EventMatchesAction` | `public bool EventMatchesAction(InputEvent inputEvent, string actionName)` | 以当前物理键绑定匹配真实输入 |
 | `TryGetToolForEvent` | `public bool TryGetToolForEvent(InputEvent inputEvent, out ToolType tool)` | 把当前工具动作映射为 `ToolType` |
 | `TryRebind` | `public bool TryRebind(string actionName, Key key, out string error)` | 拒绝非法或冲突按键，成功时更新并持久化 |
@@ -498,7 +499,8 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `Config` | `[Export] public RoadConfig Config { get; set; } = null!` | 场景注入共享配置 |
 | `IsPlacing` / `FixedCornerCount` / `CurrentDraft` | 只读属性 | 当前连续铺路会话状态、已固定拐点数和完整组合草稿 |
 | `IsRemoving` | `public bool IsRemoving { get; }` | 当前是否持有尚未提交的拆除选择会话 |
-| `SetGraph` | `public void SetGraph(RoadGraph graph)` | 注入数据层 |
+| `CanUndo` / `CanRedo` | 只读属性 | 当前是否存在可撤销或可重做的成功道路编辑 |
+| `SetGraph` | `public void SetGraph(RoadGraph graph)` | 取消活动会话、替换数据层并为新图建立独立编辑历史 |
 | `SetInputStrategy` | `public void SetInputStrategy(IRoadInputStrategy inputStrategy)` | 取消当前会话并替换输入策略 |
 | `_Ready` | `public override void _Ready()` | 获取相邻 `RoadRenderer`，校验 `Config`，按需创建默认米字型策略 |
 | `HandlePlaceInput` | `public void HandlePlaceInput(InputEvent @event)` | 处理旧式拖拽和点击式连续会话的移动、拐点、确认、回退与取消 |
@@ -515,6 +517,8 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `ConfirmRemove` | `public bool ConfirmRemove(Vector2 pointerPosition)` | 将稳定 Edge ID 集一次性交给 `RoadGraph.RemoveEdges` |
 | `CancelRemoveSession` | `public void CancelRemoveSession()` | 取消选择并清空预览，不修改图 |
 | `SetRemoveHoverActive` | `public void SetRemoveHoverActive(bool active)` | 切入/切出拆除工具时开关 hover；切出时取消选择 |
+| `UndoLastEdit` / `RedoLastEdit` | `public bool ...()` | 先取消尚未提交的铺路/拆路会话，再恢复上一/下一提交状态 |
+| `GetUndoEditCount` / `GetRedoEditCount` | `public int ...()` | 供运行时契约与诊断读取两侧历史数量 |
 
 | 当前铺路行为 | 说明 |
 |---|---|
@@ -524,6 +528,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | 失败行为 | 无有效段时不提交；RoadGraph 拒绝时图不变且会话/完整预览保留，可继续调整或取消 |
 | 道路类型 | 第二代输入与数据层不包含 RoadType |
 | 拆除 | 简单点击删除单 Edge；普通左键拖动累积轨迹命中，`Shift+左键` 动态框选，松开后批量提交；右键或切出工具取消 |
+| 编辑历史 | 成功的 `SubmitPath` / `RemoveEdges` 状态变化进入容量 64 的历史；失败或无变化不入栈，新成功编辑清空重做栈 |
 
 ### Road 输入策略
 
@@ -543,6 +548,22 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 
 `RoadBuilder` 不直接引用 `Direction`、`DirectionUtil`、`GridSystem` 或 `CellSize`，也不包含三角形/六边形条件分支。当前玩家默认仍使用米字型策略；另外两种实现用于自动化验证可替换性。三者只需返回连续的 `RoadPathDraft`，RoadGraph 不感知网格类型。
 
+### RoadEditHistory
+
+**文件**：`Scripts/Road/Input/RoadEditHistory.cs`
+**类型**：`public sealed class RoadEditHistory : IDisposable`
+
+| 成员 | 签名 | 说明 |
+|---|---|---|
+| `DefaultCapacity` | `public const int DefaultCapacity = 64` | 默认最多保留的成功编辑数量 |
+| `CanUndo` / `CanRedo` | 只读属性 | 对应历史栈是否非空 |
+| `UndoCount` / `RedoCount` | 只读属性 | 当前两侧事务数 |
+| `Execute` | `public bool Execute(Func<bool> edit)` | 捕获严格 RoadGraph 前后状态；只记录产生状态变化的成功编辑 |
+| `Undo` / `Redo` | `public bool ...()` | 校验当前图仍匹配历史边界，再经 `RoadGraph.RestoreState` 恢复完整状态 |
+| `Clear` | `public void Clear()` | 清空两侧历史 |
+
+历史快照使用 `SaveJson.Serialize(graph.CaptureState())`，因此恢复会保留 Node/Edge/Group ID、原生几何、Group 成员关系和 `_nextID`，但会重建运行时实体对象。`GraphCleared` 的外部恢复会立即清空历史；其他外部修改在撤销、重做或下一次编辑尝试时被检测并使旧历史失效。编辑抛异常或返回失败却修改图时会先恢复事务前状态；失败编辑本身不进入历史。
+
 ### RoadRenderer
 
 **文件**：`Scripts/Road/RoadRenderer.cs`
@@ -556,6 +577,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `RemovalPreviewEdgeIDs` | `public int[] RemovalPreviewEdgeIDs { get; set; }` | 防御性保存并排序去重的拆除预览 Edge ID |
 | `RemovalSelectionBounds` | `public Rect2? RemovalSelectionBounds { get; set; }` | 矩形拆除选择的当前世界坐标边界 |
 | `GetRemovalPreviewEdgeCount` | `public int GetRemovalPreviewEdgeCount()` | Godot 运行时契约读取拆除预览数量 |
+| `GetRenderedEdgeCount` | `public int GetRenderedEdgeCount()` | Godot 运行时契约与诊断读取当前已实例化道路数量 |
 | `HoveredEdgeID` | `public int? HoveredEdgeID { get; set; }` | 拆除工具悬停边 |
 | `_Ready` | `public override void _Ready()` | 校验 `Config`，创建 junction 绘制层 |
 | `SetGraph` | `public void SetGraph(RoadGraph graph)` | 订阅 `EdgeAdded`、`EdgeRemoved`、`GraphCleared` |
@@ -608,10 +630,13 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `CurrentTool` | `public ToolType CurrentTool { get; set; }` | 切换工具，负责清理 Road/RoadRemove 状态 |
 | `_Ready` | `public override void _Ready()` | 设置单例并获取 `../RoadSystem/RoadBuilder` |
 | `_Input` | `public override void _Input(InputEvent @event)` | 只按当前工具把输入转发给 `RoadBuilder`；键盘工具和暂停动作由 `GameHUD` 处理 |
+| `UndoRoadEdit` / `RedoRoadEdit` | `public bool ...()` | 委托 `RoadBuilder` 执行道路编辑撤销/重做，不解析具体按键 |
+| `CanUndoRoadEdit` / `CanRedoRoadEdit` | `public bool ...()` | 查询当前道路历史能力 |
 
 | 输入 | 行为 |
 |---|---|
 | 当前 `tool_select` / `tool_road` / `tool_remove` 绑定（默认 Q/R/E） | `GameHUD` 切换 `CurrentTool`；`ToolManager` 不解析按键 |
+| 当前 `edit_undo` / `edit_redo` 绑定（默认 Z/Y） | `GameHUD` 调用 `ToolManager.UndoRoadEdit()` / `RedoRoadEdit()`；工具选择不变 |
 | 当前 `pause_menu` 绑定（默认 Escape） | 不改变工具；由 `GameHUD` 打开暂停菜单 |
 | 当前工具为 `Road` | 转发到 `RoadBuilder.HandlePlaceInput(@event)` |
 | 当前工具为 `RoadRemove` | 转发到 `RoadBuilder.HandleRemoveInput(@event)` |
@@ -629,12 +654,13 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 |---|---|---|
 | `Config` | `[Export] public RoadConfig Config { get; set; } = null!` | HUD 将道路配置分发给上下文和调试组件 |
 | `_Ready` | `public override void _Ready()` | 作为命令中心组合协调器，解析子组件、确保本 HUD 的 `UIManager`、绑定组件事件 |
-| `_Input` | `public override void _Input(InputEvent @event)` | 通过 `InputBindingManager` 处理当前暂停和工具动作 |
+| `_Input` | `public override void _Input(InputEvent @event)` | 通过 `InputBindingManager` 处理当前暂停、撤销重做和工具动作 |
 | `_Process` | `public override void _Process(double delta)` | 协调子组件刷新当前工具、catalog 上下文、调试指标和响应式布局 |
 
 | UI/快捷键 | 当前调用 | 说明 |
 |---|---|---|
 | 当前暂停绑定 / 默认 Esc | `GameHUD._Input()` 打开 `PauseMenu` | 暂停场景树且保留当前工具；再次按当前绑定或“继续游戏”恢复 |
+| 当前编辑绑定 / 默认 Z/Y | `GameHUD._Input()` 调用 `ToolManager.UndoRoadEdit()` / `RedoRoadEdit()` | 仅在暂停菜单和模态 UI 关闭时处理；不切换当前工具 |
 | 当前工具绑定 / 默认 Q/R/E | `GameHUD._Input()` 设置 `ToolManager.CurrentTool` | 模态菜单关闭时切换选择、铺路或拆路 |
 | 铺路按钮 | `ConstructionDock` 的 `RoadToolButton` 调用 `ToolManager.CurrentTool = ToolType.Road` | 切换铺路工具，按钮来自 Roads catalog |
 | 拆路 | `tool_remove` 动作或程序设置 `ToolManager.CurrentTool = ToolType.RoadRemove` | UI 显示内建中文文案和当前绑定；仍不提供 Roads 子菜单按钮 |
@@ -691,8 +717,8 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | 1 | `ToolManager._Input()` | 当前工具为 `Road` 时转发输入 |
 | 2 | `RoadBuilder.HandlePlaceInput()` | 左键按下/释放转发到公开铺路生命周期 |
 | 3 | `RoadBuilder.BeginPlace()` / `UpdatePlace()` | 当前策略吸附起点并生成不可变 `RoadPathDraft` 预览 |
-| 4 | `RoadBuilder.CommitPlace()` | 刷新最终草稿并提交其中的 `RoadPath`，不向数据层传递网格或 RoadType |
-| 5 | `RoadGraph.SubmitPath(...)` | 校验原生几何，创建/复用节点，拆分交点，跳过覆盖段，创建 group/edge |
+| 4 | `RoadBuilder.CommitPlace()` | 刷新最终草稿并通过 `RoadEditHistory.Execute(...)` 提交其中的 `RoadPath`，不向数据层传递网格或 RoadType |
+| 5 | `RoadGraph.SubmitPath(...)` | 校验原生几何，创建/复用节点，拆分交点，跳过覆盖段，创建 group/edge；成功状态变化进入撤销栈 |
 | 6 | `RoadGraph.EdgeAdded` | 通知渲染器创建 `Line2D` |
 | 7 | `GameHUD._Process()` -> `DebugPanel.UpdateMetrics()` | 调试组件轮询并显示 Group/Edge/Node 数量 |
 
@@ -704,9 +730,19 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | 2 | `RoadBuilder._Process()` | `UpdateRemoveHover()` 更新 `RoadRenderer.HoveredEdgeID` |
 | 3 | `RoadRenderer._Draw()` | 绘制 hover 高亮 |
 | 4 | `RoadBuilder.HandleRemoveInput()` | 左键拖动累积轨迹命中，`Shift+左键` 从当前矩形生成选择；预览阶段不写图 |
-| 5 | `RoadBuilder.ConfirmRemove()` | 松开左键后将排序去重的 Edge ID 集一次性交给 `RoadGraph.RemoveEdges(...)` |
-| 6 | `RoadGraph.RemoveEdges(...)` | 跳过失效目标，批量 detach 后只执行一次清理和不变式验证 |
+| 5 | `RoadBuilder.ConfirmRemove()` | 松开左键后通过 `RoadEditHistory.Execute(...)` 将排序去重的 Edge ID 集一次性交给 `RoadGraph.RemoveEdges(...)` |
+| 6 | `RoadGraph.RemoveEdges(...)` | 跳过失效目标，批量 detach 后只执行一次清理和不变式验证；成功状态变化进入撤销栈 |
 | 7 | `RoadGraph.EdgeRemoved` | 按稳定 ID 顺序通知渲染器释放对应 `Line2D` |
+
+### 道路编辑历史流
+
+| 阶段 | 调用 | 内容 |
+|---|---|---|
+| 记录 | `RoadEditHistory.Execute(...)` | 捕获成功道路编辑前后的严格 RoadGraph JSON；容量超过 64 时淘汰最旧事务 |
+| 撤销/重做入口 | `GameHUD` -> `ToolManager` -> `RoadBuilder` | 当前 `edit_undo` / `edit_redo` 绑定触发；先取消尚未提交的铺路/拆路会话 |
+| 恢复 | `RoadEditHistory.Undo/Redo()` -> `RoadGraph.RestoreState(...)` | 恢复完整拓扑、原生几何、Group、ID 和 `_nextID`；实体对象引用重建 |
+| 渲染同步 | `RoadGraph.GraphCleared` -> `RoadRenderer.OnGraphCleared()` | 清空旧 `Line2D` 并按恢复后的全部 Edge 重建 |
+| 历史失效 | 外部 `GraphCleared` 或状态不匹配 | 清空旧撤销/重做栈，避免把外部图变化覆盖掉 |
 
 ### 存档流
 

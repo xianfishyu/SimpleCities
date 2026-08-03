@@ -98,6 +98,20 @@ public partial class GameHUD : CanvasLayer
         if (_pauseMenu.IsOpen || _uiManager.IsModalActive || _toolManager == null)
             return;
 
+        if (InputBindingManager.Instance.EventMatchesAction(@event, InputBindingManager.EditUndoAction))
+        {
+            _toolManager.UndoRoadEdit();
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+
+        if (InputBindingManager.Instance.EventMatchesAction(@event, InputBindingManager.EditRedoAction))
+        {
+            _toolManager.RedoRoadEdit();
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+
         if (!InputBindingManager.Instance.TryGetToolForEvent(@event, out ToolType tool))
             return;
 

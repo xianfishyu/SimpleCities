@@ -88,10 +88,16 @@ func run() -> void:
 	assert_true(bindings_content.visible and not settings_content.visible, "Key bindings button did not open bindings view")
 	var road_binding: Button = pause_menu.find_child("tool_road_BindingButton", true, false)
 	var select_binding: Button = pause_menu.find_child("tool_select_BindingButton", true, false)
+	var undo_binding: Button = pause_menu.find_child("edit_undo_BindingButton", true, false)
+	var redo_binding: Button = pause_menu.find_child("edit_redo_BindingButton", true, false)
 	var pause_binding: Button = pause_menu.find_child("pause_menu_BindingButton", true, false)
-	assert_true(road_binding != null and select_binding != null and pause_binding != null, "Bindings view did not create required binding buttons")
+	assert_true(
+		road_binding != null and select_binding != null and undo_binding != null and redo_binding != null and pause_binding != null,
+		"Bindings view did not create required binding buttons")
 	reset_bindings_button.emit_signal("pressed")
-	assert_true(road_binding.text == "R" and select_binding.text == "Q" and pause_binding.text == "Escape", "Reset did not establish deterministic defaults")
+	assert_true(
+		road_binding.text == "R" and select_binding.text == "Q" and undo_binding.text == "Z" and redo_binding.text == "Y" and pause_binding.text == "Escape",
+		"Reset did not establish deterministic defaults")
 	DisplayServer.window_set_size(Vector2i(435, 480))
 	root.size = Vector2i(435, 480)
 	await process_frame
@@ -155,7 +161,9 @@ func run() -> void:
 	settings_button.emit_signal("pressed")
 	key_bindings_button.emit_signal("pressed")
 	reset_bindings_button.emit_signal("pressed")
-	assert_true(road_binding.text == "R" and pause_binding.text == "Escape", "Reset bindings did not restore Road and Pause defaults")
+	assert_true(
+		road_binding.text == "R" and undo_binding.text == "Z" and redo_binding.text == "Y" and pause_binding.text == "Escape",
+		"Reset bindings did not restore Road, edit and Pause defaults")
 	assert_true(int(binding_config.get_value("bindings", "tool_road", -1)) == KEY_T, "Config snapshot should remain unchanged until reload")
 	assert_true(binding_config.load("user://input_bindings.cfg") == OK and int(binding_config.get_value("bindings", "tool_road", -1)) == KEY_R, "Reset Road default was not persisted")
 	assert_true(int(binding_config.get_value("bindings", "pause_menu", -1)) == KEY_ESCAPE, "Reset Pause default was not persisted")

@@ -37,6 +37,8 @@ public partial class RoadRenderer : Node2D
 
     public int GetRemovalPreviewEdgeCount() => _removalPreviewEdgeIDs.Length;
 
+    public int GetRenderedEdgeCount() => _edgeLines.Count;
+
     /// <summary>拆除工具悬停的 Edge ID（null = 未悬停在任何 Edge 上）</summary>
     public int? HoveredEdgeID { get; set; }
 

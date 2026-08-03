@@ -9,6 +9,7 @@ public partial class RoadBuilder : Node2D
     private RoadGraph? _graph;
     private RoadRenderer? _renderer;
     private IRoadInputStrategy? _inputStrategy;
+    private RoadEditHistory? _editHistory;
     private RoadPlacementSession? _placementSession;
     private bool _leftPressStartedSession;
     private bool _ignoreNextLeftRelease;
@@ -22,6 +23,8 @@ public partial class RoadBuilder : Node2D
     public int FixedCornerCount => _placementSession?.FixedCornerCount ?? 0;
     public RoadPathDraft? CurrentDraft => _placementSession?.CurrentDraft;
     public bool IsRemoving => _removalSession != null;
+    public bool CanUndo => _editHistory?.CanUndo == true;
+    public bool CanRedo => _editHistory?.CanRedo == true;
 
     public bool HasActivePlaceSession() => IsPlacing;
 
@@ -31,7 +34,23 @@ public partial class RoadBuilder : Node2D
 
     public int GetRemovalSelectionCount() => _removalSession?.SelectedEdgeIDs.Length ?? 0;
 
-    public void SetGraph(RoadGraph graph) => _graph = graph;
+    public bool CanUndoLastEdit() => CanUndo;
+
+    public bool CanRedoLastEdit() => CanRedo;
+
+    public int GetUndoEditCount() => _editHistory?.UndoCount ?? 0;
+
+    public int GetRedoEditCount() => _editHistory?.RedoCount ?? 0;
+
+    public void SetGraph(RoadGraph graph)
+    {
+        ArgumentNullException.ThrowIfNull(graph);
+        CancelPlaceSession();
+        CancelRemoveSession();
+        _editHistory?.Dispose();
+        _graph = graph;
+        _editHistory = new RoadEditHistory(graph);
+    }
 
     public void SetInputStrategy(IRoadInputStrategy inputStrategy)
     {
@@ -51,6 +70,12 @@ public partial class RoadBuilder : Node2D
         }
 
         _inputStrategy ??= SquareEightRoadInputStrategy.FromConfig(Config);
+    }
+
+    public override void _ExitTree()
+    {
+        _editHistory?.Dispose();
+        _editHistory = null;
     }
 
     public void HandlePlaceInput(InputEvent @event)
@@ -199,10 +224,15 @@ public partial class RoadBuilder : Node2D
         if (draft.Path == null)
             return false;
 
-        RoadPathSubmissionResult result = _graph.SubmitPath(draft.Path);
-        if (!result.Success)
+        RoadPathSubmissionResult? result = null;
+        bool submitted = ExecuteRoadEdit(() =>
         {
-            GD.Print($"[PLACE-END] path rejected: {result.Error}");
+            result = _graph.SubmitPath(draft.Path);
+            return result.Success;
+        });
+        if (!submitted)
+        {
+            GD.Print($"[PLACE-END] path rejected: {result?.Error}");
             return false;
         }
 
@@ -278,7 +308,7 @@ public partial class RoadBuilder : Node2D
         _removalSession.Update(pointerPosition);
         int[] selectedEdgeIDs = _removalSession.SelectedEdgeIDs;
         EndRemoveSession();
-        return _graph.RemoveEdges(selectedEdgeIDs);
+        return ExecuteRoadEdit(() => _graph.RemoveEdges(selectedEdgeIDs));
     }
 
     public void CancelRemoveSession()
@@ -287,6 +317,20 @@ public partial class RoadBuilder : Node2D
             return;
 
         EndRemoveSession();
+    }
+
+    public bool UndoLastEdit()
+    {
+        CancelPlaceSession();
+        CancelRemoveSession();
+        return _editHistory?.Undo() == true;
+    }
+
+    public bool RedoLastEdit()
+    {
+        CancelPlaceSession();
+        CancelRemoveSession();
+        return _editHistory?.Redo() == true;
     }
 
     /// <summary>取消当前连续铺路会话，不修改路网。</summary>
@@ -357,6 +401,9 @@ public partial class RoadBuilder : Node2D
         _renderer.RemovalSelectionBounds = null;
         _renderer.QueueRedraw();
     }
+
+    private bool ExecuteRoadEdit(Func<bool> edit) =>
+        _editHistory?.Execute(edit) ?? edit();
 
     private Vector2 ToWorldPosition(Vector2 viewportPosition) =>
         GetCanvasTransform().AffineInverse() * viewportPosition;

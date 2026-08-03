@@ -18,11 +18,11 @@ public sealed class InputBindingManagerContractTests
     private static readonly string ToolManagerPath = Path.Combine(ProjectRoot, "Scripts", "Tools", "ToolManager.cs");
 
     [Fact]
-    public void Catalog_DefinesEightUniqueSingleKeyActions()
+    public void Catalog_DefinesTenUniqueSingleKeyActions()
     {
         InputBindingManager.BindingDefinition[] definitions = InputBindingManager.Definitions.ToArray();
 
-        Assert.Equal(8, definitions.Length);
+        Assert.Equal(10, definitions.Length);
         Assert.Equal(definitions.Length, definitions.Select(definition => definition.ActionName).Distinct(StringComparer.Ordinal).Count());
         Assert.Equal(definitions.Length, definitions.Select(definition => definition.DefaultKey).Distinct().Count());
         Assert.All(definitions, definition => Assert.True(InputBindingManager.IsBindableKey(definition.DefaultKey)));
@@ -64,6 +64,8 @@ public sealed class InputBindingManagerContractTests
         Assert.Contains("InputBindingManager.CameraMoveUpAction", camera, StringComparison.Ordinal);
         Assert.Contains("InputBindingManager.CameraMoveDownAction", camera, StringComparison.Ordinal);
         Assert.Contains("InputBindingManager.PauseMenuAction", hud, StringComparison.Ordinal);
+        Assert.Contains("InputBindingManager.EditUndoAction", hud, StringComparison.Ordinal);
+        Assert.Contains("InputBindingManager.EditRedoAction", hud, StringComparison.Ordinal);
         Assert.Contains("TryGetToolForEvent", hud, StringComparison.Ordinal);
         Assert.DoesNotContain("Key.", hud, StringComparison.Ordinal);
         Assert.DoesNotContain("InputBindingManager", toolManager, StringComparison.Ordinal);

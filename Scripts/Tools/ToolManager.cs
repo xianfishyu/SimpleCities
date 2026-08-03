@@ -41,6 +41,14 @@ public partial class ToolManager : Node2D
         _roadBuilder = null;
     }
 
+    public bool UndoRoadEdit() => _roadBuilder?.UndoLastEdit() == true;
+
+    public bool RedoRoadEdit() => _roadBuilder?.RedoLastEdit() == true;
+
+    public bool CanUndoRoadEdit() => _roadBuilder?.CanUndoLastEdit() == true;
+
+    public bool CanRedoRoadEdit() => _roadBuilder?.CanRedoLastEdit() == true;
+
     public override void _Input(InputEvent @event)
     {
         // Esc is owned by GameHUD's pause menu. ToolManager only forwards active tool input.

@@ -33,6 +33,10 @@ flowchart LR
         Strategy["IRoadInputStrategy<br/>吸附与单段草稿"]
     end
 
+    subgraph EditHistory["道路编辑历史"]
+        History["RoadEditHistory<br/>容量 64 的前后状态事务"]
+    end
+
     subgraph Data["纯数据层"]
         RoadGraph["RoadGraph<br/>IPreparedSaveable"]
         RoadConfig["RoadConfig<br/>共享 .tres 资源"]
@@ -48,7 +52,9 @@ flowchart LR
     RoadSys --> RoadGraph
     RoadSys -->|注入 Config| GridSystem
 
-    RoadBuilder -->|SubmitPath| RoadGraph
+    RoadBuilder -->|铺路或拆路提交| History
+    History -->|SubmitPath / RemoveEdges| RoadGraph
+    History -->|Undo / Redo RestoreState| RoadGraph
     RoadBuilder -->|设置完整 PreviewPoints| RoadRenderer
     RoadBuilder -.读取.-> RoadConfig
     RoadBuilder --> Placement
@@ -56,10 +62,12 @@ flowchart LR
     Strategy -.默认米字型实现.-> DirectionUtil
 
     RoadGraph -->|EdgeAdded EdgeRemoved GraphCleared| RoadRenderer
+    RoadGraph -->|外部 GraphCleared 清空旧历史| History
 
     RoadRenderer -.读取.-> RoadConfig
 
     ToolMgr -->|转发输入| RoadBuilder
+    GameHUD -->|edit_undo / edit_redo| ToolMgr
     GameHUD -.读取统计.-> RoadGraph
     GameHUD -.读取工具.-> ToolMgr
 
@@ -99,11 +107,13 @@ flowchart TD
         C1["Enter / 双击 / 旧式拖拽释放"] --> C2["确认完整 RoadPathDraft"]
         C2 --> C3{"Path 存在?"}
         C3 -->|否| C4["保留会话 等待有效末端"]
-        C3 -->|是| C5["RoadGraph.SubmitPath 一次调用"]
-        C5 --> C6{"提交成功?"}
-        C6 -->|否| C7["图不变 保留会话和预览"]
-        C6 -->|是| C8["发布 Edge 事件并清空会话预览"]
-        C8 --> C9["RoadRenderer 创建提交后的 Line2D"]
+        C3 -->|是| C5["RoadEditHistory 捕获事务前状态"]
+        C5 --> C6["RoadGraph.SubmitPath 一次调用"]
+        C6 --> C7{"提交成功?"}
+        C7 -->|否| C8["不入历史 图不变并保留会话"]
+        C7 -->|是| C9["状态变化时前后状态进入撤销栈<br/>并清空重做栈"]
+        C9 --> C10["发布 Edge 事件并清空会话预览"]
+        C10 --> C11["RoadRenderer 创建提交后的 Line2D"]
     end
 
     Phase1 --> Phase2
@@ -135,11 +145,13 @@ flowchart TD
         R5 --> R6["RoadRenderer 绘制选择高亮和框线"]
         R6 --> R7{"后续输入"}
         R7 -->|右键或切出工具| R8["取消选择 图不变"]
-        R7 -->|松开左键| R9["RoadGraph.RemoveEdges 一次调用"]
-        R9 --> R10["批量 DetachEdge"]
-        R10 --> R11["一次清理孤立 Node 和空 Group"]
-        R11 --> R12["验证不变式后按 ID 发布 EdgeRemoved"]
-        R12 --> R13["RoadRenderer 回收 Line2D 并清预览"]
+        R7 -->|松开左键| R9["RoadEditHistory 捕获事务前状态"]
+        R9 --> R10["RoadGraph.RemoveEdges 一次调用"]
+        R10 --> R11["批量 DetachEdge"]
+        R11 --> R12["一次清理孤立 Node 和空 Group"]
+        R12 --> R13["验证不变式后按 ID 发布 EdgeRemoved"]
+        R13 --> R14["成功状态进入撤销栈并清空重做栈"]
+        R14 --> R15["RoadRenderer 回收 Line2D 并清预览"]
     end
 
     Phase1 --> Phase2
@@ -216,6 +228,10 @@ flowchart LR
     Road -->|pause_menu 默认 Esc| Pause
     Remove -->|pause_menu 默认 Esc| Pause
     Pause -->|继续游戏| Previous["恢复先前工具状态"]
+
+    Select -->|edit_undo / edit_redo 默认 Z/Y| Edit["撤销 / 重做道路编辑<br/>当前工具不变"]
+    Road -->|edit_undo / edit_redo 默认 Z/Y| Edit
+    Remove -->|edit_undo / edit_redo 默认 Z/Y| Edit
 
     Road -.生命周期.-> RN["Enter: 等待输入<br/>Input: 旧式拖拽提交或点击式连续会话<br/>Exit: CancelPlaceSession"]
     Remove -.生命周期.-> RMN["Enter: SetRemoveHoverActive true<br/>Tick: UpdateRemoveHover 悬停检测<br/>Exit: SetRemoveHoverActive false 清除高亮"]
@@ -306,6 +322,7 @@ flowchart LR
         HUD[GameHUD._Input]
         HUD -->|pause_menu 当前绑定| Pause[PauseMenu 打开并暂停场景树]
         HUD -->|tool_select / tool_road / tool_remove| ToolState[设置 ToolManager.CurrentTool]
+        HUD -->|edit_undo / edit_redo| EditCommand[ToolManager 委托道路编辑历史]
         TM[ToolManager._Input]
         TM -->|按 CurrentTool| Forward[转发]
         Forward -->|Road| Place[RoadBuilder.HandlePlaceInput]
@@ -313,10 +330,15 @@ flowchart LR
     end
 
     subgraph Data["数据层"]
-        Place --> Add["RoadGraph.SubmitPath"]
-        Remove --> Del["RoadGraph.RemoveEdges"]
+        Place --> History["RoadEditHistory.Execute"]
+        Remove --> History
+        EditCommand --> History
+        History --> Add["RoadGraph.SubmitPath"]
+        History --> Del["RoadGraph.RemoveEdges"]
+        History --> Restore["RoadGraph.RestoreState"]
         Add --> Event1["EdgeAdded 事件"]
         Del --> Event2["EdgeRemoved 事件"]
+        Restore --> Event3["GraphCleared 事件"]
         Add --> Merge["TryMergeAtNode"]
         Del --> Cleanup["CommitEdgeMutation 一次清理"]
     end
@@ -324,8 +346,10 @@ flowchart LR
     subgraph Render["渲染层"]
         Event1 --> RR_Add["RoadRenderer.OnEdgeAdded<br/>创建 Line2D"]
         Event2 --> RR_Del["RoadRenderer.OnEdgeRemoved<br/>回收 Line2D"]
+        Event3 --> RR_Rebuild["RoadRenderer.OnGraphCleared<br/>全量重建 Line2D"]
         RR_Add --> Draw["QueueRedraw"]
         RR_Del --> Draw
+        RR_Rebuild --> Draw
     end
 
     subgraph UI["UI 刷新"]

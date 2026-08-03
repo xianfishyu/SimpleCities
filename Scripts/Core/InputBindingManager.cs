@@ -22,6 +22,8 @@ public partial class InputBindingManager : Node
     public const string ToolSelectAction = "tool_select";
     public const string ToolRoadAction = "tool_road";
     public const string ToolRemoveAction = "tool_remove";
+    public const string EditUndoAction = "edit_undo";
+    public const string EditRedoAction = "edit_redo";
     public const string PauseMenuAction = "pause_menu";
 
     private const string ConfigPath = "user://input_bindings.cfg";
@@ -36,6 +38,8 @@ public partial class InputBindingManager : Node
         new(ToolSelectAction, "选择工具", "工具", Key.Q, ToolType.Select),
         new(ToolRoadAction, "铺路工具", "工具", Key.R, ToolType.Road),
         new(ToolRemoveAction, "拆路工具", "工具", Key.E, ToolType.RoadRemove),
+        new(EditUndoAction, "撤销道路编辑", "编辑", Key.Z),
+        new(EditRedoAction, "重做道路编辑", "编辑", Key.Y),
         new(PauseMenuAction, "暂停菜单", "系统", Key.Escape),
     ];
 

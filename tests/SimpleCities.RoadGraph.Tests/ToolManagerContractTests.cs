@@ -24,5 +24,7 @@ public sealed class ToolManagerContractTests
         Assert.DoesNotContain("CurrentTool = ToolType.Select;", source, StringComparison.Ordinal);
         Assert.Contains("_roadBuilder.HandlePlaceInput(@event);", source, StringComparison.Ordinal);
         Assert.Contains("_roadBuilder.HandleRemoveInput(@event);", source, StringComparison.Ordinal);
+        Assert.Contains("_roadBuilder?.UndoLastEdit()", source, StringComparison.Ordinal);
+        Assert.Contains("_roadBuilder?.RedoLastEdit()", source, StringComparison.Ordinal);
     }
 }

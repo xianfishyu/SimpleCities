@@ -22,6 +22,7 @@ func run() -> void:
 	var road_system: Node = map.get_node("RoadSystem")
 	var road_builder: Node = road_system.get_node("RoadBuilder")
 	var road_renderer: Node = road_system.get_node("RoadRenderer")
+	var hud: CanvasLayer = map.get_node("GameHUD")
 	var save_manager: Node = root.get_node("SaveManager")
 
 	if not assert_true(road_builder.BeginPlace(Vector2(5, 5)), "RoadBuilder did not begin a placement"):
@@ -203,6 +204,49 @@ func run() -> void:
 		return
 	if not assert_saved_counts(roads_path, 3, 2, 1, "Rectangle removal"):
 		return
+	if not assert_true(
+		road_builder.GetUndoEditCount() == 5 and road_builder.GetRedoEditCount() == 0,
+		"Successful and rejected road edits entered the wrong history stacks"):
+		return
+
+	hud._Input(action_event("edit_undo"))
+	await process_frame
+	if not assert_true(
+		road_renderer.GetRenderedEdgeCount() == 4 and road_builder.GetUndoEditCount() == 4 and road_builder.GetRedoEditCount() == 1,
+		"Undo did not restore the rectangle removal boundary and rebuild rendering"):
+		return
+	if not assert_true(save_manager.Save(slot_id), "First undo save failed"):
+		return
+	if not assert_saved_counts(roads_path, 6, 4, 2, "First undo"):
+		return
+
+	hud._Input(action_event("edit_undo"))
+	await process_frame
+	if not assert_true(
+		road_renderer.GetRenderedEdgeCount() == 7 and road_builder.GetUndoEditCount() == 3 and road_builder.GetRedoEditCount() == 2,
+		"Second undo did not restore the continuous removal boundary"):
+		return
+	if not assert_true(save_manager.Save(slot_id), "Second undo save failed"):
+		return
+	if not assert_saved_counts(roads_path, 10, 7, 3, "Second undo"):
+		return
+
+	hud._Input(action_event("edit_redo"))
+	await process_frame
+	if not assert_true(
+		road_renderer.GetRenderedEdgeCount() == 4 and road_builder.GetUndoEditCount() == 4 and road_builder.GetRedoEditCount() == 1,
+		"First redo did not reproduce the continuous removal"):
+		return
+	hud._Input(action_event("edit_redo"))
+	await process_frame
+	if not assert_true(
+		road_renderer.GetRenderedEdgeCount() == 2 and road_builder.GetUndoEditCount() == 5 and road_builder.GetRedoEditCount() == 0,
+		"Second redo did not reproduce the rectangle removal"):
+		return
+	if not assert_true(save_manager.Save(slot_id), "Redo save failed"):
+		return
+	if not assert_saved_counts(roads_path, 3, 2, 1, "Redo"):
+		return
 	if not assert_true(save_manager.DeleteSlot(slot_id), "Strategy path test slot cleanup failed"):
 		return
 
@@ -343,6 +387,12 @@ func key_event(keycode: int) -> InputEventKey:
 	var event := InputEventKey.new()
 	event.keycode = keycode
 	event.physical_keycode = keycode
+	event.pressed = true
+	return event
+
+func action_event(action_name: StringName) -> InputEventAction:
+	var event := InputEventAction.new()
+	event.action = action_name
 	event.pressed = true
 	return event
 
