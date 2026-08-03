@@ -76,7 +76,7 @@ public sealed class RoadGraphContinuousSpaceTests
     }
 
     [Fact]
-    public void OperationMetrics_DistinguishSpatialCandidatesFromFullGeometryScans()
+    public void OperationMetrics_ReportLocalizedQueriesWithoutFullGeometryScans()
     {
         var graph = new RoadGraph();
         graph.AddRoad(Vector2.Zero, new Vector2(10f, 0f), []);
@@ -92,7 +92,7 @@ public sealed class RoadGraphContinuousSpaceTests
 
         Assert.True(result.Success);
         Assert.Equal(0, graph.LastOperationMetrics.SpatialCandidateEdgeCount);
-        Assert.Equal(2, graph.LastOperationMetrics.FullEdgeScanPassCount);
-        Assert.Equal(4, graph.LastOperationMetrics.FullEdgeVisitCount);
+        Assert.Equal(0, graph.LastOperationMetrics.FullEdgeScanPassCount);
+        Assert.Equal(0, graph.LastOperationMetrics.FullEdgeVisitCount);
     }
 }

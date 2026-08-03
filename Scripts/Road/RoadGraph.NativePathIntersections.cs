@@ -15,8 +15,13 @@ public partial class RoadGraph
         }
 
         var existingEdgeSplits = new Dictionary<int, List<EdgeGeometrySplitPoint>>();
-        foreach (GraphEdge edge in EnumerateEdgesForGeometryScan().OrderBy(edge => edge.ID))
+        var candidateEdgeIDs = new HashSet<int>();
+        foreach (RoadGeometrySegment incomingSegment in incomingSegments)
+            candidateEdgeIDs.UnionWith(FindCandidateEdgeIDs(incomingSegment));
+
+        foreach (int edgeID in candidateEdgeIDs.Order())
         {
+            if (!_edges.TryGetValue(edgeID, out GraphEdge? edge)) continue;
             for (int existingSegmentIndex = 0;
                  existingSegmentIndex < edge.GeometrySegments.Count;
                  existingSegmentIndex++)

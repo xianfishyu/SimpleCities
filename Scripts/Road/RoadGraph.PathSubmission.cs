@@ -220,7 +220,8 @@ public partial class RoadGraph
             return IsNativeLineCovered(line);
 
         string serialized = SaveJson.Serialize(RoadGeometrySerializer.ToData(geometry));
-        return EnumerateEdgesForGeometryScan().Any(edge =>
+        return FindCandidateEdgeIDs(geometry).Any(edgeID =>
+            _edges.TryGetValue(edgeID, out GraphEdge? edge) &&
             edge.GeometrySegments.Count == 1 &&
             SaveJson.Serialize(RoadGeometrySerializer.ToData(edge.GeometrySegments[0])) == serialized);
     }
@@ -229,8 +230,10 @@ public partial class RoadGraph
     {
         Vector2 direction = line.End - line.Start;
         var intervals = new List<(float Start, float End)>();
-        foreach (LineRoadGeometrySegment existing in EnumerateEdgesForGeometryScan()
-            .SelectMany(edge => edge.GeometrySegments)
+        foreach (LineRoadGeometrySegment existing in FindCandidateEdgeIDs(line)
+            .Select(edgeID => _edges.GetValueOrDefault(edgeID))
+            .Where(edge => edge is not null)
+            .SelectMany(edge => edge!.GeometrySegments)
             .OfType<LineRoadGeometrySegment>())
         {
             if (!IsPointOnInfiniteLine(line.Start, line.End, existing.Start) ||

@@ -199,6 +199,21 @@ public class UniformGrid
         }
     }
 
+    /// <summary>
+    /// 返回与矩形覆盖同一批 bucket 的去重引用。调用方负责权威几何过滤。
+    /// </summary>
+    public IEnumerable<ISpatialRef> QueryBounds(Rect2 bounds)
+    {
+        var returned = new HashSet<ISpatialRef>();
+        foreach ((int bx, int by) in GetCoveredBuckets(bounds))
+        {
+            if (!_buckets.TryGetValue((bx, by), out var list)) continue;
+            foreach (ISpatialRef entity in list)
+                if (returned.Add(entity))
+                    yield return entity;
+        }
+    }
+
     /// <summary>清空所有索引。</summary>
     public void Clear() => _buckets.Clear();
 

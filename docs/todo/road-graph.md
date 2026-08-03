@@ -15,7 +15,7 @@
 | <a id="road-graph1"></a>   |                                             |                                                  |                                                                |
 | 1                          | `AddRoad` 返回 `-1` 时泄漏副作用        | 已修复并有自动化回归                             | 保持前置覆盖检查，不再修改流程                                 |
 | <a id="road-graph3"></a>   |                                             |                                                  |                                                                |
-| 3                          | 几何查询仍有全表扫描                        | 成立                                             | 10k Edge 按 60 FPS 硬门槛优化；100k Edge 压力测试              |
+| 3                          | 几何查询仍有全表扫描                        | 已完成                                           | 覆盖、交点和锚点已局部化；10k 全场景达标，100k 已记录           |
 | <a id="road-graph4"></a>   |                                             |                                                  |                                                                |
 | 4                          | 数据层强制 8 方向                           | 已完成                                           | 2.1、2.2 已验证任意折线和结构化非法路径拒绝                    |
 | <a id="road-graph5"></a>   |                                             |                                                  |                                                                |
@@ -31,7 +31,7 @@
 | <a id="road-graphp1"></a>  |                                             |                                                  |                                                                |
 | P1                         | 图是节点、边和分组的唯一事实来源            | 主体已完成；一致性未自动验证                     | 保留为基线；由 0.1、0.5、4.1、4.2 验证和收紧                   |
 | <a id="road-graphp3"></a>  |                                             |                                                  |                                                                |
-| P3                         | SpatialIndex 是可重建查询服务               | 原生几何占据已完成；性能与其余查询局部化待验证   | 由 3.1～3.3 完成候选规模测量和其余几何查询局部化               |
+| P3                         | SpatialIndex 是可重建查询服务               | 已完成                                           | 3.1～3.3 已验证完整占据、局部候选、10k 门槛和 100k 压测        |
 | <a id="road-graphp4"></a>  |                                             |                                                  |                                                                |
 | P4                         | 删除操作不触发拓扑修复链                    | 未完成                                           | 0.6 已锁定外部行为；由 4.1、4.3、4.4 收敛内部删除事务          |
 | <a id="road-graphp5"></a>  |                                             |                                                  |                                                                |
@@ -49,7 +49,7 @@
 | <a id="road-graph8e20b5c5228b"></a> |                                                                                                       |                                     |
 | §2 P1、§3 纯图架构、§4 数据结构  | `RoadGraph`、`GraphNode`、`GraphEdge`、`RoadGroup` 已落地；仍需封装可变状态并验证跨容器一致性 | 0.1、0.5、4.1、4.2；已解决基线      |
 | <a id="road-graphadbff35eb926"></a> |                                                                                                       |                                     |
-| §2 P3、§5 SpatialIndex            | `UniformGrid` 已按原生几何包围盒索引并可从图重建；覆盖与交点计划仍扫描全部 Edge                      | 1.2、3.1～3.3                       |
+| §2 P3、§5 SpatialIndex            | `UniformGrid` 按原生几何包围盒索引并可从图重建；覆盖、交点、锚点和拆分均使用矩形 bucket 候选         | 1.2、3.1～3.3；已解决基线           |
 | <a id="road-graph5a1f82051412"></a> |                                                                                                       |                                     |
 | §2 P4、§6.2 删除算法              | 旧位置字典和连通分量拆分已删除，但单边和整组删除仍触发`TryMergeAtNode`                              | 0.6、4.1、4.3、4.4                  |
 | <a id="road-graph07fc815075a3"></a> |                                                                                                       |                                     |
@@ -57,8 +57,8 @@
 | <a id="road-graph6c685ce73a7e"></a> |                                                                                                       |                                     |
 | §6.1 AddRoad 与交叉/覆盖算法       | 折线兼容入口和原生 `SubmitPath` 均已落地；完整覆盖无副作用，离散交点、相切和重叠按原生参数拆分          | 0.2、0.6、2.1～2.4、3.3；已解决基线 |
 | <a id="road-graph541e1cb3f3d8"></a> |                                                                                                       |                                     |
-| §6.3、§7 查询和公共 API           | 最近节点、权威最近 Edge 和结构化 `SubmitPath` 已有；遍历快照与查询性能仍待收紧                         | 1.2、2.4、3.1～3.3、4.2             |
-| 附录 D 原生曲线与 V2 API           | Edge、提交、查询、交叉、重叠、拆分和存档已保持原生几何，RoadType 已移除；性能、删除事务及渲染集成仍待后续阶段 | 2.4～2.7、3.1～3.3、4.1～4.4       |
+| §6.3、§7 查询和公共 API           | 最近节点、权威最近 Edge 和结构化 `SubmitPath` 已有；几何查询性能已通过 10k 硬门槛                    | 1.2、2.4、3.1～3.3；4.2             |
+| 附录 D 原生曲线与 V2 API           | Edge、提交、查询、交叉、重叠、拆分、存档和性能已保持原生几何，RoadType 已移除；删除事务及渲染集成仍待后续阶段 | 2.4～2.7、3.1～3.3、4.1～4.4       |
 
 ## 执行顺序
 
@@ -217,33 +217,35 @@
 
 <a id="road-graph3.1"></a>
 
-- [ ] **3.1 建立当前 `AddRoad` 性能基线（原问题 3）**
-  - 当前热点：`CollectExistingSubSegments` 在 `Scripts/Road/RoadGraph.cs:555`、`FindEdgesContainingInteriorPoint` 在 `Scripts/Road/RoadGraph.cs:584`、`FindEdgesWithWaypointAt` 在 `Scripts/Road/RoadGraph.cs:485` 均遍历全部 Edge。
+- [x] **3.1 建立当前 `AddRoad` 性能基线（原问题 3）**
+  - 原热点：`CollectExistingSubSegments`、`FindEdgesContainingInteriorPoint` 和 `FindEdgesWithWaypointAt` 曾遍历全部 Edge。
   - 场景：1k、10k 和 100k Edge 下添加短路、长路、原生曲线、完全覆盖道路和多交叉道路，并执行命中和删除。
   - 指标：记录平均/P95 操作耗时、候选 Edge 数、全表遍历次数和分配量；10k 场景的交互操作 P95 不超过 16.67 ms，100k 只记录压力测试结果。
   - 验收：形成固定数据集和可重复命令，明确优化前基线；10k 满足 60 FPS 硬门槛，100k 结果不阻塞完成。
   - 当前进展（2026-08-03）：新增独立 `SimpleCities.RoadGraph.Performance` Release 基线入口，固定 1k/10k/100k 直线 Edge 数据集，记录短路、长路、原生曲线、完整覆盖、多交叉、最近边命中和单边删除的平均/P95、当前线程分配、空间候选、全表扫描和访问 Edge 数；完整口径与结果见 `docs/performance/road-graph-v2-baseline.md`。10k 下短路 11.800 ms、完整覆盖 0.247 ms、最近边 0.031 ms、删除 0.021 ms 达标；长路 18.911 ms、原生曲线 42.769 ms、多交叉 68.910 ms 超过 16.67 ms，因此本项保持开放。多交叉平均执行 407 次全表扫描并访问 4,110,600 个 Edge，为 `road-graph:3.3` 的首要优化证据。诊断聚焦测试 5/5、解决方案测试 360/360、主解决方案 Debug 与性能项目 Release 构建均为 0 警告/0 错误。
+  - 完成证据（2026-08-04）：同一 Release 入口使用 `--enforce-budget` 复测并以退出码 0 完成；10k 七类场景全部低于 16.67 ms，长路、原生曲线和多交叉 P95 分别为 1.162 ms、1.179 ms 和 5.113 ms。100k 七类压力结果已记录，多交叉为 15.841 ms，不参与硬门槛。
   - 来源 key：`todo:item:3.1`。
 
 <a id="road-graph3.2"></a>
 
-> 当前进展（2026-08-01）：`RoadGraphRegressionTests.AddRoad_CrossingLongUnsegmentedEdge_CreatesConnectedIntersectionNode` 与 `AddRoad_CrossingLongEdge_RemainsConnectedAcrossIndexBucketSizes` 已通过，作为长边中点候选检索的回归基线；在 8、64 和 256 单位 bucket 中，交叉均创建四连接节点。候选数量与局部密度的性能测量仍待补充。
+> 前置进展（2026-08-01）：`RoadGraphRegressionTests.AddRoad_CrossingLongUnsegmentedEdge_CreatesConnectedIntersectionNode` 与 `AddRoad_CrossingLongEdge_RemainsConnectedAcrossIndexBucketSizes` 已通过，作为长边中点候选检索的回归基线；在 8、64 和 256 单位 bucket 中，交叉均创建四连接节点。
 
-- [ ] **3.2 为直线和原生曲线建立完整空间占据索引**
+- [x] **3.2 为直线和原生曲线建立完整空间占据索引**
   - 修改：索引每个几何段的保守包围范围或自适应子区间，使直线、Bézier、样条、圆弧/圆锥曲线和回旋线等缓和曲线覆盖其穿越的全部 bucket；查询结果按 Edge ID 去重。
   - 设计修正：索引只能作为可重建候选服务，不能以采样点代替权威曲线；文档中的复杂度必须受查询桶数、局部密度和曲线细分上界约束。
   - 依赖：`road-graph:2.5`～`road-graph:2.6`。
   - 测试：跨多个空桶的长直线和大曲率曲线、包围盒边界、不同 bucket size、多曲线重叠候选和索引重建。
   - 验收：不会遗漏曲线中段交叉或命中；候选数量主要随覆盖范围和局部密度变化，而不是随全图 Edge 总数线性增长。
-  - 当前进展（2026-08-03）：空间索引已从端点/waypoint 弦引用迁移为每个原生几何段一个 `EdgeGeometryRef`，按段的保守 `Bounds` 覆盖全部 bucket，并在候选返回前使用原生最近点执行圆相交过滤；保存恢复通过图状态重建引用，删除按同一包围范围移除引用。`RoadGraphCurveSpatialQueryTests` 12/12 证明六类几何中段、高曲率区域、边界、重建和删除不会漏命中。当前实现使用整段包围盒，候选规模、不同 bucket size 曲线场景及 10k/100k 性能尚未测量，因此本项保持开放。
+  - 完成证据（2026-08-04）：空间索引以每个原生几何段的保守 `Bounds` 覆盖全部 bucket，`QueryBounds` 按查询矩形遍历 bucket 并对引用去重，最终命中仍由权威几何判定；保存恢复可重建，删除可按相同范围清理。`RoadGraphCurveSpatialQueryTests` 12/12 覆盖六类几何中段、高曲率、边界、重建和删除，既有长边测试覆盖 8、64、256 三种 bucket size。10k/100k 复测中空白短路、长路和原生曲线候选均为 0，完整覆盖只检查 4/7 个局部候选，多交叉候选随交点和沿线 bucket 增长而非随全图 Edge 数扫描。
   - 来源 key：`todo:item:3.2`。
 
 <a id="road-graph3.3"></a>
 
-- [ ] **3.3 优化覆盖与交点查询**
+- [x] **3.3 优化覆盖与交点查询**
   - 修改：覆盖、最近点、交点、锚点和拆分查询只精确计算 3.2 返回的候选；直线与曲线共享同一局部查询入口，不再遍历 `_edges.Values`。
   - 测试：阶段 0 和 2.6 的全部几何场景在优化前后结果一致，并在 10k/100k 固定数据集重复测量。
   - 验收：局部操作不执行全图 Edge 扫描；10k 满足 60 FPS 单帧预算，100k 压测记录候选规模和耗时。
+  - 完成证据（2026-08-04）：折线覆盖、交叉候选、已有节点锚点、内部点/waypoint 拆分，以及原生几何覆盖和交点计划统一使用几何矩形范围的空间候选，不再枚举 `_edges.Values`。完整解决方案测试 360/360 保持六类几何、交叉、相切、重叠、拆分、存档和失败原子性行为；性能诊断显示七类 10k/100k 场景的全表扫描与访问 Edge 数均为 0。`--enforce-budget` 退出码 0，10k 最慢的多交叉 P95 为 5.113 ms；Godot 主场景运行契约输出 `PASS pause menu runtime contract`，两轮 autosave 保存加载通过。
   - 来源 key：`todo:item:3.3`。
 
 ### 阶段 4：整理删除与合并事务（原问题 5）

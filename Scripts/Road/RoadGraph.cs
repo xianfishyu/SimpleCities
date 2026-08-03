@@ -296,7 +296,6 @@ public partial class RoadGraph : ISaveable
             var a = path[i];
             var b = path[i + 1];
             QueryCandidateEdgeIDs(a, b, candidateEdges);
-            RecordSpatialCandidates(candidateEdges.Count);
 
             foreach (int edgeID in candidateEdges.ToList())
             {
@@ -343,10 +342,7 @@ public partial class RoadGraph : ISaveable
         {
             var a = path[i];
             var b = path[i + 1];
-            float radius = a.DistanceTo(b) * 0.5f + SnapRadius;
-            var center = (a + b) * 0.5f;
-
-            foreach (var hit in _spatialIndex.QueryRadius(center, radius))
+            foreach (var hit in _spatialIndex.QueryBounds(CreateQueryBounds(a, b, SnapRadius)))
             {
                 if (hit.Kind != SpatialRefKind.Node) continue;
                 if (!PointOnSegmentInteriorOrEndpoint(a, b, hit.Position)) continue;
@@ -394,8 +390,9 @@ public partial class RoadGraph : ISaveable
 
     private IEnumerable<int> FindEdgesWithWaypointAt(Vector2 pos)
     {
-        foreach (var edge in EnumerateEdgesForGeometryScan())
+        foreach (int edgeID in FindCandidateEdgeIDs(CreateQueryBounds(pos, pos, Mathf.Sqrt(GeometryEpsilon))))
         {
+            if (!_edges.TryGetValue(edgeID, out GraphEdge? edge)) continue;
             foreach (var wp in edge.InternalPoints)
             {
                 if (wp.DistanceSquaredTo(pos) < GeometryEpsilon)
@@ -479,7 +476,9 @@ public partial class RoadGraph : ISaveable
         if (d.LengthSquared() < GeometryEpsilon) return true;
 
         var intervals = new List<(float lo, float hi)>();
-        foreach (var (q1, q2) in CollectExistingSubSegments())
+        HashSet<int> candidateEdgeIDs = FindCandidateEdgeIDs(
+            CreateQueryBounds(a, b, Mathf.Sqrt(GeometryEpsilon)));
+        foreach (var (q1, q2) in CollectExistingSubSegments(candidateEdgeIDs))
         {
             if (!IsPointOnInfiniteLine(a, b, q1)) continue;
             if (!IsPointOnInfiniteLine(a, b, q2)) continue;
@@ -503,10 +502,11 @@ public partial class RoadGraph : ISaveable
         return coveredUntil >= 1f - GeometryEpsilon;
     }
 
-    private IEnumerable<(Vector2 a, Vector2 b)> CollectExistingSubSegments()
+    private IEnumerable<(Vector2 a, Vector2 b)> CollectExistingSubSegments(IEnumerable<int> edgeIDs)
     {
-        foreach (var edge in EnumerateEdgesForGeometryScan())
+        foreach (int edgeID in edgeIDs)
         {
+            if (!_edges.TryGetValue(edgeID, out GraphEdge? edge)) continue;
             var path = edge.GetFullPath(GetNode);
             for (int i = 0; i < path.Length - 1; i++)
                 yield return (path[i], path[i + 1]);
@@ -515,19 +515,36 @@ public partial class RoadGraph : ISaveable
 
     private void QueryCandidateEdgeIDs(Vector2 a, Vector2 b, HashSet<int> result)
     {
-        // Query from both endpoints to ensure we find edges whose spatial refs
-        // might be near either end of the path segment, not just its midpoint.
-        float segLen = a.DistanceTo(b);
-        float radius = segLen + IndexBucketSize * 2f;
+        foreach (int edgeID in FindCandidateEdgeIDs(
+                     CreateQueryBounds(a, b, Mathf.Sqrt(GeometryEpsilon))))
+            result.Add(edgeID);
+    }
 
-        foreach (var hit in _spatialIndex.QueryRadius(a, radius))
-        {
-            if (TryGetEdgeID(hit, out int edgeID)) result.Add(edgeID);
-        }
-        foreach (var hit in _spatialIndex.QueryRadius(b, radius))
-        {
-            if (TryGetEdgeID(hit, out int edgeID)) result.Add(edgeID);
-        }
+    private HashSet<int> FindCandidateEdgeIDs(Rect2 bounds)
+    {
+        var result = new HashSet<int>();
+        foreach (ISpatialRef hit in _spatialIndex.QueryBounds(bounds))
+            if (TryGetEdgeID(hit, out int edgeID))
+                result.Add(edgeID);
+        RecordSpatialCandidates(result.Count);
+        return result;
+    }
+
+    private HashSet<int> FindCandidateEdgeIDs(RoadGeometrySegment geometry) =>
+        FindCandidateEdgeIDs(CreateQueryBounds(
+            geometry.Bounds.Position,
+            geometry.Bounds.End,
+            Mathf.Sqrt(GeometryEpsilon)));
+
+    private static Rect2 CreateQueryBounds(Vector2 first, Vector2 second, float padding)
+    {
+        var minimum = new Vector2(
+            Mathf.Min(first.X, second.X) - padding,
+            Mathf.Min(first.Y, second.Y) - padding);
+        var maximum = new Vector2(
+            Mathf.Max(first.X, second.X) + padding,
+            Mathf.Max(first.Y, second.Y) + padding);
+        return new Rect2(minimum, maximum - minimum);
     }
 
     private static bool TryGetEdgeID(ISpatialRef spatialRef, out int edgeID)
@@ -581,8 +598,12 @@ public partial class RoadGraph : ISaveable
 
     private IEnumerable<int> FindEdgesContainingInteriorPoint(Vector2 pos)
     {
-        foreach (var edge in EnumerateEdgesForGeometryScan())
+        foreach (int edgeID in FindCandidateEdgeIDs(CreateQueryBounds(
+                     pos,
+                     pos,
+                     Mathf.Sqrt(GeometryEpsilon))))
         {
+            if (!_edges.TryGetValue(edgeID, out GraphEdge? edge)) continue;
             var path = edge.GetFullPath(GetNode);
             if (FindSubSegmentContaining(path, pos) >= 0)
                 yield return edge.ID;
