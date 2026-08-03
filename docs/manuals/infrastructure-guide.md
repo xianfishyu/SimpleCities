@@ -162,7 +162,7 @@ public static class GridSystem
 }
 ```
 
-当前 `GridSystem.cs` 中有 `SnapToGrid()` 和 `IsSnapGrid()` 两个静态方法，它们与 `RoadConfig.CellSize` 耦合。`Direction` / `DirectionUtil` 仍是 8 方向行为的当前实现。`IGridGeometry` 和 `Square8Grid` 只是未来可替换网格方案，不是现有类。
+当前 `GridSystem.cs` 仍为调试组件等 UI 提供 `SnapToGrid()` 和 `IsSnapGrid()`。铺路不再直接调用它：`RoadBuilder` 消费 `IRoadInputStrategy`，默认 `SquareEightRoadInputStrategy` 内部复用 `Direction` / `DirectionUtil`；`TriangularThreeRoadInputStrategy` 与 `HexSixRoadInputStrategy` 以不同吸附和邻接规则通过同一草稿契约。完整邻居枚举、成本和寻路启发式仍是未来更宽的网格几何设计，不属于当前输入接口。
 
 ### 3.2 MapBackground（Shader 网格渲染）
 
@@ -282,6 +282,8 @@ Scripts/Road/RoadBuilder.cs
 Scripts/Road/Input/IRoadInputStrategy.cs
 Scripts/Road/Input/RoadPathDraft.cs
 Scripts/Road/Input/SquareEightRoadInputStrategy.cs
+Scripts/Road/Input/TriangularThreeRoadInputStrategy.cs
+Scripts/Road/Input/HexSixRoadInputStrategy.cs
 Scripts/Road/RoadRenderer.cs
 Scripts/Road/SpatialIndex.cs
 Scripts/Road/RoadConfig.cs
@@ -306,4 +308,4 @@ project.godot
 
 ### 未来设计边界
 
-可替换铺路边界已经由 `IRoadInputStrategy`、`RoadPathDraft` 和默认 `SquareEightRoadInputStrategy` 落地；`RoadBuilder` 只管理输入生命周期并经 `RoadGraph.SubmitPath` 提交。三角形/六边形策略、连续多段铺路、`TrafficGraph`、A* 寻路、道路分级 UI 和按 RoadType 差异化渲染仍属于未来工作。第二代道路 JSON 只使用严格版本化的 `nodes/edges/groups` 与原生几何；第三代若引入 RoadType，必须提升 schema 并定义新的迁移或拒绝规则。
+可替换铺路边界已经由 `IRoadInputStrategy` 和 `RoadPathDraft` 落地；默认米字型、三角单元中心和六边形单元中心策略均通过共享契约，`RoadBuilder` 只管理输入生命周期并经 `RoadGraph.SubmitPath` 提交。连续多段铺路、`TrafficGraph`、A* 寻路、道路分级 UI 和按 RoadType 差异化渲染仍属于未来工作。第二代道路 JSON 只使用严格版本化的 `nodes/edges/groups` 与原生几何；第三代若引入 RoadType，必须提升 schema 并定义新的迁移或拒绝规则。

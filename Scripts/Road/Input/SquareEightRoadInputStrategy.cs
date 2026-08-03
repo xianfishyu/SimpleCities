@@ -60,11 +60,7 @@ public sealed class SquareEightRoadInputStrategy : IRoadInputStrategy
         for (int index = 1; index <= cellCount; index++)
             points.Add(anchor + step * index);
 
-        var segments = new RoadGeometrySegment?[points.Count - 1];
-        for (int index = 0; index < segments.Length; index++)
-            segments[index] = new LineRoadGeometrySegment(points[index], points[index + 1]);
-
-        return new RoadPathDraft(points, new RoadPath(segments));
+        return RoadPathDraft.FromPolyline(points);
     }
 
     private bool IsPrimarySnapPoint(Vector2 position)

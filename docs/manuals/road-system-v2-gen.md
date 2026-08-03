@@ -150,7 +150,7 @@ GameHUD              — 鼠标格点坐标显示
 │ Layer 3: UI / Input                                         │
 │   RoadBuilder     — 铺路输入生命周期、预览、提交与取消          │
 │   InputStrategy   — 指针吸附/投影 → 不可变 RoadPathDraft      │
-│   SquareEight...  — 当前米字型吸附、八方向和半格约束           │
+│   Grid Strategies — 米字型默认 + 三角/六边形可替换验证         │
 │   ToolManager     — 工具切换，输入路由                        │
 ├─────────────────────────────────────────────────────────────┤
 │ Layer 2: Topology (Pure Graph)                              │
@@ -907,7 +907,7 @@ RoadGraphSaveData {
 
 ### D.4 未完成事项
 
-> 2026-08-04 进度：`tool-input:1.2` 已完成策略接口、不可变草稿、默认米字型实现及 RoadBuilder 生命周期接入；V2-6 仍等待 `tool-input:1.3` 的三角形与六边形策略验收。
+> 2026-08-04 进度：V2-6 已完成。`tool-input:1.2` 建立策略接口、不可变草稿、默认米字型实现及 RoadBuilder 生命周期；`tool-input:1.3` 以三角单元中心 3 邻接和六边形单元中心 6 邻接策略通过同一提交、交叉拆分与存档契约。
 
 | ID | 未完成事项 | 所属系统 | 验收摘要 |
 |---|---|---|---|

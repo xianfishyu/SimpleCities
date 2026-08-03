@@ -515,17 +515,19 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 
 ### Road 输入策略
 
-**文件**：`Scripts/Road/Input/IRoadInputStrategy.cs`、`RoadPathDraft.cs`、`SquareEightRoadInputStrategy.cs`
+**文件**：`Scripts/Road/Input/IRoadInputStrategy.cs`、`RoadPathDraft.cs`、`SquareEightRoadInputStrategy.cs`、`TriangularThreeRoadInputStrategy.cs`、`HexSixRoadInputStrategy.cs`
 
 | 类型/成员 | 签名 | 说明 |
 |---|---|---|
 | `IRoadInputStrategy.InteractionRadius` | `float InteractionRadius { get; }` | 当前策略用于道路起点吸附和拆除命中的半径 |
 | `IRoadInputStrategy.SnapPointer` | `Vector2 SnapPointer(Vector2 worldPosition)` | 把世界指针映射到策略定义的吸附点 |
 | `IRoadInputStrategy.BuildDraft` | `RoadPathDraft BuildDraft(Vector2 startPosition, Vector2 pointerPosition)` | 生成预览点和可选的权威 `RoadPath` |
-| `RoadPathDraft` | `public sealed class RoadPathDraft` | 防御性复制预览点；`Path == null` 表示当前不可提交 |
+| `RoadPathDraft` | `public sealed class RoadPathDraft` | 防御性复制预览点；`Path == null` 表示当前不可提交；`FromPolyline` 把连续预览点转换为原生 line 段 |
 | `SquareEightRoadInputStrategy` | `public sealed class SquareEightRoadInputStrategy : IRoadInputStrategy` | 封装方格吸附、八方向投影、半格对角约束和逐格原生直线段 |
+| `TriangularThreeRoadInputStrategy` | `public sealed class TriangularThreeRoadInputStrategy : IRoadInputStrategy` | 吸附到三角单元中心；主/次中心分别有 3 个跨边邻居，长路径交替两组邻接 |
+| `HexSixRoadInputStrategy` | `public sealed class HexSixRoadInputStrategy : IRoadInputStrategy` | pointy-top 六边形单元中心轴向取整；沿 6 个等长方向投影 |
 
-`RoadBuilder` 不直接引用 `Direction`、`DirectionUtil`、`GridSystem` 或 `CellSize`。未来策略可以产生不同吸附与邻接规则，只要返回连续的 `RoadPathDraft`；RoadGraph 不需要按网格类型增加分支。
+`RoadBuilder` 不直接引用 `Direction`、`DirectionUtil`、`GridSystem` 或 `CellSize`，也不包含三角形/六边形条件分支。当前玩家默认仍使用米字型策略；另外两种实现用于自动化验证可替换性。三者只需返回连续的 `RoadPathDraft`，RoadGraph 不感知网格类型。
 
 ### RoadRenderer
 

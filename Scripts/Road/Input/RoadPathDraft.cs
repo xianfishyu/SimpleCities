@@ -30,4 +30,18 @@ public sealed class RoadPathDraft
     }
 
     public static RoadPathDraft Empty(Vector2 startPosition) => new([startPosition], null);
+
+    public static RoadPathDraft FromPolyline(IReadOnlyList<Vector2> previewPoints)
+    {
+        ArgumentNullException.ThrowIfNull(previewPoints);
+        if (previewPoints.Count == 0)
+            throw new ArgumentException("A road path draft needs at least one preview point.", nameof(previewPoints));
+        if (previewPoints.Count == 1)
+            return Empty(previewPoints[0]);
+
+        var segments = new RoadGeometrySegment?[previewPoints.Count - 1];
+        for (int index = 0; index < segments.Length; index++)
+            segments[index] = new LineRoadGeometrySegment(previewPoints[index], previewPoints[index + 1]);
+        return new RoadPathDraft(previewPoints, new RoadPath(segments));
+    }
 }

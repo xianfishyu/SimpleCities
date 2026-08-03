@@ -1,9 +1,9 @@
 # 网格系统设计
 
-> 状态：当前实现说明 + 未来抽象设计 | 最后更新：2026-07-20
+> 状态：当前输入策略说明 + 未来寻路网格设计 | 最后更新：2026-08-04
 >
-> **注意**：当前实现仍是 `GridSystem` + `Direction` + `DirectionUtil`，提供 8 方向行为并通过 `RoadConfig` 获取 CellSize。
-> `IGridGeometry` 与 `Square8Grid` 是未来可替换网格的设计草案，不是现有类。
+> **注意**：当前铺路实现使用 `IRoadInputStrategy` 和 `RoadPathDraft`。玩家默认是 `SquareEightRoadInputStrategy`；三角形与六边形策略用于验证替换能力。
+> `IGridGeometry`、邻居成本和寻路启发式仍是未来设计，不是当前输入 API。
 > 具体的数据结构（GraphNode / GraphEdge / RoadGroup / SpatialIndex）见 `road-system-v2-gen.md`。
 
 ---
@@ -21,8 +21,9 @@ Layer          | 职责                        | 是否感知网格？
 ───────────────┼─────────────────────────────┼─────────────
 RoadGraph      | 图存储（节点、边、拓扑操作） | 否 — 纯连续坐标
 SpatialIndex   | 空间查询                    | 否 — 仅按距离
-RoadBuilder    | 鼠标→拓扑操作转换            | 是 — 这是网格的"家"
-GridSystem     | 网格数学（吸附、邻居枚举）   | 是 — 网格逻辑集中在此
+RoadBuilder    | 输入生命周期、预览、提交      | 否 — 只消费策略草稿
+InputStrategy  | 指针吸附、投影、路径草稿      | 是 — 输入网格规则在此
+GridSystem     | 旧方格吸附工具                | 是 — 供其他 UI/调试使用
 ```
 
 ---
@@ -31,24 +32,27 @@ GridSystem     | 网格数学（吸附、邻居枚举）   | 是 — 网格逻�
 
 当前运行时代码：
 
-- `GridSystem` 是静态 helper，集中提供 `SnapToGrid()` 和 `IsSnapGrid()`。
-- `GridSystem.Config` 由 `RoadSystem._Ready()` 注入，CellSize 来自 `RoadConfig`。
-- `Direction` / `DirectionUtil` 负责 8 方向判定、位移和正交/对角长度。
-- `RoadBuilder` 使用这些工具完成鼠标吸附、拖拽投影和半格起点规则。
+- `IRoadInputStrategy` 定义 `InteractionRadius`、`SnapPointer` 和 `BuildDraft`。
+- `RoadPathDraft` 防御性保存预览点和可选 `RoadPath`，`FromPolyline` 生成连续原生 line 段。
+- `SquareEightRoadInputStrategy` 负责当前玩家默认的方格吸附、8 方向投影和半格对角约束。
+- `TriangularThreeRoadInputStrategy` 把锚点放在三角单元中心，每个中心只有 3 个跨边邻居；相邻三角形交替方向，长路径呈确定锯齿。
+- `HexSixRoadInputStrategy` 使用 pointy-top 六边形单元中心、轴向/立方坐标取整和 6 个等长方向。
+- `RoadBuilder` 只负责开始、更新、预览、提交、取消和策略切换；RoadGraph 不引用任何策略类型。
+- `GridSystem` 仍供调试等其他 UI 使用，但不再参与 RoadBuilder 的铺路生命周期。
 
-未来设计目标仍是把网格几何抽象成可替换对象，但当前不要声称 `IGridGeometry` 或 `Square8Grid` 已经存在。
+未来 `IGridGeometry` 可以在输入策略之外增加邻居枚举、移动成本和寻路启发式；不要把该草案写成当前已实现接口。
 
-## 3. 抽象网格接口（未来设计）
+## 3. 完整网格几何接口（未来设计）
 
 ### 3.1 IGridGeometry
 
-未来所有网格结构建议实现的接口：
+若未来需要让网格参与寻路或区域规则，可在当前输入策略之外设计更宽的接口：
 
 ```csharp
 /// <summary>
 /// 网格几何抽象。定义"合法位置集合"和"位置间的关系"。
-/// RoadBuilder 依赖此接口做鼠标吸附和方向投影。
-/// RoadGraph 完全不依赖此接口。
+/// 未来可由寻路或区域规则消费；铺路输入仍通过 IRoadInputStrategy 适配。
+/// RoadBuilder 和 RoadGraph 都不直接依赖此接口。
 /// </summary>
 public interface IGridGeometry
 {
@@ -88,15 +92,15 @@ public struct GridProjection
 | 决策 | 理由 |
 |------|------|
 | 接口不含 CellSize | 不同网格可能用不同方式定义"步长"（六边形有多个半径参数） |
-| 返回方向是 `string` 而非枚举 | 不同网格的方向数量不同（正方 8 个、六边形 6 个、三角 12 个），字符串标签灵活且可读 |
+| 输入与寻路接口分开 | 当前铺路只需草稿；邻居标签、成本和启发式不应提前进入 `IRoadInputStrategy` |
 | `Cost()` 独立于 `GetNeighbors()` | A* 寻路的启发函数可能需要不同于实际移动代价的估计值 |
 | `Project()` 封装了方向选择逻辑 | 正方网格：投影到 8 方向选最长；六边形网格：投影到 6 方向选最长 |
 
 ---
 
-## 4. 正方 8 方向网格（Square8Grid，未来设计）
+## 4. 正方 8 方向输入策略（当前默认）
 
-这是未来可替换网格方案中的默认候选。当前项目的运行时代码还没有 `Square8Grid` 类，而是由 `GridSystem`、`Direction` 和 `DirectionUtil` 共同实现同等的 8 方向行为。
+`SquareEightRoadInputStrategy` 是当前玩家默认实现。它从 `RoadConfig.CellSize` 构造，在策略内部使用 `Direction` 和 `DirectionUtil`，不把方格规则暴露给 RoadBuilder 或 RoadGraph。
 
 ### 4.1 坐标系
 
@@ -138,53 +142,21 @@ NW       (-1, -1)   315°      cellSize × √2
 
 > 节点类型**不存储为状态**，而是从当前的边连接关系**按需计算**（连接数 + 方向几何判定）。
 
-### 4.4 Square8Grid 实现要点（草案）
+### 4.4 当前实现边界
 
-```csharp
-public class Square8Grid : IGridGeometry
-{
-    public float CellSize { get; }
-
-    public Vector2 Snap(Vector2 pos) =>
-        new(Mathf.Round(pos.X / CellSize) * CellSize,
-            Mathf.Round(pos.Y / CellSize) * CellSize);
-
-    public bool IsGridPoint(Vector2 pos) =>
-        Mathf.Abs(pos.X % CellSize) < 1e-3f &&
-        Mathf.Abs(pos.Y % CellSize) < 1e-3f;
-
-    public GridProjection Project(Vector2 from, Vector2 mouse)
-    {
-        // 将向量 (mouse - from) 投影到 8 个方向，选投影长度最大的
-        // 格数 = 投影长度 / 该方向步长（取整）
-    }
-
-    public IEnumerable<GridStep> GetNeighbors(Vector2 from)
-    {
-        // 8 个方向各返回一个 GridStep
-    }
-
-    public float Cost(Vector2 from, Vector2 to)
-    {
-        float dx = Mathf.Abs(to.X - from.X);
-        float dy = Mathf.Abs(to.Y - from.Y);
-        float dMax = Mathf.Max(dx, dy);
-        float dMin = Mathf.Min(dx, dy);
-        return CellSize * (dMax - dMin) + CellSize * Mathf.Sqrt(2) * dMin;
-        // Octile 距离
-    }
-}
-```
-
-**注意**：`Square8Grid` 是未来替代方案。当前不要删除 `GridSystem`、`Direction` 或 `DirectionUtil`，它们仍是运行时 8 方向行为的来源。
+- 指针先吸附到 `cellSize` 整数倍坐标。
+- 拖拽向量投影到 8 个方向，格数按该方向真实步长取整。
+- 偏移起点只允许对角延伸，并用半格 anchor 保持后续点回到整格。
+- 每个预览步转换为一个原生 `LineRoadGeometrySegment`。
+- `GridSystem`、`Direction` 和 `DirectionUtil` 仍有其他调用方；本阶段只保证 RoadBuilder 不直接依赖它们。
 
 ---
 
-## 5. 备选网格方案（供未来实验）
+## 5. 替换验证策略与未来方案
 
-以下方案无需现在实现，但未来的 `IGridGeometry` 接口应能容纳它们。
+三角形与六边形实现是自动化验证策略，不是当前玩家可选择的产品模式。它们证明不同吸附和邻接规则无需修改 RoadBuilder 或 RoadGraph。
 
-### 5.1 六边形网格（HexGrid）
+### 5.1 六边形单元中心（当前验证实现）
 
 ```
     NW  NE
@@ -193,16 +165,16 @@ public class Square8Grid : IGridGeometry
      ╱ ╲
     SW  SE
 
-特点：6 方向，每步距离相等（√3 × 半径），无"对角更快"的偏斜问题。
-适用：更自然的城市扩展模式，常用于策略游戏。
+特点：`HexSixRoadInputStrategy` 使用 pointy-top 单元中心和轴向坐标；6 个方向步长相等。
 ```
 
-实现 `HexGrid : IGridGeometry` 时需处理：
-- 六边形的"格点"定义（点顶 hex vs 平顶 hex）
-- `Snap()` 需要六边形坐标系的取整逻辑（轴向坐标或立方坐标）
-- `Cost()` 始终返回常数（与方向无关）
+`SnapPointer` 通过立方坐标误差最大的轴回调完成稳定取整；`BuildDraft` 选择投影最大的六方向并按等长步数生成 line 草稿。
 
-### 5.2 正方 4 方向网格（Square4Grid）
+### 5.2 三角形单元中心（当前验证实现）
+
+`TriangularThreeRoadInputStrategy` 使用三角单元中心作为锚点。每个三角形通过三条边连接 3 个邻居；相邻单元朝向交替，因此长拖拽根据剩余指针方向逐步选择邻居，形成符合三角邻接的锯齿路径。
+
+### 5.3 正方 4 方向网格（未来）
 
 ```
       N
@@ -217,7 +189,7 @@ public class Square8Grid : IGridGeometry
 
 直接复用 `Square8Grid` 的大部分逻辑，仅 `GetNeighbors()` 和 `Project()` 过滤到 4 方向。
 
-### 5.3 自由角度网格（FreeAngleGrid）
+### 5.4 自由角度网格（未来）
 
 ```
 任意角度拖拽，RoadBuilder 不限定方向。格点 = 鼠标位置的最近已有节点。
@@ -226,14 +198,14 @@ public class Square8Grid : IGridGeometry
 
 这可能不需要 `Snap()`，而是依赖空间索引找最近节点。`Project()` 退化为"沿鼠标方向直接指向鼠标位置"。
 
-### 5.4 混合网格
+### 5.5 混合网格（未来）
 
 同一场景中不同区域使用不同网格。例如：
 - 市中心：正方 4 方向（严格街区）
 - 郊区：六边形（自然扩张）
 - 工业区：自由角度
 
-`RoadBuilder` 根据鼠标所在区域切换活跃的 `IGridGeometry` 实例。
+未来可以根据鼠标所在区域调用 `RoadBuilder.SetInputStrategy(...)`，但当前没有玩家运行时切换 UI。
 
 ---
 
@@ -292,7 +264,7 @@ NodeA.Position → waypoint[0] → waypoint[1] → ... → NodeB.Position
 
 背景网格由 `MapBackground`（ShaderMaterial）渲染，与道路逻辑解耦。
 网格背景的视觉效果（是否显示网格线、间距、颜色）由 Shader 参数控制，
-**不受活跃 `IGridGeometry` 影响**（背景显示只是视觉辅助）。
+**不受活跃 `IRoadInputStrategy` 影响**（背景显示只是视觉辅助）。
 
 ### 7.3 道路样式
 
@@ -304,9 +276,10 @@ NodeA.Position → waypoint[0] → waypoint[1] → ... → NodeB.Position
 ## 8. 已确认决策
 
 - [x] 网格是 UI 输入层概念，数据层（RoadGraph）不感知网格
-- [x] 当前默认行为：正方 8 方向，由 `GridSystem` + `Direction` + `DirectionUtil` 实现
-- [ ] 网格实现 `IGridGeometry` 接口，支持替换
-- [ ] 当前默认实现迁移为 `Square8Grid`（CellSize 仍由配置提供）
+- [x] 当前默认行为：`SquareEightRoadInputStrategy` 提供正方 8 方向，CellSize 仍由配置提供
+- [x] 铺路输入实现 `IRoadInputStrategy` 接口，可在不修改 RoadBuilder/RoadGraph 时替换
+- [x] 三角形 3 邻接与六边形 6 邻接策略通过同一草稿、交叉拆分和存档契约
+- [ ] 完整 `IGridGeometry` 邻居/成本/启发式接口仅在寻路或区域规则需要时再实现
 - [x] 地图地形由 Godot 编辑器手工制作
 
 ## 9. 待定问题
