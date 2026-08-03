@@ -94,25 +94,28 @@
 | 成员 | 签名 | 说明 |
 |---|---|---|
 | `Instance` | `public static SaveManager Instance { get; private set; }` | Autoload 单例 |
-| `CurrentSlotName` | `public string CurrentSlotName { get; private set; } = "autosave"` | 当前槽位名 |
+| `AutosaveSlotID` | `public const string AutosaveSlotID = "autosave"` | 保留的自动存档内部 ID |
+| `CurrentSlotID` | `public string CurrentSlotID { get; private set; } = AutosaveSlotID` | 当前槽位内部 ID |
 | `RegisteredSaveableCount` | `public int RegisteredSaveableCount` | 当前活动注册数量 |
 | `_Ready` | `public override void _Ready()` | 设置 `Instance` |
 | `Register` | `public bool Register(ISaveable saveable)` | 同一对象幂等；拒绝另一活动对象使用相同 `SaveFileName` |
 | `Unregister` | `public bool Unregister(ISaveable saveable)` | 移除离开场景树的可存档对象 |
-| `Save` | `public bool Save(string slotName = "autosave")` | 保存所有已注册系统 |
-| `Load` | `public bool Load(string slotName = "autosave")` | 加载 manifest 中匹配已注册系统的文件 |
-| `SaveSlotExists` | `public bool SaveSlotExists(string slotName)` | 检查 manifest 是否存在 |
-| `DeleteSlot` | `public bool DeleteSlot(string slotName)` | 递归删除非空槽位；当前槽被删时回到 `autosave`，不存在或失败返回 `false` |
+| `Save` | `public bool Save(string slotID = AutosaveSlotID)` | 按内部 ID 覆盖已存在槽位；首次只允许保留的 autosave |
+| `SaveAs` | `public bool SaveAs(string displayName)` | 以玩家可见名称创建具有独立安全 ID 的手动槽位 |
+| `Load` | `public bool Load(string slotID = AutosaveSlotID)` | 按内部 ID 加载 manifest 中匹配已注册系统的文件 |
+| `SaveSlotExists` | `public bool SaveSlotExists(string slotID)` | 按内部 ID 检查 manifest 是否存在 |
+| `DeleteSlot` | `public bool DeleteSlot(string slotID)` | 按内部 ID 递归删除非空槽位；当前槽被删时回到 `autosave` |
 
 | 存档规则 | 当前实现 |
 |---|---|
-| 基础目录 | 编辑器使用全局化的 `res://saves/<slot>/`；导出版本使用可执行文件旁的 `saves/<slot>/` |
+| 基础目录 | 编辑器使用全局化的 `res://saves/<slotID>/`；导出版本使用可执行文件旁的 `saves/<slotID>/` |
+| 命名边界 | 目录只使用受限内部 ID；玩家显示名只进入 manifest，最大 128 个 UTF-16 字符 |
 | 单系统文件 | `<SaveFileName>.json` |
 | 写入策略 | 每个文件先写 `.tmp`，再移动为正式文件；这不是整槽原子事务 |
 | Manifest | `manifest.json`，字段来自 `ManifestData` |
 | 错误处理 | 捕获异常，`GD.PushError(...)`，返回 `false` |
 
-`SaveSlotStore` 是不依赖 Godot Node 的内部文件存储边界，负责槽目录、系统 JSON、manifest、存在性检查和递归删除；`SaveManager` 负责注册生命周期、Godot 日志和 `CurrentSlotName`。隔离目录 xUnit 直接验证 `SaveSlotStore`，Godot 运行时契约验证适配层。
+`SaveSlotStore` 是不依赖 Godot Node 的内部文件存储边界，负责生成 `manual-<GUID>` ID、约束槽目录与系统文件名、读写 manifest、存在性检查和递归删除；`SaveManager` 负责注册生命周期、Godot 日志和 `CurrentSlotID`。隔离目录 xUnit 直接验证 `SaveSlotStore`，Godot 运行时契约验证适配层。
 
 ### InputBindingManager
 
@@ -156,7 +159,8 @@
 | DTO | 公开属性签名 | JSON 字段 | 默认值/说明 |
 |---|---|---|---|
 | `ManifestData` | `public int? SchemaVersion { get; set; }` | `schemaVersion` | 反序列化无默认值；保存入口显式写入 `1` |
-| `ManifestData` | `public string SlotName { get; set; }` | `slotName` | `"autosave"` |
+| `ManifestData` | `public string SlotID { get; set; }` | `slotId` | 内部目录标识 |
+| `ManifestData` | `public string DisplayName { get; set; }` | `displayName` | 玩家可见名称，不参与路径计算 |
 | `ManifestData` | `public string Timestamp { get; set; }` | `timestamp` | `""` |
 | `ManifestData` | `public string CityName { get; set; }` | `cityName` | `"My City"` |
 | `ManifestData` | `public List<string> Files { get; set; }` | `files` | 文件名列表 |

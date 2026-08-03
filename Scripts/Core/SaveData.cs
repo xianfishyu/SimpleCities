@@ -13,8 +13,11 @@ public class ManifestData
     [JsonPropertyName("schemaVersion")]
     public int? SchemaVersion { get; set; }
 
-    [JsonPropertyName("slotName")]
-    public string SlotName { get; set; } = "autosave";
+    [JsonPropertyName("slotId")]
+    public string SlotID { get; set; } = "";
+
+    [JsonPropertyName("displayName")]
+    public string DisplayName { get; set; } = "";
 
     [JsonPropertyName("timestamp")]
     public string Timestamp { get; set; } = "";

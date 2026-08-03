@@ -10,7 +10,8 @@ public sealed class SaveManagerManifestVersionTests
         ManifestData manifest = SaveManager.ParseAndValidateManifest("""
             {
               "schemaVersion": 1,
-              "slotName": "autosave",
+              "slotId": "autosave",
+              "displayName": "Autosave",
               "timestamp": "2026-08-04T00:00:00Z",
               "cityName": "My City",
               "files": ["road_network.json"]
@@ -18,6 +19,8 @@ public sealed class SaveManagerManifestVersionTests
             """);
 
         Assert.Equal(1, manifest.SchemaVersion);
+        Assert.Equal("autosave", manifest.SlotID);
+        Assert.Equal("Autosave", manifest.DisplayName);
     }
 
     [Theory]

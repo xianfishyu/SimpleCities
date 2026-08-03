@@ -163,3 +163,35 @@ manifest 缺少 `schemaVersion`，或只提供大小写错误的 `SchemaVersion`
 - `dotnet build SimpleCities.sln --configuration Debug --no-restore`：0 警告、0 错误。
 - `godot --headless --path . --log-file .godot/qa-save-manifest-version.log --script tests/godot/pause_menu_runtime_contract.gd`：输出 `PASS pause menu runtime contract`，两轮 autosave 保存/加载通过；两条 `ConstructionDock` 缺少 `ToolManager.Instance` 警告来自既有隔离场景。
 - 当前会话未提供 `csharp-ls` MCP，无法执行逐文件 C# LSP 诊断。
+
+---
+
+<a id="save-system-bug-5"></a>
+## BUG-5：系统文件名和槽目录链接可绕过存档根目录
+
+> 修复日期：2026-08-04
+> 关联事项：`save-system:0.10`
+
+### 症状
+
+虽然槽位名只接受安全 ASCII 字符，注册对象仍可通过带目录分隔符的 `ISaveable.SaveFileName` 让系统 JSON 写到槽目录之外；预先把合法槽目录替换为目录链接时，保存、读取或删除也可能跟随链接访问存档根之外的位置。
+
+### 根因分析
+
+`SaveSlotStore` 只校验了槽位字符串，随后直接对 `SaveFileName + ".json"` 使用 `Path.Combine`，没有约束系统文件名必须是单个安全标识。槽目录路径也没有核对为存档根的直接子项，且没有拒绝 Windows 重解析点。
+
+### 修复方案
+
+`SaveSlotStore` 现在分别校验内部槽位 ID 与系统文件名，只允许 ASCII 字母、数字、下划线和连字符；系统文件名在创建目录和捕获状态前完成校验。槽目录通过 `Path.GetFullPath` 和 `Path.GetRelativePath` 确认是根目录的直接子项，并拒绝已有的 `FileAttributes.ReparsePoint` 目录。玩家显示名与两类路径标识完全分离，只写入 manifest。
+
+### 影响范围
+
+影响所有槽位保存、加载、存在性检查和删除入口，以及注册系统 JSON 的文件名边界。现有 `autosave`、`road_network` 和 `camera` 标识仍合法；包含路径字符的玩家显示名继续被允许，因为它不会参与任何路径计算。
+
+## BUG-5 验证状态
+
+- `SaveManagerSlotContractTests` 与 `SaveManagerManifestVersionTests` 聚焦测试：28/28 通过，覆盖正反斜杠路径穿越、盘符路径、非 ASCII/空格槽 ID、系统文件名逃逸、重复自由显示名、名称长度和不可写基础路径。
+- `dotnet test SimpleCities.sln --configuration Debug --no-restore`：400 通过、0 失败、0 跳过。
+- `dotnet build SimpleCities.sln --configuration Debug --no-restore`：0 警告、0 错误。
+- `godot --headless --path . --log-file .godot/qa-save-slot-identity.log --script tests/godot/pause_menu_runtime_contract.gd`：输出 `PASS pause menu runtime contract`，两轮 autosave 保存/加载通过；两条 `ConstructionDock` 缺少 `ToolManager.Instance` 警告来自既有隔离场景。
+- 当前会话未提供 `csharp-ls` MCP，无法执行逐文件 C# LSP 诊断；只读 ACL 和真实 Windows 导出包仍由 `save-system:0.10` 后续验证。

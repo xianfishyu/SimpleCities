@@ -1,7 +1,7 @@
 # 存档系统待办清单
 
 > 系统 key：`save-system`
-> 复核日期：2026-08-03
+> 复核日期：2026-08-04
 > 证据：`Scripts/Core/SaveManager.cs`、`Scripts/Core/SaveData.cs`、`Scripts/Road/RoadGraph.Persistence.cs`、当前存档测试及 `docs/manuals/road-system-v2-gen.md` 附录 D。
 > 主导原则：第二代提供多个玩家命名的道路网络存档；道路数据独立 JSON，其他系统以后按相同注册机制扩展，但不纳入第二代保存内容。
 
@@ -19,7 +19,7 @@
 | 0.5 | RoadGraph 恢复前缺少完整引用校验 | 已完成 | 临时解析、全量校验后一次提交 |
 | 0.8 | SaveManager 场景注册生命周期 | 已完成 | 保留注册和注销基线 |
 | 0.9 | SaveManager 缺少稳定自动化契约 | 部分完成 | 已建立纯存储基线；待多槽 API、恢复失败和整槽原子提交 |
-| 0.10 | 文件夹槽名与玩家显示名称混为一体 | 部分完成 | 分离安全内部 ID 和玩家可命名显示名 |
+| 0.10 | 文件夹槽名与玩家显示名称混为一体 | 部分完成 | 核心 ID/显示名与路径防护已完成；待只读位置和 Windows 导出包实测 |
 | 0.11 | 加载会在完整预检前调用 RestoreState | 未完成 | 先预检 manifest 和道路 JSON，再提交 RoadGraph |
 | 1.1 | 没有可列举的命名存档目录与完整元数据 | 未完成 | 建立存档目录 API 和 manifest 元数据 |
 | 1.2 | 暂停菜单只固定保存/加载 autosave | 未完成 | 实现另存为、覆盖确认、加载和删除工作流 |
@@ -34,7 +34,7 @@
 
 | 设计范围 | 当前事实 | 关联待办 |
 |---|---|---|
-| 多命名存档 | SaveManager 接受 slotName，但没有列举 API、显示名模型或管理界面 | 0.9～0.10、1.1～1.3 |
+| 多命名存档 | SaveManager 已分离 `slotID` 与 `displayName` 并支持 `SaveAs`，但没有列举 API 或管理界面 | 0.9～0.10、1.1～1.3 |
 | 道路网络持久化 | RoadGraph 已使用严格 Node/Edge/Group schema 和事务式恢复；manifest 与整槽预检仍待完成 | 0.3～0.5、0.11、5.3 |
 | 可扩展边界 | ISaveable 注册和 manifest 文件列表已存在；当前场景同时注册 RoadGraph 与相机 | 0.8、1.4 |
 | 原生曲线 | RoadGraph 已原生往返六类几何，并完成交点、重叠和参数化拆分 | `road-graph:2.5`～`road-graph:2.6`、5.3 |
@@ -89,7 +89,7 @@
   - 修改：以隔离目录和测试 RoadGraph 覆盖 Save、Load、SaveSlotExists、ListSlots、DeleteSlot、CurrentSlotID、manifest 与失败清理。
   - 测试：成功保存/加载、manifest 缺失、道路 JSON 缺失、序列化失败、恢复失败、重复显示名和删除失败。
   - 验收：单条命令稳定运行全部槽位契约；失败不会伪造成功日志、改变当前槽位或留下可见半成品。
-  - 当前进展（2026-08-04）：提取不依赖 Godot Node 的 `SaveSlotStore`，`SaveManager` 只负责注册、日志和当前槽状态；隔离临时目录测试已覆盖当前版本保存/加载与 manifest、manifest 缺失、道路 JSON 缺失、不兼容版本、捕获失败不发布 manifest，以及非空槽递归删除。`SaveManagerSlotContractTests` 与版本测试聚焦 12/12，完整解决方案测试 384/384，Debug 构建 0 警告/0 错误，Godot 暂停菜单两轮 autosave 运行契约通过。由于 `ListSlots`、`CurrentSlotID`、重复显示名、恢复中途失败和整槽原子发布尚未实现，本项保持开放；这些接口分别与 0.10、0.11、1.1 协同完成。
+  - 当前进展（2026-08-04）：提取不依赖 Godot Node 的 `SaveSlotStore`，`SaveManager` 只负责注册、日志和当前槽状态；隔离临时目录测试已覆盖当前版本保存/加载与 manifest、manifest 缺失、道路 JSON 缺失、不兼容版本、捕获失败不发布 manifest、非空槽递归删除、`CurrentSlotID` 所需 ID 契约、重复显示名及路径拒绝。存档聚焦测试 28/28，完整解决方案测试 400/400，Debug 构建 0 警告/0 错误，Godot 暂停菜单两轮 autosave 运行契约通过。由于 `ListSlots`、恢复中途失败和整槽原子发布尚未实现，本项保持开放；这些接口分别与 0.11、1.1 协同完成。
   - 来源 key：`todo:item:0.9`。
 
 <a id="save-system0.10"></a>
@@ -99,6 +99,7 @@
   - 修改：使用不可冲突的安全内部 ID 作为目录名，将玩家输入名称写入 manifest；所有目录操作验证目标位于存档根目录内，并确认编辑器和导出版本的可写路径。
   - 测试：中文、空格、同名存档、超长名称、路径字符、空名称、只读目录和真实 Windows 导出包。
   - 验收：合法玩家名称不直接成为文件路径；任何名称都不能越过存档根目录；不可写位置明确失败。
+  - 当前进展（2026-08-04）：manifest 已使用独立的 `slotId` 与 `displayName`；`SaveAs` 生成 `manual-<GUID>` 目录 ID，允许中文、空格、重复名称和路径字符，空白或超过 128 字符的名称在写盘前拒绝。槽位 ID 和 `ISaveable.SaveFileName` 只接受安全 ASCII 标识，目录必须是存档根的直接子项且不能是重解析点；manifest 的 `slotId` 必须与目录一致。聚焦测试 28/28、完整测试 400/400、Debug 构建 0 警告/0 错误，Godot autosave 运行契约通过。普通不可写基础路径已验证会抛出 `IOException` 且不发布 manifest；只读 ACL 和真实 Windows 导出包尚未实测，因此本项保持开放。
   - 来源 key：`todo:item:0.10`。
 
 <a id="save-system0.11"></a>

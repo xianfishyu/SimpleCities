@@ -6,6 +6,7 @@ using System.Text;
 internal sealed class SaveSlotStore
 {
     private const string ManifestFile = "manifest.json";
+    internal const int MaxDisplayNameLength = 128;
     private readonly string _saveBaseDir;
 
     public SaveSlotStore(string saveBaseDir)
@@ -16,15 +17,34 @@ internal sealed class SaveSlotStore
         _saveBaseDir = Path.GetFullPath(saveBaseDir);
     }
 
-    public int Save(string slotName, IReadOnlyList<ISaveable> saveables)
+    public string Create(string displayName, IReadOnlyList<ISaveable> saveables)
     {
-        string slotDir = GetSlotDir(slotName);
+        ValidateDisplayName(displayName);
+
+        string slotID;
+        do
+        {
+            slotID = $"manual-{Guid.NewGuid():N}";
+        }
+        while (Directory.Exists(GetSlotDir(slotID)));
+
+        Save(slotID, displayName, saveables);
+        return slotID;
+    }
+
+    public int Save(string slotID, string displayName, IReadOnlyList<ISaveable> saveables)
+    {
+        ValidateDisplayName(displayName);
+        string slotDir = GetSlotDir(slotID);
+        var saveTargets = new List<(ISaveable Saveable, string FileName)>(saveables.Count);
+        foreach (ISaveable saveable in saveables)
+            saveTargets.Add((saveable, GetDataFileName(saveable.SaveFileName)));
+
         Directory.CreateDirectory(slotDir);
         var savedFiles = new List<string>();
 
-        foreach (ISaveable saveable in saveables)
+        foreach ((ISaveable saveable, string fileName) in saveTargets)
         {
-            string fileName = saveable.SaveFileName + ".json";
             string temporaryPath = Path.Combine(slotDir, fileName + ".tmp");
             string finalPath = Path.Combine(slotDir, fileName);
             string json = SaveJson.Serialize(saveable.CaptureState());
@@ -36,28 +56,23 @@ internal sealed class SaveSlotStore
             savedFiles.Add(fileName);
         }
 
-        WriteManifest(slotDir, slotName, savedFiles);
+        WriteManifest(slotDir, slotID, displayName, savedFiles);
         return savedFiles.Count;
     }
 
-    public int Load(string slotName, IReadOnlyList<ISaveable> saveables)
+    public int Load(string slotID, IReadOnlyList<ISaveable> saveables)
     {
-        string slotDir = GetSlotDir(slotName);
+        string slotDir = GetSlotDir(slotID);
         if (!Directory.Exists(slotDir))
-            throw new DirectoryNotFoundException($"Save slot '{slotName}' not found.");
+            throw new DirectoryNotFoundException($"Save slot '{slotID}' not found.");
 
-        string manifestPath = Path.Combine(slotDir, ManifestFile);
-        if (!File.Exists(manifestPath))
-            throw new FileNotFoundException($"Manifest not found in slot '{slotName}'.", manifestPath);
-
-        ManifestData manifest = SaveManager.ParseAndValidateManifest(
-            File.ReadAllText(manifestPath, Encoding.UTF8));
+        ManifestData manifest = ReadManifest(slotID);
         var fileSet = new HashSet<string>(manifest.Files, StringComparer.Ordinal);
         var systemMap = new Dictionary<string, ISaveable>(StringComparer.Ordinal);
 
         foreach (ISaveable saveable in saveables)
         {
-            string fileName = saveable.SaveFileName + ".json";
+            string fileName = GetDataFileName(saveable.SaveFileName);
             if (fileSet.Contains(fileName))
                 systemMap[fileName] = saveable;
         }
@@ -66,7 +81,7 @@ internal sealed class SaveSlotStore
         {
             string filePath = Path.Combine(slotDir, fileName);
             if (!File.Exists(filePath))
-                throw new FileNotFoundException($"File '{fileName}' missing in slot '{slotName}'.", filePath);
+                throw new FileNotFoundException($"File '{fileName}' missing in slot '{slotID}'.", filePath);
 
             saveable.RestoreState(File.ReadAllText(filePath, Encoding.UTF8));
         }
@@ -74,11 +89,25 @@ internal sealed class SaveSlotStore
         return systemMap.Count;
     }
 
-    public bool Exists(string slotName) => File.Exists(Path.Combine(GetSlotDir(slotName), ManifestFile));
-
-    public bool Delete(string slotName)
+    public ManifestData ReadManifest(string slotID)
     {
-        string slotDir = GetSlotDir(slotName);
+        string manifestPath = Path.Combine(GetSlotDir(slotID), ManifestFile);
+        if (!File.Exists(manifestPath))
+            throw new FileNotFoundException($"Manifest not found in slot '{slotID}'.", manifestPath);
+
+        ManifestData manifest = SaveManager.ParseAndValidateManifest(
+            File.ReadAllText(manifestPath, Encoding.UTF8));
+        if (!string.Equals(manifest.SlotID, slotID, StringComparison.Ordinal))
+            throw new InvalidDataException($"Manifest slotId '{manifest.SlotID}' does not match directory '{slotID}'.");
+
+        return manifest;
+    }
+
+    public bool Exists(string slotID) => File.Exists(Path.Combine(GetSlotDir(slotID), ManifestFile));
+
+    public bool Delete(string slotID)
+    {
+        string slotDir = GetSlotDir(slotID);
         if (!Directory.Exists(slotDir))
             return false;
 
@@ -86,31 +115,71 @@ internal sealed class SaveSlotStore
         return true;
     }
 
-    private string GetSlotDir(string slotName)
+    private string GetSlotDir(string slotID)
     {
-        ValidateSlotName(slotName);
-        return Path.Combine(_saveBaseDir, slotName);
+        ValidateSlotID(slotID);
+        string slotDir = Path.GetFullPath(Path.Combine(_saveBaseDir, slotID));
+        string relativePath = Path.GetRelativePath(_saveBaseDir, slotDir);
+        if (!string.Equals(relativePath, slotID, StringComparison.Ordinal))
+            throw new InvalidOperationException($"Save slot '{slotID}' resolves outside the save root.");
+        if (Directory.Exists(slotDir) &&
+            File.GetAttributes(slotDir).HasFlag(FileAttributes.ReparsePoint))
+        {
+            throw new IOException($"Save slot '{slotID}' cannot be a filesystem link.");
+        }
+
+        return slotDir;
     }
 
-    private static void ValidateSlotName(string slotName)
+    private static string GetDataFileName(string saveFileName)
     {
-        if (string.IsNullOrWhiteSpace(slotName))
-            throw new ArgumentException("Save slot name cannot be empty.", nameof(slotName));
+        if (string.IsNullOrWhiteSpace(saveFileName))
+            throw new ArgumentException("Save file name cannot be empty.", nameof(saveFileName));
 
-        foreach (char character in slotName)
+        foreach (char character in saveFileName)
         {
             bool isAllowed = char.IsAsciiLetterOrDigit(character) || character is '_' or '-';
             if (!isAllowed)
-                throw new ArgumentException("Save slot name may only contain ASCII letters, digits, '_' or '-'.", nameof(slotName));
+            {
+                throw new ArgumentException(
+                    "Save file name may only contain ASCII letters, digits, '_' or '-'.",
+                    nameof(saveFileName));
+            }
+        }
+
+        return saveFileName + ".json";
+    }
+
+    private static void ValidateSlotID(string slotID)
+    {
+        if (string.IsNullOrWhiteSpace(slotID))
+            throw new ArgumentException("Save slot ID cannot be empty.", nameof(slotID));
+
+        foreach (char character in slotID)
+        {
+            bool isAllowed = char.IsAsciiLetterOrDigit(character) || character is '_' or '-';
+            if (!isAllowed)
+                throw new ArgumentException("Save slot ID may only contain ASCII letters, digits, '_' or '-'.", nameof(slotID));
         }
     }
 
-    private static void WriteManifest(string slotDir, string slotName, List<string> files)
+    internal static void ValidateDisplayName(string displayName)
+    {
+        if (string.IsNullOrWhiteSpace(displayName))
+            throw new ArgumentException("Save display name cannot be empty.", nameof(displayName));
+        if (displayName.Length > MaxDisplayNameLength)
+            throw new ArgumentException(
+                $"Save display name cannot exceed {MaxDisplayNameLength} characters.",
+                nameof(displayName));
+    }
+
+    private static void WriteManifest(string slotDir, string slotID, string displayName, List<string> files)
     {
         var manifest = new ManifestData
         {
             SchemaVersion = SaveManager.ManifestSchemaVersion,
-            SlotName = slotName,
+            SlotID = slotID,
+            DisplayName = displayName,
             Timestamp = DateTime.UtcNow.ToString("O"),
             Files = files,
         };

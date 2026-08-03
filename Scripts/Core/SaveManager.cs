@@ -16,6 +16,7 @@ public partial class SaveManager : Node
 
     private const string EditorSaveBaseDir = "res://saves";
     private const string ExportSaveDirectoryName = "saves";
+    public const string AutosaveSlotID = "autosave";
     internal const int ManifestSchemaVersion = 1;
 
     private static readonly JsonSerializerOptions ManifestJsonOptions = new()
@@ -23,7 +24,7 @@ public partial class SaveManager : Node
         PropertyNameCaseInsensitive = false,
     };
 
-    public string CurrentSlotName { get; private set; } = "autosave";
+    public string CurrentSlotID { get; private set; } = AutosaveSlotID;
     public int RegisteredSaveableCount => _saveables.Count;
 
     public override void _Ready()
@@ -66,14 +67,18 @@ public partial class SaveManager : Node
     // ═══════════════════════════════════════════════
 
     /// <summary>保存所有已注册系统到指定存档槽</summary>
-    public bool Save(string slotName = "autosave")
+    public bool Save(string slotID = AutosaveSlotID)
     {
         try
         {
-            int savedFileCount = CreateSlotStore().Save(slotName, _saveables);
+            SaveSlotStore store = CreateSlotStore();
+            string displayName = string.Equals(slotID, AutosaveSlotID, StringComparison.Ordinal)
+                ? "Autosave"
+                : store.ReadManifest(slotID).DisplayName;
+            int savedFileCount = store.Save(slotID, displayName, _saveables);
 
-            CurrentSlotName = slotName;
-            GD.Print($"[SaveManager] Saved to slot '{slotName}' ({savedFileCount} files)");
+            CurrentSlotID = slotID;
+            GD.Print($"[SaveManager] Saved to slot '{slotID}' ({savedFileCount} files)");
             return true;
         }
         catch (Exception e)
@@ -83,19 +88,38 @@ public partial class SaveManager : Node
         }
     }
 
+    /// <summary>使用玩家可见名称创建独立手动存档；名称不会参与路径计算。</summary>
+    public bool SaveAs(string displayName)
+    {
+        try
+        {
+            SaveSlotStore store = CreateSlotStore();
+            string slotID = store.Create(displayName, _saveables);
+
+            CurrentSlotID = slotID;
+            GD.Print($"[SaveManager] Saved '{displayName}' to slot '{slotID}' ({_saveables.Count} files)");
+            return true;
+        }
+        catch (Exception e)
+        {
+            GD.PushError($"[SaveManager] Save As failed: {e.Message}");
+            return false;
+        }
+    }
+
     // ═══════════════════════════════════════════════
     // 加载
     // ═══════════════════════════════════════════════
 
     /// <summary>从指定存档槽加载所有已注册系统</summary>
-    public bool Load(string slotName = "autosave")
+    public bool Load(string slotID = AutosaveSlotID)
     {
         try
         {
-            int loadedFileCount = CreateSlotStore().Load(slotName, _saveables);
+            int loadedFileCount = CreateSlotStore().Load(slotID, _saveables);
 
-            CurrentSlotName = slotName;
-            GD.Print($"[SaveManager] Loaded from slot '{slotName}' ({loadedFileCount} files)");
+            CurrentSlotID = slotID;
+            GD.Print($"[SaveManager] Loaded from slot '{slotID}' ({loadedFileCount} files)");
             return true;
         }
         catch (Exception e)
@@ -109,34 +133,34 @@ public partial class SaveManager : Node
     // 辅助
     // ═══════════════════════════════════════════════
 
-    public bool SaveSlotExists(string slotName)
+    public bool SaveSlotExists(string slotID)
     {
         try
         {
-            return CreateSlotStore().Exists(slotName);
+            return CreateSlotStore().Exists(slotID);
         }
         catch (Exception e)
         {
-            GD.PushError($"[SaveManager] Cannot inspect slot '{slotName}': {e.Message}");
+            GD.PushError($"[SaveManager] Cannot inspect slot '{slotID}': {e.Message}");
             return false;
         }
     }
 
-    public bool DeleteSlot(string slotName)
+    public bool DeleteSlot(string slotID)
     {
         try
         {
-            if (!CreateSlotStore().Delete(slotName))
+            if (!CreateSlotStore().Delete(slotID))
                 return false;
-            if (string.Equals(CurrentSlotName, slotName, StringComparison.Ordinal))
-                CurrentSlotName = "autosave";
+            if (string.Equals(CurrentSlotID, slotID, StringComparison.Ordinal))
+                CurrentSlotID = AutosaveSlotID;
 
-            GD.Print($"[SaveManager] Deleted slot '{slotName}'");
+            GD.Print($"[SaveManager] Deleted slot '{slotID}'");
             return true;
         }
         catch (Exception e)
         {
-            GD.PushError($"[SaveManager] Delete failed for slot '{slotName}': {e.Message}");
+            GD.PushError($"[SaveManager] Delete failed for slot '{slotID}': {e.Message}");
             return false;
         }
     }
@@ -171,6 +195,19 @@ public partial class SaveManager : Node
         {
             throw new JsonException(
                 $"Unsupported manifest schemaVersion '{manifest.SchemaVersion?.ToString() ?? "missing"}'.");
+        }
+
+        if (string.IsNullOrWhiteSpace(manifest.SlotID))
+            throw new JsonException("Save manifest slotId is missing.");
+        if (string.IsNullOrWhiteSpace(manifest.DisplayName))
+            throw new JsonException("Save manifest displayName is missing.");
+        try
+        {
+            SaveSlotStore.ValidateDisplayName(manifest.DisplayName);
+        }
+        catch (ArgumentException e)
+        {
+            throw new JsonException("Save manifest displayName is invalid.", e);
         }
 
         return manifest;

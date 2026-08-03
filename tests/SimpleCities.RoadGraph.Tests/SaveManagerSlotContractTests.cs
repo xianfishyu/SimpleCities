@@ -14,13 +14,15 @@ public sealed class SaveManagerSlotContractTests : IDisposable
         var store = CreateStore();
         var saveable = new TestSaveable("road_network", 42);
 
-        Assert.Equal(1, store.Save("manual-1", [saveable]));
+        Assert.Equal(1, store.Save("manual-1", "第一座城市", [saveable]));
 
         string slotDir = Path.Combine(_saveRoot, "manual-1");
         Assert.True(File.Exists(Path.Combine(slotDir, "manifest.json")));
         Assert.True(File.Exists(Path.Combine(slotDir, "road_network.json")));
         ManifestData manifest = SaveManager.ParseAndValidateManifest(
             File.ReadAllText(Path.Combine(slotDir, "manifest.json")));
+        Assert.Equal("manual-1", manifest.SlotID);
+        Assert.Equal("第一座城市", manifest.DisplayName);
         Assert.Equal(["road_network.json"], manifest.Files);
 
         saveable.Value = 7;
@@ -37,7 +39,7 @@ public sealed class SaveManagerSlotContractTests : IDisposable
     {
         var store = CreateStore();
         var saveable = new TestSaveable("road_network", 42);
-        Assert.Equal(1, store.Save("broken", [saveable]));
+        Assert.Equal(1, store.Save("broken", "Broken", [saveable]));
         saveable.Value = 7;
 
         string slotDir = Path.Combine(_saveRoot, "broken");
@@ -57,11 +59,11 @@ public sealed class SaveManagerSlotContractTests : IDisposable
     {
         var store = CreateStore();
         var saveable = new TestSaveable("road_network", 42);
-        Assert.Equal(1, store.Save("broken", [saveable]));
+        Assert.Equal(1, store.Save("broken", "Broken", [saveable]));
         saveable.Value = 7;
         File.WriteAllText(
             Path.Combine(_saveRoot, "broken", "manifest.json"),
-            "{\"schemaVersion\":2,\"files\":[\"road_network.json\"]}");
+            "{\"schemaVersion\":2,\"slotId\":\"broken\",\"displayName\":\"Broken\",\"files\":[\"road_network.json\"]}");
 
         Assert.Throws<JsonException>(() => store.Load("broken", [saveable]));
 
@@ -73,7 +75,7 @@ public sealed class SaveManagerSlotContractTests : IDisposable
     public void DeleteSlot_RemovesNonEmptySlotRecursively()
     {
         var store = CreateStore();
-        Assert.Equal(1, store.Save("manual-1", [new TestSaveable("road_network", 42)]));
+        Assert.Equal(1, store.Save("manual-1", "Manual 1", [new TestSaveable("road_network", 42)]));
 
         Assert.True(store.Delete("manual-1"));
 
@@ -88,11 +90,123 @@ public sealed class SaveManagerSlotContractTests : IDisposable
         var store = CreateStore();
 
         Assert.Throws<InvalidOperationException>(() =>
-            store.Save("broken", [new ThrowingSaveable()]));
+            store.Save("broken", "Broken", [new ThrowingSaveable()]));
 
         string slotDir = Path.Combine(_saveRoot, "broken");
         Assert.False(store.Exists("broken"));
         Assert.Empty(Directory.GetFiles(slotDir));
+    }
+
+    [Fact]
+    public void Create_StoresFreeFormDisplayNamesUnderDistinctSafeIDs()
+    {
+        var store = CreateStore();
+        var saveable = new TestSaveable("road_network", 42);
+        const string displayName = "同名城市 / 夏季: 2026";
+
+        string firstID = store.Create(displayName, [saveable]);
+        string secondID = store.Create(displayName, [saveable]);
+
+        Assert.NotEqual(firstID, secondID);
+        Assert.Matches("^manual-[0-9a-f]{32}$", firstID);
+        Assert.Matches("^manual-[0-9a-f]{32}$", secondID);
+        Assert.Equal(displayName, store.ReadManifest(firstID).DisplayName);
+        Assert.Equal(displayName, store.ReadManifest(secondID).DisplayName);
+        Assert.Equal(
+            Path.GetFullPath(_saveRoot),
+            Directory.GetParent(Path.Combine(_saveRoot, firstID))!.FullName);
+    }
+
+    [Fact]
+    public void Create_AcceptsMaximumDisplayNameLength()
+    {
+        var store = CreateStore();
+        string displayName = new('城', SaveSlotStore.MaxDisplayNameLength);
+
+        string slotID = store.Create(displayName, []);
+
+        Assert.Equal(displayName, store.ReadManifest(slotID).DisplayName);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Create_RejectsEmptyDisplayNameBeforeCreatingDirectory(string displayName)
+    {
+        var store = CreateStore();
+
+        Assert.Throws<ArgumentException>(() => store.Create(displayName, []));
+
+        Assert.False(Directory.Exists(_saveRoot));
+    }
+
+    [Fact]
+    public void Create_RejectsOverlongDisplayNameBeforeCreatingDirectory()
+    {
+        var store = CreateStore();
+        string displayName = new('a', SaveSlotStore.MaxDisplayNameLength + 1);
+
+        Assert.Throws<ArgumentException>(() => store.Create(displayName, []));
+
+        Assert.False(Directory.Exists(_saveRoot));
+    }
+
+    [Theory]
+    [InlineData("../escape")]
+    [InlineData("..\\escape")]
+    [InlineData("C:\\escape")]
+    [InlineData("中文槽位")]
+    [InlineData("slot name")]
+    public void DirectoryOperations_RejectUnsafeInternalIDs(string slotID)
+    {
+        var store = CreateStore();
+
+        Assert.Throws<ArgumentException>(() => store.Save(slotID, "Safe display name", []));
+        Assert.Throws<ArgumentException>(() => store.Load(slotID, []));
+        Assert.Throws<ArgumentException>(() => store.Exists(slotID));
+        Assert.Throws<ArgumentException>(() => store.Delete(slotID));
+    }
+
+    [Fact]
+    public void ReadManifest_RejectsSlotIDThatDoesNotMatchDirectory()
+    {
+        var store = CreateStore();
+        store.Save("manual-1", "Manual 1", []);
+        string manifestPath = Path.Combine(_saveRoot, "manual-1", "manifest.json");
+        File.WriteAllText(
+            manifestPath,
+            File.ReadAllText(manifestPath).Replace("manual-1", "manual-2", StringComparison.Ordinal));
+
+        Assert.Throws<InvalidDataException>(() => store.ReadManifest("manual-1"));
+    }
+
+    [Fact]
+    public void Save_UnwritableBasePathFailsWithoutPublishingManifest()
+    {
+        Directory.CreateDirectory(_saveRoot);
+        string basePath = Path.Combine(_saveRoot, "not-a-directory");
+        File.WriteAllText(basePath, "occupied");
+        var store = new SaveSlotStore(basePath);
+
+        Assert.ThrowsAny<IOException>(() => store.Save("manual-1", "Manual 1", []));
+
+        Assert.False(File.Exists(Path.Combine(basePath, "manual-1", "manifest.json")));
+    }
+
+    [Theory]
+    [InlineData("../outside")]
+    [InlineData("..\\outside")]
+    [InlineData("nested/file")]
+    [InlineData("nested\\file")]
+    public void Save_RejectsUnsafeSystemFileName(string saveFileName)
+    {
+        var store = CreateStore();
+
+        Assert.Throws<ArgumentException>(() =>
+            store.Save("manual-1", "Manual 1", [new TestSaveable(saveFileName, 42)]));
+
+        Assert.False(File.Exists(Path.Combine(_saveRoot, "outside.json")));
+        Assert.False(File.Exists(Path.Combine(_saveRoot, "manual-1", "manifest.json")));
     }
 
     public void Dispose()
