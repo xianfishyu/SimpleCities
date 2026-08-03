@@ -112,7 +112,7 @@ flowchart TD
 
 ---
 
-## 3. 道路拆除 + 拓扑修复
+## 3. 道路拆除选择 + 批量事务
 
 ```mermaid
 flowchart TD
@@ -120,23 +120,26 @@ flowchart TD
         E1["ToolManager SetRemoveHoverActive true"] --> E2["每帧 _Process"]
         E2 --> E3["RoadGraph.FindClosestEdge 按snap位置查询"]
         E3 --> E4{"命中?"}
-        E4 -->|否| E5["FindNearestRoadPoint 几何最近点回退"]
+        E4 -->|否| E5["按原始世界指针再次查询"]
         E5 --> E6["设置 HoveredEdgeID"]
         E4 -->|是| E6
         E6 --> E7["RoadRenderer.QueueRedraw 悬停高亮"]
     end
 
-    subgraph Phase2["点击拆除 拓扑修复"]
-        R1["玩家点击左键"] --> R2["RoadBuilder.HandleRemoveInput"]
-        R2 --> R3["RoadGraph.FindClosestEdge 得到 edgeID"]
-        R3 --> R4["RoadGraph.RemoveEdge"]
-        R4 --> R5["清 _edges 与空间索引"]
-        R5 --> R6["断开 NodeA/NodeB 邻接"]
-        R6 --> R7["清理孤立 GraphNode"]
-        R7 --> R8["从 RoadGroup 摘除 Edge"]
-        R8 --> R11["EdgeRemoved 事件触发"]
-        R11 --> R12["RoadRenderer 回收 Line2D"]
-        R12 --> R13["TryMergeAtNode 两端 EdgeCount=2 对向合并"]
+    subgraph Phase2["先选择 后提交"]
+        R1["玩家按下左键"] --> R2{"Shift 是否按下"}
+        R2 -->|否| R3["连续模式 沿轨迹累积圆命中"]
+        R2 -->|是| R4["矩形模式 按当前框重建选择"]
+        R3 --> R5["排序去重的稳定 Edge ID 集"]
+        R4 --> R5
+        R5 --> R6["RoadRenderer 绘制选择高亮和框线"]
+        R6 --> R7{"后续输入"}
+        R7 -->|右键或切出工具| R8["取消选择 图不变"]
+        R7 -->|松开左键| R9["RoadGraph.RemoveEdges 一次调用"]
+        R9 --> R10["批量 DetachEdge"]
+        R10 --> R11["一次清理孤立 Node 和空 Group"]
+        R11 --> R12["验证不变式后按 ID 发布 EdgeRemoved"]
+        R12 --> R13["RoadRenderer 回收 Line2D 并清预览"]
     end
 
     Phase1 --> Phase2
@@ -149,7 +152,7 @@ flowchart TD
 ```mermaid
 flowchart LR
     subgraph Aggregate["RoadGraph 聚合根"]
-        RN["RoadGraph<br/>ISaveable<br/>+AddRoad<br/>+RemoveEdge<br/>+FindClosestEdge"]
+        RN["RoadGraph<br/>IPreparedSaveable<br/>+SubmitPath<br/>+RemoveEdges<br/>+空间选择查询"]
         Idx1["_nodes<br/>Dictionary id-GraphNode"]
         Idx2["_edges<br/>Dictionary id-GraphEdge"]
         Idx3["_groups<br/>Dictionary id-RoadGroup"]
@@ -310,12 +313,12 @@ flowchart LR
     end
 
     subgraph Data["数据层"]
-        Place --> Add["RoadGraph.AddRoad"]
-        Remove --> Del["RoadGraph.RemoveEdge"]
+        Place --> Add["RoadGraph.SubmitPath"]
+        Remove --> Del["RoadGraph.RemoveEdges"]
         Add --> Event1["EdgeAdded 事件"]
         Del --> Event2["EdgeRemoved 事件"]
         Add --> Merge["TryMergeAtNode"]
-        Del --> Merge2["TryMergeAtNode"]
+        Del --> Cleanup["CommitEdgeMutation 一次清理"]
     end
 
     subgraph Render["渲染层"]
@@ -329,5 +332,6 @@ flowchart LR
         Place --> HUD["GameHUD._Process<br/>刷新统计"]
         Remove --> HUD
         Place --> Preview["RoadRenderer._Draw<br/>清除预览虚线"]
+        Remove --> RemovalPreview["RoadRenderer._Draw<br/>选择高亮与矩形框线"]
     end
 ```

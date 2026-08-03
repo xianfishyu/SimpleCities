@@ -439,12 +439,18 @@ SubmitPolyline(points) / SubmitPath(nativeGeometry):
 **RoadGraph 当前流程**：
 
 ```
+RemoveEdges(edgeIDs):
+
+  1. 对 Edge ID 去重并稳定排序，跳过已经失效的目标
+  2. DetachEdge：从 _edges、SpatialIndex、两端 EdgeRef 和 RoadGroup 中移除全部命中边
+  3. CommitEdgeMutation：一次清理所有受影响的孤立节点和空 Group
+  4. Debug 构建在事件发布前验证完整图不变式
+  5. 按 Edge ID 触发 EdgeRemoved 事件（处理器看到最终提交图）
+
 RemoveEdge(edgeID):
 
-  1. DetachEdge：从 _edges、SpatialIndex、两端 EdgeRef 和 RoadGroup 中移除边
-  2. CommitEdgeMutation：一次清理受影响的孤立节点和空 Group
-  3. Debug 构建在事件发布前验证完整图不变式
-  4. 触发 EdgeRemoved 事件（处理器看到最终提交图）
+  1. 复用 RemoveEdgesCore([edgeID])
+  2. 保持相同的清理、不变式和事件契约
 
   — END —
 ```
@@ -467,6 +473,17 @@ FindClosestEdge(position, radius):
   2. 从 EdgeGeometryRef 收集去重 Edge 候选
   3. 对每条候选的原生几何段执行权威 FindClosestPoint
   4. 取距离最近的 Edge；近似等距时选择较小 Edge ID
+
+FindEdgeIDsNear(position, radius):
+
+  1. 复用 QueryRadius 的原生几何圆相交过滤
+  2. 收集、去重并按 ID 排序全部命中 Edge
+
+FindEdgeIDsIntersecting(bounds):
+
+  1. QueryBounds 只收集与矩形覆盖相同 bucket 的 Edge 候选
+  2. 用端点包含或原生几何与矩形边界交点排除 AABB 假阳性
+  3. 去重并按 ID 排序返回
 ```
 
 对比迁移前的三级回退（字典 → waypoint 扫描 → Junction ConnectedSegment），当前方案是局部空间候选 + 原生几何精确过滤。成本取决于半径覆盖桶数和桶内引用数，不宣称无条件 `O(1 + k)`。
@@ -494,6 +511,9 @@ public class RoadGraph
     public bool RemoveEdge(int edgeID);
     // 移除单条边。自动清理孤立节点和空 Group。
 
+    public bool RemoveEdges(IEnumerable<int>? edgeIDs);
+    // 去重、稳定排序并批量删除仍存在的 Edge；只执行一次提交清理。
+
     public bool RemoveRoadGroup(int groupID);
     // 移除整个 Group 的所有边。
 
@@ -503,6 +523,8 @@ public class RoadGraph
     public RoadGroup? GetGroup(int groupID);
 
     public GraphEdge? FindClosestEdge(Vector2 position, float maxRadius);
+    public IReadOnlyList<int> FindEdgeIDsNear(Vector2 position, float radius);
+    public IReadOnlyList<int> FindEdgeIDsIntersecting(Rect2 bounds);
     public GraphNode? FindClosestNode(Vector2 position, float maxRadius);
 
     // ── 遍历 ──
@@ -907,7 +929,7 @@ RoadGraphSaveData {
 
 ### D.4 未完成事项
 
-> 2026-08-04 进度：V2-6 已完成，V2-7 已完成其中 `tool-input:1.4`。策略接口支持米字型、三角形和六边形；连续铺路会话已支持拐点、完整预览、回退、确认、取消及失败无副作用。连续/框选拆除与撤销重做仍分别等待 `tool-input:1.5`、`tool-input:1.6`。
+> 2026-08-04 进度：V2-6 已完成，V2-7 已完成 `tool-input:1.4`～`tool-input:1.5`。策略接口支持米字型、三角形和六边形；连续铺路与连续/框选拆除均已采用先预览、后单次事务提交的会话边界。撤销重做仍等待 `tool-input:1.6`。
 
 | ID | 未完成事项 | 所属系统 | 验收摘要 |
 |---|---|---|---|

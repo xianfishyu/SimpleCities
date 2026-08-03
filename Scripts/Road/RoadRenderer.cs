@@ -1,5 +1,6 @@
 using Godot;
 using System.Collections.Generic;
+using System.Linq;
 
 public partial class RoadRenderer : Node2D
 {
@@ -24,6 +25,17 @@ public partial class RoadRenderer : Node2D
     public int GetPreviewPointCount() => _previewPoints.Length;
 
     public Vector2 GetPreviewPoint(int index) => _previewPoints[index];
+
+    private int[] _removalPreviewEdgeIDs = [];
+    public int[] RemovalPreviewEdgeIDs
+    {
+        get => (int[])_removalPreviewEdgeIDs.Clone();
+        set => _removalPreviewEdgeIDs = value == null ? [] : value.Distinct().Order().ToArray();
+    }
+
+    public Rect2? RemovalSelectionBounds { get; set; }
+
+    public int GetRemovalPreviewEdgeCount() => _removalPreviewEdgeIDs.Length;
 
     /// <summary>拆除工具悬停的 Edge ID（null = 未悬停在任何 Edge 上）</summary>
     public int? HoveredEdgeID { get; set; }
@@ -146,29 +158,14 @@ public partial class RoadRenderer : Node2D
 
     public override void _Draw()
     {
-        // 拆除工具悬停高亮：画在预览虚线之上
+        foreach (int edgeID in _removalPreviewEdgeIDs)
+            DrawEdgeHighlight(edgeID);
+
+        if (RemovalSelectionBounds is { } bounds && bounds.Size.X > 0f && bounds.Size.Y > 0f)
+            DrawRect(bounds, Config.HoverHighlightColor, false, 2f);
+
         if (HoveredEdgeID.HasValue && _network != null)
-        {
-            var edge = _network.GetEdge(HoveredEdgeID.Value);
-            if (edge != null)
-            {
-                var nodeA = _network.GetNode(edge.NodeA);
-                var nodeB = _network.GetNode(edge.NodeB);
-                if (nodeA != null && nodeB != null)
-                {
-                    var edgePoints = edge.Points;
-                    var pts = new Vector2[2 + edgePoints.Length];
-                    pts[0] = nodeA.Position;
-                    for (int i = 0; i < edgePoints.Length; i++)
-                        pts[i + 1] = edgePoints[i];
-                    pts[^1] = nodeB.Position;
-                    DrawPolyline(pts, Config.HoverHighlightColor, Config.HoverHighlightWidth);
-                    // 同时高亮端点
-                    DrawCircle(nodeA.Position, Config.JunctionRadius * 1.3f, Config.HoverHighlightColor);
-                    DrawCircle(nodeB.Position, Config.JunctionRadius * 1.3f, Config.HoverHighlightColor);
-                }
-            }
-        }
+            DrawEdgeHighlight(HoveredEdgeID.Value);
 
         for (int index = 1; index < _previewPoints.Length; index++)
         {
@@ -177,6 +174,28 @@ public partial class RoadRenderer : Node2D
             if (from != to)
                 DrawDashedLine(from, to, new Color(1, 1, 1, 0.5f));
         }
+    }
+
+    private void DrawEdgeHighlight(int edgeID)
+    {
+        GraphEdge? edge = _network?.GetEdge(edgeID);
+        if (edge == null || _network == null)
+            return;
+
+        GraphNode? nodeA = _network.GetNode(edge.NodeA);
+        GraphNode? nodeB = _network.GetNode(edge.NodeB);
+        if (nodeA == null || nodeB == null)
+            return;
+
+        Vector2[] edgePoints = edge.Points;
+        var points = new Vector2[2 + edgePoints.Length];
+        points[0] = nodeA.Position;
+        for (int index = 0; index < edgePoints.Length; index++)
+            points[index + 1] = edgePoints[index];
+        points[^1] = nodeB.Position;
+        DrawPolyline(points, Config.HoverHighlightColor, Config.HoverHighlightWidth);
+        DrawCircle(nodeA.Position, Config.JunctionRadius * 1.3f, Config.HoverHighlightColor);
+        DrawCircle(nodeB.Position, Config.JunctionRadius * 1.3f, Config.HoverHighlightColor);
     }
 
     // ── 虚线工具 ──

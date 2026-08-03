@@ -128,12 +128,14 @@ public partial class RoadGraph : IPreparedSaveable
     public bool RemoveEdge(int edgeID)
     {
         BeginMeasuredOperation();
-        if (!_edges.TryGetValue(edgeID, out GraphEdge? edge)) return false;
+        return RemoveEdgesCore([edgeID]);
+    }
 
-        DetachEdge(edge);
-        CommitEdgeMutation([edge.NodeA, edge.NodeB], [edge.GroupID]);
-        EdgeRemoved?.Invoke(edge);
-        return true;
+    public bool RemoveEdges(IEnumerable<int>? edgeIDs)
+    {
+        BeginMeasuredOperation();
+        ArgumentNullException.ThrowIfNull(edgeIDs);
+        return RemoveEdgesCore(edgeIDs);
     }
 
     public bool RemoveRoadGroup(int groupID)
@@ -141,18 +143,28 @@ public partial class RoadGraph : IPreparedSaveable
         BeginMeasuredOperation();
         if (!_groups.TryGetValue(groupID, out var group)) return false;
 
+        return RemoveEdgesCore(group.EdgeIDs);
+    }
+
+    private bool RemoveEdgesCore(IEnumerable<int> edgeIDs)
+    {
         var removedEdges = new List<GraphEdge>();
         var affectedNodeIDs = new HashSet<int>();
-        foreach (int edgeID in group.EdgeIDs.Order())
+        var affectedGroupIDs = new HashSet<int>();
+        foreach (int edgeID in edgeIDs.Distinct().Order())
         {
             if (!_edges.TryGetValue(edgeID, out GraphEdge? edge)) continue;
             removedEdges.Add(edge);
             affectedNodeIDs.Add(edge.NodeA);
             affectedNodeIDs.Add(edge.NodeB);
+            affectedGroupIDs.Add(edge.GroupID);
             DetachEdge(edge);
         }
 
-        CommitEdgeMutation(affectedNodeIDs, [groupID]);
+        if (removedEdges.Count == 0)
+            return false;
+
+        CommitEdgeMutation(affectedNodeIDs, affectedGroupIDs);
         foreach (GraphEdge edge in removedEdges)
             EdgeRemoved?.Invoke(edge);
 
@@ -195,6 +207,44 @@ public partial class RoadGraph : IPreparedSaveable
         return bestEdgeID >= 0 ? GetEdge(bestEdgeID) : null;
     }
 
+    public IReadOnlyList<int> FindEdgeIDsNear(Vector2 position, float radius)
+    {
+        BeginMeasuredOperation();
+        if (!position.IsFinite())
+            throw new ArgumentException("Position must contain finite coordinates.", nameof(position));
+        if (!float.IsFinite(radius) || radius < 0f)
+            throw new ArgumentOutOfRangeException(nameof(radius), radius, "Radius must be non-negative and finite.");
+
+        var edgeIDs = new HashSet<int>();
+        foreach (ISpatialRef hit in _spatialIndex.QueryRadius(position, radius))
+        {
+            if (TryGetEdgeID(hit, out int edgeID) && _edges.ContainsKey(edgeID))
+                edgeIDs.Add(edgeID);
+        }
+
+        RecordSpatialCandidates(edgeIDs.Count);
+        return edgeIDs.Order().ToArray();
+    }
+
+    public IReadOnlyList<int> FindEdgeIDsIntersecting(Rect2 bounds)
+    {
+        BeginMeasuredOperation();
+        Rect2 normalizedBounds = NormalizeBounds(bounds);
+        var candidateEdgeIDs = new HashSet<int>();
+        foreach (ISpatialRef hit in _spatialIndex.QueryBounds(normalizedBounds))
+        {
+            if (TryGetEdgeID(hit, out int edgeID))
+                candidateEdgeIDs.Add(edgeID);
+        }
+
+        RecordSpatialCandidates(candidateEdgeIDs.Count);
+        return candidateEdgeIDs
+            .Where(edgeID => _edges.TryGetValue(edgeID, out GraphEdge? edge) &&
+                             edge.GeometrySegments.Any(geometry => GeometryIntersectsBounds(geometry, normalizedBounds)))
+            .Order()
+            .ToArray();
+    }
+
     public GraphNode? FindClosestNode(Vector2 position, float maxRadius)
     {
         return FindClosestIndexedNode(position, maxRadius);
@@ -227,6 +277,71 @@ public partial class RoadGraph : IPreparedSaveable
     public IEnumerable<GraphEdge> GetAllEdges() => _edges.Values.ToArray();
     public IEnumerable<GraphNode> GetAllNodes() => _nodes.Values.ToArray();
     public IEnumerable<RoadGroup> GetAllGroups() => _groups.Values.ToArray();
+
+    private static Rect2 NormalizeBounds(Rect2 bounds)
+    {
+        if (!bounds.Position.IsFinite() || !bounds.Size.IsFinite())
+            throw new ArgumentException("Bounds must contain finite coordinates.", nameof(bounds));
+
+        Vector2 end = bounds.End;
+        Vector2 minimum = new(Mathf.Min(bounds.Position.X, end.X), Mathf.Min(bounds.Position.Y, end.Y));
+        Vector2 maximum = new(Mathf.Max(bounds.Position.X, end.X), Mathf.Max(bounds.Position.Y, end.Y));
+        return new Rect2(minimum, maximum - minimum);
+    }
+
+    private static bool GeometryIntersectsBounds(RoadGeometrySegment geometry, Rect2 bounds)
+    {
+        if (!BoundsOverlap(geometry.Bounds, bounds))
+            return false;
+        if (ContainsInclusive(bounds, geometry.Start) || ContainsInclusive(bounds, geometry.End))
+            return true;
+
+        if (bounds.Size == Vector2.Zero)
+        {
+            RoadGeometryClosestPoint closest = geometry.FindClosestPoint(bounds.Position, GeometryEpsilon);
+            return closest.DistanceSquared <= GeometryEpsilon * GeometryEpsilon;
+        }
+
+        var boundaries = new List<LineRoadGeometrySegment>(4);
+        Vector2 topLeft = bounds.Position;
+        Vector2 bottomRight = bounds.End;
+        Vector2 topRight = new(bottomRight.X, topLeft.Y);
+        Vector2 bottomLeft = new(topLeft.X, bottomRight.Y);
+        if (bounds.Size.X > 0f)
+        {
+            boundaries.Add(new LineRoadGeometrySegment(topLeft, topRight));
+            if (bounds.Size.Y > 0f)
+                boundaries.Add(new LineRoadGeometrySegment(bottomLeft, bottomRight));
+        }
+        if (bounds.Size.Y > 0f)
+        {
+            boundaries.Add(new LineRoadGeometrySegment(topLeft, bottomLeft));
+            if (bounds.Size.X > 0f)
+                boundaries.Add(new LineRoadGeometrySegment(topRight, bottomRight));
+        }
+
+        return boundaries.Any(boundary =>
+        {
+            RoadGeometryIntersectionResult result = RoadGeometryIntersectionQuery.FindIntersections(
+                geometry,
+                boundary,
+                GeometryEpsilon,
+                GeometryEpsilon);
+            return result.Intersections.Count > 0 || result.HasOverlap;
+        });
+    }
+
+    private static bool BoundsOverlap(Rect2 first, Rect2 second) =>
+        first.Position.X <= second.End.X + GeometryEpsilon &&
+        first.End.X + GeometryEpsilon >= second.Position.X &&
+        first.Position.Y <= second.End.Y + GeometryEpsilon &&
+        first.End.Y + GeometryEpsilon >= second.Position.Y;
+
+    private static bool ContainsInclusive(Rect2 bounds, Vector2 point) =>
+        point.X >= bounds.Position.X - GeometryEpsilon &&
+        point.X <= bounds.End.X + GeometryEpsilon &&
+        point.Y >= bounds.Position.Y - GeometryEpsilon &&
+        point.Y <= bounds.End.Y + GeometryEpsilon;
 
     private GraphEdge? AddEdge(
         GraphNode nodeA,

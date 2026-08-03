@@ -16,14 +16,20 @@ public partial class RoadBuilder : Node2D
 
     private bool _isRemoveHoverActive;
     private int _lastHoveredEdgeID = -1;
+    private RoadRemovalSession? _removalSession;
 
     public bool IsPlacing => _placementSession != null;
     public int FixedCornerCount => _placementSession?.FixedCornerCount ?? 0;
     public RoadPathDraft? CurrentDraft => _placementSession?.CurrentDraft;
+    public bool IsRemoving => _removalSession != null;
 
     public bool HasActivePlaceSession() => IsPlacing;
 
     public int GetFixedCornerCount() => FixedCornerCount;
+
+    public bool HasActiveRemoveSession() => IsRemoving;
+
+    public int GetRemovalSelectionCount() => _removalSession?.SelectedEdgeIDs.Length ?? 0;
 
     public void SetGraph(RoadGraph graph) => _graph = graph;
 
@@ -31,6 +37,7 @@ public partial class RoadBuilder : Node2D
     {
         ArgumentNullException.ThrowIfNull(inputStrategy);
         CancelPlaceSession();
+        CancelRemoveSession();
         _inputStrategy = inputStrategy;
     }
 
@@ -119,7 +126,7 @@ public partial class RoadBuilder : Node2D
         if (_graph == null || _renderer == null)
             return;
 
-        if (_isRemoveHoverActive)
+        if (_isRemoveHoverActive && !IsRemoving)
             UpdateRemoveHover();
     }
 
@@ -212,15 +219,74 @@ public partial class RoadBuilder : Node2D
         if (_graph == null || _inputStrategy == null)
             return;
 
-        if (@event is InputEventMouseButton mouseButton &&
-            mouseButton.ButtonIndex == MouseButton.Left &&
-            mouseButton.Pressed)
+        if (@event is InputEventMouseMotion mouseMotion)
         {
-            Vector2 pointerPosition = GetGlobalMousePosition();
-            GraphEdge? edge = FindEdgeForRemoval(pointerPosition);
-            if (edge != null)
-                _graph.RemoveEdge(edge.ID);
+            if (IsRemoving)
+                UpdateRemove(ToWorldPosition(mouseMotion.Position));
+            return;
         }
+
+        if (@event is not InputEventMouseButton mouseButton)
+            return;
+
+        Vector2 pointerPosition = ToWorldPosition(mouseButton.Position);
+        if (mouseButton.ButtonIndex == MouseButton.Right && mouseButton.Pressed && IsRemoving)
+        {
+            CancelRemoveSession();
+            return;
+        }
+        if (mouseButton.ButtonIndex != MouseButton.Left)
+            return;
+
+        if (mouseButton.Pressed)
+            BeginRemove(pointerPosition, mouseButton.ShiftPressed);
+        else if (IsRemoving)
+            ConfirmRemove(pointerPosition);
+    }
+
+    public bool BeginRemove(Vector2 pointerPosition, bool rectangleSelection = false)
+    {
+        if (_graph == null || _inputStrategy == null || IsRemoving)
+            return false;
+
+        _removalSession = new RoadRemovalSession(
+            _graph,
+            rectangleSelection
+                ? RoadRemovalSelectionMode.Rectangle
+                : RoadRemovalSelectionMode.Continuous,
+            pointerPosition,
+            _inputStrategy.InteractionRadius);
+        ClearRemoveHover();
+        ApplyRemovePreview();
+        return true;
+    }
+
+    public void UpdateRemove(Vector2 pointerPosition)
+    {
+        if (_removalSession == null)
+            return;
+
+        _removalSession.Update(pointerPosition);
+        ApplyRemovePreview();
+    }
+
+    public bool ConfirmRemove(Vector2 pointerPosition)
+    {
+        if (_removalSession == null || _graph == null)
+            return false;
+
+        _removalSession.Update(pointerPosition);
+        int[] selectedEdgeIDs = _removalSession.SelectedEdgeIDs;
+        EndRemoveSession();
+        return _graph.RemoveEdges(selectedEdgeIDs);
+    }
+
+    public void CancelRemoveSession()
+    {
+        if (_removalSession == null)
+            return;
+
+        EndRemoveSession();
     }
 
     /// <summary>取消当前连续铺路会话，不修改路网。</summary>
@@ -239,7 +305,10 @@ public partial class RoadBuilder : Node2D
     {
         _isRemoveHoverActive = active;
         if (!active)
+        {
+            CancelRemoveSession();
             ClearRemoveHover();
+        }
     }
 
     private void ApplyPreview(RoadPathDraft draft)
@@ -266,6 +335,27 @@ public partial class RoadBuilder : Node2D
         _leftPressStartedSession = false;
         _ignoreNextLeftRelease = false;
         ClearPreview();
+    }
+
+    private void ApplyRemovePreview()
+    {
+        if (_renderer == null || _removalSession == null)
+            return;
+
+        _renderer.RemovalPreviewEdgeIDs = _removalSession.SelectedEdgeIDs;
+        _renderer.RemovalSelectionBounds = _removalSession.SelectionBounds;
+        _renderer.QueueRedraw();
+    }
+
+    private void EndRemoveSession()
+    {
+        _removalSession = null;
+        if (_renderer == null)
+            return;
+
+        _renderer.RemovalPreviewEdgeIDs = [];
+        _renderer.RemovalSelectionBounds = null;
+        _renderer.QueueRedraw();
     }
 
     private Vector2 ToWorldPosition(Vector2 viewportPosition) =>

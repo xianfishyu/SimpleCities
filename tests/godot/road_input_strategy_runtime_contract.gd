@@ -139,6 +139,70 @@ func run() -> void:
 		return
 	if not assert_true(FileAccess.get_file_as_string(roads_path) == roads_before_right_cancel, "Right-click cancel changed the saved RoadGraph"):
 		return
+
+	road_builder.HandleRemoveInput(mouse_button_event(
+		MOUSE_BUTTON_LEFT,
+		true,
+		road_builder.get_canvas_transform() * Vector2(850, 300)))
+	move_remove_pointer(road_builder, Vector2(900, 350))
+	if not assert_true(
+		road_builder.HasActiveRemoveSession() and road_builder.GetRemovalSelectionCount() >= 1,
+		"Removal cancel scenario did not retain a stable selection"):
+		return
+	road_builder.HandleRemoveInput(mouse_button_event(
+		MOUSE_BUTTON_RIGHT,
+		true,
+		road_builder.get_canvas_transform() * Vector2(900, 350)))
+	if not assert_true(
+		not road_builder.HasActiveRemoveSession() and road_renderer.GetRemovalPreviewEdgeCount() == 0,
+		"Right click did not cancel the removal selection and preview"):
+		return
+	if not assert_true(save_manager.Save(slot_id), "Save after removal cancel failed"):
+		return
+	if not assert_true(FileAccess.get_file_as_string(roads_path) == roads_before_right_cancel, "Removal cancel changed the saved RoadGraph"):
+		return
+
+	road_builder.HandleRemoveInput(mouse_button_event(
+		MOUSE_BUTTON_LEFT,
+		true,
+		road_builder.get_canvas_transform() * Vector2(280, 350)))
+	move_remove_pointer(road_builder, Vector2(420, 350))
+	if not assert_true(
+		road_builder.GetRemovalSelectionCount() == 3 and road_renderer.GetRemovalPreviewEdgeCount() == 3,
+		"Continuous removal did not select the three crossed edges exactly once"):
+		return
+	road_builder.HandleRemoveInput(mouse_button_event(
+		MOUSE_BUTTON_LEFT,
+		false,
+		road_builder.get_canvas_transform() * Vector2(420, 350)))
+	if not assert_true(
+		not road_builder.HasActiveRemoveSession() and road_renderer.GetRemovalPreviewEdgeCount() == 0,
+		"Continuous removal did not commit and clear its preview"):
+		return
+	if not assert_true(save_manager.Save(slot_id), "Continuous removal save failed"):
+		return
+	if not assert_saved_counts(roads_path, 6, 4, 2, "Continuous removal"):
+		return
+
+	road_builder.HandleRemoveInput(mouse_button_event(
+		MOUSE_BUTTON_LEFT,
+		true,
+		road_builder.get_canvas_transform() * Vector2(-50, -50),
+		true))
+	move_remove_pointer(road_builder, Vector2(850, 350))
+	if not assert_true(
+		road_builder.GetRemovalSelectionCount() == 2 and road_renderer.GetRemovalPreviewEdgeCount() == 2,
+		"Rectangle removal did not select two edges across groups"):
+		return
+	road_builder.HandleRemoveInput(mouse_button_event(
+		MOUSE_BUTTON_LEFT,
+		false,
+		road_builder.get_canvas_transform() * Vector2(850, 350),
+		true))
+	if not assert_true(save_manager.Save(slot_id), "Rectangle removal save failed"):
+		return
+	if not assert_saved_counts(roads_path, 3, 2, 1, "Rectangle removal"):
+		return
 	if not assert_true(save_manager.DeleteSlot(slot_id), "Strategy path test slot cleanup failed"):
 		return
 
@@ -225,6 +289,24 @@ func assert_saved_input_path(roads_path: String) -> bool:
 		return false
 	return true
 
+func assert_saved_counts(
+	roads_path: String,
+	expected_nodes: int,
+	expected_edges: int,
+	expected_groups: int,
+	label: String) -> bool:
+	var payload: Variant = JSON.parse_string(FileAccess.get_file_as_string(roads_path))
+	if not assert_true(payload is Dictionary, "%s RoadGraph payload is not an object" % label):
+		return false
+	var graph_data: Dictionary = payload
+	if not assert_true(graph_data.get("nodes", []).size() == expected_nodes, "%s node count is wrong" % label):
+		return false
+	if not assert_true(graph_data.get("edges", []).size() == expected_edges, "%s edge count is wrong" % label):
+		return false
+	if not assert_true(graph_data.get("groups", []).size() == expected_groups, "%s group count is wrong" % label):
+		return false
+	return true
+
 func move_pointer(road_builder: Node, position: Vector2) -> void:
 	var event := InputEventMouseMotion.new()
 	var viewport_position: Vector2 = road_builder.get_canvas_transform() * position
@@ -232,17 +314,29 @@ func move_pointer(road_builder: Node, position: Vector2) -> void:
 	event.global_position = viewport_position
 	road_builder.HandlePlaceInput(event)
 
+func move_remove_pointer(road_builder: Node, position: Vector2) -> void:
+	var event := InputEventMouseMotion.new()
+	var viewport_position: Vector2 = road_builder.get_canvas_transform() * position
+	event.position = viewport_position
+	event.global_position = viewport_position
+	road_builder.HandleRemoveInput(event)
+
 func click_left(road_builder: Node, position: Vector2) -> void:
 	var viewport_position: Vector2 = road_builder.get_canvas_transform() * position
 	road_builder.HandlePlaceInput(mouse_button_event(MOUSE_BUTTON_LEFT, true, viewport_position))
 	road_builder.HandlePlaceInput(mouse_button_event(MOUSE_BUTTON_LEFT, false, viewport_position))
 
-func mouse_button_event(button: MouseButton, pressed: bool, position: Vector2) -> InputEventMouseButton:
+func mouse_button_event(
+	button: MouseButton,
+	pressed: bool,
+	position: Vector2,
+	shift_pressed: bool = false) -> InputEventMouseButton:
 	var event := InputEventMouseButton.new()
 	event.button_index = button
 	event.pressed = pressed
 	event.position = position
 	event.global_position = position
+	event.shift_pressed = shift_pressed
 	return event
 
 func key_event(keycode: int) -> InputEventKey:

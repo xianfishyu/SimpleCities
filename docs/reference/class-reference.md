@@ -426,11 +426,14 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `SubmitPolyline` | `public RoadPathSubmissionResult SubmitPolyline(IReadOnlyList<Vector2>? points)` | 无网格参数的结构化折线提交入口 |
 | `SubmitPath` | `public RoadPathSubmissionResult SubmitPath(RoadPath? path)` | 提交连续原生几何路径并返回完整变更摘要 |
 | `RemoveEdge` | `public bool RemoveEdge(int edgeID)` | 删除单边，一次清理孤立节点与空 Group，不触发合并 |
+| `RemoveEdges` | `public bool RemoveEdges(IEnumerable<int>? edgeIDs)` | 对 ID 去重排序，跳过失效目标并在一次事务中删除全部有效 Edge |
 | `RemoveRoadGroup` | `public bool RemoveRoadGroup(int groupID)` | 按 Edge ID 稳定顺序批量 detach，一次清理后发布事件，不触发合并 |
 | `GetEdge` | `public GraphEdge? GetEdge(int edgeID)` | 取边 |
 | `GetNode` | `public GraphNode? GetNode(int nodeID)` | 取节点 |
 | `GetGroup` | `public RoadGroup? GetGroup(int groupID)` | 取组 |
 | `FindClosestEdge` | `public GraphEdge? FindClosestEdge(Vector2 position, float maxRadius)` | 从原生几何空间候选中计算权威最近点；等距时选较小 Edge ID |
+| `FindEdgeIDsNear` | `public IReadOnlyList<int> FindEdgeIDsNear(Vector2 position, float radius)` | 返回与圆形命中范围相交的原生几何 Edge ID 稳定序列 |
+| `FindEdgeIDsIntersecting` | `public IReadOnlyList<int> FindEdgeIDsIntersecting(Rect2 bounds)` | 以空间候选和原生几何/矩形边界精确过滤返回稳定 Edge ID 序列 |
 | `FindClosestNode` | `public GraphNode? FindClosestNode(Vector2 position, float maxRadius)` | 基于空间索引查最近节点 |
 | `GetAllEdges` | `public IEnumerable<GraphEdge> GetAllEdges()` | 返回调用时的边稳定快照 |
 | `GetAllNodes` | `public IEnumerable<GraphNode> GetAllNodes()` | 返回调用时的节点稳定快照 |
@@ -455,7 +458,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 
 `SubmitPath` 对六类原生几何执行类型、有限值、连续性、节点身份、交叉、相切、重叠与覆盖校验。成功结果的 `RoadGraphChangeSummary` 按 ID 排序列出创建/删除的 Node、Edge、Group；拒绝结果不修改图且返回结构化 `RoadPathSubmissionError`。
 
-单删、整组删、原生拆分和共线合并都在完整 detach/替代 Edge 创建后调用一次提交清理。Debug 构建在事件发布前执行 `AssertInvariants`；复合操作先发布全部移除事件，再发布全部新增事件，事件处理器观察到的是最终一致图。
+单删、任意 Edge 集合、整组删、原生拆分和共线合并都在完整 detach/替代 Edge 创建后调用一次提交清理。批量入口忽略重复和已经失效的 ID；Debug 构建在事件发布前执行 `AssertInvariants`，复合操作先发布全部移除事件，再发布全部新增事件，事件处理器观察到的是最终一致图。
 
 | 存档恢复阶段 | 行为 |
 |---|---|
@@ -493,7 +496,8 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | 公开/导出成员 | 签名 | 说明 |
 |---|---|---|
 | `Config` | `[Export] public RoadConfig Config { get; set; } = null!` | 场景注入共享配置 |
-| `IsPlacing` / `FixedCornerCount` / `CurrentDraft` | 只读属性 | 当前连续会话状态、已固定拐点数和完整组合草稿 |
+| `IsPlacing` / `FixedCornerCount` / `CurrentDraft` | 只读属性 | 当前连续铺路会话状态、已固定拐点数和完整组合草稿 |
+| `IsRemoving` | `public bool IsRemoving { get; }` | 当前是否持有尚未提交的拆除选择会话 |
 | `SetGraph` | `public void SetGraph(RoadGraph graph)` | 注入数据层 |
 | `SetInputStrategy` | `public void SetInputStrategy(IRoadInputStrategy inputStrategy)` | 取消当前会话并替换输入策略 |
 | `_Ready` | `public override void _Ready()` | 获取相邻 `RoadRenderer`，校验 `Config`，按需创建默认米字型策略 |
@@ -506,8 +510,11 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `CancelPlaceSession` | `public void CancelPlaceSession()` | 取消完整会话并清空预览，不修改图 |
 | `CancelPlaceDrag` | `public void CancelPlaceDrag()` | 兼容既有调用的取消别名 |
 | `_Process` | `public override void _Process(double delta)` | 仅在拆除工具活动时更新 hover；铺路由输入事件驱动 |
-| `HandleRemoveInput` | `public void HandleRemoveInput(InputEvent @event)` | 左键点击删除最近 `GraphEdge` |
-| `SetRemoveHoverActive` | `public void SetRemoveHoverActive(bool active)` | 切入/切出拆除工具时开关 hover |
+| `HandleRemoveInput` | `public void HandleRemoveInput(InputEvent @event)` | 处理连续轨迹、Shift 矩形框选、松开提交和右键取消 |
+| `BeginRemove` / `UpdateRemove` | `public bool/void ...(Vector2 pointerPosition, ...)` | 建立并更新只读图的拆除选择会话 |
+| `ConfirmRemove` | `public bool ConfirmRemove(Vector2 pointerPosition)` | 将稳定 Edge ID 集一次性交给 `RoadGraph.RemoveEdges` |
+| `CancelRemoveSession` | `public void CancelRemoveSession()` | 取消选择并清空预览，不修改图 |
+| `SetRemoveHoverActive` | `public void SetRemoveHoverActive(bool active)` | 切入/切出拆除工具时开关 hover；切出时取消选择 |
 
 | 当前铺路行为 | 说明 |
 |---|---|
@@ -516,11 +523,11 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | 组合与提交 | `RoadPlacementSession` 保留每段策略草稿的原生几何；`ConfirmPlace()` 把完整 `RoadPath` 一次性交给 `_graph.SubmitPath(...)` |
 | 失败行为 | 无有效段时不提交；RoadGraph 拒绝时图不变且会话/完整预览保留，可继续调整或取消 |
 | 道路类型 | 第二代输入与数据层不包含 RoadType |
-| 拆除 | 使用当前策略的吸附点和 `InteractionRadius` 查边，再回退到原始指针位置 |
+| 拆除 | 简单点击删除单 Edge；普通左键拖动累积轨迹命中，`Shift+左键` 动态框选，松开后批量提交；右键或切出工具取消 |
 
 ### Road 输入策略
 
-**文件**：`Scripts/Road/Input/IRoadInputStrategy.cs`、`RoadPathDraft.cs`、`RoadPlacementSession.cs`、`SquareEightRoadInputStrategy.cs`、`TriangularThreeRoadInputStrategy.cs`、`HexSixRoadInputStrategy.cs`
+**文件**：`Scripts/Road/Input/IRoadInputStrategy.cs`、`RoadPathDraft.cs`、`RoadPlacementSession.cs`、`RoadRemovalSession.cs`、`SquareEightRoadInputStrategy.cs`、`TriangularThreeRoadInputStrategy.cs`、`HexSixRoadInputStrategy.cs`
 
 | 类型/成员 | 签名 | 说明 |
 |---|---|---|
@@ -529,6 +536,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `IRoadInputStrategy.BuildDraft` | `RoadPathDraft BuildDraft(Vector2 startPosition, Vector2 pointerPosition)` | 生成预览点和可选的权威 `RoadPath` |
 | `RoadPathDraft` | `public sealed class RoadPathDraft` | 防御性复制预览点；`Path == null` 表示当前不可提交；`FromPolyline` 把连续预览点转换为原生 line 段 |
 | `RoadPlacementSession` | `public sealed class RoadPlacementSession` | 组合已固定草稿和可移动末端；支持增加/回退拐点并保持完整 `PreviewPoints` 与原生 `RoadPath` |
+| `RoadRemovalSession` | `public sealed class RoadRemovalSession` | 维护排序去重的 Edge ID；连续模式累积轨迹命中，矩形模式按当前框重新生成选择，不直接写图 |
 | `SquareEightRoadInputStrategy` | `public sealed class SquareEightRoadInputStrategy : IRoadInputStrategy` | 封装方格吸附、八方向投影、半格对角约束和逐格原生直线段 |
 | `TriangularThreeRoadInputStrategy` | `public sealed class TriangularThreeRoadInputStrategy : IRoadInputStrategy` | 吸附到三角单元中心；主/次中心分别有 3 个跨边邻居，长路径交替两组邻接 |
 | `HexSixRoadInputStrategy` | `public sealed class HexSixRoadInputStrategy : IRoadInputStrategy` | pointy-top 六边形单元中心轴向取整；沿 6 个等长方向投影 |
@@ -545,10 +553,13 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `Config` | `[Export] public RoadConfig Config { get; set; } = null!` | 场景注入共享配置 |
 | `PreviewPoints` | `public Vector2[] PreviewPoints { get; set; }` | 防御性复制的完整施工预览点列 |
 | `GetPreviewPointCount` / `GetPreviewPoint` | 运行时查询方法 | Godot 契约和调试调用读取当前完整预览 |
+| `RemovalPreviewEdgeIDs` | `public int[] RemovalPreviewEdgeIDs { get; set; }` | 防御性保存并排序去重的拆除预览 Edge ID |
+| `RemovalSelectionBounds` | `public Rect2? RemovalSelectionBounds { get; set; }` | 矩形拆除选择的当前世界坐标边界 |
+| `GetRemovalPreviewEdgeCount` | `public int GetRemovalPreviewEdgeCount()` | Godot 运行时契约读取拆除预览数量 |
 | `HoveredEdgeID` | `public int? HoveredEdgeID { get; set; }` | 拆除工具悬停边 |
 | `_Ready` | `public override void _Ready()` | 校验 `Config`，创建 junction 绘制层 |
 | `SetGraph` | `public void SetGraph(RoadGraph graph)` | 订阅 `EdgeAdded`、`EdgeRemoved`、`GraphCleared` |
-| `_Draw` | `public override void _Draw()` | 绘制拆除 hover 高亮和完整多段施工虚线预览 |
+| `_Draw` | `public override void _Draw()` | 绘制拆除 hover/稳定选择/矩形框线和完整多段施工虚线预览 |
 
 | 事件响应 | 行为 |
 |---|---|
@@ -692,8 +703,10 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | 1 | `ToolManager.CurrentTool = ToolType.RoadRemove` | 开启 `RoadBuilder.SetRemoveHoverActive(true)` |
 | 2 | `RoadBuilder._Process()` | `UpdateRemoveHover()` 更新 `RoadRenderer.HoveredEdgeID` |
 | 3 | `RoadRenderer._Draw()` | 绘制 hover 高亮 |
-| 4 | `RoadBuilder.HandleRemoveInput()` | 左键查最近边并调用 `RoadGraph.RemoveEdge(edge.ID)` |
-| 5 | `RoadGraph.EdgeRemoved` | 通知渲染器释放对应 `Line2D` |
+| 4 | `RoadBuilder.HandleRemoveInput()` | 左键拖动累积轨迹命中，`Shift+左键` 从当前矩形生成选择；预览阶段不写图 |
+| 5 | `RoadBuilder.ConfirmRemove()` | 松开左键后将排序去重的 Edge ID 集一次性交给 `RoadGraph.RemoveEdges(...)` |
+| 6 | `RoadGraph.RemoveEdges(...)` | 跳过失效目标，批量 detach 后只执行一次清理和不变式验证 |
+| 7 | `RoadGraph.EdgeRemoved` | 按稳定 ID 顺序通知渲染器释放对应 `Line2D` |
 
 ### 存档流
 
