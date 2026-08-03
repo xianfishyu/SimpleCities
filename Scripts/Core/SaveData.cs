@@ -52,6 +52,7 @@ public sealed class SaveSlotSummary
     public IReadOnlyList<string> Files { get; init; } = Array.Empty<string>();
     public bool IsValid { get; init; }
     public string? Error { get; init; }
+    public bool IsAutosave => string.Equals(SlotID, SaveManager.AutosaveSlotID, StringComparison.Ordinal);
 }
 
 #endregion

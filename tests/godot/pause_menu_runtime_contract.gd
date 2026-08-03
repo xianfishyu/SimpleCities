@@ -189,7 +189,7 @@ func run() -> void:
 	await mouse_click(save_as_button)
 	var second_ui_slot_id: String = save_manager.get("CurrentSlotID")
 	assert_true(second_ui_slot_id.begins_with("manual-") and second_ui_slot_id != first_ui_slot_id, "Duplicate display name did not create an independent slot")
-	assert_true(count_items_with_prefix(save_slot_list, "Runtime UI duplicate") >= 2, "Duplicate display names are not both visible")
+	assert_true(count_items_with_prefix(save_slot_list, "手动  ·  Runtime UI duplicate") >= 2, "Duplicate display names are not both visible")
 
 	var first_ui_index := find_item_by_metadata(save_slot_list, first_ui_slot_id)
 	assert_true(first_ui_index >= 0, "First manual slot is missing from save management")
@@ -380,7 +380,7 @@ func assert_selected_slot(item_list: ItemList, slot_id: String, label: String) -
 func cleanup_runtime_ui_slots(save_manager: Node, item_list: ItemList) -> bool:
 	var removed := false
 	for index in item_list.item_count:
-		if not item_list.get_item_text(index).begins_with("Runtime UI "):
+		if not item_list.get_item_text(index).begins_with("手动  ·  Runtime UI "):
 			continue
 		removed = save_manager.DeleteSlot(str(item_list.get_item_metadata(index))) or removed
 	return removed

@@ -1,5 +1,6 @@
 [gd_scene format=3 uid="uid://baxamkfym8atd"]
 
+[ext_resource type="Script" path="res://Scripts/Core/AutosaveController.cs" id="1_autosave"]
 [ext_resource type="Script" uid="uid://3dc2kcbj18lu" path="res://Scripts/MainCamera.cs" id="2_jswqu"]
 [ext_resource type="Script" uid="uid://dbwpxsq4va6mj" path="res://Scripts/Road/RoadSystem.cs" id="3_8kb5a"]
 [ext_resource type="Script" uid="uid://dfb4k8qpkr4jx" path="res://Scripts/Road/RoadRenderer.cs" id="4_h22yp"]
@@ -11,6 +12,9 @@
 [ext_resource type="PackedScene" uid="uid://dvqwt5ow1cnik" path="res://Scenes/UI/GameHUD.tscn" id="9_hudscene"]
 
 [node name="MapTest" type="Node2D" unique_id=1358314178]
+
+[node name="AutosaveController" type="Node" parent="."]
+script = ExtResource("1_autosave")
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=271826465]
 script = ExtResource("2_jswqu")

@@ -459,6 +459,23 @@ public sealed class SaveManagerSlotContractTests : IDisposable
     }
 
     [Fact]
+    public void ListSlots_DistinguishesReservedAutosaveFromSameNamedManualSlot()
+    {
+        var store = CreateStore();
+        store.Save(SaveManager.AutosaveSlotID, SaveManager.AutosaveDisplayName, []);
+        string manualSlotID = store.Create(SaveManager.AutosaveDisplayName, []);
+
+        IReadOnlyList<SaveSlotSummary> summaries = store.ListSlots();
+
+        SaveSlotSummary autosave = Assert.Single(summaries, summary => summary.IsAutosave);
+        SaveSlotSummary manual = Assert.Single(summaries, summary => !summary.IsAutosave);
+        Assert.Equal(SaveManager.AutosaveSlotID, autosave.SlotID);
+        Assert.Equal(SaveManager.AutosaveDisplayName, autosave.DisplayName);
+        Assert.Equal(manualSlotID, manual.SlotID);
+        Assert.Equal(SaveManager.AutosaveDisplayName, manual.DisplayName);
+    }
+
+    [Fact]
     public void ListSlots_SortsNewestFirstAndUsesSlotIDAsStableTieBreaker()
     {
         var store = CreateStore();

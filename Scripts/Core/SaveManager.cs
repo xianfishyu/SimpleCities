@@ -19,6 +19,7 @@ public partial class SaveManager : Node
     internal const string RoadGraphSaveFileName = "road_network";
     private static readonly string[] V2SaveFileNames = [RoadGraphSaveFileName];
     public const string AutosaveSlotID = "autosave";
+    public const string AutosaveDisplayName = "自动存档";
     internal const int ManifestSchemaVersion = 1;
 
     private static readonly JsonSerializerOptions ManifestJsonOptions = new()
@@ -75,7 +76,7 @@ public partial class SaveManager : Node
         {
             SaveSlotStore store = CreateSlotStore();
             string displayName = string.Equals(slotID, AutosaveSlotID, StringComparison.Ordinal)
-                ? "Autosave"
+                ? AutosaveDisplayName
                 : store.ReadManifest(slotID).DisplayName;
             int savedFileCount = store.Save(slotID, displayName, GetV2Saveables());
 
@@ -86,6 +87,25 @@ public partial class SaveManager : Node
         catch (Exception e)
         {
             GD.PushError($"[SaveManager] Save failed: {e.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>覆盖保留自动槽，但不改变玩家当前选中的手动槽。</summary>
+    public bool SaveAutosave()
+    {
+        try
+        {
+            int savedFileCount = CreateSlotStore().Save(
+                AutosaveSlotID,
+                AutosaveDisplayName,
+                GetV2Saveables());
+            GD.Print($"[SaveManager] Autosaved ({savedFileCount} files)");
+            return true;
+        }
+        catch (Exception e)
+        {
+            GD.PushError($"[SaveManager] Autosave failed: {e.Message}");
             return false;
         }
     }

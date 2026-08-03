@@ -97,6 +97,7 @@
 |---|---|---|
 | `Instance` | `public static SaveManager Instance { get; private set; }` | Autoload 单例 |
 | `AutosaveSlotID` | `public const string AutosaveSlotID = "autosave"` | 保留的自动存档内部 ID |
+| `AutosaveDisplayName` | `public const string AutosaveDisplayName = "自动存档"` | 保留自动槽的玩家可见名称 |
 | `CurrentSlotID` | `public string CurrentSlotID { get; private set; } = AutosaveSlotID` | 当前槽位内部 ID |
 | `RegisteredSaveableCount` | `public int RegisteredSaveableCount` | 当前活动注册数量 |
 | V2 持久化配置 | `V2SaveFileNames = ["road_network"]` | 第二代只选择 RoadGraph；相机保持注册但不进入 V2 槽 |
@@ -104,6 +105,7 @@
 | `Register` | `public bool Register(ISaveable saveable)` | 同一对象幂等；拒绝另一活动对象使用相同 `SaveFileName` |
 | `Unregister` | `public bool Unregister(ISaveable saveable)` | 移除离开场景树的可存档对象 |
 | `Save` | `public bool Save(string slotID = AutosaveSlotID)` | 按内部 ID 覆盖已存在槽位；首次只允许保留的 autosave |
+| `SaveAutosave` | `public bool SaveAutosave()` | 覆盖保留自动槽，不改变玩家当前选中的手动槽 |
 | `SaveAs` | `public bool SaveAs(string displayName)` | 以玩家可见名称创建具有独立安全 ID 的手动槽位 |
 | `Load` | `public bool Load(string slotID = AutosaveSlotID)` | 按内部 ID 完成 manifest、全部文件和临时模型预检后提交恢复 |
 | `SaveSlotExists` | `public bool SaveSlotExists(string slotID)` | 按内部 ID 检查 manifest 是否存在 |
@@ -122,6 +124,22 @@
 | 错误处理 | 捕获异常，`GD.PushError(...)`，返回 `false` |
 
 `SaveSlotStore` 是不依赖 Godot Node 的内部文件存储边界，负责生成 `manual-<GUID>` ID、约束路径、整槽 staging/backup 发布、事务残留恢复、读写 manifest、存在性检查和递归删除；事务目录使用保留名称且不会进入 `ListSlots`。`SaveManager` 负责注册生命周期、Godot 日志和 `CurrentSlotID`。隔离目录 xUnit 直接验证 `SaveSlotStore`，Godot 运行时契约验证适配层。
+
+### AutosaveController
+
+**文件**：`Scripts/Core/AutosaveController.cs`
+**继承**：`public partial class AutosaveController : Node`
+
+| 成员 | 签名 | 说明 |
+|---|---|---|
+| `IntervalSeconds` | `[Export] public double IntervalSeconds { get; set; } = 300d` | 自动存档周期；只接受正有限值 |
+| `AutosaveEnabled` | `[Export] public bool AutosaveEnabled { get; set; } = true` | 场景进入时是否启动周期调度 |
+| `SetAutosaveEnabled` | `public void SetAutosaveEnabled(bool enabled)` | 启停周期；重新启用时从完整周期开始计时 |
+| `RunAutosaveNow` | `public bool RunAutosaveNow()` | 立即调用 `SaveManager.SaveAutosave()` 并更新计数 |
+| 结果状态 | `AttemptCount`、`SuccessfulSaveCount`、`FailedSaveCount`、`LastAttemptSucceeded` | 当前场景生命周期内的自动保存结果 |
+| `AutosaveCompleted` | `signal(bool success)` | 每次周期或立即尝试完成后发出 |
+
+该节点挂载在 `MapTest`，内部 `Timer` 继承场景树暂停状态；暂停菜单打开时周期不推进，离开游戏场景后计时器随节点释放。
 
 ### InputBindingManager
 
@@ -173,7 +191,7 @@
 | `ManifestData` | `public decimal? Funds { get; set; }` | `funds` | `null` 表示暂无数据源 |
 | `ManifestData` | `public string? ThumbnailFile { get; set; }` | `thumbnailFile` | `null` 表示使用 UI 占位图 |
 | `ManifestData` | `public List<string> Files { get; set; }` | `files` | 文件名列表 |
-| `SaveSlotSummary` | `SlotID`、`DisplayName`、`SavedAtUtc`、城市元数据、`ThumbnailPath`、`Files`、`IsValid`、`Error` | 非 JSON 摘要 | 有效槽按 UTC 时间倒序并以 ID 稳定排序；损坏槽排在末尾 |
+| `SaveSlotSummary` | `SlotID`、`DisplayName`、`SavedAtUtc`、城市元数据、`ThumbnailPath`、`Files`、`IsValid`、`Error`、`IsAutosave` | 非 JSON 摘要 | `IsAutosave` 只按保留内部 ID 判定；有效槽按 UTC 时间倒序并以 ID 稳定排序，损坏槽排在末尾 |
 | `CameraData` | `public float PositionX { get; set; }` | `positionX` | 相机 X |
 | `CameraData` | `public float PositionY { get; set; }` | `positionY` | 相机 Y |
 | `CameraData` | `public float Zoom { get; set; }` | `zoom` | 相机缩放目标 |
@@ -659,10 +677,12 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | 注册 | `RoadSystem._Ready()` | `SaveManager.Instance.Register(Graph)` |
 | 注销 | `MainCamera._ExitTree()` | `SaveManager.Instance.Unregister(this)` |
 | 注销 | `RoadSystem._ExitTree()` | `SaveManager.Instance.Unregister(Graph)` |
+| 周期入口 | `AutosaveController` 的场景内 `Timer` | 默认每 300 秒调用 `SaveManager.SaveAutosave()`；场景暂停时不计时 |
+| 自动保存 | `SaveManager.SaveAutosave()` | 覆盖保留 `autosave` 槽，不切换当前手动槽；事务失败保留上一份有效自动存档 |
 | 列举入口 | `PauseMenu` 打开存档管理视图 | `SaveManager.ListSlots()` 返回有效及损坏槽摘要，不加载业务 JSON |
 | 新建入口 | `PauseMenu` 提交新显示名 | `SaveManager.SaveAs(displayName)` 生成独立 `manual-<GUID>` 槽 |
 | 覆盖入口 | `PauseMenu` 确认目标摘要 | `SaveManager.Save(slotID)` 覆盖已存在槽；取消不写文件 |
-| 保存文件 | `SaveManager.Save/SaveAs()` | V2 槽写 `road_network.json` 与 `manifest.json`，不写相机状态 |
+| 保存文件 | `SaveManager.Save/SaveAs/SaveAutosave()` | V2 槽写 `road_network.json` 与 `manifest.json`，不写相机状态 |
 | 加载入口 | `PauseMenu` 确认目标摘要 | `SaveManager.Load(slotID)`；取消不改变当前槽位或活动道路 |
 | 删除入口 | `PauseMenu` 确认目标摘要 | `SaveManager.DeleteSlot(slotID)` 递归删除非空有效或损坏槽 |
 | RoadGraph 恢复 | `SaveSlotStore.Load()` -> `RoadGraph.PrepareRestoreState/RestorePreparedState` | 整槽预检后一次提交，重建邻接与空间索引并触发 `GraphCleared` |

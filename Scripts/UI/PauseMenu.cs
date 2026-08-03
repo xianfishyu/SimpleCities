@@ -571,9 +571,10 @@ public partial class PauseMenu : Control
         for (int index = 0; index < _saveSlots.Count; index++)
         {
             SaveSlotSummary summary = _saveSlots[index];
+            string slotKind = summary.IsAutosave ? "自动" : "手动";
             string itemText = summary.IsValid
-                ? $"{summary.DisplayName}  ·  {FormatSaveTime(summary.SavedAtUtc)}"
-                : $"损坏存档  ·  {summary.SlotID}";
+                ? $"{slotKind}  ·  {summary.DisplayName}  ·  {FormatSaveTime(summary.SavedAtUtc)}"
+                : $"损坏{slotKind}存档  ·  {summary.SlotID}";
             _saveSlotList.AddItem(itemText);
             _saveSlotList.SetItemMetadata(index, summary.SlotID);
             if (!summary.IsValid)
@@ -624,8 +625,9 @@ public partial class PauseMenu : Control
         string population = summary.Population?.ToString("N0") ?? "暂无";
         string funds = summary.Funds?.ToString("N0") ?? "暂无";
         string thumbnail = summary.ThumbnailPath == null ? "暂无" : "已有";
+        string slotKind = summary.IsAutosave ? "自动存档" : "手动存档";
         _saveSlotSummaryLabel.Text =
-            $"{summary.DisplayName}  ·  {FormatSaveTime(summary.SavedAtUtc)}\n" +
+            $"{slotKind}  ·  {summary.DisplayName}  ·  {FormatSaveTime(summary.SavedAtUtc)}\n" +
             $"城市：{summary.CityName}  人口：{population}  资金：{funds}  缩略图：{thumbnail}";
         _saveSlotSummaryLabel.TooltipText = string.Empty;
         UpdateSaveActionAvailability();
@@ -666,8 +668,8 @@ public partial class PauseMenu : Control
     private static string ConfirmationSummary(SaveSlotSummary summary)
     {
         return summary.IsValid
-            ? $"“{summary.DisplayName}” · {FormatSaveTime(summary.SavedAtUtc)}"
-            : $"损坏存档 · {summary.SlotID}";
+            ? $"{(summary.IsAutosave ? "自动" : "手动")} · “{summary.DisplayName}” · {FormatSaveTime(summary.SavedAtUtc)}"
+            : $"损坏{(summary.IsAutosave ? "自动" : "手动")}存档 · {summary.SlotID}";
     }
 
     private static string FormatSaveTime(DateTimeOffset? savedAtUtc)
