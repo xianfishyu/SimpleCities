@@ -72,6 +72,93 @@ public sealed class SaveManagerSlotContractTests : IDisposable
     }
 
     [Fact]
+    public void Load_ManifestMissingRegisteredFileDoesNotRestore()
+    {
+        var store = CreateStore();
+        var saveable = new TestSaveable("road_network", 42);
+        store.Save("broken", "Broken", [saveable]);
+        RewriteManifest("broken", manifest => manifest.Files.Clear());
+        saveable.Value = 7;
+
+        Assert.Throws<InvalidDataException>(() => store.Load("broken", [saveable]));
+
+        Assert.Equal(7, saveable.Value);
+        Assert.Equal(0, saveable.RestoreCount);
+    }
+
+    [Fact]
+    public void Load_InvalidJsonInLaterFileDoesNotRestoreEarlierSystem()
+    {
+        var store = CreateStore();
+        var first = new TestSaveable("first", 42);
+        var second = new TestSaveable("second", 84);
+        store.Save("broken", "Broken", [first, second]);
+        File.WriteAllText(Path.Combine(_saveRoot, "broken", "second.json"), "not json");
+        first.Value = 7;
+
+        Assert.ThrowsAny<JsonException>(() => store.Load("broken", [first, second]));
+
+        Assert.Equal(7, first.Value);
+        Assert.Equal(0, first.RestoreCount);
+        Assert.Equal(0, second.RestoreCount);
+    }
+
+    [Fact]
+    public void Load_PreparationFailureDoesNotCommitAnyPreparedSystem()
+    {
+        var store = CreateStore();
+        var first = new PreparedTestSaveable("first");
+        var second = new PreparedTestSaveable("second") { ThrowDuringPrepare = true };
+        store.Save("broken", "Broken", [first, second]);
+
+        Assert.Throws<InvalidDataException>(() => store.Load("broken", [first, second]));
+
+        Assert.Equal(1, first.PrepareCount);
+        Assert.Equal(0, first.CommitCount);
+        Assert.Equal(1, second.PrepareCount);
+        Assert.Equal(0, second.CommitCount);
+    }
+
+    [Fact]
+    public void Load_CorruptRoadGraphDoesNotChangeActiveGraph()
+    {
+        var store = CreateStore();
+        var saved = new RoadGraph();
+        Assert.True(saved.AddRoad(Godot.Vector2.Zero, new Godot.Vector2(8f, 2f), []) >= 0);
+        store.Save("broken", "Broken", [saved]);
+
+        var active = new RoadGraph();
+        Assert.True(active.AddRoad(Godot.Vector2.Zero, new Godot.Vector2(4f, 6f), []) >= 0);
+        string stateBefore = SaveJson.Serialize(active.CaptureState());
+        File.WriteAllText(
+            Path.Combine(_saveRoot, "broken", "road_network.json"),
+            "{\"schemaVersion\":1,\"nextID\":1,\"nodes\":[{\"id\":0,\"x\":0,\"y\":0}],\"edges\":[],\"groups\":[]}");
+        string manifestBefore = File.ReadAllText(Path.Combine(_saveRoot, "broken", "manifest.json"));
+        string roadFileBefore = File.ReadAllText(Path.Combine(_saveRoot, "broken", "road_network.json"));
+
+        Assert.Throws<JsonException>(() => store.Load("broken", [active]));
+
+        Assert.Equal(stateBefore, SaveJson.Serialize(active.CaptureState()));
+        Assert.Equal(manifestBefore, File.ReadAllText(Path.Combine(_saveRoot, "broken", "manifest.json")));
+        Assert.Equal(roadFileBefore, File.ReadAllText(Path.Combine(_saveRoot, "broken", "road_network.json")));
+    }
+
+    [Fact]
+    public void Load_MissingOptionalThumbnailStillRestoresState()
+    {
+        var store = CreateStore();
+        var saveable = new TestSaveable("road_network", 42);
+        store.Save("manual-1", "Manual 1", [saveable]);
+        RewriteManifest("manual-1", manifest => manifest.ThumbnailFile = "missing.png");
+        saveable.Value = 7;
+
+        Assert.Equal(1, store.Load("manual-1", [saveable]));
+
+        Assert.Equal(42, saveable.Value);
+        Assert.Equal(1, saveable.RestoreCount);
+    }
+
+    [Fact]
     public void DeleteSlot_RemovesNonEmptySlotRecursively()
     {
         var store = CreateStore();
@@ -356,5 +443,32 @@ public sealed class SaveManagerSlotContractTests : IDisposable
         public object CaptureState() => throw new InvalidOperationException("Capture failed.");
 
         public void RestoreState(string json) => throw new NotSupportedException();
+    }
+
+    private sealed class PreparedTestSaveable(string saveFileName) : IPreparedSaveable
+    {
+        public string SaveFileName { get; } = saveFileName;
+        public bool ThrowDuringPrepare { get; init; }
+        public int PrepareCount { get; private set; }
+        public int CommitCount { get; private set; }
+
+        public object CaptureState() => new TestState { Value = 1 };
+
+        public void RestoreState(string json) => RestorePreparedState(PrepareRestoreState(json));
+
+        public object PrepareRestoreState(string json)
+        {
+            PrepareCount++;
+            if (ThrowDuringPrepare)
+                throw new InvalidDataException("Preparation failed.");
+            return JsonSerializer.Deserialize<TestState>(json)
+                ?? throw new JsonException("Prepared test state must be an object.");
+        }
+
+        public void RestorePreparedState(object preparedState)
+        {
+            Assert.IsType<TestState>(preparedState);
+            CommitCount++;
+        }
     }
 }

@@ -3,7 +3,7 @@ using System;
 using System.Text.Json;
 
 
-public partial class MainCamera : Camera2D, ISaveable
+public partial class MainCamera : Camera2D, IPreparedSaveable
 {
 	[Export] private float defaultScale = 1f;
 	[Export] public float scaleFactor = 0.125f;
@@ -112,7 +112,26 @@ public partial class MainCamera : Camera2D, ISaveable
 
 	public void RestoreState(string json)
 	{
-		var data = SaveJson.Deserialize<CameraData>(json);
+		RestorePreparedState(PrepareRestoreState(json));
+	}
+
+	public object PrepareRestoreState(string json)
+	{
+		CameraData? data = SaveJson.Deserialize<CameraData>(json);
+		if (data == null || !float.IsFinite(data.PositionX) || !float.IsFinite(data.PositionY) ||
+			!float.IsFinite(data.Zoom) || data.Zoom <= 0f)
+		{
+			throw new JsonException("Camera save payload must contain finite coordinates and a positive zoom.");
+		}
+
+		return data;
+	}
+
+	public void RestorePreparedState(object preparedState)
+	{
+		if (preparedState is not CameraData data)
+			throw new ArgumentException("Prepared state is not camera data.", nameof(preparedState));
+
 		Position = new Vector2(data.PositionX, data.PositionY);
 		nextPos = Position;
 		defaultScale = data.Zoom;

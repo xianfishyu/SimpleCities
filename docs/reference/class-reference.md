@@ -82,6 +82,8 @@
 | `CaptureState` | `object CaptureState()` | 捕获纯 DTO 状态 |
 | `RestoreState` | `void RestoreState(string json)` | 从 raw JSON 恢复状态 |
 
+`IPreparedSaveable : ISaveable` 额外提供 `PrepareRestoreState(string)` 与 `RestorePreparedState(object)`。`SaveSlotStore.Load` 先读取并解析整槽 JSON，再准备全部实现，最后才提交；`RoadGraph` 和 `MainCamera` 均实现该两阶段契约。
+
 当前注册实现：`RoadGraph.SaveFileName == "road_network"`，`MainCamera.SaveFileName == "camera"`。
 
 ### SaveManager
@@ -102,7 +104,7 @@
 | `Unregister` | `public bool Unregister(ISaveable saveable)` | 移除离开场景树的可存档对象 |
 | `Save` | `public bool Save(string slotID = AutosaveSlotID)` | 按内部 ID 覆盖已存在槽位；首次只允许保留的 autosave |
 | `SaveAs` | `public bool SaveAs(string displayName)` | 以玩家可见名称创建具有独立安全 ID 的手动槽位 |
-| `Load` | `public bool Load(string slotID = AutosaveSlotID)` | 按内部 ID 加载 manifest 中匹配已注册系统的文件 |
+| `Load` | `public bool Load(string slotID = AutosaveSlotID)` | 按内部 ID 完成 manifest、全部文件和临时模型预检后提交恢复 |
 | `SaveSlotExists` | `public bool SaveSlotExists(string slotID)` | 按内部 ID 检查 manifest 是否存在 |
 | `ListSlots` | `public IReadOnlyList<SaveSlotSummary> ListSlots()` | 无需加载业务 JSON 即可列举有效及损坏槽摘要 |
 | `DeleteSlot` | `public bool DeleteSlot(string slotID)` | 按内部 ID 递归删除非空槽位；当前槽被删时回到 `autosave` |
@@ -114,6 +116,7 @@
 | 单系统文件 | `<SaveFileName>.json` |
 | 写入策略 | 每个文件先写 `.tmp`，再移动为正式文件；这不是整槽原子事务 |
 | Manifest | `manifest.json`，字段来自 `ManifestData` |
+| 加载策略 | manifest、必需文件、JSON 语法及 `IPreparedSaveable` 临时模型全部成功后才进入提交阶段 |
 | 错误处理 | 捕获异常，`GD.PushError(...)`，返回 `false` |
 
 `SaveSlotStore` 是不依赖 Godot Node 的内部文件存储边界，负责生成 `manual-<GUID>` ID、约束槽目录与系统文件名、读写 manifest、存在性检查和递归删除；`SaveManager` 负责注册生命周期、Godot 日志和 `CurrentSlotID`。隔离目录 xUnit 直接验证 `SaveSlotStore`，Godot 运行时契约验证适配层。
@@ -204,7 +207,7 @@
 ## 4. MainCamera
 
 **文件**：`Scripts/MainCamera.cs`
-**继承**：`public partial class MainCamera : Camera2D, ISaveable`
+**继承**：`public partial class MainCamera : Camera2D, IPreparedSaveable`
 
 | 导出成员 | 签名 | 默认值 | 说明 |
 |---|---|---|---|
@@ -224,7 +227,9 @@
 | `_Input` | `public override void _Input(InputEvent @event)` | WASD、滚轮、中键输入 |
 | `SaveFileName` | `public string SaveFileName => "camera"` | 相机存档文件名 |
 | `CaptureState` | `public object CaptureState()` | 返回 `CameraData` |
-| `RestoreState` | `public void RestoreState(string json)` | 从 `CameraData` 恢复 `Position` 和 `defaultScale`，并同步 `nextPos` |
+| `PrepareRestoreState` | `public object PrepareRestoreState(string json)` | 解析并校验有限坐标与正缩放，不修改相机 |
+| `RestorePreparedState` | `public void RestorePreparedState(object preparedState)` | 提交已准备的 `CameraData`，同步 `Position`、`nextPos` 和缩放 |
+| `RestoreState` | `public void RestoreState(string json)` | 兼容入口，依次调用准备与提交 |
 
 | 输入动作 | 来源 | 作用 |
 |---|---|---|
@@ -401,7 +406,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 ### RoadGraph
 
 **文件**：`Scripts/Road/RoadGraph.cs`
-**类型**：`public partial class RoadGraph : ISaveable`
+**类型**：`public partial class RoadGraph : IPreparedSaveable`
 
 | 常量/内部结构 | 当前值/职责 |
 |---|---|
@@ -435,7 +440,9 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `GetAllNodes` | `public IEnumerable<GraphNode> GetAllNodes()` | 返回调用时的节点稳定快照 |
 | `GetAllGroups` | `public IEnumerable<RoadGroup> GetAllGroups()` | 返回调用时的道路组稳定快照 |
 | `CaptureState` | `public object CaptureState()` | 返回私有 `RoadGraphSaveData`，写入 `schemaVersion = 1`、`nextID`、`nodes`、`edges`、`groups` |
-| `RestoreState` | `public void RestoreState(string json)` | 先全量解析校验临时状态；成功后替换图、重建邻接与索引并触发 `GraphCleared` |
+| `PrepareRestoreState` | `public object PrepareRestoreState(string json)` | 构造并全量校验私有临时图，不修改活动图 |
+| `RestorePreparedState` | `public void RestorePreparedState(object preparedState)` | 提交临时图、重建邻接与索引并触发 `GraphCleared` |
+| `RestoreState` | `public void RestoreState(string json)` | 兼容入口，依次调用准备与提交 |
 
 | 折线提交关键阶段 | 行为 |
 |---|---|

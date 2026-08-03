@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-public partial class RoadGraph : ISaveable
+public partial class RoadGraph : IPreparedSaveable
 {
     private const float SnapRadius = 0.5f;
     private const float GeometryEpsilon = 1e-4f;

@@ -59,7 +59,15 @@ public partial class RoadGraph
 
     public void RestoreState(string json)
     {
-        RestoredGraphState restored = ParseAndValidateState(json);
+        RestorePreparedState(PrepareRestoreState(json));
+    }
+
+    public object PrepareRestoreState(string json) => ParseAndValidateState(json);
+
+    public void RestorePreparedState(object preparedState)
+    {
+        if (preparedState is not RestoredGraphState restored)
+            throw new ArgumentException("Prepared state is not a RoadGraph restore model.", nameof(preparedState));
 
         ClearGraph();
         foreach ((int id, GraphNode node) in restored.Nodes)

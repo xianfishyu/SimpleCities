@@ -33,4 +33,42 @@ public sealed class SaveManagerManifestVersionTests
     {
         Assert.Throws<JsonException>(() => SaveManager.ParseAndValidateManifest(json));
     }
+
+    [Theory]
+    [InlineData("2026-08-04T08:00:00+08:00", "road_network.json")]
+    [InlineData("not-a-time", "road_network.json")]
+    [InlineData("2026-08-04T00:00:00Z", "../road_network.json")]
+    [InlineData("2026-08-04T00:00:00Z", "road_network.txt")]
+    public void ParseAndValidateManifest_InvalidMetadataIsRejected(string timestamp, string fileName)
+    {
+        string json = $$"""
+            {
+              "schemaVersion": 1,
+              "slotId": "autosave",
+              "displayName": "Autosave",
+              "timestamp": "{{timestamp}}",
+              "cityName": "Unknown City",
+              "files": ["{{fileName}}"]
+            }
+            """;
+
+        Assert.Throws<JsonException>(() => SaveManager.ParseAndValidateManifest(json));
+    }
+
+    [Fact]
+    public void ParseAndValidateManifest_DuplicateFilesAreRejected()
+    {
+        const string json = """
+            {
+              "schemaVersion": 1,
+              "slotId": "autosave",
+              "displayName": "Autosave",
+              "timestamp": "2026-08-04T00:00:00Z",
+              "cityName": "Unknown City",
+              "files": ["road_network.json", "road_network.json"]
+            }
+            """;
+
+        Assert.Throws<JsonException>(() => SaveManager.ParseAndValidateManifest(json));
+    }
 }

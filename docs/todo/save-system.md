@@ -18,9 +18,9 @@
 | 0.4 | 路网和 manifest 没有严格版本拒绝 | 已完成 | 两层 schema 均只接受精确当前版本，缺失/旧版/未来版安全拒绝 |
 | 0.5 | RoadGraph 恢复前缺少完整引用校验 | 已完成 | 临时解析、全量校验后一次提交 |
 | 0.8 | SaveManager 场景注册生命周期 | 已完成 | 保留注册和注销基线 |
-| 0.9 | SaveManager 缺少稳定自动化契约 | 部分完成 | 已覆盖多槽列举；待恢复失败和整槽原子提交 |
+| 0.9 | SaveManager 缺少稳定自动化契约 | 部分完成 | 已覆盖多槽列举和预检失败；待提交阶段失败与整槽原子发布 |
 | 0.10 | 文件夹槽名与玩家显示名称混为一体 | 部分完成 | 核心 ID/显示名与路径防护已完成；待只读位置和 Windows 导出包实测 |
-| 0.11 | 加载会在完整预检前调用 RestoreState | 未完成 | 先预检 manifest 和道路 JSON，再提交 RoadGraph |
+| 0.11 | 加载会在完整预检前调用 RestoreState | 已完成 | 整槽文件和临时模型全部准备成功后再提交 |
 | 1.1 | 没有可列举的命名存档目录与完整元数据 | 已完成 | 摘要含占位元数据、缩略图状态和损坏槽诊断 |
 | 1.2 | 暂停菜单只固定保存/加载 autosave | 未完成 | 实现另存为、覆盖确认、加载和删除工作流 |
 | 1.3 | 没有独立自动存档策略 | 未完成 | 自动槽不得覆盖玩家命名存档 |
@@ -34,8 +34,8 @@
 
 | 设计范围 | 当前事实 | 关联待办 |
 |---|---|---|
-| 多命名存档 | SaveManager 已分离 `slotID` 与 `displayName` 并支持 `SaveAs`，但没有列举 API 或管理界面 | 0.9～0.10、1.1～1.3 |
-| 道路网络持久化 | RoadGraph 已使用严格 Node/Edge/Group schema 和事务式恢复；manifest 与整槽预检仍待完成 | 0.3～0.5、0.11、5.3 |
+| 多命名存档 | SaveManager 已分离 `slotID` 与 `displayName`，并支持 `SaveAs` 和 `ListSlots`，但没有管理界面 | 0.9～0.10、1.1～1.3 |
+| 道路网络持久化 | RoadGraph 已使用严格 Node/Edge/Group schema、临时模型与整槽预检 | 0.3～0.5、0.11、5.3 |
 | 可扩展边界 | ISaveable 注册和 manifest 文件列表已存在；当前场景同时注册 RoadGraph 与相机 | 0.8、1.4 |
 | 原生曲线 | RoadGraph 已原生往返六类几何，并完成交点、重叠和参数化拆分 | `road-graph:2.5`～`road-graph:2.6`、5.3 |
 
@@ -89,7 +89,7 @@
   - 修改：以隔离目录和测试 RoadGraph 覆盖 Save、Load、SaveSlotExists、ListSlots、DeleteSlot、CurrentSlotID、manifest 与失败清理。
   - 测试：成功保存/加载、manifest 缺失、道路 JSON 缺失、序列化失败、恢复失败、重复显示名和删除失败。
   - 验收：单条命令稳定运行全部槽位契约；失败不会伪造成功日志、改变当前槽位或留下可见半成品。
-  - 当前进展（2026-08-04）：提取不依赖 Godot Node 的 `SaveSlotStore`，`SaveManager` 只负责注册、日志和当前槽状态；隔离临时目录测试已覆盖当前版本保存/加载与 manifest、manifest 缺失、道路 JSON 缺失、不兼容版本、捕获失败不发布 manifest、非空槽递归删除、`CurrentSlotID`、重复显示名、路径拒绝及 `ListSlots`。存档聚焦测试 33/33，完整解决方案测试 405/405，Debug 构建 0 警告/0 错误，Godot 暂停菜单两轮 autosave 运行契约通过。由于恢复中途失败和整槽原子发布尚未实现，本项保持开放，并与 0.11 协同完成。
+  - 当前进展（2026-08-04）：提取不依赖 Godot Node 的 `SaveSlotStore`，`SaveManager` 只负责注册、日志和当前槽状态；隔离临时目录测试已覆盖当前版本保存/加载与 manifest、缺失/不兼容/损坏内容、捕获失败不发布 manifest、非空槽递归删除、`CurrentSlotID`、重复显示名、路径拒绝、`ListSlots` 及整槽预检。相关聚焦测试 55/55，完整解决方案测试 415/415，Debug 构建 0 警告/0 错误，Godot 运行契约验证损坏 RoadGraph 加载失败且当前槽不变。由于非预检的提交阶段失败与整槽原子发布尚未实现，本项保持开放。
   - 来源 key：`todo:item:0.9`。
 
 <a id="save-system0.10"></a>
@@ -104,11 +104,12 @@
 
 <a id="save-system0.11"></a>
 
-- [ ] **0.11 在修改 RoadGraph 前完成槽位预检**
+- [x] **0.11 在修改 RoadGraph 前完成槽位预检**
   - 当前问题：Load 读取 manifest 后立即逐个调用 RestoreState，缺少完整道路文件和元数据预检。
   - 修改：先读取并校验 manifest、版本、道路文件存在性、JSON 可解析性和 RoadGraph 临时模型，再执行一次提交；第二代不要求多个业务系统之间的回滚事务。
   - 测试：manifest/道路文件缺失、版本错误、损坏 JSON、损坏引用、缩略图缺失和全部有效。
   - 验收：任何预检失败都不会改变当前道路图、当前槽位或存档目录；有效存档完整加载。
+  - 完成证据（2026-08-04）：新增 `IPreparedSaveable` 两阶段契约，`RoadGraph` 将既有严格临时模型作为准备结果，`MainCamera` 也在提交前校验有限坐标和正缩放。`SaveSlotStore.Load` 先校验 manifest 版本、UTC 时间、安全且无重复的文件表和全部注册文件存在性，再读取所有 JSON、完成语法解析与全部临时模型准备，最后进入提交阶段。测试覆盖 manifest/数据文件缺失、版本与元数据错误、后续文件损坏不恢复前序系统、准备失败零提交、RoadGraph 损坏引用后活动图与槽文件逐字不变、缺失缩略图不阻塞及有效往返。聚焦测试 55/55、完整测试 415/415、Debug 构建 0 警告/0 错误；Godot 契约真实破坏 autosave 道路文件，确认加载失败、`CurrentSlotID` 保持手动槽、临时槽删除且 autosave 可重建。
   - 来源 key：`todo:item:0.11`。
 
 ### 阶段 1：多个命名存档体验

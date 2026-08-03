@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 
 internal sealed class SaveSlotStore
 {
@@ -74,17 +75,38 @@ internal sealed class SaveSlotStore
         foreach (ISaveable saveable in saveables)
         {
             string fileName = GetDataFileName(saveable.SaveFileName);
-            if (fileSet.Contains(fileName))
-                systemMap[fileName] = saveable;
+            if (!fileSet.Contains(fileName))
+                throw new InvalidDataException($"Manifest does not contain required file '{fileName}'.");
+            systemMap[fileName] = saveable;
         }
 
+        var rawStates = new List<(ISaveable Saveable, string Json)>(systemMap.Count);
         foreach ((string fileName, ISaveable saveable) in systemMap)
         {
             string filePath = Path.Combine(slotDir, fileName);
             if (!File.Exists(filePath))
                 throw new FileNotFoundException($"File '{fileName}' missing in slot '{slotID}'.", filePath);
 
-            saveable.RestoreState(File.ReadAllText(filePath, Encoding.UTF8));
+            string json = File.ReadAllText(filePath, Encoding.UTF8);
+            using (JsonDocument.Parse(json)) { }
+            rawStates.Add((saveable, json));
+        }
+
+        var preparedStates = new List<(ISaveable Saveable, object State)>(rawStates.Count);
+        foreach ((ISaveable saveable, string json) in rawStates)
+        {
+            object state = saveable is IPreparedSaveable preparedSaveable
+                ? preparedSaveable.PrepareRestoreState(json)
+                : json;
+            preparedStates.Add((saveable, state));
+        }
+
+        foreach ((ISaveable saveable, object state) in preparedStates)
+        {
+            if (saveable is IPreparedSaveable preparedSaveable)
+                preparedSaveable.RestorePreparedState(state);
+            else
+                saveable.RestoreState((string)state);
         }
 
         return systemMap.Count;
@@ -203,6 +225,20 @@ internal sealed class SaveSlotStore
         }
 
         return saveFileName + ".json";
+    }
+
+    internal static void ValidateManifestFileName(string fileName)
+    {
+        const string extension = ".json";
+        if (string.IsNullOrWhiteSpace(fileName) ||
+            !fileName.EndsWith(extension, StringComparison.Ordinal))
+        {
+            throw new ArgumentException("Manifest file name must use the .json extension.", nameof(fileName));
+        }
+
+        string saveFileName = fileName[..^extension.Length];
+        if (!string.Equals(GetDataFileName(saveFileName), fileName, StringComparison.Ordinal))
+            throw new ArgumentException("Manifest file name is not a safe system JSON name.", nameof(fileName));
     }
 
     private static string? ResolveThumbnailPath(string slotDir, string? thumbnailFile)

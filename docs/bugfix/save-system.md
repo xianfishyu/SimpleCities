@@ -195,3 +195,35 @@ manifest 缺少 `schemaVersion`，或只提供大小写错误的 `SchemaVersion`
 - `dotnet build SimpleCities.sln --configuration Debug --no-restore`：0 警告、0 错误。
 - `godot --headless --path . --log-file .godot/qa-save-slot-identity.log --script tests/godot/pause_menu_runtime_contract.gd`：输出 `PASS pause menu runtime contract`，两轮 autosave 保存/加载通过；两条 `ConstructionDock` 缺少 `ToolManager.Instance` 警告来自既有隔离场景。
 - 当前会话未提供 `csharp-ls` MCP，无法执行逐文件 C# LSP 诊断；只读 ACL 和真实 Windows 导出包仍由 `save-system:0.10` 后续验证。
+
+---
+
+<a id="save-system-bug-6"></a>
+## BUG-6：后续存档文件损坏时前序系统已被恢复
+
+> 修复日期：2026-08-04
+> 关联事项：`save-system:0.11`
+
+### 症状
+
+一个槽位包含多个注册系统时，`SaveSlotStore.Load` 按文件顺序立即调用 `RestoreState`。如果后面的 JSON 缺失、语法损坏或 RoadGraph 引用非法，前面的系统已经修改运行时状态；加载最终虽然返回失败，却留下部分恢复结果。
+
+### 根因分析
+
+旧加载循环把文件存在性检查、读取、业务 schema 校验和状态提交混在同一次遍历中。RoadGraph 自身虽有失败原子性的临时模型，但 `SaveSlotStore` 没有在调用第一个恢复入口前证明整槽全部可用，因此无法把该保证提升到槽位层。
+
+### 修复方案
+
+新增 `IPreparedSaveable` 的准备/提交契约。`SaveSlotStore.Load` 先严格校验 manifest 元数据与必需文件集合，读取并解析全部 JSON，再调用全部准备入口；只有这些步骤全部成功后才进入提交循环。`RoadGraph` 复用完整的 Node/Edge/Group 临时模型，`MainCamera` 预先构造并校验 `CameraData`。普通扩展系统至少在恢复前经过整槽 JSON 语法预检。
+
+### 影响范围
+
+影响 SaveManager 注册系统的加载顺序与失败语义，不改变 JSON 业务字段。预检失败不再调用任何提交入口，也不会改变 `CurrentSlotID` 或写回槽目录。第二代仍不承诺多个未来业务系统在提交阶段抛出异常后的跨系统回滚；该剩余边界继续由 `save-system:0.9` 跟踪。
+
+## BUG-6 验证状态
+
+- `dotnet test tests/SimpleCities.RoadGraph.Tests/SimpleCities.RoadGraph.Tests.csproj --filter "FullyQualifiedName~SaveManagerSlotContractTests|FullyQualifiedName~SaveManagerManifestVersionTests|FullyQualifiedName~RoadGraphPersistenceV2Tests"`：55/55 通过，覆盖后续 JSON 损坏零恢复、准备失败零提交、RoadGraph 损坏引用状态/文件不变、manifest 文件表和有效往返。
+- `dotnet test SimpleCities.sln --configuration Debug --no-restore`：415 通过、0 失败、0 跳过。
+- `dotnet build SimpleCities.sln --configuration Debug --no-restore`：0 警告、0 错误。
+- `godot --headless --path . --log-file .godot/qa-save-slot-prevalidation-final.log --script tests/godot/pause_menu_runtime_contract.gd`：输出预期的损坏 RoadGraph 加载错误及 `PASS pause menu runtime contract`；失败后 `CurrentSlotID` 保持手动槽，临时手动槽已删除，autosave 已成功重建。两条 `ConstructionDock` 警告来自既有隔离场景。
+- 当前会话未提供 `csharp-ls` MCP，无法执行逐文件 C# LSP 诊断。

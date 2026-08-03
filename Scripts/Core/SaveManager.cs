@@ -225,6 +225,15 @@ public partial class SaveManager : Node
             throw new JsonException("Save manifest cityName is missing.");
         if (manifest.Files is null)
             throw new JsonException("Save manifest files are missing.");
+        if (!DateTimeOffset.TryParse(
+                manifest.Timestamp,
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None,
+                out DateTimeOffset savedAt) ||
+            savedAt.Offset != TimeSpan.Zero)
+        {
+            throw new JsonException("Save manifest timestamp must be a valid UTC time.");
+        }
         try
         {
             SaveSlotStore.ValidateDisplayName(manifest.DisplayName);
@@ -232,6 +241,22 @@ public partial class SaveManager : Node
         catch (ArgumentException e)
         {
             throw new JsonException("Save manifest displayName is invalid.", e);
+        }
+
+        var fileNames = new HashSet<string>(StringComparer.Ordinal);
+        foreach (string fileName in manifest.Files)
+        {
+            try
+            {
+                SaveSlotStore.ValidateManifestFileName(fileName);
+            }
+            catch (ArgumentException e)
+            {
+                throw new JsonException($"Save manifest file '{fileName}' is invalid.", e);
+            }
+
+            if (!fileNames.Add(fileName))
+                throw new JsonException($"Save manifest contains duplicate file '{fileName}'.");
         }
 
         return manifest;
