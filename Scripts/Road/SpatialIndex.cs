@@ -1,5 +1,6 @@
 using Godot;
 using System.Collections.Generic;
+using System.Linq;
 
 /// <summary>
 /// 可被空间索引引用的实体必须实现此接口。
@@ -216,6 +217,26 @@ public class UniformGrid
 
     /// <summary>清空所有索引。</summary>
     public void Clear() => _buckets.Clear();
+
+    internal HashSet<ISpatialRef> CaptureDistinctReferences() =>
+        _buckets.Values.SelectMany(bucket => bucket).ToHashSet();
+
+    internal bool HasExactCoverage(ISpatialRef reference, Rect2 bounds)
+    {
+        HashSet<(int bx, int by)> expected = GetCoveredBuckets(bounds).ToHashSet();
+        var actual = new HashSet<(int bx, int by)>();
+
+        foreach (((int bx, int by) bucket, List<ISpatialRef> references) in _buckets)
+        {
+            int occurrences = references.Count(candidate => ReferenceEquals(candidate, reference));
+            if (occurrences > 1)
+                return false;
+            if (occurrences == 1)
+                actual.Add(bucket);
+        }
+
+        return expected.SetEquals(actual);
+    }
 
     private (int bx, int by) WorldToBucket(Vector2 pos)
     {
