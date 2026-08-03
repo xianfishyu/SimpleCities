@@ -73,7 +73,7 @@ public partial class RoadGraph
         }
 
         int groupID = edge.GroupID;
-        DetachEdgeForReplacement(edge);
+        DetachEdge(edge);
         EdgeRemoved?.Invoke(edge);
 
         for (int index = 0; index < replacementGeometry.Count; index++)
@@ -138,18 +138,14 @@ public partial class RoadGraph
         return node;
     }
 
-    private void DetachEdgeForReplacement(GraphEdge edge)
+    internal void DetachEdge(GraphEdge edge)
     {
         _edges.Remove(edge.ID);
         RemoveEdgeSpatialRefs(edge.ID);
         GetNode(edge.NodeA)?.RemoveEdge(edge.ID);
         GetNode(edge.NodeB)?.RemoveEdge(edge.ID);
         if (_groups.TryGetValue(edge.GroupID, out RoadGroup? group))
-        {
             group.RemoveEdge(edge.ID);
-            if (group.IsEmpty)
-                _groups.Remove(group.ID);
-        }
     }
 
     private readonly record struct NormalizedEdgeSplitPoint(

@@ -223,22 +223,15 @@ public partial class RoadGraph : ISaveable
     {
         if (!_edges.TryGetValue(edgeID, out var edge)) return false;
 
-        _edges.Remove(edgeID);
-        RemoveEdgeSpatialRefs(edgeID);
-
-
         var nodeA = GetNode(edge.NodeA);
         var nodeB = GetNode(edge.NodeB);
-
-        nodeA?.RemoveEdge(edge.ID);
-        nodeB?.RemoveEdge(edge.ID);
+        DetachEdge(edge);
 
         RemoveNodeIfIsolated(nodeA);
         if (nodeB != nodeA) RemoveNodeIfIsolated(nodeB);
 
         if (_groups.TryGetValue(edge.GroupID, out var group))
         {
-            group.RemoveEdge(edge.ID);
             if (group.IsEmpty) _groups.Remove(group.ID);
         }
 
@@ -648,23 +641,13 @@ public partial class RoadGraph : ISaveable
         var farB = GetNode(farBID);
         if (farA == null || farB == null) return false;
 
-        RemoveEdge(edgeA.ID, suppressMerge: true);
-        RemoveEdge(edgeB.ID, suppressMerge: true);
-
-        // Far nodes may have been removed as "isolated" during RemoveEdge.
-        // Re-insert them so the merged edge and renderer can find them.
-        if (!_nodes.ContainsKey(farA.ID))
-        {
-            _nodes[farA.ID] = farA;
-            InsertNodeSpatialRef(farA);
-        }
-        if (!_nodes.ContainsKey(farB.ID))
-        {
-            _nodes[farB.ID] = farB;
-            InsertNodeSpatialRef(farB);
-        }
+        DetachEdge(edgeA);
+        EdgeRemoved?.Invoke(edgeA);
+        DetachEdge(edgeB);
+        EdgeRemoved?.Invoke(edgeB);
 
         AddEdge(farA, farB, mergedPoints.ToArray(), keepGroupID);
+        RemoveNodeIfIsolated(node);
         _ = suppressMerge;
         return true;
     }

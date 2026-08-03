@@ -5,6 +5,25 @@ namespace SimpleCities.Tests;
 public sealed class RoadGraphInvariantTests
 {
     [Fact]
+    public void DetachEdge_OnlyDisconnectsEdgeWithoutCleanupOrEvents()
+    {
+        var graph = new RoadGraph();
+        int groupID = graph.AddRoad(Vector2.Zero, new Vector2(20f, 0f), []);
+        GraphEdge edge = Assert.Single(graph.GetAllEdges());
+        int removedEvents = 0;
+        graph.EdgeRemoved += _ => removedEvents++;
+
+        graph.DetachEdge(edge);
+
+        Assert.Null(graph.GetEdge(edge.ID));
+        Assert.Equal(0, Assert.IsType<GraphNode>(graph.GetNode(edge.NodeA)).EdgeCount);
+        Assert.Equal(0, Assert.IsType<GraphNode>(graph.GetNode(edge.NodeB)).EdgeCount);
+        Assert.True(Assert.IsType<RoadGroup>(graph.GetGroup(groupID)).IsEmpty);
+        Assert.Null(graph.FindClosestEdge(new Vector2(10f, 0f), 0.01f));
+        Assert.Equal(0, removedEvents);
+    }
+
+    [Fact]
     public void RemoveEdge_PreservesCommittedGraphInvariants()
     {
         var graph = new RoadGraph();

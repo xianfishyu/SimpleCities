@@ -51,7 +51,7 @@
 | <a id="road-graphadbff35eb926"></a> |                                                                                                       |                                     |
 | §2 P3、§5 SpatialIndex            | `UniformGrid` 按原生几何包围盒索引并可从图重建；覆盖、交点、锚点和拆分均使用矩形 bucket 候选         | 1.2、3.1～3.3；已解决基线           |
 | <a id="road-graph5a1f82051412"></a> |                                                                                                       |                                     |
-| §2 P4、§6.2 删除算法              | 旧位置字典和连通分量拆分已删除，但单边和整组删除仍触发`TryMergeAtNode`                              | 0.6、4.1、4.3、4.4                  |
+| §2 P4、§6.2 删除算法              | 底层 detach 已与清理解耦，合并不再复活远端节点；复合操作的统一清理与事件时序仍待完成                 | 0.6、4.1、4.3；4.4                  |
 | <a id="road-graph07fc815075a3"></a> |                                                                                                       |                                     |
 | §2 P5 不变式最小化                 | 旧位置字典不变式已消失；节点邻接、Group 和空间引用已有统一断言，事件与事务阶段仍待收紧                 | 0.4～0.7、4.1；4.2～4.4             |
 | <a id="road-graph6c685ce73a7e"></a> |                                                                                                       |                                     |
@@ -272,10 +272,11 @@
 
 <a id="road-graph4.3"></a>
 
-- [ ] **4.3 将底层删边与孤立节点清理解耦**
-  - 当前症状：`RemoveEdge` 在 `Scripts/Road/RoadGraph.cs:276` 立即删除孤立节点，`TryMergeAtNode` 随后又在 `Scripts/Road/RoadGraph.cs:641` 将远端节点补回。
+- [x] **4.3 将底层删边与孤立节点清理解耦**
+  - 原症状：`RemoveEdge` 立即删除孤立节点，`TryMergeAtNode` 随后又将远端节点补回。
   - 修改：引入内部“仅断开并删除 Edge”的原语；由顶层操作在事务末尾统一清理孤立节点和空 Group。
   - 验收：`TryMergeAtNode` 不再包含远端节点 revive 逻辑；内部 detach 原语不执行 merge 或孤立节点清理；公开删除操作按文档目标不再自动压缩拓扑。
+  - 完成证据（2026-08-04）：`RoadGraph.DetachEdge` 统一移除 Edge 权威实体、空间引用、两端邻接和 Group 成员，不删除孤立 Node、空 Group，不触发 merge 或事件；公开 `RemoveEdge` 在 detach 后清理两端 Node 和 Group，再发送删除事件。原生拆分复用同一原语；`TryMergeAtNode` 直接 detach 两条旧 Edge、创建替代 Edge 后只清理中间 Node，不再删除并重新插入远端 Node 或空间引用。新增原语契约测试证明 detach 后两个孤立 Node 与空 Group 保留、空间 Edge 命中消失且事件为 0；删除/合并聚焦回归 26/26，完整解决方案测试 369/369，Debug 构建 0 警告、0 错误。
   - 来源 key：`todo:item:4.3`。
 
 <a id="road-graph4.4"></a>
