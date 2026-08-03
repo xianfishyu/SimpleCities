@@ -1,4 +1,5 @@
 using Godot;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -39,6 +40,10 @@ public partial class RoadRenderer : Node2D
 
     public int GetRenderedEdgeCount() => _edgeLines.Count;
 
+    public int GetRenderedPointCount(int edgeID) => _edgeLines[edgeID].Points.Length;
+
+    public Vector2 GetRenderedPoint(int edgeID, int pointIndex) => _edgeLines[edgeID].Points[pointIndex];
+
     /// <summary>拆除工具悬停的 Edge ID（null = 未悬停在任何 Edge 上）</summary>
     public int? HoveredEdgeID { get; set; }
 
@@ -48,6 +53,11 @@ public partial class RoadRenderer : Node2D
         {
             GD.PushError("RoadRenderer: Config (RoadConfig resource) is not assigned in the scene.");
             Config = new RoadConfig();
+        }
+        if (!float.IsFinite(Config.CurveDisplayTolerance) || Config.CurveDisplayTolerance <= 0f)
+        {
+            GD.PushError("RoadRenderer: CurveDisplayTolerance must be positive and finite; using the default.");
+            Config.CurveDisplayTolerance = RoadGeometryDisplaySampler.DefaultTolerance;
         }
 
         // 交叉口层：最后添加，渲染在所有 Line2D 之上
@@ -99,17 +109,9 @@ public partial class RoadRenderer : Node2D
     {
         if (_network == null) return;
 
-        var nodeA = _network.GetNode(edge.NodeA);
-        var nodeB = _network.GetNode(edge.NodeB);
-        if (nodeA == null || nodeB == null) return;
-
-        // 构建点序列：NodeA → Points → NodeB
-        var edgePoints = edge.Points;
-        var points = new Vector2[2 + edgePoints.Length];
-        points[0] = nodeA.Position;
-        for (int i = 0; i < edgePoints.Length; i++)
-            points[i + 1] = edgePoints[i];
-        points[^1] = nodeB.Position;
+        Vector2[] points = RoadGeometryDisplaySampler.SampleSegments(
+            edge.GeometrySegments,
+            Config.CurveDisplayTolerance);
 
         var line = new Line2D
         {
@@ -189,13 +191,10 @@ public partial class RoadRenderer : Node2D
         if (nodeA == null || nodeB == null)
             return;
 
-        Vector2[] edgePoints = edge.Points;
-        var points = new Vector2[2 + edgePoints.Length];
-        points[0] = nodeA.Position;
-        for (int index = 0; index < edgePoints.Length; index++)
-            points[index + 1] = edgePoints[index];
-        points[^1] = nodeB.Position;
-        DrawPolyline(points, Config.HoverHighlightColor, Config.HoverHighlightWidth);
+        if (!_edgeLines.TryGetValue(edgeID, out Line2D? line))
+            return;
+
+        DrawPolyline(line.Points, Config.HoverHighlightColor, Config.HoverHighlightWidth);
         DrawCircle(nodeA.Position, Config.JunctionRadius * 1.3f, Config.HoverHighlightColor);
         DrawCircle(nodeB.Position, Config.JunctionRadius * 1.3f, Config.HoverHighlightColor);
     }

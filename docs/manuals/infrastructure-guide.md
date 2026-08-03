@@ -214,7 +214,9 @@ public bool UndoLastEdit();
 public bool RedoLastEdit();
 ```
 
-铺路保留旧式“按住拖拽、释放提交”单段手势。点击起点会进入连续会话：鼠标移动调整活动末端，左键固定拐点，Enter 或双击确认，右键回退最后拐点并在零拐点时取消。`RoadPlacementSession` 将固定策略草稿和活动草稿组合为同一个 `RoadPathDraft`；`RoadRenderer.PreviewPoints` 绘制完整点列，最终只通过一次 `RoadGraph.SubmitPath` 提交。
+铺路保留旧式“按住拖拽、释放提交”单段手势。点击起点会进入连续会话：鼠标移动调整活动末端，左键固定拐点，Enter 或双击确认，右键回退最后拐点并在零拐点时取消。`RoadPlacementSession` 将固定策略草稿和活动草稿组合为同一个 `RoadPathDraft`；有效草稿的原生段先经 `RoadGeometryDisplaySampler` 生成完整 `RoadRenderer.PreviewPoints`，最终只通过一次 `RoadGraph.SubmitPath` 提交。
+
+`RoadGeometryDisplaySampler` 以默认 `0.25` 世界单位容差和最多 16 层递归，把六类权威几何确定性细分为显示折线；直线保持两个精确端点。已提交 Edge、拆除高亮和曲线建造预览复用同一派生点列，显示采样不会写回 RoadGraph 或存档。
 
 拆路采用“先选择、后提交”：普通左键拖动沿轨迹累积 Edge，`Shift+左键` 动态框选与矩形相交的 Edge；松开左键后才把排序去重的稳定 ID 集交给一次 `RoadGraph.RemoveEdges`。右键、切出拆路工具或替换输入策略会取消整个选择，图保持不变；简单点击仍是单 Edge 拆除。
 
@@ -299,6 +301,7 @@ Scripts/Road/Input/SquareEightRoadInputStrategy.cs
 Scripts/Road/Input/TriangularThreeRoadInputStrategy.cs
 Scripts/Road/Input/HexSixRoadInputStrategy.cs
 Scripts/Road/RoadRenderer.cs
+Scripts/Road/RoadGeometryDisplaySampler.cs
 Scripts/Road/SpatialIndex.cs
 Scripts/Road/RoadConfig.cs
 Scripts/Road/Direction.cs
@@ -322,4 +325,4 @@ project.godot
 
 ### 未来设计边界
 
-可替换铺路边界已经由 `IRoadInputStrategy` 和 `RoadPathDraft` 落地；默认米字型、三角单元中心和六边形单元中心策略均通过共享契约。`RoadPlacementSession` 与 `RoadBuilder` 已支持连续多段、拐点回退、完整预览、确认和取消，并只经 `RoadGraph.SubmitPath` 一次提交；`RoadRemovalSession` 已支持连续轨迹和矩形框选，并只经 `RoadGraph.RemoveEdges` 一次提交。`RoadEditHistory` 已用完整 RoadGraph 状态提供容量受限的撤销重做，并经 `GraphCleared` 让渲染同步重建。原生曲线显示采样、`TrafficGraph`、A* 寻路、道路分级 UI 和按 RoadType 差异化渲染仍属于未来工作。第二代道路 JSON 只使用严格版本化的 `nodes/edges/groups` 与原生几何；第三代若引入 RoadType，必须提升 schema 并定义新的迁移或拒绝规则。
+可替换铺路边界已经由 `IRoadInputStrategy` 和 `RoadPathDraft` 落地；默认米字型、三角单元中心和六边形单元中心策略均通过共享契约。`RoadPlacementSession` 与 `RoadBuilder` 已支持连续多段、拐点回退、完整预览、确认和取消，并只经 `RoadGraph.SubmitPath` 一次提交；`RoadRemovalSession` 已支持连续轨迹和矩形框选，并只经 `RoadGraph.RemoveEdges` 一次提交。`RoadEditHistory` 已用完整 RoadGraph 状态提供容量受限的撤销重做，并经 `GraphCleared` 让渲染同步重建。六类原生曲线显示采样现已落地；10k/100k 渲染规模验收、`TrafficGraph`、A* 寻路、道路分级 UI 和按 RoadType 差异化渲染仍属于未来工作。第二代道路 JSON 只使用严格版本化的 `nodes/edges/groups` 与原生几何；第三代若引入 RoadType，必须提升 schema 并定义新的迁移或拒绝规则。

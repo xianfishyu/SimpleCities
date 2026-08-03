@@ -26,6 +26,7 @@ flowchart LR
     subgraph RoadInternal["RoadSystem 内部"]
         RoadBuilder["RoadBuilder<br/>输入与会话协调"]
         RoadRenderer["RoadRenderer<br/>事件渲染"]
+        DisplaySampler["RoadGeometryDisplaySampler<br/>只读显示细分"]
     end
 
     subgraph RoadInput["铺路输入层"]
@@ -55,13 +56,15 @@ flowchart LR
     RoadBuilder -->|铺路或拆路提交| History
     History -->|SubmitPath / RemoveEdges| RoadGraph
     History -->|Undo / Redo RestoreState| RoadGraph
-    RoadBuilder -->|设置完整 PreviewPoints| RoadRenderer
+    RoadBuilder -->|有效草稿原生段| DisplaySampler
+    DisplaySampler -->|完整 PreviewPoints| RoadRenderer
     RoadBuilder -.读取.-> RoadConfig
     RoadBuilder --> Placement
     Placement --> Strategy
     Strategy -.默认米字型实现.-> DirectionUtil
 
     RoadGraph -->|EdgeAdded EdgeRemoved GraphCleared| RoadRenderer
+    RoadRenderer -->|Edge 原生段| DisplaySampler
     RoadGraph -->|外部 GraphCleared 清空旧历史| History
 
     RoadRenderer -.读取.-> RoadConfig
@@ -94,8 +97,9 @@ flowchart TD
     subgraph Phase2["编辑完整路径"]
         D1["鼠标移动"] --> D2["策略从当前 anchor 生成活动草稿"]
         D2 --> D3["会话组合固定草稿和活动草稿"]
-        D3 --> D4["RoadRenderer 绘制完整多段虚线"]
-        D4 --> D5{"下一输入"}
+        D3 --> D4["统一采样器生成完整显示点列"]
+        D4 --> D4A["RoadRenderer 绘制完整多段虚线"]
+        D4A --> D5{"下一输入"}
         D5 -->|左键| D6["固定活动草稿为新拐点"]
         D5 -->|右键且有拐点| D7["回退最后拐点并重建活动末端"]
         D5 -->|右键且零拐点| D8["取消会话 不修改图"]
@@ -113,7 +117,7 @@ flowchart TD
         C7 -->|否| C8["不入历史 图不变并保留会话"]
         C7 -->|是| C9["状态变化时前后状态进入撤销栈<br/>并清空重做栈"]
         C9 --> C10["发布 Edge 事件并清空会话预览"]
-        C10 --> C11["RoadRenderer 创建提交后的 Line2D"]
+        C10 --> C11["RoadRenderer 从原生段采样并创建 Line2D"]
     end
 
     Phase1 --> Phase2
@@ -347,9 +351,10 @@ flowchart LR
         Event1 --> RR_Add["RoadRenderer.OnEdgeAdded<br/>创建 Line2D"]
         Event2 --> RR_Del["RoadRenderer.OnEdgeRemoved<br/>回收 Line2D"]
         Event3 --> RR_Rebuild["RoadRenderer.OnGraphCleared<br/>全量重建 Line2D"]
-        RR_Add --> Draw["QueueRedraw"]
+        RR_Add --> Sample["RoadGeometryDisplaySampler<br/>原生段 -> 确定显示点列"]
+        RR_Rebuild --> Sample
+        Sample --> Draw["Line2D.Points / QueueRedraw"]
         RR_Del --> Draw
-        RR_Rebuild --> Draw
     end
 
     subgraph UI["UI 刷新"]

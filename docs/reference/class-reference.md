@@ -482,6 +482,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `CellSize` | `[Export] public float CellSize { get; set; } = 64f` | `64f` | 网格单元尺寸 |
 | `RoadColor` | `[Export] public Color RoadColor { get; set; } = new("#37474F")` | `#37474F` | 统一道路颜色 |
 | `RoadWidth` | `[Export] public float RoadWidth { get; set; } = 12f` | `12f` | 统一道路线宽 |
+| `CurveDisplayTolerance` | `[Export] public float CurveDisplayTolerance { get; set; } = 0.25f` | `0.25f` | 原生曲线生成显示折线时允许的最大世界空间误差 |
 | `JunctionRadius` | `[Export] public float JunctionRadius { get; set; } = 10f` | `10f` | 节点圆半径，当前 `EdgeCount >= 2` 绘制 |
 | `JunctionColor` | `[Export] public Color JunctionColor { get; set; } = new("#FFC107")` | `#FFC107` | 节点圆颜色 |
 | `EndpointRadius` | `[Export] public float EndpointRadius { get; set; } = 6f` | `6f` | 端点圆半径，`0` 可隐藏 |
@@ -564,6 +565,20 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 
 历史快照使用 `SaveJson.Serialize(graph.CaptureState())`，因此恢复会保留 Node/Edge/Group ID、原生几何、Group 成员关系和 `_nextID`，但会重建运行时实体对象。`GraphCleared` 的外部恢复会立即清空历史；其他外部修改在撤销、重做或下一次编辑尝试时被检测并使旧历史失效。编辑抛异常或返回失败却修改图时会先恢复事务前状态；失败编辑本身不进入历史。
 
+### RoadGeometryDisplaySampler
+
+**文件**：`Scripts/Road/RoadGeometryDisplaySampler.cs`
+**类型**：`public static class RoadGeometryDisplaySampler`
+
+| 成员 | 签名 | 说明 |
+|---|---|---|
+| `DefaultTolerance` | `public const float DefaultTolerance = 0.25f` | 默认世界空间显示误差；在当前相机最大 4x 缩放下约为 1 像素 |
+| `MaxSubdivisionDepth` | `public const int MaxSubdivisionDepth = 16` | 自适应细分深度上界 |
+| `SampleSegment` | `public static Vector2[] SampleSegment(RoadGeometrySegment geometry, float tolerance = ...)` | 采样单个原生段；line 保持精确两点 |
+| `SampleSegments` | `public static Vector2[] SampleSegments(IEnumerable<RoadGeometrySegment?> geometries, float tolerance = ...)` | 采样连续复合路径并去除相邻段重复连接点 |
+
+采样器只调用原生几何的 `GetPosition()` 和 `Split()`，使用四分之一、中点、四分之三点到端点弦的距离以及弧长/弦长差判断平坦度。每个源段最终以权威 `End` 封口，避免解析拆分的微小端点残差进入显示点列；输入几何和控制参数始终保持不变。
+
 ### RoadRenderer
 
 **文件**：`Scripts/Road/RoadRenderer.cs`
@@ -578,6 +593,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `RemovalSelectionBounds` | `public Rect2? RemovalSelectionBounds { get; set; }` | 矩形拆除选择的当前世界坐标边界 |
 | `GetRemovalPreviewEdgeCount` | `public int GetRemovalPreviewEdgeCount()` | Godot 运行时契约读取拆除预览数量 |
 | `GetRenderedEdgeCount` | `public int GetRenderedEdgeCount()` | Godot 运行时契约与诊断读取当前已实例化道路数量 |
+| `GetRenderedPointCount` / `GetRenderedPoint` | 运行时查询方法 | Godot 契约读取指定 Edge 的确定显示点列 |
 | `HoveredEdgeID` | `public int? HoveredEdgeID { get; set; }` | 拆除工具悬停边 |
 | `_Ready` | `public override void _Ready()` | 校验 `Config`，创建 junction 绘制层 |
 | `SetGraph` | `public void SetGraph(RoadGraph graph)` | 订阅 `EdgeAdded`、`EdgeRemoved`、`GraphCleared` |
@@ -589,7 +605,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `EdgeRemoved` | 删除对应 `Line2D`，更新节点层 |
 | `GraphCleared` | 清空所有 `Line2D`，用 `GetAllEdges()` 全量重建 |
 
-当前 `CreateEdgeLine` 统一使用 `RoadConfig.RoadWidth` 和 `RoadConfig.RoadColor`。按 `RoadType` 分别绘制宽度、颜色或材质属于第三代，当前 `GraphEdge` 不包含类型字段。
+当前 `CreateEdgeLine` 用 `RoadGeometryDisplaySampler` 从 `GraphEdge.GeometrySegments` 生成 `Line2D.Points`；拆除高亮复用同一点列，`RoadBuilder` 对有效原生草稿也使用相同采样入口。显示点列不写回图或存档，缩放与 `GraphCleared` 重建不会改变控制参数。道路仍统一使用 `RoadConfig.RoadWidth` 和 `RoadConfig.RoadColor`；按 `RoadType` 分别绘制宽度、颜色或材质属于第三代，当前 `GraphEdge` 不包含类型字段。
 
 ### RoadSystem
 

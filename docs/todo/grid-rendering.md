@@ -1,15 +1,15 @@
 # 网格渲染系统待办清单
 
 > 系统 key：`grid-rendering`
-> 复核日期：2026-08-02
-> 证据：`Scripts/Road/RoadRenderer.cs`、`Scripts/Road/GraphEdge.cs`、当前渲染测试及 `docs/manuals/road-system-v2-gen.md` 附录 D。
+> 复核日期：2026-08-04
+> 证据：`Scripts/Road/RoadGeometryDisplaySampler.cs`、`RoadRenderer.cs`、`RoadBuilder.cs`、`RoadConfig.cs`、`tests/SimpleCities.RoadGraph.Tests/RoadGeometryDisplaySamplerTests.cs`、`tests/godot/road_curve_rendering_runtime_contract.gd` 及 `docs/manuals/road-system-v2-gen.md` 附录 D。
 > 主导原则：负责道路权威几何的可视化、建造预览和大规模渲染；道路分级样式属于第三代。
 
 ## 状态总览
 
 | ID | 发现 | 当前状态 | 处置方式 |
 |---|---|---|---|
-| 1.1 | RoadRenderer 只消费折线点，不能按原生曲线参数渲染 | 未完成 | 为每种 V2 几何段建立确定的显示细分 |
+| 1.1 | RoadRenderer 只消费折线点，不能按原生曲线参数渲染 | 已完成 | 六类 V2 几何共用确定的只读显示细分 |
 | 1.2 | 10k Edge 的渲染与预览没有 60 FPS 验收 | 未完成 | 建立帧时间与绘制对象基线并优化 |
 | 5.3 | Junction 视觉资源字段仍使用旧命名 | 非 V2 阻塞项 | 后续资源清理时单独决定资源兼容策略 |
 | D5.1～D5.2 | RoadType 分级样式 | 第三代 | 第二代统一道路视觉 |
@@ -20,8 +20,8 @@
 
 | 设计范围 | 当前事实 | 关联待办 |
 |---|---|---|
-| V2 原生曲线显示 | 当前 Line2D 使用 Edge 折线点；权威几何尚无曲线段类型 | 1.1、`road-graph:2.5`～`road-graph:2.6` |
-| V2 规模验收 | 事件驱动增删和加载后全量重建已存在，尚无 10k/100k 渲染数据 | 1.2、`road-graph:3.1`～`road-graph:3.3` |
+| V2 原生曲线显示 | 六类权威几何已由统一采样器生成稳定显示折线；提交道路、拆除高亮和有效建造预览复用同一点列 | 1.1（已完成）、`road-graph:2.5`～`road-graph:2.6`（已完成） |
+| V2 规模验收 | RoadGraph 操作性能已通过 10k 门槛并记录 100k 压测；事件驱动渲染尚无同规模数据 | 1.2、`road-graph:3.1`～`road-graph:3.3`（已完成） |
 
 ## 执行顺序
 
@@ -29,7 +29,7 @@
 
 <a id="grid-rendering1.1"></a>
 
-- [ ] **1.1 按权威曲线几何渲染道路与建造预览**
+- [x] **1.1 按权威曲线几何渲染道路与建造预览**
   - 当前问题：RoadRenderer 只能将端点和 waypoint 作为 Line2D 点序列，无法保留 Bézier、样条、圆弧/圆锥曲线或回旋线等缓和曲线的几何语义。
   - 修改：为 V2 几何段提供统一求值/细分接口；渲染器按屏幕误差或稳定容差生成显示采样，权威控制参数仍保留在 RoadGraph；预览复用相同求值路径。
   - 依赖：`road-graph:2.5`、`road-graph:2.6`。
@@ -37,6 +37,7 @@
   - 集成负责人：`grid-rendering`。
   - 测试：直线、Bézier、样条、圆弧/圆锥曲线和回旋线等缓和曲线在不同缩放下显示；交点、拆分点和预览端点与权威几何重合。
   - 验收：显示采样不是存档事实来源；缩放或重建不会改变曲线控制参数，预览与提交后的道路形状一致。
+  - 完成证据（2026-08-04）：`RoadGeometryDisplaySampler` 通过六类几何共同的 `GetPosition` / `Split` 契约，以默认 `0.25` 世界单位误差和最多 16 层递归生成确定折线；line 保持精确两点，每个原生段末点固定为权威 `End`。`RoadRenderer` 的 Edge、拆除高亮与 `RoadBuilder` 的有效 `RoadPathDraft` 预览复用同一采样结果，采样前后严格几何 JSON 不变。聚焦测试 8/8、完整测试 473/473、Debug 构建 0 警告/0 错误；Godot 真实渲染契约加载六类几何，在 0.125x/4x 缩放、保存和重载后点列稳定并输出 62,082 字节截图，最终打印 `PASS road curve rendering runtime contract`。道路输入、命令中心和暂停菜单回归契约均通过。
 
 <a id="grid-rendering1.2"></a>
 
@@ -81,6 +82,7 @@
 <a id="grid-rendering0854f0250cc2"></a>
 
 - [x] **事件驱动 Edge 渲染与加载后全量重建已经落地。** `RoadRenderer.SetGraph` 监听 `EdgeAdded`、`EdgeRemoved` 和 `GraphCleared`。
+- [x] **六类 V2 原生几何共享只读显示采样。** 显示容差只影响派生 `Line2D` / 预览点列，缩放、重建和存档往返不修改权威控制参数。
 
 ## 完成标准
 

@@ -17,6 +17,9 @@ public partial class RoadConfig : Resource
     /// <summary>道路线宽（像素）。</summary>
     [Export] public float RoadWidth { get; set; } = 12f;
 
+    /// <summary>权威曲线细分为显示折线时允许的最大世界空间误差。</summary>
+    [Export] public float CurveDisplayTolerance { get; set; } = RoadGeometryDisplaySampler.DefaultTolerance;
+
     /// <summary>
     /// 真路口（ConnectionCount >= 3 或 ConnectionCount == 2 且方向非对向）的圆点半径。
     /// 用于让 T 字、十字、转弯点在视觉上明显区别于"一条直路"。

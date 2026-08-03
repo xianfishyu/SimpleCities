@@ -360,7 +360,12 @@ public partial class RoadBuilder : Node2D
         if (_renderer == null)
             return;
 
-        _renderer.PreviewPoints = draft.PreviewPoints.ToArray();
+        float tolerance = float.IsFinite(Config.CurveDisplayTolerance) && Config.CurveDisplayTolerance > 0f
+            ? Config.CurveDisplayTolerance
+            : RoadGeometryDisplaySampler.DefaultTolerance;
+        _renderer.PreviewPoints = draft.Path == null
+            ? draft.PreviewPoints.ToArray()
+            : RoadGeometryDisplaySampler.SampleSegments(draft.Path.Segments, tolerance);
         _renderer.QueueRedraw();
     }
 
