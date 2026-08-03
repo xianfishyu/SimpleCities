@@ -292,10 +292,11 @@
 
 <a id="road-graph6.1"></a>
 
-- [ ] **6.1 区分历史架构、当前实现与未来路线图**
+- [x] **6.1 区分历史架构、当前实现与未来路线图**
   - 当前问题：`docs/manuals/road-system-v2-gen.md` 仍将 `RoadNetwork`/`Junction`/`Segment` 到 `RoadGraph`/`GraphNode`/`GraphEdge` 的迁移描述成未来任务，但当前代码已完成主要命名与 SpatialIndex 迁移。
   - 修改：旧结构移入“历史问题”或“迁移记录”；当前状态使用实际类名和 API；增加阶段 A/B/C 对照表，将各迁移交付物标记为已完成、部分完成、活动项、已取代或延期；Phase 6 的 `TrafficGraph`、A*、道路升级工具继续明确标注为未来规划。
   - 验收：读者可明确区分已落地行为、当前技术债和未来功能，不会重复实施已完成迁移。
+  - 完成证据（2026-08-04）：指南第 1 节明确 `RoadNetwork`、`Junction`、`Segment` 是迁移前历史诊断；第 10 节增加阶段 A/B/C 当前处置矩阵，将核心命名、SpatialIndex 和 API 迁移标记为已完成，将旧 RoadType/存档兼容提案标记为已取代，将模拟集成标记为延期；第 11 节用当前状态矩阵和“第二代收尾 → 第三代分级 → 第三代后模拟”顺序替换已失效的 Phase 2 时间线。当前事实已与 `RoadGraph`、`GraphNode`、`GraphEdge`、`RoadGroup`、`SubmitPath` / `SubmitPolyline` 及附录 D 对照复核。
   - 来源 key：`todo:item:6.1`。
 
 <a id="road-graph6.2"></a>

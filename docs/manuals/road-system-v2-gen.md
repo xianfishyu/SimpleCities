@@ -763,11 +763,19 @@ EdgeRemoved → TrafficGraph 移除边 + 标记经过此边的所有路径为"�
 
 ### 10.2 渐进式迁移记录
 
-> 阶段 A 和阶段 B 的 RoadGraph / SpatialIndex / GraphNode / GraphEdge / RoadGroup 迁移已经完成。以下内容保留为历史迁移记录，阶段 C 仍是未来模拟工作。
+> 阶段 A 和阶段 B 的 RoadGraph / SpatialIndex / GraphNode / GraphEdge / RoadGroup 迁移已经完成。以下编号步骤是当时的迁移方案，只用于解释当前结构的来历，不是待执行清单；阶段 C 仍是未来模拟工作。
+
+| 阶段 | 当前处置 | 当前事实或边界 |
+|---|---|---|
+| A：内部重构 | **已完成** | 旧位置字典和半格数据层分支已移除；`UniformGrid` 作为可重建查询服务，按原生几何包围盒登记 Edge 引用。 |
+| B：API 清理 | **已完成** | 运行时已统一为 `RoadGraph` / `GraphNode` / `GraphEdge` / `RoadGroup`，数据层不接收 `CellSize`；公共路径入口为 `SubmitPath`，折线兼容入口为 `SubmitPolyline` / `AddRoad`。 |
+| B 中的 RoadType 提案 | **已取代** | 附录 D 将 `RoadType` 排除出第二代；当前运行时、公共 API 和 v2 存档 schema 均不包含该字段，第三代必须以新契约和新 schema 版本引入。 |
+| B 中的旧存档兼容提案 | **已取代** | 附录 D 明确第二代不兼容旧道路存档；缺失版本、旧版本、未知未来版本和损坏内容必须安全拒绝。 |
+| C：模拟集成 | **延期** | `TrafficGraph`、A*、拥堵和车流增量同步晚于第三代道路分级，不计入第二代。 |
 
 分三个阶段，每个阶段可独立交付和测试：
 
-#### 阶段 A：内部重构（不影响公共 API）
+#### 阶段 A：内部重构（历史计划，已完成）
 
 1. **引入 `SpatialIndex (UniformGrid)`** 作为 `_posToJunctionID`/`_posToSegmentID` 的并行实现
 2. **所有查询方法先查 SpatialIndex，查不到再回退字典**（双写单读）
@@ -779,7 +787,7 @@ EdgeRemoved → TrafficGraph 移除边 + 标记经过此边的所有路径为"�
 
 **交付物**：RoadNetwork 内部已统一使用 SpatialIndex，但外部 API 不变
 
-#### 阶段 B：API 清理（影响调用方）
+#### 阶段 B：API 清理（历史计划，已完成或取代）
 
 1. **重命名**：
    - `RoadNetwork` → `RoadGraph`
@@ -796,13 +804,13 @@ EdgeRemoved → TrafficGraph 移除边 + 标记经过此边的所有路径为"�
    - 移除 `SplitRoadIntoConnectedComponents` 调用
    - 移除 `TryMergeAtJunction` 触发
    - 移除 `MaybeReindexJunctionInPosDict`
-5. **引入 `RoadType`**：在 `RoadGroup` 上添加 `Type` 字段，Render 层按 Type 查样式
+5. **原提案：引入 `RoadType`**：已由附录 D 取代；第二代不保留类型字段或兼容层
 6. 更新 `RoadBuilder`、`RoadRenderer`、`GameHUD` 的 API 调用
-7. **更新存档格式**：字段重命名，确保向后兼容（旧存档可加载）
+7. **原提案：更新存档格式并兼容旧存档**：已由附录 D 取代；第二代使用严格 v2 schema 并拒绝旧格式
 
 **交付物**：新旧 API 完全迁移，旧字典索引完全移除
 
-#### 阶段 C：模拟集成（Phase 6 并行）
+#### 阶段 C：模拟集成（未来路线，第二代不执行）
 
 1. 构建 `TrafficGraph`（交通模拟视图）
 2. 实现 `RoadGraph` 事件的增量更新
@@ -833,29 +841,26 @@ public class RoadNetworkData
 
 ### 优先级矩阵
 
-> 当前状态：阶段 A 和阶段 B 已完成。阶段 C、TrafficGraph、A*、道路升级工具和按 RoadType 差异化渲染仍保留为未来设计。
+> 下表将原始优先级映射到当前处置状态。历史 P0～P4 不再作为当前迭代顺序；第二代实际执行顺序以附录 D 和 `docs/todo/` 中的系统待办为准。
 
-| 任务 | 价值 | 成本 | 风险 | 优先级 |
-|------|------|------|------|--------|
-| 阶段 A：引入 SpatialIndex，消除半格特判 | 🔴 极高（消除最痛的技术债务） | 🟡 中 | 🟢 低（API 不变） | **P0** |
-| 阶段 B：API 清理 + 移除网格依赖 | 🟡 中（代码更干净，但功能等价） | 🔴 高（全仓库改名） | 🟡 中（存档兼容） | **P1** |
-| 引入 RoadType + 分级渲染 | 🟢 较低（当前仅一种路） | 🟢 低 | 🟢 低 | **P2** |
-| 阶段 C：TrafficGraph + A* 寻路 | 🔴 极高（Phase 6 阻塞项） | 🔴 高 | 🟡 中 | **P3**（Phase 6 再做） |
-| 道路升级工具 | 🟡 中 | 🟡 中 | 🟢 低 | **P4**（Phase 6 再做） |
+| 原始任务 | 原优先级 | 当前状态 | 当前执行依据 |
+|---|---:|---|---|
+| 阶段 A：引入 SpatialIndex，消除半格特判 | P0 | **已完成** | `road-graph:3.1`～`3.3` 已验证局部几何候选、10k 门槛和 100k 压测。 |
+| 阶段 B：API 清理、移除网格依赖和收敛图事务 | P1 | **已完成** | `road-graph:2.1`～`2.7`、`4.1`～`4.4` 已完成公共路径、原生几何、封装、不变式和删除事务。 |
+| RoadType 与分级渲染 | P2 | **第三代** | 第二代契约已移除 RoadType；未来需新 API、schema、样式和迁移决策。 |
+| TrafficGraph、A* 与拥堵 | P3 | **第三代之后** | 依赖道路分级与模拟产品设计，不计入第二代验收。 |
+| 道路升级工具 | P4 | **第三代** | 与 RoadType 一并设计和交付。 |
 
 ### 推荐执行顺序
 
 ```
-Phase 2（分区系统）进行中
+已完成：阶段 A / B 的 RoadGraph 核心迁移与事务收敛
     │
-    ├── 阶段 A（内部重构）可与 Phase 2 并行
-    │   └── 不影响分区开发，消除技术债务
+    ├── 当前：按附录 D 和 docs/todo/ 完成第二代输入、渲染、编辑、存档与最终集成验收
     │
-    ├── Phase 2 完成后 → 阶段 B（API 清理）
-    │   └── 在进入 Phase 3~5 之前清理干净，避免债务滚雪球
+    ├── 第三代：以新契约引入 RoadType、分级样式、类型选择和道路升级
     │
-    └── Phase 6 启动时 → 阶段 C（TrafficGraph）
-        └── 基于清理后的 RoadGraph API 构建，无需回头修
+    └── 第三代之后：基于稳定 RoadGraph 构建 TrafficGraph、A*、拥堵和车流增量同步
 ```
 
 ---
