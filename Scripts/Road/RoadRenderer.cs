@@ -14,8 +14,16 @@ public partial class RoadRenderer : Node2D
     private Node2D _junctionLayer = null!;
 
     // 施工预览
-    public Vector2? PreviewFrom { get; set; }
-    public Vector2? PreviewTo { get; set; }
+    private Vector2[] _previewPoints = [];
+    public Vector2[] PreviewPoints
+    {
+        get => (Vector2[])_previewPoints.Clone();
+        set => _previewPoints = value == null ? [] : (Vector2[])value.Clone();
+    }
+
+    public int GetPreviewPointCount() => _previewPoints.Length;
+
+    public Vector2 GetPreviewPoint(int index) => _previewPoints[index];
 
     /// <summary>拆除工具悬停的 Edge ID（null = 未悬停在任何 Edge 上）</summary>
     public int? HoveredEdgeID { get; set; }
@@ -162,9 +170,12 @@ public partial class RoadRenderer : Node2D
             }
         }
 
-        if (PreviewFrom.HasValue && PreviewTo.HasValue && PreviewFrom.Value != PreviewTo.Value)
+        for (int index = 1; index < _previewPoints.Length; index++)
         {
-            DrawDashedLine(PreviewFrom.Value, PreviewTo.Value, new Color(1, 1, 1, 0.5f));
+            Vector2 from = _previewPoints[index - 1];
+            Vector2 to = _previewPoints[index];
+            if (from != to)
+                DrawDashedLine(from, to, new Color(1, 1, 1, 0.5f));
         }
     }
 

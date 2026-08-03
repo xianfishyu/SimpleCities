@@ -493,29 +493,34 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | 公开/导出成员 | 签名 | 说明 |
 |---|---|---|
 | `Config` | `[Export] public RoadConfig Config { get; set; } = null!` | 场景注入共享配置 |
+| `IsPlacing` / `FixedCornerCount` / `CurrentDraft` | 只读属性 | 当前连续会话状态、已固定拐点数和完整组合草稿 |
 | `SetGraph` | `public void SetGraph(RoadGraph graph)` | 注入数据层 |
-| `SetInputStrategy` | `public void SetInputStrategy(IRoadInputStrategy inputStrategy)` | 取消当前拖拽并替换输入策略 |
+| `SetInputStrategy` | `public void SetInputStrategy(IRoadInputStrategy inputStrategy)` | 取消当前会话并替换输入策略 |
 | `_Ready` | `public override void _Ready()` | 获取相邻 `RoadRenderer`，校验 `Config`，按需创建默认米字型策略 |
-| `HandlePlaceInput` | `public void HandlePlaceInput(InputEvent @event)` | 左键按下开始拖拽，释放提交 |
-| `BeginPlace` | `public bool BeginPlace(Vector2 pointerPosition)` | 通过策略吸附起点并建立空草稿；失败时不进入拖拽 |
-| `UpdatePlace` | `public void UpdatePlace(Vector2 pointerPosition)` | 请求当前策略重建草稿并更新预览 |
-| `CommitPlace` | `public bool CommitPlace(Vector2 pointerPosition)` | 用最新指针刷新草稿，经 `RoadGraph.SubmitPath` 提交并清理预览 |
-| `_Process` | `public override void _Process(double delta)` | 拖拽时更新策略草稿，拆除工具时更新 hover |
+| `HandlePlaceInput` | `public void HandlePlaceInput(InputEvent @event)` | 处理旧式拖拽和点击式连续会话的移动、拐点、确认、回退与取消 |
+| `BeginPlace` | `public bool BeginPlace(Vector2 pointerPosition)` | 通过策略吸附起点并建立空的 `RoadPlacementSession` |
+| `UpdatePlace` | `public void UpdatePlace(Vector2 pointerPosition)` | 移动当前末端并更新完整组合预览 |
+| `AddPlacePoint` / `RemoveLastPlacePoint` | `public bool ...(Vector2 pointerPosition)` | 固定新拐点或回退最后一个固定拐点 |
+| `ConfirmPlace` | `public bool ConfirmPlace(Vector2 pointerPosition)` | 只经一次 `RoadGraph.SubmitPath` 确认完整草稿；拒绝时保留会话 |
+| `CommitPlace` | `public bool CommitPlace(Vector2 pointerPosition)` | 兼容既有调用的 `ConfirmPlace` 别名 |
+| `CancelPlaceSession` | `public void CancelPlaceSession()` | 取消完整会话并清空预览，不修改图 |
+| `CancelPlaceDrag` | `public void CancelPlaceDrag()` | 兼容既有调用的取消别名 |
+| `_Process` | `public override void _Process(double delta)` | 仅在拆除工具活动时更新 hover；铺路由输入事件驱动 |
 | `HandleRemoveInput` | `public void HandleRemoveInput(InputEvent @event)` | 左键点击删除最近 `GraphEdge` |
-| `CancelPlaceDrag` | `public void CancelPlaceDrag()` | 切出铺路工具时取消拖拽并清预览 |
 | `SetRemoveHoverActive` | `public void SetRemoveHoverActive(bool active)` | 切入/切出拆除工具时开关 hover |
 
 | 当前铺路行为 | 说明 |
 |---|---|
-| 拖拽语义 | `RoadBuilder` 只管理开始、更新、预览、提交和取消；当前默认策略仍生成单方向直路 |
+| 输入语义 | 按住拖拽后释放保持单段提交；点击起点进入连续会话，左键固定拐点，Enter/双击确认，右键回退或零段取消 |
 | 半格起点 | `SquareEightRoadInputStrategy` 对偏移起点只允许对角延伸，并反向定位整格 anchor |
-| 提交 | `CommitPlace()` 把不可变草稿中的 `RoadPath` 交给 `_graph.SubmitPath(...)` |
+| 组合与提交 | `RoadPlacementSession` 保留每段策略草稿的原生几何；`ConfirmPlace()` 把完整 `RoadPath` 一次性交给 `_graph.SubmitPath(...)` |
+| 失败行为 | 无有效段时不提交；RoadGraph 拒绝时图不变且会话/完整预览保留，可继续调整或取消 |
 | 道路类型 | 第二代输入与数据层不包含 RoadType |
 | 拆除 | 使用当前策略的吸附点和 `InteractionRadius` 查边，再回退到原始指针位置 |
 
 ### Road 输入策略
 
-**文件**：`Scripts/Road/Input/IRoadInputStrategy.cs`、`RoadPathDraft.cs`、`SquareEightRoadInputStrategy.cs`、`TriangularThreeRoadInputStrategy.cs`、`HexSixRoadInputStrategy.cs`
+**文件**：`Scripts/Road/Input/IRoadInputStrategy.cs`、`RoadPathDraft.cs`、`RoadPlacementSession.cs`、`SquareEightRoadInputStrategy.cs`、`TriangularThreeRoadInputStrategy.cs`、`HexSixRoadInputStrategy.cs`
 
 | 类型/成员 | 签名 | 说明 |
 |---|---|---|
@@ -523,6 +528,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `IRoadInputStrategy.SnapPointer` | `Vector2 SnapPointer(Vector2 worldPosition)` | 把世界指针映射到策略定义的吸附点 |
 | `IRoadInputStrategy.BuildDraft` | `RoadPathDraft BuildDraft(Vector2 startPosition, Vector2 pointerPosition)` | 生成预览点和可选的权威 `RoadPath` |
 | `RoadPathDraft` | `public sealed class RoadPathDraft` | 防御性复制预览点；`Path == null` 表示当前不可提交；`FromPolyline` 把连续预览点转换为原生 line 段 |
+| `RoadPlacementSession` | `public sealed class RoadPlacementSession` | 组合已固定草稿和可移动末端；支持增加/回退拐点并保持完整 `PreviewPoints` 与原生 `RoadPath` |
 | `SquareEightRoadInputStrategy` | `public sealed class SquareEightRoadInputStrategy : IRoadInputStrategy` | 封装方格吸附、八方向投影、半格对角约束和逐格原生直线段 |
 | `TriangularThreeRoadInputStrategy` | `public sealed class TriangularThreeRoadInputStrategy : IRoadInputStrategy` | 吸附到三角单元中心；主/次中心分别有 3 个跨边邻居，长路径交替两组邻接 |
 | `HexSixRoadInputStrategy` | `public sealed class HexSixRoadInputStrategy : IRoadInputStrategy` | pointy-top 六边形单元中心轴向取整；沿 6 个等长方向投影 |
@@ -537,12 +543,12 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | 公开/导出成员 | 签名 | 说明 |
 |---|---|---|
 | `Config` | `[Export] public RoadConfig Config { get; set; } = null!` | 场景注入共享配置 |
-| `PreviewFrom` | `public Vector2? PreviewFrom { get; set; }` | 施工预览起点 |
-| `PreviewTo` | `public Vector2? PreviewTo { get; set; }` | 施工预览终点 |
+| `PreviewPoints` | `public Vector2[] PreviewPoints { get; set; }` | 防御性复制的完整施工预览点列 |
+| `GetPreviewPointCount` / `GetPreviewPoint` | 运行时查询方法 | Godot 契约和调试调用读取当前完整预览 |
 | `HoveredEdgeID` | `public int? HoveredEdgeID { get; set; }` | 拆除工具悬停边 |
 | `_Ready` | `public override void _Ready()` | 校验 `Config`，创建 junction 绘制层 |
 | `SetGraph` | `public void SetGraph(RoadGraph graph)` | 订阅 `EdgeAdded`、`EdgeRemoved`、`GraphCleared` |
-| `_Draw` | `public override void _Draw()` | 绘制拆除 hover 高亮和施工虚线预览 |
+| `_Draw` | `public override void _Draw()` | 绘制拆除 hover 高亮和完整多段施工虚线预览 |
 
 | 事件响应 | 行为 |
 |---|---|

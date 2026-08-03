@@ -6,16 +6,16 @@ public partial class ToolManager : Node2D
 
     private ToolType _currentTool = ToolType.Select;
 
-    /// <summary>切换工具时，若当前是 Road 工具且正在拖拽，则取消拖拽，避免 _isDragging 卡死。</summary>
+    /// <summary>切换工具时取消尚未提交的铺路会话，并清理拆除悬停状态。</summary>
     public ToolType CurrentTool
     {
         get => _currentTool;
         set
         {
             if (_currentTool == value) return;
-            // Bug #3: 切出 Road 工具前必须取消进行中的拖拽
+            // 切出 Road 工具前取消完整的连续铺路会话。
             if (_currentTool == ToolType.Road)
-                _roadBuilder?.CancelPlaceDrag();
+                _roadBuilder?.CancelPlaceSession();
             // 切出 RoadRemove 工具前清除悬停高亮
             if (_currentTool == ToolType.RoadRemove)
                 _roadBuilder?.SetRemoveHoverActive(false);

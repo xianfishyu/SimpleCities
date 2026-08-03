@@ -169,7 +169,7 @@ GameHUD              — 鼠标格点坐标显示
   - CellSize 不出现在 Layer 2
 ```
 
-**当前运行时状态**：RoadGraph、GraphNode、GraphEdge、RoadGroup 和 SpatialIndex 已落地。GridSystem 与 DirectionUtil 仍承担 8 方向输入约束，RoadGraph 不回到 legacy RoadNetwork 命名。
+**当前运行时状态**：RoadGraph、GraphNode、GraphEdge、RoadGroup 和 SpatialIndex 已落地。`RoadBuilder` 只消费 `IRoadInputStrategy` 与 `RoadPlacementSession`；默认 `SquareEightRoadInputStrategy` 在内部使用 DirectionUtil 承担 8 方向约束，GridSystem 仅供其他 UI/调试组件使用。RoadGraph 不引用这些输入类型，也不回到 legacy RoadNetwork 命名。
 
 ### 3.2 与迁移前架构的对照
 
@@ -907,7 +907,7 @@ RoadGraphSaveData {
 
 ### D.4 未完成事项
 
-> 2026-08-04 进度：V2-6 已完成。`tool-input:1.2` 建立策略接口、不可变草稿、默认米字型实现及 RoadBuilder 生命周期；`tool-input:1.3` 以三角单元中心 3 邻接和六边形单元中心 6 邻接策略通过同一提交、交叉拆分与存档契约。
+> 2026-08-04 进度：V2-6 已完成，V2-7 已完成其中 `tool-input:1.4`。策略接口支持米字型、三角形和六边形；连续铺路会话已支持拐点、完整预览、回退、确认、取消及失败无副作用。连续/框选拆除与撤销重做仍分别等待 `tool-input:1.5`、`tool-input:1.6`。
 
 | ID | 未完成事项 | 所属系统 | 验收摘要 |
 |---|---|---|---|

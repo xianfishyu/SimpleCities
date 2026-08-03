@@ -37,7 +37,8 @@ GridSystem     | 旧方格吸附工具                | 是 — 供其他 UI/调
 - `SquareEightRoadInputStrategy` 负责当前玩家默认的方格吸附、8 方向投影和半格对角约束。
 - `TriangularThreeRoadInputStrategy` 把锚点放在三角单元中心，每个中心只有 3 个跨边邻居；相邻三角形交替方向，长路径呈确定锯齿。
 - `HexSixRoadInputStrategy` 使用 pointy-top 六边形单元中心、轴向/立方坐标取整和 6 个等长方向。
-- `RoadBuilder` 只负责开始、更新、预览、提交、取消和策略切换；RoadGraph 不引用任何策略类型。
+- `RoadPlacementSession` 组合已固定策略草稿与可移动末端，保留完整预览点和原生几何段；连续拐点不复制任何网格规则。
+- `RoadBuilder` 只负责输入事件、会话、预览、一次确认提交、取消和策略切换；RoadGraph 不引用任何策略类型。
 - `GridSystem` 仍供调试等其他 UI 使用，但不再参与 RoadBuilder 的铺路生命周期。
 
 未来 `IGridGeometry` 可以在输入策略之外增加邻居枚举、移动成本和寻路启发式；不要把该草案写成当前已实现接口。

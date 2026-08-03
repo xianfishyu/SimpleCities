@@ -1,6 +1,6 @@
 # 游戏总体逻辑
 
-> 最后更新：2026-07-19
+> 最后更新：2026-08-04
 >
 > 当前实现范围：本文的道路、HUD、相机和存档流程已按当前 Godot/C# 源码校准。分区、经济、时间和交通模拟仍是设计文档中的未来系统，不是已实现功能。
 
@@ -24,12 +24,17 @@ flowchart LR
     end
 
     subgraph RoadInternal["RoadSystem 内部"]
-        RoadBuilder["RoadBuilder<br/>输入处理"]
+        RoadBuilder["RoadBuilder<br/>输入与会话协调"]
         RoadRenderer["RoadRenderer<br/>事件渲染"]
     end
 
+    subgraph RoadInput["铺路输入层"]
+        Placement["RoadPlacementSession<br/>固定拐点 + 活动末端"]
+        Strategy["IRoadInputStrategy<br/>吸附与单段草稿"]
+    end
+
     subgraph Data["纯数据层"]
-        RoadGraph["RoadGraph<br/>ISaveable"]
+        RoadGraph["RoadGraph<br/>IPreparedSaveable"]
         RoadConfig["RoadConfig<br/>共享 .tres 资源"]
     end
 
@@ -43,14 +48,14 @@ flowchart LR
     RoadSys --> RoadGraph
     RoadSys -->|注入 Config| GridSystem
 
-    RoadBuilder -->|调用 API| RoadGraph
-    RoadBuilder -->|设置预览| RoadRenderer
+    RoadBuilder -->|SubmitPath| RoadGraph
+    RoadBuilder -->|设置完整 PreviewPoints| RoadRenderer
     RoadBuilder -.读取.-> RoadConfig
-    RoadBuilder -.调用.-> GridSystem
-    RoadBuilder -.调用.-> DirectionUtil
+    RoadBuilder --> Placement
+    Placement --> Strategy
+    Strategy -.默认米字型实现.-> DirectionUtil
 
     RoadGraph -->|EdgeAdded EdgeRemoved GraphCleared| RoadRenderer
-    RoadGraph -.调用.-> DirectionUtil
 
     RoadRenderer -.读取.-> RoadConfig
 
@@ -67,42 +72,38 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    subgraph Phase1["拖拽开始"]
+    subgraph Phase1["建立会话"]
         S1["玩家按下左键"] --> S2["ToolManager 转发至 RoadBuilder"]
-        S2 --> S3["RoadBuilder.BeginDrag"]
-        S3 --> S4["GridSystem.SnapToGrid 吸附"]
-        S4 --> S5{"格点上有 GraphEdge?"}
-        S5 -->|否| S6["FindNearestRoadPoint 半格点回退"]
-        S5 -->|是| S7["记录起点 PreviewFrom"]
+        S2 --> S3["CanvasTransform 反变换为世界坐标"]
+        S3 --> S4["IRoadInputStrategy.SnapPointer"]
+        S4 --> S5{"吸附点附近已有道路?"}
+        S5 -->|否| S6["FindNearestRoadPoint 几何锚点回退"]
+        S5 -->|是| S7["创建 RoadPlacementSession"]
         S6 --> S7
-        S7 --> S8["RoadRenderer.QueueRedraw"]
+        S7 --> S8["发布单点 PreviewPoints"]
     end
 
-    subgraph Phase2["拖拽中每帧"]
-        D1["鼠标移动"] --> D2["RoadBuilder.UpdateProjection"]
-        D2 --> D3{"半格起点?"}
-        D3 -->|是| D4["仅 NE SE SW NW 对角候选"]
-        D4 --> D5["DirectionUtil.GetDisplacement 计算步长"]
-        D3 -->|否| D5
-        D5 --> D6["投影选最长方向格数"]
-        D6 --> D7["更新 PreviewTo QueueRedraw"]
+    subgraph Phase2["编辑完整路径"]
+        D1["鼠标移动"] --> D2["策略从当前 anchor 生成活动草稿"]
+        D2 --> D3["会话组合固定草稿和活动草稿"]
+        D3 --> D4["RoadRenderer 绘制完整多段虚线"]
+        D4 --> D5{"下一输入"}
+        D5 -->|左键| D6["固定活动草稿为新拐点"]
+        D5 -->|右键且有拐点| D7["回退最后拐点并重建活动末端"]
+        D5 -->|右键且零拐点| D8["取消会话 不修改图"]
+        D6 --> D1
+        D7 --> D1
     end
 
-    subgraph Phase3["释放提交"]
-        C1["玩家释放左键"] --> C2["RoadBuilder.EndDragAndCommit"]
-        C2 --> C3{"半格起点?"}
-        C3 -->|是| C4["锚定反方向整格 waypoints落整格"]
-        C4 --> C5["构建 waypoints 数组"]
-        C3 -->|否| C5
-        C5 --> C6["RoadGraph.AddRoad"]
-        C6 --> C8["IsPathFullyCovered 重叠预检"]
-        C8 --> C9["ResolveIntersections 交叉劈分"]
-        C9 --> C10["SplitEdgesAtPathAnchors 劈开旧 Edge"]
-        C10 --> C11["按节点锚点生成 GraphEdges"]
-        C11 --> C12["TryMergeAtNode 合并降级"]
-        C12 --> C13["EdgeAdded 事件触发"]
-        C13 --> C14["RoadRenderer 创建 Line2D"]
-        C14 --> C15["ClearPreview QueueRedraw"]
+    subgraph Phase3["一次确认提交"]
+        C1["Enter / 双击 / 旧式拖拽释放"] --> C2["确认完整 RoadPathDraft"]
+        C2 --> C3{"Path 存在?"}
+        C3 -->|否| C4["保留会话 等待有效末端"]
+        C3 -->|是| C5["RoadGraph.SubmitPath 一次调用"]
+        C5 --> C6{"提交成功?"}
+        C6 -->|否| C7["图不变 保留会话和预览"]
+        C6 -->|是| C8["发布 Edge 事件并清空会话预览"]
+        C8 --> C9["RoadRenderer 创建提交后的 Line2D"]
     end
 
     Phase1 --> Phase2
@@ -213,7 +214,7 @@ flowchart LR
     Remove -->|pause_menu 默认 Esc| Pause
     Pause -->|继续游戏| Previous["恢复先前工具状态"]
 
-    Road -.生命周期.-> RN["Enter: 无操作<br/>Tick: BeginDrag - UpdateProjection - EndDragAndCommit<br/>Exit: CancelPlaceDrag"]
+    Road -.生命周期.-> RN["Enter: 等待输入<br/>Input: 旧式拖拽提交或点击式连续会话<br/>Exit: CancelPlaceSession"]
     Remove -.生命周期.-> RMN["Enter: SetRemoveHoverActive true<br/>Tick: UpdateRemoveHover 悬停检测<br/>Exit: SetRemoveHoverActive false 清除高亮"]
 ```
 
@@ -245,23 +246,28 @@ flowchart LR
 
 ## 7. 关键决策流程
 
-### 7.1 半格点拖拽方向限制
+### 7.1 默认米字型策略的偏移起点限制
 
 ```mermaid
 flowchart TD
-    Start["BeginDrag 记录起点"] --> Snap["SnapToGrid"]
-    Snap --> Check{"格点有 GraphEdge"}
-    Check -->|是| Direct["使用吸附格点"]
+    Start["RoadBuilder.BeginPlace"] --> Snap["SquareEightRoadInputStrategy.SnapPointer"]
+    Snap --> Check{"吸附点附近有道路"}
+    Check -->|是| Direct["使用策略吸附点"]
     Check -->|否| Fallback["FindNearestRoadPoint"]
-    Fallback -->|找到| HalfGrid["半格起点"]
+    Fallback -->|找到| HalfGrid["使用道路原生锚点"]
     Fallback -->|未找到| Direct
 
-    HalfGrid --> Update["UpdateProjection 每帧"]
-    Update --> Filter["遍历8方向 IsDiagonal过滤"]
+    HalfGrid --> Session["创建 RoadPlacementSession"]
+    Direct --> Session
+    Session --> Update["鼠标事件触发 BuildDraft"]
+    Update --> Offset{"起点不在主格点"}
+    Offset -->|是| Filter["策略内部过滤为对角候选"]
+    Offset -->|否| Project["策略内部遍历 8 方向"]
     Filter --> DiagOnly["仅 NE SE SW NW 候选"]
     DiagOnly --> Project["投影选最长"]
-    Project --> Commit["EndDragAndCommit"]
-    Commit --> Anchor["锚定到反方向整格<br/>waypoints全落整格"]
+    Project --> Anchor["半格 anchor 生成连续原生 line 草稿"]
+    Anchor --> Compose["会话组合完整预览和 RoadPath"]
+    Compose --> Commit["ConfirmPlace 经 SubmitPath 一次提交"]
 ```
 
 ### 7.2 对向合并降级(TryMergeAtNode)
@@ -270,17 +276,16 @@ flowchart TD
 flowchart TD
     Start{"GraphNode EdgeCount equal 2"} -->|否| Skip["跳过"]
     Start -->|是| SegAB["取两条 GraphEdge"]
-    SegAB --> Guard1{"自环"}
+    SegAB --> Guard1{"同一 Edge 或不同 Group"}
     Guard1 -->|是| Skip
-    Guard1 -->|否| Orient["OrientTowardsJunction"]
-    Orient --> Dir["取 Junction to 邻点 方向"]
-    Dir --> Guard2{"两侧方向对向"}
+    Guard1 -->|否| Orient["OrientTowardsNode 获取两侧完整点列"]
+    Orient --> Guard2{"远端不同且点列完整"}
     Guard2 -->|否| Skip
-    Guard2 -->|是| Guard3{"合并后8方向连续"}
+    Guard2 -->|是| Guard3{"AreOppositeCollinear 几何对向共线"}
     Guard3 -->|否| Skip
-    Guard3 -->|是| Guard4{"farA 不等于 farB"}
-    Guard4 -->|否| Skip
-    Guard4 -->|是| Merge["RemoveEdge A and B<br/>AddEdge farA to farB<br/>保留 GroupID"]
+    Guard3 -->|是| Merge["DetachEdge A/B<br/>AddEdge farA to farB<br/>保留 GroupID 和中间点"]
+    Merge --> Commit["CommitEdgeMutation 清理并验证"]
+    Commit --> Events["EdgeRemoved A/B 后 EdgeAdded replacement"]
 ```
 
 ---

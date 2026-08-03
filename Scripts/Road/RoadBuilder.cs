@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Linq;
 
 public partial class RoadBuilder : Node2D
 {
@@ -8,19 +9,28 @@ public partial class RoadBuilder : Node2D
     private RoadGraph? _graph;
     private RoadRenderer? _renderer;
     private IRoadInputStrategy? _inputStrategy;
-    private RoadPathDraft? _currentDraft;
-    private bool _isDragging;
-    private Vector2 _dragStartPos;
+    private RoadPlacementSession? _placementSession;
+    private bool _leftPressStartedSession;
+    private bool _ignoreNextLeftRelease;
+    private Vector2 _lastPlacePointerPosition;
 
     private bool _isRemoveHoverActive;
     private int _lastHoveredEdgeID = -1;
+
+    public bool IsPlacing => _placementSession != null;
+    public int FixedCornerCount => _placementSession?.FixedCornerCount ?? 0;
+    public RoadPathDraft? CurrentDraft => _placementSession?.CurrentDraft;
+
+    public bool HasActivePlaceSession() => IsPlacing;
+
+    public int GetFixedCornerCount() => FixedCornerCount;
 
     public void SetGraph(RoadGraph graph) => _graph = graph;
 
     public void SetInputStrategy(IRoadInputStrategy inputStrategy)
     {
         ArgumentNullException.ThrowIfNull(inputStrategy);
-        CancelPlaceDrag();
+        CancelPlaceSession();
         _inputStrategy = inputStrategy;
     }
 
@@ -38,15 +48,70 @@ public partial class RoadBuilder : Node2D
 
     public void HandlePlaceInput(InputEvent @event)
     {
-        if (@event is not InputEventMouseButton mouseButton ||
-            mouseButton.ButtonIndex != MouseButton.Left)
+        if (@event is InputEventKey keyEvent &&
+            keyEvent.Pressed &&
+            !keyEvent.Echo &&
+            keyEvent.Keycode is Key.Enter or Key.KpEnter)
+        {
+            if (IsPlacing)
+                ConfirmPlace(_lastPlacePointerPosition);
+            return;
+        }
+
+        if (@event is InputEventMouseMotion mouseMotion)
+        {
+            if (IsPlacing)
+                UpdatePlace(ToWorldPosition(mouseMotion.Position));
+            return;
+        }
+
+        if (@event is not InputEventMouseButton mouseButton)
             return;
 
-        Vector2 pointerPosition = GetGlobalMousePosition();
+        Vector2 pointerPosition = ToWorldPosition(mouseButton.Position);
+        if (mouseButton.ButtonIndex == MouseButton.Right && mouseButton.Pressed && IsPlacing)
+        {
+            if (FixedCornerCount == 0)
+                CancelPlaceSession();
+            else
+                RemoveLastPlacePoint(pointerPosition);
+            return;
+        }
+
+        if (mouseButton.ButtonIndex != MouseButton.Left)
+            return;
+
         if (mouseButton.Pressed)
-            BeginPlace(pointerPosition);
-        else
-            CommitPlace(pointerPosition);
+        {
+            if (mouseButton.DoubleClick && IsPlacing)
+            {
+                _ignoreNextLeftRelease = true;
+                ConfirmPlace(pointerPosition);
+                return;
+            }
+
+            _leftPressStartedSession = !IsPlacing && BeginPlace(pointerPosition);
+            return;
+        }
+
+        if (_ignoreNextLeftRelease)
+        {
+            _ignoreNextLeftRelease = false;
+            return;
+        }
+        if (!IsPlacing)
+            return;
+
+        UpdatePlace(pointerPosition);
+        if (_leftPressStartedSession)
+        {
+            _leftPressStartedSession = false;
+            if (CurrentDraft?.CanCommit == true)
+                ConfirmPlace(pointerPosition);
+            return;
+        }
+
+        AddPlacePoint(pointerPosition);
     }
 
     public override void _Process(double delta)
@@ -54,67 +119,93 @@ public partial class RoadBuilder : Node2D
         if (_graph == null || _renderer == null)
             return;
 
-        if (_isDragging)
-            UpdatePlace(GetGlobalMousePosition());
-        else if (_isRemoveHoverActive)
+        if (_isRemoveHoverActive)
             UpdateRemoveHover();
     }
 
     public bool BeginPlace(Vector2 pointerPosition)
     {
-        if (_graph == null || _inputStrategy == null)
+        if (_graph == null || _inputStrategy == null || IsPlacing)
             return false;
 
-        _isDragging = true;
-        _dragStartPos = _inputStrategy.SnapPointer(pointerPosition);
+        _lastPlacePointerPosition = pointerPosition;
+        Vector2 startPosition = _inputStrategy.SnapPointer(pointerPosition);
 
         float interactionRadius = _inputStrategy.InteractionRadius;
-        if (_graph.FindClosestEdge(_dragStartPos, interactionRadius) == null &&
-            _graph.FindClosestNode(_dragStartPos, interactionRadius) == null)
+        if (_graph.FindClosestEdge(startPosition, interactionRadius) == null &&
+            _graph.FindClosestNode(startPosition, interactionRadius) == null)
         {
             (Vector2 pos, int edgeID)? nearest = FindNearestRoadPoint(pointerPosition);
             if (nearest.HasValue)
             {
-                _dragStartPos = nearest.Value.pos;
+                startPosition = nearest.Value.pos;
                 GD.Print(
-                    $"[DRAG-SNAP] fallback=({_dragStartPos.X:F0},{_dragStartPos.Y:F0}) " +
+                    $"[PLACE-SNAP] fallback=({startPosition.X:F0},{startPosition.Y:F0}) " +
                     $"edgeID={nearest.Value.edgeID}");
             }
         }
 
-        _currentDraft = RoadPathDraft.Empty(_dragStartPos);
-        ApplyPreview(_currentDraft);
+        _placementSession = new RoadPlacementSession(_inputStrategy, startPosition);
+        ApplyPreview(_placementSession.CurrentDraft);
         return true;
     }
 
     public void UpdatePlace(Vector2 pointerPosition)
     {
-        if (!_isDragging || _inputStrategy == null)
+        if (_placementSession == null)
             return;
 
-        _currentDraft = _inputStrategy.BuildDraft(_dragStartPos, pointerPosition);
-        ApplyPreview(_currentDraft);
+        _lastPlacePointerPosition = pointerPosition;
+        ApplyPreview(_placementSession.Update(pointerPosition));
     }
 
-    public bool CommitPlace(Vector2 pointerPosition)
+    public bool AddPlacePoint(Vector2 pointerPosition)
     {
-        if (!_isDragging)
+        if (_placementSession == null)
             return false;
 
-        UpdatePlace(pointerPosition);
-        RoadPathDraft? draft = _currentDraft;
-        _isDragging = false;
-        _currentDraft = null;
-        ClearPreview();
+        _lastPlacePointerPosition = pointerPosition;
+        bool added = _placementSession.TryAddPoint(pointerPosition);
+        ApplyPreview(_placementSession.CurrentDraft);
+        return added;
+    }
 
-        if (_graph == null || draft?.Path == null)
+    public bool RemoveLastPlacePoint(Vector2 pointerPosition)
+    {
+        if (_placementSession == null)
+            return false;
+
+        _lastPlacePointerPosition = pointerPosition;
+        bool removed = _placementSession.TryRemoveLastPoint(pointerPosition);
+        ApplyPreview(_placementSession.CurrentDraft);
+        return removed;
+    }
+
+    public bool ConfirmPlace(Vector2 pointerPosition)
+    {
+        if (_placementSession == null || _graph == null)
+            return false;
+
+        _lastPlacePointerPosition = pointerPosition;
+        RoadPathDraft draft = _placementSession.Update(pointerPosition);
+        ApplyPreview(draft);
+        if (draft.Path == null)
             return false;
 
         RoadPathSubmissionResult result = _graph.SubmitPath(draft.Path);
         if (!result.Success)
-            GD.Print($"[DRAG-END] path rejected: {result.Error}");
-        return result.Success;
+        {
+            GD.Print($"[PLACE-END] path rejected: {result.Error}");
+            return false;
+        }
+
+        EndPlaceSession();
+        return true;
     }
+
+    /// <summary>兼容既有单次拖拽调用；确认当前完整铺路会话。</summary>
+    public bool CommitPlace(Vector2 pointerPosition)
+        => ConfirmPlace(pointerPosition);
 
     public void HandleRemoveInput(InputEvent @event)
     {
@@ -132,16 +223,17 @@ public partial class RoadBuilder : Node2D
         }
     }
 
-    /// <summary>取消当前铺路拖拽，不修改路网。</summary>
-    public void CancelPlaceDrag()
+    /// <summary>取消当前连续铺路会话，不修改路网。</summary>
+    public void CancelPlaceSession()
     {
-        if (!_isDragging)
+        if (_placementSession == null)
             return;
 
-        _isDragging = false;
-        _currentDraft = null;
-        ClearPreview();
+        EndPlaceSession();
     }
+
+    /// <summary>兼容既有工具切换调用。</summary>
+    public void CancelPlaceDrag() => CancelPlaceSession();
 
     public void SetRemoveHoverActive(bool active)
     {
@@ -155,8 +247,7 @@ public partial class RoadBuilder : Node2D
         if (_renderer == null)
             return;
 
-        _renderer.PreviewFrom = draft.PreviewFrom;
-        _renderer.PreviewTo = draft.PreviewTo;
+        _renderer.PreviewPoints = draft.PreviewPoints.ToArray();
         _renderer.QueueRedraw();
     }
 
@@ -165,10 +256,20 @@ public partial class RoadBuilder : Node2D
         if (_renderer == null)
             return;
 
-        _renderer.PreviewFrom = null;
-        _renderer.PreviewTo = null;
+        _renderer.PreviewPoints = [];
         _renderer.QueueRedraw();
     }
+
+    private void EndPlaceSession()
+    {
+        _placementSession = null;
+        _leftPressStartedSession = false;
+        _ignoreNextLeftRelease = false;
+        ClearPreview();
+    }
+
+    private Vector2 ToWorldPosition(Vector2 viewportPosition) =>
+        GetCanvasTransform().AffineInverse() * viewportPosition;
 
     private void UpdateRemoveHover()
     {
