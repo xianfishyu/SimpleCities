@@ -10,6 +10,7 @@ public partial class PauseMenu : Control
     private enum MenuView
     {
         Main,
+        SaveManagement,
         Settings,
         Bindings,
         Confirmation,
@@ -19,6 +20,9 @@ public partial class PauseMenu : Control
     {
         ReturnToMainMenu,
         QuitToDesktop,
+        OverwriteSave,
+        LoadSave,
+        DeleteSave,
     }
 
     private const float SilentVolumeDb = -60f;
@@ -29,8 +33,17 @@ public partial class PauseMenu : Control
     private Button _settingsButton = null!;
     private Button _exitGameButton = null!;
     private Button _exitDesktopButton = null!;
-    private Label _statusLabel = null!;
     private Control _mainContent = null!;
+    private Control _saveManagementContent = null!;
+    private LineEdit _saveNameInput = null!;
+    private Button _saveAsButton = null!;
+    private ItemList _saveSlotList = null!;
+    private Label _saveSlotSummaryLabel = null!;
+    private Button _overwriteSaveButton = null!;
+    private Button _loadSaveButton = null!;
+    private Button _deleteSaveButton = null!;
+    private Label _saveStatusLabel = null!;
+    private Button _saveManagementBackButton = null!;
     private Control _settingsContent = null!;
     private Control _confirmationContent = null!;
     private HSlider _masterVolumeSlider = null!;
@@ -50,14 +63,19 @@ public partial class PauseMenu : Control
 
     private MenuView _view;
     private ConfirmationAction _confirmationAction;
+    private MenuView _confirmationReturnView;
+    private string? _confirmationSlotID;
+    private string _confirmationDisplayName = string.Empty;
     private int _masterBusIndex = -1;
     private string? _capturingAction;
     private readonly Dictionary<string, Button> _bindingButtons = new(StringComparer.Ordinal);
+    private readonly List<SaveSlotSummary> _saveSlots = new();
+    private int _selectedSaveSlotIndex = -1;
+    private bool _focusSaveNameOnViewOpen;
+    private SaveManager? _saveManager;
     private Control? _focusBeforeOpen;
 
     public event Action? ContinueRequested;
-    public event Action? SaveRequested;
-    public event Action? LoadRequested;
     public event Action? ReturnToMainMenuRequested;
     public event Action? QuitToDesktopRequested;
 
@@ -101,6 +119,8 @@ public partial class PauseMenu : Control
             return;
 
         if (_view == MenuView.Confirmation)
+            CancelConfirmation();
+        else if (_view == MenuView.SaveManagement)
             ShowMainView();
         else if (_view == MenuView.Bindings)
             ShowSettingsView();
@@ -117,7 +137,6 @@ public partial class PauseMenu : Control
     {
         _focusBeforeOpen = GetViewport().GuiGetFocusOwner();
         ShowMainView();
-        _statusLabel.Text = string.Empty;
         Visible = true;
         SetTreePaused(true);
         CallDeferred(MethodName.FocusContinueButton);
@@ -132,16 +151,13 @@ public partial class PauseMenu : Control
         CallDeferred(MethodName.RestorePreviousFocus);
     }
 
-    /// <summary>将存取档结果显示在暂停菜单内；操作完成后菜单保持打开和暂停状态。</summary>
-    public void ShowStatus(string message, bool success)
-    {
-        _statusLabel.Text = message;
-        _statusLabel.AddThemeColorOverride("font_color", success ? new Color("#52C878") : new Color("#FF6B6B"));
-    }
+    /// <summary>由 HUD 组合根提供存档后端；传入 null 时界面仍可打开并显示不可用状态。</summary>
+    public void ConfigureSaveManager(SaveManager? saveManager) => _saveManager = saveManager;
 
     private void ResolveNodes()
     {
         _mainContent = GetNode<Control>("Center/MainPanel/MainContent");
+        _saveManagementContent = GetNode<Control>("Center/MainPanel/SaveManagementContent");
         _settingsContent = GetNode<Control>("Center/MainPanel/SettingsContent");
         _bindingsContent = GetNode<Control>("Center/MainPanel/BindingsContent");
         _confirmationContent = GetNode<Control>("Center/MainPanel/ConfirmationContent");
@@ -151,7 +167,15 @@ public partial class PauseMenu : Control
         _settingsButton = GetNode<Button>("Center/MainPanel/MainContent/SettingsButton");
         _exitGameButton = GetNode<Button>("Center/MainPanel/MainContent/ExitGameButton");
         _exitDesktopButton = GetNode<Button>("Center/MainPanel/MainContent/ExitDesktopButton");
-        _statusLabel = GetNode<Label>("Center/MainPanel/MainContent/StatusLabel");
+        _saveNameInput = GetNode<LineEdit>("Center/MainPanel/SaveManagementContent/SaveNameRow/SaveNameInput");
+        _saveAsButton = GetNode<Button>("Center/MainPanel/SaveManagementContent/SaveNameRow/SaveAsButton");
+        _saveSlotList = GetNode<ItemList>("Center/MainPanel/SaveManagementContent/SaveSlotList");
+        _saveSlotSummaryLabel = GetNode<Label>("Center/MainPanel/SaveManagementContent/SaveSlotSummaryLabel");
+        _overwriteSaveButton = GetNode<Button>("Center/MainPanel/SaveManagementContent/SaveActions/OverwriteButton");
+        _loadSaveButton = GetNode<Button>("Center/MainPanel/SaveManagementContent/SaveActions/LoadButton");
+        _deleteSaveButton = GetNode<Button>("Center/MainPanel/SaveManagementContent/SaveActions/DeleteButton");
+        _saveStatusLabel = GetNode<Label>("Center/MainPanel/SaveManagementContent/SaveStatusLabel");
+        _saveManagementBackButton = GetNode<Button>("Center/MainPanel/SaveManagementContent/BackButton");
         _masterVolumeSlider = GetNode<HSlider>("Center/MainPanel/SettingsContent/MasterVolumeSlider");
         _masterVolumeValue = GetNode<Label>("Center/MainPanel/SettingsContent/MasterVolumeValue");
         _muteToggle = GetNode<CheckButton>("Center/MainPanel/SettingsContent/MuteToggle");
@@ -175,6 +199,13 @@ public partial class PauseMenu : Control
         _settingsButton.Pressed += ShowSettingsView;
         _exitGameButton.Pressed += RequestReturnToMainMenu;
         _exitDesktopButton.Pressed += RequestQuitToDesktop;
+        _saveAsButton.Pressed += CreateNamedSave;
+        _saveNameInput.TextSubmitted += OnSaveNameSubmitted;
+        _saveSlotList.ItemSelected += OnSaveSlotSelected;
+        _overwriteSaveButton.Pressed += RequestOverwriteSave;
+        _loadSaveButton.Pressed += RequestLoadSave;
+        _deleteSaveButton.Pressed += RequestDeleteSave;
+        _saveManagementBackButton.Pressed += ShowMainView;
         _masterVolumeSlider.ValueChanged += OnMasterVolumeChanged;
         _muteToggle.Toggled += OnMuteToggled;
         _keyBindingsButton.Pressed += ShowBindingsView;
@@ -182,7 +213,7 @@ public partial class PauseMenu : Control
         _resetBindingsButton.Pressed += ResetBindings;
         _bindingsBackButton.Pressed += ShowSettingsView;
         _confirmButton.Pressed += ConfirmRequestedAction;
-        _cancelButton.Pressed += ShowMainView;
+        _cancelButton.Pressed += CancelConfirmation;
         if (GodotObject.IsInstanceValid(InputBindingManager.Instance))
             InputBindingManager.Instance.BindingChanged += OnBindingChanged;
     }
@@ -198,6 +229,13 @@ public partial class PauseMenu : Control
         _settingsButton.Pressed -= ShowSettingsView;
         _exitGameButton.Pressed -= RequestReturnToMainMenu;
         _exitDesktopButton.Pressed -= RequestQuitToDesktop;
+        _saveAsButton.Pressed -= CreateNamedSave;
+        _saveNameInput.TextSubmitted -= OnSaveNameSubmitted;
+        _saveSlotList.ItemSelected -= OnSaveSlotSelected;
+        _overwriteSaveButton.Pressed -= RequestOverwriteSave;
+        _loadSaveButton.Pressed -= RequestLoadSave;
+        _deleteSaveButton.Pressed -= RequestDeleteSave;
+        _saveManagementBackButton.Pressed -= ShowMainView;
         _masterVolumeSlider.ValueChanged -= OnMasterVolumeChanged;
         _muteToggle.Toggled -= OnMuteToggled;
         _keyBindingsButton.Pressed -= ShowBindingsView;
@@ -205,7 +243,7 @@ public partial class PauseMenu : Control
         _resetBindingsButton.Pressed -= ResetBindings;
         _bindingsBackButton.Pressed -= ShowSettingsView;
         _confirmButton.Pressed -= ConfirmRequestedAction;
-        _cancelButton.Pressed -= ShowMainView;
+        _cancelButton.Pressed -= CancelConfirmation;
         if (GodotObject.IsInstanceValid(InputBindingManager.Instance))
             InputBindingManager.Instance.BindingChanged -= OnBindingChanged;
     }
@@ -232,6 +270,7 @@ public partial class PauseMenu : Control
         CancelBindingCapture(showStatus: false);
         _view = MenuView.Main;
         _mainContent.Visible = true;
+        _saveManagementContent.Visible = false;
         _settingsContent.Visible = false;
         _bindingsContent.Visible = false;
         _confirmationContent.Visible = false;
@@ -244,6 +283,7 @@ public partial class PauseMenu : Control
         CancelBindingCapture(showStatus: false);
         _view = MenuView.Settings;
         _mainContent.Visible = false;
+        _saveManagementContent.Visible = false;
         _settingsContent.Visible = true;
         _bindingsContent.Visible = false;
         _confirmationContent.Visible = false;
@@ -254,6 +294,7 @@ public partial class PauseMenu : Control
     {
         _view = MenuView.Bindings;
         _mainContent.Visible = false;
+        _saveManagementContent.Visible = false;
         _settingsContent.Visible = false;
         _bindingsContent.Visible = true;
         _confirmationContent.Visible = false;
@@ -262,11 +303,36 @@ public partial class PauseMenu : Control
         CallDeferred(MethodName.FocusFirstBindingButton);
     }
 
-    private void ShowConfirmationView(string title, string message, ConfirmationAction action)
+    private void ShowSaveManagementView(bool focusName)
+    {
+        CancelBindingCapture(showStatus: false);
+        _view = MenuView.SaveManagement;
+        _mainContent.Visible = false;
+        _saveManagementContent.Visible = true;
+        _settingsContent.Visible = false;
+        _bindingsContent.Visible = false;
+        _confirmationContent.Visible = false;
+        _focusSaveNameOnViewOpen = focusName;
+        _saveStatusLabel.Text = string.Empty;
+        RefreshSaveSlots(PreferredSaveSlotID());
+        CallDeferred(MethodName.FocusSaveManagementControl);
+    }
+
+    private void ShowConfirmationView(
+        string title,
+        string message,
+        ConfirmationAction action,
+        MenuView returnView = MenuView.Main,
+        string? slotID = null,
+        string displayName = "")
     {
         _view = MenuView.Confirmation;
         _confirmationAction = action;
+        _confirmationReturnView = returnView;
+        _confirmationSlotID = slotID;
+        _confirmationDisplayName = displayName;
         _mainContent.Visible = false;
+        _saveManagementContent.Visible = false;
         _settingsContent.Visible = false;
         _bindingsContent.Visible = false;
         _confirmationContent.Visible = true;
@@ -283,6 +349,14 @@ public partial class PauseMenu : Control
             _masterVolumeSlider.GrabFocus();
         else
             _settingsBackButton.GrabFocus();
+    }
+
+    private void FocusSaveManagementControl()
+    {
+        if (_focusSaveNameOnViewOpen || _saveSlotList.ItemCount == 0)
+            _saveNameInput.GrabFocus();
+        else
+            _saveSlotList.GrabFocus();
     }
 
     private void FocusFirstBindingButton()
@@ -325,9 +399,9 @@ public partial class PauseMenu : Control
 
     private void OnContinuePressed() => ContinueRequested?.Invoke();
 
-    private void OnSavePressed() => SaveRequested?.Invoke();
+    private void OnSavePressed() => ShowSaveManagementView(focusName: true);
 
-    private void OnLoadPressed() => LoadRequested?.Invoke();
+    private void OnLoadPressed() => ShowSaveManagementView(focusName: false);
 
     private void RequestReturnToMainMenu()
     {
@@ -341,10 +415,270 @@ public partial class PauseMenu : Control
 
     private void ConfirmRequestedAction()
     {
-        if (_confirmationAction == ConfirmationAction.ReturnToMainMenu)
-            ReturnToMainMenuRequested?.Invoke();
+        switch (_confirmationAction)
+        {
+            case ConfirmationAction.ReturnToMainMenu:
+                ReturnToMainMenuRequested?.Invoke();
+                break;
+            case ConfirmationAction.QuitToDesktop:
+                QuitToDesktopRequested?.Invoke();
+                break;
+            case ConfirmationAction.OverwriteSave:
+                OverwriteConfirmedSave();
+                break;
+            case ConfirmationAction.LoadSave:
+                LoadConfirmedSave();
+                break;
+            case ConfirmationAction.DeleteSave:
+                DeleteConfirmedSave();
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+    }
+
+    private void CancelConfirmation()
+    {
+        if (_confirmationReturnView == MenuView.SaveManagement)
+            ShowSaveManagementView(focusName: false);
         else
-            QuitToDesktopRequested?.Invoke();
+            ShowMainView();
+    }
+
+    private void CreateNamedSave()
+    {
+        string displayName = _saveNameInput.Text.Trim();
+        if (displayName.Length == 0)
+        {
+            ShowSaveStatus("请输入存档名称", success: false);
+            _saveNameInput.GrabFocus();
+            return;
+        }
+
+        SaveManager? saveManager = ActiveSaveManager();
+        if (saveManager == null)
+        {
+            ShowSaveStatus("存档管理不可用", success: false);
+            return;
+        }
+
+        if (!saveManager.SaveAs(displayName))
+        {
+            ShowSaveStatus("新建存档失败", success: false);
+            return;
+        }
+
+        _saveNameInput.Text = string.Empty;
+        RefreshSaveSlots(saveManager.CurrentSlotID);
+        ShowSaveStatus($"已创建“{displayName}”", success: true);
+    }
+
+    private void OnSaveNameSubmitted(string submittedText) => CreateNamedSave();
+
+    private void RequestOverwriteSave()
+    {
+        SaveSlotSummary? summary = SelectedSaveSlot();
+        if (summary?.IsValid != true)
+            return;
+
+        ShowConfirmationView(
+            "覆盖存档？",
+            $"{ConfirmationSummary(summary)}\n现有内容将被当前城市替换。",
+            ConfirmationAction.OverwriteSave,
+            MenuView.SaveManagement,
+            summary.SlotID,
+            summary.DisplayName);
+    }
+
+    private void RequestLoadSave()
+    {
+        SaveSlotSummary? summary = SelectedSaveSlot();
+        if (summary?.IsValid != true)
+            return;
+
+        ShowConfirmationView(
+            "加载存档？",
+            $"{ConfirmationSummary(summary)}\n未保存的当前变更将丢失。",
+            ConfirmationAction.LoadSave,
+            MenuView.SaveManagement,
+            summary.SlotID,
+            summary.DisplayName);
+    }
+
+    private void RequestDeleteSave()
+    {
+        SaveSlotSummary? summary = SelectedSaveSlot();
+        if (summary == null)
+            return;
+
+        string displayName = summary.IsValid ? summary.DisplayName : summary.SlotID;
+        ShowConfirmationView(
+            "删除存档？",
+            $"{ConfirmationSummary(summary)}\n删除后无法恢复。",
+            ConfirmationAction.DeleteSave,
+            MenuView.SaveManagement,
+            summary.SlotID,
+            displayName);
+    }
+
+    private void OverwriteConfirmedSave()
+    {
+        SaveManager? saveManager = ActiveSaveManager();
+        string? slotID = _confirmationSlotID;
+        string displayName = _confirmationDisplayName;
+        bool success = saveManager != null && slotID != null && saveManager.Save(slotID);
+        ShowSaveManagementView(focusName: false);
+        ShowSaveStatus(success ? $"已覆盖“{displayName}”" : "覆盖存档失败", success);
+    }
+
+    private void LoadConfirmedSave()
+    {
+        SaveManager? saveManager = ActiveSaveManager();
+        string? slotID = _confirmationSlotID;
+        string displayName = _confirmationDisplayName;
+        bool success = saveManager != null && slotID != null && saveManager.Load(slotID);
+        ShowSaveManagementView(focusName: false);
+        ShowSaveStatus(success ? $"已加载“{displayName}”" : "加载存档失败", success);
+    }
+
+    private void DeleteConfirmedSave()
+    {
+        SaveManager? saveManager = ActiveSaveManager();
+        string? slotID = _confirmationSlotID;
+        string displayName = _confirmationDisplayName;
+        bool success = saveManager != null && slotID != null && saveManager.DeleteSlot(slotID);
+        ShowSaveManagementView(focusName: false);
+        ShowSaveStatus(success ? $"已删除“{displayName}”" : "删除存档失败", success);
+    }
+
+    private void RefreshSaveSlots(string? preferredSlotID)
+    {
+        _saveSlots.Clear();
+        _saveSlotList.Clear();
+        _selectedSaveSlotIndex = -1;
+
+        SaveManager? saveManager = ActiveSaveManager();
+        if (saveManager == null)
+        {
+            _saveSlotSummaryLabel.Text = "存档管理不可用";
+            _saveSlotSummaryLabel.TooltipText = string.Empty;
+            UpdateSaveActionAvailability();
+            return;
+        }
+
+        _saveSlots.AddRange(saveManager.ListSlots());
+        int preferredIndex = -1;
+        for (int index = 0; index < _saveSlots.Count; index++)
+        {
+            SaveSlotSummary summary = _saveSlots[index];
+            string itemText = summary.IsValid
+                ? $"{summary.DisplayName}  ·  {FormatSaveTime(summary.SavedAtUtc)}"
+                : $"损坏存档  ·  {summary.SlotID}";
+            _saveSlotList.AddItem(itemText);
+            _saveSlotList.SetItemMetadata(index, summary.SlotID);
+            if (!summary.IsValid)
+                _saveSlotList.SetItemCustomFgColor(index, new Color("#FF6B6B"));
+            if (string.Equals(summary.SlotID, preferredSlotID, StringComparison.Ordinal))
+                preferredIndex = index;
+        }
+
+        if (_saveSlots.Count == 0)
+        {
+            _saveSlotSummaryLabel.Text = "暂无存档";
+            _saveSlotSummaryLabel.TooltipText = string.Empty;
+            UpdateSaveActionAvailability();
+            return;
+        }
+
+        _selectedSaveSlotIndex = preferredIndex >= 0 ? preferredIndex : 0;
+        _saveSlotList.Select(_selectedSaveSlotIndex);
+        UpdateSelectedSaveSummary();
+    }
+
+    private void OnSaveSlotSelected(long index)
+    {
+        _selectedSaveSlotIndex = index >= 0 && index < _saveSlots.Count ? (int)index : -1;
+        UpdateSelectedSaveSummary();
+    }
+
+    private void UpdateSelectedSaveSummary()
+    {
+        SaveSlotSummary? summary = SelectedSaveSlot();
+        if (summary == null)
+        {
+            _saveSlotSummaryLabel.Text = "暂无存档";
+            _saveSlotSummaryLabel.TooltipText = string.Empty;
+            UpdateSaveActionAvailability();
+            return;
+        }
+
+        if (!summary.IsValid)
+        {
+            string error = summary.Error ?? "清单无法读取";
+            _saveSlotSummaryLabel.Text = $"损坏存档：{summary.SlotID}\n{error}";
+            _saveSlotSummaryLabel.TooltipText = error;
+            UpdateSaveActionAvailability();
+            return;
+        }
+
+        string population = summary.Population?.ToString("N0") ?? "暂无";
+        string funds = summary.Funds?.ToString("N0") ?? "暂无";
+        string thumbnail = summary.ThumbnailPath == null ? "暂无" : "已有";
+        _saveSlotSummaryLabel.Text =
+            $"{summary.DisplayName}  ·  {FormatSaveTime(summary.SavedAtUtc)}\n" +
+            $"城市：{summary.CityName}  人口：{population}  资金：{funds}  缩略图：{thumbnail}";
+        _saveSlotSummaryLabel.TooltipText = string.Empty;
+        UpdateSaveActionAvailability();
+    }
+
+    private void UpdateSaveActionAvailability()
+    {
+        SaveSlotSummary? summary = SelectedSaveSlot();
+        bool validSelection = summary?.IsValid == true;
+        _overwriteSaveButton.Disabled = !validSelection;
+        _loadSaveButton.Disabled = !validSelection;
+        _deleteSaveButton.Disabled = summary == null;
+    }
+
+    private SaveSlotSummary? SelectedSaveSlot()
+    {
+        return _selectedSaveSlotIndex >= 0 && _selectedSaveSlotIndex < _saveSlots.Count
+            ? _saveSlots[_selectedSaveSlotIndex]
+            : null;
+    }
+
+    private string? PreferredSaveSlotID()
+    {
+        SaveSlotSummary? selected = SelectedSaveSlot();
+        if (selected != null)
+            return selected.SlotID;
+
+        return ActiveSaveManager()?.CurrentSlotID;
+    }
+
+    private SaveManager? ActiveSaveManager()
+    {
+        return _saveManager != null && GodotObject.IsInstanceValid(_saveManager)
+            ? _saveManager
+            : null;
+    }
+
+    private static string ConfirmationSummary(SaveSlotSummary summary)
+    {
+        return summary.IsValid
+            ? $"“{summary.DisplayName}” · {FormatSaveTime(summary.SavedAtUtc)}"
+            : $"损坏存档 · {summary.SlotID}";
+    }
+
+    private static string FormatSaveTime(DateTimeOffset? savedAtUtc)
+    {
+        return savedAtUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "时间未知";
+    }
+
+    private void ShowSaveStatus(string message, bool success)
+    {
+        _saveStatusLabel.Text = message;
+        _saveStatusLabel.AddThemeColorOverride("font_color", success ? new Color("#52C878") : new Color("#FF6B6B"));
     }
 
     private void OnMasterVolumeChanged(double value)

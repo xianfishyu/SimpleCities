@@ -40,7 +40,7 @@
 | 模块 | 文件 | 职责 |
 |---|---|---|
 | Core | `ISaveable.cs`, `SaveManager.cs`, `SaveSlotStore.cs`, `SaveJson.cs`, `SaveData.cs` | Godot 存档适配、纯文件存储、manifest、DTO |
-| Camera | `MainCamera.cs` | 2D 相机移动、缩放、相机存档 |
+| Camera | `MainCamera.cs` | 2D 相机移动、缩放和可扩展状态捕获；V2 槽不选择相机 |
 | Grid | `GridSystem.cs`, `MapBackground.cs`, `MapTerrain.gdshader` | 网格数学、背景 CanvasLayer、Shader 网格绘制 |
 | Road data | `Direction.cs`, `GraphNode.cs`, `GraphEdge.cs`, `RoadGroup.cs`, `RoadPath.cs`, `SpatialIndex.cs`, `RoadGraph*.cs`, `Geometry/*.cs` | 输入方向、拓扑、原生几何、空间索引、提交与持久化 |
 | Road scene | `RoadBuilder.cs`, `RoadConfig.cs`, `RoadRenderer.cs`, `RoadSystem.cs` | 输入投影、共享配置、事件驱动渲染、依赖注入 |
@@ -174,35 +174,11 @@
 | `ManifestData` | `public string? ThumbnailFile { get; set; }` | `thumbnailFile` | `null` 表示使用 UI 占位图 |
 | `ManifestData` | `public List<string> Files { get; set; }` | `files` | 文件名列表 |
 | `SaveSlotSummary` | `SlotID`、`DisplayName`、`SavedAtUtc`、城市元数据、`ThumbnailPath`、`Files`、`IsValid`、`Error` | 非 JSON 摘要 | 有效槽按 UTC 时间倒序并以 ID 稳定排序；损坏槽排在末尾 |
-| `RoadNetworkData` | `public int NextID { get; set; }` | `nextID` | 未被当前 `RoadGraph` 直接使用的旧结构公开 DTO |
-| `RoadNetworkData` | `public float CellSize { get; set; }` | `cellSize` | 同上 |
-| `RoadNetworkData` | `public List<JunctionData> Junctions { get; set; }` | `junctions` | 同上 |
-| `RoadNetworkData` | `public List<SegmentData> Segments { get; set; }` | `segments` | 同上 |
-| `RoadNetworkData` | `public List<RoadData> Roads { get; set; }` | `roads` | 同上 |
-| `JunctionData` | `public int ID { get; set; }` | `id` | 节点 ID |
-| `JunctionData` | `public float X { get; set; }` | `x` | 节点 X |
-| `JunctionData` | `public float Y { get; set; }` | `y` | 节点 Y |
-| `SegmentData` | `public int ID { get; set; }` | `id` | Edge ID |
-| `SegmentData` | `public int FromJunctionID { get; set; }` | `fromJunctionID` | NodeA |
-| `SegmentData` | `public int ToJunctionID { get; set; }` | `toJunctionID` | NodeB |
-| `SegmentData` | `public int RoadID { get; set; }` | `roadID` | GroupID |
-| `SegmentData` | `public List<Vector2Data> Waypoints { get; set; }` | `waypoints` | 中间点 |
-| `SegmentData` | `public float TotalLength { get; set; }` | `totalLength` | 边长 |
-| `SegmentData` | `public int? Type { get; set; }` | `type` | nullable，旧存档缺失时回退 `Street` |
-| `RoadData` | `public int ID { get; set; }` | `id` | Group ID |
-| `RoadData` | `public List<int> SegmentIDs { get; set; }` | `segmentIDs` | Edge ID 集合 |
-| `RoadData` | `public int? Type { get; set; }` | `type` | nullable，旧存档缺失时回退 `Street` |
-| `Vector2Data` | `public float X { get; set; }` | `x` | X |
-| `Vector2Data` | `public float Y { get; set; }` | `y` | Y |
 | `CameraData` | `public float PositionX { get; set; }` | `positionX` | 相机 X |
 | `CameraData` | `public float PositionY { get; set; }` | `positionY` | 相机 Y |
 | `CameraData` | `public float Zoom { get; set; }` | `zoom` | 相机缩放目标 |
 
-| DTO 方法/构造 | 签名 | 说明 |
-|---|---|---|
-| `Vector2Data` | `public Vector2Data()` | JSON 反序列化构造函数 |
-| `Vector2Data` | `public Vector2Data(Vector2 v)` | 从 Godot `Vector2` 构造 |
-| `Vector2Data.ToVector2` | `public Vector2 ToVector2()` | 转回 `Vector2` |
+道路 V2 的 Node/Edge/Group 与原生几何 DTO 是 `RoadGraph.Persistence.cs` 的私有存档边界；旧 `RoadNetworkData`、`JunctionData`、`SegmentData`、`RoadData` 和 `Vector2Data` 已删除，不再构成公开兼容 schema。
 
 ---
 
@@ -213,7 +189,7 @@
 
 | 导出成员 | 签名 | 默认值 | 说明 |
 |---|---|---|---|
-| `defaultScale` | `[Export] private float defaultScale = 1f` | `1f` | 目标缩放，参与存档 |
+| `defaultScale` | `[Export] private float defaultScale = 1f` | `1f` | 目标缩放，可由相机自身捕获；V2 槽不选择相机状态 |
 | `scaleFactor` | `[Export] public float scaleFactor = 0.125f` | `0.125f` | 鼠标滚轮缩放因子 |
 | `minScale` | `[Export] public float minScale = 0.125f` | `0.125f` | 最小目标缩放 |
 | `maxScale` | `[Export] public float maxScale = 4f` | `4f` | 最大目标缩放 |
@@ -227,7 +203,7 @@
 | `_ExitTree` | `public override void _ExitTree()` | 从 `SaveManager` 注销并清理当前单例 |
 | `_Process` | `public override void _Process(double delta)` | 更新键盘移动、缩放和中键拖拽 |
 | `_Input` | `public override void _Input(InputEvent @event)` | WASD、滚轮、中键输入 |
-| `SaveFileName` | `public string SaveFileName => "camera"` | 相机存档文件名 |
+| `SaveFileName` | `public string SaveFileName => "camera"` | 相机扩展文件名；当前 V2 配置不选择 |
 | `CaptureState` | `public object CaptureState()` | 返回 `CameraData` |
 | `PrepareRestoreState` | `public object PrepareRestoreState(string json)` | 解析并校验有限坐标与正缩放，不修改相机 |
 | `RestorePreparedState` | `public void RestorePreparedState(object preparedState)` | 提交已准备的 `CameraData`，同步 `Position`、`nextPos` 和缩放 |
@@ -607,8 +583,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | 当前工具绑定 / 默认 Q/R/E | `GameHUD._Input()` 设置 `ToolManager.CurrentTool` | 模态菜单关闭时切换选择、铺路或拆路 |
 | 铺路按钮 | `ConstructionDock` 的 `RoadToolButton` 调用 `ToolManager.CurrentTool = ToolType.Road` | 切换铺路工具，按钮来自 Roads catalog |
 | 拆路 | `tool_remove` 动作或程序设置 `ToolManager.CurrentTool = ToolType.RoadRemove` | UI 显示内建中文文案和当前绑定；仍不提供 Roads 子菜单按钮 |
-| 暂停菜单保存 | `OnPauseSave()` | `SaveManager.Instance.Save("autosave")` 并在菜单内回显结果 |
-| 暂停菜单读档 | `OnPauseLoad()` | `SaveManager.Instance.Load("autosave")` 并在菜单内回显结果 |
+| 存档后端注入 | `PauseMenu.ConfigureSaveManager(...)` | HUD 组合根提供当前 `SaveManager`；暂停菜单负责命名槽交互 |
 
 | HUD 数据 | 所属组件 / 来源 |
 |---|---|
@@ -628,7 +603,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `ConstructionDock` | 底部全宽五分类 CategoryBar 和 ToolTray；折叠高度 76px，展开高度 140px，由 64px 资产条加 76px 分类栏组成；Roads catalog 创建一个 `城市道路` 按钮；重复当前分类折叠/重开，不同分类切换内容并保持打开；没有当前工具标签或桌面宽度上限 |
 | `ToolContextPanel` | 右侧只读上下文，Road 读取 catalog；Select / RoadRemove 使用内建玩家文案但不要求 submenu/catalog 资源 |
 | `DebugPanel` | 默认折叠，拥有 FPS、鼠标格点、RoadGroup、GraphEdge、GraphNode 指标显示 |
-| `PauseMenu` | 当前暂停动作打开的全屏模态菜单；暂停场景树而保持菜单输入，可继续、保存、读档、调整会话音频、持久化键位，或经确认返回主菜单/退出桌面 |
+| `PauseMenu` | 当前暂停动作打开的全屏模态菜单；可列举有效及损坏存档、另存为独立命名槽，并经目标摘要确认覆盖、加载或删除；损坏槽禁用覆盖/加载。另可继续游戏、调整会话音频、持久化键位，或经确认返回主菜单/退出桌面 |
 
 ### UIManager
 
@@ -684,23 +659,24 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | 注册 | `RoadSystem._Ready()` | `SaveManager.Instance.Register(Graph)` |
 | 注销 | `MainCamera._ExitTree()` | `SaveManager.Instance.Unregister(this)` |
 | 注销 | `RoadSystem._ExitTree()` | `SaveManager.Instance.Unregister(Graph)` |
-| 保存入口 | `PauseMenu` 的保存操作 | `SaveManager.Instance.Save("autosave")` |
-| 保存文件 | `SaveManager.Save()` | 写 `camera.json`、`road_network.json`、`manifest.json` |
-| 加载入口 | `PauseMenu` 的读档操作 | `SaveManager.Instance.Load("autosave")` |
-| RoadGraph 恢复 | `RoadGraph.RestoreState(json)` | 清图、恢复实体、重建邻接、重建空间索引、触发 `GraphCleared` |
+| 列举入口 | `PauseMenu` 打开存档管理视图 | `SaveManager.ListSlots()` 返回有效及损坏槽摘要，不加载业务 JSON |
+| 新建入口 | `PauseMenu` 提交新显示名 | `SaveManager.SaveAs(displayName)` 生成独立 `manual-<GUID>` 槽 |
+| 覆盖入口 | `PauseMenu` 确认目标摘要 | `SaveManager.Save(slotID)` 覆盖已存在槽；取消不写文件 |
+| 保存文件 | `SaveManager.Save/SaveAs()` | V2 槽写 `road_network.json` 与 `manifest.json`，不写相机状态 |
+| 加载入口 | `PauseMenu` 确认目标摘要 | `SaveManager.Load(slotID)`；取消不改变当前槽位或活动道路 |
+| 删除入口 | `PauseMenu` 确认目标摘要 | `SaveManager.DeleteSlot(slotID)` 递归删除非空有效或损坏槽 |
+| RoadGraph 恢复 | `SaveSlotStore.Load()` -> `RoadGraph.PrepareRestoreState/RestorePreparedState` | 整槽预检后一次提交，重建邻接与空间索引并触发 `GraphCleared` |
 | 渲染恢复 | `RoadRenderer.OnGraphCleared()` | 清空并全量重建 `Line2D` |
 
 ---
 
-## 11. 兼容性 DTO 词汇说明
+## 11. 道路存档词汇说明
 
-| 旧词汇 | 当前运行时对应 | 状态 |
+| 词汇 | 当前含义 | 状态 |
 |---|---|---|
-| `RoadNetworkData` | 旧路网结构的公开 DTO；当前 `RoadGraph` 实际使用私有 `RoadGraphSaveData` 作为存档根对象 | 当前未被 `RoadGraph` 直接使用，不是运行时 `RoadNetwork` 类 |
-| `JunctionData` | `GraphNode` 存档行 | 仅 DTO 词汇 |
-| `SegmentData` | `GraphEdge` 存档行 | 仅 DTO 词汇 |
-| `RoadData` | `RoadGroup` 存档行 | 仅 DTO 词汇 |
-| JSON 字段 `junctions` / `segments` / `roads` | legacy 公开 DTO 字段 | 当前私有 v2 payload 不读取这些字段 |
-| JSON 字段 `nodes` / `edges` / `groups` | 当前 RoadGraph 私有存档字段 | 与 `schemaVersion = 1` 一同严格校验，不作为旧存档兼容层 |
+| `RoadGraphSaveData` | `RoadGraph.Persistence.cs` 的私有 V2 存档根对象 | 使用 `schemaVersion = 1` 严格校验 |
+| JSON 字段 `nodes` / `edges` / `groups` | `GraphNode` / `GraphEdge` / `RoadGroup` 存档集合 | 当前活动字段，保存六类原生几何参数 |
+| JSON 字段 `junctions` / `segments` / `roads` | 已移除的旧格式词汇 | 当前版本明确拒绝，不提供迁移或默认回退 |
+| `RoadType` / `type` | 第三代以后才可能重新设计的道路分级语义 | 第二代运行时和存档均不存在 |
 
 文档中不再保留旧运行时 `RoadNetwork`、`Road`、`Segment`、`Junction` 的类章节。第三代若引入道路分级，必须同时定义新的提交 API、运行时字段、渲染规则、存档 schema 版本和迁移/拒绝策略，不能向第二代契约静默补回 `RoadType`。

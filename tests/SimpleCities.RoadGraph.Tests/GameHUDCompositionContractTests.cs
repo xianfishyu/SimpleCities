@@ -40,7 +40,7 @@ public sealed class GameHUDCompositionContractTests
     }
 
     [Fact]
-    public void GameHUDScript_UsesCompositionRootPathsAndRoutesSaveLoadThroughPauseMenu()
+    public void GameHUDScript_UsesCompositionRootPathsAndInjectsPauseMenuDependencies()
     {
         string script = File.ReadAllText(HudScriptPath);
 
@@ -48,8 +48,9 @@ public sealed class GameHUDCompositionContractTests
         Assert.Contains("ToolContextPanel", script, StringComparison.Ordinal);
         Assert.Contains("DebugPanel", script, StringComparison.Ordinal);
         Assert.Contains("PauseMenu", script, StringComparison.Ordinal);
-        Assert.Contains("OnPauseSave", script, StringComparison.Ordinal);
-        Assert.Contains("OnPauseLoad", script, StringComparison.Ordinal);
+        Assert.Contains("ConfigureSaveManager", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("OnPauseSave", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("OnPauseLoad", script, StringComparison.Ordinal);
         Assert.DoesNotContain("SystemControls", script, StringComparison.Ordinal);
         Assert.DoesNotContain("Key.F5", script, StringComparison.Ordinal);
         Assert.DoesNotContain("Key.F9", script, StringComparison.Ordinal);

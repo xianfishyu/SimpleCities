@@ -77,13 +77,88 @@ custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
 text = "退出到桌面"
 
-[node name="StatusLabel" type="Label" parent="Center/MainPanel/MainContent"]
-custom_minimum_size = Vector2(0, 22)
+[node name="SaveManagementContent" type="VBoxContainer" parent="Center/MainPanel"]
+visible = false
+custom_minimum_size = Vector2(380, 0)
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Title" type="Label" parent="Center/MainPanel/SaveManagementContent"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.760784, 0.34902, 1)
+theme_override_font_sizes/font_size = 20
+text = "存档管理"
+horizontal_alignment = 1
+
+[node name="SaveNameRow" type="HBoxContainer" parent="Center/MainPanel/SaveManagementContent"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="SaveNameInput" type="LineEdit" parent="Center/MainPanel/SaveManagementContent/SaveNameRow"]
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "新存档名称"
+max_length = 128
+clear_button_enabled = true
+
+[node name="SaveAsButton" type="Button" parent="Center/MainPanel/SaveManagementContent/SaveNameRow"]
+custom_minimum_size = Vector2(92, 36)
+layout_mode = 2
+text = "另存为"
+
+[node name="SaveSlotList" type="ItemList" parent="Center/MainPanel/SaveManagementContent"]
+custom_minimum_size = Vector2(0, 120)
+layout_mode = 2
+size_flags_vertical = 3
+allow_reselect = true
+auto_height = false
+
+[node name="SaveSlotSummaryLabel" type="Label" parent="Center/MainPanel/SaveManagementContent"]
+custom_minimum_size = Vector2(0, 58)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.654902, 0.686275, 0.729412, 1)
+theme_override_font_sizes/font_size = 12
+text = "暂无存档"
+vertical_alignment = 1
+autowrap_mode = 3
+max_lines_visible = 3
+
+[node name="SaveActions" type="HBoxContainer" parent="Center/MainPanel/SaveManagementContent"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="OverwriteButton" type="Button" parent="Center/MainPanel/SaveManagementContent/SaveActions"]
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "覆盖"
+
+[node name="LoadButton" type="Button" parent="Center/MainPanel/SaveManagementContent/SaveActions"]
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "加载"
+
+[node name="DeleteButton" type="Button" parent="Center/MainPanel/SaveManagementContent/SaveActions"]
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "删除"
+
+[node name="SaveStatusLabel" type="Label" parent="Center/MainPanel/SaveManagementContent"]
+custom_minimum_size = Vector2(0, 24)
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 text = ""
 horizontal_alignment = 1
+vertical_alignment = 1
 autowrap_mode = 3
+
+[node name="BackButton" type="Button" parent="Center/MainPanel/SaveManagementContent"]
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+text = "返回"
 
 [node name="SettingsContent" type="VBoxContainer" parent="Center/MainPanel"]
 visible = false

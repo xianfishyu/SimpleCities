@@ -28,8 +28,17 @@ func run() -> void:
 	var settings_button: Button = pause_menu.get_node("Center/MainPanel/MainContent/SettingsButton")
 	var exit_game_button: Button = pause_menu.get_node("Center/MainPanel/MainContent/ExitGameButton")
 	var exit_desktop_button: Button = pause_menu.get_node("Center/MainPanel/MainContent/ExitDesktopButton")
-	var status_label: Label = pause_menu.get_node("Center/MainPanel/MainContent/StatusLabel")
 	var main_content: Control = pause_menu.get_node("Center/MainPanel/MainContent")
+	var save_management_content: Control = pause_menu.get_node("Center/MainPanel/SaveManagementContent")
+	var save_name_input: LineEdit = pause_menu.get_node("Center/MainPanel/SaveManagementContent/SaveNameRow/SaveNameInput")
+	var save_as_button: Button = pause_menu.get_node("Center/MainPanel/SaveManagementContent/SaveNameRow/SaveAsButton")
+	var save_slot_list: ItemList = pause_menu.get_node("Center/MainPanel/SaveManagementContent/SaveSlotList")
+	var save_slot_summary: Label = pause_menu.get_node("Center/MainPanel/SaveManagementContent/SaveSlotSummaryLabel")
+	var overwrite_save_button: Button = pause_menu.get_node("Center/MainPanel/SaveManagementContent/SaveActions/OverwriteButton")
+	var load_save_button: Button = pause_menu.get_node("Center/MainPanel/SaveManagementContent/SaveActions/LoadButton")
+	var delete_save_button: Button = pause_menu.get_node("Center/MainPanel/SaveManagementContent/SaveActions/DeleteButton")
+	var save_status: Label = pause_menu.get_node("Center/MainPanel/SaveManagementContent/SaveStatusLabel")
+	var save_management_back_button: Button = pause_menu.get_node("Center/MainPanel/SaveManagementContent/BackButton")
 	var settings_content: Control = pause_menu.get_node("Center/MainPanel/SettingsContent")
 	var confirmation_content: Control = pause_menu.get_node("Center/MainPanel/ConfirmationContent")
 	var volume_slider: HSlider = pause_menu.get_node("Center/MainPanel/SettingsContent/MasterVolumeSlider")
@@ -154,12 +163,101 @@ func run() -> void:
 	settings_back_button.emit_signal("pressed")
 	assert_true(main_content.visible and pause_menu.visible and paused, "Reset flow did not return to the paused main view")
 
-	save_button.emit_signal("pressed")
-	assert_true(paused and pause_menu.visible, "Saving should keep pause menu open")
-	assert_true(status_label.text.contains("已保存"), "Pause save did not report success")
-	load_button.emit_signal("pressed")
-	assert_true(paused and pause_menu.visible, "Loading should keep pause menu open")
-	assert_true(status_label.text.contains("已加载"), "Pause load did not report success")
+	await activate_focused_with_keyboard(save_button)
+	assert_true(paused and pause_menu.visible and save_management_content.visible, "Keyboard Save did not open save management")
+	assert_true(root.gui_get_focus_owner() == save_name_input, "Save management did not focus the name input")
+	assert_rect_in_viewport(pause_menu.get_node("Center/MainPanel").get_global_rect(), Vector2(1600, 900), "Save management panel")
+	DisplayServer.window_set_size(Vector2i(435, 480))
+	root.size = Vector2i(435, 480)
+	await process_frame
+	await process_frame
+	assert_rect_in_viewport(pause_menu.get_node("Center/MainPanel").get_global_rect(), Vector2(435, 480), "Small save management panel")
+	DisplayServer.window_set_size(Vector2i(1600, 900))
+	root.size = Vector2i(1600, 900)
+	await process_frame
+	await process_frame
+	if cleanup_runtime_ui_slots(save_manager, save_slot_list):
+		save_management_back_button.emit_signal("pressed")
+		await activate_focused_with_keyboard(save_button)
+
+	save_name_input.text = "Runtime UI duplicate"
+	await mouse_click(save_as_button)
+	var first_ui_slot_id: String = save_manager.get("CurrentSlotID")
+	assert_true(first_ui_slot_id.begins_with("manual-"), "Mouse Save As did not create the first manual slot")
+	assert_true(save_status.text.contains("已创建"), "First Save As did not report success")
+	save_name_input.text = "Runtime UI duplicate"
+	await mouse_click(save_as_button)
+	var second_ui_slot_id: String = save_manager.get("CurrentSlotID")
+	assert_true(second_ui_slot_id.begins_with("manual-") and second_ui_slot_id != first_ui_slot_id, "Duplicate display name did not create an independent slot")
+	assert_true(count_items_with_prefix(save_slot_list, "Runtime UI duplicate") >= 2, "Duplicate display names are not both visible")
+
+	var first_ui_index := find_item_by_metadata(save_slot_list, first_ui_slot_id)
+	assert_true(first_ui_index >= 0, "First manual slot is missing from save management")
+	await mouse_click_item(save_slot_list, first_ui_index)
+	assert_selected_slot(save_slot_list, first_ui_slot_id, "first slot before overwrite")
+	var first_manifest_path := "res://saves/%s/manifest.json" % first_ui_slot_id
+	var first_manifest_before_cancel := FileAccess.get_file_as_string(first_manifest_path)
+	await mouse_click(overwrite_save_button)
+	await process_frame
+	assert_true(confirmation_content.visible and confirmation_message(pause_menu).contains("Runtime UI duplicate"), "Overwrite confirmation omitted the target summary")
+	await mouse_click(cancel_button)
+	assert_true(save_management_content.visible and FileAccess.get_file_as_string(first_manifest_path) == first_manifest_before_cancel, "Cancel overwrite modified the target slot")
+
+	await mouse_click(overwrite_save_button)
+	await process_frame
+	await activate_focused_with_keyboard(confirm_button)
+	assert_true(save_management_content.visible and save_status.text.contains("已覆盖"), "Keyboard confirmation did not overwrite the selected slot")
+	assert_true(save_manager.get("CurrentSlotID") == first_ui_slot_id, "Overwrite selected the wrong slot")
+
+	var second_ui_index := find_item_by_metadata(save_slot_list, second_ui_slot_id)
+	assert_true(second_ui_index >= 0, "Second manual slot is missing after overwrite refresh")
+	await mouse_click_item(save_slot_list, second_ui_index)
+	assert_selected_slot(save_slot_list, second_ui_slot_id, "second slot before load")
+	await mouse_click(load_save_button)
+	await process_frame
+	assert_true(confirmation_content.visible and confirmation_message(pause_menu).contains("Runtime UI duplicate"), "Load confirmation omitted the target summary")
+	await mouse_click(cancel_button)
+	assert_true(save_manager.get("CurrentSlotID") == first_ui_slot_id, "Cancel load changed CurrentSlotID")
+	assert_selected_slot(save_slot_list, second_ui_slot_id, "second slot after cancel load")
+	await mouse_click(load_save_button)
+	await process_frame
+	await activate_focused_with_keyboard(confirm_button)
+	assert_true(save_manager.get("CurrentSlotID") == second_ui_slot_id and save_status.text.contains("已加载"), "Confirmed load did not select the target slot")
+
+	first_ui_index = find_item_by_metadata(save_slot_list, first_ui_slot_id)
+	await mouse_click_item(save_slot_list, first_ui_index)
+	assert_selected_slot(save_slot_list, first_ui_slot_id, "first slot before delete")
+	await mouse_click(delete_save_button)
+	await process_frame
+	assert_true(confirmation_content.visible and confirmation_message(pause_menu).contains("Runtime UI duplicate"), "Delete confirmation omitted the target summary")
+	await mouse_click(cancel_button)
+	assert_true(save_manager.SaveSlotExists(first_ui_slot_id), "Cancel delete removed the target slot")
+	await mouse_click(delete_save_button)
+	await process_frame
+	await mouse_click(confirm_button)
+	assert_true(not save_manager.SaveSlotExists(first_ui_slot_id) and save_status.text.contains("已删除"), "Confirmed mouse delete retained the target slot")
+
+	save_name_input.text = "Runtime UI damaged"
+	await mouse_click(save_as_button)
+	var damaged_ui_slot_id: String = save_manager.get("CurrentSlotID")
+	var damaged_manifest := FileAccess.open("res://saves/%s/manifest.json" % damaged_ui_slot_id, FileAccess.WRITE)
+	assert_true(damaged_manifest != null, "Could not open manual manifest for damaged-slot UI contract")
+	damaged_manifest.store_string("{broken")
+	damaged_manifest.close()
+	await mouse_click(save_management_back_button)
+	await activate_focused_with_keyboard(load_button)
+	var damaged_ui_index := find_item_by_metadata(save_slot_list, damaged_ui_slot_id)
+	assert_true(damaged_ui_index >= 0, "Damaged slot is missing from save management")
+	await mouse_click_item(save_slot_list, damaged_ui_index)
+	assert_true(save_slot_summary.text.contains("损坏存档"), "Damaged slot did not show an explicit diagnostic")
+	assert_true(overwrite_save_button.disabled and load_save_button.disabled and not delete_save_button.disabled, "Damaged slot actions are not safely constrained")
+	await mouse_click(delete_save_button)
+	await process_frame
+	await mouse_click(confirm_button)
+	assert_true(not save_manager.SaveSlotExists(damaged_ui_slot_id), "Damaged slot could not be deleted through save management")
+	assert_true(save_manager.DeleteSlot(second_ui_slot_id), "Runtime duplicate slot cleanup failed")
+	await mouse_click(save_management_back_button)
+	assert_true(main_content.visible and paused, "Save management Back did not return to the paused main view")
 
 	exit_desktop_button.emit_signal("pressed")
 	await process_frame
@@ -225,6 +323,70 @@ func key_event(keycode: int) -> InputEventKey:
 	event.physical_keycode = keycode
 	event.pressed = true
 	return event
+
+func activate_focused_with_keyboard(control: Control) -> void:
+	await process_frame
+	control.grab_focus()
+	await process_frame
+	assert_true(root.gui_get_focus_owner() == control, "%s did not receive keyboard focus" % control.name)
+	assert_true(control.is_visible_in_tree(), "%s is not visible for keyboard activation" % control.name)
+	if control is BaseButton:
+		assert_true(not control.disabled, "%s is disabled for keyboard activation" % control.name)
+	var press := InputEventAction.new()
+	press.action = &"ui_accept"
+	press.pressed = true
+	press.strength = 1.0
+	Input.parse_input_event(press)
+	await process_frame
+	var release := press.duplicate()
+	release.pressed = false
+	release.strength = 0.0
+	Input.parse_input_event(release)
+	await process_frame
+
+func mouse_click(control: Control) -> void:
+	assert_true(control is BaseButton, "%s is not a mouse-activatable button" % control.name)
+	assert_true(control.is_visible_in_tree(), "%s is not visible for mouse activation" % control.name)
+	assert_true(not control.disabled, "%s is disabled for mouse activation" % control.name)
+	assert_true(control.get_global_rect().has_point(control.get_global_rect().get_center()), "%s has no mouse hit area" % control.name)
+	control.emit_signal("pressed")
+	await process_frame
+
+func mouse_click_item(item_list: ItemList, index: int) -> void:
+	var item_rect := item_list.get_item_rect(index)
+	assert_true(item_list.is_visible_in_tree(), "%s is not visible for mouse selection" % item_list.name)
+	assert_true(Rect2(Vector2.ZERO, item_list.size).has_point(item_rect.get_center()), "%s item is outside the mouse hit area" % item_list.name)
+	item_list.select(index)
+	item_list.emit_signal("item_selected", index)
+	await process_frame
+
+func find_item_by_metadata(item_list: ItemList, slot_id: String) -> int:
+	for index in item_list.item_count:
+		if str(item_list.get_item_metadata(index)) == slot_id:
+			return index
+	return -1
+
+func count_items_with_prefix(item_list: ItemList, prefix: String) -> int:
+	var count := 0
+	for index in item_list.item_count:
+		if item_list.get_item_text(index).begins_with(prefix):
+			count += 1
+	return count
+
+func assert_selected_slot(item_list: ItemList, slot_id: String, label: String) -> void:
+	var selected := item_list.get_selected_items()
+	assert_true(selected.size() == 1 and str(item_list.get_item_metadata(selected[0])) == slot_id, "%s selected the wrong slot" % label)
+
+func cleanup_runtime_ui_slots(save_manager: Node, item_list: ItemList) -> bool:
+	var removed := false
+	for index in item_list.item_count:
+		if not item_list.get_item_text(index).begins_with("Runtime UI "):
+			continue
+		removed = save_manager.DeleteSlot(str(item_list.get_item_metadata(index))) or removed
+	return removed
+
+func confirmation_message(pause_menu: Control) -> String:
+	return pause_menu.get_node("Center/MainPanel/ConfirmationContent/ConfirmationMessage").text
 
 func assert_true(condition: bool, message: String) -> void:
 	if condition:

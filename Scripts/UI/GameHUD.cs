@@ -1,7 +1,7 @@
 using Godot;
 
 /// <summary>
-/// 游戏内 HUD 的协调器。它解析游戏系统依赖、连接各子面板事件，并统一处理响应式布局和存取档请求。
+/// 游戏内 HUD 的协调器。它解析游戏系统依赖、连接各子面板事件，并统一处理响应式布局和暂停菜单依赖。
 /// </summary>
 public partial class GameHUD : CanvasLayer
 {
@@ -69,10 +69,9 @@ public partial class GameHUD : CanvasLayer
         if (_pauseMenu != null)
         {
             _pauseMenu.ContinueRequested -= ClosePauseMenu;
-            _pauseMenu.SaveRequested -= OnPauseSave;
-            _pauseMenu.LoadRequested -= OnPauseLoad;
             _pauseMenu.ReturnToMainMenuRequested -= ReturnToMainMenu;
             _pauseMenu.QuitToDesktopRequested -= QuitToDesktop;
+            _pauseMenu.ConfigureSaveManager(null);
         }
         DisconnectLayoutSignals();
 
@@ -144,6 +143,8 @@ public partial class GameHUD : CanvasLayer
         _toolContextPanel.Config = Config;
         _toolContextPanel.SetCategory(_constructionDock?.Category);
         _debugPanel.SetDependencies(_network, Config);
+        _pauseMenu.ConfigureSaveManager(
+            GodotObject.IsInstanceValid(SaveManager.Instance) ? SaveManager.Instance : null);
     }
 
     /// <summary>将可独立显隐的面板登记到 HUD 私有的 UIManager；底栏始终常驻，不在此登记。</summary>
@@ -166,17 +167,13 @@ public partial class GameHUD : CanvasLayer
         }
     }
 
-    /// <summary>将暂停菜单意图映射到 HUD 所有的存档与场景切换流程。</summary>
+    /// <summary>将暂停菜单意图映射到 HUD 所有的场景切换流程。</summary>
     private void WirePauseMenu()
     {
         _pauseMenu.ContinueRequested -= ClosePauseMenu;
-        _pauseMenu.SaveRequested -= OnPauseSave;
-        _pauseMenu.LoadRequested -= OnPauseLoad;
         _pauseMenu.ReturnToMainMenuRequested -= ReturnToMainMenu;
         _pauseMenu.QuitToDesktopRequested -= QuitToDesktop;
         _pauseMenu.ContinueRequested += ClosePauseMenu;
-        _pauseMenu.SaveRequested += OnPauseSave;
-        _pauseMenu.LoadRequested += OnPauseLoad;
         _pauseMenu.ReturnToMainMenuRequested += ReturnToMainMenu;
         _pauseMenu.QuitToDesktopRequested += QuitToDesktop;
     }
@@ -339,18 +336,6 @@ public partial class GameHUD : CanvasLayer
         _uiManager.PopModal();
     }
 
-    private void OnPauseSave()
-    {
-        (string message, bool success) = SaveAutosave();
-        _pauseMenu.ShowStatus(message, success);
-    }
-
-    private void OnPauseLoad()
-    {
-        (string message, bool success) = LoadAutosave();
-        _pauseMenu.ShowStatus(message, success);
-    }
-
     private void ReturnToMainMenu()
     {
         ClosePauseMenu();
@@ -370,41 +355,4 @@ public partial class GameHUD : CanvasLayer
         GetTree().Quit();
     }
 
-    private (string Message, bool Success) SaveAutosave()
-    {
-        if (!GodotObject.IsInstanceValid(SaveManager.Instance))
-        {
-            GD.PushWarning("GameHUD: SaveManager.Instance is missing; save skipped.");
-            return ("存档失败：SaveManager 不可用", false);
-        }
-
-        bool success = SaveManager.Instance.Save("autosave");
-        if (success)
-        {
-            GD.Print("[GameHUD] 存档成功");
-            return ("已保存 autosave", true);
-        }
-
-        GD.PushError("[GameHUD] 存档失败");
-        return ("存档失败", false);
-    }
-
-    private (string Message, bool Success) LoadAutosave()
-    {
-        if (!GodotObject.IsInstanceValid(SaveManager.Instance))
-        {
-            GD.PushWarning("GameHUD: SaveManager.Instance is missing; load skipped.");
-            return ("读档失败：SaveManager 不可用", false);
-        }
-
-        bool success = SaveManager.Instance.Load("autosave");
-        if (success)
-        {
-            GD.Print("[GameHUD] 读档成功");
-            return ("已加载 autosave", true);
-        }
-
-        GD.PushError("[GameHUD] 读档失败：存档不存在或损坏");
-        return ("读档失败：存档不存在或损坏", false);
-    }
 }
