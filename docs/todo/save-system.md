@@ -15,7 +15,7 @@
 | ID | 发现 | 当前状态 | 处置方式 |
 |---|---|---|---|
 | 0.3 | V2 道路 JSON 曾保存 RoadType 并包含旧格式回退 | 已完成 | 运行时、schema 和旧 DTO 均已移除类型与回退字段 |
-| 0.4 | 路网和 manifest 没有严格版本拒绝 | 部分完成 | RoadGraph 已精确拒绝版本；manifest 仍待收敛 |
+| 0.4 | 路网和 manifest 没有严格版本拒绝 | 已完成 | 两层 schema 均只接受精确当前版本，缺失/旧版/未来版安全拒绝 |
 | 0.5 | RoadGraph 恢复前缺少完整引用校验 | 已完成 | 临时解析、全量校验后一次提交 |
 | 0.8 | SaveManager 场景注册生命周期 | 已完成 | 保留注册和注销基线 |
 | 0.9 | SaveManager 缺少稳定自动化契约 | 未完成 | 建立道路槽位成功与失败测试 |
@@ -57,12 +57,12 @@
 
 <a id="save-system0.4"></a>
 
-- [ ] **0.4 固化只接受新第二代格式的版本策略**
+- [x] **0.4 固化只接受新第二代格式的版本策略**
   - 当前问题：RoadGraph 写出 version，manifest 写出 schemaVersion，但加载没有统一版本分派或拒绝规则。
   - 修改：为新的 V2 manifest 和 road graph schema 设定明确版本；缺少版本、旧版本和未知未来版本都返回可诊断失败，不执行迁移。
   - 测试：当前版本、缺少版本、旧版本、未来版本及版本字段类型错误。
   - 验收：只有精确支持的版本进入数据校验；不兼容存档不会调用 RoadGraph 恢复。
-  - 当前进展（2026-08-03）：RoadGraph schema 使用 `schemaVersion = 1`，缺失、旧版、未来版和错误字段类型均在任何图变更前以 `JsonException` 拒绝；旧 `version/junctions/segments/roads` payload 不迁移。manifest 的精确版本拒绝仍未实现，因此本项保持开放。
+  - 完成证据（2026-08-04）：RoadGraph schema 与 manifest 均使用大小写敏感的 `schemaVersion = 1` 精确门禁。`ManifestData.SchemaVersion` 为无默认值的可空字段，保存入口显式写入当前版本；`SaveManager.ParseAndValidateManifest` 在构造加载集合和调用任何 `RestoreState` 前拒绝空内容、缺失字段、旧版、未来版、错误字段类型和错误大小写。聚焦测试 6/6、完整解决方案测试 378/378、Debug 构建 0 警告/0 错误；Godot 暂停菜单运行时契约两轮 autosave 保存/加载通过。RoadGraph 已有版本测试继续覆盖旧 `version/junctions/segments/roads` payload 不迁移。
   - 来源 key：`todo:item:0.4`。
 
 <a id="save-system0.5"></a>

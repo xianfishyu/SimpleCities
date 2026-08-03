@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Text.Json;
 
 /// <summary>
 /// 存档管理器 — Autoload 单例。
@@ -17,6 +18,12 @@ public partial class SaveManager : Node
     private const string EditorSaveBaseDir = "res://saves";
     private const string ExportSaveDirectoryName = "saves";
     private const string ManifestFile = "manifest.json";
+    private const int ManifestSchemaVersion = 1;
+
+    private static readonly JsonSerializerOptions ManifestJsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = false,
+    };
 
     public string CurrentSlotName { get; private set; } = "autosave";
     public int RegisteredSaveableCount => _saveables.Count;
@@ -127,7 +134,7 @@ public partial class SaveManager : Node
                 return false;
             }
             string manifestJson = File.ReadAllText(manifestPath, Encoding.UTF8);
-            var manifest = SaveJson.Deserialize<ManifestData>(manifestJson);
+            ManifestData manifest = ParseAndValidateManifest(manifestJson);
 
             // 从清单中收集可加载的文件
             var fileSet = new HashSet<string>(manifest.Files);
@@ -243,6 +250,7 @@ public partial class SaveManager : Node
     {
         var manifest = new ManifestData
         {
+            SchemaVersion = ManifestSchemaVersion,
             SlotName = slotName,
             Timestamp = DateTime.UtcNow.ToString("O"),
             Files = files
@@ -250,5 +258,22 @@ public partial class SaveManager : Node
         string json = SaveJson.Serialize(manifest);
         string path = Path.Combine(slotDir, ManifestFile);
         File.WriteAllText(path, json, Encoding.UTF8);
+    }
+
+    internal static ManifestData ParseAndValidateManifest(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            throw new JsonException("Save manifest is empty.");
+
+        ManifestData manifest = JsonSerializer.Deserialize<ManifestData>(json, ManifestJsonOptions)
+            ?? throw new JsonException("Save manifest must be a JSON object.");
+
+        if (manifest.SchemaVersion != ManifestSchemaVersion)
+        {
+            throw new JsonException(
+                $"Unsupported manifest schemaVersion '{manifest.SchemaVersion?.ToString() ?? "missing"}'.");
+        }
+
+        return manifest;
     }
 }

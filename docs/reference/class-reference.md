@@ -153,7 +153,7 @@
 
 | DTO | 公开属性签名 | JSON 字段 | 默认值/说明 |
 |---|---|---|---|
-| `ManifestData` | `public int SchemaVersion { get; set; }` | `schemaVersion` | `1` |
+| `ManifestData` | `public int? SchemaVersion { get; set; }` | `schemaVersion` | 反序列化无默认值；保存入口显式写入 `1` |
 | `ManifestData` | `public string SlotName { get; set; }` | `slotName` | `"autosave"` |
 | `ManifestData` | `public string Timestamp { get; set; }` | `timestamp` | `""` |
 | `ManifestData` | `public string CityName { get; set; }` | `cityName` | `"My City"` |

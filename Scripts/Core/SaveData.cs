@@ -11,7 +11,7 @@ using System.Text.Json.Serialization;
 public class ManifestData
 {
     [JsonPropertyName("schemaVersion")]
-    public int SchemaVersion { get; set; } = 1;
+    public int? SchemaVersion { get; set; }
 
     [JsonPropertyName("slotName")]
     public string SlotName { get; set; } = "autosave";

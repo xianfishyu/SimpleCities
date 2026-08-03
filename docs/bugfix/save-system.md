@@ -131,3 +131,35 @@ else
 ### 影响范围
 
 影响 RoadGraph 道路 JSON 的捕获与恢复。新 schema 不迁移旧 `junctions/segments/roads` payload，也不保存 `RoadType`、waypoint 或派生长度；六类原生几何直接保存类型和控制参数。`SaveManager` 的 manifest、槽目录和多系统加载顺序尚未改变，整槽预检仍由 `save-system:0.4`、`0.11` 后续完成。
+
+---
+
+<a id="save-system-bug-4"></a>
+## BUG-4：缺失 manifest 版本被默认值当作当前版本
+
+> 修复日期：2026-08-04
+> 关联事项：`save-system:0.4`
+
+### 症状
+
+manifest 缺少 `schemaVersion`，或只提供大小写错误的 `SchemaVersion` 时，加载入口仍把它当作当前版本继续处理。旧格式或结构不完整的槽位因此可能越过版本门禁并进入文件收集与系统恢复阶段。
+
+### 根因分析
+
+`ManifestData.SchemaVersion` 原为非空 `int` 且初始化为 `1`。反序列化未映射到版本字段时保留该默认值，导致“缺失”与“当前版本”不可区分；`SaveManager.Load` 反序列化后也没有显式比较受支持版本。
+
+### 修复方案
+
+将 `ManifestData.SchemaVersion` 改为无默认值的可空字段，只有 `WriteManifest` 在保存时显式写入 `ManifestSchemaVersion = 1`。`SaveManager.ParseAndValidateManifest` 使用大小写敏感的专用 `JsonSerializerOptions`，在构造加载集合和调用任何 `RestoreState` 之前，只接受精确版本 1；空内容、缺失、旧版、未来版、错误类型和错误大小写均抛出可诊断 `JsonException`。
+
+### 影响范围
+
+影响 `SaveManager` 的 manifest 写入与加载前版本门禁。当前版本 autosave 格式保持不变；RoadGraph 私有 schema、自身临时恢复事务、多槽位命名和完整槽位预检范围未改变，后两者仍由后续待办负责。
+
+## BUG-4 验证状态
+
+- 修复前 `SaveManagerManifestVersionTests` 6 项中 2 项失败：缺失版本和错误大小写字段被默认值误接受；修复后 6/6 通过。
+- `dotnet test SimpleCities.sln --configuration Debug --no-restore`：378 通过、0 失败、0 跳过。
+- `dotnet build SimpleCities.sln --configuration Debug --no-restore`：0 警告、0 错误。
+- `godot --headless --path . --log-file .godot/qa-save-manifest-version.log --script tests/godot/pause_menu_runtime_contract.gd`：输出 `PASS pause menu runtime contract`，两轮 autosave 保存/加载通过；两条 `ConstructionDock` 缺少 `ToolManager.Instance` 警告来自既有隔离场景。
+- 当前会话未提供 `csharp-ls` MCP，无法执行逐文件 C# LSP 诊断。
