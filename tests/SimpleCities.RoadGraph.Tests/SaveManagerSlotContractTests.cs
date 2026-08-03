@@ -32,6 +32,50 @@ public sealed class SaveManagerSlotContractTests : IDisposable
         Assert.Equal(1, saveable.RestoreCount);
     }
 
+    [Fact]
+    public void V2Profile_SelectsOnlyRoadGraphFromRegisteredSystems()
+    {
+        ISaveable roadGraph = new TestSaveable("road_network", 42);
+        ISaveable camera = new TestSaveable("camera", 7);
+        ISaveable future = new TestSaveable("economy", 99);
+
+        IReadOnlyList<ISaveable> selected = SaveManager.SelectSaveables(
+            [camera, future, roadGraph],
+            [SaveManager.RoadGraphSaveFileName]);
+
+        Assert.Same(roadGraph, Assert.Single(selected));
+    }
+
+    [Fact]
+    public void V2Profile_MissingRoadGraphIsRejectedBeforeSaving()
+    {
+        ISaveable camera = new TestSaveable("camera", 7);
+
+        Assert.Throws<InvalidOperationException>(() => SaveManager.SelectSaveables(
+            [camera],
+            [SaveManager.RoadGraphSaveFileName]));
+    }
+
+    [Fact]
+    public void FutureProfile_AddsIndependentFileWithoutChangingRoadGraphPayload()
+    {
+        var store = CreateStore();
+        var roadGraph = new RoadGraph();
+        Assert.True(roadGraph.AddRoad(Godot.Vector2.Zero, new Godot.Vector2(8f, 2f), []) >= 0);
+        string roadBefore = SaveJson.Serialize(roadGraph.CaptureState());
+        var economy = new TestSaveable("economy", 99);
+        IReadOnlyList<ISaveable> selected = SaveManager.SelectSaveables(
+            [roadGraph, economy],
+            [SaveManager.RoadGraphSaveFileName, "economy"]);
+
+        Assert.Equal(2, store.Save("future", "Future", selected));
+
+        ManifestData manifest = store.ReadManifest("future");
+        Assert.Equal(["road_network.json", "economy.json"], manifest.Files);
+        Assert.Equal(roadBefore, File.ReadAllText(Path.Combine(_saveRoot, "future", "road_network.json")));
+        Assert.True(File.Exists(Path.Combine(_saveRoot, "future", "economy.json")));
+    }
+
     [Theory]
     [InlineData(MissingSlotPart.Manifest)]
     [InlineData(MissingSlotPart.DataFile)]

@@ -16,6 +16,8 @@ public partial class SaveManager : Node
 
     private const string EditorSaveBaseDir = "res://saves";
     private const string ExportSaveDirectoryName = "saves";
+    internal const string RoadGraphSaveFileName = "road_network";
+    private static readonly string[] V2SaveFileNames = [RoadGraphSaveFileName];
     public const string AutosaveSlotID = "autosave";
     internal const int ManifestSchemaVersion = 1;
 
@@ -75,7 +77,7 @@ public partial class SaveManager : Node
             string displayName = string.Equals(slotID, AutosaveSlotID, StringComparison.Ordinal)
                 ? "Autosave"
                 : store.ReadManifest(slotID).DisplayName;
-            int savedFileCount = store.Save(slotID, displayName, _saveables);
+            int savedFileCount = store.Save(slotID, displayName, GetV2Saveables());
 
             CurrentSlotID = slotID;
             GD.Print($"[SaveManager] Saved to slot '{slotID}' ({savedFileCount} files)");
@@ -94,10 +96,11 @@ public partial class SaveManager : Node
         try
         {
             SaveSlotStore store = CreateSlotStore();
-            string slotID = store.Create(displayName, _saveables);
+            IReadOnlyList<ISaveable> saveables = GetV2Saveables();
+            string slotID = store.Create(displayName, saveables);
 
             CurrentSlotID = slotID;
-            GD.Print($"[SaveManager] Saved '{displayName}' to slot '{slotID}' ({_saveables.Count} files)");
+            GD.Print($"[SaveManager] Saved '{displayName}' to slot '{slotID}' ({saveables.Count} files)");
             return true;
         }
         catch (Exception e)
@@ -116,7 +119,7 @@ public partial class SaveManager : Node
     {
         try
         {
-            int loadedFileCount = CreateSlotStore().Load(slotID, _saveables);
+            int loadedFileCount = CreateSlotStore().Load(slotID, GetV2Saveables());
 
             CurrentSlotID = slotID;
             GD.Print($"[SaveManager] Loaded from slot '{slotID}' ({loadedFileCount} files)");
@@ -186,6 +189,33 @@ public partial class SaveManager : Node
     }
 
     private SaveSlotStore CreateSlotStore() => new(GetSaveBaseDir());
+
+    private IReadOnlyList<ISaveable> GetV2Saveables() =>
+        SelectSaveables(_saveables, V2SaveFileNames);
+
+    internal static IReadOnlyList<ISaveable> SelectSaveables(
+        IReadOnlyList<ISaveable> saveables,
+        IReadOnlyList<string> saveFileNames)
+    {
+        var selected = new List<ISaveable>(saveFileNames.Count);
+        foreach (string saveFileName in saveFileNames)
+        {
+            ISaveable? saveable = null;
+            foreach (ISaveable candidate in saveables)
+            {
+                if (!string.Equals(candidate.SaveFileName, saveFileName, StringComparison.Ordinal))
+                    continue;
+                if (saveable != null)
+                    throw new InvalidOperationException($"Multiple saveables provide '{saveFileName}'.");
+                saveable = candidate;
+            }
+
+            selected.Add(saveable ?? throw new InvalidOperationException(
+                $"Required saveable '{saveFileName}' is not registered."));
+        }
+
+        return selected;
+    }
 
     private string GetSaveBaseDir()
     {

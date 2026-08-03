@@ -24,7 +24,7 @@
 | 1.1 | 没有可列举的命名存档目录与完整元数据 | 已完成 | 摘要含占位元数据、缩略图状态和损坏槽诊断 |
 | 1.2 | 暂停菜单只固定保存/加载 autosave | 未完成 | 实现另存为、覆盖确认、加载和删除工作流 |
 | 1.3 | 没有独立自动存档策略 | 未完成 | 自动槽不得覆盖玩家命名存档 |
-| 1.4 | 当前注册对象会把镜头等状态写入同一槽 | 未完成 | 第二代只持久化 RoadGraph，同时保留未来独立 JSON 扩展点 |
+| 1.4 | 当前注册对象会把镜头等状态写入同一槽 | 已完成 | V2 配置只选择 RoadGraph，注册机制继续保留扩展点 |
 | 5.3 | 活动道路 schema 仍使用 Junction/Segment/Road 旧字段 | 已完成 | 新 V2 schema 直接使用 Node/Edge/Group，不迁移旧存档 |
 | 6.3 | 存档参考文档与最终 V2 范围不一致 | 未完成 | 同步命名槽、元数据、新 schema 和失败语义 |
 
@@ -36,7 +36,7 @@
 |---|---|---|
 | 多命名存档 | SaveManager 已分离 `slotID` 与 `displayName`，并支持 `SaveAs` 和 `ListSlots`，但没有管理界面 | 0.9～0.10、1.1～1.3 |
 | 道路网络持久化 | RoadGraph 已使用严格 Node/Edge/Group schema、临时模型与整槽预检 | 0.3～0.5、0.11、5.3 |
-| 可扩展边界 | ISaveable 注册和 manifest 文件列表已存在；当前场景同时注册 RoadGraph 与相机 | 0.8、1.4 |
+| 可扩展边界 | RoadGraph 与相机继续注册；V2 配置只选择 RoadGraph，未来配置可新增独立 JSON | 0.8、1.4 |
 | 原生曲线 | RoadGraph 已原生往返六类几何，并完成交点、重叠和参数化拆分 | `road-graph:2.5`～`road-graph:2.6`、5.3 |
 
 ## 执行顺序
@@ -145,11 +145,12 @@
 
 <a id="save-system1.4"></a>
 
-- [ ] **1.4 将第二代保存内容限定为 RoadGraph 并保留扩展接口**
+- [x] **1.4 将第二代保存内容限定为 RoadGraph 并保留扩展接口**
   - 当前问题：SaveManager 会保存全部已注册对象，当前场景还注册相机；这超出“第二代只保存道路网络”的范围。
   - 修改：第二代槽只要求 road graph JSON；相机和其他系统不作为 V2 验收数据。保留每系统独立 SaveFileName 和 manifest 文件列表，使未来系统可新增独立 JSON。
   - 测试：保存后必有且仅要求道路 JSON；加载只恢复道路，不改变未纳入的相机或其他状态；注册未来测试系统时生成独立文件且不修改道路 schema。
   - 验收：第二代保存/加载的业务状态只有道路网络；扩展新系统无需修改 RoadGraph DTO。
+  - 完成证据（2026-08-04）：`SaveManager` 保留完整注册表与每系统 `SaveFileName`，但 `Save`、`SaveAs` 和 `Load` 统一通过 V2 配置只选择 `road_network`，缺少必需 RoadGraph 时在写盘前失败。选择器测试验证注册相机和未来系统时 V2 仍只返回 RoadGraph；未来配置加入 `economy` 后生成独立 `economy.json`，RoadGraph JSON 与加入前逐字一致。聚焦测试 51/51、完整测试 423/423、Debug 构建 0 警告/0 错误。Godot 真实 autosave 的 manifest 仅列 `road_network.json`，槽内没有 `camera.json`，加载后手动设置的相机位置不变；自动槽、手动槽和加载日志均准确报告 1 个文件并输出 `PASS`。
 
 ### 阶段 5：新 schema 命名
 

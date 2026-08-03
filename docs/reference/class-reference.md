@@ -99,6 +99,7 @@
 | `AutosaveSlotID` | `public const string AutosaveSlotID = "autosave"` | 保留的自动存档内部 ID |
 | `CurrentSlotID` | `public string CurrentSlotID { get; private set; } = AutosaveSlotID` | 当前槽位内部 ID |
 | `RegisteredSaveableCount` | `public int RegisteredSaveableCount` | 当前活动注册数量 |
+| V2 持久化配置 | `V2SaveFileNames = ["road_network"]` | 第二代只选择 RoadGraph；相机保持注册但不进入 V2 槽 |
 | `_Ready` | `public override void _Ready()` | 设置 `Instance` |
 | `Register` | `public bool Register(ISaveable saveable)` | 同一对象幂等；拒绝另一活动对象使用相同 `SaveFileName` |
 | `Unregister` | `public bool Unregister(ISaveable saveable)` | 移除离开场景树的可存档对象 |
@@ -116,6 +117,7 @@
 | 单系统文件 | `<SaveFileName>.json` |
 | 写入策略 | 捕获与序列化全部完成后写同级 `.staging` 目录；旧槽移到 `.backup` 后切换完整目录，失败恢复旧槽，读写入口自动恢复崩溃残留 |
 | Manifest | `manifest.json`，字段来自 `ManifestData` |
+| V2 业务范围 | 新槽有且只要求 `road_network.json`；未来配置可增加独立系统 JSON，无需修改 RoadGraph DTO |
 | 加载策略 | manifest、必需文件、JSON 语法及 `IPreparedSaveable` 临时模型全部成功后才进入提交阶段 |
 | 错误处理 | 捕获异常，`GD.PushError(...)`，返回 `false` |
 
