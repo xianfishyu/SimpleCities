@@ -22,7 +22,7 @@
 12. [附录 A：命名对照表](#附录-a命名对照表)
 13. [附录 B：不变式对比](#附录-b不变式对比)
 14. [附录 C：范围确认前的历史完成度快照](#附录-c范围确认前的历史完成度快照)
-15. [附录 D：第二代最终范围与未完成事项](#附录-d第二代最终范围与未完成事项)
+15. [附录 D：第二代最终范围与验收记录](#附录-d第二代最终范围与验收记录)
 
 ---
 
@@ -906,7 +906,7 @@ RoadGraphSaveData {
 
 ---
 
-## 附录 D：第二代最终范围与未完成事项
+## 附录 D：第二代最终范围与验收记录
 
 > 本附录记录 2026-08-02 确认的第二代交付边界，是后续验收第二代道路系统的范围依据。完成后保留本附录作为历史验收记录，不删除本表。
 
@@ -940,7 +940,7 @@ RoadGraphSaveData {
 
 ### D.4 范围事项与当前状态
 
-> 2026-08-04 进度：V2-1～V2-10 及其所属系统前置项均已完成。Windows QA 导出包已在隔离 `user://saves` 中通过命名槽写入/清理，并在真实拒绝写入 ACL 下明确失败且不发布文件；正式导出不携带测试、现有存档或文档资源。当前只剩 V2-11 的 `road-graph:7.1` 第二代最终端到端评估。
+> 2026-08-04 最终状态：V2-1～V2-11 及其所属系统工作项均已完成。最终组合契约已在同一 `MapTest` 实例中覆盖图、输入、渲染、命名存档、自动存档和失败保护；完整自动化、真实 Vulkan 视觉、10k 硬门槛、100k 压测和 Windows 导出边界均有持久证据。
 
 | ID | 范围事项 | 所属系统 | 验收摘要 |
 |---|---|---|---|
@@ -954,8 +954,23 @@ RoadGraphSaveData {
 | V2-8 | 原生曲线渲染与预览 | `grid-rendering:1.1`、`grid-rendering:1.2` | 曲线显示、交点和预览与权威几何一致 |
 | V2-9 | 多命名存档与元数据 | `save-system:1.1`～`save-system:1.4` | 手动槽、自动槽、覆盖、删除、列表元数据和缩略图流程完整 |
 | V2-10 | 新道路 schema 与失败保护 | `save-system:0.3`～`save-system:0.5`、`save-system:0.9`～`save-system:0.11` | 只保存道路网络；旧/未知/损坏存档安全拒绝且不改变当前图 |
-| V2-11 | 完整系统评估 | `road-graph:7.1` | 自动化、构建、运行时、手工流程和性能证据全部通过并记录 |
+| V2-11 | 完整系统评估 | `road-graph:7.1` | 已完成；自动化、构建、主场景组合流程、真实渲染、导出和性能证据全部通过并记录 |
 
 ### D.5 完成判定
 
 只有 D.4 中所有事项及其所属系统待办均有实际验证证据，且 `road-graph:7.1` 的 Godot 主场景完整评估通过，第二代道路系统才可标记完成。RoadType、交通模拟、高程道路和旧存档兼容不得作为第二代完成的阻塞项，也不得被误写为第二代已实现能力。
+
+> 完成判定（2026-08-04）：上述条件全部满足，第二代道路系统验收完成。后续 RoadType、交通模拟、高程道路和旧存档迁移必须作为第三代或更晚范围重新立项，不重新打开第二代完成状态。
+
+### D.6 最终验收证据
+
+| 门禁 | 最终证据 |
+|---|---|
+| 主场景组合流程 | `tests/godot/road_system_v2_final_runtime_contract.gd` 在同一 `MapTest` 中完成内部交叉、三段连续铺路与取消、单删/连续删/框选删、撤销重做、两个同名手动槽的覆盖/切换/删除、六类原生几何、自动存档和损坏加载保护，清理测试槽并恢复运行前 autosave 后输出 `PASS`。 |
+| 主场景专项回归 | `command_center_runtime_contract.gd`、`road_input_strategy_runtime_contract.gd`、`autosave_runtime_contract.gd`、`pause_menu_runtime_contract.gd` 和 `road_curve_rendering_runtime_contract.gd` 均再次输出 `PASS`；确认真实工具输入、存档确认 UI、键盘/鼠标路径和曲线重建没有被组合流程掩盖。 |
+| 自动化与构建 | 同一 C# 工作树本批早先的 `csharp-ls --diagnose --solution SimpleCities.sln --loglevel warning` 无诊断，Debug 构建为 0 警告、0 错误；最终重跑构建仍为 0 错误，但 NuGet 官方漏洞源不可达产生 1 个外部 `NU1900`。`dotnet test SimpleCities.sln --configuration Debug --no-build --no-restore` 为 474/474。 |
+| RoadGraph 性能 | Release `--enforce-budget` 复测中，10k 七类操作最慢为多交叉 P95 5.231 ms，全部低于 16.67 ms；100k 七类场景完整记录，最慢为长路提交 12.211 ms，不参与硬门槛。 |
+| Vulkan 渲染与视觉 | 10k 镜头/预览/高亮 P95 为 0.565/0.659/0.497 ms；100k 为 4.794/4.545/5.292 ms，静态帧保持 4 draw calls / 4 objects。六类曲线截图为 72,483 字节，画面非空、端点完整、曲线可辨识且连续 ribbon 无可见段缝。 |
+| Windows 导出与存档根 | QA 导出包在隔离 `user://saves` 中完成中文/路径字符命名槽写入和清理；真实拒绝写入 ACL 下 `SaveAs` 明确失败、`CurrentSlotID` 不变且无发布文件。正式导出不携带 `tests/`、`saves/` 或 `docs/`，仍启动 `MapTest`；最终 QA pack 复核确认只携带 `exported_save_runtime_contract`，不携带 `road_system_v2_final_runtime_contract`。 |
+
+独立 CLI Godot 进程仍会报告 Windows 根证书读取错误，以及脚本直接实例化 `MapTest` 时 `ConstructionDock` 先于 `ToolManager.Instance` 的既有降级警告；两者均不影响契约断言、退出码、Vulkan 渲染或清理结果。损坏加载场景产生的 `SaveManager` 错误日志是被明确断言的预期失败证据。
