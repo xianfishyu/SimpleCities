@@ -19,7 +19,7 @@
 | 0.5 | RoadGraph 恢复前缺少完整引用校验 | 已完成 | 临时解析、全量校验后一次提交 |
 | 0.8 | SaveManager 场景注册生命周期 | 已完成 | 保留注册和注销基线 |
 | 0.9 | SaveManager 缺少稳定自动化契约 | 已完成 | 隔离测试覆盖槽位全生命周期、失败状态与整槽发布 |
-| 0.10 | 文件夹槽名与玩家显示名称混为一体 | 部分完成 | 核心 ID/显示名与路径防护已完成；待只读位置和 Windows 导出包实测 |
+| 0.10 | 文件夹槽名与玩家显示名称混为一体 | 已完成 | 内部 ID、显示名、路径边界与 Windows 导出可写/只读契约均已验证 |
 | 0.11 | 加载会在完整预检前调用 RestoreState | 已完成 | 整槽文件和临时模型全部准备成功后再提交 |
 | 1.1 | 没有可列举的命名存档目录与完整元数据 | 已完成 | 摘要含占位元数据、缩略图状态和损坏槽诊断 |
 | 1.2 | 暂停菜单只固定保存/加载 autosave | 已完成 | 命名槽列表、另存为及覆盖/加载/删除确认均已接入 |
@@ -94,12 +94,12 @@
 
 <a id="save-system0.10"></a>
 
-- [ ] **0.10 分离内部槽位 ID、玩家存档名称和存储路径**
+- [x] **0.10 分离内部槽位 ID、玩家存档名称和存储路径**
   - 当前问题：slotName 同时充当文件夹名和显示名，只接受 ASCII 字母、数字、下划线和连字符，无法安全支持玩家自由命名。
   - 修改：使用不可冲突的安全内部 ID 作为目录名，将玩家输入名称写入 manifest；所有目录操作验证目标位于存档根目录内，并确认编辑器和导出版本的可写路径。
   - 测试：中文、空格、同名存档、超长名称、路径字符、空名称、只读目录和真实 Windows 导出包。
   - 验收：合法玩家名称不直接成为文件路径；任何名称都不能越过存档根目录；不可写位置明确失败。
-  - 当前进展（2026-08-04）：manifest 已使用独立的 `slotId` 与 `displayName`；`SaveAs` 生成 `manual-<GUID>` 目录 ID，允许中文、空格、重复名称和路径字符，空白或超过 128 字符的名称在写盘前拒绝。槽位 ID 和 `ISaveable.SaveFileName` 只接受安全 ASCII 标识，目录必须是存档根的直接子项且不能是重解析点；manifest 的 `slotId` 必须与目录一致。聚焦测试 28/28、完整测试 400/400、Debug 构建 0 警告/0 错误，Godot autosave 运行契约通过。普通不可写基础路径已验证会抛出 `IOException` 且不发布 manifest；只读 ACL 和真实 Windows 导出包尚未实测，因此本项保持开放。
+  - 完成证据（2026-08-04）：manifest 使用独立的 `slotId` 与 `displayName`；`SaveAs` 生成 `manual-<GUID>` 目录 ID，允许中文、空格、重复名称和路径字符，空白或超过 128 字符的名称在写盘前拒绝。槽位 ID 和 `ISaveable.SaveFileName` 只接受安全 ASCII 标识，目录必须是存档根的直接子项且不能是重解析点；manifest 的 `slotId` 必须与目录一致。编辑器继续使用全局化的 `res://saves`，Windows 导出版本改用 Godot 可写用户目录 `user://saves`。`Windows Desktop QA` 真实导出包在隔离 profile 中以中文和路径字符名称完成另存为，manifest 只列 `road_network.json`，随后删除槽位并以退出码 0 输出 `PASS exported save writable user data contract`。第二个隔离 profile 对实际 `Godot/app_userdata/SimpleCities/saves` 添加当前用户 `(OI)(CI)(DENY)(W)` ACL；`SaveAs` 明确返回访问拒绝，`CurrentSlotID` 不变，运行时输出 `PASS exported save read-only ACL contract`，移除拒绝 ACE 后目录条目数为 0。正式导出预设不携带 `tests/`、`saves/` 或 `docs/`，并继续启动 `MapTest`。存档聚焦测试 53/53、完整测试 474/474、Debug 构建 0 警告/0 错误，GDScript 契约诊断为空。
   - 来源 key：`todo:item:0.10`。
 
 <a id="save-system0.11"></a>
@@ -199,6 +199,7 @@
 - [x] **RoadGraph 损坏 payload 不得改变活动图。** 恢复必须先完成 schema、引用、成员关系、几何和 `nextID` 全量校验，再一次提交并发出 `GraphCleared`。
 - [x] **第二代道路 JSON 使用 Node/Edge/Group 与原生几何参数。** 不得重新写入旧 Junction/Segment/Road、waypoint、长度或 RoadType 字段。
 - [x] **命名槽破坏性操作必须先显示目标并确认。** 覆盖、加载和删除的取消路径不得修改槽文件、当前槽位或活动道路；损坏槽只能删除。
+- [x] **导出版本存档根必须位于 Godot 用户数据目录。** 编辑器保持 `res://saves`；导出版本使用 `user://saves`，不得依赖可执行文件所在目录可写。
 
 ## 完成标准
 

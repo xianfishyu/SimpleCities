@@ -74,7 +74,7 @@
 
 因此玩家可以创建显示名同为“自动存档”的手动槽；它仍使用独立手动 ID，不会被周期自动保存覆盖。
 
-编辑器使用全局化的 `res://saves`。导出版本使用可执行文件所在目录旁的 `saves`。一个典型目录如下：
+编辑器使用全局化的 `res://saves`。导出版本使用 Godot 全局化后的 `user://saves`，在 Windows 上位于当前 profile 的 `Godot/app_userdata/SimpleCities/saves`，不依赖可执行文件所在目录可写。一个典型目录如下：
 
 ```text
 <save-root>/
@@ -260,18 +260,21 @@ RoadGraph 准备阶段至少校验：大小写敏感的 schema、未知字段、
 
 | 证据 | 结果 |
 |---|---|
-| 存档版本、槽位、预检、发布、元数据和自动存档聚焦测试 | 通过；当前自动存档批次聚焦为 43/43。 |
-| `dotnet test SimpleCities.sln --configuration Debug --no-restore` | 426/426 通过。 |
+| 存档版本、槽位、预检、发布、元数据和导出路径聚焦测试 | `SaveManagerSlotContractTests` 与 `SaveManagerManifestVersionTests` 合计 53/53 通过。 |
+| `dotnet test SimpleCities.sln --configuration Debug --no-build --no-restore` | 474/474 通过。 |
 | `dotnet build SimpleCities.sln --configuration Debug --no-restore` | 0 警告、0 错误。 |
 | `tests/godot/autosave_runtime_contract.gd` | 输出 `PASS autosave runtime contract`；覆盖周期、隔离、失败保护与加载。 |
 | `tests/godot/pause_menu_runtime_contract.gd` | 输出 `PASS pause menu runtime contract`；覆盖命名槽、确认/取消、损坏槽和小视口。 |
-| 逐文件 `csharp-ls`、Godot editor bridge、DAP console | 当前会话没有对应通道，未声明通过。 |
+| Windows QA 导出包可写 profile | 输出 `PASS exported save writable user data contract`；中文/路径字符显示名、内部 ID、manifest、RoadGraph-only 文件和清理通过。 |
+| Windows QA 导出包只读 ACL profile | 对实际 `user://saves` 添加拒绝写入 ACE 后输出 `PASS exported save read-only ACL contract`；失败不切换槽位，移除 ACL 后目录为空。 |
+| 正式 Windows 导出预设 | 不包含 `tests/`、`saves/` 或 `docs/`，短启动继续加载 `MapTest`。 |
+| `csharp-ls --diagnose --solution SimpleCities.sln --loglevel warning` | 退出码 0，成功加载解决方案且未报告诊断；当前仍没有逐文件 C# LSP/MCP 通道。 |
+| Godot/GDScript | 导出契约逐文件诊断为空；独立 editor scan 加载当前项目，用户编辑器 error buffer 为空。 |
 
 ## 12. 已知限制与后续边界
 
 | 限制 | 当前影响 |
 |---|---|
-| 导出版本写可执行文件旁 `saves` | 普通不可写路径已验证失败且不发布 manifest；真实 Windows 导出包和只读 ACL 仍待模板与环境验证。 |
 | 元数据来源 | 城市名为 `Unknown City`，人口、资金和缩略图为暂无；尚未接入真实城市系统或截图生成。 |
 | 自动存档配置入口 | 周期是场景导出属性，当前没有玩家设置 UI。 |
 | 多系统提交回滚 | 当前 V2 只有 RoadGraph；新增第二个正式业务系统前必须补齐跨系统提交失败语义。 |

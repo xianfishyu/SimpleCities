@@ -113,7 +113,9 @@ public partial class SaveManager : Node
     └── road_network.json
 ```
 
-编辑器的 `<save-root>` 是全局化后的 `res://saves`；导出版本的 `<save-root>` 是可执行文件所在目录下的 `saves`。内部槽 ID 只允许安全 ASCII 字符；玩家显示名独立写入 manifest，可使用中文、空格或重复名称。
+编辑器的 `<save-root>` 是全局化后的 `res://saves`；导出版本的 `<save-root>` 是 Godot 全局化后的 `user://saves`，在 Windows 上位于当前 profile 的 `Godot/app_userdata/SimpleCities/saves`，不要求安装目录或可执行文件所在目录可写。内部槽 ID 只允许安全 ASCII 字符；玩家显示名独立写入 manifest，可使用中文、空格或重复名称。
+
+`Windows Desktop QA` 导出预设通过自定义 `qa` feature 选择 `tests/godot/exported_save_runtime_contract.tscn`，用于验证真实导出包的可写用户目录和只读 ACL 失败语义；正式 `Windows Desktop` 预设仍启动 `MapTest`，并排除测试、现有存档和文档资源。
 
 ### 2.3 SaveJson
 

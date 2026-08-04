@@ -15,7 +15,7 @@ public partial class SaveManager : Node
     private readonly List<ISaveable> _saveables = new();
 
     private const string EditorSaveBaseDir = "res://saves";
-    private const string ExportSaveDirectoryName = "saves";
+    private const string ExportSaveBaseDir = "user://saves";
     internal const string RoadGraphSaveFileName = "road_network";
     private static readonly string[] V2SaveFileNames = [RoadGraphSaveFileName];
     public const string AutosaveSlotID = "autosave";
@@ -237,20 +237,16 @@ public partial class SaveManager : Node
         return selected;
     }
 
-    private string GetSaveBaseDir()
+    private string GetSaveBaseDir() => ResolveSaveBaseDir(
+        OS.HasFeature("editor"),
+        ProjectSettings.GlobalizePath);
+
+    internal static string ResolveSaveBaseDir(
+        bool isEditor,
+        Func<string, string> globalizePath)
     {
-        if (OS.HasFeature("editor"))
-            return ProjectSettings.GlobalizePath(EditorSaveBaseDir);
-
-        string executablePath = OS.GetExecutablePath();
-        if (string.IsNullOrWhiteSpace(executablePath) || !Path.IsPathFullyQualified(executablePath))
-            throw new InvalidOperationException($"Cannot resolve executable path '{executablePath}'.");
-
-        string? executableDir = Path.GetDirectoryName(executablePath);
-        if (string.IsNullOrWhiteSpace(executableDir))
-            throw new InvalidOperationException($"Cannot resolve executable directory from '{executablePath}'.");
-
-        return Path.Combine(executableDir, ExportSaveDirectoryName);
+        ArgumentNullException.ThrowIfNull(globalizePath);
+        return globalizePath(isEditor ? EditorSaveBaseDir : ExportSaveBaseDir);
     }
 
     internal static ManifestData ParseAndValidateManifest(string json)

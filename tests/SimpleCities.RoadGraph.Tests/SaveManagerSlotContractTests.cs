@@ -9,6 +9,24 @@ public sealed class SaveManagerSlotContractTests : IDisposable
         $"simple-cities-save-tests-{Guid.NewGuid():N}");
 
     [Fact]
+    public void SaveRoot_UsesProjectDataInEditorAndUserDataInExport()
+    {
+        static string Globalize(string path) => path switch
+        {
+            "res://saves" => "D:/project/saves",
+            "user://saves" => "C:/profile/SimpleCities/saves",
+            _ => throw new ArgumentOutOfRangeException(nameof(path), path, null),
+        };
+
+        Assert.Equal(
+            "D:/project/saves",
+            SaveManager.ResolveSaveBaseDir(isEditor: true, Globalize));
+        Assert.Equal(
+            "C:/profile/SimpleCities/saves",
+            SaveManager.ResolveSaveBaseDir(isEditor: false, Globalize));
+    }
+
+    [Fact]
     public void SaveAndLoad_RoundTripsRegisteredStateAndManifest()
     {
         var store = CreateStore();
