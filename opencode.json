@@ -15,6 +15,12 @@
       "environment": {
         "GODOT_WORKSPACE_PATH": "D:/Code/GodotProject/simple-cities"
       }
+    },
+    "roslyn-codelens": {
+      "type": "local",
+      "command": ["roslyn-codelens-mcp", "D:/Code/GodotProject/simple-cities/SimpleCities.sln"],
+      "enabled": true,
+      "timeout": 120000
     }
   }
 }

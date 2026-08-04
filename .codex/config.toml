@@ -11,3 +11,10 @@ args = ["-y", "@ryanmazzolini/minimal-godot-mcp@0.1.6"]
 enabled = true
 startup_timeout_sec = 60
 tool_timeout_sec = 60
+
+[mcp_servers.roslyn-codelens]
+command = "roslyn-codelens-mcp"
+args = ["D:\\Code\\GodotProject\\simple-cities\\SimpleCities.sln"]
+enabled = true
+startup_timeout_sec = 120
+tool_timeout_sec = 120

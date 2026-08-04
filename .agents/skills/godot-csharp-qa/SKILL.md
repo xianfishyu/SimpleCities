@@ -1,6 +1,6 @@
 ---
 name: godot-csharp-qa
-description: "MUST USE after changing C# code, Godot scenes/resources, project settings, or runtime behavior in SimpleCities, and whenever the user asks to verify, test, QA, or validate the Godot C# project. Runs the smallest sufficient combination of csharp-ls diagnostics, dotnet build, Godot editor checks, deterministic runtime testing, runtime state inspection, and DAP console review. Do not use for documentation-only or Git-only changes."
+description: "MUST USE after changing C# code, Godot scenes/resources, project settings, or runtime behavior in SimpleCities, and whenever the user asks to verify, test, QA, or validate the Godot C# project. Runs the smallest sufficient combination of Roslyn CodeLens diagnostics, dotnet build, Godot editor checks, deterministic runtime testing, runtime state inspection, and DAP console review. Do not use for documentation-only or Git-only changes."
 ---
 
 # Godot C# QA
@@ -12,7 +12,8 @@ Use this skill to verify SimpleCities changes against the real C# compiler, Godo
 - Workspace root: the directory containing `SimpleCities.sln` and `project.godot`.
 - Build command: `dotnet build SimpleCities.sln`.
 - Main scene: `Scenes/MapTest.tscn`.
-- C# language server: `csharp-ls`, reached through the session's enabled Oh My OpenAgent `lsp-daemon` MCP.
+- C# semantic diagnostics: the `roslyn-codelens` MCP, configured for both Codex and OpenCode and pointed at `SimpleCities.sln`. Use its `get_diagnostics` tool after confirming that the solution is loaded. Analyzer diagnostics require the solution to be trusted through its exposed trust tool.
+- C# diagnostics fallback: if Roslyn CodeLens is unavailable or cannot load the solution, do not invoke `csharp-ls`; run the build gate and explicitly report focused semantic diagnostics as blocked.
 - Editor/runtime bridge: `godot` MCP from `@satelliteoflove/godot-mcp`.
 - GDScript diagnostics and running-game console: `godot-minimal` MCP from `@ryanmazzolini/minimal-godot-mcp`.
 - Treat the current command output as truth. Do not hard-code a permanent expected warning count; compare diagnostics and build output with the baseline captured at the start of the task.
@@ -43,7 +44,7 @@ Use for C# changes whose contract is fully exercised by language analysis and co
 
 Required gates:
 
-1. Focused `csharp-ls` diagnostics on every changed `.cs` file.
+1. Focused Roslyn CodeLens diagnostics on every changed `.cs` file. Run analyzer diagnostics when the solution has been trusted; otherwise report that analyzer coverage is blocked.
 2. `dotnet build SimpleCities.sln` with exit code 0.
 3. Compare diagnostics and warnings against the pre-change baseline; no new unexplained errors or warnings.
 
@@ -81,7 +82,7 @@ Required gates: Tier 1 and Tier 2 gates that apply, plus an actual running-game 
 Before final verification, or before modifying behavior when this skill is used inside an already-authorized implementation task:
 
 - Record `git status --short` so unrelated dirty files are not attributed to the task.
-- Run focused diagnostics on relevant existing C# files when practical.
+- Run focused Roslyn CodeLens diagnostics on relevant existing C# files when practical and when the MCP is available.
 - Run `dotnet build SimpleCities.sln` and record exit code, errors, and warnings.
 - If a reported runtime bug is being fixed, reproduce it or capture an equivalent failing automated/manual scenario before the repair.
 
@@ -89,9 +90,10 @@ Pre-existing failures remain visible in the report. Do not fix or hide them unle
 
 ### 2. Run Focused C# Diagnostics
 
-- Request diagnostics for every changed `.cs` file.
+- Confirm that Roslyn CodeLens loaded `SimpleCities.sln`, then request `get_diagnostics` for every changed `.cs` file.
 - For cross-file changes, also check the entry point or consumer that exercises the changed API.
-- An LSP warning proves the server responded; classify whether it is new, pre-existing, or unrelated.
+- Classify every Roslyn diagnostic as new, pre-existing, or unrelated. Use analyzer diagnostics only after the solution is trusted.
+- If Roslyn CodeLens is unavailable or cannot load the solution, do not invoke `csharp-ls` as a fallback. Run `dotnet build SimpleCities.sln` and report focused semantic diagnostics as blocked.
 - Do not use `as any`, suppression comments, nullable-forgiving operators, or project warning disables merely to silence diagnostics. A lifecycle-guaranteed `null!` requires an existing project pattern and a documented runtime guarantee.
 
 ### 3. Build the Real Solution
@@ -107,7 +109,7 @@ Requirements:
 - Exit code must be 0.
 - Report the actual error and warning counts.
 - A successful build is necessary but not sufficient for Tier 2 or Tier 3.
-- If build output conflicts with LSP output, report both and investigate the difference; do not choose the more convenient result.
+- If build output conflicts with Roslyn CodeLens output, report both and investigate the difference; do not choose the more convenient result.
 
 ### 4. Validate Godot Editor State
 
