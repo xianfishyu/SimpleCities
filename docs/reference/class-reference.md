@@ -210,18 +210,22 @@
 |---|---|---|---|
 | `defaultScale` | `[Export] private float defaultScale = 1f` | `1f` | 目标缩放，可由相机自身捕获；V2 槽不选择相机状态 |
 | `scaleFactor` | `[Export] public float scaleFactor = 0.125f` | `0.125f` | 鼠标滚轮缩放因子 |
-| `minScale` | `[Export] public float minScale = 0.125f` | `0.125f` | 最小目标缩放 |
+| `minScale` | `[Export] public float minScale = 0.125f` | `0.125f` | 最小目标缩放；支持六位小数精度 |
 | `maxScale` | `[Export] public float maxScale = 4f` | `4f` | 最大目标缩放 |
-| `keyMoveFactor` | `[Export] public float keyMoveFactor = 10f` | `10f` | 键盘移动系数 |
-| `moveSpeed` | `[Export] public float moveSpeed = 1.25f` | `1.25f` | 键盘移动速度 |
+| `smoothing` | `[Export] private float smoothing = 0.25f` | `0.25f` | 参考帧率下的缩放平滑权重 |
+| `referenceFps` | `[Export] private float referenceFps = 60f` | `60f` | 缩放平滑的参考帧率 |
+| `panSpeed` | `[Export] private float panSpeed = 750f` | `750f` | 缩放为 1 时的基础屏幕移动速度，单位为像素/秒 |
+| `zoomInfluence` | `[Export] private float zoomInfluence = 0.75f` | `0.75f` | 世界速度恒定与屏幕速度恒定之间的混合比例 |
+| `accelerationTime` | `[Export] private float accelerationTime = 0.08f` | `0.08f` | 达到约 95% 目标移动速度所需秒数 |
+| `decelerationTime` | `[Export] private float decelerationTime = 0.05f` | `0.05f` | 松键后消除约 95% 移动速度所需秒数 |
 
 | 公开成员 | 签名 | 说明 |
 |---|---|---|
 | `Instance` | `public static MainCamera Instance { get; private set; }` | 单例引用 |
-| `_Ready` | `public override void _Ready()` | 设置单例、记录 `nextPos`、注册到 `SaveManager` |
+| `_Ready` | `public override void _Ready()` | 规范化缩放配置、设置单例并注册到 `SaveManager` |
 | `_ExitTree` | `public override void _ExitTree()` | 从 `SaveManager` 注销并清理当前单例 |
-| `_Process` | `public override void _Process(double delta)` | 更新键盘移动、缩放和中键拖拽 |
-| `_Input` | `public override void _Input(InputEvent @event)` | WASD、滚轮、中键输入 |
+| `_Process` | `public override void _Process(double delta)` | 更新缩放、键盘移动和中键拖拽 |
+| `_UnhandledInput` | `public override void _UnhandledInput(InputEvent @event)` | 处理未被 UI 消费的 WASD、滚轮和中键输入 |
 | `SaveFileName` | `public string SaveFileName => "camera"` | 相机扩展文件名；当前 V2 配置不选择 |
 | `CaptureState` | `public object CaptureState()` | 返回 `CameraData` |
 | `PrepareRestoreState` | `public object PrepareRestoreState(string json)` | 解析并校验有限坐标与正缩放，不修改相机 |

@@ -1,0 +1,79 @@
+[gd_scene format=3 uid="uid://d164w0vm78lct"]
+
+[ext_resource type="Script" uid="uid://mor87dk34rlo" path="res://Scripts/Testing/CameraTestWorld.gd" id="1_world"]
+[ext_resource type="Script" uid="uid://3dc2kcbj18lu" path="res://Scripts/MainCamera.cs" id="2_camera"]
+[ext_resource type="Script" uid="uid://blyqoixmuvyrv" path="res://Scripts/Testing/CameraTestOverlay.gd" id="3_overlay"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_panel"]
+bg_color = Color(0.054902, 0.0784314, 0.0901961, 0.9)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.321569, 0.505882, 0.560784, 0.85)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[node name="CameraTest" type="Node2D" unique_id=1243479747]
+script = ExtResource("1_world")
+
+[node name="Camera2D" type="Camera2D" parent="." unique_id=1563024560]
+script = ExtResource("2_camera")
+panSpeed = 2048.0
+accelerationTime = 0.25
+decelerationTime = 0.25
+
+[node name="Overlay" type="CanvasLayer" parent="." unique_id=756342233]
+layer = 10
+script = ExtResource("3_overlay")
+
+[node name="Panel" type="PanelContainer" parent="Overlay" unique_id=43280730]
+offset_left = 18.0
+offset_top = 18.0
+offset_right = 390.0
+offset_bottom = 164.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBox_panel")
+
+[node name="Margin" type="MarginContainer" parent="Overlay/Panel" unique_id=41645578]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 14
+
+[node name="Rows" type="VBoxContainer" parent="Overlay/Panel/Margin" unique_id=1943061243]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="Overlay/Panel/Margin/Rows" unique_id=504237733]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.972549, 0.815686, 0.447059, 1)
+theme_override_font_sizes/font_size = 18
+text = "CAMERA LAB"
+
+[node name="Input" type="Label" parent="Overlay/Panel/Margin/Rows" unique_id=1895385076]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.682353, 0.788235, 0.819608, 1)
+theme_override_font_sizes/font_size = 14
+text = "WASD  /  WHEEL  /  MMB DRAG"
+
+[node name="Zoom" type="Label" parent="Overlay/Panel/Margin/Rows" unique_id=1379119227]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.94902, 0.956863, 0.960784, 1)
+theme_override_font_sizes/font_size = 15
+text = "ZOOM"
+
+[node name="Position" type="Label" parent="Overlay/Panel/Margin/Rows" unique_id=2084156290]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.94902, 0.956863, 0.960784, 1)
+theme_override_font_sizes/font_size = 15
+text = "POSITION"
+
+[node name="Performance" type="Label" parent="Overlay/Panel/Margin/Rows" unique_id=487498151]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.94902, 0.956863, 0.960784, 1)
+theme_override_font_sizes/font_size = 15
+text = "PERFORMANCE"
