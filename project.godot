@@ -17,6 +17,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 config/name="SimpleCities"
 run/main_scene="uid://baxamkfym8atd"
 config/features=PackedStringArray("4.7", "C#", "Forward Plus")
+run/max_fps=144
 config/icon="res://icon.svg"
 run/main_scene.qa="res://tests/godot/exported_save_runtime_contract.tscn"
 
