@@ -1,4 +1,5 @@
 using Godot;
+using System;
 
 /// <summary>
 /// 共享配置资源：网格尺寸 + 渲染参数。
@@ -8,14 +9,17 @@ using Godot;
 [GlobalClass]
 public partial class RoadConfig : Resource
 {
+    public const float DefaultCellSize = 64f;
+    public const float DefaultRoadWidth = 12f;
+
     /// <summary>网格单元尺寸（像素）。所有 Road 端点 / waypoint 都对齐到 cell 中心点。</summary>
-    [Export] public float CellSize { get; set; } = 64f;
+    [Export] public float CellSize { get; set; } = DefaultCellSize;
 
     /// <summary>道路颜色。</summary>
     [Export] public Color RoadColor { get; set; } = new("#37474F");
 
     /// <summary>道路线宽（像素）。</summary>
-    [Export] public float RoadWidth { get; set; } = 12f;
+    [Export] public float RoadWidth { get; set; } = DefaultRoadWidth;
 
     /// <summary>权威曲线细分为显示折线时允许的最大世界空间误差。</summary>
     [Export] public float CurveDisplayTolerance { get; set; } = RoadGeometryDisplaySampler.DefaultTolerance;
@@ -40,4 +44,19 @@ public partial class RoadConfig : Resource
 
     /// <summary>拆除工具悬停高亮线宽（比 RoadWidth 稍宽以视觉突出）。</summary>
     [Export] public float HoverHighlightWidth { get; set; } = 18f;
+
+    public void NormalizeRuntimeValues(Action<string>? report = null)
+    {
+        if (!float.IsFinite(CellSize) || CellSize <= 0f)
+        {
+            report?.Invoke($"CellSize must be positive and finite; using {DefaultCellSize}.");
+            CellSize = DefaultCellSize;
+        }
+
+        if (!float.IsFinite(RoadWidth) || RoadWidth <= 0f)
+        {
+            report?.Invoke($"RoadWidth must be positive and finite; using {DefaultRoadWidth}.");
+            RoadWidth = DefaultRoadWidth;
+        }
+    }
 }

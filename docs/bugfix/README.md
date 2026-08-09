@@ -6,6 +6,13 @@
 - [save-system.md](save-system.md)
 - [grid-rendering.md](grid-rendering.md)
 - [ui.md](ui.md)
+- [camera.md](camera.md)
+- [road-rendering.md](road-rendering.md)
+- [tool-input.md](tool-input.md)
+
+## Session Investigation Records
+
+- [session-2026-08-05.md](session-2026-08-05.md) - 16 条会话调查记录及正式系统分拣映射
 
 ## Legacy Mapping
 

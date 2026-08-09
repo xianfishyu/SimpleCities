@@ -655,3 +655,66 @@ path = InsertExistingNodeAnchors(path);
 - `dotnet build SimpleCities.sln --configuration Debug --no-restore`：0 警告、0 错误。
 - `dotnet run --project tests/SimpleCities.RoadGraph.Performance/SimpleCities.RoadGraph.Performance.csproj --configuration Release --no-restore -- --enforce-budget`：10k 全部场景通过 16.67 ms P95 硬门槛，单边删除 P95 为 0.038 ms。
 - 当前会话未提供 `csharp-ls` MCP，无法执行逐文件 C# LSP 诊断；Godot 运行时契约授权重跑输出 `PASS pause menu runtime contract`，两轮 autosave 保存/加载通过。
+
+---
+
+<a id="road-graph-bug-19"></a>
+## BUG-19：旧折线提交与已有原生曲线使用不同的几何语义
+
+> 修复日期：2026-08-10
+> 来源：`docs/bugfix/session-2026-08-05.md#session-bug-01旧折线提交路径把原生曲线当作端点弦线处理`
+
+### 症状
+
+图中已有通过 `SubmitPath()` 保存的 Bezier、圆弧或其他原生曲线时，再调用 `SubmitPolyline()` / `AddRoad()` 添加折线，交叉拆分和覆盖判断会把既有曲线退化为端点弦线。真实曲线交点可能遗漏，弦线上的假交点也可能被错误收集。
+
+### 根因分析
+
+旧折线入口继续执行依赖 `GraphEdge.GetFullPath()` 的折线规划，而单段原生曲线没有旧式 waypoint，`GetFullPath()` 只返回两个端点。空间索引虽然能选中曲线候选，候选后的交叉、覆盖和拆分计算却没有使用权威 `GeometrySegments`。
+
+### 修复方案
+
+`RoadGraph.SubmitPolyline()` 在检测到图中存在非直线原生段时，把输入折线转换为 `LineRoadGeometrySegment` 组成的 `RoadPath`，再进入与 `SubmitPath()` 相同的 `SubmitPathCore()`。纯折线图仍保留原入口行为；混合图则统一使用原生几何交叉、覆盖和拆分语义。
+
+### 影响范围
+
+影响原生曲线已经存在时的旧折线提交。纯折线图的旧路径、原生路径格式、RoadGroup 身份和显示采样均未改变。
+
+## BUG-19 验证状态
+
+- 回归测试 `SubmitPolyline_CrossingBezierUsesNativeCurveGeometry` 验证折线在真实 Bezier 内部交点拆分两组道路并形成四度节点。
+- 回归测试 `SubmitPolyline_CrossingOnlyBezierEndpointChordDoesNotCreateFalseIntersection` 验证只穿过端点弦线的折线不会生成假交点。
+- `dotnet test SimpleCities.sln --no-restore`：492/492 通过；`dotnet build SimpleCities.sln --no-restore`：0 警告、0 错误。
+- Roslyn CodeLens 解决方案诊断为 0 error、0 warning；Godot 4.7 editor 的 `MapTest.tscn` 错误日志为 0。
+
+---
+
+<a id="road-graph-bug-20"></a>
+## BUG-20：最近节点和最近边查询没有统一拒绝非法参数
+
+> 修复日期：2026-08-10
+> 来源：`docs/bugfix/session-2026-08-05.md#session-bug-02最近节点边查询未在入口校验非法位置和半径`
+
+### 症状
+
+`FindClosestEdge()` 和 `FindClosestNode()` 对负数或非有限半径静默返回 `null`，对非有限坐标则可能在候选几何内部抛出异常。同类入口 `FindEdgeIDsNear()` 已经在公开 API 边界明确拒绝这些参数，导致空间查询契约不一致。
+
+### 根因分析
+
+两个最近查询直接把参数传给 `UniformGrid.QueryRadius()`，没有复用 `FindEdgeIDsNear()` 的有限坐标、有限半径和非负半径检查。错误表现因此依赖桶遍历是否执行以及是否命中候选几何。
+
+### 修复方案
+
+新增共享的 `ValidateSpatialQuery()`，由 `FindClosestEdge()`、`FindClosestNode()` 和 `FindEdgeIDsNear()` 在进入空间索引前调用。非法位置统一抛出 `ArgumentException`，非法半径统一抛出 `ArgumentOutOfRangeException`；正常查询的边界包含语义不变。
+
+`DebugPanel` 同时避免在 headless 环境中把非有限鼠标世界坐标或网格坐标传入严格查询；该兼容处理只影响调试文本显示，非法查询契约本身仍保持严格。
+
+### 影响范围
+
+影响公开最近节点/边查询收到调用方非法参数时的失败方式，以及 headless 调试面板的无鼠标状态。正常有限查询、空间索引内容和道路拓扑不变。
+
+## BUG-20 验证状态
+
+- `ClosestQueries_RejectNonFinitePosition` 覆盖 `NaN` 和正负无穷坐标；`ClosestQueries_RejectInvalidRadius` 覆盖负数、`NaN` 和正无穷半径。
+- `dotnet test SimpleCities.sln --no-restore`：492/492 通过；`dotnet build SimpleCities.sln --no-restore`：0 警告、0 错误。
+- `road_system_v2_final_runtime_contract.gd` 输出 `PASS`；严格查询接入后真实道路系统运行路径无新增失败。

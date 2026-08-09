@@ -110,6 +110,15 @@ public sealed class RoadInputStrategyTests
         Assert.Contains("_graph.SubmitPath(draft.Path)", source, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void RoadBuilderCurveFallbackUsesNativeClosestPointInsteadOfPathAnchors()
+    {
+        string source = File.ReadAllText(Path.Combine(ProjectRoot, "Scripts", "Road", "RoadBuilder.cs"));
+
+        Assert.Contains("segment.FindClosestPoint(pointerPosition)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetFullPath", source, StringComparison.Ordinal);
+    }
+
     private static void AssertLineSegmentsMatchPreview(RoadPathDraft draft)
     {
         RoadPath path = Assert.IsType<RoadPath>(draft.Path);

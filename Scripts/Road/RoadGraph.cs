@@ -50,6 +50,14 @@ public partial class RoadGraph : IPreparedSaveable
             return RoadPathSubmissionResult.Rejected(validationError);
 
         var path = points!.ToList();
+        if (_edges.Values.Any(edge =>
+                edge.GeometrySegments.Any(segment => segment is not LineRoadGeometrySegment)))
+        {
+            var nativeSegments = new RoadGeometrySegment[path.Count - 1];
+            for (int index = 0; index < nativeSegments.Length; index++)
+                nativeSegments[index] = new LineRoadGeometrySegment(path[index], path[index + 1]);
+            return SubmitPathCore(new RoadPath(nativeSegments));
+        }
 
         // Coverage check must run BEFORE any mutating step (ResolveIntersections,
         // SplitEdgesAtPathAnchors) — otherwise a fully-covered AddRoad still splits
@@ -178,6 +186,7 @@ public partial class RoadGraph : IPreparedSaveable
     public GraphEdge? FindClosestEdge(Vector2 position, float maxRadius)
     {
         BeginMeasuredOperation();
+        ValidateSpatialQuery(position, maxRadius);
         int bestEdgeID = -1;
         float bestDistSq = maxRadius * maxRadius;
         var candidateEdgeIDs = new HashSet<int>();
@@ -210,10 +219,7 @@ public partial class RoadGraph : IPreparedSaveable
     public IReadOnlyList<int> FindEdgeIDsNear(Vector2 position, float radius)
     {
         BeginMeasuredOperation();
-        if (!position.IsFinite())
-            throw new ArgumentException("Position must contain finite coordinates.", nameof(position));
-        if (!float.IsFinite(radius) || radius < 0f)
-            throw new ArgumentOutOfRangeException(nameof(radius), radius, "Radius must be non-negative and finite.");
+        ValidateSpatialQuery(position, radius);
 
         var edgeIDs = new HashSet<int>();
         foreach (ISpatialRef hit in _spatialIndex.QueryRadius(position, radius))
@@ -247,11 +253,13 @@ public partial class RoadGraph : IPreparedSaveable
 
     public GraphNode? FindClosestNode(Vector2 position, float maxRadius)
     {
+        BeginMeasuredOperation();
         return FindClosestIndexedNode(position, maxRadius);
     }
 
     private GraphNode? FindClosestIndexedNode(Vector2 position, float maxRadius)
     {
+        ValidateSpatialQuery(position, maxRadius);
         int bestNodeID = -1;
         float bestDistSq = maxRadius * maxRadius;
 
@@ -272,6 +280,14 @@ public partial class RoadGraph : IPreparedSaveable
         }
 
         return bestNodeID >= 0 ? GetNode(bestNodeID) : null;
+    }
+
+    private static void ValidateSpatialQuery(Vector2 position, float radius)
+    {
+        if (!position.IsFinite())
+            throw new ArgumentException("Position must contain finite coordinates.", nameof(position));
+        if (!float.IsFinite(radius) || radius < 0f)
+            throw new ArgumentOutOfRangeException(nameof(radius), radius, "Radius must be non-negative and finite.");
     }
 
     public IEnumerable<GraphEdge> GetAllEdges() => _edges.Values.ToArray();

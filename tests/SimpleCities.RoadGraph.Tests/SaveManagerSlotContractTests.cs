@@ -446,6 +446,39 @@ public sealed class SaveManagerSlotContractTests : IDisposable
         Assert.False(File.Exists(Path.Combine(_saveRoot, "manual-1", "manifest.json")));
     }
 
+    [Theory]
+    [InlineData("manifest")]
+    [InlineData("Manifest")]
+    public void Save_RejectsReservedManifestNameBeforeCapturingState(string saveFileName)
+    {
+        var store = CreateStore();
+        var saveable = new TestSaveable(saveFileName, 42);
+
+        Assert.Throws<ArgumentException>(() =>
+            store.Save("manual-1", "Manual 1", [saveable]));
+
+        Assert.Equal(0, saveable.CaptureCount);
+        Assert.False(Directory.Exists(_saveRoot));
+    }
+
+    [Fact]
+    public void Save_RejectsCaseInsensitiveFileCollisionAndPreservesExistingSlot()
+    {
+        var store = CreateStore();
+        store.Save("manual-1", "Original", [new TestSaveable("road_network", 42)]);
+        IReadOnlyDictionary<string, string> before = SnapshotSlot("manual-1");
+        var upper = new TestSaveable("Economy", 1);
+        var lower = new TestSaveable("economy", 2);
+
+        Assert.Throws<ArgumentException>(() =>
+            store.Save("manual-1", "Replacement", [upper, lower]));
+
+        Assert.Equal(0, upper.CaptureCount);
+        Assert.Equal(0, lower.CaptureCount);
+        Assert.Equal(before, SnapshotSlot("manual-1"));
+        Assert.Empty(TransactionDirectories());
+    }
+
     [Fact]
     public void ListSlots_MissingRootReturnsEmptyList()
     {
@@ -473,6 +506,22 @@ public sealed class SaveManagerSlotContractTests : IDisposable
         Assert.Equal(["road_network.json"], summary.Files);
         Assert.NotNull(summary.SavedAtUtc);
         Assert.Equal(TimeSpan.Zero, summary.SavedAtUtc.Value.Offset);
+        Assert.Equal(0, saveable.RestoreCount);
+    }
+
+    [Fact]
+    public void ListSlots_MissingManifestDataFileMarksSlotInvalidWithoutRestoringState()
+    {
+        var store = CreateStore();
+        var saveable = new TestSaveable("road_network", 42);
+        store.Save("broken", "Broken", [saveable]);
+        File.Delete(Path.Combine(_saveRoot, "broken", "road_network.json"));
+
+        SaveSlotSummary summary = Assert.Single(store.ListSlots());
+
+        Assert.False(summary.IsValid);
+        Assert.Equal("broken", summary.SlotID);
+        Assert.False(string.IsNullOrWhiteSpace(summary.Error));
         Assert.Equal(0, saveable.RestoreCount);
     }
 
@@ -594,9 +643,14 @@ public sealed class SaveManagerSlotContractTests : IDisposable
     {
         public string SaveFileName { get; } = saveFileName;
         public int Value { get; set; } = value;
+        public int CaptureCount { get; private set; }
         public int RestoreCount { get; private set; }
 
-        public object CaptureState() => new TestState { Value = Value };
+        public object CaptureState()
+        {
+            CaptureCount++;
+            return new TestState { Value = Value };
+        }
 
         public void RestoreState(string json)
         {

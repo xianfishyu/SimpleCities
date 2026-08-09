@@ -43,15 +43,26 @@ internal sealed class SaveSlotStore
     public int Save(string slotID, string displayName, IReadOnlyList<ISaveable> saveables)
     {
         ValidateDisplayName(displayName);
+        var fileNames = new List<string>(saveables.Count);
+        var uniqueFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (ISaveable saveable in saveables)
+        {
+            string fileName = GetDataFileName(saveable.SaveFileName);
+            if (string.Equals(fileName, ManifestFile, StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException("Save file name 'manifest' is reserved.", nameof(saveables));
+            if (!uniqueFileNames.Add(fileName))
+                throw new ArgumentException($"Duplicate save file name '{fileName}'.", nameof(saveables));
+            fileNames.Add(fileName);
+        }
+
         string slotDir = GetSlotDir(slotID);
         string stagingDir = GetTransactionDir(slotID, StagingSuffix);
         string backupDir = GetTransactionDir(slotID, BackupSuffix);
         var payloads = new List<(string FileName, string Json)>(saveables.Count);
-        foreach (ISaveable saveable in saveables)
+        for (int index = 0; index < saveables.Count; index++)
         {
-            string fileName = GetDataFileName(saveable.SaveFileName);
-            string json = SaveJson.Serialize(saveable.CaptureState());
-            payloads.Add((fileName, json));
+            string json = SaveJson.Serialize(saveables[index].CaptureState());
+            payloads.Add((fileNames[index], json));
         }
 
         Directory.CreateDirectory(_saveBaseDir);
@@ -84,15 +95,16 @@ internal sealed class SaveSlotStore
             throw new DirectoryNotFoundException($"Save slot '{slotID}' not found.");
 
         ManifestData manifest = ReadManifest(slotID);
-        var fileSet = new HashSet<string>(manifest.Files, StringComparer.Ordinal);
-        var systemMap = new Dictionary<string, ISaveable>(StringComparer.Ordinal);
+        var fileSet = new HashSet<string>(manifest.Files, StringComparer.OrdinalIgnoreCase);
+        var systemMap = new Dictionary<string, ISaveable>(StringComparer.OrdinalIgnoreCase);
 
         foreach (ISaveable saveable in saveables)
         {
             string fileName = GetDataFileName(saveable.SaveFileName);
             if (!fileSet.Contains(fileName))
                 throw new InvalidDataException($"Manifest does not contain required file '{fileName}'.");
-            systemMap[fileName] = saveable;
+            if (!systemMap.TryAdd(fileName, saveable))
+                throw new InvalidDataException($"Multiple saveables require file '{fileName}'.");
         }
 
         var rawStates = new List<(ISaveable Saveable, string Json)>(systemMap.Count);
@@ -156,6 +168,15 @@ internal sealed class SaveSlotStore
             try
             {
                 ManifestData manifest = ReadManifest(slotID);
+                foreach (string fileName in manifest.Files)
+                {
+                    string filePath = Path.Combine(slotDir, fileName);
+                    if (!File.Exists(filePath))
+                        throw new FileNotFoundException($"File '{fileName}' missing in slot '{slotID}'.", filePath);
+                    if (File.GetAttributes(filePath).HasFlag(FileAttributes.ReparsePoint))
+                        throw new IOException($"File '{fileName}' in slot '{slotID}' cannot be a filesystem link.");
+                }
+
                 if (!DateTimeOffset.TryParse(
                         manifest.Timestamp,
                         System.Globalization.CultureInfo.InvariantCulture,
@@ -395,6 +416,8 @@ internal sealed class SaveSlotStore
     internal static void ValidateManifestFileName(string fileName)
     {
         const string extension = ".json";
+        if (string.Equals(fileName, ManifestFile, StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("Manifest file name is reserved.", nameof(fileName));
         if (string.IsNullOrWhiteSpace(fileName) ||
             !fileName.EndsWith(extension, StringComparison.Ordinal))
         {

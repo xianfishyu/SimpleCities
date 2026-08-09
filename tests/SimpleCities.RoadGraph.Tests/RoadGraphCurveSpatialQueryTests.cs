@@ -137,4 +137,29 @@ public sealed class RoadGraphCurveSpatialQueryTests
 
         Assert.Null(graph.FindClosestEdge(query, 0.001f));
     }
+
+    [Theory]
+    [InlineData(float.NaN, 0f)]
+    [InlineData(float.PositiveInfinity, 0f)]
+    [InlineData(0f, float.NegativeInfinity)]
+    public void ClosestQueries_RejectNonFinitePosition(float x, float y)
+    {
+        var graph = new RoadGraph();
+        var position = new Vector2(x, y);
+
+        Assert.Throws<ArgumentException>(() => graph.FindClosestEdge(position, 1f));
+        Assert.Throws<ArgumentException>(() => graph.FindClosestNode(position, 1f));
+    }
+
+    [Theory]
+    [InlineData(-1f)]
+    [InlineData(float.NaN)]
+    [InlineData(float.PositiveInfinity)]
+    public void ClosestQueries_RejectInvalidRadius(float radius)
+    {
+        var graph = new RoadGraph();
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => graph.FindClosestEdge(Vector2.Zero, radius));
+        Assert.Throws<ArgumentOutOfRangeException>(() => graph.FindClosestNode(Vector2.Zero, radius));
+    }
 }

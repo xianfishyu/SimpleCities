@@ -223,3 +223,33 @@ BUG-6 保证摄像机稳定在目标缩放后具有一致的屏幕平移速度�
 ### BUG-9 后续根因修正（2026-08-10）
 
 后续运行时命中检查确认，真正截断地图区域中键事件的是纯显示用的全屏 `MapBackground/ColorRect`，而不是摄像机输入阶段或隐藏的暂停菜单。该节点已在 `grid-rendering:BUG-2` 中改为 `MouseFilter.Ignore`；摄像机中键相应恢复到 `_UnhandledInput()`，使真实 UI 继续优先处理鼠标事件。BUG-9 中的 `_Input()` 方案保留为历史修复过程，不再代表当前实现。
+
+---
+
+## BUG-10：中键拖动在没有新鼠标事件时重复累计位移
+
+> 修复日期：2026-08-10
+> 来源：`docs/bugfix/session-2026-08-05.md#session-bug-07中键拖动重复累计初始位移`
+
+### 症状
+
+中键拖动产生一次鼠标位移后，即使后续帧没有新的鼠标移动事件，相机仍会继续偏移，表现为过冲或持续漂移。
+
+### 根因分析
+
+按下中键时只保存一次世界坐标；`_Process()` 每帧都重新计算“按下点到当前点”的总位移并累加到 `Position`。同一总位移被重复消费，相机移动又会改变世界鼠标坐标，进一步放大误差。
+
+### 修复方案
+
+移除逐帧 `MousePosUpdate()` 和固定拖动基准。中键保持期间只在收到 `InputEventMouseMotion` 时消费事件的 `Relative`，并按当前有效 zoom 换算为世界坐标位移。没有新 motion 事件就不会改变相机位置。
+
+### 影响范围
+
+影响中键地图平移的位移积分。中键按下/释放的 UI 优先级仍沿 `grid-rendering:BUG-2` 后的 `_UnhandledInput()` 路径；键盘平移、滚轮缩放、存档和 zoom 边界不变。
+
+## 验证状态（BUG-10）
+
+- `camera_middle_drag_input_contract.gd` 注入一次带 `Relative` 的中键 motion 后继续等待三帧，确认相机位置变化不超过 `0.001`；地图拖动距离为 `94.340`，真实 UI 上拖动距离为 `0.000`，输出 `PASS`。
+- `camera_zoom_runtime_contract.gd` 输出 `PASS`；30/120 FPS 一秒平移差异为 `0.000122`，zoom 差异为 `0`，确认已有帧率与缩放行为未回归。
+- `dotnet test SimpleCities.sln --no-restore`：492/492 通过；`dotnet build SimpleCities.sln --no-restore`：0 警告、0 错误。
+- `SESSION-BUG-06` 与 `SESSION-BUG-08` 分别已由本文件 BUG-2 和 BUG-4 的现有实现覆盖，本轮只重新验证，没有重复修改或新增编号。

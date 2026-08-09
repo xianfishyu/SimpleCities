@@ -85,6 +85,12 @@ public sealed class PauseMenuContractTests
         Assert.Contains("TryGetToolForEvent", hud, StringComparison.Ordinal);
         Assert.DoesNotContain("Key.Escape", hud, StringComparison.Ordinal);
         Assert.Contains("OpenPauseMenu();", hud, StringComparison.Ordinal);
+        string hudInput = hud[hud.IndexOf("public override void _Input", StringComparison.Ordinal)..
+            hud.IndexOf("public override void _Process", StringComparison.Ordinal)];
+        Assert.True(
+            hudInput.IndexOf("_pauseMenu.IsOpen", StringComparison.Ordinal) <
+            hudInput.IndexOf("EventMatchesAction(@event, InputBindingManager.PauseMenuAction)", StringComparison.Ordinal),
+            "GameHUD must yield open-menu input before matching the global pause action.");
         Assert.Contains("ConfigureSaveManager", hud, StringComparison.Ordinal);
         Assert.Contains("ReturnToMainMenuRequested", hud, StringComparison.Ordinal);
         Assert.Contains("QuitToDesktopRequested", hud, StringComparison.Ordinal);

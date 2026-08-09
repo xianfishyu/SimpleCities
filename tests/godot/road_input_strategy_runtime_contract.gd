@@ -263,11 +263,49 @@ func run() -> void:
 
 	map.queue_free()
 	await process_frame
+	await process_frame
 	if not assert_true(save_manager.get("RegisteredSaveableCount") == 0, "Runtime cleanup retained saveables"):
+		return
+	if not await verify_invalid_config_falls_back_to_renderable_values(packed_map, save_manager):
 		return
 
 	print("PASS road input strategy runtime contract")
 	quit(0)
+
+func verify_invalid_config_falls_back_to_renderable_values(
+	packed_map: PackedScene,
+	save_manager: Node) -> bool:
+	var invalid_map: Node = packed_map.instantiate()
+	invalid_map.get_node("AutosaveController").set("AutosaveEnabled", false)
+	var builder: Node = invalid_map.get_node("RoadSystem/RoadBuilder")
+	var renderer: Node = invalid_map.get_node("RoadSystem/RoadRenderer")
+	var config: Resource = builder.get("Config")
+	config.set("CellSize", 0.0)
+	config.set("RoadWidth", 0.0)
+	root.add_child(invalid_map)
+	current_scene = invalid_map
+	await process_frame
+	await process_frame
+
+	if not assert_true(float(config.get("CellSize")) > 0.0, "CellSize=0 was not restored to a valid runtime value"):
+		return false
+	if not assert_true(float(config.get("RoadWidth")) > 0.0, "RoadWidth=0 was not restored to a visible runtime value"):
+		return false
+	if not assert_true(builder.BeginPlace(Vector2.ZERO), "Fallback road placement did not begin"):
+		return false
+	builder.UpdatePlace(Vector2(128.0, 0.0))
+	if not assert_true(builder.CommitPlace(Vector2(128.0, 0.0)), "Fallback road placement did not commit"):
+		return false
+	await process_frame
+	if not assert_true(
+		renderer.GetRenderedEdgeCount() > 0 and renderer.GetRoadMeshVertexCount() > 0,
+		"Fallback road committed without a visible ribbon"):
+		return false
+
+	invalid_map.queue_free()
+	await process_frame
+	await process_frame
+	return assert_true(save_manager.get("RegisteredSaveableCount") == 0, "Invalid-config cleanup retained saveables")
 
 func assert_saved_line_path(roads_path: String) -> bool:
 	var payload: Variant = JSON.parse_string(FileAccess.get_file_as_string(roads_path))

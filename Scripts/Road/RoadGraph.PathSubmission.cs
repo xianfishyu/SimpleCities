@@ -8,6 +8,11 @@ public partial class RoadGraph
     public RoadPathSubmissionResult SubmitPath(RoadPath? path)
     {
         BeginMeasuredOperation();
+        return SubmitPathCore(path);
+    }
+
+    private RoadPathSubmissionResult SubmitPathCore(RoadPath? path)
+    {
         RoadPathSubmissionError validationError = ValidateNativePath(path);
         if (validationError != RoadPathSubmissionError.None)
             return RoadPathSubmissionResult.Rejected(validationError);

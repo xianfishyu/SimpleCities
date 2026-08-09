@@ -68,6 +68,7 @@ public partial class RoadBuilder : Node2D
             GD.PushError("RoadBuilder: Config (RoadConfig resource) is not assigned in the scene.");
             Config = new RoadConfig();
         }
+        Config.NormalizeRuntimeValues(message => GD.PushWarning($"RoadBuilder: {message}"));
 
         _inputStrategy ??= SquareEightRoadInputStrategy.FromConfig(Config);
     }
@@ -456,19 +457,16 @@ public partial class RoadBuilder : Node2D
         if (edge == null)
             return null;
 
-        Vector2[] fullPath = edge.GetFullPath(id => _graph.GetNode(id));
-        Vector2? bestPosition = null;
-        float bestDistanceSquared = float.MaxValue;
-        foreach (Vector2 point in fullPath)
+        RoadGeometryClosestPoint? bestPoint = null;
+        foreach (RoadGeometrySegment segment in edge.GeometrySegments)
         {
-            float distanceSquared = pointerPosition.DistanceSquaredTo(point);
-            if (distanceSquared >= bestDistanceSquared)
+            RoadGeometryClosestPoint candidate = segment.FindClosestPoint(pointerPosition);
+            if (bestPoint.HasValue && candidate.DistanceSquared >= bestPoint.Value.DistanceSquared)
                 continue;
 
-            bestDistanceSquared = distanceSquared;
-            bestPosition = point;
+            bestPoint = candidate;
         }
 
-        return bestPosition.HasValue ? (bestPosition.Value, edge.ID) : null;
+        return bestPoint.HasValue ? (bestPoint.Value.Position, edge.ID) : null;
     }
 }

@@ -165,6 +165,55 @@ public sealed class RoadGraphNativePathIntersectionSubmissionTests
             Assert.Single(edge.GeometrySegments) is LineRoadGeometrySegment));
     }
 
+    [Fact]
+    public void SubmitPolyline_CrossingBezierUsesNativeCurveGeometry()
+    {
+        var curve = new CubicBezierRoadGeometrySegment(
+            Vector2.Zero, new Vector2(0f, 16f),
+            new Vector2(16f, 16f), new Vector2(16f, 0f));
+        var graph = new RoadGraph();
+        int curveGroupID = graph.SubmitPath(new RoadPath([curve])).GroupID!.Value;
+
+        RoadPathSubmissionResult result = graph.SubmitPolyline([
+            new Vector2(8f, 8f),
+            new Vector2(8f, 16f),
+        ]);
+
+        Assert.True(result.Success);
+        Assert.Equal(2, Assert.IsType<RoadGroup>(graph.GetGroup(curveGroupID)).EdgeCount);
+        Assert.Equal(2, Assert.IsType<RoadGroup>(graph.GetGroup(result.GroupID!.Value)).EdgeCount);
+        GraphNode intersection = Assert.Single(
+            graph.GetAllNodes(),
+            node => node.Position.DistanceTo(new Vector2(8f, 12f)) <= 2e-3f);
+        Assert.Equal(4, intersection.EdgeCount);
+        Assert.Equal(2, graph.GetAllEdges().Count(edge =>
+            Assert.Single(edge.GeometrySegments) is CubicBezierRoadGeometrySegment));
+        Assert.Equal(2, graph.GetAllEdges().Count(edge =>
+            Assert.Single(edge.GeometrySegments) is LineRoadGeometrySegment));
+    }
+
+    [Fact]
+    public void SubmitPolyline_CrossingOnlyBezierEndpointChordDoesNotCreateFalseIntersection()
+    {
+        var curve = new CubicBezierRoadGeometrySegment(
+            Vector2.Zero, new Vector2(0f, 16f),
+            new Vector2(16f, 16f), new Vector2(16f, 0f));
+        var graph = new RoadGraph();
+        Assert.True(graph.SubmitPath(new RoadPath([curve])).Success);
+
+        RoadPathSubmissionResult result = graph.SubmitPolyline([
+            new Vector2(8f, -4f),
+            new Vector2(8f, 4f),
+        ]);
+
+        Assert.True(result.Success);
+        Assert.Equal(2, graph.GetAllEdges().Count());
+        Assert.DoesNotContain(
+            graph.GetAllNodes(),
+            node => node.Position.DistanceTo(new Vector2(8f, 0f)) <= 2e-3f);
+        Assert.All(graph.GetAllNodes(), node => Assert.Equal(1, node.EdgeCount));
+    }
+
     private static CubicBezierRoadGeometrySegment LinearBezier(Vector2 start, Vector2 end) =>
         new(start, start.Lerp(end, 1f / 3f), start.Lerp(end, 2f / 3f), end);
 }

@@ -49,7 +49,7 @@ public partial class SaveManager : Node
         if (!_saveables.Contains(saveable))
         {
             ISaveable? conflict = _saveables.Find(existing =>
-                string.Equals(existing.SaveFileName, saveable.SaveFileName, StringComparison.Ordinal));
+                string.Equals(existing.SaveFileName, saveable.SaveFileName, StringComparison.OrdinalIgnoreCase));
             if (conflict != null)
             {
                 GD.PushError($"SaveManager: duplicate active SaveFileName '{saveable.SaveFileName}' rejected.");
@@ -223,7 +223,7 @@ public partial class SaveManager : Node
             ISaveable? saveable = null;
             foreach (ISaveable candidate in saveables)
             {
-                if (!string.Equals(candidate.SaveFileName, saveFileName, StringComparison.Ordinal))
+                if (!string.Equals(candidate.SaveFileName, saveFileName, StringComparison.OrdinalIgnoreCase))
                     continue;
                 if (saveable != null)
                     throw new InvalidOperationException($"Multiple saveables provide '{saveFileName}'.");
@@ -289,7 +289,7 @@ public partial class SaveManager : Node
             throw new JsonException("Save manifest displayName is invalid.", e);
         }
 
-        var fileNames = new HashSet<string>(StringComparer.Ordinal);
+        var fileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (string fileName in manifest.Files)
         {
             try

@@ -88,6 +88,9 @@ public partial class GameHUD : CanvasLayer
         if (!GodotObject.IsInstanceValid(InputBindingManager.Instance))
             return;
 
+        if (_pauseMenu.IsOpen)
+            return;
+
         if (InputBindingManager.Instance.EventMatchesAction(@event, InputBindingManager.PauseMenuAction))
         {
             OpenPauseMenu();
@@ -95,7 +98,7 @@ public partial class GameHUD : CanvasLayer
             return;
         }
 
-        if (_pauseMenu.IsOpen || _uiManager.IsModalActive || _toolManager == null)
+        if (_uiManager.IsModalActive || _toolManager == null)
             return;
 
         if (InputBindingManager.Instance.EventMatchesAction(@event, InputBindingManager.EditUndoAction))

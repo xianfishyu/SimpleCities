@@ -44,6 +44,21 @@ func run() -> void:
 	var renderer: Node = test_map.get_node("RoadSystem/RoadRenderer")
 	if not require(renderer.GetRenderedEdgeCount() == 6, "Renderer did not rebuild all six native geometry edges"):
 		return
+	var builder: Node = test_map.get_node("RoadSystem/RoadBuilder")
+	if not verify_curve_fallback_snaps_to_native_interior(builder, renderer, fixture):
+		return
+	if OS.get_cmdline_user_args().has("--snap-only"):
+		if not require(save_manager.DeleteSlot(slot_id), "Curve snap fixture slot cleanup failed"):
+			return
+		slot_id = ""
+		test_map.queue_free()
+		await process_frame
+		await process_frame
+		if not require(save_manager.get("RegisteredSaveableCount") == 0, "Curve snap cleanup retained saveables"):
+			return
+		print("PASS road builder native curve snap runtime contract")
+		quit(0)
+		return
 	var original_points := snapshot_rendered_points(renderer)
 	if not require(original_points.size() == 6, "Rendered point snapshot is incomplete"):
 		return
@@ -198,6 +213,43 @@ func maximum_chord_deviation(points: Array) -> float:
 	for position: Vector2 in points:
 		maximum = max(maximum, sqrt(distance_squared_to_segment(position, start, end)))
 	return maximum
+
+func verify_curve_fallback_snaps_to_native_interior(
+	builder: Node,
+	renderer: Node,
+	fixture: Dictionary) -> bool:
+	var config: Resource = builder.get("Config")
+	var cell_size := float(config.get("CellSize"))
+	var node_positions: Array[Vector2] = []
+	for node: Dictionary in fixture.nodes:
+		node_positions.append(Vector2(float(node.x), float(node.y)))
+
+	for y in range(-325, 326, 10):
+		for x in range(-445, 396, 10):
+			var pointer := Vector2(float(x), float(y))
+			if not builder.BeginPlace(pointer):
+				continue
+			var start: Vector2 = renderer.GetPreviewPoint(0)
+			builder.CancelPlaceSession()
+			var snapped := Vector2(
+				roundf(pointer.x / cell_size) * cell_size,
+				roundf(pointer.y / cell_size) * cell_size)
+			if start.distance_to(snapped) <= 0.01:
+				continue
+			var nearest_node_distance := INF
+			for node_position: Vector2 in node_positions:
+				nearest_node_distance = minf(nearest_node_distance, start.distance_to(node_position))
+			if nearest_node_distance <= 0.01:
+				continue
+
+			print("Native curve fallback snap: pointer=%s, snapped=%s, result=%s" % [
+				pointer,
+				snapped,
+				start,
+			])
+			return true
+
+	return require(false, "RoadBuilder curve fallback never selected a native geometry interior point")
 
 func distance_squared_to_segment(position: Vector2, start: Vector2, end: Vector2) -> float:
 	var delta := end - start

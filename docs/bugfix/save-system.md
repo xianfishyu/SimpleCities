@@ -259,3 +259,94 @@ manifest 缺少 `schemaVersion`，或只提供大小写错误的 `SchemaVersion`
 - `dotnet build SimpleCities.sln --configuration Debug --no-restore`：0 警告、0 错误。
 - `godot --headless --path . --log-file .godot/qa-save-slot-atomic-publish.log --script tests/godot/pause_menu_runtime_contract.gd`：不存在手动槽保存、非法槽删除和损坏 RoadGraph 加载均产生预期错误且不改变 `CurrentSlotID`；临时手动槽删除、autosave 重建后输出 `PASS pause menu runtime contract`。两条 `ConstructionDock` 警告来自既有隔离场景。
 - 当前会话未提供 `csharp-ls` MCP，无法执行逐文件 C# LSP 诊断。
+
+---
+
+<a id="save-system-bug-8"></a>
+## BUG-8：业务系统可使用保留名称覆盖槽位 manifest
+
+> 修复日期：2026-08-10
+> 来源：`docs/bugfix/session-2026-08-05.md#session-bug-03系统文件名-manifest-会覆盖存档-manifest`
+
+### 症状
+
+`ISaveable.SaveFileName` 为 `manifest` 时，业务 payload 与槽位元数据都会写入 `manifest.json`。后写入的 manifest 覆盖业务状态，文件表却仍把该路径当作业务文件，加载时会把槽位元数据交给业务系统。
+
+### 根因分析
+
+`GetDataFileName()` 允许生成保留路径 `manifest.json`，保存流程又在业务 payload 之后写 manifest。系统文件名校验和 manifest 文件表解析均没有保留名称规则。
+
+### 修复方案
+
+`SaveSlotStore.Save()` 在捕获任何业务状态、创建目录或改写旧槽之前，预先解析全部系统文件名并以大小写不敏感方式拒绝 `manifest.json`。`ValidateManifestFileName()` 同样拒绝外部 manifest 中的 `manifest.json` 及大小写变体，防止绕过保存入口构造冲突文件表。
+
+### 影响范围
+
+影响系统注册名称和 manifest 文件表校验。现有 `road_network`、`camera` 等名称、槽位 manifest 结构和正常存读档流程不变。
+
+## BUG-8 验证状态
+
+- `Save_RejectsReservedManifestNameBeforeCapturingState` 覆盖 `manifest` 与 `Manifest`，确认拒绝发生在 `CaptureState()` 和文件系统写入之前。
+- `ParseAndValidateManifest_InvalidMetadataIsRejected` 覆盖外部 `Manifest.json` 变体。
+- `dotnet test SimpleCities.sln --no-restore`：492/492 通过；`dotnet build SimpleCities.sln --no-restore`：0 警告、0 错误。
+
+---
+
+<a id="save-system-bug-9"></a>
+## BUG-9：manifest 声明的业务文件缺失时槽位仍显示有效
+
+> 修复日期：2026-08-10
+> 来源：`docs/bugfix/session-2026-08-05.md#session-bug-04manifest-所列业务文件缺失时槽位仍被列为有效`
+
+### 症状
+
+槽位的 `manifest.json` 可解析、但文件表中的业务 JSON 已缺失时，`ListSlots()` 仍返回 `IsValid = true`。UI 会把不可加载的槽位展示为有效，直到用户实际加载才失败。
+
+### 根因分析
+
+列表入口只解析 manifest 元数据，没有执行加载入口已有的文件存在性检查，因此“可列为有效”和“可加载”使用了不同的完整性门槛。
+
+### 修复方案
+
+`ListSlots()` 在构造有效摘要前逐项检查 manifest 文件表：业务文件必须存在，且不能是文件系统链接。失败继续沿现有无副作用路径生成 `IsValid = false` 的摘要，不调用任何 `RestoreState()`。
+
+### 影响范围
+
+影响手动槽和 autosave 的列表有效性及错误信息。加载阶段的 schema 校验、状态准备/提交协议和损坏槽的保留策略不变。
+
+## BUG-9 验证状态
+
+- `ListSlots_MissingManifestDataFileMarksSlotInvalidWithoutRestoringState` 删除 `road_network.json` 后确认摘要无效、错误文本存在且恢复次数为 0。
+- `pause_menu_runtime_contract.gd` 输出 `PASS pause menu runtime contract`，正常槽位的保存、列举和加载路径通过。
+- 该运行时契约会按设计记录损坏槽加载失败并重写测试 autosave；这些输出不是本条回归失败。
+
+---
+
+<a id="save-system-bug-10"></a>
+## BUG-10：仅大小写不同的系统文件名在 Windows 上相互覆盖
+
+> 修复日期：2026-08-10
+> 来源：`docs/bugfix/session-2026-08-05.md#session-bug-16仅大小写不同的系统文件名会相互覆盖`
+
+### 症状
+
+同时保存 `Economy` 与 `economy` 两个系统时，manifest 可列出两个名称，但 Windows 文件系统只保留一个物理 JSON；加载后两个系统都会得到后写入的状态。
+
+### 根因分析
+
+保存前唯一性、manifest 文件表、活动 `ISaveable` 注册与加载映射都使用大小写敏感比较，和目标文件系统的路径身份规则不一致。
+
+### 修复方案
+
+保存开始前使用 `StringComparer.OrdinalIgnoreCase` 验证完整文件表并拒绝冲突，且在捕获状态前完成。`SaveManager` 的活动注册冲突、manifest 重复文件检查以及 `SaveSlotStore.Load()` 的文件集和系统映射也统一为大小写不敏感比较，避免外部构造 manifest 在加载侧重现歧义。
+
+### 影响范围
+
+影响多业务系统注册、保存和加载时的文件身份判断。合法且唯一的系统名称、文件内容和 manifest schema 不变；冲突保存不会改写既有槽或留下 staging/backup 目录。
+
+## BUG-10 验证状态
+
+- `Save_RejectsCaseInsensitiveFileCollisionAndPreservesExistingSlot` 确认冲突系统均未捕获状态，既有槽逐文件保持不变且无事务目录残留。
+- `ParseAndValidateManifest_CaseInsensitiveDuplicateFilesAreRejected` 确认外部大小写重复文件表被拒绝。
+- `dotnet test SimpleCities.sln --no-restore`：492/492 通过；`dotnet build SimpleCities.sln --no-restore`：0 警告、0 错误。
+- Roslyn CodeLens 解决方案诊断为 0 error、0 warning；Godot 4.7 editor 错误日志为 0。

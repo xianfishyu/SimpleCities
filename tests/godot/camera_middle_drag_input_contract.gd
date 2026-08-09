@@ -67,8 +67,16 @@ func drag_camera(camera: Camera2D, start: Vector2, finish_position: Vector2) -> 
 	var position_before_drag := camera.position
 	Input.parse_input_event(mouse_button_event(true, start))
 	await process_frame
-	Input.parse_input_event(mouse_motion_event(finish_position, MOUSE_BUTTON_MASK_MIDDLE))
+	Input.parse_input_event(mouse_motion_event(
+		finish_position,
+		MOUSE_BUTTON_MASK_MIDDLE,
+		finish_position - start))
 	await process_frame
+	var position_after_motion := camera.position
+	for frame in range(3):
+		await process_frame
+	require(camera.position.distance_to(position_after_motion) <= 0.001,
+		"camera kept accumulating the initial middle-drag displacement without new motion")
 	Input.parse_input_event(mouse_button_event(false, finish_position))
 	await process_frame
 	return camera.position.distance_to(position_before_drag)
@@ -84,11 +92,15 @@ func mouse_button_event(pressed: bool, position: Vector2) -> InputEventMouseButt
 	return event
 
 
-func mouse_motion_event(position: Vector2, button_mask: int) -> InputEventMouseMotion:
+func mouse_motion_event(
+	position: Vector2,
+	button_mask: int,
+	relative: Vector2 = Vector2.ZERO) -> InputEventMouseMotion:
 	var event := InputEventMouseMotion.new()
 	event.position = position
 	event.global_position = position
 	event.button_mask = button_mask
+	event.relative = relative
 	return event
 
 

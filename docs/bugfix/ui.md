@@ -424,3 +424,33 @@ Focused RED 来自 `tests/godot/command_center_runtime_contract.gd` 中同实例
 - BUG-14 `godot --headless --path . --log-file .godot/qa-pause-menu-editor-visibility.log --script tests/godot/pause_menu_runtime_contract.gd`：PASS；新增断言在 `_Ready()` 前确认 `GameHUD/PauseMenu.visible == false`，既有暂停、重绑、存读档、确认和场景切换流程继续通过。输出的 missing ToolManager warning 来自契约刻意覆盖的独立 HUD 场景。
 - BUG-14 `godot --headless --path . --log-file .godot/qa-command-center-editor-visibility.log --script tests/godot/command_center_runtime_contract.gd`：PASS；既有 HUD 响应式布局、焦点、Escape、save/load、道路拖拽和生命周期契约保持通过，degraded-state warnings 为该契约的预期场景。
 - Godot editor bridge 已确认连接到 `SimpleCities` 的正确项目；未执行会丢弃未保存修改的强制重载，而是在当前 `GameHUD` 内存场景中同步、读回 `/root/GameHUD/PauseMenu.visible == false` 并保存。父级 `MapTest` 标签仍持有旧子场景缓存，尝试同步该内存实例时 bridge transport 关闭，因此当前 `MapTest` 画布刷新未声明通过；磁盘场景的 pre-`_Ready()` 有效属性已由独立 Godot 契约验证。两次运行游戏后的结构读取也因 bridge timeout 被阻塞，项目均已停止，DAP 控制台无 error。
+
+---
+
+## BUG-15：暂停菜单捕获按键时 Escape 被 HUD 提前消费
+
+> 修复日期：2026-08-10
+> 来源：`docs/bugfix/session-2026-08-05.md#session-bug-05按键绑定捕获时暂停键被-gamehud-提前消费`
+
+### 症状
+
+暂停菜单已经打开并进入 `pause_menu` 按键捕获后，按当前绑定的 Escape，按钮仍停留在“等待输入...”，捕获流程无法完成。
+
+### 根因分析
+
+父级 `GameHUD._Input()` 在 `PauseMenu._Input()` 之前匹配全局暂停动作。菜单已打开时 `OpenPauseMenu()` 虽立即返回，HUD 仍把 Escape 标为已处理，导致负责捕获的暂停菜单收不到事件。
+
+### 修复方案
+
+`GameHUD._Input()` 在检查全局暂停动作前先判断 `_pauseMenu.IsOpen`。菜单打开时 HUD 完全让出输入，由 `PauseMenu` 处理按键捕获、关闭及菜单内交互；菜单关闭时原有 Escape 打开暂停菜单的入口保持不变。
+
+### 影响范围
+
+影响暂停菜单打开期间的 HUD 输入优先级和按键绑定捕获。菜单关闭后的暂停动作、撤销/重做、道路工具快捷键及 UI modal 规则不变。
+
+### 验证状态
+
+- `PauseMenuContractTests` 增加静态顺序契约，确认 `_pauseMenu.IsOpen` 判断位于全局暂停动作匹配之前。
+- `pause_menu_runtime_contract.gd` 真实进入 Escape 捕获状态后注入按键，按钮恢复为 `Escape`，菜单保持可见且场景继续暂停，输出 `PASS pause menu runtime contract`。
+- `dotnet test SimpleCities.sln --no-restore`：492/492 通过；`dotnet build SimpleCities.sln --no-restore`：0 警告、0 错误。
+- 该运行时契约在沙箱外执行以允许写 `user://input_bindings.cfg`，并把绑定重置为默认值；独立 HUD 场景的 `ToolManager.Instance` 缺失警告属于契约预期环境。

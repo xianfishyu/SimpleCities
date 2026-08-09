@@ -85,7 +85,9 @@ public partial class DebugPanel : PanelContainer
         if (Config == null || MainCamera.Instance == null || !GodotObject.IsInstanceValid(MainCamera.Instance)) return "--";
 
         Vector2 mouseWorld = MainCamera.Instance.GetGlobalMousePosition();
+        if (!mouseWorld.IsFinite()) return "--";
         Vector2 snapped = GridSystem.SnapToGrid(mouseWorld);
+        if (!snapped.IsFinite()) return "--";
         bool hasJunction = _network?.FindClosestNode(snapped, Config.CellSize * 0.1f) != null;
         return $"({snapped.X:F0}, {snapped.Y:F0}){(hasJunction ? " [路口]" : string.Empty)}";
     }

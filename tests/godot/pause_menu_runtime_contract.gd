@@ -98,6 +98,12 @@ func run() -> void:
 	assert_true(
 		road_binding.text == "R" and select_binding.text == "Q" and undo_binding.text == "Z" and redo_binding.text == "Y" and pause_binding.text == "Escape",
 		"Reset did not establish deterministic defaults")
+	pause_binding.emit_signal("pressed")
+	assert_true(pause_binding.text == "等待输入...", "Pause binding did not enter Escape capture state")
+	Input.parse_input_event(key_event(KEY_ESCAPE))
+	await process_frame
+	assert_true(pause_binding.text == "Escape", "HUD consumed Escape before PauseMenu captured it")
+	assert_true(pause_menu.visible and paused, "Capturing Escape changed the pause-menu state")
 	DisplayServer.window_set_size(Vector2i(435, 480))
 	root.size = Vector2i(435, 480)
 	await process_frame

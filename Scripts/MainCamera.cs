@@ -52,7 +52,6 @@ public partial class MainCamera : Camera2D, IPreparedSaveable
 	[Export(PropertyHint.Range, "0.01, 0.5, 0.01, or_greater")]
 	private float decelerationTime = 0.175f;
 
-	private Vector2 mousePos = new();
 	private Vector2 zoomAnchorViewportPosition = new();
 	private bool isMiddleDragging;
 	private bool hasZoomAnchor;
@@ -78,7 +77,6 @@ public partial class MainCamera : Camera2D, IPreparedSaveable
 	{
 		ScaleUpdate(delta);
 		KeyPosUpdate(delta);
-		MousePosUpdate();
 	}
 
 	private void KeyPosUpdate(double delta)
@@ -156,22 +154,11 @@ public partial class MainCamera : Camera2D, IPreparedSaveable
 		hasZoomAnchor = true;
 	}
 
-	private void MousePosUpdate()
-	{
-		if (isMiddleDragging)
-		{
-			Vector2 deltaPos = mousePos - GetGlobalMousePosition();
-
-			Position += deltaPos;
-		}
-	}
-
 	private void SetMiddleDragging(bool pressed)
 	{
 		isMiddleDragging = pressed;
 		if (isMiddleDragging)
 		{
-			mousePos = GetGlobalMousePosition();
 			moveInput = Vector2.Zero;
 			screenVelocity = Vector2.Zero;
 			return;
@@ -186,6 +173,13 @@ public partial class MainCamera : Camera2D, IPreparedSaveable
 
 	public override void _UnhandledInput(InputEvent @event)
 	{
+		if (@event is InputEventMouseMotion mouseMotion && isMiddleDragging)
+		{
+			float currentZoom = Mathf.Max(Zoom.X, MinimumZoomScale);
+			Position -= mouseMotion.Relative / currentZoom;
+			return;
+		}
+
 		if (@event is InputEventMouseButton mouseEvent)
 		{
 			switch (mouseEvent.ButtonIndex)

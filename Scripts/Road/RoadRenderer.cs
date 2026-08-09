@@ -16,6 +16,7 @@ public partial class RoadRenderer : Node2D
     private MultiMeshInstance2D _nodeBatchLayer = null!;
     private int _roadMeshVertexCount;
     private bool _staticBatchRebuildScheduled;
+    private bool _graphEventsSubscribed;
 
     // 施工预览
     private Vector2[] _previewPoints = [];
@@ -60,6 +61,7 @@ public partial class RoadRenderer : Node2D
             GD.PushError("RoadRenderer: Config (RoadConfig resource) is not assigned in the scene.");
             Config = new RoadConfig();
         }
+        Config.NormalizeRuntimeValues(message => GD.PushWarning($"RoadRenderer: {message}"));
         if (!float.IsFinite(Config.CurveDisplayTolerance) || Config.CurveDisplayTolerance <= 0f)
         {
             GD.PushError("RoadRenderer: CurveDisplayTolerance must be positive and finite; using the default.");
@@ -79,18 +81,56 @@ public partial class RoadRenderer : Node2D
         AddChild(_nodeBatchLayer);
     }
 
+    public override void _EnterTree()
+    {
+        SubscribeGraphEvents();
+    }
+
+    public override void _ExitTree()
+    {
+        UnsubscribeGraphEvents();
+        _staticBatchRebuildScheduled = false;
+    }
+
     public void SetGraph(RoadGraph graph)
     {
-        if (_network != null)
-        {
-            _network.EdgeAdded -= OnEdgeAdded;
-            _network.EdgeRemoved -= OnEdgeRemoved;
-            _network.GraphCleared -= OnGraphCleared;
-        }
+        ArgumentNullException.ThrowIfNull(graph);
+        UnsubscribeGraphEvents();
         _network = graph;
+        _staticBatchRebuildScheduled = false;
+        _edgePoints.Clear();
+        foreach (GraphEdge edge in _network.GetAllEdges())
+            CacheEdgePoints(edge);
+        SubscribeGraphEvents();
+
+        if (IsInsideTree() &&
+            GodotObject.IsInstanceValid(_roadBatchLayer) &&
+            GodotObject.IsInstanceValid(_nodeBatchLayer))
+        {
+            RebuildStaticBatches();
+        }
+    }
+
+    private void SubscribeGraphEvents()
+    {
+        if (_network == null || _graphEventsSubscribed || !IsInsideTree())
+            return;
+
         _network.EdgeAdded += OnEdgeAdded;
         _network.EdgeRemoved += OnEdgeRemoved;
         _network.GraphCleared += OnGraphCleared;
+        _graphEventsSubscribed = true;
+    }
+
+    private void UnsubscribeGraphEvents()
+    {
+        if (_network == null || !_graphEventsSubscribed)
+            return;
+
+        _network.EdgeAdded -= OnEdgeAdded;
+        _network.EdgeRemoved -= OnEdgeRemoved;
+        _network.GraphCleared -= OnGraphCleared;
+        _graphEventsSubscribed = false;
     }
 
     // ── 整网重载（存档加载后） ──
@@ -165,7 +205,11 @@ public partial class RoadRenderer : Node2D
         _roadBatchLayer.Mesh = CreateRoadMesh(roadVertices, roadUvs, roadIndices);
 
         GraphNode[] nodes = _network.GetAllNodes()
-            .Where(node => node.EdgeCount >= 2 || (node.EdgeCount == 1 && Config.EndpointRadius > 0f))
+            .Where(node => GetNodeMarkerRadius(
+                _network,
+                node,
+                Config.EndpointRadius,
+                Config.JunctionRadius) > 0f)
             .OrderBy(node => node.ID)
             .ToArray();
         MultiMesh nodeBatch = _nodeBatchLayer.Multimesh;
@@ -173,8 +217,12 @@ public partial class RoadRenderer : Node2D
         for (int index = 0; index < nodes.Length; index++)
         {
             GraphNode node = nodes[index];
-            bool junction = node.EdgeCount >= 2;
-            float diameter = (junction ? Config.JunctionRadius : Config.EndpointRadius) * 2f;
+            bool junction = IsJunctionNode(_network, node);
+            float diameter = GetNodeMarkerRadius(
+                _network,
+                node,
+                Config.EndpointRadius,
+                Config.JunctionRadius) * 2f;
             var transform = new Transform2D(0f, node.Position)
                 .ScaledLocal(new Vector2(diameter, diameter));
             nodeBatch.SetInstanceTransform2D(index, transform);
@@ -348,8 +396,70 @@ public partial class RoadRenderer : Node2D
             return;
 
         DrawPolyline(points, Config.HoverHighlightColor, Config.HoverHighlightWidth);
-        DrawCircle(nodeA.Position, Config.JunctionRadius * 1.3f, Config.HoverHighlightColor);
-        DrawCircle(nodeB.Position, Config.JunctionRadius * 1.3f, Config.HoverHighlightColor);
+        DrawNodeHighlight(nodeA);
+        DrawNodeHighlight(nodeB);
+    }
+
+    private void DrawNodeHighlight(GraphNode node)
+    {
+        if (_network == null)
+            return;
+
+        float radius = GetNodeMarkerRadius(
+            _network,
+            node,
+            Config.EndpointRadius,
+            Config.JunctionRadius);
+        if (radius > 0f)
+            DrawCircle(node.Position, radius * 1.3f, Config.HoverHighlightColor);
+    }
+
+    internal static float GetNodeMarkerRadius(
+        RoadGraph graph,
+        GraphNode node,
+        float endpointRadius,
+        float junctionRadius)
+    {
+        if (node.EdgeCount == 1)
+            return endpointRadius;
+        return IsJunctionNode(graph, node) ? junctionRadius : 0f;
+    }
+
+    internal static bool IsJunctionNode(RoadGraph graph, GraphNode node)
+    {
+        if (node.EdgeCount >= 3)
+            return true;
+        if (node.EdgeCount != 2)
+            return false;
+
+        if (!TryGetOutgoingDirection(graph, node, node.Edges[0], out Vector2 first) ||
+            !TryGetOutgoingDirection(graph, node, node.Edges[1], out Vector2 second))
+        {
+            return true;
+        }
+
+        return first.Dot(second) > -0.999f;
+    }
+
+    private static bool TryGetOutgoingDirection(
+        RoadGraph graph,
+        GraphNode node,
+        EdgeRef edgeRef,
+        out Vector2 direction)
+    {
+        direction = Vector2.Zero;
+        GraphEdge? edge = graph.GetEdge(edgeRef.EdgeID);
+        if (edge == null)
+            return false;
+
+        if (edge.NodeA == node.ID)
+            direction = edge.GeometrySegments[0].GetUnitTangent(0f);
+        else if (edge.NodeB == node.ID)
+            direction = -edge.GeometrySegments[^1].GetUnitTangent(1f);
+        else
+            return false;
+
+        return direction.IsFinite() && !direction.IsZeroApprox();
     }
 
     // ── 虚线工具 ──
