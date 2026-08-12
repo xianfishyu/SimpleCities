@@ -1,6 +1,6 @@
 # SimpleCities 类与 API 参考
 
-> 最后更新：2026-08-04 | Godot 4.7 | Godot.NET.Sdk 4.7.0 | .NET 10.0 | C# 14.0 | Nullable enabled
+> 最后更新：2026-08-13 | Godot 4.7 | Godot.NET.Sdk 4.7.0 | .NET 10.0 | C# 14.0 | Nullable enabled
 
 本文档聚焦项目自有 API；当前事实源包括 `Scripts/` 下 49 个 C# 文件和 `Shaders/MapTerrain.gdshader`。`addons/` 为第三方插件，不纳入本参考。
 
@@ -214,10 +214,10 @@
 | `maxScale` | `[Export] public float maxScale = 4f` | `4f` | 最大目标缩放 |
 | `smoothing` | `[Export] private float smoothing = 0.25f` | `0.25f` | 参考帧率下的缩放平滑权重 |
 | `referenceFps` | `[Export] private float referenceFps = 60f` | `60f` | 缩放平滑的参考帧率 |
-| `panSpeed` | `[Export] private float panSpeed = 750f` | `750f` | 缩放为 1 时的基础屏幕移动速度，单位为像素/秒 |
+| `panSpeed` | `[Export] private float panSpeed = 2048f` | `2048f` | 缩放为 1 时的基础屏幕移动速度，单位为像素/秒 |
 | `zoomInfluence` | `[Export] private float zoomInfluence = 0.75f` | `0.75f` | 世界速度恒定与屏幕速度恒定之间的混合比例 |
-| `accelerationTime` | `[Export] private float accelerationTime = 0.08f` | `0.08f` | 达到约 95% 目标移动速度所需秒数 |
-| `decelerationTime` | `[Export] private float decelerationTime = 0.05f` | `0.05f` | 松键后消除约 95% 移动速度所需秒数 |
+| `accelerationTime` | `[Export] private float accelerationTime = 0.175f` | `0.175f` | 达到约 95% 目标移动速度所需秒数 |
+| `decelerationTime` | `[Export] private float decelerationTime = 0.175f` | `0.175f` | 松键后消除约 95% 移动速度所需秒数 |
 
 | 公开成员 | 签名 | 说明 |
 |---|---|---|
@@ -229,15 +229,15 @@
 | `SaveFileName` | `public string SaveFileName => "camera"` | 相机扩展文件名；当前 V2 配置不选择 |
 | `CaptureState` | `public object CaptureState()` | 返回 `CameraData` |
 | `PrepareRestoreState` | `public object PrepareRestoreState(string json)` | 解析并校验有限坐标与正缩放，不修改相机 |
-| `RestorePreparedState` | `public void RestorePreparedState(object preparedState)` | 提交已准备的 `CameraData`，同步 `Position`、`nextPos` 和缩放 |
+| `RestorePreparedState` | `public void RestorePreparedState(object preparedState)` | 提交已准备的 `CameraData`，同步 `Position` 和缩放目标，并清空移动速度与缩放锚点 |
 | `RestoreState` | `public void RestoreState(string json)` | 兼容入口，依次调用准备与提交 |
 
 | 输入动作 | 来源 | 作用 |
 |---|---|---|
 | `KeyBoard_MoveUp` / `Down` / `Left` / `Right` | `InputBindingManager`，默认 W/A/S/D | `Input.GetVector(...)` 平移相机 |
-| `MouseButton.WheelUp` | `_Input` | `defaultScale += scaleFactor * defaultScale` |
-| `MouseButton.WheelDown` | `_Input` | `defaultScale -= scaleFactor * defaultScale` |
-| `MouseButton.Middle` | `_Input` / `_Process` | 记录鼠标世界坐标并拖拽平移 |
+| `MouseButton.WheelUp` | `_UnhandledInput` | 以鼠标视口位置为锚，将缩放目标乘以 `1 + scaleFactor` 并钳制到范围 |
+| `MouseButton.WheelDown` | `_UnhandledInput` | 以鼠标视口位置为锚，将缩放目标乘以 `1 - scaleFactor` 并钳制到范围 |
+| `MouseButton.Middle` | `_UnhandledInput` | 按鼠标相对位移和当前缩放拖拽相机；拖拽期间清空键盘移动速度 |
 
 ---
 
