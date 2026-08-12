@@ -30,7 +30,7 @@ Codex 与 OpenCode 都会在当前工作区的新会话中发现这些目录，�
 
 - 工作区根目录包含 `SimpleCities.sln` 和 `project.godot`。
 - 项目使用 Godot 4.7 C#，主场景是 `Scenes/MapTest.tscn`。
-- C# 语言服务是 `csharp-ls`，通过 Oh My OpenAgent `lsp-daemon` MCP 访问，不是由 OpenCode 原生 LSP 自动启动。
+- C# 语义诊断使用项目配置的 `roslyn-codelens` MCP，并指向 `SimpleCities.sln`；分析器诊断需要先通过其信任操作信任解决方案。
 - Godot 编辑器、场景和运行时检查通过 `godot` MCP 完成。
 - GDScript 诊断和运行中游戏的 DAP console 通过 `godot-minimal` MCP 完成。
 - C# 构建命令必须从工作区根目录运行：
@@ -55,7 +55,7 @@ dotnet build SimpleCities.sln
 
 ### QA 层级
 
-- **Tier 1**：对改动的 C# 文件运行 `csharp-ls` 聚焦诊断，并执行 `dotnet build SimpleCities.sln`。
+- **Tier 1**：对改动的 C# 文件运行 Roslyn CodeLens 聚焦诊断，并执行 `dotnet build SimpleCities.sln`。
 - **Tier 2**：在适用的 Tier 1 基础上，验证 Godot 编辑器、场景、资源、项目设置和错误日志。
 - **Tier 3**：在适用的低层级基础上，运行真实游戏场景，驱动输入或时间，检查结构化运行态、编辑器日志和 DAP console，并清理测试产物。
 
@@ -65,7 +65,7 @@ dotnet build SimpleCities.sln
 
 必须：
 
-1. 对每个改过的 `.cs` 文件运行聚焦 `csharp-ls` 诊断。
+1. 确认 Roslyn CodeLens 已加载解决方案，对每个改过的 `.cs` 文件运行聚焦诊断；需要分析器覆盖时先信任解决方案。
 2. 跨文件 API 改动还要检查入口或消费者。
 3. 运行 `dotnet build SimpleCities.sln`，退出码必须为 0。
 4. 对比改动前后的诊断与构建输出，不接受新增且无法解释的错误或警告。
@@ -104,7 +104,7 @@ dotnet build SimpleCities.sln
 
 ### 标准 QA 流程
 
-1. **记录基线**：记录当前工作树状态、相关 LSP 诊断和 `dotnet build SimpleCities.sln` 输出。
+1. **记录基线**：记录当前工作树状态、相关 Roslyn CodeLens 诊断和 `dotnet build SimpleCities.sln` 输出。
 2. **运行聚焦诊断**：检查每个改过的 `.cs` 文件，以及跨文件改动的入口或消费者。
 3. **构建真实解决方案**：构建退出码必须为 0，并报告实际错误数和警告数。
 4. **验证编辑器状态**：确认项目、Godot 版本、当前场景、资源和运行状态。
@@ -135,7 +135,7 @@ QA 只有在所选层级的全部门槛通过后才算完成。最终报告必�
 - 清理内容和剩余无关脏文件；
 - 被阻塞或跳过的门槛及其影响。
 
-没有执行的检查不能写成通过。Godot、MCP 或 LSP 不可用时，应报告阻塞门槛和缺少的证据。MCP 与 `csharp-ls` 的真实调用链见 [OpenCode MCP 与 LSP 架构排障指南](opencode-mcp-lsp.md)。
+没有执行的检查不能写成通过。Godot 或 MCP 不可用时，应报告阻塞门槛和缺少的证据。Roslyn CodeLens 不可用或无法加载解决方案时，不得回退到 `csharp-ls`；应执行构建并明确报告聚焦语义诊断阻塞。当前工具职责见 [OpenCode MCP 与 C# 诊断排障指南](opencode-mcp-lsp.md)。
 
 ## `bugfix-recorder`
 
