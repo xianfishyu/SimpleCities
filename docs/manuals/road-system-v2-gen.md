@@ -343,7 +343,7 @@ public enum RoadType
 }
 ```
 
-> 上述枚举是早期设计草案，不是第二代当前实现。附录 D 已将 RoadType 分级数据、样式、选择和升级移至第三代；当前 `GraphEdge`、`RoadGroup`、提交 API 和 v2 存档 schema 均不含类型字段。
+> 上述枚举是早期设计草案，不是第二代当前实现。附录 D 已将 RoadType 分级数据、样式、选择和升级移至第三代；当前 `GraphEdge`、`RoadGroup`、提交 API 和 v2 存档 schema 均不含类型字段。junction-to-junction 规范 Edge、自环、平行 Edge 和 RoadGroup 移除同样属于第二代之后的未来范围。
 
 ---
 
@@ -691,7 +691,7 @@ EdgeRemoved → TrafficGraph 移除边 + 标记经过此边的所有路径为"�
 | B：API 清理 | **已完成** | 运行时已统一为 `RoadGraph` / `GraphNode` / `GraphEdge` / `RoadGroup`，数据层不接收 `CellSize`；公共路径入口为 `SubmitPath`，折线兼容入口为 `SubmitPolyline` / `AddRoad`。 |
 | B 中的 RoadType 提案 | **已取代** | 附录 D 将 `RoadType` 排除出第二代；当前运行时、公共 API 和 v2 存档 schema 均不包含该字段，第三代必须以新契约和新 schema 版本引入。 |
 | B 中的旧存档兼容提案 | **已取代** | 附录 D 明确第二代不兼容旧道路存档；缺失版本、旧版本、未知未来版本和损坏内容必须安全拒绝。 |
-| C：模拟集成 | **延期** | `TrafficGraph`、A*、拥堵和车流增量同步晚于第三代道路分级，不计入第二代。 |
+| C：模拟集成 | **延期** | `TrafficGraph`、A*、拥堵和车流增量同步晚于第三代 canonical RoadGraph 与道路分级，不计入第二代。 |
 
 分三个阶段，每个阶段可独立交付和测试：
 
@@ -779,7 +779,7 @@ RoadGraphSaveData {
     │
     ├── 当前：按附录 D 和 docs/todo/ 完成第二代输入、渲染、编辑、存档与最终集成验收
     │
-    ├── 第三代：以新契约引入 RoadType、分级样式、类型选择和道路升级
+    ├── 第三代：规范化 junction-to-junction Edge 与环路，再引入 RoadType、分级样式和道路改造
     │
     └── 第三代之后：基于稳定 RoadGraph 构建 TrafficGraph、A*、拥堵和车流增量同步
 ```
@@ -933,7 +933,7 @@ RoadGraphSaveData {
 ### D.3 明确排除的能力
 
 - `RoadType` 分级数据、差异化样式、类型选择和道路升级全部属于第三代；第二代的图 API、几何模型和存档 schema 不以 `RoadType` 为契约组成部分。
-- `TrafficGraph`、A*、拥堵、车流增量同步及其他交通模拟晚于第三代道路分级，不计入第二代。
+- `TrafficGraph`、A*、拥堵、车流增量同步及其他交通模拟晚于第三代 canonical RoadGraph 与道路分级，不计入第二代。
 - 玩家自由曲线编辑器不作为第二代硬性玩法要求；第二代只要求底层原生曲线能力、公共路径 API 和可替换输入策略。
 - 桥梁、隧道、立交、高程层和二维交叉不连接规则不属于第二代。
 - 旧存档迁移和旧 JSON 字段兼容不属于第二代。
@@ -960,7 +960,7 @@ RoadGraphSaveData {
 
 只有 D.4 中所有事项及其所属系统待办均有实际验证证据，且 `road-graph:7.1` 的 Godot 主场景完整评估通过，第二代道路系统才可标记完成。RoadType、交通模拟、高程道路和旧存档兼容不得作为第二代完成的阻塞项，也不得被误写为第二代已实现能力。
 
-> 完成判定（2026-08-04）：上述条件全部满足，第二代道路系统验收完成。后续 RoadType、交通模拟、高程道路和旧存档迁移必须作为第三代或更晚范围重新立项，不重新打开第二代完成状态。
+> 完成判定（2026-08-04）：上述条件全部满足，第二代道路系统验收完成。后续规范 Edge/环路、RoadType、交通模拟、高程道路和旧存档迁移必须作为第三代或更晚范围重新立项，不重新打开第二代完成状态。
 
 ### D.6 最终验收证据
 
