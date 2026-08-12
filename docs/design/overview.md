@@ -1,8 +1,8 @@
 # SimpleCities 设计概览
 
-> 状态：设计概览 | 最后更新：2026-07-31
+> 状态：设计概览 | 最后更新：2026-08-13
 >
-> 当前实现：Godot 4.7 C# 原型已实现无限网格背景、8 方向道路编辑、`RoadGraph` 路网拓扑、HUD、相机和 JSON 存档。分区、时间、经济、人口和交通模拟是产品设计目标，当前源码尚未实现。
+> 当前实现：Godot 4.7 C# 原型已完成第二代道路系统，包括连续原生几何路网、可替换铺路输入、道路编辑历史、批处理渲染、命名存档与独立自动存档。分区、时间、经济、人口和交通模拟是产品设计目标，当前源码尚未实现。
 
 ## 1. 游戏定位
 
@@ -10,11 +10,12 @@
 
 ### 当前可玩核心
 
-- 8 方向道路铺设与拆除
-- `RoadGraph` / `GraphNode` / `GraphEdge` / `RoadGroup` 拓扑维护
-- `EdgeAdded` / `EdgeRemoved` / `GraphCleared` 事件驱动道路渲染
+- 默认方格八方向铺路，并具备三角形、六边形可替换输入策略
+- 连续多段铺路、六类原生道路几何、单段/连续/框选拆除和撤销重做
+- `RoadGraph` / `GraphNode` / `GraphEdge` / `RoadGroup` 连续空间拓扑及事务维护
+- `EdgeAdded` / `EdgeRemoved` / `GraphCleared` 事件驱动 `ArrayMesh` 道路与节点 `MultiMesh` 批处理渲染
 - 命令中心 HUD 由 `ConstructionDock`、`ToolContextPanel`、`DebugPanel` 和 `PauseMenu` 组成，分别承载工具按钮/当前工具、catalog 上下文、FPS/格点/Group/Edge/Node 指标，以及暂停中的保存加载状态
-- 暂停菜单固定使用 `autosave` 槽保存和加载 `road_network.json`、`camera.json`
+- 暂停菜单管理玩家命名的手动槽；场景另有独立周期自动槽。V2 槽只持久化 `road_network.json`，不保存相机状态
 
 ### 未来设计目标
 

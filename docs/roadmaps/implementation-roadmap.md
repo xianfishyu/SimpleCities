@@ -1,8 +1,8 @@
 # 实施路线图
 
-> 状态：实施中 | 最后更新：2026-07-31
+> 状态：Phase 0～1 已完成，Phase 2 以后待实施 | 最后更新：2026-08-13
 >
-> 当前实现审计：Phase 0 和 Phase 1 已按 Godot 4.7 / RoadGraph 工作区源码校准。Phase 2 以后仍是未来路线图，不代表已实现系统。
+> 当前实现审计：Phase 0 和第二代道路系统已按 Godot 4.7 / RoadGraph 工作区源码及 2026-08-04 最终验收记录校准。Phase 2 以后仍是未来路线图，不代表已实现系统。
 
 ---
 
@@ -10,7 +10,7 @@
 
 ```
 Phase 0: 基础设施        ✅ 已完成
-Phase 1: 网格与道路       ✅ 基本完成
+Phase 1: 网格与道路       ✅ V2 已完成
 Phase 2: 分区系统（原子单元）
 Phase 3: 时间与基础模拟
 Phase 4: 人口与经济
@@ -38,10 +38,12 @@ Phase 9: 打磨与优化
 
 ### 0.3 输入映射
 - [x] `KeyBoard_MoveUp/Down/Left/Right`
+- [x] `tool_select` / `tool_road` / `tool_remove` / `pause_menu`
+- [x] `edit_undo` / `edit_redo`
 
 ---
 
-## Phase 1：网格与道路 ✅（基本完成）
+## Phase 1：网格与道路 ✅（V2 已完成）
 
 ### 1.1 网格管理器
 
@@ -50,7 +52,7 @@ Phase 9: 打磨与优化
 | 8 方向枚举 | `Scripts/Road/Direction.cs` | ✅ 完成 | 方向枚举 + 位移表 + 单位/任意距离方向检测 |
 | 统一网格系统 | `Scripts/Grid/GridSystem.cs` | ✅ 完成 | 静态类，`SnapToGrid()` + `IsSnapGrid()`，集中管理 CellSize |
 
-> ⚠️ 原始计划中的 `GridCoord.cs` / `GridMap.cs` / `GridManager.cs` 三层架构已简化，由当前 `GridSystem` 静态类替代。`IGridGeometry` / `Square8Grid` 仍是未来抽象，当前源码没有这些文件。
+> 原始计划中的 `GridCoord.cs` / `GridMap.cs` / `GridManager.cs` 三层架构已由 `GridSystem` 静态类替代。铺路输入的可替换边界由 `IRoadInputStrategy` 实现；默认使用 `SquareEightRoadInputStrategy`，三角形和六边形策略用于验证替换能力。未来寻路网格的 `IGridGeometry` 仍未实现，且不属于当前铺路输入 API。
 
 ### 1.2 网格渲染
 
@@ -66,24 +68,26 @@ Phase 9: 打磨与优化
 
 | 任务 | 文件 | 状态 | 说明 |
 |------|------|------|------|
-| 道路图数据结构 | `Scripts/Road/RoadGraph.cs` | ✅ 完成 | `RoadGraph` + `GraphNode` + `GraphEdge` + `RoadGroup`，事件为 `EdgeAdded` / `EdgeRemoved` / `GraphCleared` |
-| 道路铺设 | `Scripts/Road/RoadBuilder.cs` | ✅ 完成 | 鼠标拖拽 8 方向投影，半格点吸附，预览虚线 |
-| 道路拆除 | 同上 | ✅ 完成 | 点击 `GraphEdge` 拆除单边，悬停高亮（金黄半透明折线+端点圈） |
-| 道路渲染 | `Scripts/Road/RoadRenderer.cs` | ✅ 完成 | Line2D 矢量绘制 + `_junctionLayer.Draw` 交叉口圆点 + 拆除悬停高亮 |
-| 路网根节点 | `Scripts/Road/RoadSystem.cs` | ✅ 完成 | Node2D，持有 `RoadGraph` 实例，注入 Config + GridSystem 给子节点 |
-| 共享配置 | `Scripts/Road/RoadConfig.cs` | ✅ 完成 | GlobalClass Resource（.tres），CellSize + 道路/路口/悬停颜色与尺寸 |
-| 逻辑组 | `Scripts/Road/RoadGroup.cs` | ✅ 完成 | 一次画线操作的 Edge 集合，带 `RoadType` |
-| 几何边 | `Scripts/Road/GraphEdge.cs` | ✅ 完成 | 两端 GraphNode + 中间 points + 总长度 + `RoadType` |
+| 道路图数据结构 | `Scripts/Road/RoadGraph*.cs` | ✅ 完成 | `RoadGraph` + `GraphNode` + `GraphEdge` + `RoadGroup`；严格事务、空间查询、批量删除和状态恢复均已验收 |
+| 原生道路几何 | `Scripts/Road/Geometry/`、`RoadPath.cs` | ✅ 完成 | 直线、三次 Bézier、Hermite、圆弧、回旋线和有理二次曲线通过 `SubmitPath` 统一提交 |
+| 道路铺设 | `Scripts/Road/RoadBuilder.cs`、`Scripts/Road/Input/` | ✅ 完成 | 可替换输入策略、连续多段、拐点回退、完整预览、确认和取消 |
+| 道路拆除 | 同上 | ✅ 完成 | 单段、连续轨迹和矩形框选经一次 `RemoveEdges` 事务提交 |
+| 编辑历史 | `Scripts/Road/Input/RoadEditHistory.cs` | ✅ 完成 | 容量 64 的完整图状态撤销/重做；失败编辑不入栈，外部修改使旧历史失效 |
+| 道路渲染 | `Scripts/Road/RoadRenderer.cs` | ✅ 完成 | 所有 Edge 合并为一个抗锯齿 `ArrayMesh`，节点使用一个 `MultiMesh`；事件循环内合并重建 |
+| 路网根节点 | `Scripts/Road/RoadSystem.cs` | ✅ 完成 | Node2D，持有 `RoadGraph` 实例并向构建器、渲染器注入配置和图 |
+| 共享配置 | `Scripts/Road/RoadConfig.cs` | ✅ 完成 | GlobalClass Resource（.tres），提供网格尺寸、道路/节点/悬停样式 |
+| 逻辑组 | `Scripts/Road/RoadGroup.cs` | ✅ 完成 | 维护一次完整路径提交创建的 Edge 集合；V2 不含 `RoadType` |
+| 几何边 | `Scripts/Road/GraphEdge.cs` | ✅ 完成 | 两端 GraphNode + 权威 `GeometrySegments` + 显示点缓存 + 总长度；V2 不含 `RoadType` |
 | 拓扑节点 | `Scripts/Road/GraphNode.cs` | ✅ 完成 | `EdgeRef` 邻接表，`EdgeCount` 用于端点和节点渲染 |
 
-> 💡 历史说明：早期 Phase 1 曾使用 `RoadNetwork` / `Road` / `Segment` / `Junction` 术语。当前实现已经迁移为 `RoadGraph` / `RoadGroup` / `GraphEdge` / `GraphNode`，并用 `SpatialIndex` 替代旧位置字典。关键算法包括：交叉解析（`ResolveIntersections`）、锚点拆边（`SplitEdgesAtPathAnchors`）、waypoint 精确拆边（`SplitEdgeAtPosition`）、共线合并（`TryMergeAtNode`）。
+> 历史说明：早期 Phase 1 曾使用 `RoadNetwork` / `Road` / `Segment` / `Junction`、折线 waypoint 和隐式合并语义。当前实现已迁移为连续空间的原生几何路径，通过 `SubmitPath` 统一完成校验、交叉拆分、覆盖处理和变更摘要。旧类型仅保留在历史文档中，不是当前运行时契约。
 
 ### 1.4 工具系统
 
 | 任务 | 文件 | 状态 | 说明 |
 |------|------|------|------|
 | 工具枚举 | `Scripts/Tools/ToolType.cs` | ✅ 完成 | Select / Road / RoadRemove |
-| 工具与按键管理 | `Scripts/Tools/ToolManager.cs`、`Scripts/Core/InputBindingManager.cs` | ✅ 完成 | ToolManager 只转发当前工具输入；GameHUD 通过可持久化动作处理默认 Q/R/E 工具切换和 Esc 暂停 |
+| 工具与按键管理 | `Scripts/Tools/ToolManager.cs`、`Scripts/Core/InputBindingManager.cs` | ✅ 完成 | ToolManager 只转发当前工具输入；GameHUD 处理默认 Q/R/E、Z/Y 和 Esc，绑定可持久化 |
 
 > ⚠️ 原始计划中的 `ITool` 接口未实现——工具种类少（当前仅 3 种），直接 switch 分发比接口模式更简洁。Phase 2 加入分区工具后若复杂度上升可重新评估。
 
@@ -98,24 +102,12 @@ Phase 9: 打磨与优化
 
 > 💡 原始计划使用 ImGui 调试面板，实际改用 Godot 原生 CanvasLayer + Control 树（`Scenes/UI/GameHUD.tscn`），编辑器可视化布局，更易维护。
 
-### 1.6 半格点系统（计划外新增）
+### 1.6 连续空间与输入策略
 
-道路铺设过程中引入"半格点"概念——Junction 可落在非整数网格位置（如两条斜线交叉的几何交点），解决 X 形十字路口的锚定问题。
-
-| 核心能力 | 实现位置 | 说明 |
-|------|------|------|
-| 半格点检测 | `GridSystem.IsSnapGrid()` | 位置不在 cellSize 整数倍上即为半格点 |
-| 任意距离方向判定 | `DirectionUtil.FromDisplacementAnyLength()` | 归一化向量与 8 单位方向余弦匹配，支持非单位位移（如半格段） |
-| 半格起点约束 | `RoadBuilder.UpdateProjection()` | 半格起点仅允许对角方向延伸（`IsDiagonal` 过滤） |
-| 半格点延伸锚定 | `RoadBuilder.EndDragAndCommit()` | `anchor = start - disp*cellSize/2`，终点落在整格 |
-| 半格点拆路回退 | `RoadBuilder` + `RoadGraph.FindClosestEdge()` | 优先 snap 位置，再按原始鼠标位置做最近边查询 |
-| 半格节点检测 | `RoadGraph.FindClosestNode()` | 通过空间索引按半径查询节点，不依赖 `_posToJunctionID` |
-| 半格节点存储 | `RoadGraph.GetOrCreateNode()` | 节点统一进入 `_nodes` 和 `SpatialIndex`，不存在半格专用字典分支 |
-
-> ⚠️ 约束：半格起点拖出的路锚定到反方向整格（`anchor = start - disp*cellSize/2`），终点和 waypoints 落在整格。仅对角方向（NE/SE/SW/NW）可拖拽，正交方向被 `UpdateProjection` 过滤。
+路网数据层不保存格点身份，也不限制八方向。`IRoadInputStrategy` 负责把指针映射为策略定义的吸附点和 `RoadPathDraft`；`RoadPlacementSession` 保存连续多段草稿，并在确认时只调用一次 `RoadGraph.SubmitPath`。方格策略保留八方向和半格交叉体验，三角形与六边形策略证明输入网格可以在不修改 RoadGraph 的前提下替换。
 
 ### Phase 1 里程碑
-> 🎯 **里程碑达成**：支持 8 方向铺路、半格点锚定、X 形交叉自动劈分、端点与节点渲染、工具切换（铺路/拆除/选择）、HUD 实时统计、存档/读档。`RoadType` 数据和存档已存在，但按类型的视觉样式和类型选择 UI 仍是未来计划。
+> **里程碑达成（2026-08-04）**：第二代道路系统已完成原生几何提交、连续铺路、批量拆除、撤销重做、批处理渲染、命名手动槽、独立自动存档、损坏加载保护，以及 10k 基础规模和 100k 压测。V2 运行时和存档不包含 `RoadType`；道路分级、升级和差异化渲染属于第三代或更晚范围。
 
 ---
 
@@ -335,7 +327,7 @@ Phase 9: 打磨与优化
 
 ---
 
-## 文件结构规划（2026-07-19 当前实现 + 未来计划）
+## 文件结构规划（2026-08-13 当前实现 + 未来计划）
 
 ```
 Scripts/
@@ -347,6 +339,8 @@ Scripts/
 │   ├── TimeManager.cs                 # 未来计划：游戏时钟 + 日历
 │   ├── ISaveable.cs                   # ✅ 存档接口（Phase 1 新增）
 │   ├── SaveManager.cs                 # ✅ 存档管理器（Phase 1 新增）
+│   ├── SaveSlotStore.cs               # ✅ 命名槽与事务发布
+│   ├── AutosaveController.cs          # ✅ 场景内周期自动存档
 │   ├── SaveData.cs                    # ✅ 存档数据结构（Phase 1 新增）
 │   └── SaveJson.cs                    # ✅ JSON 序列化工具（Phase 1 新增）
 │
@@ -359,15 +353,16 @@ Scripts/
 │   └── ⚠️ GridRenderer.cs            # 已弃用 — Shader 网格由 MapBackground 渲染
 │
 ├── Road/
-│   ├── Direction.cs                   # ✅ 8 方向枚举 + 位移表 + FromDisplacementAnyLength
-│   ├── RoadGraph.cs                   # ✅ 路网数据层（GraphNode + GraphEdge + RoadGroup）
+│   ├── Geometry/                      # ✅ 六类原生几何、求交、细分与序列化
+│   ├── Input/                         # ✅ 输入策略、铺设/拆除会话和编辑历史
+│   ├── RoadGraph*.cs                  # ✅ 路网、路径提交、原生求交、恢复与诊断
 │   ├── GraphNode.cs                   # ✅ 拓扑节点
-│   ├── GraphEdge.cs                   # ✅ 几何边
+│   ├── GraphEdge.cs                   # ✅ 原生几何边
 │   ├── RoadGroup.cs                   # ✅ 一次铺路操作形成的边集合
 │   ├── SpatialIndex.cs                # ✅ UniformGrid 空间哈希
-│   ├── RoadType.cs                    # ✅ 道路等级枚举，数据和存档已接入
-│   ├── RoadBuilder.cs                 # ✅ 道路铺设/拆除 + 半格点吸附
-│   ├── RoadRenderer.cs                # ✅ Line2D 道路 + 交叉口渲染
+│   ├── RoadPath.cs                    # ✅ 连续原生几何路径
+│   ├── RoadBuilder.cs                 # ✅ 连续铺路、批量拆除和撤销重做
+│   ├── RoadRenderer.cs                # ✅ ArrayMesh 道路 + MultiMesh 节点
 │   ├── RoadSystem.cs                  # ✅ 路网根节点（Node2D，注入 Config + Graph）
 │   ├── RoadConfig.cs                  # ✅ 共享配置资源（GlobalClass .tres）
 │   └── Pathfinding.cs                 # 未来计划：A* 寻路（Phase 6 交通系统）
@@ -415,7 +410,7 @@ Scripts/
 
 ## 下一步行动
 
-Phase 1 核心已就绪。若继续产品路线图，下一阶段是 **Phase 2：分区系统**，但这些文件当前尚未实现：
+第二代道路系统已完成并冻结验收边界。若继续产品路线图，下一阶段是 **Phase 2：分区系统**，但这些文件当前尚未实现：
 
 1. `ZoneType.cs` + `ZoneData.cs` — 分区类型枚举与数据结构定义
 2. `ZoneManager.cs` — 分区 CRUD + 空间查询
@@ -425,7 +420,8 @@ Phase 1 核心已就绪。若继续产品路线图，下一阶段是 **Phase 2�
 6. `FloodFill.cs` — 道路闭合区域泛洪填充
 7. ToolManager 扩展：加入 Zone / ZoneFill 工具
 
-Phase 1 遗留事项（低优先级）：
+后续独立事项：
 - 单元格悬停高亮（当前 HUD 已显示格点坐标，优先级低）
 - ITool 接口（待工具种类 ≥ 5 时引入，当前 3 种 switch 够用）
-- A* 寻路（归入 Phase 6 深度交通统一实现）
+- RoadType、道路升级与差异化渲染（第三代或更晚重新立项）
+- TrafficGraph 与 A* 寻路（归入 Phase 6 深度交通统一实现）
