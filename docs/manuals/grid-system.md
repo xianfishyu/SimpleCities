@@ -1,6 +1,6 @@
 # 网格系统设计
 
-> 状态：当前输入策略说明 + 未来寻路网格设计 | 最后更新：2026-08-04
+> 状态：当前输入策略说明 + 未来寻路网格设计 | 最后更新：2026-08-13
 >
 > **注意**：当前铺路实现使用 `IRoadInputStrategy` 和 `RoadPathDraft`。玩家默认是 `SquareEightRoadInputStrategy`；三角形与六边形策略用于验证替换能力。
 > `IGridGeometry`、邻居成本和寻路启发式仍是未来设计，不是当前输入 API。

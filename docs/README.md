@@ -22,8 +22,13 @@
 ## 已验证修复
 
 - [Bugfix 索引](bugfix/README.md)
-- [存档系统修复记录](bugfix/save-system.md)
-- [UI 修复记录](bugfix/ui.md)
+
+各系统的 road-graph、save-system、grid-rendering、ui、camera、road-rendering 和 tool-input 修复记录统一从 Bugfix 索引进入，避免根索引重复维护不完整的子列表。
+
+## 性能基线
+
+- [RoadGraph V2 性能基线](performance/road-graph-v2-baseline.md)
+- [道路渲染 V2 性能基线](performance/road-rendering-v2-baseline.md)
 
 ## 设计
 

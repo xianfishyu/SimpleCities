@@ -1,6 +1,6 @@
 # 系统待办索引
 
-> 复核日期：2026-08-02
+> 复核日期：2026-08-13
 > 来源：`.omo/backups/system-doc-split/docs/todo/todolist.md` 和 `.omo/evidence/split-system-docs/task-3/ownership-map.json`。
 > 范围：仅包含导航、遗留 source key 映射、组合说明、集成负责人和总体依赖说明。本 README 不包含独立要求。
 

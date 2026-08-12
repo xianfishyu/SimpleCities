@@ -2,7 +2,7 @@
 
 > 最后更新：2026-08-13 | Godot 4.7 | Godot.NET.Sdk 4.7.0 | .NET 10.0 | C# 14.0 | Nullable enabled
 
-本文档聚焦项目自有 API；当前事实源包括 `Scripts/` 下 49 个 C# 文件和 `Shaders/MapTerrain.gdshader`。`addons/` 为第三方插件，不纳入本参考。
+本文档聚焦项目自有 API；当前事实源包括 `Scripts/` 下 60 个 C# 文件和 `Shaders/MapTerrain.gdshader`。`addons/` 为第三方插件，不纳入本参考。
 
 ---
 
