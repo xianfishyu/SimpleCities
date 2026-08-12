@@ -1,8 +1,8 @@
 # 交通模拟系统待办清单
 
 > 系统 key：`traffic-simulation`
-> 复核日期：2026-08-02
-> 证据：`.omo/backups/system-doc-split/docs/todo/todolist.md`（已移除旧版待办的归档）、`.omo/evidence/split-system-docs/task-3/ownership-map.json` 与当前工作区源码。
+> 复核日期：2026-08-13
+> 证据：`docs/todo/road-graph.md` 的第二代完成记录、`docs/manuals/road-system-v2-gen.md` 附录 D 与当前工作区源码。
 > 主导原则：在图契约稳定后，负责 `TrafficGraph`、寻路、拥堵、增量同步和升级模拟。
 
 ## 状态总览
@@ -10,7 +10,7 @@
 | 遗留 ID | 发现 | 当前状态 | 处置方式 |
 |---|---|---|---|
 <a id="traffic-simulationphase-6"></a>
-| Phase 6 | `TrafficGraph`、A*、拥堵和增量同步 | 不属于第二代，且晚于第三代道路分级 | P6.1～P6.5 在第二代 RoadGraph 和第三代 RoadType 完成后另行启用 |
+| Phase 6 | `TrafficGraph`、A*、拥堵和增量同步 | 不属于第二代；RoadGraph 前置契约已完成，模拟语义和 RoadType 产品契约仍未定义 | P6.1/P6.2 可在模拟需求立项后启用；P6.3～P6.5 还依赖第三代 RoadType |
 
 ### 设计覆盖矩阵
 
@@ -30,8 +30,8 @@
 
 <a id="traffic-simulationp6.1"></a>
 - [ ] **P6.1 构建 `TrafficGraph` 只读带权有向视图**
-  - 延期原因：当前 RoadGraph 的空间查询、删除事务和事件契约尚未稳定，模拟层不应建立在会继续变化的拓扑契约上。
-  - 启用条件：阶段 0～4 完成，并明确平行 Edge 与 `GetNeighborIDs` 的模拟语义。
+  - 延期原因：第二代 RoadGraph 的空间查询、删除事务和事务后事件契约已经稳定，但交通模拟尚未立项，平行 Edge、方向和基础权重的模拟语义仍未定义。
+  - 启用条件：确认交通模拟产品范围，并明确平行 Edge、单/双向映射、基础权重与 `GetNeighborIDs` 的模拟语义。
   - 修改：从 `RoadGraph` 构建模拟专用的有向邻接和 Edge 映射；不得通过该视图写回 RoadGraph。
   - 测试：双向边映射、单向扩展策略、平行 Edge、图变更前后只读一致性。
   - 验收：模拟层可遍历带权有向图，且无法绕过 RoadGraph API 修改拓扑。
@@ -52,7 +52,7 @@
 
 <a id="traffic-simulationp6.3"></a>
 - [ ] **P6.3 建立 RoadType 通行权重、容量与拥堵重算**
-  - 延期原因：依赖道路分级体验和 P6.1/P6.2；当前 `RoadType` 只有枚举和存档数据。
+  - 延期原因：依赖道路分级体验和 P6.1/P6.2；第二代运行时、公共 API 和存档均不包含 `RoadType`，第三代产品契约尚未定义。
   - 启用条件：道路类型产品需求获确认，D5.1、P6.1 和 P6.2 完成。
   - 修改：为每种类型定义速度、容量和基础权重；实现 `GetEdgeWeight`、`UpdateCongestion`、`RecalculateWeights`，并记录使用的拥堵公式。
   - 测试：四种类型基础权重、零/正常/过饱和流量、权重单调性和路径随拥堵切换。
@@ -63,8 +63,8 @@
 
 <a id="traffic-simulationp6.4"></a>
 - [ ] **P6.4 按已提交的 RoadGraph 变更增量同步模拟图**
-  - 延期原因：当前事件只描述逐 Edge 增删，复合拓扑操作的事务后事件顺序尚由 4.4 定义。
-  - 启用条件：4.4 和 P6.1 完成。
+  - 延期原因：`road-graph:4.4` 已保证复合操作完成清理后按稳定顺序发布事件，`SubmitPath` 也返回完整变更摘要；当前缺少需要消费该契约的 `TrafficGraph` 和缓存模型。
+  - 启用条件：P6.1 完成，并决定模拟层消费稳定逐 Edge 事件、批量变更摘要或两者组合。
   - 修改：消费事务后事件或批量变更摘要，增量添加/移除模拟边，失效经过已删除 Edge 的缓存路径，并只重算受影响区域。
   - 测试：铺路、拆路、交叉拆边、整组删除、存档全图重建及连续复合操作。
   - 验收：增量结果与从同一 RoadGraph 全量重建结果一致；消费者不会永久缓存中间拓扑。
@@ -85,7 +85,10 @@
 
 ## 已解决基线
 
-旧版列表中没有任何已解决基线属于该系统。
+- [x] **第二代 RoadGraph 提供稳定模拟集成边界**
+  - `road-graph:3.1`～`3.3` 已验证原生几何空间查询和 10k/100k 性能边界；`road-graph:4.1`～`4.4` 已统一图不变式、删除事务和提交后事件顺序。
+  - `SubmitPath` 返回确定排序的 `RoadGraphChangeSummary`，单删、批量删除和全图恢复均有明确同步入口。
+  - 该基线只解除 RoadGraph 技术前置条件，不代表 `TrafficGraph`、寻路、拥堵或 RoadType 已实现。
 
 ## 完成标准
 

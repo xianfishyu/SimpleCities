@@ -40,9 +40,9 @@
 | `todo:summary:P4` | `summary_table_row` | \| P4 \| 删除操作不触发拓扑修复链 \| 未完成 \| 由 0.6、4.1、4.3、4.4 移除删除后的自动合并 \| | [road-graph:P4](./road-graph.md#road-graphp4) |  |
 | `todo:summary:P5` | `summary_table_row` | \| P5 \| 最小化并可验证图不变式 \| 部分完成；缺少自动化入口 \| 由阶段 0 与阶段 4 建立校验、事务和封装边界 \| | [road-graph:P5](./road-graph.md#road-graphp5) |  |
 | `todo:summary:API` | `summary_table_row` | \| API \| 文档定义的公共 `AddEdge` 契约 \| 未实现 \| 2.4 先验证契约，再实现或明确以文档修订取代 \| | [road-graph:API](./road-graph.md#road-graphapi) |  |
-| `todo:summary:RoadType` | `summary_table_row` | \| RoadType \| 数据和存档已完成；视觉、选择与升级当前不需要 \| 基础模型保留；产品功能延期 \| 0.3 只补兼容回归；D5.1～D5.3 与 P6.5 等产品需求确认后启用 \| | [save-system:RoadType](./save-system.md#save-systemroadtype) |  |
+| `todo:summary:RoadType` | `summary_table_row` | \| RoadType \| 第二代运行时与存档已移除；视觉、选择与升级当前不需要 \| 第三代产品功能延期 \| D5.1～D5.3 与 P6.3/P6.5 等在产品需求确认后启用 \| | [save-system:RoadType](./save-system.md#save-systemroadtype) |  |
 | `todo:summary:SaveSystem` | `summary_table_row` | \| SaveSystem \| 当前保存路径、槽名输入和整槽加载事务边界不满足生产存档安全 \| 未完成 \| 0.9～0.11 在 0.1、0.5、0.8 基础上补测试、路径迁移、槽名校验和整槽预检 \| | [save-system:SaveSystem](./save-system.md#save-systemsavesystem) |  |
-| `todo:summary:Phase 6` | `summary_table_row` | \| Phase 6 \| `TrafficGraph`、A*、拥堵和增量同步 \| 未实现，按路线图延期 \| P6.1～P6.5 在当前 RoadGraph 契约稳定后启用 \| | [traffic-simulation:Phase 6](./traffic-simulation.md#traffic-simulationphase-6) |  |
+| `todo:summary:Phase 6` | `summary_table_row` | \| Phase 6 \| `TrafficGraph`、A*、拥堵和增量同步 \| 未实现，按路线图延期 \| RoadGraph 前置契约已完成；按模拟需求和 RoadType 依赖分别启用 P6.1～P6.5 \| | [traffic-simulation:Phase 6](./traffic-simulation.md#traffic-simulationphase-6) |  |
 | `todo:design-matrix:8e20b5c5228b` | `design_matrix_row` | \| §2 P1、§3 纯图架构、§4 数据结构 \| `RoadGraph`、`GraphNode`、`GraphEdge`、`RoadGroup` 已落地；仍需封装可变状态并验证跨容器一致性 \| 0.1、0.5、4.1、4.2；... | [road-graph:8e20b5c5228b](./road-graph.md#road-graph8e20b5c5228b) |  |
 | `todo:design-matrix:3c3216c8f123` | `design_matrix_row` | \| §2 P2 连续空间 \| `CellSize` 已退出数据层 API，但 `RoadGraph` 仍依赖 `DirectionUtil`，节点身份容差未形成公开契约 \| 0.7、2.1～2.3 \| | [tool-input:3c3216c8f123](./tool-input.md#tool-input3c3216c8f123) |  |
 | `todo:design-matrix:adbff35eb926` | `design_matrix_row` | \| §2 P3、§5 SpatialIndex \| `UniformGrid` 可从图重建，但边只按端点/waypoint 索引，查询仍有全表扫描 \| 1.2、3.1～3.3 \| | [road-graph:adbff35eb926](./road-graph.md#road-graphadbff35eb926) |  |
@@ -113,6 +113,6 @@
 ## 总体依赖说明
 
 - `save-system:0.9` 依赖 `road-graph:0.1` 提供自动化测试入口。
-- `traffic-simulation:P6.1` 等待 `road-graph:4.4` 确定事务后的事件或批量变更边界。
+- `road-graph:4.4` 已提供事务后稳定事件，`traffic-simulation:P6.1` 仍等待交通模拟产品范围和有向权重语义。
 - `traffic-simulation:P6.3` 和 `traffic-simulation:P6.5` 依赖 `grid-rendering:D5.1`、`grid-rendering:D5.2` 与 `tool-input:D5.3` 提供 RoadType 产品行为。
 - `grid-rendering:5.3` 与 `save-system:5.3` 关联；最终兼容性验收由 `save-system` 负责。
