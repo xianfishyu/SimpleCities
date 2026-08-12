@@ -1,8 +1,8 @@
 # 工具输入系统待办清单
 
 > 系统 key：`tool-input`
-> 复核日期：2026-08-04
-> 证据：`Scripts/Road/RoadBuilder.cs`、`Scripts/Road/Input/`、`tests/SimpleCities.RoadGraph.Tests/RoadInputStrategyTests.cs`、`tests/godot/road_input_strategy_runtime_contract.gd` 及 `docs/manuals/road-system-v2-gen.md` 附录 D。
+> 复核日期：2026-08-13
+> 证据：`Scripts/Road/RoadBuilder.cs`、`Scripts/Road/Input/`、`tests/SimpleCities.RoadGraph.Tests/RoadInputStrategyTests.cs`、`tests/godot/road_input_strategy_runtime_contract.gd`、`docs/manuals/road-system-v2-gen.md` 附录 D 及 `docs/todo/v3/tool-input.md`。
 > 主导原则：负责玩家输入动作、可替换铺路策略、连续铺路、拆路选择和操作历史；网格规则不得进入 RoadGraph 数据层。
 
 ## 状态总览
@@ -19,7 +19,7 @@
 | 1.4 | 一次拖拽只能生成单方向直路 | 已完成 | 连续会话支持拐点、完整预览、回退、确认和取消 |
 | 1.5 | 拆路只支持单点命中 | 已完成 | 稳定选择集支持连续拖动与矩形框选 |
 | 1.6 | 铺路与拆路没有撤销/重做 | 已完成 | 容量受限的图状态历史已接入编辑提交边界 |
-| D5.3 | RoadType 类型选择 | 第三代 | 第二代不包含道路分级数据或交互 |
+| D5.3 | RoadType 类型选择 | 已取代 | V2 不含道路分级交互；V3 活动项迁至 `v3-tool-input:2.1`～`2.2` 与 `v3-ui:1.1`～`1.2` |
 
 ### 设计覆盖矩阵
 
@@ -95,16 +95,16 @@
 
 ## 暂不执行
 
-### 第三代 RoadType 产品功能
+### 已取代的第三代 RoadType 延期项
 
 <a id="tool-inputd5.3"></a>
 
-- [ ] **D5.3 让 RoadBuilder 提交玩家选择的 RoadType**
-  - 延期原因：道路分级数据、样式、选择和升级已明确属于第三代。
-  - 保持现状：第二代输入策略和公共路径 API 不以 RoadType 为参数或分支条件。
-  - 重新开启条件：第三代道路分级 schema、样式和选择交互确定。
-  - 关联引用：`grid-rendering:D5.1`、`grid-rendering:D5.2`。
-  - 来源 key：`todo:deferred:D5.3`。
+**D5.3 让 RoadBuilder 提交玩家选择的 RoadType（已取代）**
+
+- 处置：类型化建造和既有道路改造已分别迁至 `v3-tool-input:2.1`～`2.2`，控件迁至 `v3-ui:1.1`～`1.2`；本 ID 只保留 V2 历史引用。
+- V2 边界：第二代输入策略和公共路径 API 不以 RoadType 为参数或分支条件。
+- 关联引用：`v3-grid-rendering:2.1`～`2.2`。
+- 来源 key：`todo:deferred:D5.3`。
 
 ### 已取代的连续输入延期决定
 
@@ -132,4 +132,4 @@
 1. 1.2～1.6 全部通过自动化和 Godot 主场景验证。
 2. 当前米字型玩法保持可用，三角形和六边形策略通过同一契约测试，切换策略不修改 RoadGraph。
 3. 连续铺路、连续拆除、框选删除、撤销和重做均不破坏图、渲染或存档状态。
-4. RoadType 不计入第二代；D5.3 只在第三代重新开启。
+4. RoadType 不计入第二代；D5.3 仅为指向 V3 路线图的已取代历史 ID。

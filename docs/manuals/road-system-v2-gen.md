@@ -343,7 +343,7 @@ public enum RoadType
 }
 ```
 
-> 上述枚举是早期设计草案，不是第二代当前实现。附录 D 已将 RoadType 分级数据、样式、选择和升级移至第三代；当前 `GraphEdge`、`RoadGroup`、提交 API 和 v2 存档 schema 均不含类型字段。junction-to-junction 规范 Edge、自环、平行 Edge 和 RoadGroup 移除同样属于第二代之后的未来范围。
+> 上述枚举是早期设计草案，不是第二代当前实现。附录 D 已将 RoadType 分级数据、样式、选择和升级移至第三代；当前 `GraphEdge`、`RoadGroup`、提交 API 和 v2 存档 schema 均不含类型字段。第三代还会先把 waypoint/原生段碎片规范化为 junction-to-junction Edge，并支持自环、平行 Edge 和 RoadGroup 移除；现行范围、所有权和验收契约见 [第三代道路系统迭代指南](road-system-v3-gen.md)。
 
 ---
 
@@ -960,7 +960,7 @@ RoadGraphSaveData {
 
 只有 D.4 中所有事项及其所属系统待办均有实际验证证据，且 `road-graph:7.1` 的 Godot 主场景完整评估通过，第二代道路系统才可标记完成。RoadType、交通模拟、高程道路和旧存档兼容不得作为第二代完成的阻塞项，也不得被误写为第二代已实现能力。
 
-> 完成判定（2026-08-04）：上述条件全部满足，第二代道路系统验收完成。后续规范 Edge/环路、RoadType、交通模拟、高程道路和旧存档迁移必须作为第三代或更晚范围重新立项，不重新打开第二代完成状态。
+> 完成判定（2026-08-04）：上述条件全部满足，第二代道路系统验收完成。后续规范 Edge/环路、RoadType、交通模拟、高程道路和旧存档迁移必须作为第三代或更晚范围重新立项，不重新打开第二代完成状态。canonical Edge、自环/平行 Edge、RoadGroup 移除、RoadType、分级表现、改造和合法 V2 存档迁移现已在 [第三代道路系统迭代指南](road-system-v3-gen.md) 重新立项；交通模拟和高程道路仍不属于第三代。
 
 ### D.6 最终验收证据
 

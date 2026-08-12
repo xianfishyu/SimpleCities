@@ -17,6 +17,7 @@
 - [存档系统待办](todo/save-system.md)
 - [网格渲染待办](todo/grid-rendering.md)
 - [工具输入待办](todo/tool-input.md)
+- [第三代道路系统待办索引](todo/v3/README.md)
 - [交通模拟待办](todo/traffic-simulation.md)
 
 ## 已验证修复
@@ -51,6 +52,7 @@
 - [网格系统](manuals/grid-system.md)
 - [基础设施开发指南](manuals/infrastructure-guide.md)
 - [RoadGraph 重构与演进说明](manuals/road-system-v2-gen.md)
+- [第三代道路系统迭代指南](manuals/road-system-v3-gen.md)：junction-to-junction canonical Edge、自环/平行边、RoadGroup 移除、RoadType、分级渲染和 V2 存档迁移的实施与验收契约。
 
 ## OpenCode 工具链
 

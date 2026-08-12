@@ -1,8 +1,8 @@
 # 网格渲染系统待办清单
 
 > 系统 key：`grid-rendering`
-> 复核日期：2026-08-04
-> 证据：`Scripts/Road/RoadGeometryDisplaySampler.cs`、`RoadRenderer.cs`、`RoadBuilder.cs`、`RoadConfig.cs`、`tests/SimpleCities.RoadGraph.Tests/RoadGeometryDisplaySamplerTests.cs`、`tests/godot/road_curve_rendering_runtime_contract.gd`、`tests/godot/road_rendering_performance_contract.gd`、`docs/performance/road-rendering-v2-baseline.md` 及 `docs/manuals/road-system-v2-gen.md` 附录 D。
+> 复核日期：2026-08-13
+> 证据：`Scripts/Road/RoadGeometryDisplaySampler.cs`、`RoadRenderer.cs`、`RoadBuilder.cs`、`RoadConfig.cs`、`tests/SimpleCities.RoadGraph.Tests/RoadGeometryDisplaySamplerTests.cs`、`tests/godot/road_curve_rendering_runtime_contract.gd`、`tests/godot/road_rendering_performance_contract.gd`、`docs/performance/road-rendering-v2-baseline.md`、`docs/manuals/road-system-v2-gen.md` 附录 D 及 `docs/todo/v3/grid-rendering.md`。
 > 主导原则：负责道路权威几何的可视化、建造预览和大规模渲染；道路分级样式属于第三代。
 
 ## 状态总览
@@ -12,7 +12,7 @@
 | 1.1 | RoadRenderer 只消费折线点，不能按原生曲线参数渲染 | 已完成 | 六类 V2 几何共用确定的只读显示细分 |
 | 1.2 | 10k Edge 的渲染与预览没有 60 FPS 验收 | 已完成 | 连续道路网格与节点 MultiMesh 通过 10k 门槛并完成 100k 压测 |
 | 5.3 | Junction 视觉资源字段仍使用旧命名 | 非 V2 阻塞项 | 后续资源清理时单独决定资源兼容策略 |
-| D5.1～D5.2 | RoadType 分级样式 | 第三代 | 第二代统一道路视觉 |
+| D5.1～D5.2 | RoadType 分级样式 | 已取代 | V2 保持统一视觉；V3 活动项迁至 `v3-grid-rendering:2.1`～`2.3` |
 
 ### 设计覆盖矩阵
 
@@ -52,22 +52,22 @@
 
 ## 暂不执行
 
-### 第三代 RoadType 产品功能
+### 已取代的第三代 RoadType 延期项
 
 <a id="grid-renderingb75f1d496647"></a>
 <a id="grid-renderingd5.1"></a>
 
-- [ ] **D5.1 定义 RoadType 分级样式**
-  - 延期原因：道路分级数据和体验全部属于第三代。
-  - 保持现状：第二代使用统一道路样式，曲线渲染不按 RoadType 分支。
-  - 重新开启条件：第三代道路等级和视觉语言确定。
+**D5.1 定义 RoadType 分级样式（已取代）**
+
+- 处置：活动工作已迁至 `v3-grid-rendering:2.1`；本 ID 只保留 V2 历史引用。
+- V2 边界：第二代继续使用统一道路样式，曲线渲染不按 RoadType 分支。
 
 <a id="grid-renderingd5.2"></a>
 
-- [ ] **D5.2 让 RoadRenderer 按 RoadType 渲染**
-  - 延期原因：依赖第三代 D5.1 和新的 RoadType 数据契约。
-  - 保持现状：不为第二代增加类型样式映射。
-  - 重新开启条件：D5.1 完成且第三代数据 schema 落地。
+**D5.2 让 RoadRenderer 按 RoadType 渲染（已取代）**
+
+- 处置：活动工作已迁至 `v3-grid-rendering:2.2`～`2.3`；本 ID 只保留 V2 历史引用。
+- V2 边界：不为第二代增加类型样式映射、混合宽度路面或第三代表现事务。
 
 ### 非阻塞命名清理
 
@@ -91,4 +91,4 @@
 1. 1.1 和 1.2 通过自动化、Godot 运行时和视觉检查。
 2. 直线与全部 V2 曲线几何共享同一权威求值契约，渲染采样不会反向修改图。
 3. 10k Edge 满足 60 FPS 硬门槛；100k 只记录压力测试结果。
-4. RoadType 样式和 5.3 命名清理不阻塞第二代完成。
+4. RoadType 样式不属于第二代；D5.1～D5.2 仅为指向 V3 路线图的已取代历史 ID。5.3 命名清理不阻塞第二代完成。

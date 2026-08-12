@@ -1,8 +1,8 @@
 # RoadGraph 系统待办清单
 
 > 系统 key：`road-graph`
-> 复核日期：2026-08-04
-> 证据：当前工作区源码、RoadGraph 自动化测试及 `docs/manuals/road-system-v2-gen.md` 附录 D。
+> 复核日期：2026-08-13
+> 证据：当前工作区源码、RoadGraph 自动化测试、`docs/manuals/road-system-v2-gen.md` 附录 D 及 `docs/todo/v3/road-graph.md`。
 > 主导原则：负责拓扑、原生曲线几何、空间索引、公共路径 API、删除事务和第二代最终集成验收；不负责 RoadType 或交通模拟。
 
 ## 状态总览
@@ -25,7 +25,7 @@
 | <a id="road-graph7"></a>   |                                             |                                                  |                                                                |
 | 7                          | `FindClosestEdge` 只命中离散采样点        | 已完成                                           | 原生几何占据索引收集候选，并按权威最近点稳定排序                |
 | <a id="road-graph9"></a>   |                                             |                                                  |                                                                |
-| 9                          | `GetNeighborIDs().Distinct()` 隐藏平行边  | 当前为设计选择                                   | 保留；明确邻居查询与边查询语义                                 |
+| 9                          | `GetNeighborIDs().Distinct()` 隐藏平行边  | V2 历史决定；V3 已取代                           | V2 保留去重邻居视图；V3 以 incidence 和 Edge ID 表达平行边     |
 | <a id="road-graph10"></a>  |                                             |                                                  |                                                                |
 | 10                         | 交点判断使用严格浮点相等                    | 已修复并有自动化回归                             | 1.3 统一使用距离平方 epsilon，并保留真实内部交叉                |
 | <a id="road-graphp1"></a>  |                                             |                                                  |                                                                |
@@ -326,16 +326,16 @@
 
 <a id="road-graph121c26a6947a"></a>
 
-### 原问题 9：`GetNeighborIDs().Distinct()`
+### 原问题 9：`GetNeighborIDs().Distinct()`（历史指针）
 
 <a id="road-graph31883cfb1c78"></a>
 
-- [ ] **交通模拟设计时明确平行边策略**
-  - 当前判断：设计文档 `docs/manuals/road-system-v2-gen.md:233` 明确邻居 ID 应去重，因此当前实现不是偏差。
-  - 保留原则：拓扑算法若需要区分平行边，应遍历 `GraphNode.Edges`，而不是修改 `GetNeighborIDs` 的集合语义。
-  - 重新开启条件：引入 `TrafficGraph` 时决定是否允许同一节点对之间存在多条 Edge；若禁止，应在 `AddEdge` 增加不变式检查；若允许，应提供显式的 Edge 查询 API。
-  - 关联引用：`traffic-simulation:P6.1`。
-  - 来源 key：`todo:deferred:31883cfb1c78`。
+**交通模拟设计时明确平行边策略（已取代）**
+
+- V2 历史：`docs/manuals/road-system-v2-gen.md:233` 将 `GetNeighborIDs()` 定义为去重邻居视图，因此当前 V2 实现不是偏差。
+- 处置：V3 契约将 self-loop 与 parallel Edge 规定为合法领域拓扑，实现由 `v3-road-graph:8.1`～`8.3` 跟踪；模拟层不得通过禁止平行边收窄 RoadGraph，只能在 `traffic-simulation:P6.1` 中定义映射。
+- 保留原则：需要边身份的算法遍历 incidence/Edge 查询，不以 `GetNeighborIDs().Distinct()` 代替 degree 或 Edge 身份。
+- 来源 key：`todo:deferred:31883cfb1c78`。
 
 ## 已解决基线
 

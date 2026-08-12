@@ -1,8 +1,8 @@
 # 存档系统待办清单
 
 > 系统 key：`save-system`
-> 复核日期：2026-08-04
-> 证据：`Scripts/Core/SaveManager.cs`、`Scripts/Core/SaveData.cs`、`Scripts/Road/RoadGraph.Persistence.cs`、当前存档测试及 `docs/manuals/road-system-v2-gen.md` 附录 D。
+> 复核日期：2026-08-13
+> 证据：`Scripts/Core/SaveManager.cs`、`Scripts/Core/SaveData.cs`、`Scripts/Road/RoadGraph.Persistence.cs`、当前存档测试、`docs/manuals/road-system-v2-gen.md` 附录 D 及 `docs/todo/v3/save-system.md`。
 > 主导原则：第二代提供多个玩家命名的道路网络存档；道路数据独立 JSON，其他系统以后按相同注册机制扩展，但不纳入第二代保存内容。
 
 ## 状态总览
@@ -182,13 +182,14 @@
 
 ## 暂不执行
 
-### 第三代道路分级存档
+### 已取代的第三代道路分级存档延期说明
 
-- RoadType 数据、样式、选择和升级全部在第三代以新 schema 版本重新设计；不得复用第二代的兼容回退作为既定契约。
+- 处置：RoadType、canonical Edge、self-loop、Group 移除与 schema 迁移的活动工作已迁至 `v3-save-system:2.1`～`2.3`；根层文档不再承载第三代存档任务。
+- V2 边界：不得复用第二代已删除的 RoadType 兼容回退作为第三代既定契约。
 
-### 后续多系统事务
+### 后续多系统事务（V2 历史决定）
 
-- 第二代保留独立 JSON 扩展机制，但只验收 RoadGraph。多个业务系统同时提交和失败回滚的整槽事务在新增第二个正式持久化系统时重新开启。
+- 第二代只验收 RoadGraph，并保留独立 JSON 扩展机制。V3 的 prepared aggregate 基础设施由 `v3-save-system:2.3` 跟踪；第二个正式业务 payload 仍在其 V3 路线图中延期，不在本文件重新开启。
 
 ## 已解决基线
 
