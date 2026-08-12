@@ -253,13 +253,14 @@ float Heuristic(Vector2 from, Vector2 to);
 
 ### 7.1 道路渲染
 
-使用 Godot `Line2D` 节点（每边一个）。边上的点序列来自 `GraphEdge.GetFullPath()`：
+`RoadRenderer` 使用 `RoadGeometryDisplaySampler` 从每条 `GraphEdge.GeometrySegments` 生成显示点列，再把全部 Edge 合并为一个抗锯齿 `ArrayMesh` ribbon。每个显示点共享左右边界，避免逐段圆形覆盖和接缝；端点与交叉节点统一写入一个圆形 shader `MultiMesh`，固定渲染子节点数不会随 Edge 数增长。
 
 ```
-NodeA.Position → waypoint[0] → waypoint[1] → ... → NodeB.Position
+GeometrySegments → RoadGeometryDisplaySampler → cached display points
+                 → ArrayMesh road ribbon + MultiMesh node markers
 ```
 
-交叉口节点通过 `_Draw()` 绘制圆点（按连接数决定半径和颜色）。
+Edge 增删事件通过 `ScheduleStaticBatchRebuild` 在同一事件循环中合并，`GraphCleared` 同步完成一次全量重建。显示采样只服务渲染和高亮，不写回路网或存档；10k 基础规模与 100k 压测结果见 `../performance/road-rendering-v2-baseline.md`。
 
 ### 7.2 网格背景
 

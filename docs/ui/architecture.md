@@ -175,7 +175,7 @@ When a future category is active, `ConstructionDock.UsesCatalogContext` is false
 
 ## Input binding contract
 
-`Scripts/Core/InputBindingManager.cs` is an autoload registered by `project.godot`. It owns the eight configurable keyboard actions, applies one physical key per action to Godot `InputMap`, rejects duplicate assignments, restores defaults as one operation, and persists successful changes to `user://input_bindings.cfg`.
+`Scripts/Core/InputBindingManager.cs` is an autoload registered by `project.godot`. It owns the ten configurable keyboard actions, applies one physical key per action to Godot `InputMap`, rejects duplicate assignments, restores defaults as one operation, and persists successful changes to `user://input_bindings.cfg`.
 
 | Action | Default | Consumer |
 | --- | --- | --- |
@@ -183,6 +183,8 @@ When a future category is active, `ConstructionDock.UsesCatalogContext` is false
 | `tool_select` | Q | `GameHUD._Input()` -> `ToolType.Select` |
 | `tool_road` | R | `GameHUD._Input()` -> `ToolType.Road` |
 | `tool_remove` | E | `GameHUD._Input()` -> `ToolType.RoadRemove` |
+| `edit_undo` | Z | `GameHUD._Input()` -> `ToolManager.UndoRoadEdit()` |
+| `edit_redo` | Y | `GameHUD._Input()` -> `ToolManager.RedoRoadEdit()` |
 | `pause_menu` | Esc | `GameHUD._Input()` and `PauseMenu._Input()` |
 
 `PauseMenu` builds the editable binding rows from `InputBindingManager.Definitions`; no second action catalog exists in the scene. Invalid, modifier-only, or duplicate input does not mutate `InputMap`. The current tool binding shown by `ToolContextPanel` is read from the manager each update, so the context changes immediately after a successful rebind.
@@ -197,13 +199,14 @@ Current `ToolType` values are `Select`, `Road`, and `RoadRemove`. Keyboard actio
 | --- | --- | --- |
 | `pause_menu` (default Esc) | `GameHUD._Input()` | Opens `PauseMenu` without changing `CurrentTool` |
 | `tool_select`, `tool_road`, `tool_remove` | `GameHUD._Input()` | Sets the corresponding `CurrentTool` when no modal is active |
+| `edit_undo`, `edit_redo` | `GameHUD._Input()` | Delegates to `ToolManager`; cancels uncommitted placement/removal sessions and keeps the current tool |
 | Any keyboard event sent directly to `ToolManager._Input()` | `ToolManager._Input()` | No tool switch; only current-tool input forwarding |
 | `RoadToolButton` | `ConstructionDock.OnToolPressed()` | Sets `ToolManager.CurrentTool = ToolType.Road` |
 | Programmatic `CurrentTool = ToolType.RoadRemove` | Any caller with the instance | Supported state, no visible dock button |
 
 `ToolManager._Input()` forwards input to `RoadBuilder.HandlePlaceInput()` only while the current tool is `Road`. It forwards input to `RoadBuilder.HandleRemoveInput()` only while the current tool is `RoadRemove`.
 
-Switching away from `Road` calls `RoadBuilder.CancelPlaceDrag()`. Switching away from `RoadRemove` clears remove hover through `SetRemoveHoverActive(false)`. Switching into `RoadRemove` enables remove hover through `SetRemoveHoverActive(true)`. There is no `SelectToolButton` or `RoadRemoveToolButton` in `ConstructionDock`.
+Switching away from `Road` calls `RoadBuilder.CancelPlaceSession()`. Switching away from `RoadRemove` clears remove hover and cancels the removal session through `SetRemoveHoverActive(false)`. Switching into `RoadRemove` enables remove hover through `SetRemoveHoverActive(true)`. There is no `SelectToolButton` or `RoadRemoveToolButton` in `ConstructionDock`.
 
 `ConstructionDock.TryGetBuiltInToolPresentation()` provides player facing fallback text for tools that are not catalog assets. The current built ins are `Select` with `选择`, `查看当前状态。`, and an empty shortcut hint, plus `RoadRemove` with `拆路`, `点击已有道路进行拆除。`, and an empty shortcut hint.
 
