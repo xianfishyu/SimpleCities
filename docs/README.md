@@ -52,7 +52,7 @@
 - [网格系统](manuals/grid-system.md)
 - [基础设施开发指南](manuals/infrastructure-guide.md)
 - [RoadGraph 重构与演进说明](manuals/road-system-v2-gen.md)
-- [第三代道路系统迭代指南](manuals/road-system-v3-gen.md)：junction-to-junction canonical Edge、自环/平行边、RoadGroup 移除、RoadType、分级渲染和 V2 存档迁移的实施与验收契约。
+- [第三代道路系统迭代指南](manuals/road-system-v3-gen.md)：可完全重构且不向后兼容的 canonical Edge、自环/平行边、RoadGroup 移除、RoadType、分级渲染和独立 V3 存档契约。
 
 ## OpenCode 工具链
 

@@ -1,6 +1,6 @@
 # 第三代道路系统迭代指南
 
-> 文档状态：实施前架构、迁移与验收契约
+> 文档状态：实施前架构与验收契约
 >
 > 编写日期：2026-08-13
 >
@@ -23,13 +23,17 @@
 
 只要中间没有真实交叉、终点或道路属性边界，直路、折线和曲线都只保存为一条 Edge。几何复杂度由 `GeometrySegments` 表达，不再通过额外 `GraphNode` 和 Edge 表达。
 
+V3 是一次**破坏式架构替换**，不是对 V2 的增量升级。本文中的 `RoadGraph`、`GraphEdge` 等名称描述领域职责，不要求保留现有类型、文件布局或调用签名；实现可以重写整个道路运行时、应用装配和存档系统。V3 只保留经本文重新声明的玩家能力与领域不变式，不保留任何源码、二进制、事件或数据格式兼容性。`RoadGroup`、旧 `AddRoad()`、逐 Edge 事件、旧 DTO 和旧恢复入口可以直接删除，禁止为它们增加适配器、双写、feature gate 或长期并行路径。
+
 V3 的交付顺序必须是：
 
 1. 将节点邻接从“邻居节点引用”提升为可区分 A/B 端的 incidence 模型。
 2. 支持自环和同一节点对之间的平行 Edge，并固定环路规范形。
 3. 在每次提交、交叉、删除、拆分和恢复后形成最大连续 Edge，移除 `RoadGroup` 对拓扑的约束。
-4. 让 schema 2 只保存规范化的 Node/Edge、原生几何链和 Edge 级 `RoadType`，严格迁移合法 schema 1。
+4. 在独立保存根中建立 V3 format v1，只保存规范化的 Node/Edge、原生几何链和 Edge 级 `RoadType`。
 5. 在规范 Edge 上实现类型化建造、批量改造、差异化渲染、UI 和端到端验证。
+
+V2 存档不属于 V3 输入：不扫描、不列出、不迁移、不只读加载、不通过 Save As 转换，也不覆盖或删除。V3 对自己的格式仍执行严格版本拒绝、容量门禁、原子发布、崩溃恢复和全有或全无 Load；这些是当前格式的正确性要求，不是向后兼容层。
 
 以下能力仍不属于 V3：`TrafficGraph`、A*、速度/容量/拥堵、建造与维护费用、单向和车道、信号灯、建筑接入限制、桥梁/隧道/立交、高程层及自由曲线控制点编辑器。
 
@@ -45,7 +49,7 @@ V2 已具备正确的几何基础，但存储仍被提交过程碎片化：
 | 折线只有共线且同 Group 时才会合并                        | `SubmitPolyline`、`TryMergeAtNode`                        | 非共线转弯仍被错误保存为多个 Edge          |
 | 原生路径按`NativePathPiece` 逐片调用 `AddEdge`       | `SubmitPathCore`、`PlanIncomingPieces`                    | 原生段边界和交点片段都可能变成 Edge 边界   |
 | `GraphNode` 只保存 `EdgeRef(edgeID, neighborNodeID)` | `GraphNode.cs`                                              | 自环的 A/B 两个端接无法区分                |
-| `AddEdge` 与 schema 1 都拒绝相同端点                   | `RoadGraph.PathSubmission.cs`、`RoadGraph.Persistence.cs` | 简单闭环无法表示为一条自环 Edge            |
+| `AddEdge` 与当前 V2 payload 都拒绝相同端点             | `RoadGraph.PathSubmission.cs`、`RoadGraph.Persistence.cs` | 简单闭环无法表示为一条自环 Edge            |
 | `RoadGroup` 是 Edge 的单值所属关系                     | `GraphEdge.GroupID`、`RoadGroup.EdgeIDs`                  | 两次提交形成的一条连续道路无法无损合并     |
 | 删除后的 V2 契约禁止自动合并                             | `RemoveEdgesCore` 及 V2 回归                                | 删除支路后会留下已经失去结构意义的二度节点 |
 | renderer 从`NodeA` 优先推导切线                        | `RoadRenderer.TryGetOutgoingDirection`                      | 自环两个 incidence 会得到同一端方向        |
@@ -200,7 +204,7 @@ B incidence -> -lastGeometry.GetUnitTangent(1)
 
 1. 若闭环包含真实 junction 或 semantic boundary，不创建额外 seam。
 2. 若所有节点都可合并，保留该闭合分量中最小 Node ID 作为 seam。
-3. 新建简单闭环时，第一个已吸附或新建的路径锚点参与相同 ID 规则；迁移 V2 环时也使用原 Node ID 集的最小值。
+3. 新建简单闭环时，第一个已吸附或新建的路径锚点参与相同 ID 规则；从 V3 payload 准备的图必须已经满足同一规范规则，否则拒绝加载。
 4. seam 是存储结构，不是道路端点或路口，renderer 不绘制 endpoint/junction 标记。
 5. self-loop 先从 topology seam 根化为 seam A 到 seam B 的线性 geometry 数组；数组末尾和开头禁止合并，也不得通过循环移位改变 seam。seam 两侧即使是共线同向 line 也保留两个 primitive，只有数组内部的相邻项适用 3.3 的压缩规则。
 6. self-loop 在 seam 固定后仍有正反两个等价方向；只比较“当前原生链”与“反转段顺序并逐段原生反向”的链，选择规范数值 key 较小者作为存储方向。key 是带版本和 primitive kind tag 的 typed numeric token 序列：每段先验证有限值、把 `-0` 规范为 `+0`、把周期角度/heading 规范到约定区间，再按 schema 权威字段顺序写 binary32 token，并按明确的 IEEE total order 比较。key 排除 Node/Edge ID、RoadType、JSON 文本、`Length`、`Bounds`、显示采样和 query fragment；它不试图统一不同 Bézier 参数化或同比例 rational weights。
@@ -225,7 +229,7 @@ B incidence -> -lastGeometry.GetUnitTangent(1)
 
 ### 6.1 先规划，后一次提交
 
-建造、拆分、删除、改造和 V1 迁移共用同一规范化管线。开始规划前先区分三种不得混用的吸附/聚类协议：输入策略的 grid/angle snap 在 RoadGraph 外完成；`NodeSnap` 只把 request anchor 对 mutation 前的不可变图解析为已有 Node，使用受检 double 距离、等距时取最小 Node ID，并一次解析锁定全部 anchor；随后才收集 incoming/incoming 与 incoming/existing witness 并执行 intersection cluster。`NodeSnapRadius` 表示用户意图，cluster epsilon 表示数值误差，二者禁止复用、取最大值或执行二次吸附；只有显式 snapped anchor 或几何端接 witness 能把已有 Node 带入 cluster，附近无关 Node 不参与。
+建造、拆分、删除、改造和 V3 load preparation 共用同一规范化判定。开始规划前先区分三种不得混用的吸附/聚类协议：输入策略的 grid/angle snap 在 RoadGraph 外完成；`NodeSnap` 只把 request anchor 对 mutation 前的不可变图解析为已有 Node，使用受检 double 距离、等距时取最小 Node ID，并一次解析锁定全部 anchor；随后才收集 incoming/incoming 与 incoming/existing witness 并执行 intersection cluster。`NodeSnapRadius` 表示用户意图，cluster epsilon 表示数值误差，二者禁止复用、取最大值或执行二次吸附；只有显式 snapped anchor 或几何端接 witness 能把已有 Node 带入 cluster，附近无关 Node 不参与。
 
 ```text
 验证输入与属性
@@ -266,13 +270,13 @@ B incidence -> -lastGeometry.GetUnitTangent(1)
 - 移除的节点/Edge 和新增的节点/Edge 分别进入排序去重的 created/removed 集。
 - 同一运行时 `GraphLineage` 内，`_nextID` 只前进，不复用因规范化、undo 或分叉消失的 ID；失败和 `NoChanges` 不推进 watermark。外部 load/full reset 创建新 lineage，并精确采用 prepared payload 中已验证的 `nextID`，允许低于旧活动图；不得取新旧 watermark 的最大值。lineage 是运行时防串用身份，不持久化。
 
-`RoadGraphChangeSummary` 还包含 `IsFullReset` 和单调递增、永不回退的 `ChangeSequence`：普通 mutation 以及 delta undo/redo 的 `IsFullReset` 为 `false`；外部存档恢复的一次性全图替换为 `true`。三层身份必须分开：`DomainRevisionID` 标识可逆的领域内容状态，其 allocator 在 lineage 内不复用；`ChangeSequence` 标识每次成功 commit，包含 undo、redo 和 full reset，只增不减；运行时 `GraphStateToken` 至少携带 `LineageID`、当前 `DomainRevisionID` 和最新 `ChangeSequence`。delta 固定保存 before/after 实体和 revision，历史项保存下一次允许操作的完整 token；应用时同时校验 lineage、方向对应 revision 和最新 sequence，错误方向、重复重放或 full reset 前 token 返回 `StaleGraphState` 且无副作用。undo/redo 可以恢复原有内容 revision 和实体 ID，但不能回退 sequence 或 allocator watermark；例如 `R0/S0 -> edit R1/S1 -> undo R0/S2 -> redo R1/S3`。schema 2 的 `nextID` 是当前 lineage 的 allocator watermark，而不是“当前最大 ID + 1”的可重算缓存；lineage、revision 和 sequence 均不写入存档。
+`RoadGraphChangeSummary` 还包含 `IsFullReset` 和单调递增、永不回退的 `ChangeSequence`：普通 mutation 以及 delta undo/redo 的 `IsFullReset` 为 `false`；外部存档恢复的一次性全图替换为 `true`。三层身份必须分开：`DomainRevisionID` 标识可逆的领域内容状态，其 allocator 在 lineage 内不复用；`ChangeSequence` 标识每次成功 commit，包含 undo、redo 和 full reset，只增不减；运行时 `GraphStateToken` 至少携带 `LineageID`、当前 `DomainRevisionID` 和最新 `ChangeSequence`。delta 固定保存 before/after 实体和 revision，历史项保存下一次允许操作的完整 token；应用时同时校验 lineage、方向对应 revision 和最新 sequence，错误方向、重复重放或 full reset 前 token 返回 `StaleGraphState` 且无副作用。undo/redo 可以恢复原有内容 revision 和实体 ID，但不能回退 sequence 或 allocator watermark；例如 `R0/S0 -> edit R1/S1 -> undo R0/S2 -> redo R1/S3`。V3 payload 的 `nextID` 是新 lineage 的 allocator watermark，而不是“当前最大 ID + 1”的可重算缓存；lineage、revision 和 sequence 均不写入存档。
 
-`GraphChanged` 是 V3 唯一事务事件；消费者对普通摘要增量处理 created/removed/updated，对 full reset 丢弃缓存并从活动图重建。领域状态、邻接和索引先原子提交，再递增 sequence 并同步发布不可变摘要。事件发布期间拒绝 mutation 重入；单个订阅者异常被隔离和记录，不能回滚已经提交的图，也不能阻止其他订阅者收到同一 sequence。异步派生任务不得只凭 sequence 发布：每个消费者还必须组合其 graph facade/scene/style/request generation，renderer 的最低完整 token 见 9.5。旧 `EdgeAdded` / `EdgeRemoved` / `GraphCleared` 只允许在消费者迁移期保留，不能与新事件在同一消费者中重复订阅。
+`GraphChanged` 是 V3 唯一事务事件；消费者对普通摘要增量处理 created/removed/updated，对 full reset 丢弃缓存并从活动图重建。领域状态、邻接和索引先原子提交，再递增 sequence 并同步发布不可变摘要。事件发布期间拒绝 mutation 重入；单个订阅者异常被隔离和记录，不能回滚已经提交的图，也不能阻止其他订阅者收到同一 sequence。异步派生任务不得只凭 sequence 发布：每个消费者还必须组合其 graph facade/scene/style/request generation，renderer 的最低完整 token 见 9.5。旧 `EdgeAdded` / `EdgeRemoved` / `GraphCleared` 不进入 V3；所有消费者随架构替换直接改用新事件。
 
 ### 6.4 数值规范、交点聚类与容量
 
-`float.IsFinite` 只是第一道门禁。极大但有限的坐标仍会让距离平方、curve bounds、bucket 坐标、长度累计和 `_nextID++` 溢出。V3 建立 mutation、schema 1 迁移和 schema 2 load 共用的 `RoadNumericPolicy` / `RoadGraphCapacity`：
+`float.IsFinite` 只是第一道门禁。极大但有限的坐标仍会让距离平方、curve bounds、bucket 坐标、长度累计和 `_nextID++` 溢出。V3 建立 mutation 与 format v1 load 共用的 `RoadNumericPolicy` / `RoadGraphCapacity`：
 
 - 所有 Node 坐标、原生控制参数、半径、曲率派生 bounds 和查询半径都受命名范围限制；距离与累计长度使用受检的 double 中间值，最终值还必须落回许可范围。
 - 限制单 geometry 长度、单 Edge 权威长度、全图权威长度、Node/Edge/geometry 数、mutation candidate/split 数、query fragment/bucket/ref 数和准备态峰值估算。
@@ -285,7 +289,7 @@ B incidence -> -lastGeometry.GetUnitTangent(1)
 2. 没有既有 Node 时，从排序后的对称 witness 选择 stable key 最小的唯一代表，并以 double 中间值、固定舍入和 `-0` 规范化得到一次性共享坐标；所有拆分 geometry 的公共端点写入该同一个值。
 3. tolerance、cluster 传递性、代表点最大偏移和曲线重新锚定误差必须是命名契约并有边界测试，不能依赖 `Dictionary`/`HashSet` 枚举顺序。
 
-确定性分成两层：给定相同存储 bit pattern、已有 ID 和 mutation request，结果 Node 坐标、ID 选择及 delta 必须相同；不同历史顺序产生的语义等价图只要求存在保持 RoadType、拓扑和原生轨迹的 ID 重命名。正向/反向输入、候选枚举扰动、canonicalizer 幂等、schema 1 迁移、schema 2 往返和 delta 正反应用分别测试这两层契约。
+确定性分成两层：给定相同存储 bit pattern、已有 ID 和 mutation request，结果 Node 坐标、ID 选择及 delta 必须相同；不同历史顺序产生的语义等价图只要求存在保持 RoadType、拓扑和原生轨迹的 ID 重命名。正向/反向输入、候选枚举扰动、canonicalizer 幂等、V3 format v1 往返和 delta 正反应用分别测试这两层契约。
 
 ---
 
@@ -300,7 +304,7 @@ B incidence -> -lastGeometry.GetUnitTangent(1)
 - 保存多个 Group 会引入 many-to-many 成员关系，整组删除会不知道该删除哪段几何；
 - 禁止跨 Group 合并则继续保留无意义节点，直接违反本指南核心目标。
 
-因此 V3 从 canonical RoadGraph 和 schema 2 中移除 `RoadGroup`、`GraphEdge.GroupID`、`GetGroup`、`GetAllGroups`、`RemoveRoadGroup`、`RoadPathSubmissionResult.GroupID` 及 Group 变更摘要。
+因此 V3 从 canonical RoadGraph 和 format v1 中移除 `RoadGroup`、`GraphEdge.GroupID`、`GetGroup`、`GetAllGroups`、`RemoveRoadGroup`、`RoadPathSubmissionResult.GroupID` 及 Group 变更摘要。这些类型和入口直接删除，不提供兼容 facade 或返回值映射。
 
 ### 7.2 用户操作语义放在哪里
 
@@ -418,13 +422,30 @@ full reset 的临界区统一清除所有绑定旧图实体的状态：placement
 
 ---
 
-## 10. schema 2 与 V2 迁移
+## 10. V3 独立存档格式与加载事务
 
-### 10.1 schema 2 逻辑形状
+### 10.1 格式代际与保存根隔离
+
+V3 不提升 V2 的 manifest 或 RoadGraph schema，也不复用其保存根。它建立新的格式代际：
+
+| 边界 | V2 历史值 | V3 唯一值 |
+|---|---|---|
+| 编辑器保存根 | `res://saves` | `user://saves-v3` |
+| 导出版本保存根 | `user://saves` | `user://saves-v3` |
+| 容器 family | 无 | `simple-cities-v3` |
+| V3 初始 schema | 不适用 | `schemaVersion = 1` |
+
+V3 在编辑器和导出中统一使用 `user://saves-v3`，测试只能通过依赖注入使用临时根；生产代码不再把存档写入仓库。V3 根与两个 V2 根互不包含，避免任一代把另一代目录误认成槽位。V3 的 list、Save、Load、Delete、autosave、恢复扫描和事务清理只能解析 V3 根的 direct child；不得探测、打开、哈希、移动、转换、覆盖或删除 V2 根中的任何内容。V2 槽不会出现在 V3 UI，也没有导入、只读加载、Save As 转换或后台升级入口。
+
+`formatFamily` 和 `schemaVersion` 是共同 admission gate：缺失、大小写错误、非 `simple-cities-v3` family、旧版本或未知未来版本都在业务 DTO、图构建和场景事件之前结构化拒绝。即使用户把 V2 槽手工复制到 V3 根，也只会得到不兼容格式错误，不触发格式猜测。未来 V3 自身若升级格式，必须单独决定“拒绝”或新增显式导入工具；本指南不预留通用 migration hook。
+
+### 10.2 V3 format v1 逻辑形状
 
 ```json
 {
-  "schemaVersion": 2,
+  "formatFamily": "simple-cities-v3",
+  "payloadType": "road-network",
+  "schemaVersion": 1,
   "nextID": 12,
   "nodes": [
     { "id": 1, "x": 10.0, "y": 0.0 }
@@ -450,7 +471,7 @@ full reset 的临界区统一清除所有绑定旧图实体的状态：placement
 }
 ```
 
-版本 2 不包含 `groups`、`groupID` 或提交来源字段。`nodeAID == nodeBID` 是合法 self-loop；其 geometry 必须为正长度闭合链。平行 Edge 允许共享同一端点对，但必须具有不同 ID 和不同的非覆盖几何。
+format v1 不包含 `groups`、`groupID` 或提交来源字段。`nodeAID == nodeBID` 是合法 self-loop；其 geometry 必须为正长度闭合链。平行 Edge 允许共享同一端点对，但必须具有不同 ID 和不同的非覆盖几何。
 
 严格校验至少包括：
 
@@ -461,32 +482,11 @@ full reset 的临界区统一清除所有绑定旧图实体的状态：placement
 - 无未知字段、悬空引用、非法内部交叉、重复覆盖或可继续合并的非规范二度节点；
 - 所有校验在临时模型完成，失败时活动图和任何事件均不变化。
 
-### 10.2 schema 1 迁移
-
-版本 1 先按当前 Node/Edge/Group DTO 完整严格验证，再迁移；不能为了迁移而放宽旧格式合法性。
-
-迁移步骤：
-
-1. 验证 Group/Edge 双向成员、端点、几何、全局 ID 和 `nextID`。
-2. 删除临时模型中的 Group ownership，为所有 Edge 赋 `Street`。
-3. 以原 Node/Edge ID 为稳定输入执行同一 canonicalize；纯环保留最小 Node ID seam，合并 Edge 使用 6.3 的 ID 规则。
-4. 对结果执行全部 schema 2 不变式。
-5. prepared root 精确保留旧 payload 已验证的 `nextID`；它本身不修改活动图。后续普通 Load 的统一 commit 创建新运行时 lineage，并原子替换 graph/tool/mesh roots，不能把旧活动图 watermark 混入迁移结果。原 legacy 槽不因 Load 回写；活动会话若要保存必须 Save As，或先独立完成 10.5 的 `ResolveLegacyState` 再执行一次普通 Load。
-
-缺少版本、V2 之前的 `junctions/segments/roads`、未知未来版本或任何损坏内容继续拒绝。RoadGraph schema 与槽 manifest 是两个独立版本，但生产 writer 必须把它们作为一次 cutover 发布，不能制造中间混合格式：
-
-| manifest / RoadGraph payload | 读取与迁移规则 | 写入权限 |
-|---|---|---|
-| v1 / schema 1 | 仅由显式 legacy Load 严格准备并迁移；来源保持只读。 | 禁止普通覆盖；只允许 Save As 或 `ResolveLegacyState`。 |
-| v1 / schema 2 | 拒绝未发布的混合组合；不能借 schema 2 绕过 manifest v1 冻结。 | 禁止普通覆盖；保留现场供诊断或显式 Resolve。 |
-| v2 / schema 1 | 先验证完整 v2 容器，再按本节迁移业务 payload；不原地改盘。 | 可以在后续明确 Save 时由 `PublishV2` 覆盖为 v2 / schema 2。 |
-| v2 / schema 2 | 当前格式，执行正常 Prepare/Load 和 v2 发布。 | 允许 `PublishV2`。 |
-
-实现阶段可以先加入只读 codec、DTO 和 prepared model，但 cutover 前生产 writer 只能写 v1 / schema 1，cutover 后只能写 v2 / schema 2。任何测试、故障恢复或兼容适配器都不得让生产 writer 生成 v1 / schema 2 或 v2 / schema 1。
+V3 reader 不通过 canonicalize 修复非规范 payload。保存 writer 必须只产生规范图；Load 重新验证同一组不变式，遇到可合并二度节点、非法 seam 或非规范方向就拒绝。这使“写入格式”和“领域完成态”只有一个定义，也避免隐藏的数据清洗改变 ID 或玩家道路。
 
 ### 10.3 连续 Edge 的磁盘表示
 
-schema 2 继续使用 UTF-8 JSON，`geometry` 继续内联在所属 Edge 中。一个 Edge 无论包含 1 个还是 10 万个原生几何段，都只有一个 Edge ID 和一个有序 geometry 数组；不得为了写盘大小、流式解析或编辑器分页而插入伪 Node、伪 Edge 或持久化 chunk ID。
+V3 format v1 使用 UTF-8 JSON，`geometry` 内联在所属 Edge 中。一个 Edge 无论包含 1 个还是 10 万个原生几何段，都只有一个 Edge ID 和一个有序 geometry 数组；不得为了写盘大小、流式解析或编辑器分页而插入伪 Node、伪 Edge 或持久化 chunk ID。
 
 这是三个不同问题：
 
@@ -496,9 +496,9 @@ schema 2 继续使用 UTF-8 JSON，`geometry` 继续内联在所属 Edge 中。�
 | 内存/磁盘传输 | 允许流式读取、流式写入和固定大小 I/O buffer，但 buffer/chunk 没有领域身份。 |
 | 渲染/空间索引批次 | 可以按 geometry 段或采样点分批，仍引用同一个 Edge ID。 |
 
-JSON 在 V3 仍比自定义二进制格式合适：现有六类几何已有严格字段契约，schema 1 迁移需要可诊断性，存档仍只有少量业务文件，而且当前没有证据表明解析 CPU 或磁盘体积是主要瓶颈。二进制格式会同时引入新 reader、迁移工具和调试工具，却不会减少 geometry 的真实数量。
+JSON 在 V3 仍比自定义二进制格式合适：六类几何需要严格、可诊断的字段契约，存档仍只有少量业务文件，而且当前没有证据表明解析 CPU 或磁盘体积是主要瓶颈。二进制格式会同时引入新 reader 和调试工具，却不会减少 geometry 的真实数量。
 
-初始 schema 2 不启用压缩。若 geometry-dense 基准证明磁盘体积或 I/O 是门槛，压缩只能加在**文件容器层**：manifest 显式声明 codec、编码后/解码后字节数和校验信息，解压前执行上限与压缩比门禁。压缩不得改变 schema 2 的逻辑 JSON，也不得把压缩块变成 GraphEdge 边界。由于当前 manifest 只允许 `.json` 文件并精确接受版本 1，这类容器变化必须提升 manifest schema，不能用改扩展名或魔数静默切换。
+初始 format v1 不启用压缩。若 geometry-dense 基准证明磁盘体积或 I/O 是门槛，压缩只能加在**文件容器层**：manifest 显式声明 codec、编码后/解码后字节数和校验信息，解压前执行上限与压缩比门禁。压缩不得改变 format v1 的逻辑 JSON，也不得把压缩块变成 GraphEdge 边界。这类容器变化必须提升 V3 manifest schema，不能用改扩展名或魔数静默切换。
 
 ### 10.4 确定序列化、资源上限与一次解析
 
@@ -509,9 +509,9 @@ RoadGraph 需要专用的 canonical JSON writer，不再依赖全局 `SaveJson` 
 3. 相同活动图必须产生逐字相同的 payload；这用于回归比较和内容诊断，但领域等价性仍由结构比较定义，不能反向依赖任意 JSON 字符串。
 4. self-loop 不复制首尾 Node；平行 Edge 各写一次完整 geometry。几何端点与 Node 重复属于局部严格校验所需，不抽成跨 Edge 共享表。
 
-严格 reader 同时约束 token 类型和原始 UTF-8 lexeme，而不只是反序列化后的 CLR 值。ID、`nextID`、count 和 byte length 必须是无正号、无前导零、无小数点、无指数、无 `-0` 的十进制整数 token，并在转换前检查 lexeme 长度和目标范围；float 字段必须是有 lexeme 长度上限的 JSON number，解析后须为有限 binary32、落在 `RoadNumericPolicy` 范围且把 `-0` 规范为 `+0`，拒绝字符串化数字、`NaN`、`Infinity` 和溢出，但 reader 不要求输入文本逐字等于 canonical writer 的唯一输出。属性名按 UTF-8 原字节识别，重复已知字段、大小写变体、未知字段以及类型错误在进入 DTO 前失败。schema 1 继续只接受其已发布的 legacy 词法边界，不用 schema 2 writer 静默“修复”旧输入。
+严格 reader 同时约束 token 类型和原始 UTF-8 lexeme，而不只是反序列化后的 CLR 值。ID、`nextID`、count 和 byte length 必须是无正号、无前导零、无小数点、无指数、无 `-0` 的十进制整数 token，并在转换前检查 lexeme 长度和目标范围；float 字段必须是有 lexeme 长度上限的 JSON number，解析后须为有限 binary32、落在 `RoadNumericPolicy` 范围且把 `-0` 规范为 `+0`，拒绝字符串化数字、`NaN`、`Infinity` 和溢出，但 reader 不要求输入文本逐字等于 canonical writer 的唯一输出。属性名按 UTF-8 原字节识别，重复已知字段、大小写变体、未知字段以及类型错误在进入 prepared model 前失败。
 
-加载必须在分配大对象前执行分层预算。具体数值由 junction-dense/geometry-dense 基线和 Windows 导出峰值内存确定，并在 V3 合并前固化为命名常量；不得把未经测量的任意数字写成兼容承诺。预算至少包括：
+加载必须在分配大对象前执行分层预算。具体数值由 junction-dense/geometry-dense 基线和 Windows 导出峰值内存确定，并在 V3 合并前固化为命名常量；不得把未经测量的任意数字写成长期格式承诺。预算至少包括：
 
 - manifest 字节、单 payload 编码字节和整槽总字节；
 - Node、Edge、单 Edge geometry、全图 geometry 和 manifest 文件项数量；
@@ -526,17 +526,14 @@ manifest 和每个 payload 都只从各自一个受限句柄完成 byte budget�
 
 ### 10.5 发布、恢复与完整性边界
 
-磁盘和活动会话必须由三个不同事务管理，三者不能共享“似乎整体成功”的结果：
+V3 有三类互不混淆的操作结果：`PublishV3` 改变 V3 磁盘槽，`Load` 只读 V3 磁盘并交换易失活动会话，`DeleteV3` 删除明确授权的 V3 槽。Load 不移动、删除、修复或写回来源槽；Publish 成功也不暗示场景已加载；Delete 不参与 Load commit。
 
-1. `PublishV2` 只向已经通过恢复扫描的正常 v2 槽发布 staging；它不读取或解决 legacy 状态。
-2. `ResolveLegacyState` 是独立、显式授权的磁盘事务；它归档 legacy occupant 并发布所选内容的 v2 表示，但不加载或修改当前场景。
-3. `Load` 是只读磁盘、只写易失场景的事务；它不移动、删除、归档或升级任何槽位。Resolve 成功后若要进入该城市，用户再发起一次普通 Load，UI 必须显示两个独立结果。
-
-`PublishV2` 保留整槽 `staging -> slot`、旧槽 `slot -> backup` 的发布模型；长 Edge 不需要增量覆盖或分片文件。每个操作使用唯一、operation-specific staging，而不是争用 `<slot>.staging`。流式写 staging 不降低原子性，因为 staging 在全部 payload 和 manifest 成功前不可见。manifest v2 保留现有列表摘要字段，`files` 从文件名数组提升为按名称排序的业务 payload 描述项：
+`PublishV3` 使用整槽 `staging -> slot`、覆盖时旧槽 `slot -> backup` 的发布模型；长 Edge 不需要增量覆盖或分片文件。每个操作使用唯一、operation-specific transaction 目录，而不是争用 `<slot>.staging`。流式写 staging 不降低原子性，因为 staging 在全部 payload 和 manifest 成功前不可见。V3 manifest v1 保留列表摘要字段，并用按名称排序的业务 payload 描述项证明内容：
 
 ```json
 {
-  "schemaVersion": 2,
+  "formatFamily": "simple-cities-v3",
+  "schemaVersion": 1,
   "slotId": "city-001",
   "displayName": "河湾城",
   "timestamp": "2026-08-12T08:00:00.0000000Z",
@@ -560,7 +557,7 @@ hash 覆盖磁盘中的原始 payload 字节；初始无压缩时 encoded/decode
 
 `thumbnailFile` 是独立的可选 PNG 展示资产，不是业务 `files` 成员，也不参与业务 aggregate commit。若非 null，它必须是槽根下唯一、大小写精确、安全的普通 `.png` 文件，并经过字节、PNG signature、尺寸/像素预算和解码门禁；缺失或损坏只产生缩略图 warning 并回退占位，不使已完整的业务槽失效。容器的允许文件集合是 manifest、声明的业务 payload 和这个可选缩略图，其他普通文件仍拒绝。
 
-保存根同时使用进程内 async gate 和根内 `.save-root.lock` 的 OS 独占句柄；锁文件以禁止共享写/删的方式持有到恢复、发布或删除完全收敛，进程崩溃由 OS 释放句柄。外部实例占用时返回结构化 `BusyExternalInstance`。每个操作使用 `.save-transactions/<slot>/<operation-id>/staging`，resolution intent 固定在 `.save-intents/<slot>/<transaction-id>/intent.json`；不同请求不共享 staging、backup 或 intent。保存根本身、槽和事务路径都必须拒绝 reparse point；纯列表可以读取先前的不可变 cache，但任何触发恢复扫描或目录变更的 list 都必须取得同一把锁。
+V3 根同时使用进程内 async gate 和根内 `.save-root.lock` 的 OS 独占句柄；锁文件以禁止共享写/删的方式持有到恢复、发布或删除完全收敛，进程崩溃由 OS 释放句柄。外部实例占用时返回结构化 `BusyExternalInstance`。每次发布使用 `.save-transactions/<slot>/<operation-id>/staging`、`backup` 和不可变 `publish.json`；descriptor 绑定槽 ID、新旧 aggregate digest、固定路径和 operation token，不记录可变 phase，进度由 canonical slot、staging、backup 的存在性和 digest 推导。descriptor 先写临时文件、flush，再以同目录原子 rename 发布；未成功发布 descriptor 的路径没有恢复授权。不同请求不共享事务目录。V3 根、槽和事务路径都必须拒绝 reparse point；任何触发恢复扫描或目录变更的 list 都必须取得同一把锁。
 
 这是一项面向协作实例和意外损坏的正确性契约，不是对本机恶意写入者的安全隔离。根锁只约束遵守协议的 SimpleCities 实例；对拥有保存根写权限、绕过锁并能替换目录项或修改已打开文件的进程，目录允许文件集合的多次检查不是原子快照，仍存在目录级 TOCTOU。禁止共享写/删的同一 payload 句柄只证明 prepared state 来自该句柄实际解析、计数并与 length/hash 相符的字节；实现必须在持锁时对允许文件集合至少于 prepare 前和 commit/publish 前复核，但不能据此宣称抵御非协作进程。SHA-256 是无密钥完整性校验，既不认证存档来源，也不防止攻击者同步改写 payload 与 manifest，更不提供版本新鲜度或防回滚；若未来需要敌对环境保证，必须另行引入受保护密钥/签名、可信单调版本和更强的目录隔离，并提升容器协议。
 
@@ -570,39 +567,27 @@ hash 覆盖磁盘中的原始 payload 字节；初始无压缩时 encoded/decode
 - **突然断电耐久性**：仅靠 `Directory.Move` 和 manifest 存在不能证明数据已落盘。若平台门禁要求该保证，需在发布前对文件执行 durable flush，并如实记录平台无法保证的目录元数据边界。
 - **长期介质损坏**：per-file SHA-256 能发现绝大多数静默损坏，但不是防篡改签名。事务 backup 只保证发布窗口，成功验证新槽后会被删除，因此 V3 能检测之后发生的损坏，却不能承诺从长期 bit rot 自动恢复；若产品要求该能力，应另设保留代际，不得把临时 `.backup` 冒充长期备份。
 
-恢复扫描必须先对 canonical `slot` 与固定 `backup` 的 occupant 分别分类；分类只能是 `Absent | CompleteV2 | ManifestV1 | OtherUnproven | Unsafe`。`CompleteV2` 要求第 10.4 节的完整同句柄容器证明；`ManifestV1` 只表示原始 manifest 明确声明版本 1，不代表业务 payload 已合法；普通目录中的未知、损坏或未来格式是 `OtherUnproven`；文件、reparse point、路径逃逸、无法安全枚举的目录或类型变化是 `Unsafe`。恢复顺序固定如下，后一步不得抢先移动前一步的证据：
+V3 根中的 canonical direct child 只分类为 `Absent | CompleteV3 | CorruptV3 | Foreign | Unsafe`。`CompleteV3` 要求 family、版本、文件集合、长度/hash 和全部业务 payload 均通过第 10.4 节；声明 V3 family 但不完整的是 `CorruptV3`；其他 family、V2 形状或未知目录是 `Foreign`；文件、reparse point、路径逃逸、无法安全枚举的目录或类型变化是 `Unsafe`。`Foreign` 和 `Unsafe` 从不自动移动、覆盖或删除，也不出现在正常槽列表；`CorruptV3` 可以作为损坏槽显示，并只允许用户按明确目标确认后删除。Save/自动恢复不能用“可解析一部分”覆盖任一非 `CompleteV3` occupant。
 
-1. **pending intent**：先恢复 `.save-intents/` 中已成功发布的 resolution intent；它拥有自己的 staging 和归档路径，普通 staging 清理不得隔离或删除这些路径。
-2. **unsafe stop**：任一 occupant 或事务路径为 `Unsafe` 时停止，返回结构化结果，不移动、覆盖或删除任何现场。
-3. **legacy freeze**：slot/backup 任一为 `ManifestV1` 时冻结整个逻辑槽。普通 `PublishV2`、覆盖 Save 和自动恢复均拒绝；只允许 Save As、只读 candidate Load 或显式 `ResolveLegacyState`。
-4. **v2 matrix**：只有两个 occupant 都属于 `Absent | CompleteV2` 时自动收敛。`Absent/CompleteV2` 把 backup 移回 slot 并从最终路径复核；`CompleteV2/Absent` 保持 slot；`CompleteV2/CompleteV2` 选择 slot 并清理 backup；`Absent/Absent` 保持不存在。
-5. **preserve unknown**：其余含 `OtherUnproven` 的组合一律保留并返回歧义，不把未知目录隔离成“坏槽”，也不以时间戳、目录名或可解析性猜测赢家。
+恢复先按 operation ID 的 ordinal 顺序验证每个 `publish.json`，再只处理 descriptor 明确拥有的三条路径：
 
-pending intent 处理完成且未命中 stop/freeze 后，才处理不属于 intent 的 operation-specific staging：文件或 reparse point 直接返回 `Unsafe`；普通 partial staging 原子改名到唯一 quarantine 诊断路径，失败则停止。staging 永远不作为候选槽或自动提升为 slot。磁盘满、配额、ACL、路径长度、write/flush/close 失败在首次 canonical move 前属于发布前失败，旧槽逐值不变。
+1. canonical slot 已匹配 new digest：发布成功；完整复核后只清理 descriptor 所属 backup/staging。
+2. canonical slot 仍匹配 old digest：尚未越过覆盖边界；保留旧槽并隔离该事务的 staging，不能把 staging 自动提升成新槽。
+3. canonical slot 缺失、backup 匹配 old digest 且 staging 匹配 new digest：已经越过 `slot -> backup`；继续 `staging -> slot`，若无法完成则把 old backup 恢复到 canonical 路径。
+4. canonical slot 缺失且只有匹配 old digest 的 backup：恢复旧槽；首次保存中 slot 缺失且 staging 仍存在表示尚未越界，只隔离 staging。
+5. canonical、staging、backup 与 descriptor 的存在性或 digest 发生其他组合：停止并返回 `PublicationRecoveryBlocked`，完整保留现场，不按时间戳或目录名猜测赢家。
 
-manifest v1 candidate 只由用户显式 Load 通过独立 legacy DTO 做无副作用 prepare。一个逻辑槽中的每个合法候选都计算 canonical prepared digest；不同候选不猜赢家，相同内容也不自动移动或删除。`LoadLegacyCandidate` 必须复核 `LegacyStateToken`，成功后把活动会话标记为“只读来源、无可写目标”：保留来源诊断，但将可覆盖的 `CurrentSlotID`/save target 设为空，普通 Save 必须转为 Save As，不能覆盖 legacy 槽或 backup。
+无 descriptor 的 partial transaction 不是候选槽；确认它不与任何 descriptor 关联后，原子改名到唯一 quarantine 诊断路径，失败则停止。manifest 必须最后写入 staging；每个 payload 写完后由 writer 实际记录 byte count/hash，关闭句柄并按平台策略 flush，随后写并 flush manifest。staging 完整复核后、第一次 canonical move 前，回到主线程重新验证 scene/saveable generation 和目标槽意图，并授予一次性 `PublishLease`。首次保存的不可取消点是 `staging -> slot`，覆盖 `CompleteV3` 槽的是 `slot -> backup`；越界后必须在同一 gate/lock/lease 内完成新槽发布或恢复可证明的旧槽。
 
-`LegacyStateToken` 不是单个 candidate token。它绑定规范保存根的稳定 identity、逻辑槽 ID、slot/backup 及相关固定 direct child 的 ordinal 名称集合与对象类型、每个普通文件的 length/raw SHA-256、每个 manifest 的原始字节 hash 与上述 occupant 分类，以及所有合法 candidate 的 prepared aggregate digest；还绑定 operation generation 和用户选择。执行 Load 或 Resolve 前必须从受保护句柄重新生成并逐值比较，任一变化返回 `StaleLegacyState` 且无副作用。
+`DeleteV3` 也使用 operation-specific transaction 和原子发布的 `delete.json`。descriptor 绑定槽 ID、待删 `CompleteV3`/已确认 `CorruptV3` occupant digest、固定 tombstone 路径、UI/operation generation 和确认摘要；`Foreign`、`Unsafe` 不能取得删除授权。删除在锁内先恢复目标槽并重新验证 descriptor，随后以 `slot -> tombstone` 作为不可取消点：rename 成功后槽在逻辑上已删除，不再进入列表，也不得因后续递归清理失败而移回。若删除的是当前可写目标，主线程在同一不可抛结果提交中仅当 slot ID 与捕获 generation 仍匹配时清空 `CurrentSlotID`；其他活动 graph/tool 状态不变。tombstone 清理失败返回 `DeletedWithCleanupPending`，启动恢复按 descriptor/digest 继续删除；descriptor 与 tombstone 不匹配时返回 `DeletionRecoveryBlocked` 并保留现场。
 
-`ResolveLegacyState(token, request)` 是唯一允许原槽解决任意 `ManifestV1` 冻结现场的命令：
-
-1. 再次严格 prepare 用户选择的合法 candidate，生成 operation-specific 完整 v2 staging，并为每个现存安全 occupant 分配不可覆盖的 `.legacy-conflicts/<slot>/<transaction>/<role>/` 归档路径；v2、v1 和 `OtherUnproven` 证据都原样归档，`Unsafe` 不允许 Resolve。
-2. 在固定 intent 目录原子发布一个不可变 intent。intent 只记录 token/digest、所选 prepared digest、staging digest、目标 v2 描述和固定归档路径，不记录或改写可变 phase；恢复进度由这些固定路径中的内容和 digest 推导，完成另写只增不改的 completion marker。
-3. intent 成功发布是 Resolve 的不可取消点。之后按 intent 幂等归档 occupants、把 staging 发布为 slot、从最终路径完整复核并写 completion marker；每一步都先比较 token/digest，不能覆盖已有冲突路径。尚未验证 v2 时若无法继续发布，则尽力把所选 legacy candidate 恢复到其原角色，其他证据和 intent 保留。
-4. 恢复因持续 ENOSPC、ACL、路径占用、digest 变化或归档冲突无法完成时，返回 `ResolutionRecoveryBlocked` 并保留 intent、staging、归档和全部 occupant 证据，等待用户修复外部状态；不得猜测、删除或反复改写 intent。
-5. Resolve 的结果只描述磁盘：`ResolvedV2`、`ResolutionRecoveryBlocked` 或提交前失败。它永远不交换 graph/tool/mesh，不返回“解决并加载”；后续 Load 是新的 operation token 和独立结果。
-
-manifest 必须最后写入 staging；每个 payload 写完后从 writer 实际记录 byte count/hash，关闭句柄并按平台策略 flush，随后写并 flush manifest。staging 完整后、第一次 canonical move 前，回到主线程重新验证 scene/saveable generation 和目标槽意图，并授予一次性 `PublishLease`；取得 lease 本身不改变取消语义。首次保存的不可取消点是 `staging -> slot`，覆盖已有 CompleteV2 槽的是 `slot -> backup`，Resolve 是 intent 成功发布。越过相应边界后必须在同一 gate/lock/lease 内完成发布或恢复可证明的旧状态，不能遗留半槽。
-
-从最终 slot 路径完整复核 v2 后即为已发布；之后 backup/quarantine/transaction staging 清理失败不得把新槽误报为失败或回滚，返回 `PublishedWithCleanupPending` 并让下次恢复继续幂等清理。只有清理也完成时返回 `Published`。任何 canonical slot/backup 包含 `ManifestV1`、`OtherUnproven` 或 `Unsafe` 时，`PublishV2` 都拒绝普通覆盖；Save As 只能选择 slot/backup 均为 `Absent` 的新逻辑 ID。
-
-容器完整不等于业务合法：正常 Load 还要解析所有 payload 并准备完整业务状态，全部成功后才提交活动 root；中断恢复不运行 RoadGraph 迁移。突然断电耐久性也不同于进程失败原子性：文件 flush、intent/rename 的目录元数据 flush 和断电故障测试均有平台证据时才能称 **durable**；只有文件 flush 与原子 rename 证据时称 **crash-recovery intent**，不能在 API、UI 或验收中无条件宣称 durable。临时 backup 仍不冒充长期 bit-rot 备份。
+从最终 slot 路径完整复核 new digest 后即为已发布；之后 backup/quarantine/transaction 清理失败不得把新槽误报为失败或回滚，返回 `PublishedWithCleanupPending` 并让下次恢复继续幂等清理。只有清理也完成时返回 `Published`。容器完整不等于业务合法：Load 还要准备完整 aggregate，全部成功后才提交活动 root；恢复扫描不修复或 canonicalize RoadGraph。突然断电耐久性也不同于进程失败原子性：文件 flush、descriptor/rename 的目录元数据 flush 和断电故障测试均有平台证据时才能称 **durable**；只有文件 flush 与原子 rename 证据时称 **crash recoverable**。临时 backup 仍不冒充长期 bit-rot 备份。
 
 ### 10.6 快照、并发、取消与加载提交
 
-当前 `Save`、`Load` 和 Timer autosave 都在主线程同步执行，且固定事务路径没有并发所有者。V3 由 `SaveOperationCoordinator`（名称可调整）统一调度 operation token 和保存根排他；它不合并第 10.5 节的三个事务。所有目录状态变更同时持有进程内 gate 和跨进程 lock，Load 在持锁的只读窗口准备输入后释放磁盘资源，再进入场景 preflight。操作结果是带 `OperationToken`、阶段、commit 标志和 warning 集合的结构化值，不能退化为 bool。
+当前 `Save`、`Load` 和 Timer autosave 都在主线程同步执行，且固定事务路径没有并发所有者。V3 由 `SaveOperationCoordinator`（名称可调整）统一调度 operation token 和保存根排他；它不能混淆 Publish、Load 和 Delete 的权限边界。所有目录状态变更同时持有进程内 gate 和跨进程 lock，Load 在持锁的只读窗口准备输入后释放磁盘资源，再进入场景 preflight。操作结果是带 `OperationToken`、阶段、commit 标志和 warning 集合的结构化值，不能退化为 bool。
 
-Save 走 capture/prepare/`PublishV2`，Resolve 走独立的 `ResolveLegacyState`。Load 固定为以下四阶段：
+Save 走 capture/prepare/`PublishV3`；Load 固定为以下四阶段：
 
 1. **Admission**：主线程验证请求、`SceneGeneration`、saveable/participant generation 和资源预算，取得独占 graph-command admission；冻结新道路命令但逐值保留当前 placement/removal/upgrade 草稿、选择、hover、overlay 和历史。此阶段不构造 JSON、不深拷贝图，也不改变 `CurrentSlotID`。
 2. **Prepare**：后台从第 10.4 节受保护句柄构造完整 prepared aggregate。RoadGraph root 已含实体、邻接、incidence、query fragment、空间索引、diagnostics 和准确容量；工具参与者准备空的 replacement state；renderer 完成纯 CLR tessellation、surface snapshot 与 hit-index 数据。后台不访问 Godot Object、活动 facade 或场景树。
@@ -614,13 +599,13 @@ V3 当前业务 payload 只有 RoadGraph，但协议必须从一开始就是 pre
 并发策略固定如下：
 
 - 手动 save/load/delete 优先于尚未开始的 autosave；Timer 在 busy 时只合并为一个 pending autosave，不排队多个周期。当前场景仍有效且没有更晚成功 autosave 时，gate 释放后执行一次；否则丢弃并记录 `SkippedBusy`，不算 I/O 失败。
-- 同一 snapshot 的序列化、hash 和发布要么完成为一个槽版本，要么恢复旧槽；不同请求不能共享 staging/backup。手动 save/save-as 成功可更新可写 target；正常 v2 Load 在统一 commit 中设置 `CurrentSlotID`，legacy candidate Load 则设置只读来源并清空可写 target。autosave、Resolve、失败、取消和跳过不改变活动会话的可写 target。
-- 取消在对应不可取消点之前生效：普通 Save 以 10.5 的首次/覆盖 canonical move 为界，Resolve 以 intent 成功发布为界，Load 以 non-yield commit 开始为界。取得 gate 或 lease 本身不是不可取消点。场景退出先拒绝新请求，取消未越界 worker，并等待已越界目录事务收敛；Load commit 中 Escape 只能被 UI 消费，不能插入临界区、关闭菜单或制造第二个取消请求。
+- 同一 snapshot 的序列化、hash 和发布要么完成为一个槽版本，要么恢复旧槽；不同请求不能共享 staging/backup。手动 save/save-as 成功可更新可写 target；成功 V3 Load 在统一 commit 中设置 `CurrentSlotID`。autosave、失败、取消和跳过不改变活动会话的可写 target；Delete 在 `slot -> tombstone` 成功前也不改变，越界后仅当被删 slot ID 与捕获的当前 target generation 仍匹配时，在不可抛结果提交中清空 `CurrentSlotID`。
+- 取消在对应不可取消点之前生效：普通 Save 以 10.5 的首次/覆盖 canonical move 为界，Load 以 non-yield commit 开始为界；Delete 在首次移动或删除 canonical 槽前完成全部确认与恢复扫描，越界后必须收敛。取得 gate 或 lease 本身不是不可取消点。场景退出先拒绝新请求，取消未越界 worker，并等待已越界目录事务收敛；Load commit 中 Escape 只能被 UI 消费，不能插入临界区、关闭菜单或制造第二个取消请求。
 - snapshot capture 和 Load 的统一 graph/tool/mesh/surface swap分别设主线程帧预算；serialize/read/hash/parse/index build/tessellation 与隐藏资源 preflight 设总耗时和峰值分配指标。普通 mutation 的旧 mesh 窗口继续遵守 9.5 的 `RoadPresentationStalled` 门禁；Load 不暴露该窗口。
 
 ### 10.7 编辑历史不是存档副本
 
-`RoadEditHistory` 不持久化到槽位，不应继续复用磁盘 JSON 作为内部数据结构。当前 64 个 entry 各持有 before/after 字符串；当图的稳定 JSON 约为 `S` 个 ASCII 字节时，仅字符串字符存储的量级就接近 `128 * 2S = 256S`，还未计算每次捕获的 DTO、临时字符串和 GC 峰值。canonical Edge 只减少 Node/Edge 元数据，不会消除长 geometry 数组，因此这个复杂度不能靠 schema 2 自然解决。
+`RoadEditHistory` 不持久化到槽位，不应继续复用磁盘 JSON 作为内部数据结构。当前 64 个 entry 各持有 before/after 字符串；当图的稳定 JSON 约为 `S` 个 ASCII 字节时，仅字符串字符存储的量级就接近 `128 * 2S = 256S`，还未计算每次捕获的 DTO、临时字符串和 GC 峰值。canonical Edge 只减少 Node/Edge 元数据，不会消除长 geometry 数组，因此这个复杂度不能靠新存档格式自然解决。
 
 V3 使用可逆 `RoadGraphDelta`：
 
@@ -630,7 +615,7 @@ V3 使用可逆 `RoadGraphDelta`：
 4. 外部加载创建新 lineage，并在 full-reset commit 时立即使全部旧 token 和历史失效，不再靠完整序列化比较检测分叉。
 5. 历史同时受 entry 数和估算字节预算约束；提交前确保新 delta 可接纳，再按最旧优先淘汰。单个命令超过单项预算时整次编辑结构化失败，不能成功修改图却悄悄失去撤销能力。
 
-若 delta 重构无法与 schema 2 同步完成，短期兼容方案最多只保留 `N + 1` 个去重不可变 prepared snapshot，使相邻 entry 共享同一状态；它仍是 `O(N * graph)`，只能作为有退出条件的过渡，不是 V3 完成态。加载 schema 1 或 schema 2 后均清空旧历史；首次编辑以新 lineage 的 canonical 活动状态为 revision 起点。撤销/重做必须恢复相同实体 ID、loop seam、原生几何、类型和空间命中；同一 lineage 内 `nextID` 高于历史值，而外部 load 的新 lineage 精确采用槽内 watermark。结构相同比较不把 allocator watermark、lineage、revision 或 sequence 当成领域内容差异。
+V3 完成态直接使用 delta，不接受完整图 snapshot 兼容阶段。加载 V3 format v1 后清空旧历史；首次编辑以新 lineage 的 canonical 活动状态为 revision 起点。撤销/重做必须恢复相同实体 ID、loop seam、原生几何、类型和空间命中；同一 lineage 内 `nextID` 高于历史值，而外部 load 的新 lineage 精确采用槽内 watermark。结构相同比较不把 allocator watermark、lineage、revision 或 sequence 当成领域内容差异。
 
 ---
 
@@ -642,14 +627,14 @@ V3 使用可逆 `RoadGraphDelta`：
 - query fragment、占用 bucket、bucket reference、局部 exact test 和聚合 Edge 数；
 - self-loop、平行 Edge、junction 和 semantic boundary 数；
 - canonical JSON 字节数，以及未来可选容器的编码/解码字节数；
-- snapshot capture、serialize、write、read、parse、validate、migrate、canonicalize 和 commit 分段时间；
+- snapshot capture、serialize、write、read、parse、validate、prepare 和 commit 分段时间；
 - 每阶段及端到端峰值分配、prepared graph 大小、历史 delta 字节和 GC 次数；
 - 主线程 O(1) root capture/load root swap/presentation commit 时间、后台 I/O 时间、busy autosave 合并次数，以及 renderer barrier/重建、帧时间、draw calls、objects、primitives 和分配量。
 
 必须保留两类数据集：
 
 1. **junction-dense**：继续使用 10k Edge 的 V2 最坏拓扑门槛，连续交互 P95 不超过 16.67 ms；100k 只记录压力结果。
-2. **geometry-dense**：分成两组。共线组验证 N 个同向单位 line 最终只有 2 个 Node、1 条 Edge、1 个 line geometry；转弯/混合曲线组验证 N 个不可无损合并的 primitive 仍只有 2 个 Node、1 条 Edge、N 个 geometry。两组都比较 schema 1/2 的实体数、序列化体积、单次解析和历史开销，并在固定局部窗口下验证远端增长不增加 exact geometry 访问。
+2. **geometry-dense**：分成两组。共线组验证 N 个同向单位 line 最终只有 2 个 Node、1 条 Edge、1 个 line geometry；转弯/混合曲线组验证 N 个不可无损合并的 primitive 仍只有 2 个 Node、1 条 Edge、N 个 geometry。两组都记录 V3 format v1 的实体数、序列化体积、单次解析和历史开销，并在固定局部窗口下验证远端增长不增加 exact geometry 访问；V2 已记录数据只作同机参考，不进入格式兼容验收。
 
 另加简单环、棒棒糖、两路口环、八字形、批量删除后重归一化，以及刚好低于/超过各项资源上限的数据集。先记录基线再优化；不得在没有测量时提前引入 chunk graph、压缩容器或多套 renderer。
 
@@ -659,13 +644,13 @@ V3 使用可逆 `RoadGraphDelta`：
 
 ### Phase 0：测试基础设施、引用清单与基线
 
-Phase 0 不一次写出依赖未来类型、导致测试工程整体无法编译的“全红矩阵”。先建立可复用且可编译的基础设施：不可变 V2 manifest/payload byte fixture、canonical/loop/mixed-width/junction-dense/geometry-dense 数据生成器、故障注入文件系统、跨进程锁 helper、确定 scheduler/main-thread dispatcher、fake save/load/tool/presentation participant、Vulkan pixel/owner oracle，以及同机 V2 存储、历史和 renderer 基线。预算和像素误差只能由这些基线固化。
+Phase 0 不一次写出依赖未来类型、导致测试工程整体无法编译的“全红矩阵”。先建立可复用且可编译的 V3 基础设施：全新的 format-family/manifest/payload fixture、canonical/loop/mixed-width/junction-dense/geometry-dense 数据生成器、保存根隔离探针、故障注入文件系统、跨进程锁 helper、确定 scheduler/main-thread dispatcher、fake save/load/tool/presentation participant，以及 Vulkan pixel/owner oracle。现有 V2 性能记录只作为同机比较基线；V2 byte fixture 不进入 V3 reader 测试。
 
-实施前对所有 `RoadGroup`、`GroupID`、Group 查询、旧 mutation 事件和返回 Group ID 的 `AddRoad()` 消费者建立可重跑引用清单；逐项标记“随 cutover 迁移”“仅 legacy fixture 保留”或“删除”。`AddRoad()` 不能在 Group 消失后假装继续返回原语义：要么删除并迁移到结构化提交结果，要么提供 feature-gated 适配器且在同一 cutover 删除。DebugPanel、Godot contract、性能程序、schema 1 fixture 和公共调用者都必须在清单内，不在指南中固化会漂移的文件数量。
+实施前对所有 `RoadGroup`、`GroupID`、Group 查询、旧 mutation 事件、返回 Group ID 的 `AddRoad()`、V2 DTO、V2 保存根和相关测试消费者建立可重跑引用清单；逐项只有“由 V3 契约替换”或“删除”两种处置。`AddRoad()`、旧事件和 V2 DTO 不提供适配器。DebugPanel、Godot contract、性能程序、场景装配和公共调用者都必须在清单内，不在指南中固化会漂移的文件数量。
 
-每个后续切片严格执行“最小可编译契约骨架 -> 一个可归因的失败测试 -> 生产实现 -> 聚焦与回归转绿”。长期矩阵覆盖 exact-sign、incidence/loop/typed key、fragment locality、canonical Edge、Group cutover、lineage/revision/sequence、四种 manifest/payload 组合、五类 occupant、三个事务/不可取消点、故障 I/O、结构共享、delta admission、full-reset participant、完整 render token、共享 surface、junction patch 和 closed ribbon。另设 cutover build contract，禁止旧/新事件双消费和生产 writer 生成混合版本。
+每个后续切片严格执行“最小可编译契约骨架 -> 一个可归因的失败测试 -> 生产实现 -> 聚焦与回归转绿”。长期矩阵覆盖 exact-sign、incidence/loop/typed key、fragment locality、canonical Edge、Group 删除、lineage/revision/sequence、V3 family/version 拒绝、五类 V3 occupant、Publish/Load/Delete 边界、故障 I/O、结构共享、delta admission、full-reset participant、完整 render token、共享 surface、junction patch 和 closed ribbon。
 
-Phase 1 的 additive 内部契约可以独立发布。Phase 2～5 是同一 feature-gated integration branch 上的可编译检查点，不是对玩家开放或可单独发布的版本；legacy 生产路径在 cutover 前保持完整。只有 schema codec、renderer/save/tool provider、UI/DebugPanel、所有事件消费者和旧 API 迁移都准备完成后，才一次切换 runtime 与 writer。不得出现“运行时可创建 self-loop 但存档拒绝”“GraphEdge 已无 Group 但 DebugPanel/contract/旧 writer 仍消费 Group”“manifest 与 payload 混合版本”或“RoadType 已必填但生产调用仍走旧签名”的公开状态。
+V3 在实现分支中按阶段保持可编译，但产品装配始终只有一套道路系统。不得通过 feature gate、兼容 facade、双事件、双 DTO、双 writer 或运行时选择器维持旧路径；需要尚未完成的下游能力时使用测试 fake 或未装配的 V3 接口，不让 V2 实现充当生产 fallback。V2 行为只存在于 Git 历史、V2 文档和独立保存根。
 
 ### Phase 1：incidence 与自环基础
 
@@ -675,17 +660,17 @@ Phase 1 的 additive 内部契约可以独立发布。Phase 2～5 是同一 feat
 4. 明确 degree、distinct edge 和 neighbor 查询，允许平行 Edge。
 5. 为六类原生几何增加可逆的反向契约，并以版本化 typed token key 固定非环 Edge 和 self-loop 的存储方向。
 
-独立验收：手工构造和 schema 内存模型能正确表达 self-loop、parallel edge 和普通边，所有 V2 非环回归保持通过。
+独立验收：手工构造和 V3 format v1 内存模型能正确表达 self-loop、parallel edge 和普通边；需要保留的非环玩家能力以 V3 测试重新声明，不要求旧 API 或旧事件继续通过。
 
 ### Phase 2：最大连续 Edge 与 Group 移除
 
-1. 先在现有 V2 Edge 上，用带半开命中所有权和 canonical `RoadLocation` 的参数区间 query fragment 取代完整 geometry AABB 占桶和“先按 Edge 去重再扫描整条 Edge”；局部复杂度红灯转绿后才能启用长 canonical Edge。
+1. 在新的 V3 空间索引上，用带半开命中所有权和 canonical `RoadLocation` 的参数区间 query fragment 取代完整 geometry AABB 占桶和“先按 Edge 去重再扫描整条 Edge”；局部复杂度红灯转绿后才能启用长 canonical Edge。
 2. 建立 mutation plan 和受影响区域 canonicalizer；取消 G1/共线拓扑限制，按 merge key 合并所有可合并二 incidence 节点。
 3. 固定闭环 seam、rooted cyclic chain 硬边界和 split/merge ID 规则；连续共线同向 line pieces 只按 exact-sign 契约合并，其他 primitive 只在精确可表示时合并。
-4. 让提交、交叉拆分和删除后都恢复规范形；在 feature gate 后验证 Group-free 实体、结构化结果和统一事件。
-5. 准备 cutover 迁移：RoadGroup 类型/查询/结果、返回 Group ID 的 `AddRoad()`、DebugPanel/contract 和旧事件消费者必须在同一切片删除或迁移；schema 1 的 Group 只保留在独立 legacy DTO/byte fixture。
+4. 让提交、交叉拆分和删除后都恢复规范形；验证 Group-free 实体、结构化结果和统一事件。
+5. 直接删除 `RoadGroup` 类型/查询/结果、返回 Group ID 的 `AddRoad()`、旧事件及其消费者；DebugPanel 与 contract 同步改用 V3 指标，不保留旧 DTO 或 fixture。
 
-检查点验收：新路径中 N 个同向单位直线得到 2 Node、1 Edge、1 line geometry；折角与复合曲线仍为 1 Edge 和不可约 geometry 链；操作顺序不同得到 ID 重命名后的等价规范图；固定窗口 exact 访问不随远端 geometry 增长。生产路径和 writer 尚不切换。
+检查点验收：N 个同向单位直线得到 2 Node、1 Edge、1 line geometry；折角与复合曲线仍为 1 Edge 和不可约 geometry 链；操作顺序不同得到 ID 重命名后的等价规范图；固定窗口 exact 访问不随远端 geometry 增长；源码中不存在 Group 生产类型和旧提交/事件入口。
 
 ### Phase 3：闭合与自交路径提交
 
@@ -694,7 +679,7 @@ Phase 1 的 additive 内部契约可以独立发布。Phase 2～5 是同一 feat
 3. 离散自交形成 junction，连续自重叠结构化拒绝。
 4. 接入 RoadPlacementSession 的闭合预览、确认与取消。
 
-检查点验收：feature-gated 路径中的简单环、单 junction 环、两 junction 环、棒棒糖和八字形全部形成第 5 节规范格式；旧生产路径仍可编译并保持 V2 行为。
+检查点验收：简单环、单 junction 环、两 junction 环、棒棒糖和八字形全部形成第 5 节规范格式；所有调用方使用 V3 闭合路径契约。
 
 ### Phase 4：Edge 级 RoadType 与改造事务
 
@@ -702,28 +687,28 @@ Phase 1 的 additive 内部契约可以独立发布。Phase 2～5 是同一 feat
 2. 把类型加入 merge key 和 Edge 级严格不变式。
 3. 实现全有或全无的 `ChangeRoadType`，成功后再次 canonicalize。
 4. 用统一 `GraphChanged` 发布 created/removed/updated；拆分 lineage、可逆 content revision 与单调 `ChangeSequence`，用完整 `GraphStateToken` 防止旧 delta，加入 mutation 重入拒绝和订阅者异常隔离。
-5. 固定 `prepare mutation plan -> history admission -> root commit`：单命令 delta 超预算时必须在 root、ID watermark、revision、sequence 和事件变化前拒绝；消费者先迁移到新事件，禁止新旧事件双消费。
+5. 固定 `prepare mutation plan -> history admission -> root commit`：单命令 delta 超预算时必须在 root、ID watermark、revision、sequence 和事件变化前拒绝；所有消费者直接使用唯一 V3 事件。
 
-检查点验收：feature-gated 类型化建造、覆盖、异类型边界、改造合并和 NoChanges 符合第 8 节；本阶段只验证 plan/admission/commit 和准确摘要，不提前把撤销/重做算作完成。
+检查点验收：类型化建造、覆盖、异类型边界、改造合并和 NoChanges 符合第 8 节；本阶段只验证 plan/admission/commit 和准确摘要，不提前把撤销/重做算作完成。
 
-### Phase 5：schema 2 与迁移
+### Phase 5：V3 独立 format v1
 
-1. 先扩展持久化测试，再实现独立 V1/V2 DTO 分派。
-2. schema 2 codec 只表达 Node/Edge、RoadType、self-loop 和原生几何链；先只读/内存验证，生产 writer 在 cutover 前仍写 v1/v1。
-3. 严格合法 schema 1 在临时模型中删除 Group、赋 `Street` 并规范化。
+1. 为统一的 `user://saves-v3` 生产根和可注入临时测试根建立隔离及 V3 family/version admission 测试；两个 V2 根必须保持零枚举、零写入。
+2. format v1 codec 只表达 Node/Edge、RoadType、self-loop 和原生几何链；删除 V2 DTO、版本分派和迁移入口。
+3. V3 reader 严格拒绝非 V3 family/version、未知字段和任何非规范图，不在 Load 中修复或转换数据。
 4. 用专用 canonical writer 和同一禁止写/删句柄上的 counting/hash/parse 受限 reader 取代完整缩进字符串与重复解析；严格验证 JSON token 与 number lexeme。
-5. 固化坐标、长度、ID、文件/实体/geometry/索引/深度预算，并让 mutation 与 load 共用容量契约。
-6. manifest v2 保留列表元数据并写入业务文件 encoded length/SHA-256，thumbnail 独立验证；实现五类 occupant、pending-intent-first 恢复、`LegacyStateToken`、`PublishV2`、`ResolveLegacyState`、三个不可取消点及 cleanup-pending/blocked 结果。无目录元数据证据时只称 crash-recovery intent。
+5. 固化坐标、长度、ID、文件/实体/geometry/索引/深度预算，并让 mutation 与 Load 共用容量契约。
+6. manifest v1 保留列表元数据并写入业务文件 encoded length/SHA-256，thumbnail 独立验证；实现 `Absent | CompleteV3 | CorruptV3 | Foreign | Unsafe` 分类、不可变 publish descriptor、`PublishV3`、首次/覆盖不可取消点及 cleanup-pending/recovery-blocked 结果。无目录元数据证据时只称 crash recoverable。
 7. 建立 streaming saveable adapter、进程内/跨进程保存根排他 coordinator、O(1) immutable-root snapshot、后台纯数据 I/O、publish lease、autosave 合并和取消边界；用 fake aggregate/participants 验证 Load 的 Admission、Prepare、Preflight 和不可抛 commit plan，不接真实 renderer/tool/UI，也不宣称完整成功 Load。
-8. 验证命名槽、自动槽、失败保护和 Windows 导出边界不回归。
+8. 验证命名槽、自动槽、删除确认、失败保护、V2 根未触碰和 Windows 导出边界。
 
-检查点验收：四种 manifest/payload 组合行为固定，生产 writer 不生成混合组合；非法/超限输入在事件和大额分配前失败；五类 occupant 与 pending intent 按固定优先级恢复，legacy 不被普通覆盖；过期 token 无副作用，Resolve 在故障点幂等完成、恢复候选或返回 `ResolutionRecoveryBlocked`；首次/覆盖发布和 cleanup 结果准确。fake aggregate 证明 Prepare/Preflight 失败逐值保留状态、commit plan 可在无异常交换中执行；真实 full-reset Load 留到 Phase 7/8。
+检查点验收：V3 writer 只生成 family/version 精确的 format v1；复制进 V3 根的 V2/未知格式只被拒绝且无副作用；非法/超限输入在事件和大额分配前失败；五类 occupant 与 publish descriptor 按固定矩阵恢复；首次/覆盖发布和 cleanup 结果准确。fake aggregate 证明 Prepare/Preflight 失败逐值保留状态、commit plan 可在无异常交换中执行；真实 full-reset Load 留到 Phase 7/8。
 
 ### Phase 6：可逆 delta 历史
 
 1. 让 mutation plan 生成含实体前后值和 content revision 的可逆 delta；以完整 token 验证方向和 lineage，revision ID allocator、allocator watermark 与 `ChangeSequence` 不回退或复用。
 2. 将建造、交叉拆分、删除、改造和 canonicalize 纳入同一 history admission/commit 边界。
-3. 用 entry 数与字节双预算替换 before/after JSON，外部 restore 通过 revision 立即清空历史。
+3. 用 entry 数与字节双预算替换 before/after JSON，外部 Load 通过新 lineage 立即清空历史。
 4. 验证简单环、八字形、类型合并、大批删除和超预算拒绝的撤销/重做。
 
 独立验收：64 次小编辑不再保留 128 份全图 JSON；每次成功编辑都可逆，超预算命令在提交前失败，undo/redo 只发布一次准确的普通 delta 事件；只有外部存档恢复使用 full reset。
@@ -734,12 +719,12 @@ Phase 1 的 additive 内部契约可以独立发布。Phase 2～5 是同一 feat
 2. 增加四类样式、per-edge width/color、确定 junction patch，以及 mesh 同源 `RoadSurfaceSnapshot` / `RoadSurfaceHit`；renderer provider 先用 fake consumer 验证 mesh/surface/token 一次交换。
 3. 让 hover、拆除、改造和框选消费同一已呈现表面；增加类型选择器和 RoadUpgrade，成功普通事务清理失效 owner。
 4. 接入 full-reset tool participant 与 PauseMenu；Load 在 Prepare/Preflight 完成 graph、empty tool root、隐藏 mesh/RID、surface/hit index 后一次 non-yield 交换并通知，关键表现失败只发生在 commit 前。
-5. 执行唯一 cutover：同时删除 Group 生产类型/API、迁移 DebugPanel 与 Godot contract、替换 `AddRoad()` 和所有旧事件消费者、启用必填 `RoadBuildRequest`、切换 v2/v2 writer，并启用 renderer/tool/save/UI 新路径；完整构建证明没有旧/新双消费或格式混写。
+5. 完成唯一 V3 应用装配：只注册新的 graph/renderer/tool/save/UI 实现和必填 `RoadBuildRequest`；完整构建与源码契约证明旧 Group/API/事件/DTO/writer 已删除，没有适配器、双消费、双写或运行时版本选择。
 6. 执行 junction-dense、geometry-dense、环路、四工具表面命中和混合类型视觉/性能契约。
 
 ### Phase 8：最终组合验收
 
-在同一 `MapTest` 实例中完成连续折线路、跨提交延伸、简单环、棒棒糖、两路口环、八字形、支路删除重归一化、四类型建造与改造、token 防护的 delta 撤销重做、不可变 root 结构共享/释放、四种版本组合、legacy candidate 只读加载/Save As/独立 Resolve、schema/manifest v2 有界往返、跨进程锁/publish lease/pending-intent 恢复、共享表面命中与 junction patch、损坏/超限拒绝、并发 autosave、取消和 observer warning，以及成功/提交前失败且无提交后关键表现失败分支的 Load 生命周期。再完成 Vulkan 视觉、10k 硬门槛、100k 压测和 Windows 导出验证。最终证据写回附录 D；`v3-road-graph:8.6` 是唯一集成负责人。
+在同一 `MapTest` 实例中完成连续折线路、跨提交延伸、简单环、棒棒糖、两路口环、八字形、支路删除重归一化、四类型建造与改造、token 防护的 delta 撤销重做、不可变 root 结构共享/释放、V3 family/version 有界往返、跨进程锁/publish lease/descriptor 恢复、共享表面命中与 junction patch、损坏/超限拒绝、并发 autosave、取消和 observer warning，以及成功/提交前失败且无提交后关键表现失败分支的 Load 生命周期。额外证明 V2 根未被枚举或修改、手工复制的 V2/未知格式被拒绝。再完成 Vulkan 视觉、10k 硬门槛、100k 压测和 Windows 导出验证。最终证据写回附录 D；`v3-road-graph:8.6` 是唯一集成负责人。
 
 ---
 
@@ -748,7 +733,7 @@ Phase 1 的 additive 内部契约可以独立发布。Phase 2～5 是同一 feat
 | 需求                                           | owning system          | 关键位置                                                   | 集成关系                                    |
 | ---------------------------------------------- | ---------------------- | ---------------------------------------------------------- | ------------------------------------------- |
 | 数值/容量、incidence、自环、规范 Edge、查询 fragment、事件序列 | `v3-road-graph` | `GraphNode`、`GraphEdge`、`SpatialIndex`、`RoadGraph*` | V3 领域前置和最终集成负责人 |
-| schema/manifest v1 到 v2、有界 I/O、跨进程锁、发布/恢复和 aggregate load | `v3-save-system` | `RoadGraph.Persistence.cs`、`SaveManager`、`SaveSlotStore`、`AutosaveController` | 消费最终规范形；负责操作结果，不自行定义拓扑 |
+| V3 format/manifest v1、独立保存根、有界 I/O、跨进程锁、发布/恢复和 aggregate load | `v3-save-system` | `RoadGraph.Persistence.cs`、`SaveManager`、`SaveSlotStore`、`AutosaveController` | 消费最终规范形；负责操作结果，不自行定义拓扑 |
 | closed ribbon、junction patch、分级 mesh、surface snapshot、presentation 与性能 | `v3-grid-rendering` | `RoadConfig`、`RoadRenderer`、Godot 渲染契约 | 发布 `PresentationReady`，向 `v3-road-graph:8.6` 提供渲染门禁 |
 | 闭合草稿、类型状态、改造选择、有界历史和 full-reset 输入清理 | `v3-tool-input` | `RoadBuilder`、`RoadPlacementSession`、`RoadEditHistory` | 消费 RoadGraph token/delta 和 presented surface，不定义拓扑 |
 | 类型控件、改造工具、存档 busy/presentation 状态和 DebugPanel 指标 | `v3-ui` | `ConstructionDock`、`ToolContextPanel`、`PauseMenu`、`DebugPanel` | 独占 load 期间 Escape 与暂停，不直接写图 |
@@ -783,9 +768,9 @@ Phase 1 的 additive 内部契约可以独立发布。Phase 2～5 是同一 feat
 
 防护：退化以权威长度和几何合法性判断；首尾重合是显式闭合语义；覆盖按原生几何 overlap 而非端点对或 JSON 字符串判断。
 
-### 14.7 schema 迁移静默修复损坏数据
+### 14.7 reader 静默修复非规范数据
 
-防护：V1 必须先按原严格契约验证，再执行确定迁移；schema 2 非规范输入直接拒绝，不在加载时自动猜测。
+防护：V3 format v1 先验证 family/version 和全部领域不变式；非规范输入直接拒绝，不在加载时 canonicalize、补默认类型或猜测旧字段。
 
 ### 14.8 长 Edge 让局部查询退化
 
@@ -793,11 +778,11 @@ Phase 1 的 additive 内部契约可以独立发布。Phase 2～5 是同一 feat
 
 ### 14.9 manifest 存在被误当成完整发布
 
-防护：manifest v2 描述每个 payload 的 encoded length/SHA-256 并最后写入；恢复严格按 pending intent、Unsafe、ManifestV1 freeze、v2 matrix、preserve unknown 排序。普通 staging 只能在 pending intent 恢复后隔离；manifest v1 只走用户显式 legacy prepare，不能冒充 hash 证明、被恢复扫描移动或被普通 Save 覆盖。
+防护：V3 manifest v1 描述每个 payload 的 encoded length/SHA-256 并最后写入；不可变 publish descriptor 绑定新旧 aggregate digest 和唯一事务路径。恢复只按 descriptor 矩阵处理其拥有的 slot/staging/backup；`Foreign`、`Unsafe` 或无法证明的组合保留现场并返回结构化阻塞。
 
 ### 14.10 后台结果覆盖更新状态
 
-防护：后台只读不可变 root/snapshot，Godot 对象和图 swap 留在主线程；render 使用包含 scene、facade identity/generation、sequence、style 和 request generation 的完整 token，save/load 使用 operation/generation/publish lease，过期结果丢弃。首次保存、覆盖、Resolve 与 Load 各自只在声明的不可取消点越界，之后必须完成发布、恢复或 non-yield swap。
+防护：后台只读不可变 root/snapshot，Godot 对象和图 swap 留在主线程；render 使用包含 scene、facade identity/generation、sequence、style 和 request generation 的完整 token，save/load 使用 operation/generation/publish lease，过期结果丢弃。首次保存、覆盖、Delete 与 Load 各自只在声明的不可取消点越界，之后必须完成发布、恢复、删除收敛或 non-yield swap。
 
 ### 14.11 混合宽度路口出现洞或尖刺
 
@@ -811,9 +796,9 @@ Phase 1 的 additive 内部契约可以独立发布。Phase 2～5 是同一 feat
 
 防护：Entity、geometry 和索引采用持久化页/子树结构共享；局部 mutation 的复制页数、分配和保留内存纳入 1k/10k/100k 远端扩展基准，后台 snapshot 与历史淘汰后验证旧 root 可释放，不能只测试 O(1) 引用捕获。
 
-### 14.14 legacy 冲突解决丢失候选或产生半成功
+### 14.14 保存根隔离失效
 
-防护：普通 Load 永远不改盘；`LegacyStateToken` 绑定保存根 identity、全部 occupant/direct child、manifest raw hash/分类和 prepared digest；原槽 Resolve 使用不可变 crash-recovery intent 与独立不可覆盖归档。Resolve 和 Load 无条件分离成两个 operation/result，禁止按时间戳猜选、覆盖证据或报告跨磁盘与易失场景的组合原子成功。
+防护：V3 只解析 `user://saves-v3`，所有操作从已验证的 V3 root capability 派生路径；测试在两个 V2 根放置 canary，并覆盖 list、Load、Save、Save As、Delete、autosave、恢复和启动清理，断言 canary 的目录项、时间和字节均未变化。手工复制到 V3 根的 V2/未知内容只分类为 `Foreign`，不触发导入或删除。
 
 ### 14.15 把协作完整性误报成安全保证
 
@@ -830,18 +815,18 @@ Phase 1 的 additive 内部契约可以独立发布。Phase 2～5 是同一 feat
 3. self-loop、parallel edge、精确 `+/-Tau` full-turn、简单环、棒棒糖、两路口环和八字形通过自动化与真实渲染验证；self-loop 以 rooted chain 保持 seam 硬边界和稳定 typed direction key。
 4. `EdgeIncidence` 能区分 A/B；自环 degree 为 2，删除和重建不残留引用。
 5. 每次建造、拆分、删除、改造和恢复后都达到规范形；失败无副作用。
-6. RoadGroup 已从 V3 canonical graph、公共提交结果、DebugPanel 指标和 schema 2 移除。
+6. RoadGroup 已从 V3 canonical graph、公共提交结果、DebugPanel 指标和 format v1 移除；旧 API、事件和 DTO 不再编译。
 7. 六类原生几何在反向、拼接、拆分、存档和显示间不降级、不丢控制参数。
 8. 四类 RoadType、semantic boundary、类型化建造和原子改造符合第 8 节。
-9. schema 2 严格往返；合法 schema 1 确定迁移并规范化；full reset 创建新 lineage 并精确采用槽内 `nextID`；legacy、未知和损坏内容不改变活动图。
-10. manifest v2 保留受限摘要元数据并通过同句柄长度/hash/token lexeme、跨进程锁和 publish lease 门禁；恢复遵守五类 occupant 与 pending-intent-first 顺序。manifest v1 冻结整个逻辑槽，普通覆盖被拒绝；`LegacyStateToken` 失效无副作用，独立 Resolve 幂等发布所选 v2、恢复候选或返回 `ResolutionRecoveryBlocked`，并保留全部归档证据。三个事务、三个不可取消点、`PublishedWithCleanupPending`、只读 legacy 来源/空写目标和 crash-recovery/durable 声明边界均通过故障测试。
+9. V3 format v1 严格往返；full reset 创建新 lineage 并精确采用槽内 `nextID`；错误 family/version、`Foreign`、未知和损坏内容不改变活动图，也不被转换或修复。
+10. V3 manifest v1 保留受限摘要元数据并通过同句柄长度/hash/token lexeme、跨进程锁和 publish lease 门禁；恢复遵守五类 V3 occupant、publish descriptor 和 delete descriptor 矩阵。`PublicationRecoveryBlocked`、`DeletionRecoveryBlocked`、`PublishedWithCleanupPending`、`DeletedWithCleanupPending` 和 crash-recoverable/durable 声明边界均通过故障测试；V2 根在所有 V3 操作中逐字节未触碰。
 11. closed ribbon 无 seam 裂缝或伪端点；平行 Edge 可见、可命中、可选择；混合宽度 junction/semantic boundary 无洞、尖刺或遍历顺序差异；hover、拆除、改造和框选共用与 mesh 同 token 的 `RoadSurfaceHit`。
 12. query fragment 以半开所有权让 cut/join/B 端/seam 恰好一次命中，局部查询不随同一 Edge 的远端长度/geometry 数线性增长；exact-sign line predicate、极值坐标、长度、索引容量和 ID 耗尽在事务前结构化失败。
 13. delta 用 lineage/revision/sequence token 拒绝错误方向、重复重放和旧 lineage；成功 full reset 原子清理全部旧图工具/overlay/历史状态，失败 load 逐值保留当前会话；后台派生结果不能通过旧 render token 覆盖新状态。
 14. junction-dense 10k 硬门槛通过，100k 与 geometry-dense 存储/归一化数据完整记录，并包含主线程 snapshot/load/mesh 接管卡顿指标。
 15. 完整自动化、Debug 构建、Godot 主场景、Vulkan 视觉、命名/自动存档和 Windows 导出门禁有持久证据。
-16. schema 2 使用确定 UTF-8 和有界单次解析；不可变 root 允许保存 O(1) 捕获且加载预建全部派生索引，局部 mutation 通过结构共享避免复制无关远端图且已失效 root 可释放；长 Edge 不产生存储伪节点；编辑历史不再保留 before/after 全图 JSON，超预算编辑在提交前拒绝。
-17. Load 经过 Admission、Prepare、Preflight 和一次 non-yield commit/notification；graph、tool、mesh/RID、surface/hit index、token 与 `CurrentSlotID` 同时交换，提交后只允许普通 observer warning，不存在关键表现失败分支。PauseMenu 的 Escape/generation/token 状态机无旧 continuation，legacy candidate Load 只建立只读来源且不保留可覆盖目标。
+16. V3 format v1 使用确定 UTF-8 和有界单次解析；不可变 root 允许保存 O(1) 捕获且加载预建全部派生索引，局部 mutation 通过结构共享避免复制无关远端图且已失效 root 可释放；长 Edge 不产生存储伪节点；编辑历史不再保留 before/after 全图 JSON，超预算编辑在提交前拒绝。
+17. Load 经过 Admission、Prepare、Preflight 和一次 non-yield commit/notification；graph、tool、mesh/RID、surface/hit index、token 与 `CurrentSlotID` 同时交换，提交后只允许普通 observer warning，不存在关键表现失败分支。PauseMenu 的 Escape/generation/token 状态机无旧 continuation。
 18. `TrafficGraph`、A*、拥堵和高程道路等排除项没有被误报为 V3 能力。
 
 ---
@@ -859,17 +844,17 @@ Phase 1 的 additive 内部契约可以独立发布。Phase 2～5 是同一 feat
 | `Scripts/Road/RoadGraph.NativePathIntersections.cs` | incoming 自交、既有交点与 overlap 规划               |
 | `Scripts/Road/RoadGraph.NativeSubdivision.cs`       | 拆分 ID、原生几何和 incidence 一致性                 |
 | `Scripts/Road/RoadGraph.Diagnostics.cs`             | self-loop、parallel edge、规范形断言和 O(1) 诊断快照 |
-| `Scripts/Road/RoadGraph.Persistence.cs`             | 无 Group 的 schema 2 与严格 schema 1 迁移            |
+| `Scripts/Road/RoadGraph.Persistence.cs`             | 无 Group 的 V3 format v1 与严格 family/version reader |
 | `Scripts/Core/SaveManager.cs`、`AutosaveController.cs` | 保存根排他 gate、snapshot/load 提交和 autosave 合并 |
-| `Scripts/Core/SaveSlotStore.cs`                     | manifest v1/v2、同句柄流式校验、staging 隔离、v2-only 恢复与 legacy resolution intent/归档 |
+| `Scripts/Core/SaveSlotStore.cs`                     | V3 manifest v1、独立保存根、同句柄流式校验、publish descriptor 与恢复矩阵 |
 | `Scripts/Road/RoadPathSubmissionResult.cs`          | 无 Group 的 created/removed/updated 事务摘要         |
 | `Scripts/Road/RoadConfig.cs`                        | 四类样式资源与校验                                   |
 | `Scripts/Road/RoadRenderer.cs`                      | closed ribbon、junction patch、per-edge width/color 和 sequence 接管 |
 | `Scripts/Road/RoadBuilder.cs`                       | 闭合确认、选中类型和改造事务                         |
 | `Scripts/Road/Input/`                               | 闭合 placement 和 canonical Edge 选择生命周期        |
 | `Scripts/Road/Input/RoadEditHistory.cs`             | entry/字节双预算的可逆 delta 历史                     |
-| `Scripts/Tools/`、`Scripts/UI/`                   | RoadUpgrade、类型控件和 DebugPanel 指标迁移          |
-| `tests/SimpleCities.RoadGraph.Tests/`               | 领域、规范化、事务和迁移契约                         |
+| `Scripts/Tools/`、`Scripts/UI/`                   | RoadUpgrade、类型控件和 DebugPanel V3 指标           |
+| `tests/SimpleCities.RoadGraph.Tests/`               | 领域、规范化、事务、格式和保存根隔离契约             |
 | `tests/godot/`                                      | 主场景、环路视觉、性能和导出契约                     |
 
 ## 附录 B：关键行为矩阵
@@ -888,30 +873,27 @@ Phase 1 的 additive 内部契约可以独立发布。Phase 2～5 是同一 feat
 | 删除两路口环的一条支路                    | 退化 junction 被消除，两条环弧经该点合成另一个 junction 上的 self-loop |
 | 完全覆盖异类型道路                        | `FullyCovered`，不改类型                                             |
 | 改造后与邻 Edge 同类型                    | semantic boundary 消失并规范化合并，摘要报告 updated/removed           |
-| schema 1 多个同 Group/跨 Group 碎片       | 先严格验证 Group，再丢弃 Group 并按结构边界合并                        |
-| manifest v1 / payload schema 1             | 显式只读 prepare/migrate；普通覆盖冻结，只允许 Save As 或独立 Resolve |
-| manifest v1 / payload schema 2             | 拒绝未发布混合组合；冻结现场，不用 schema 2 绕过 legacy 门禁 |
-| manifest v2 / payload schema 1             | 完整验证 v2 容器后迁移业务；后续明确保存才写 v2/v2 |
-| manifest v2 / payload schema 2             | 当前正常 Load/PublishV2 格式 |
-| pending resolution intent                   | 在 unsafe/staging/v2 恢复前先按固定路径和 digest 幂等续作 |
-| 任一 occupant 是 Unsafe                     | 停止且保留全部证据，不移动/覆盖/删除 |
-| 任一 occupant 是 ManifestV1                 | 冻结逻辑槽；普通 Save/自动恢复拒绝，允许只读 Load/Save As/Resolve |
-| slot/backup 仅 Absent 或 CompleteV2         | 按 v2 matrix 保持、恢复或清理；最终路径必须复核 |
-| 任一 occupant 是 OtherUnproven              | 保留未知现场并返回歧义，不猜测或隔离成赢家 |
-| Load 合法 legacy candidate                  | graph/tool/表现一次交换；活动会话标为只读来源、无可写目标 |
-| ResolveLegacyState 后请求 Load              | 永远是两个 operation token 和两个结果；Resolve 不改活动会话 |
-| 首次 Save / 覆盖 Save / Resolve             | 不可取消点分别为 `staging -> slot` / `slot -> backup` / intent 成功发布 |
-| 最终 v2 已复核但 cleanup 失败                | `PublishedWithCleanupPending`；不回滚或误报发布失败 |
-| intent 恢复持续受 ENOSPC/ACL/冲突阻塞       | `ResolutionRecoveryBlocked`；保留 intent、staging、occupant 与归档 |
+| V3 format v1 canonical payload              | 严格往返并保持 Node/Edge、rooted seam、RoadType、原生 geometry 和 `nextID` |
+| 缺失/错误 family 或 version                 | 在业务 DTO、图准备和场景事件前拒绝，无副作用 |
+| V2 根存在任意槽和 canary                    | V3 list/Save/Load/Delete/autosave/恢复均不枚举、不打开、不修改 |
+| V2/未知目录被复制到 V3 根                   | 分类为 `Foreign`，不显示为正常槽，不加载、不转换、不自动删除 |
+| occupant 是 `CorruptV3`                     | 可显示为损坏槽；不加载或覆盖，只能在明确确认后删除目标 |
+| occupant 是 `Unsafe`                        | 停止且保留全部证据，不移动、覆盖或删除 |
+| slot/staging/backup 匹配 publish descriptor | 按 new/old digest 矩阵完成发布、恢复旧槽或清理 |
+| descriptor 与路径/digest 不一致             | `PublicationRecoveryBlocked`；保留现场且不猜测赢家 |
+| 首次 Save / 覆盖 Save                       | 不可取消点分别为 `staging -> slot` / `slot -> backup` |
+| 最终 V3 槽已复核但 cleanup 失败             | `PublishedWithCleanupPending`；不回滚或误报发布失败 |
+| Delete 越过 `slot -> tombstone`             | 槽逻辑删除；匹配当前目标时清空 `CurrentSlotID`，cleanup 失败不移回 |
+| delete descriptor/tombstone 不一致          | `DeletionRecoveryBlocked`；保留现场且不猜测或重复删除 |
 | Load 关键 participant 失败                  | 只允许在 Preflight 失败，活动 graph/tool/mesh/token/slot 逐值不变 |
 | Load 普通 observer 抛异常                   | 完整 commit 保持，返回 `SucceededWithObserverWarnings` |
 
 ## 附录 C：V2 历史边界
 
 - V2 的完成证据保持原样，不因 V3 重构而改写为失败。
-- 连续空间、六类原生几何、精确查询、空间索引、事务后事件、快照撤销、命名槽和批处理渲染继续作为基础。
-- V3 有意取代 V2 的三项运行时决定：waypoint 可成为 Node、Group 阻止跨提交合并、删除后不自动归一化。
-- V2 schema 1 保持只读迁移输入；V3 不向 V2 分支回填 self-loop、RoadType 或 Group 移除。
+- 连续空间、六类原生几何、精确查询、命名槽和批处理渲染是需要以 V3 新契约重新验证的行为基线，不构成 API 或格式兼容要求。
+- V3 可以完全重写 V2 架构，并有意取代 waypoint 可成为 Node、Group 阻止跨提交合并、删除后不自动归一化等决定。
+- V2 保存根和格式是只保留、不读取的历史数据；V3 不提供迁移工具，也不向 V2 分支回填 self-loop、RoadType 或 Group 移除。
 
 ## 附录 D：最终验收记录
 

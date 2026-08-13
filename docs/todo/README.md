@@ -17,7 +17,7 @@
 ## 组合说明与集成负责人
 
 - 第二代最终范围和未完成事项保存在 `docs/manuals/road-system-v2-gen.md` 附录 D；最终集成负责人是 `road-graph:7.1`，完成后保留附录作为历史验收记录。
-- 根层 D5.1～D5.3、原问题 9 和 P6.5 只保留已取代的历史指针；全部可执行 V3 工作只存在于 `docs/todo/v3/`，最终集成负责人是 `v3-road-graph:8.6`。
+- 根层 D5.1～D5.3、原问题 9 和 P6.5 只保留已取代的历史指针；全部可执行 V3 工作只存在于 `docs/todo/v3/`，最终集成负责人是 `v3-road-graph:8.6`。V3 可完全重写架构且不向后兼容，V2 存档根不进入其读取或迁移范围。
 - `todo:item:5.3` 的第二代活动范围只保留 `save-system:5.3` 的新 Node/Edge/Group schema；旧存档不兼容。`grid-rendering:5.3` 是非阻塞资源命名清理，不计入第二代完成条件。
 
 ## 遗留来源 Key 映射
@@ -27,7 +27,7 @@
 | 遗留 source key | 类型 | 遗留文本或 ID | 目标引用 | 备注 |
 |---|---|---|---|---|
 | `todo:summary:1` | `summary_table_row` | \| 1 \| `AddRoad` 返回 `-1` 时泄漏副作用 \| 已修复 \| 补回归测试，不再修改流程 \| | [road-graph:1](./road-graph.md#road-graph1) |  |
-| `todo:summary:2` | `summary_table_row` | \| 2 \| 存档丢失 `RoadType` \| 已修复；v2 命名迁移未完成 \| 补兼容性测试；字段改名延期 \| | [save-system:2](./save-system.md#save-system2) | 遗留原文已取代：V2 已移除 RoadType 与旧类型回退；V3 schema 工作见 `v3-save-system:2.1`。 |
+| `todo:summary:2` | `summary_table_row` | \| 2 \| 存档丢失 `RoadType` \| 已修复；v2 命名迁移未完成 \| 补兼容性测试；字段改名延期 \| | [save-system:2](./save-system.md#save-system2) | 遗留原文已取代：V2 已移除 RoadType 与旧类型回退；V3 独立格式工作见 `v3-save-system:2.1`。 |
 | `todo:summary:3` | `summary_table_row` | \| 3 \| 几何查询仍有全表扫描 \| 成立 \| 优化候选边查询并建立性能基线 \| | [road-graph:3](./road-graph.md#road-graph3) |  |
 | `todo:summary:4` | `summary_table_row` | \| 4 \| 数据层强制 8 方向 \| 成立 \| 将方向约束移回 `RoadBuilder` \| | [road-graph:4](./road-graph.md#road-graph4) |  |
 | `todo:summary:5` | `summary_table_row` | \| 5 \| `RemoveEdge` 自动清理节点导致合并补回节点 \| 部分成立，属于架构债务 \| 在行为测试保护下重构删除事务 \| | [road-graph:5](./road-graph.md#road-graph5) |  |

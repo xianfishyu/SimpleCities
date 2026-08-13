@@ -34,7 +34,7 @@
   - 修改：消费 `EdgeIncidence.Endpoint`；self-loop 使用循环相邻方向生成无裂缝 closed ribbon，seam 不绘制 endpoint/junction 标记；degree 1 绘制 endpoint，degree 大于等于 3 的最终表面由 2.2 junction patch 负责，degree 2 的 seam/semantic boundary 不画伪节点。高亮、矩形选择和中心线命中不得按端点对去重平行 Edge。
   - 依赖：`v3-road-graph:8.1`～`8.3`。
   - 集成负责人：`v3-grid-rendering`；端到端完成判定由 `v3-road-graph:8.6` 负责。
-  - 验证：非共线多段 Edge、简单环、全圆原生弧、棒棒糖、两路口环、八字形、支路删除后的 seam 迁移、平行 Edge 独立高亮，以及缩放/重建截图。
+  - 验证：非共线多段 Edge、简单环、全圆原生弧、棒棒糖、两路口环、八字形、支路删除后的 seam 重定位、平行 Edge 独立高亮，以及缩放/重建截图。
   - 验收：闭环首尾无裂缝、端帽或伪节点；junction/endpoint 数与 incidence 拓扑一致；同端点平行 Edge 均可见且可独立命中。
 
 <a id="v3-grid-rendering2.1"></a>
@@ -74,7 +74,7 @@
 
 - 延期原因：V3 首版先验证四类道路的稳定名称、颜色、正有限宽度和混合路面拓扑；虚线、纹理、路肩及中央分隔带会扩大资源、几何和视觉验收范围。
 - 保持现状：`RoadTypeStyle` 仅包含 2.1 明确的首版字段，派生视觉不得进入 RoadGraph 或存档事实。
-- 重新开启条件：2.0～2.3 全部完成，并有明确产品样式、资源兼容和视觉回归要求。
+- 重新开启条件：2.0～2.3 全部完成，并有明确产品样式、资源预算与生命周期约束及 V3 视觉验收要求。
 
 ### 分块道路 mesh
 
@@ -91,7 +91,7 @@
 
 ## 完成标准
 
-1. 2.0～2.3 全部通过各自自动化、真实 Godot/Vulkan 视觉和性能门禁；V2 六类曲线显示与 10k 基线无回归。
+1. 2.0～2.3 全部通过各自自动化、真实 Godot/Vulkan 视觉和性能门禁；六类原生几何按 V3 新契约重新验证，并达到同机 junction-dense/geometry-dense 10k 门槛，不要求复用或兼容 V2 渲染 API、测试或实现。
 2. canonical Edge、self-loop、平行 Edge、四类 RoadType、semantic boundary 和混合宽度 junction 形成无洞、可确定、可独立命中的同源 mesh/surface 表现，派生数据不反向修改 RoadGraph 或存档。
 3. 普通 mutation 只在完整 token 匹配时一次发布 mesh/surface/presented token；失败保留旧表现、持续禁止道路交互并允许诊断重试，过期结果永不覆盖新图。
 4. Load 在 Preflight 完成隐藏 Mesh/RID、surface snapshot、hit index 和不可抛 plan；关键失败只发生在 commit 前，成功与 graph、empty tool/overlay root、mesh/surface、token 和 `CurrentSlotID` 一次联合交换，提交后只有普通 observer warning，不存在关键表现失败或表现重试结果。

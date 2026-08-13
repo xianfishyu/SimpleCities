@@ -329,4 +329,4 @@ project.godot
 
 ### 未来设计边界
 
-可替换铺路边界已经由 `IRoadInputStrategy` 和 `RoadPathDraft` 落地；默认米字型、三角单元中心和六边形单元中心策略均通过共享契约。`RoadPlacementSession` 与 `RoadBuilder` 已支持连续多段、拐点回退、完整预览、确认和取消，并只经 `RoadGraph.SubmitPath` 一次提交；`RoadRemovalSession` 已支持连续轨迹和矩形框选，并只经 `RoadGraph.RemoveEdges` 一次提交。`RoadEditHistory` 已用完整 RoadGraph 状态提供容量受限的撤销重做，并经 `GraphCleared` 让渲染同步重建。六类原生曲线显示采样与 10k/100k 批处理规模验收均已完成；canonical Edge、自环/平行 Edge、RoadGroup 移除、`TrafficGraph`、A* 寻路、道路分级 UI 和按 RoadType 差异化渲染仍属于未来工作。第二代道路 JSON 只使用严格版本化的 `nodes/edges/groups` 与原生几何；第三代将以 schema 2 同时迁移规范存储和 RoadType，详细契约见第三代指南。
+可替换铺路边界已经由 `IRoadInputStrategy` 和 `RoadPathDraft` 落地；默认米字型、三角单元中心和六边形单元中心策略均通过共享契约。`RoadPlacementSession` 与 `RoadBuilder` 已支持连续多段、拐点回退、完整预览、确认和取消，并只经 `RoadGraph.SubmitPath` 一次提交；`RoadRemovalSession` 已支持连续轨迹和矩形框选，并只经 `RoadGraph.RemoveEdges` 一次提交。`RoadEditHistory` 已用完整 RoadGraph 状态提供容量受限的撤销重做，并经 `GraphCleared` 让渲染同步重建。六类原生曲线显示采样与 10k/100k 批处理规模验收均已完成；canonical Edge、自环/平行 Edge、RoadGroup 移除、`TrafficGraph`、A* 寻路、道路分级 UI 和按 RoadType 差异化渲染仍属于未来工作。第二代道路 JSON 只使用严格版本化的 `nodes/edges/groups` 与原生几何；第三代允许完全重写运行时和 API，以独立 `simple-cities-v3` format v1 与 `user://saves-v3` 保存根表达规范存储和 RoadType，不读取或迁移第二代存档，详细契约见第三代指南。

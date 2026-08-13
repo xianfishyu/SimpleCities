@@ -184,12 +184,13 @@
 
 ### 已取代的第三代道路分级存档延期说明
 
-- 处置：RoadType、canonical Edge、self-loop、Group 移除与 schema 迁移的活动工作已迁至 `v3-save-system:2.1`～`2.3`；根层文档不再承载第三代存档任务。
+- 处置：RoadType、canonical Edge、self-loop、Group 移除与 V3 独立存档格式的活动工作已转至 `v3-save-system:2.1`～`2.3`；根层文档不再承载第三代存档任务。
 - V2 边界：不得复用第二代已删除的 RoadType 兼容回退作为第三代既定契约。
 
 ### 后续多系统事务（V2 历史决定）
 
 - 第二代只验收 RoadGraph，并保留独立 JSON 扩展机制。V3 的 prepared aggregate 基础设施由 `v3-save-system:2.3` 跟踪；第二个正式业务 payload 仍在其 V3 路线图中延期，不在本文件重新开启。
+- V3 使用独立 `user://saves-v3` 根和 `simple-cities-v3` format v1，不读取、迁移、覆盖或删除本文件定义的 V2 槽；该破坏式替换不重新打开任何 V2 已完成项。
 
 ## 已解决基线
 

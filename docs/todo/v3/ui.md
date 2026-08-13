@@ -12,7 +12,7 @@
 | 1.1 | 道路上下文没有 RoadType 选择控件 | 开放 | 四段式名称与颜色 swatch 选择器写入共享 tool state |
 | 1.2 | ConstructionDock 没有道路改造工具呈现 | 开放 | 资源化 RoadUpgrade 工具、选中态和上下文联动 |
 | 1.3 | DebugPanel 仍把 RoadGroup 数量作为路网指标 | 开放 | 移除 Group 指标，展示 canonical Node/Edge/geometry/self-loop 结构量 |
-| 1.4 | 暂停菜单没有异步 Load 与 legacy 冲突的独占状态机 | 开放 | generation/token 防护、Escape 独占，以及 Resolve/Load 永久分离 |
+| 1.4 | 暂停菜单没有异步 Save/Load/Delete 的独占状态机 | 开放 | generation/token 防护、Escape 独占及三类操作的明确提交边界 |
 
 ### 设计覆盖矩阵
 
@@ -50,7 +50,7 @@
 
 <a id="v3-ui1.3"></a>
 
-- [ ] **1.3 将 DebugPanel 迁移到 canonical RoadGraph 指标**
+- [ ] **1.3 将 DebugPanel 改用 canonical RoadGraph 指标**
   - 当前问题：`DebugPanel` 和 `command_center_runtime_contract.gd` 通过 `GetAllGroups()` 显示/断言 RoadGroup 数；V3 移除 Group 后该指标既无法编译，也不能说明连续存储是否生效。若直接在 `_Process` 中调用 `GetAllNodes/Edges` 统计新指标，会每帧复制全图并让 geometry-dense 长 Edge 产生额外扫描/分配。
   - 修改：删除 RoadGroup 行和相关场景节点/引用，改为显示 Node、canonical Edge、原生 geometry segment、query fragment 和 self-loop 数；标签明确区分拓扑量、权威几何量与派生索引量，不把 parallel Edge 按邻居去重。只读取 `v3-road-graph:8.5` 随事务维护的不可变 diagnostics snapshot；面板可见且 sequence 改变时刷新文本，隐藏时不轮询/复制全图。
   - 依赖：`v3-road-graph:8.2`、`v3-road-graph:8.3`、`v3-road-graph:8.5`。
@@ -60,13 +60,13 @@
 
 <a id="v3-ui1.4"></a>
 
-- [ ] **1.4 呈现并约束异步保存、加载与 legacy 解决操作**
-  - 当前问题：PauseMenu 以同步 bool 结果驱动槽列表和关闭行为；异步后，重复按钮、Enter、Escape 或旧 continuation 可能产生重复请求、错误覆盖提示或提前关闭菜单。多个 legacy occupant 还需要用户明确选择只读来源、Save As 或独立解决磁盘状态，普通“加载/覆盖”确认无法表达授权边界。
-  - 修改：消费 coordinator 的不可变 operation state/result，显示操作类型、目标存档名及 Save 的 Prepare/Publish、Resolve 的 Prepare/Intent/Recovery、Load 的 Admission/Prepare/Preflight/Commit 阶段；busy 时禁用冲突按钮并防止重复提交。每个 continuation 同时校验 `SceneGeneration + MenuOpenGeneration + OperationToken`。手动 Load 从 admission 到 commit 始终保持菜单打开和场景暂停：Admission/Prepare/Preflight 期间 Escape 只发送一次取消请求并继续消费输入；进入短 non-yield commit 后只消费 Escape，不能关闭菜单、恢复游戏或再取消。Load 的关键 graph/tool/mesh/surface 失败必须在 Preflight，成功 commit 同时发布 matching `PresentationReady`；提交后只有普通 observer warning，可显示 `SucceededWithObserverWarnings`，不存在 `CommittedPresentationFailed` 或表现重试页。legacy 页面显示 `LegacyStateToken` 绑定的全部 occupant、manifest 分类与 prepared 摘要，不按时间戳猜选；提供只读加载所选候选、Save As 和显式 `ResolveLegacyState`。Resolve 必须二次确认将处理 token 所证明的全部安全 occupant；`StaleLegacyState` 只刷新扫描，不沿用旧授权。Resolve 与 Load 无条件使用两个 operation token 和两个结果：Resolve 只改磁盘，不加载、不关闭菜单、不改 `CurrentSlotID`；Load 只读磁盘，不移动、删除、归档、升级或回写槽。autosave `SkippedBusy` 只更新诊断，不弹错误。
+- [ ] **1.4 呈现并约束异步保存、加载与删除操作**
+  - 当前问题：PauseMenu 以同步 bool 结果驱动槽列表和关闭行为；异步后，重复按钮、Enter、Escape 或旧 continuation 可能产生重复请求、错误覆盖/删除提示或提前关闭菜单。V3 还必须只展示独立根中的 `CompleteV3` / `CorruptV3` 槽，不能让 V2/`Foreign` 内容进入普通操作。
+  - 修改：消费 coordinator 的不可变 operation state/result，显示操作类型、目标存档名及 Save 的 Capture/Prepare/Publish、Load 的 Admission/Prepare/Preflight/Commit、Delete 的 Recover/Commit/Cleanup 阶段；busy 时禁用冲突按钮并防止重复提交。每个 continuation 同时校验 `SceneGeneration + MenuOpenGeneration + OperationToken`。手动 Load 从 admission 到 commit 始终保持菜单打开和场景暂停：Admission/Prepare/Preflight 期间 Escape 只发送一次取消请求并继续消费输入；进入短 non-yield commit 后只消费 Escape，不能关闭菜单、恢复游戏或再取消。Load 的关键 graph/tool/mesh/surface 失败必须在 Preflight，成功 commit 同时发布 matching `PresentationReady`；提交后只有普通 observer warning，可显示 `SucceededWithObserverWarnings`，不存在表现重试页。覆盖与删除二次确认必须显示精确 display name、slot ID 和 occupant 状态；`CorruptV3` 只允许确认删除，`Foreign` / `Unsafe` 不显示为可操作槽。删除越过 tombstone move 后即显示逻辑删除，cleanup pending 作为 warning，不把槽重新加入列表。autosave `SkippedBusy` 只更新诊断，不弹错误。
   - 依赖：`v3-save-system:2.2`～`2.3`、`v3-tool-input:2.4`、`v3-grid-rendering:2.2`。
   - 集成负责人：`v3-ui`；端到端完成判定由 `v3-road-graph:8.6` 负责。
-  - 验证：保存/另存/覆盖/加载/删除/Resolve 各阶段，鼠标/键盘重复激活；Admission/Prepare/Preflight 连按 Escape、commit 按 Escape；成功、observer warning、提交前失败/取消；scene/menu generation 和旧 continuation；不同 legacy occupant 组合、token 摘要、默认焦点、只读 Load、Save As、Resolve 二次确认、`StaleLegacyState` 刷新、Resolve 后另发普通 Load；pending autosave 合并/跳过，菜单关闭重开、场景退出重入，以及三档视口。
-  - 验收：每次命令只对应一个 operation token；旧 generation/continuation/legacy token 无法改变当前菜单或磁盘；冲突按钮、Enter 和 Escape 不重复发起或提前恢复游戏。Resolve 与 Load 永不组合，Resolve 不改活动会话，Load 不改盘；失败/取消不关闭菜单或误切 `CurrentSlotID`，observer warning 不误报失败；成功 Load 只在所有根和 matching presentation token 一次交换后恢复游戏，autosave busy 不产生错误噪音。
+  - 验证：保存/另存/覆盖/加载/删除各阶段，鼠标/键盘重复激活；Admission/Prepare/Preflight 连按 Escape、commit 按 Escape；成功、observer warning、cleanup pending、提交前失败/取消；scene/menu generation 和旧 continuation；五类 occupant 的列表/按钮策略、精确确认、默认焦点、V2/Foreign 不可见；pending autosave 合并/跳过，菜单关闭重开、场景退出重入，以及三档视口。
+  - 验收：每次命令只对应一个 operation token；旧 generation/continuation 无法改变当前菜单或磁盘；冲突按钮、Enter 和 Escape 不重复发起或提前恢复游戏。Publish、Load、Delete 结果不混淆，Load 不改盘；失败/取消不关闭菜单或误切 `CurrentSlotID`，observer/cleanup warning 不误报失败；成功 Load 只在所有根和 matching presentation token 一次交换后恢复游戏，V2 槽从不出现在 V3 UI，autosave busy 不产生错误噪音。
 
 ## 暂不执行
 
@@ -89,4 +89,4 @@
 2. 四类选择和两个道路工具在桌面、窄屏、鼠标与键盘焦点下均可操作且不重叠。
 3. UI 只修改 tool/operation state；类型化建造、改造、磁盘事务和图提交仍由 owning system 执行。
 4. 场景退出/重入、暂停和工具切换不会保留失效引用、重复信号或未提交选择。
-5. Load 的成功一次交换 graph/tool/mesh/surface/token/`CurrentSlotID`，关键失败仅发生在 Preflight；Resolve 与 Load 永久分离且各自授权边界可见。
+5. Load 的成功一次交换 graph/tool/mesh/surface/token/`CurrentSlotID`，关键失败仅发生在 Preflight；Publish、Load、Delete 的授权和提交边界分别可见，V2/Foreign 内容不可操作。
