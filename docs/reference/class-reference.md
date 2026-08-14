@@ -365,11 +365,11 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | 枚举值 | 存档 token | 说明 |
 |---|---|---|
 | `Dirt` | `"dirt"` | 土路 |
-| `Street` | `"street"` | 街道；当前 RoadBuilder 固定建造类型 |
+| `Street` | `"street"` | 街道；当前 RoadBuilder 的默认选择类型 |
 | `Arterial` | `"arterial"` | 主干道 |
 | `Highway` | `"highway"` | 高速道路 |
 
-`RoadTypeContract` 严格校验这四个值并执行大小写敏感 token 映射。不同类型相邻 Edge 保留 semantic-boundary Node；`ChangeRoadType` 可能让边界消失并触发 canonical merge。当前领域/存档已支持四类，类型选择 UI 与 RoadUpgrade 工具仍属 Phase 7。
+`RoadTypeContract` 严格校验这四个值并执行大小写敏感 token 映射。不同类型相邻 Edge 保留 semantic-boundary Node；`ChangeRoadType` 可能让边界消失并触发 canonical merge。当前领域、存档和铺路会话已支持四类，类型选择 UI 与 RoadUpgrade 工具仍属 Phase 7。
 
 ### SpatialIndex
 
@@ -512,16 +512,19 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 |---|---|---|
 | `Config` | `[Export] public RoadConfig Config { get; set; } = null!` | 场景注入共享配置 |
 | `IsPlacing` / `FixedCornerCount` / `CurrentDraft` | 只读属性 | 当前连续铺路会话状态、已固定拐点数和完整组合草稿 |
+| `SelectedRoadType` | `public RoadType SelectedRoadType { get; private set; }` | 当前工具类型选择；新 Builder 默认为 `Street`，full reset 保留该值 |
 | `IsRemoving` | `public bool IsRemoving { get; }` | 当前是否持有尚未提交的拆除选择会话 |
 | `CanUndo` / `CanRedo` | 只读属性 | 当前是否存在可撤销或可重做的成功道路编辑 |
 | `SetGraph` | `public void SetGraph(RoadGraph graph)` | 取消活动会话、替换数据层并为新图建立独立编辑历史 |
 | `SetInputStrategy` | `public void SetInputStrategy(IRoadInputStrategy inputStrategy)` | 取消当前会话并替换输入策略 |
+| `GetSelectedRoadType` | `public RoadType GetSelectedRoadType()` | 返回当前明确选择，供 UI 和运行时契约读取 |
+| `SetSelectedRoadType` | `public bool SetSelectedRoadType(RoadType roadType)` | 拒绝未定义枚举；同值保持会话，合法变化取消未提交 placement 并更新选择 |
 | `_Ready` | `public override void _Ready()` | 获取相邻 `RoadRenderer`，校验 `Config`，按需创建默认米字型策略 |
 | `HandlePlaceInput` | `public void HandlePlaceInput(InputEvent @event)` | 处理旧式拖拽和点击式连续会话的移动、拐点、确认、回退与取消 |
-| `BeginPlace` | `public bool BeginPlace(Vector2 pointerPosition)` | 通过策略吸附起点并建立空的 `RoadPlacementSession` |
+| `BeginPlace` | `public bool BeginPlace(Vector2 pointerPosition)` | 通过策略吸附起点，并以当前 `SelectedRoadType` 建立空的 `RoadPlacementSession` |
 | `UpdatePlace` | `public void UpdatePlace(Vector2 pointerPosition)` | 移动当前末端并更新完整组合预览 |
 | `AddPlacePoint` / `RemoveLastPlacePoint` | `public bool ...(Vector2 pointerPosition)` | 固定新拐点或回退最后一个固定拐点 |
-| `ConfirmPlace` | `public bool ConfirmPlace(Vector2 pointerPosition)` | 构造 `RoadBuildRequest(draft.Path, RoadType.Street)` 并一次提交；拒绝时保留会话 |
+| `ConfirmPlace` | `public bool ConfirmPlace(Vector2 pointerPosition)` | 构造 `RoadBuildRequest(draft.Path, session.RoadType)` 并一次提交；拒绝时保留会话 |
 | `CommitPlace` | `public bool CommitPlace(Vector2 pointerPosition)` | 兼容既有调用的 `ConfirmPlace` 别名 |
 | `CancelPlaceSession` | `public void CancelPlaceSession()` | 取消完整会话并清空预览，不修改图 |
 | `CancelPlaceDrag` | `public void CancelPlaceDrag()` | 兼容既有调用的取消别名 |
@@ -540,7 +543,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | 半格起点 | `SquareEightRoadInputStrategy` 对偏移起点只允许对角延伸，并反向定位整格 anchor |
 | 组合与提交 | `RoadPlacementSession` 保留每段策略草稿的原生几何；`ConfirmPlace()` 把完整 `RoadPath` 一次性交给 `_graph.SubmitPath(...)` |
 | 失败行为 | 无有效段时不提交；RoadGraph 拒绝时图不变且会话/完整预览保留，可继续调整或取消 |
-| 道路类型 | 领域请求显式携带 `RoadType`；当前 builder 固定 `Street`，可选择/会话冻结状态仍属 `v3-tool-input:2.1` |
+| 道路类型 | `SelectedRoadType` 默认 `Street`；会话开始冻结合法类型，确认只提交冻结值。玩家可见选择控件仍属 `v3-ui:1.1` |
 | 拆除 | hover、普通左键拖动与 `Shift+左键` 框选统一消费已呈现的 ribbon/cap/join/patch surface；会话冻结 render token，pending/stalled/superseded 时清空预览并拒绝提交；右键或切出工具取消 |
 | 编辑历史 | 成功的 `SubmitPath` / `RemoveEdges` 状态变化进入容量 64 的历史；失败或无变化不入栈，新成功编辑清空重做栈 |
 
@@ -555,7 +558,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `IRoadInputStrategy.BuildDraft` | `RoadPathDraft BuildDraft(Vector2 startPosition, Vector2 pointerPosition)` | 生成预览点和可选的权威 `RoadPath` |
 | `IRoadSurfaceSelectionProvider` | `internal interface IRoadSurfaceSelectionProvider` | 捕获 current `RoadRenderToken`，并只为 expected token 提供点命中、矩形 Edge 查询和 current 判定 |
 | `RoadPathDraft` | `public sealed class RoadPathDraft` | 防御性复制预览点；`Path == null` 表示当前不可提交；`FromPolyline` 把连续预览点转换为原生 line 段 |
-| `RoadPlacementSession` | `public sealed class RoadPlacementSession` | 组合已固定草稿和可移动末端；支持增加/回退拐点并保持完整 `PreviewPoints` 与原生 `RoadPath` |
+| `RoadPlacementSession` | `public sealed class RoadPlacementSession` | 构造时校验并冻结只读 `RoadType`；组合已固定草稿和可移动末端，保持完整 `PreviewPoints` 与原生 `RoadPath` |
 | `RoadRemovalSession` | `public sealed class RoadRemovalSession` | 冻结完整 `RenderToken` 并维护排序去重的 Edge ID；连续模式累积 surface hit，矩形模式重建 surface owner 选择；token 失配后永久失效并清空，不直接写图 |
 | `SquareEightRoadInputStrategy` | `public sealed class SquareEightRoadInputStrategy : IRoadInputStrategy` | 封装方格吸附、八方向投影、半格对角约束和逐格原生直线段 |
 | `TriangularThreeRoadInputStrategy` | `public sealed class TriangularThreeRoadInputStrategy : IRoadInputStrategy` | 吸附到三角单元中心；主/次中心分别有 3 个跨边邻居，长路径交替两组邻接 |
@@ -800,7 +803,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | 1 | `ToolManager._Input()` | 当前工具为 `Road` 时转发输入 |
 | 2 | `RoadBuilder.HandlePlaceInput()` | 左键按下/释放转发到公开铺路生命周期 |
 | 3 | `RoadBuilder.BeginPlace()` / `UpdatePlace()` | 当前策略吸附起点并生成不可变 `RoadPathDraft` 预览 |
-| 4 | `RoadBuilder.CommitPlace()` | 刷新最终草稿并通过 `RoadEditHistory.Execute(...)` 提交 `RoadBuildRequest(path, Street)`；输入网格不进入领域请求 |
+| 4 | `RoadBuilder.CommitPlace()` | 刷新最终草稿并通过 `RoadEditHistory.Execute(...)` 提交 `RoadBuildRequest(path, session.RoadType)`；输入网格不进入领域请求 |
 | 5 | `RoadGraph.SubmitPath(...)` | 校验原生几何/类型，规划交点、覆盖和 canonical merge，一次提交 immutable root 与 delta |
 | 6 | `RoadGraph.GraphChanged` | 渲染器按 created/removed/updated Edge 更新 cache；一次成功命令只发布一次事务事件 |
 | 7 | `GameHUD._Process()` -> `DebugPanel.UpdateMetrics()` | 调试组件读取单个 revision 的 Edge/Node 数量 |

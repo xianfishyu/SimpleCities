@@ -82,7 +82,7 @@
   - 依赖：`v3-road-graph:8.2`、`v3-road-graph:8.3`。
   - 验证证据（2026-08-13）：新增 `RoadGraphRoadTypeV3Tests` 并迁移所有原生路径调用者到显式请求，覆盖构造/非法枚举、开放与闭合路径、六类几何、同/异类型接续与交叉、semantic boundary、完全覆盖、部分重叠、历史/过渡期 schema 3 往返和失败无副作用。最终 `dotnet test SimpleCities.sln --no-restore` 为 611/611，`dotnet build SimpleCities.sln --no-restore` 为 0 警告/0 错误，Roslyn CodeLens 含 analyzer 为 0 diagnostics，相关 GDScript 逐文件为 0 diagnostics，`git diff --check` 通过；旧 `SubmitPath(RoadType, RoadPath)` 引用为 0。
   - Godot Tier 3（2026-08-13）：冻结运行真实 `Scenes/MapTest.tscn`，8 次合法类型提交得到 10 Edge/16 Node，类型计数为 Dirt 3、Street 2、Arterial 2、Highway 3；异类型接缝保留 2 条 Street/Arterial incidence，交叉点的 4 条 incidence 分别保持既有 Highway 与新 Dirt。异类型完全覆盖返回 `FullyCovered` 且 payload、ID watermark 不变；两帧后 renderer 接管 10 Edge/40 mesh 顶点/2 static nodes，editor log 与 DAP 两个输出通道无错误，测试图和临时 bridge 均已清理。
-  - 验收结果：每条活动 Edge 有且仅有一个合法类型；不同类型边界保留，同类型且无结构边界的相邻 Edge 合并。`RoadBuilder` 目前显式构造固定 `Street` 请求，类型选择和会话冻结仍由开放的 `v3-tool-input:2.1` 负责；过渡期 `schemaVersion = 3` 只服务当前内部快照，不计作 V3 format v1。
+  - 验收结果：每条活动 Edge 有且仅有一个合法类型；不同类型边界保留，同类型且无结构边界的相邻 Edge 合并。`v3-tool-input:2.1` 已让 `RoadBuilder` 以默认 `Street` 的 `SelectedRoadType` 建立会话并显式提交冻结类型；玩家可见选择器仍由 `v3-ui:1.1` 负责。过渡期 `schemaVersion = 3` 只服务当前内部快照，不计作 V3 format v1。
 
 <a id="v3-road-graph8.5"></a>
 

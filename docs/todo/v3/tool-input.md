@@ -10,7 +10,7 @@
 | ID | 发现 | 当前状态 | 处置方式 |
 |---|---|---|---|
 | 2.0 | `RoadPlacementSession` 无法确认闭合道路 | 已完成 | 已建立首锚点吸附、闭合预览、单次提交与完整取消生命周期 |
-| 2.1 | `RoadBuilder` 没有与网格策略解耦的类型选择状态 | 开放 | 会话开始冻结类型并显式提交 |
+| 2.1 | `RoadBuilder` 没有与网格策略解耦的类型选择状态 | 已完成 | `SelectedRoadType` 在会话开始冻结并显式提交 |
 | 2.2 | 既有道路没有先选择后提交的类型改造工作流 | 开放 | 独立 RoadUpgrade 工具、批量选择、取消和撤销重做 |
 | 2.3 | 64 项历史曾为每项保留 before/after 完整 JSON | 已完成 | delta/双预算已替换全图字符串，真实 V3 Load 会换 lineage 并清空旧历史/token |
 | 2.4 | 外部 Load 可能让旧图工具状态或旧画面继续接受输入 | 开放（部分实现） | placement/removal/history 与 matching indexed 四类 surface/token 已加入 full-reset aggregate，拆除选择与确认已接管；补齐 upgrade、排队 continuation 与全命令门禁 |
@@ -19,9 +19,9 @@
 
 | 设计范围 | 当前事实 | 关联待办 |
 |---|---|---|
-| V3 闭环与类型化编辑 | 已完成三种策略共享的闭环草稿、单次提交和取消生命周期；领域层已有显式 `RoadBuildRequest`，但 `RoadBuilder` 仍固定提交 `Street`，类型选择/会话冻结与 RoadUpgrade 尚未接入 | 2.1～2.2、`v3-road-graph:8.4`～`8.5`、`v3-grid-rendering:2.0`～`2.2`、`v3-ui:1.1`～`1.2` |
+| V3 闭环与类型化编辑 | 三种策略共享闭环草稿和取消生命周期；`RoadBuilder.SelectedRoadType` 默认 `Street`，`RoadPlacementSession` 冻结合性质类型，确认只提交该冻结值。RoadUpgrade 尚未接入 | 2.1～2.2、`v3-road-graph:8.4`～`8.5`、`v3-grid-rendering:2.0`～`2.2`、`v3-ui:1.1`～`1.2` |
 | V3 操作历史存储 | `RoadEditHistory` 只保留可逆 delta 与完整 state token，以 entry/估算字节双预算在提交前 admission；真实 V3 Load 创建新 lineage，full reset 立即清空 undo/redo 并让旧 token 失效 | 2.3、`v3-road-graph:8.5`、`v3-save-system:2.1` |
-| V3 加载生命周期 | `ToolManager` / `RoadBuilder` 已提供 generation-guarded full-reset plan；成功 aggregate 清空 placement/removal/history，并与基础 mesh、带 canonical `RoadLocation` 和不可变空间索引的同源 `EdgeRibbon` + `TerminalCap` + `SemanticJoin` + `JunctionPatch` surface、matching desired/presented render token 一次交换，失败 Load 保留旧会话。拆除 hover、连续/矩形选择和确认已冻结并校验 current token；RoadUpgrade、类型化建造、排队 continuation 与全命令门禁尚未完成 | 2.4、`v3-save-system:2.3`、`v3-grid-rendering:2.2`、`v3-road-graph:8.5` |
+| V3 加载生命周期 | `ToolManager` / `RoadBuilder` 已提供 generation-guarded full-reset plan；成功 aggregate 清空 placement/removal/history、保留 `SelectedRoadType`，并与基础 mesh、带 canonical `RoadLocation` 和不可变空间索引的同源 `EdgeRibbon` + `TerminalCap` + `SemanticJoin` + `JunctionPatch` surface、matching desired/presented render token 一次交换，失败 Load 保留旧会话。拆除命令已校验 current token；RoadUpgrade、排队 continuation 与全命令门禁尚未完成 | 2.4、`v3-save-system:2.3`、`v3-grid-rendering:2.2`、`v3-road-graph:8.5` |
 
 ## 执行顺序
 
@@ -40,13 +40,14 @@
 
 <a id="v3-tool-input2.1"></a>
 
-- [ ] **2.1 让铺路会话显式提交选中的 RoadType**
-  - 当前问题：`v3-road-graph:8.4` 已要求 `RoadBuilder.ConfirmPlace` 构造 `RoadBuildRequest`，但当前请求仍固定使用 `RoadType.Street`；工具层没有可选择状态或会话冻结值。把类型塞入 `IRoadInputStrategy` 仍会污染已验证的三种网格可替换边界。
-  - 修改：在 `RoadBuilder` 或独立 `RoadToolState` 保存 `SelectedRoadType`，初始为 `Street`；铺路会话开始时冻结类型，并构造显式类型化请求。切换类型先取消未提交会话；三种输入策略和 `RoadPathDraft` 继续只负责几何。
+- [x] **2.1 让铺路会话显式提交选中的 RoadType**
+  - 完成前问题：`RoadBuilder.ConfirmPlace` 虽构造 `RoadBuildRequest`，但请求固定使用 `RoadType.Street`；工具层没有可选择状态或会话冻结值。把类型塞入 `IRoadInputStrategy` 会污染已验证的三种网格可替换边界。
+  - 已实现：`RoadBuilder.SelectedRoadType` 默认 `Street`，`SetSelectedRoadType` 拒绝未定义枚举；同值重选保持当前会话，合法类型变化先取消未提交 placement 并清空 preview。`BeginPlace` 把当前类型传给 `RoadPlacementSession`，会话构造时校验并冻结只读 `RoadType`；`ConfirmPlace` 只用该冻结值构造请求。输入策略和 `RoadPathDraft` 仍只负责几何。新场景的新 Builder 恢复默认值；成功 full reset 清空会话/history，但保留明确的运行期选择。
   - 依赖：`v3-road-graph:8.4`、`v3-tool-input:2.0`。
   - 集成负责人：`v3-tool-input`；UI 控件属于 `v3-ui:1.1`，端到端完成判定由 `v3-road-graph:8.6` 负责。
-  - 验证：四类建造、会话中切换类型、取消/失败、同异类型接续、交叉、覆盖、闭环、三种输入策略和保存加载往返。
-  - 验收：每次成功建造只使用会话冻结类型；切换类型不造成混合提交或部分图写入；更换输入策略不改变 RoadType 状态或 RoadGraph 契约。
+  - 验证证据（2026-08-15）：类型化建造聚焦组合 60/60，覆盖四类开路/闭环、同异类型接续、交叉、完全/部分覆盖、六类原生几何、无效类型、严格持久化往返、三种输入策略和会话冻结；完整 solution 自动化为 826/826。Debug 与 `ExportRelease` build 均为 0 错误，各有 1 条既有 `NU1900`；Roslyn compiler/analyzer、修改 GDScript 与 workspace scan 均为 0 diagnostics，`git diff --check` 通过。
+  - Godot Tier 3（2026-08-15）：隔离 `road_input_strategy_runtime_contract.gd` 在真实 `MapTest` 中验证默认 `Street`、同值/无效值保持会话、合法切换取消会话与 preview、Dirt/Street/Arterial/Highway 各建一条并以四个稳定 token 保存；随后 full-reset Load 保留 `Highway` 选择，清空 placement 和 undo/redo，并恢复 4 条已呈现 Edge。MCP 冻结场景另得到 `selected_type = Highway`、`1 Edge / 4 mesh vertices / 1 undo`；editor 增量日志和 DAP `stderr`/`console` 为空，测试槽、隔离目录、日志和运行实例已清理。
+  - 验收结果：每次成功建造只使用会话冻结类型；合法切换不会混合提交或部分写图，无效/同值选择无副作用；更换输入策略不改变 RoadType 状态或 RoadGraph 契约。玩家可见四段式控件仍由开放的 `v3-ui:1.1` 负责。
 
 <a id="v3-tool-input2.2"></a>
 
@@ -78,7 +79,7 @@
 <a id="v3-tool-input2.4"></a>
 
 - [ ] **2.4 将成功 full reset 作为旧图工具状态的原子失效边界**
-  - 当前问题：基础 aggregate Load 已能原子替换当前已有的 placement、removal、history、renderer overlay、基础 mesh、同源 `EdgeRibbon` / `SemanticJoin` / `JunctionPatch` triangle + `TerminalCap` disc surface 与 matching 六分量 render token；普通 mutation 的 renderer provider 也已在 pending/stalled 时拒绝 hit，并支持同 token 重试。拆除 hover、连续/矩形选择和确认已冻结并校验 current token，但 RoadUpgrade、类型化建造、排队道路命令和全命令 admission 尚未实现，因而还不能证明设计列出的全部旧图状态都在同一边界失效。若在解析开始时就取消，损坏、超限或取消的 Load 仍会无故破坏当前会话。
+  - 当前问题：基础 aggregate Load 已能原子替换当前已有的 placement、removal、history、renderer overlay、基础 mesh、同源 `EdgeRibbon` / `SemanticJoin` / `JunctionPatch` triangle + `TerminalCap` disc surface 与 matching 六分量 render token；普通 mutation 的 renderer provider 也已在 pending/stalled 时拒绝 hit，并支持同 token 重试。拆除命令已冻结并校验 current token，类型化建造已完成选择/冻结/提交且成功 Load 会保留选择；但 RoadUpgrade、排队道路命令和全命令 admission 尚未实现，因而还不能证明设计列出的全部旧图状态都在同一边界失效。若在解析开始时就取消，损坏、超限或取消的 Load 仍会无故破坏当前会话。
   - 修改：作为 `v3-save-system:2.3` aggregate Load 的关键参与者，实现无副作用 `PreflightFullReset`，从当前状态准备 empty tool root 和不可抛交换 plan。Admission 冻结新道路命令但逐值保留现有状态；全部 payload、工具和 renderer 资源准备成功且 generation 有效后，短 non-yield commit 同时交换 graph root、empty tool root、隐藏 mesh/RID、surface/hit index、matching presented token 和 `CurrentSlotID`。empty tool root 不包含 placement/removal/upgrade、hover、selection、preview/highlight/bounds、历史、排队道路命令或旧异步 continuation；`CurrentTool`、`SelectedRoadType` 和输入绑定可按明确契约保留。关键表现失败只能在 Preflight，失败、取消或 generation 失配逐值保留旧图、工具和表现；成功 commit 内即发布 matching `PresentationReady`，不存在提交后表现失败或重试分支。普通 mutation 仍按 removed/updated surface owner 清理或重映射，并可经历正常的异步表现门禁。
   - 依赖：`v3-road-graph:8.5`、`v3-save-system:2.3`、`v3-grid-rendering:2.2`、`v3-tool-input:2.0`～`2.3`。
   - 集成负责人：`v3-tool-input`；暂停菜单 busy/结果呈现属于 `v3-ui:1.4`，端到端完成判定由 `v3-road-graph:8.6` 负责。
@@ -86,8 +87,8 @@
   - 验收：失败或未提交 Load 不改变图、草稿、选择、hover、preview、历史、renderer 或当前槽；成功 commit 后所有新根和 token 同时生效，不存在可提交的旧实体/命令/overlay，也没有 graph-new/mesh-old 窗口；Load 接口不存在提交后关键 participant 失败结果。普通 mutation 不被误当 full reset。
   - 阶段进展（2026-08-14）：`ToolManager.BeginLoadAdmission()` 捕获当前工具和 generation，`RoadBuilder.PreflightFullReset()` 预建绑定同一 graph facade 的空 `RoadEditHistory`。aggregate commit 清空 placement/removal、鼠标手势标志与旧 history，保留明确的 `CurrentTool`；renderer 同一计划清空 preview、removal preview、selection bounds 和 hover，并交换基础 mesh 与 matching desired/presented `RoadRenderToken`。失败/取消/generation 失配只 dispose replacement，旧状态不变。
   - Surface 与拆除接管进展（2026-08-15）：renderer 已在普通 rebuild 和 aggregate Load 中将不可变 `EdgeRibbon` + `TerminalCap` + `SemanticJoin` + `JunctionPatch` `RoadSurfaceSnapshot` 与 mesh/matching token 一次交换，并公开点命中与矩形 owner 查询；ribbon hit 从显示 span provenance 插值得到 canonical `RoadLocation`，degree-1 cap 携带稳定 Edge/Node/Endpoint 并把 A/B 映射到参数 `0/1`，degree-2 join 与 degree≥3 patch triangle 则携带稳定 sector 与固定 canonical endpoint location。snapshot 用不可变 AABB 层级统一限制 triangle/disc 局部候选，Load 在 worker `Prepare()` 中完成细分、defensive copy 与索引构建，主线程 Preflight 只绑定 token。普通 mutation 复用同一 preparer，并只重采样失效 Edge；失败保留上一代完整表现、进入带 attempt/异常信息的 stalled，provider 在 presentation 不 current 或 snapshot token 不匹配时拒绝查询，同 token 重试成功后才发布。新增内部 `IRoadSurfaceSelectionProvider` 后，拆除 hover、连续采样和矩形框选不再读取 RoadGraph centerline query；`RoadRemovalSession` 冻结完整 render token，失配即清空选择并结束预览，`ConfirmRemove()` 还校验当前 graph 的 `FacadeID` 与 `ChangeSequence`。pending/stalled/superseded 状态不显示旧 overlay，也不产生 history。
-  - 当前证据（2026-08-15）：`PreparedAggregateLoadTests`、surface/preparer/token 契约、拆除/history 聚焦组合 51/51 与完整 820/820 自动化通过。`road_renderer_lifecycle_runtime_contract.gd` 在 renderer participant 缺失时要求 Load 提交前失败，并逐值验证活动 payload、undo/redo、未完成 placement 与 `CurrentSlotID` 不变；成功 V3 Load 已验证创建新 lineage、history 归零且旧 graph token 失效。隔离的 `road_render_token_runtime_contract.gd` 与 `road_input_strategy_runtime_contract.gd` 均 PASS；Godot MCP 验证当前 surface 可建立拆除选择、样式刷新后旧确认返回 `false` 且 undo 不变、当前 token 删除成功，以及 pending 期间完整旧 edge/cache/mesh/surface 保留、两帧后空图一次发布。双配置 build 为 0 错误并各有 1 条既有 `NU1900`，Roslyn/GDScript diagnostics、editor 与 DAP 错误通道均通过，测试槽和临时产物已清理；本轮未重跑 10k/100k。
-  - 仍缺（保持开放）：尚未实现的 RoadUpgrade/`SelectedRoadType`、排队 continuation 和全命令 admission 无法由当前拆除切片覆盖；也未完成平行 Edge 的完整工具矩阵、每类工具状态与每个关键 renderer Preflight 故障点的联合矩阵。因此 `v3-tool-input:2.4` 继续开放。
+  - 当前证据（2026-08-15）：`PreparedAggregateLoadTests`、surface/preparer/token 契约、拆除/history 聚焦组合 51/51、类型化建造聚焦组合 60/60 与完整 826/826 自动化通过。`road_renderer_lifecycle_runtime_contract.gd` 在 renderer participant 缺失时要求 Load 提交前失败并保留旧状态；成功 V3 Load 已验证创建新 lineage、history 归零、旧 graph token 失效，同时保留 `SelectedRoadType`。隔离的 `road_render_token_runtime_contract.gd` 与 `road_input_strategy_runtime_contract.gd` 均 PASS；Godot MCP 另验证 current/旧 surface 拆除门禁、pending 原子发布，以及类型切换取消和非默认类型提交。双配置 build 为 0 错误并各有 1 条既有 `NU1900`，Roslyn/GDScript diagnostics、editor 与 DAP 错误通道均通过，测试槽和临时产物已清理；本轮未重跑 10k/100k。
+  - 仍缺（保持开放）：尚未实现的 RoadUpgrade、排队 continuation 和全命令 admission 无法由当前拆除/类型建造切片覆盖；类型化建造也尚未纳入普通表现 pending/stalled 的全命令门禁。平行 Edge 完整工具矩阵、每类工具状态与每个关键 renderer Preflight 故障点的联合矩阵仍未完成，因此 `v3-tool-input:2.4` 继续开放。
 
 ## 暂不执行
 
@@ -102,6 +103,7 @@
 - [x] **相机、工具和暂停输入已有统一可重绑入口。** 输入动作由 `InputBindingManager` 管理。
 - [x] **三种输入网格共用同一提交边界。** 米字型、三角形和六边形策略只产生 `RoadPathDraft`；交叉、拆分、不变式和存档由 RoadGraph 处理。
 - [x] **闭合 placement 已共用同一预览、提交与取消生命周期。** 三种输入策略均可经共享 session 精确回到首锚点并只产生一次 history；失败回走保留会话，右键、工具切换和暂停不留下 preview 或图副作用。
+- [x] **类型化建造状态与网格策略解耦。** `SelectedRoadType` 默认 `Street`，placement 冻结合法类型并显式提交；切换类型取消未提交会话，full reset 保留选择但清空 transient state，四类保存加载和三种网格契约均已验证。
 - [x] **编辑历史已从全图 JSON 替换为有界 delta。** 建造、交叉、环路、八字形、类型合并和批量删除均可经完整 token 撤销重做；entry/字节淘汰、提交前超预算拒绝和 64 项 geometry-dense 内存对比已有自动化与 Release 证据，真实 V3 Load 的新 lineage 已验证清空两栈并拒绝旧 token。
 - [x] **拆除交互已切换到同代 surface provider。** hover、连续轨迹和矩形选择冻结并查询完整 `RoadRenderToken`；presentation 或 graph 身份失配会清空选择并拒绝确认，只有 current token 的非空 Edge ID 集可进入一条历史。
 - [x] **连续铺路、批量拆除和完整图 JSON 历史已建立 V2 行为基线。** V3 在替换存储方式时必须保留用户可见的确认、取消、撤销与重做语义。
