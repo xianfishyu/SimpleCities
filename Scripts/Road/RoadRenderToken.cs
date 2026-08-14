@@ -46,6 +46,12 @@ internal readonly record struct RoadRenderLoadReservation(
     long RoadStyleRevision,
     long RenderRequestID);
 
+internal readonly record struct RoadPresentationFailure(
+    RoadRenderToken RenderToken,
+    int AttemptNumber,
+    string ExceptionType,
+    string Message);
+
 internal sealed class RoadPresentationTokenTracker
 {
     private long _sceneGeneration = 1;
@@ -56,8 +62,14 @@ internal sealed class RoadPresentationTokenTracker
 
     internal RoadRenderToken? DesiredToken { get; private set; }
     internal RoadRenderToken? PresentedToken { get; private set; }
+    internal RoadPresentationFailure? CurrentFailure { get; private set; }
+    internal int AttemptCount { get; private set; }
     internal bool IsPresentationCurrent =>
         DesiredToken is RoadRenderToken desired && desired == PresentedToken;
+    internal bool IsPresentationStalled =>
+        DesiredToken is RoadRenderToken desired &&
+        CurrentFailure is RoadPresentationFailure failure &&
+        failure.RenderToken == desired;
 
     internal RoadRenderToken BindGraph(long graphFacadeID, long changeSequence)
     {
@@ -130,6 +142,41 @@ internal sealed class RoadPresentationTokenTracker
         if (DesiredToken is not RoadRenderToken desired || desired != token)
             throw new InvalidOperationException("Only the current desired road presentation can be committed.");
         PresentedToken = token;
+        CurrentFailure = null;
+    }
+
+    internal int BeginBuildAttempt(RoadRenderToken token)
+    {
+        if (DesiredToken is not RoadRenderToken desired || desired != token)
+            throw new InvalidOperationException("Only the current desired road presentation can be built.");
+        if (AttemptCount == int.MaxValue)
+            throw new InvalidOperationException("Road presentation attempt space is exhausted.");
+
+        AttemptCount++;
+        CurrentFailure = null;
+        return AttemptCount;
+    }
+
+    internal RoadPresentationFailure? ReportBuildFailure(
+        RoadRenderToken token,
+        int attemptNumber,
+        Exception exception)
+    {
+        ArgumentNullException.ThrowIfNull(exception);
+        if (DesiredToken is not RoadRenderToken desired ||
+            desired != token ||
+            attemptNumber != AttemptCount)
+        {
+            return null;
+        }
+
+        var failure = new RoadPresentationFailure(
+            token,
+            attemptNumber,
+            exception.GetType().FullName ?? exception.GetType().Name,
+            exception.Message);
+        CurrentFailure = failure;
+        return failure;
     }
 
     internal RoadRenderLoadReservation ReserveLoad()
@@ -188,6 +235,8 @@ internal sealed class RoadPresentationTokenTracker
         _graphFacadeGeneration = reservation.TargetGraphFacadeGeneration;
         DesiredToken = token;
         PresentedToken = token;
+        AttemptCount = 0;
+        CurrentFailure = null;
     }
 
     private RoadRenderToken Request(long changeSequence)
@@ -201,6 +250,8 @@ internal sealed class RoadPresentationTokenTracker
             _roadStyleRevision,
             _renderRequestID);
         DesiredToken = token;
+        AttemptCount = 0;
+        CurrentFailure = null;
         return token;
     }
 

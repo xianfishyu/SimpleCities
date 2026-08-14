@@ -117,13 +117,19 @@ public sealed class RoadGeometryDisplaySamplerTests
     {
         string projectRoot = FindProjectRoot();
         string renderer = File.ReadAllText(Path.Combine(projectRoot, "Scripts", "Road", "RoadRenderer.cs"));
+        string loadCommit = File.ReadAllText(
+            Path.Combine(projectRoot, "Scripts", "Road", "RoadRenderer.LoadCommit.cs"));
         string builder = File.ReadAllText(Path.Combine(projectRoot, "Scripts", "Road", "RoadBuilder.cs"));
 
-        Assert.Contains("RoadGeometryDisplaySampler.SamplePath(", renderer, StringComparison.Ordinal);
-        Assert.Contains("edge.GeometrySegments", renderer, StringComparison.Ordinal);
+        Assert.Contains("new RoadRendererLoadPreparer(settings)", renderer, StringComparison.Ordinal);
+        Assert.Contains("preparer.Prepare(", renderer, StringComparison.Ordinal);
+        Assert.Contains("RoadGeometryDisplaySampler.SamplePath(", loadCommit, StringComparison.Ordinal);
+        Assert.Contains("edge.GeometrySegments", loadCommit, StringComparison.Ordinal);
         Assert.Contains("RoadGeometryDisplaySampler.SampleSegments(draft.Path.Segments", builder, StringComparison.Ordinal);
-        Assert.Contains("_edgePoints.TryGetValue", renderer, StringComparison.Ordinal);
-        Assert.Contains("_edgeDisplaySpans.TryGetValue", renderer, StringComparison.Ordinal);
+        Assert.Contains("_edgePoints,", renderer, StringComparison.Ordinal);
+        Assert.Contains("_edgeDisplaySpans,", renderer, StringComparison.Ordinal);
+        Assert.Contains("reusableEdgePoints.TryGetValue", loadCommit, StringComparison.Ordinal);
+        Assert.Contains("reusableEdgeDisplaySpans.TryGetValue", loadCommit, StringComparison.Ordinal);
         Assert.Contains("AppendRoadRibbon", renderer, StringComparison.Ordinal);
         Assert.Contains("Mesh.PrimitiveType.Triangles", renderer, StringComparison.Ordinal);
         Assert.Contains("ScheduleStaticBatchRebuild()", renderer, StringComparison.Ordinal);

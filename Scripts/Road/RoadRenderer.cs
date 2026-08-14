@@ -12,6 +12,8 @@ public partial class RoadRenderer : Node2D
     // Edge.ID → 确定显示点列；静态道路和动态高亮共用。
     private Dictionary<int, Vector2[]> _edgePoints = new();
     private Dictionary<int, RoadGeometryDisplaySpan[]> _edgeDisplaySpans = new();
+    private readonly HashSet<int> _invalidatedDisplayEdgeIDs = [];
+    private bool _rebuildAllDisplayPaths = true;
 
     private MeshInstance2D _roadBatchLayer = null!;
     private MultiMeshInstance2D _nodeBatchLayer = null!;
@@ -25,6 +27,7 @@ public partial class RoadRenderer : Node2D
     private RoadSurfaceSnapshot? _presentedSurface;
 
     internal event Action<RoadRenderToken>? PresentationReady;
+    internal event Action<RoadPresentationFailure>? PresentationStalled;
 
     // 施工预览
     private Vector2[] _previewPoints = [];
@@ -61,15 +64,27 @@ public partial class RoadRenderer : Node2D
 
     public int GetNodeMarkerCount() => _nodeBatchLayer.Multimesh.InstanceCount;
 
-    public Godot.Collections.Dictionary GetPresentationState() => new()
+    public Godot.Collections.Dictionary GetPresentationState()
     {
-        ["isReady"] = IsPresentationReady(),
-        ["desired"] = ToTokenDictionary(_presentationTokens.DesiredToken),
-        ["presented"] = ToTokenDictionary(_presentationTokens.PresentedToken),
-        ["surfacePrimitiveCount"] = IsPresentationReady()
-            ? _presentedSurface!.PrimitiveCount
-            : 0,
-    };
+        bool isReady = IsPresentationReady();
+        RoadPresentationFailure? failure = _presentationTokens.CurrentFailure;
+        return new Godot.Collections.Dictionary
+        {
+            ["phase"] = GetPresentationPhase(isReady),
+            ["isReady"] = isReady,
+            ["isStalled"] = _presentationTokens.IsPresentationStalled,
+            ["attemptCount"] = _presentationTokens.AttemptCount,
+            ["desired"] = ToTokenDictionary(_presentationTokens.DesiredToken),
+            ["presented"] = ToTokenDictionary(_presentationTokens.PresentedToken),
+            ["stalledToken"] = ToTokenDictionary(failure?.RenderToken),
+            ["failureType"] = failure?.ExceptionType ?? string.Empty,
+            ["failureMessage"] = failure?.Message ?? string.Empty,
+            ["surfacePrimitiveCount"] = isReady
+                ? _presentedSurface!.PrimitiveCount
+                : 0,
+            ["retainedSurfacePrimitiveCount"] = _presentedSurface?.PrimitiveCount ?? 0,
+        };
+    }
 
     public Godot.Collections.Dictionary FindRoadSurfaceHit(
         Vector2 position,
@@ -111,6 +126,20 @@ public partial class RoadRenderer : Node2D
         float maxSurfaceDistance) =>
         GetPresentedRoadSurface()?.FindClosest(position, maxSurfaceDistance);
 
+    public bool RetryRoadPresentation()
+    {
+        if (_loadAdmission is not null ||
+            !PresentationResourcesAreReady() ||
+            !_presentationTokens.IsPresentationStalled ||
+            _presentationTokens.DesiredToken is not RoadRenderToken targetToken)
+        {
+            return false;
+        }
+
+        return TryRebuildStaticBatches() &&
+               _presentationTokens.PresentedToken == targetToken;
+    }
+
     public bool RefreshRoadStyles()
     {
         if (_loadAdmission is not null || _network is null || Config is null)
@@ -120,7 +149,7 @@ public partial class RoadRenderer : Node2D
         RoadRenderToken requested = _presentationTokens.RequestStyleRefresh(
             _network.CurrentStateToken.ChangeSequence);
         if (PresentationResourcesAreReady())
-            RebuildStaticBatches();
+            _ = TryRebuildStaticBatches();
         return IsPresentationReady() && _presentationTokens.PresentedToken == requested;
     }
 
@@ -200,10 +229,8 @@ public partial class RoadRenderer : Node2D
         _network = graph;
         _committedLoadGraphToken = null;
         _staticBatchRebuildScheduled = false;
-        _edgePoints.Clear();
-        _edgeDisplaySpans.Clear();
-        foreach (GraphEdge edge in _network.GetAllEdges())
-            CacheEdgePoints(edge);
+        _invalidatedDisplayEdgeIDs.Clear();
+        _rebuildAllDisplayPaths = true;
         if (facadeChanged)
         {
             _presentationTokens.BindGraph(
@@ -254,10 +281,8 @@ public partial class RoadRenderer : Node2D
                 return;
             }
             _staticBatchRebuildScheduled = false;
-            _edgePoints.Clear();
-            _edgeDisplaySpans.Clear();
-            foreach (GraphEdge edge in _network.GetAllEdges())
-                CacheEdgePoints(edge);
+            _invalidatedDisplayEdgeIDs.Clear();
+            _rebuildAllDisplayPaths = true;
             _presentationTokens.RequestGraphChange(
                 change.StateToken.ChangeSequence,
                 isFullReset: true);
@@ -265,37 +290,15 @@ public partial class RoadRenderer : Node2D
             return;
         }
 
-        foreach (int edgeID in change.Changes.RemovedEdgeIDs)
-        {
-            _edgePoints.Remove(edgeID);
-            _edgeDisplaySpans.Remove(edgeID);
-        }
-        foreach (int edgeID in change.Changes.UpdatedEdgeIDs)
-        {
-            _edgePoints.Remove(edgeID);
-            _edgeDisplaySpans.Remove(edgeID);
-        }
         foreach (int edgeID in change.Changes.CreatedEdgeIDs
                      .Concat(change.Changes.UpdatedEdgeIDs))
         {
-            if (_network.GetEdge(edgeID) is GraphEdge edge)
-                CacheEdgePoints(edge);
+            _invalidatedDisplayEdgeIDs.Add(edgeID);
         }
         _presentationTokens.RequestGraphChange(
             change.StateToken.ChangeSequence,
             isFullReset: false);
         ScheduleStaticBatchRebuild();
-    }
-
-    private void CacheEdgePoints(GraphEdge edge)
-    {
-        if (_network == null) return;
-
-        RoadGeometryDisplayPath displayPath = RoadGeometryDisplaySampler.SamplePath(
-            edge.GeometrySegments,
-            Config.CurveDisplayTolerance);
-        _edgePoints[edge.ID] = displayPath.Points;
-        _edgeDisplaySpans[edge.ID] = displayPath.Spans;
     }
 
     // ── 静态道路和节点批处理 ──
@@ -319,101 +322,94 @@ public partial class RoadRenderer : Node2D
             RebuildStaticBatches();
     }
 
-    private void RebuildStaticBatches()
+    private void RebuildStaticBatches() => _ = TryRebuildStaticBatches();
+
+    private bool TryRebuildStaticBatches()
     {
-        if (_network == null ||
-            _presentationTokens.DesiredToken is not RoadRenderToken targetToken)
+        if (_network is not RoadGraph graph ||
+            _presentationTokens.DesiredToken is not RoadRenderToken targetToken ||
+            !PresentationResourcesAreReady())
         {
-            return;
+            return false;
         }
 
-        var roadVertices = new List<Vector2>();
-        var roadUvs = new List<Vector2>();
-        var roadColors = new List<Color>();
-        var roadIndices = new List<int>();
-        var surfaceTriangles = new List<RoadSurfaceTriangle>();
-        var surfaceDiscs = new List<RoadSurfaceDisc>();
-        RoadTypeStyleSnapshot roadTypeStyles = Config.CaptureRoadTypeStyleSnapshot();
-        foreach ((int edgeID, Vector2[] points) in _edgePoints.OrderBy(pair => pair.Key))
+        int attemptNumber = _presentationTokens.BeginBuildAttempt(targetToken);
+        try
         {
-            GraphEdge? edge = _network.GetEdge(edgeID);
-            if (edge is null)
-                continue;
-            if (!_edgeDisplaySpans.TryGetValue(
-                    edgeID,
-                    out RoadGeometryDisplaySpan[]? displaySpans))
+            var settings = new RoadRendererLoadSettings(
+                Config.CurveDisplayTolerance,
+                Config.CaptureRoadTypeStyleSnapshot());
+            settings.Validate();
+            RoadGraphRevision revision = graph.CaptureRevision();
+            var preparer = new RoadRendererLoadPreparer(settings);
+            RoadRendererPreparedLoad prepared = _rebuildAllDisplayPaths
+                ? preparer.Prepare(revision)
+                : preparer.Prepare(
+                    revision,
+                    _edgePoints,
+                    _edgeDisplaySpans,
+                    _invalidatedDisplayEdgeIDs);
+            ArrayMesh? roadMesh = CreateRoadMesh(
+                prepared.RoadVertices,
+                prepared.RoadUvs,
+                prepared.RoadColors,
+                prepared.RoadIndices);
+            MultiMesh nodeBatch = CreateNodeBatch(prepared.NodeMarkers);
+            var surfaceSnapshot = new RoadSurfaceSnapshot(
+                targetToken,
+                prepared.RoadSurface);
+
+            if (!ReferenceEquals(_network, graph) ||
+                _presentationTokens.DesiredToken != targetToken ||
+                graph.CurrentStateToken != revision.StateToken)
             {
-                throw new InvalidOperationException(
-                    $"RoadRenderer display provenance is missing for Edge {edgeID}.");
+                return false;
             }
-            RoadTypeStyleDefinition style = roadTypeStyles.Resolve(edge.RoadType);
-            AppendRoadRibbon(
-                edge.ID,
-                points,
-                displaySpans,
-                edge.NodeA == edge.NodeB,
-                style.Width * 0.5f,
-                style.Color,
-                roadVertices,
-                roadUvs,
-                roadColors,
-                roadIndices,
-                surfaceTriangles);
-        }
 
-        var nodeMarkers = new List<RoadRendererNodeMarker>();
-        foreach (GraphNode node in _network.GetAllNodes().OrderBy(node => node.ID))
+            _edgePoints = prepared.EdgePoints;
+            _edgeDisplaySpans = prepared.EdgeDisplaySpans;
+            _invalidatedDisplayEdgeIDs.Clear();
+            _rebuildAllDisplayPaths = false;
+            _roadMeshVertexCount = prepared.RoadVertices.Length;
+            _roadBatchLayer.Mesh = roadMesh;
+            _nodeBatchLayer.Multimesh = nodeBatch;
+            _presentedSurface = surfaceSnapshot;
+            _presentationTokens.CommitDesired(targetToken);
+            QueueRedraw();
+            return true;
+        }
+        catch (Exception exception)
         {
-            AppendSemanticJoin(
-                node,
-                _network.GetEdge,
-                _edgePoints,
-                roadTypeStyles,
-                roadVertices,
-                roadUvs,
-                roadColors,
-                roadIndices,
-                surfaceTriangles);
-            AppendJunctionPatch(
-                node,
-                _network.GetEdge,
-                _edgePoints,
-                roadTypeStyles,
-                roadVertices,
-                roadUvs,
-                roadColors,
-                roadIndices,
-                surfaceTriangles);
-            RoadRendererNodeSurface? nullableSurface = CreateNodeSurface(
-                _network,
-                node,
-                roadTypeStyles);
-            if (nullableSurface is not RoadRendererNodeSurface nodeSurface)
-                continue;
-
-            nodeMarkers.Add(nodeSurface.Marker);
-            if (nodeSurface.Surface is RoadSurfaceDisc surfaceDisc)
-                surfaceDiscs.Add(surfaceDisc);
+            RoadPresentationFailure? failure = _presentationTokens.ReportBuildFailure(
+                targetToken,
+                attemptNumber,
+                exception);
+            if (failure is RoadPresentationFailure currentFailure)
+                PublishPresentationStalled(currentFailure);
+            return false;
         }
-        ArrayMesh? roadMesh = CreateRoadMesh(
-            roadVertices,
-            roadUvs,
-            roadColors,
-            roadIndices);
-        MultiMesh nodeBatch = CreateNodeBatch(nodeMarkers);
-        var surfaceSnapshot = new RoadSurfaceSnapshot(
-            targetToken,
-            surfaceTriangles,
-            surfaceDiscs);
+    }
 
-        if (_presentationTokens.DesiredToken != targetToken)
+    private void PublishPresentationStalled(RoadPresentationFailure failure)
+    {
+        Action<RoadPresentationFailure>? handlers = PresentationStalled;
+        if (handlers is null)
             return;
 
-        _roadMeshVertexCount = roadVertices.Count;
-        _roadBatchLayer.Mesh = roadMesh;
-        _nodeBatchLayer.Multimesh = nodeBatch;
-        _presentedSurface = surfaceSnapshot;
-        _presentationTokens.CommitDesired(targetToken);
+        foreach (Action<RoadPresentationFailure> handler in handlers
+                     .GetInvocationList()
+                     .Cast<Action<RoadPresentationFailure>>())
+        {
+            try
+            {
+                handler(failure);
+            }
+            catch (Exception exception)
+            {
+                GD.PushWarning(
+                    $"Road presentation stalled observer failed: {exception.Message}");
+            }
+        }
     }
 
     private bool PresentationResourcesAreReady() =>
@@ -430,6 +426,15 @@ public partial class RoadRenderer : Node2D
 
     private RoadSurfaceSnapshot? GetPresentedRoadSurface() =>
         IsPresentationReady() ? _presentedSurface : null;
+
+    private string GetPresentationPhase(bool isReady)
+    {
+        if (isReady)
+            return "ready";
+        if (_presentationTokens.IsPresentationStalled)
+            return "stalled";
+        return _presentationTokens.DesiredToken.HasValue ? "pending" : "unbound";
+    }
 
     private static Godot.Collections.Dictionary ToTokenDictionary(
         RoadRenderToken? nullableToken)

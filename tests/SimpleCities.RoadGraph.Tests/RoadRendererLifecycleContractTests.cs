@@ -22,9 +22,9 @@ public sealed class RoadRendererLifecycleContractTests
             Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.cs"));
         string setGraph = ExtractMethod(source, "public void SetGraph", "private void OnGraphChanged");
 
-        Assert.Contains("_edgePoints.Clear()", setGraph, StringComparison.Ordinal);
-        Assert.Contains("_network.GetAllEdges()", setGraph, StringComparison.Ordinal);
         Assert.Contains("RebuildStaticBatches()", setGraph, StringComparison.Ordinal);
+        Assert.DoesNotContain("_edgePoints.Clear()", setGraph, StringComparison.Ordinal);
+        Assert.DoesNotContain("_network.GetAllEdges()", setGraph, StringComparison.Ordinal);
         Assert.Contains("public override void _ExitTree", source, StringComparison.Ordinal);
         Assert.Contains("GraphChanged -= OnGraphChanged", source, StringComparison.Ordinal);
         Assert.DoesNotContain("EdgeAdded", source, StringComparison.Ordinal);
@@ -134,7 +134,7 @@ public sealed class RoadRendererLifecycleContractTests
     }
 
     [Fact]
-    public void OrdinaryRebuildAndLoadWorkerShareJunctionPatchWithoutStaticJunctionMarkers()
+    public void OrdinaryRebuildReusesLoadPreparerWithoutStaticJunctionMarkers()
     {
         string rendererSource = File.ReadAllText(
             Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.cs"));
@@ -157,10 +157,37 @@ public sealed class RoadRendererLifecycleContractTests
             "private static RoadRendererNodeSurface? CreateNodeSurface",
             "private static bool TryGetOutgoingDirection");
 
-        Assert.Contains("AppendJunctionPatch(", ordinaryBuild, StringComparison.Ordinal);
+        Assert.Contains("new RoadRendererLoadPreparer(settings)", ordinaryBuild, StringComparison.Ordinal);
         Assert.Contains("AppendJunctionPatch(", loadBuild, StringComparison.Ordinal);
         Assert.DoesNotContain("JunctionRadius", ordinaryNodeSurface, StringComparison.Ordinal);
         Assert.DoesNotContain("JunctionRadius", loadNodeSurface, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OrdinaryFailureKeepsPreparedStateUnpublishedAndExposesRetry()
+    {
+        string source = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.cs"));
+        string rebuild = ExtractMethod(
+            source,
+            "private bool TryRebuildStaticBatches",
+            "private void PublishPresentationStalled");
+
+        int prepare = rebuild.IndexOf("preparer.Prepare(revision)", StringComparison.Ordinal);
+        int currentCheck = rebuild.IndexOf(
+            "_presentationTokens.DesiredToken != targetToken",
+            StringComparison.Ordinal);
+        int cacheSwap = rebuild.IndexOf("_edgePoints = prepared.EdgePoints", StringComparison.Ordinal);
+        int tokenCommit = rebuild.IndexOf(
+            "_presentationTokens.CommitDesired(targetToken)",
+            StringComparison.Ordinal);
+
+        Assert.True(prepare >= 0 && prepare < currentCheck);
+        Assert.True(currentCheck < cacheSwap && cacheSwap < tokenCommit);
+        Assert.Contains("ReportBuildFailure(", rebuild, StringComparison.Ordinal);
+        Assert.Contains("public bool RetryRoadPresentation()", source, StringComparison.Ordinal);
+        Assert.Contains("_presentationTokens.IsPresentationStalled", source, StringComparison.Ordinal);
+        Assert.Contains("GetPresentedRoadSurface()?.FindClosest", source, StringComparison.Ordinal);
     }
 
     private static string ExtractMethod(string source, string startMarker, string endMarker)

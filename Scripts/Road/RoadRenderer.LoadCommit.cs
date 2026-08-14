@@ -151,9 +151,18 @@ public partial class RoadRenderer
             _settings = settings;
         }
 
-        internal RoadRendererPreparedLoad Prepare(RoadGraphRevision revision)
+        internal RoadRendererPreparedLoad Prepare(
+            RoadGraphRevision revision,
+            IReadOnlyDictionary<int, Vector2[]>? reusableEdgePoints = null,
+            IReadOnlyDictionary<int, RoadGeometryDisplaySpan[]>? reusableEdgeDisplaySpans = null,
+            IReadOnlySet<int>? invalidatedEdgeIDs = null)
         {
             ArgumentNullException.ThrowIfNull(revision);
+            if ((reusableEdgePoints is null) != (reusableEdgeDisplaySpans is null))
+            {
+                throw new ArgumentException(
+                    "Reusable road display points and spans must be supplied together.");
+            }
             var edgePoints = new Dictionary<int, Vector2[]>(revision.Edges.Count);
             var edgeDisplaySpans = new Dictionary<int, RoadGeometryDisplaySpan[]>(revision.Edges.Count);
             var roadVertices = new List<Vector2>();
@@ -164,17 +173,34 @@ public partial class RoadRenderer
             var surfaceDiscs = new List<RoadSurfaceDisc>();
             foreach (GraphEdge edge in revision.Edges.Values.OrderBy(edge => edge.ID))
             {
-                RoadGeometryDisplayPath displayPath = RoadGeometryDisplaySampler.SamplePath(
-                    edge.GeometrySegments,
-                    _settings.CurveDisplayTolerance);
-                Vector2[] points = displayPath.Points;
-                edgePoints.Add(edge.ID, displayPath.Points);
-                edgeDisplaySpans.Add(edge.ID, displayPath.Spans);
+                Vector2[] points;
+                RoadGeometryDisplaySpan[] displaySpans;
+                if (reusableEdgePoints is not null &&
+                    reusableEdgeDisplaySpans is not null &&
+                    (invalidatedEdgeIDs is null || !invalidatedEdgeIDs.Contains(edge.ID)) &&
+                    reusableEdgePoints.TryGetValue(edge.ID, out Vector2[]? reusablePoints) &&
+                    reusableEdgeDisplaySpans.TryGetValue(
+                        edge.ID,
+                        out RoadGeometryDisplaySpan[]? reusableSpans))
+                {
+                    points = reusablePoints;
+                    displaySpans = reusableSpans;
+                }
+                else
+                {
+                    RoadGeometryDisplayPath displayPath = RoadGeometryDisplaySampler.SamplePath(
+                        edge.GeometrySegments,
+                        _settings.CurveDisplayTolerance);
+                    points = displayPath.Points;
+                    displaySpans = displayPath.Spans;
+                }
+                edgePoints.Add(edge.ID, points);
+                edgeDisplaySpans.Add(edge.ID, displaySpans);
                 RoadTypeStyleDefinition style = _settings.RoadTypeStyles.Resolve(edge.RoadType);
                 AppendRoadRibbon(
                     edge.ID,
                     points,
-                    displayPath.Spans,
+                    displaySpans,
                     edge.NodeA == edge.NodeB,
                     style.Width * 0.5f,
                     style.Color,
@@ -277,6 +303,8 @@ public partial class RoadRenderer
             _owner._staticBatchRebuildScheduled = false;
             _owner._edgePoints = _prepared.EdgePoints;
             _owner._edgeDisplaySpans = _prepared.EdgeDisplaySpans;
+            _owner._invalidatedDisplayEdgeIDs.Clear();
+            _owner._rebuildAllDisplayPaths = false;
             _owner._roadMeshVertexCount = _prepared.RoadVertices.Length;
             _owner._roadBatchLayer.Mesh = _roadMesh;
             _owner._nodeBatchLayer.Multimesh = _nodeBatch;

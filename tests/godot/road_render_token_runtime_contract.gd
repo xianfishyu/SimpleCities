@@ -16,6 +16,8 @@ var test_map: Node
 var save_manager: Node
 var slot_id := ""
 var failure_cleanup_started := false
+var mutated_style: Resource
+var original_style_width := 0.0
 
 func _initialize() -> void:
 	run.call_deferred()
@@ -58,11 +60,14 @@ func run() -> void:
 		return
 	if not require_terminal_cap_hit(renderer, Vector2(-5.0, 0.0), mutated, "Normal mutation"):
 		return
+	var recovered: Dictionary = await require_stalled_retry(renderer, builder, mutated)
+	if recovered.is_empty():
+		return
 
 	if not require(renderer.RefreshRoadStyles(), "Explicit road style refresh did not present"):
 		return
 	var styled := presentation_token(renderer, "Style refresh")
-	if styled.is_empty() or not require_style_change(mutated, styled):
+	if styled.is_empty() or not require_style_change(recovered, styled):
 		return
 	if not require_surface_hit(renderer, Vector2(50.0, 0.0), styled, "Style refresh"):
 		return
@@ -115,6 +120,10 @@ func presentation_token(renderer: Node, source: String) -> Dictionary:
 	var state: Dictionary = renderer.GetPresentationState()
 	if not require(bool(state.get("isReady", false)), "%s is not presentation-ready" % source):
 		return {}
+	if not require(
+		state.get("phase", "") == "ready" and not bool(state.get("isStalled", true)),
+		"%s did not report the ready presentation phase" % source):
+		return {}
 	var desired: Dictionary = state.get("desired", {})
 	var presented: Dictionary = state.get("presented", {})
 	if not require(desired == presented, "%s published mismatched desired/presented tokens" % source):
@@ -132,6 +141,105 @@ func presentation_token(renderer: Node, source: String) -> Dictionary:
 		"%s token contains an invalid identity component" % source):
 		return {}
 	return desired
+
+func require_stalled_retry(
+	renderer: Node,
+	builder: Node,
+	before: Dictionary
+) -> Dictionary:
+	var retained_edge_count: int = renderer.GetRenderedEdgeCount()
+	var retained_vertex_count: int = renderer.GetRoadMeshVertexCount()
+	var retained_state: Dictionary = renderer.GetPresentationState()
+	var retained_primitive_count := int(retained_state.get("surfacePrimitiveCount", 0))
+	var config: Resource = renderer.get("Config")
+	var styles: Array = config.get("RoadTypeStyles")
+	if not require(not styles.is_empty(), "Road style array is empty"):
+		return {}
+	mutated_style = styles[0]
+	original_style_width = float(mutated_style.get("Width"))
+	mutated_style.set("Width", 0.0)
+
+	if not require(builder.BeginPlace(Vector2(0.0, 200.0)), "Stalled mutation did not begin"):
+		return {}
+	builder.UpdatePlace(Vector2(100.0, 200.0))
+	if not require(builder.CommitPlace(Vector2(100.0, 200.0)), "Stalled mutation did not commit"):
+		return {}
+	await process_frame
+	await process_frame
+
+	var stalled: Dictionary = renderer.GetPresentationState()
+	var desired: Dictionary = stalled.get("desired", {})
+	if not require(
+		stalled.get("phase", "") == "stalled" and
+		bool(stalled.get("isStalled", false)) and
+		not bool(stalled.get("isReady", true)),
+		"Failed ordinary presentation did not enter the stalled phase"):
+		return {}
+	if not require(
+		desired != before and stalled.get("presented", {}) == before,
+		"Stalled presentation did not retain the previous presented token"):
+		return {}
+	if not require_ordinary_change(before, desired):
+		return {}
+	if not require(
+		stalled.get("stalledToken", {}) == desired and
+		int(stalled.get("attemptCount", 0)) == 1 and
+		not str(stalled.get("failureType", "")).is_empty() and
+		not str(stalled.get("failureMessage", "")).is_empty(),
+		"Stalled presentation did not expose its target and first failure"):
+		return {}
+	if not require(
+		int(stalled.get("surfacePrimitiveCount", -1)) == 0 and
+		int(stalled.get("retainedSurfacePrimitiveCount", -1)) == retained_primitive_count and
+		renderer.GetRenderedEdgeCount() == retained_edge_count and
+		renderer.GetRoadMeshVertexCount() == retained_vertex_count,
+		"Failed presentation did not retain the previous complete render state"):
+		return {}
+	if not require(
+		renderer.FindRoadSurfaceHit(Vector2(50.0, 0.0), 0.0).is_empty(),
+		"Stalled presentation still returned a road surface hit"):
+		return {}
+
+	if not require(
+		not renderer.RetryRoadPresentation(),
+		"Retry unexpectedly succeeded while the style remained invalid"):
+		return {}
+	var failed_retry: Dictionary = renderer.GetPresentationState()
+	if not require(
+		failed_retry.get("desired", {}) == desired and
+		failed_retry.get("stalledToken", {}) == desired and
+		int(failed_retry.get("attemptCount", 0)) == 2,
+		"Failed retry changed identity or did not increment its attempt"):
+		return {}
+
+	restore_mutated_style()
+	if not require(
+		renderer.RetryRoadPresentation(),
+		"Retry did not publish after the style was repaired"):
+		return {}
+	var recovered := presentation_token(renderer, "Recovered ordinary presentation")
+	if recovered.is_empty():
+		return {}
+	if not require(
+		recovered == desired and int(renderer.GetPresentationState().get("attemptCount", 0)) == 3,
+		"Successful retry did not publish the same desired token"):
+		return {}
+	if not require(
+		renderer.GetRenderedEdgeCount() == retained_edge_count + 1 and
+		renderer.GetRoadMeshVertexCount() > retained_vertex_count,
+		"Successful retry did not atomically publish the new graph presentation"):
+		return {}
+	if not require(
+		not renderer.RetryRoadPresentation(),
+		"Ready presentation accepted a redundant retry"):
+		return {}
+	return recovered
+
+func restore_mutated_style() -> void:
+	if mutated_style == null:
+		return
+	mutated_style.set("Width", original_style_width)
+	mutated_style = null
 
 func require_ordinary_change(before: Dictionary, after: Dictionary) -> bool:
 	return (
@@ -423,6 +531,7 @@ func require(condition: bool, message: String) -> bool:
 	return false
 
 func cleanup_after_failure() -> void:
+	restore_mutated_style()
 	if save_manager != null and not slot_id.is_empty():
 		await V3_SAVE_FIXTURE.delete_slot(save_manager, slot_id)
 		slot_id = ""

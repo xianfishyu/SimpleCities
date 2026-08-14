@@ -76,6 +76,44 @@ public sealed class RoadRendererLoadPrepareTests
     }
 
     [Fact]
+    public void PurePreparer_ReusesOnlyNonInvalidatedDisplayPaths()
+    {
+        var graph = new RoadGraph();
+        Assert.True(graph.SubmitPolyline(RoadType.Street, [
+            Vector2.Zero,
+            new Vector2(20f, 0f),
+        ]).Success);
+        Assert.True(graph.SubmitPolyline(RoadType.Arterial, [
+            new Vector2(0f, 40f),
+            new Vector2(20f, 40f),
+        ]).Success);
+        RoadGraphRevision revision = graph.CaptureRevision();
+        var preparer = new RoadRenderer.RoadRendererLoadPreparer(Settings);
+        RoadRendererPreparedLoad initial = preparer.Prepare(revision);
+        int invalidatedEdgeID = graph.GetAllEdges().Min(edge => edge.ID);
+        int reusableEdgeID = graph.GetAllEdges().Max(edge => edge.ID);
+
+        RoadRendererPreparedLoad rebuilt = preparer.Prepare(
+            revision,
+            initial.EdgePoints,
+            initial.EdgeDisplaySpans,
+            new HashSet<int> { invalidatedEdgeID });
+
+        Assert.NotSame(
+            initial.EdgePoints[invalidatedEdgeID],
+            rebuilt.EdgePoints[invalidatedEdgeID]);
+        Assert.NotSame(
+            initial.EdgeDisplaySpans[invalidatedEdgeID],
+            rebuilt.EdgeDisplaySpans[invalidatedEdgeID]);
+        Assert.Same(initial.EdgePoints[reusableEdgeID], rebuilt.EdgePoints[reusableEdgeID]);
+        Assert.Same(
+            initial.EdgeDisplaySpans[reusableEdgeID],
+            rebuilt.EdgeDisplaySpans[reusableEdgeID]);
+        Assert.Equal(initial.RoadVertices, rebuilt.RoadVertices);
+        Assert.Equal(initial.RoadIndices, rebuilt.RoadIndices);
+    }
+
+    [Fact]
     public void PurePreparer_JunctionPatchMeshSurfaceAndOwnershipStayInLockstep()
     {
         RoadGraph graph = CreateAcuteJunction(reverseEdges: false);

@@ -72,6 +72,73 @@ public sealed class RoadRenderTokenTests
     }
 
     [Fact]
+    public void FailedBuildStallsCurrentDesiredAndRetriesWithoutChangingItsIdentity()
+    {
+        var tracker = new RoadPresentationTokenTracker();
+        RoadRenderToken initial = tracker.BindGraph(graphFacadeID: 12, changeSequence: 0);
+        tracker.CommitDesired(initial);
+        RoadRenderToken target = tracker.RequestGraphChange(
+            changeSequence: 1,
+            isFullReset: false);
+
+        int firstAttempt = tracker.BeginBuildAttempt(target);
+        RoadPresentationFailure firstFailure = Assert.IsType<RoadPresentationFailure>(
+            tracker.ReportBuildFailure(
+                target,
+                firstAttempt,
+                new InvalidOperationException("first failure")));
+
+        Assert.True(tracker.IsPresentationStalled);
+        Assert.Equal(1, firstFailure.AttemptNumber);
+        Assert.Equal(target, firstFailure.RenderToken);
+        Assert.Equal(typeof(InvalidOperationException).FullName, firstFailure.ExceptionType);
+        Assert.Equal("first failure", firstFailure.Message);
+        Assert.Equal(initial, tracker.PresentedToken);
+
+        int retryAttempt = tracker.BeginBuildAttempt(target);
+
+        Assert.Equal(2, retryAttempt);
+        Assert.False(tracker.IsPresentationStalled);
+        Assert.Null(tracker.CurrentFailure);
+        Assert.Equal(target, tracker.DesiredToken);
+
+        tracker.CommitDesired(target);
+
+        Assert.True(tracker.IsPresentationCurrent);
+        Assert.Equal(target, tracker.PresentedToken);
+        Assert.Equal(2, tracker.AttemptCount);
+        Assert.Null(tracker.CurrentFailure);
+    }
+
+    [Fact]
+    public void NewerRequestSupersedesStalledFailureAndRejectsItsLateResult()
+    {
+        var tracker = new RoadPresentationTokenTracker();
+        RoadRenderToken initial = tracker.BindGraph(graphFacadeID: 13, changeSequence: 0);
+        tracker.CommitDesired(initial);
+        RoadRenderToken superseded = tracker.RequestGraphChange(
+            changeSequence: 1,
+            isFullReset: false);
+        int attempt = tracker.BeginBuildAttempt(superseded);
+        Assert.NotNull(tracker.ReportBuildFailure(
+            superseded,
+            attempt,
+            new InvalidOperationException("superseded")));
+
+        RoadRenderToken current = tracker.RequestStyleRefresh(changeSequence: 1);
+
+        Assert.False(tracker.IsPresentationStalled);
+        Assert.Null(tracker.CurrentFailure);
+        Assert.Equal(0, tracker.AttemptCount);
+        Assert.Null(tracker.ReportBuildFailure(
+            superseded,
+            attempt,
+            new InvalidOperationException("late")));
+        Assert.Equal(current, tracker.DesiredToken);
+        Assert.Equal(initial, tracker.PresentedToken);
+    }
+
+    [Fact]
     public void FullResetAndFacadeRebindAdvanceFacadeGeneration()
     {
         var tracker = new RoadPresentationTokenTracker();
