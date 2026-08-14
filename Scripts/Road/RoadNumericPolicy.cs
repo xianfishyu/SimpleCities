@@ -20,6 +20,9 @@ internal static class RoadNumericPolicy
     internal const float MaximumIntersectionClusterDiameter = 1e-3f;
 
     internal const float MaximumCoordinateMagnitude = 1_000_000f;
+    internal const long JunctionPatchQuantizationScale = 1_024;
+    internal const float MinimumDisplayRoadWidth = 4f / JunctionPatchQuantizationScale;
+    internal const float MaximumDisplayRoadWidth = MaximumCoordinateMagnitude;
     internal const float MaximumVectorComponentMagnitude = 4_000_000f;
     internal const float MaximumRadius = 1_000_000f;
     internal const float MaximumAngleMagnitude = 65_536f;

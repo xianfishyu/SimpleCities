@@ -15,10 +15,12 @@ public sealed class RoadTypeStyleTests
     public static TheoryData<float> InvalidWidths => new()
     {
         0f,
+        RoadNumericPolicy.MinimumDisplayRoadWidth * 0.5f,
         -1f,
         float.NaN,
         float.PositiveInfinity,
         float.NegativeInfinity,
+        RoadNumericPolicy.MaximumDisplayRoadWidth + 1f,
     };
 
     public static TheoryData<Color> InvalidColors => new()
@@ -115,7 +117,7 @@ public sealed class RoadTypeStyleTests
 
     [Theory]
     [MemberData(nameof(InvalidWidths))]
-    public void TryValidateRoadTypeStyles_NonPositiveOrNonFiniteWidth_ReturnsFalse(float width)
+    public void TryValidateRoadTypeStyles_OutOfRangeOrNonFiniteWidth_ReturnsFalse(float width)
     {
         RoadTypeStyleDefinition[] styles = (RoadTypeStyleDefinition[])ValidStyles.Clone();
         styles[3] = styles[3] with { Width = width };

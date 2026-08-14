@@ -60,9 +60,14 @@ public partial class RoadTypeStyle : Resource
             return false;
         }
 
-        if (!float.IsFinite(style.Width) || style.Width <= 0f)
+        if (!float.IsFinite(style.Width) ||
+            style.Width < RoadNumericPolicy.MinimumDisplayRoadWidth ||
+            style.Width > RoadNumericPolicy.MaximumDisplayRoadWidth)
         {
-            error = $"RoadTypeStyle '{style.RoadType}' width must be positive and finite.";
+            error =
+                $"RoadTypeStyle '{style.RoadType}' width must be finite and between " +
+                $"{RoadNumericPolicy.MinimumDisplayRoadWidth} and " +
+                $"{RoadNumericPolicy.MaximumDisplayRoadWidth}, inclusive.";
             return false;
         }
 
