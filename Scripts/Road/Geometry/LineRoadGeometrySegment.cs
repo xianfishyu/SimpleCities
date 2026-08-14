@@ -54,6 +54,9 @@ public sealed class LineRoadGeometrySegment : RoadGeometrySegment
             new LineRoadGeometrySegment(splitPoint, End));
     }
 
+    public override RoadGeometrySegment Reverse() =>
+        new LineRoadGeometrySegment(End, Start);
+
     public override RoadGeometryClosestPoint FindClosestPoint(Vector2 point, float tolerance = 1e-3f)
     {
         EnsureClosestPointArguments(point, tolerance);

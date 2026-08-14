@@ -16,6 +16,8 @@ public sealed class PauseMenuContractTests
     private static readonly string GameHudPath = Path.Combine(ProjectRoot, "Scripts", "UI", "GameHUD.cs");
     private static readonly string GameHudScenePath = Path.Combine(ProjectRoot, "Scenes", "UI", "GameHUD.tscn");
     private static readonly string MainMenuScenePath = Path.Combine(ProjectRoot, "Scenes", "MainMenu.tscn");
+    private static readonly string MainMenuScriptPath = Path.Combine(ProjectRoot, "Scripts", "UI", "MainMenu.cs");
+    private static readonly string SaveManagerPath = Path.Combine(ProjectRoot, "Scripts", "Core", "SaveManager.cs");
 
     [Fact]
     public void PauseMenuScene_ProvidesAllRequestedActionsAndSubviews()
@@ -69,10 +71,19 @@ public sealed class PauseMenuContractTests
         Assert.Contains("Engine.GetMainLoop() is SceneTree tree", pauseMenu, StringComparison.Ordinal);
         Assert.Contains("ConfigureSaveManager", pauseMenu, StringComparison.Ordinal);
         Assert.Contains("ListSlots()", pauseMenu, StringComparison.Ordinal);
-        Assert.Contains("SaveAs(displayName)", pauseMenu, StringComparison.Ordinal);
-        Assert.Contains("saveManager.Save(slotID)", pauseMenu, StringComparison.Ordinal);
-        Assert.Contains("saveManager.Load(slotID)", pauseMenu, StringComparison.Ordinal);
-        Assert.Contains("saveManager.DeleteSlot(slotID)", pauseMenu, StringComparison.Ordinal);
+        Assert.Contains("saveManager.StartSaveAs(displayName)", pauseMenu, StringComparison.Ordinal);
+        Assert.Contains("saveManager.StartSave(slotID)", pauseMenu, StringComparison.Ordinal);
+        Assert.Contains("saveManager.StartLoad(slotID)", pauseMenu, StringComparison.Ordinal);
+        Assert.Contains("saveManager?.ArmDeletion(summary)", pauseMenu, StringComparison.Ordinal);
+        Assert.Contains("saveManager.StartDeleteSlot(", pauseMenu, StringComparison.Ordinal);
+        Assert.Contains("_saveManager.OperationStateChanged += OnSaveOperationStateChanged", pauseMenu, StringComparison.Ordinal);
+        Assert.Contains("_saveManager.OperationCompleted += OnSaveOperationCompleted", pauseMenu, StringComparison.Ordinal);
+        Assert.Contains("_operationMenuGeneration != _menuOpenGeneration", pauseMenu, StringComparison.Ordinal);
+        Assert.Contains("_operationSceneGeneration != saveManager.SceneGeneration", pauseMenu, StringComparison.Ordinal);
+        Assert.Contains("_saveManager?.CancelOperation(_activeOperationToken)", pauseMenu, StringComparison.Ordinal);
+        Assert.Contains("if (IsSaveOperationBusy)", pauseMenu, StringComparison.Ordinal);
+        Assert.DoesNotContain("saveManager.Save(slotID)", pauseMenu, StringComparison.Ordinal);
+        Assert.DoesNotContain("saveManager.Load(slotID)", pauseMenu, StringComparison.Ordinal);
         Assert.Contains("ConfirmationAction.OverwriteSave", pauseMenu, StringComparison.Ordinal);
         Assert.Contains("ConfirmationAction.LoadSave", pauseMenu, StringComparison.Ordinal);
         Assert.Contains("ConfirmationAction.DeleteSave", pauseMenu, StringComparison.Ordinal);
@@ -85,6 +96,7 @@ public sealed class PauseMenuContractTests
         Assert.Contains("TryGetToolForEvent", hud, StringComparison.Ordinal);
         Assert.DoesNotContain("Key.Escape", hud, StringComparison.Ordinal);
         Assert.Contains("OpenPauseMenu();", hud, StringComparison.Ordinal);
+        Assert.Contains("_toolManager?.CancelRoadSessions();", hud, StringComparison.Ordinal);
         string hudInput = hud[hud.IndexOf("public override void _Input", StringComparison.Ordinal)..
             hud.IndexOf("public override void _Process", StringComparison.Ordinal)];
         Assert.True(
@@ -96,5 +108,32 @@ public sealed class PauseMenuContractTests
         Assert.Contains("QuitToDesktopRequested", hud, StringComparison.Ordinal);
         Assert.Contains("PauseMenu", hudScene, StringComparison.Ordinal);
         Assert.True(File.Exists(MainMenuScenePath));
+    }
+
+    [Fact]
+    public void ExitFlows_DrainSceneOperationsAndRouteApplicationQuitThroughSaveManager()
+    {
+        string pauseMenu = File.ReadAllText(PauseMenuScriptPath);
+        string hud = File.ReadAllText(GameHudPath);
+        string mainMenu = File.ReadAllText(MainMenuScriptPath);
+        string saveManager = File.ReadAllText(SaveManagerPath);
+
+        Assert.Contains("SetExitConvergencePending", pauseMenu, StringComparison.Ordinal);
+        Assert.Contains("_exitConvergencePending", pauseMenu, StringComparison.Ordinal);
+        Assert.Contains("await saveManager.DrainCurrentSceneOperationsAsync()", hud, StringComparison.Ordinal);
+        Assert.True(
+            hud.IndexOf("await saveManager.DrainCurrentSceneOperationsAsync()", StringComparison.Ordinal) <
+            hud.IndexOf("ChangeSceneToFile(MainMenuScenePath)", StringComparison.Ordinal),
+            "GameHUD must drain the originating scene before changing scenes.");
+        Assert.Contains("saveManager.RequestApplicationQuit()", hud, StringComparison.Ordinal);
+        Assert.Contains("SaveManager.Instance.RequestApplicationQuit()", mainMenu, StringComparison.Ordinal);
+
+        Assert.Contains("GetTree().AutoAcceptQuit = false", saveManager, StringComparison.Ordinal);
+        Assert.Contains("NotificationWMCloseRequest", saveManager, StringComparison.Ordinal);
+        Assert.Contains("BeginSceneClose();", saveManager, StringComparison.Ordinal);
+        Assert.Contains("WaitForTrackedOperationsAsync", saveManager, StringComparison.Ordinal);
+        Assert.Contains("_coordinator.DiscardPendingAutosave()", saveManager, StringComparison.Ordinal);
+        Assert.Contains("_coordinator.BeginShutdownAsync()", saveManager, StringComparison.Ordinal);
+        Assert.DoesNotContain("_ = _coordinator.BeginShutdownAsync()", saveManager, StringComparison.Ordinal);
     }
 }

@@ -17,6 +17,5 @@ public sealed class RoadGraphSmokeTests
 
         Assert.Empty(graph.GetAllNodes());
         Assert.Empty(graph.GetAllEdges());
-        Assert.Empty(graph.GetAllGroups());
     }
 }

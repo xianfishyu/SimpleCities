@@ -10,13 +10,18 @@ public partial class RoadRenderer : Node2D
     private RoadGraph? _network;
 
     // Edge.ID → 确定显示点列；静态道路和动态高亮共用。
-    private readonly Dictionary<int, Vector2[]> _edgePoints = new();
+    private Dictionary<int, Vector2[]> _edgePoints = new();
 
     private MeshInstance2D _roadBatchLayer = null!;
     private MultiMeshInstance2D _nodeBatchLayer = null!;
     private int _roadMeshVertexCount;
     private bool _staticBatchRebuildScheduled;
     private bool _graphEventsSubscribed;
+    private RoadRendererLoadAdmission? _loadAdmission;
+    private long _loadAdmissionGeneration;
+    private GraphStateToken? _committedLoadToken;
+
+    internal event Action<GraphStateToken>? PresentationReady;
 
     // 施工预览
     private Vector2[] _previewPoints = [];
@@ -50,6 +55,8 @@ public partial class RoadRenderer : Node2D
     public int GetStaticRenderNodeCount() => 2;
 
     public int GetRoadMeshVertexCount() => _roadMeshVertexCount;
+
+    public int GetNodeMarkerCount() => _nodeBatchLayer.Multimesh.InstanceCount;
 
     /// <summary>拆除工具悬停的 Edge ID（null = 未悬停在任何 Edge 上）</summary>
     public int? HoveredEdgeID { get; set; }
@@ -88,6 +95,7 @@ public partial class RoadRenderer : Node2D
 
     public override void _ExitTree()
     {
+        _loadAdmission?.Dispose();
         UnsubscribeGraphEvents();
         _staticBatchRebuildScheduled = false;
     }
@@ -95,6 +103,8 @@ public partial class RoadRenderer : Node2D
     public void SetGraph(RoadGraph graph)
     {
         ArgumentNullException.ThrowIfNull(graph);
+        if (_loadAdmission is not null)
+            throw new InvalidOperationException("RoadRenderer graph cannot change during load admission.");
         UnsubscribeGraphEvents();
         _network = graph;
         _staticBatchRebuildScheduled = false;
@@ -116,9 +126,7 @@ public partial class RoadRenderer : Node2D
         if (_network == null || _graphEventsSubscribed || !IsInsideTree())
             return;
 
-        _network.EdgeAdded += OnEdgeAdded;
-        _network.EdgeRemoved += OnEdgeRemoved;
-        _network.GraphCleared += OnGraphCleared;
+        _network.GraphChanged += OnGraphChanged;
         _graphEventsSubscribed = true;
     }
 
@@ -127,31 +135,43 @@ public partial class RoadRenderer : Node2D
         if (_network == null || !_graphEventsSubscribed)
             return;
 
-        _network.EdgeAdded -= OnEdgeAdded;
-        _network.EdgeRemoved -= OnEdgeRemoved;
-        _network.GraphCleared -= OnGraphCleared;
+        _network.GraphChanged -= OnGraphChanged;
         _graphEventsSubscribed = false;
     }
 
     // ── 整网重载（存档加载后） ──
 
-    private void OnGraphCleared()
+    private void OnGraphChanged(RoadGraphChangedEvent change)
     {
-        _staticBatchRebuildScheduled = false;
-        _edgePoints.Clear();
+        if (_network == null)
+            return;
+        if (change.Changes.IsFullReset)
+        {
+            if (_committedLoadToken is GraphStateToken committed &&
+                committed == change.StateToken)
+            {
+                _committedLoadToken = null;
+                QueueRedraw();
+                return;
+            }
+            _staticBatchRebuildScheduled = false;
+            _edgePoints.Clear();
+            foreach (GraphEdge edge in _network.GetAllEdges())
+                CacheEdgePoints(edge);
+            RebuildStaticBatches();
+            return;
+        }
 
-        if (_network == null) return;
-        foreach (var edge in _network.GetAllEdges())
-            CacheEdgePoints(edge);
-
-        RebuildStaticBatches();
-    }
-
-    // ── Edge 增删 → 显示点缓存与静态批次同步 ──
-
-    private void OnEdgeAdded(GraphEdge edge)
-    {
-        CacheEdgePoints(edge);
+        foreach (int edgeID in change.Changes.RemovedEdgeIDs)
+            _edgePoints.Remove(edgeID);
+        foreach (int edgeID in change.Changes.UpdatedEdgeIDs)
+            _edgePoints.Remove(edgeID);
+        foreach (int edgeID in change.Changes.CreatedEdgeIDs
+                     .Concat(change.Changes.UpdatedEdgeIDs))
+        {
+            if (_network.GetEdge(edgeID) is GraphEdge edge)
+                CacheEdgePoints(edge);
+        }
         ScheduleStaticBatchRebuild();
     }
 
@@ -162,12 +182,6 @@ public partial class RoadRenderer : Node2D
         _edgePoints[edge.ID] = RoadGeometryDisplaySampler.SampleSegments(
             edge.GeometrySegments,
             Config.CurveDisplayTolerance);
-    }
-
-    private void OnEdgeRemoved(GraphEdge edge)
-    {
-        _edgePoints.Remove(edge.ID);
-        ScheduleStaticBatchRebuild();
     }
 
     // ── 静态道路和节点批处理 ──
@@ -198,8 +212,17 @@ public partial class RoadRenderer : Node2D
         var roadVertices = new List<Vector2>();
         var roadUvs = new List<Vector2>();
         var roadIndices = new List<int>();
-        foreach (Vector2[] points in _edgePoints.OrderBy(pair => pair.Key).Select(pair => pair.Value))
-            AppendRoadRibbon(points, Config.RoadWidth * 0.5f, roadVertices, roadUvs, roadIndices);
+        foreach ((int edgeID, Vector2[] points) in _edgePoints.OrderBy(pair => pair.Key))
+        {
+            GraphEdge? edge = _network.GetEdge(edgeID);
+            AppendRoadRibbon(
+                points,
+                edge is not null && edge.NodeA == edge.NodeB,
+                Config.RoadWidth * 0.5f,
+                roadVertices,
+                roadUvs,
+                roadIndices);
+        }
 
         _roadMeshVertexCount = roadVertices.Count;
         _roadBatchLayer.Mesh = CreateRoadMesh(roadVertices, roadUvs, roadIndices);
@@ -232,28 +255,37 @@ public partial class RoadRenderer : Node2D
 
     private static void AppendRoadRibbon(
         IReadOnlyList<Vector2> points,
+        bool isClosed,
         float halfWidth,
         List<Vector2> vertices,
         List<Vector2> uvs,
         List<int> indices)
     {
-        if (points.Count < 2)
+        int pointCount = points.Count;
+        if (isClosed)
+        {
+            if (pointCount < 2 || !RoadExactPredicates.SameBits(points[0], points[^1]))
+                throw new InvalidOperationException("A closed road ribbon must repeat its seam point exactly.");
+            pointCount--;
+        }
+        if (pointCount < 2)
             return;
 
         int vertexOffset = vertices.Count;
-        for (int index = 0; index < points.Count; index++)
+        for (int index = 0; index < pointCount; index++)
         {
-            Vector2 offset = CalculateRoadOffset(points, index, halfWidth);
+            Vector2 offset = CalculateRoadOffset(points, pointCount, index, isClosed, halfWidth);
             vertices.Add(points[index] - offset);
             uvs.Add(Vector2.Zero);
             vertices.Add(points[index] + offset);
             uvs.Add(Vector2.Down);
         }
 
-        for (int index = 1; index < points.Count; index++)
+        int segmentCount = isClosed ? pointCount : pointCount - 1;
+        for (int index = 0; index < segmentCount; index++)
         {
-            int previous = vertexOffset + (index - 1) * 2;
-            int current = vertexOffset + index * 2;
+            int previous = vertexOffset + index * 2;
+            int current = vertexOffset + ((index + 1) % pointCount) * 2;
             indices.Add(previous);
             indices.Add(previous + 1);
             indices.Add(current);
@@ -263,14 +295,25 @@ public partial class RoadRenderer : Node2D
         }
     }
 
-    private static Vector2 CalculateRoadOffset(IReadOnlyList<Vector2> points, int index, float halfWidth)
+    private static Vector2 CalculateRoadOffset(
+        IReadOnlyList<Vector2> points,
+        int pointCount,
+        int index,
+        bool isClosed,
+        float halfWidth)
     {
-        Vector2 previousDirection = index == 0
+        int previousIndex = isClosed
+            ? (index + pointCount - 1) % pointCount
+            : index - 1;
+        int nextIndex = isClosed
+            ? (index + 1) % pointCount
+            : index + 1;
+        Vector2 previousDirection = previousIndex < 0
             ? Vector2.Zero
-            : (points[index] - points[index - 1]).Normalized();
-        Vector2 nextDirection = index == points.Count - 1
+            : (points[index] - points[previousIndex]).Normalized();
+        Vector2 nextDirection = nextIndex >= pointCount
             ? Vector2.Zero
-            : (points[index + 1] - points[index]).Normalized();
+            : (points[nextIndex] - points[index]).Normalized();
         if (previousDirection.IsZeroApprox())
             previousDirection = nextDirection;
         if (nextDirection.IsZeroApprox())
@@ -420,20 +463,26 @@ public partial class RoadRenderer : Node2D
         float endpointRadius,
         float junctionRadius)
     {
-        if (node.EdgeCount == 1)
+        if (node.IncidenceCount == 1)
             return endpointRadius;
         return IsJunctionNode(graph, node) ? junctionRadius : 0f;
     }
 
     internal static bool IsJunctionNode(RoadGraph graph, GraphNode node)
     {
-        if (node.EdgeCount >= 3)
+        if (node.IncidenceCount >= 3)
             return true;
-        if (node.EdgeCount != 2)
+        if (node.IncidenceCount != 2)
             return false;
 
-        if (!TryGetOutgoingDirection(graph, node, node.Edges[0], out Vector2 first) ||
-            !TryGetOutgoingDirection(graph, node, node.Edges[1], out Vector2 second))
+        GraphEdge? sharedEdge = node.Incidences[0].EdgeID == node.Incidences[1].EdgeID
+            ? graph.GetEdge(node.Incidences[0].EdgeID)
+            : null;
+        if (IsPureSelfLoopSeam(node, sharedEdge))
+            return false;
+
+        if (!TryGetOutgoingDirection(graph, node, node.Incidences[0], out Vector2 first) ||
+            !TryGetOutgoingDirection(graph, node, node.Incidences[1], out Vector2 second))
         {
             return true;
         }
@@ -441,23 +490,44 @@ public partial class RoadRenderer : Node2D
         return first.Dot(second) > -0.999f;
     }
 
+    private static bool IsPureSelfLoopSeam(GraphNode node, GraphEdge? edge)
+    {
+        if (node.IncidenceCount != 2 ||
+            edge is null ||
+            edge.NodeA != node.ID ||
+            edge.NodeB != node.ID)
+        {
+            return false;
+        }
+
+        EdgeIncidence first = node.Incidences[0];
+        EdgeIncidence second = node.Incidences[1];
+        return first.EdgeID == edge.ID &&
+               second.EdgeID == edge.ID &&
+               first.Endpoint != second.Endpoint &&
+               first.NeighborNodeID == node.ID &&
+               second.NeighborNodeID == node.ID;
+    }
+
     private static bool TryGetOutgoingDirection(
         RoadGraph graph,
         GraphNode node,
-        EdgeRef edgeRef,
+        EdgeIncidence incidence,
         out Vector2 direction)
     {
         direction = Vector2.Zero;
-        GraphEdge? edge = graph.GetEdge(edgeRef.EdgeID);
+        GraphEdge? edge = graph.GetEdge(incidence.EdgeID);
         if (edge == null)
             return false;
 
-        if (edge.NodeA == node.ID)
-            direction = edge.GeometrySegments[0].GetUnitTangent(0f);
-        else if (edge.NodeB == node.ID)
-            direction = -edge.GeometrySegments[^1].GetUnitTangent(1f);
-        else
-            return false;
+        direction = incidence.Endpoint switch
+        {
+            EdgeEndpoint.A when edge.NodeA == node.ID =>
+                edge.GeometrySegments[0].GetUnitTangent(0f),
+            EdgeEndpoint.B when edge.NodeB == node.ID =>
+                -edge.GeometrySegments[^1].GetUnitTangent(1f),
+            _ => Vector2.Zero,
+        };
 
         return direction.IsFinite() && !direction.IsZeroApprox();
     }

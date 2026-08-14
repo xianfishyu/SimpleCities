@@ -80,15 +80,34 @@ public sealed class CircularArcRoadGeometrySegmentTests
     }
 
     [Fact]
-    public void MissingOrMixedParametersAreRejectedWithoutGeometry()
+    public void MissingParametersOrUnpairedEndpointAnchorAreRejectedWithoutGeometry()
     {
         var missing = ValidData();
         missing.Radius = null;
-        var mixed = ValidData();
-        mixed.Start = new RoadGeometryPointData(Vector2.Zero);
+        var unpairedAnchor = ValidData();
+        unpairedAnchor.Start = new RoadGeometryPointData(Vector2.Right * 4f);
+        var unpairedAngle = ValidData();
+        unpairedAngle.EndAngle = 1f;
 
         AssertFailure(missing, RoadGeometryDataError.MissingRequiredParameter);
-        AssertFailure(mixed, RoadGeometryDataError.UnexpectedParameter);
+        AssertFailure(unpairedAnchor, RoadGeometryDataError.MissingRequiredParameter);
+        AssertFailure(unpairedAngle, RoadGeometryDataError.MissingRequiredParameter);
+    }
+
+    [Fact]
+    public void JsonRoundTripPreservesExactEndpointAnchorsAfterReverse()
+    {
+        var source = new CircularArcRoadGeometrySegment(
+            new Vector2(3f, -2f), 7f, 0.37f, -2.1f);
+        var reversed = Assert.IsType<CircularArcRoadGeometrySegment>(source.Reverse());
+
+        RoadGeometryDeserializationResult result = RoadGeometrySerializer.Deserialize(
+            RoadGeometrySerializer.Serialize(reversed));
+
+        var restored = Assert.IsType<CircularArcRoadGeometrySegment>(result.Geometry);
+        Assert.True(result.Success);
+        Assert.True(RoadExactPredicates.SameBits(reversed.Start, restored.Start));
+        Assert.True(RoadExactPredicates.SameBits(reversed.End, restored.End));
     }
 
     [Theory]

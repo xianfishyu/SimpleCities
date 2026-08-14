@@ -454,3 +454,33 @@ Focused RED 来自 `tests/godot/command_center_runtime_contract.gd` 中同实例
 - `pause_menu_runtime_contract.gd` 真实进入 Escape 捕获状态后注入按键，按钮恢复为 `Escape`，菜单保持可见且场景继续暂停，输出 `PASS pause menu runtime contract`。
 - `dotnet test SimpleCities.sln --no-restore`：492/492 通过；`dotnet build SimpleCities.sln --no-restore`：0 警告、0 错误。
 - 该运行时契约在沙箱外执行以允许写 `user://input_bindings.cfg`，并把绑定重置为默认值；独立 HUD 场景的 `ToolManager.Instance` 缺失警告属于契约预期环境。
+
+---
+
+## BUG-16：退出场景后暂停菜单的延迟焦点回调仍可能操作失效控件
+
+> 修复日期：2026-08-14
+> 影响文件：`Scripts/UI/PauseMenu.cs`、`Scripts/UI/GameHUD.cs`、`tests/godot/pause_menu_runtime_contract.gd`
+> 关联事项：`v3-ui:1.4`；退出收敛的存档所有权见 `save-system:BUG-12`
+
+### 症状
+
+暂停菜单切换视图时通过 `CallDeferred(...)` 排队焦点更新。用户在退出确认出现后立即确认返回主菜单时，异步存档收敛和场景切换可能先隐藏菜单或让节点退出场景树，旧回调随后仍直接调用 `GrabFocus()`。这会尝试聚焦不可见、已禁用或已经离树的控件，也可能在新场景出现后抢回旧菜单焦点。
+
+### 根因分析
+
+`FocusContinueButton`、设置、绑定、存档管理和确认视图的延迟回调原先分别直接调用目标控件的 `GrabFocus()`。排队时的菜单状态不是执行时的状态；代码没有在回调真正执行时重新检查 `PauseMenu` 与目标控件是否仍在树内、可见、可聚焦且未禁用。退出流程引入异步 drain 后，这个时序窗口变得稳定可达。
+
+### 修复方案
+
+所有延迟焦点入口统一通过 `TryGrabDeferredFocus(Control)`。该门禁在执行时检查菜单仍在树内且可见、目标 Godot 实例有效、目标仍在树内并可见、`FocusMode` 允许聚焦，且 `BaseButton` 未禁用；任一条件失效就丢弃旧回调。`RestorePreviousFocus()` 同样只恢复仍有效、在树内、可见且可聚焦的旧控件。退出收敛期间 PauseMenu 保持打开并禁用冲突操作，场景关闭后不会再把焦点写回旧 UI。
+
+### 影响范围
+
+只影响暂停菜单的延迟焦点和退出时序，不改变正常打开时默认聚焦 Continue、关闭时恢复原焦点、键盘绑定、存档结果或场景切换所有权。
+
+### 验证状态
+
+- `tests/godot/pause_menu_runtime_contract.gd` 覆盖暂停菜单打开/关闭焦点、各子视图默认焦点、退出确认取消，以及确认返回主菜单后重新进入；`.godot/qa-v3-exit-convergence.log` 输出 `PASS pause menu runtime contract`，没有失效控件或焦点相关错误。
+- `PauseMenuContractTests` 与完整 `dotnet test SimpleCities.sln --no-restore` 一并通过，最终为 720/720；Debug 与 `ExportRelease` build 均为 0 警告、0 错误，Roslyn compiler/analyzer diagnostics 均为 0。
+- Godot MCP 主场景 smoke 的 editor error 与 DAP `stderr` 均为空；运行时契约中的独立 HUD 缺 `ToolManager` 和刻意构造损坏槽 warning 与本修复无关。

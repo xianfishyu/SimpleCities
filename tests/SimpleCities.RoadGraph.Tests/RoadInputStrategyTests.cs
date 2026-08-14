@@ -88,9 +88,11 @@ public sealed class RoadInputStrategyTests
     {
         IRoadInputStrategy strategy = new ArbitraryAngleStrategy();
         RoadPathDraft draft = strategy.BuildDraft(Vector2.Zero, new Vector2(7f, 3f));
+        RoadPath path = Assert.IsType<RoadPath>(draft.Path);
         var graph = new RoadGraph();
 
-        RoadPathSubmissionResult result = graph.SubmitPath(draft.Path);
+        RoadPathSubmissionResult result = graph.SubmitPath(
+            new RoadBuildRequest(path, RoadType.Street));
 
         Assert.True(result.Success);
         LineRoadGeometrySegment geometry = Assert.IsType<LineRoadGeometrySegment>(
@@ -107,7 +109,7 @@ public sealed class RoadInputStrategyTests
         Assert.DoesNotContain("GridSystem", source, StringComparison.Ordinal);
         Assert.DoesNotContain("CellSize", source, StringComparison.Ordinal);
         Assert.Contains("SetInputStrategy", source, StringComparison.Ordinal);
-        Assert.Contains("_graph.SubmitPath(draft.Path)", source, StringComparison.Ordinal);
+        Assert.Contains("new RoadBuildRequest(draft.Path, RoadType.Street)", source, StringComparison.Ordinal);
     }
 
     [Fact]

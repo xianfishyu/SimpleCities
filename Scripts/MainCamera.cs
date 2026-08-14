@@ -1,9 +1,8 @@
 using Godot;
 using System;
-using System.Text.Json;
 
 
-public partial class MainCamera : Camera2D, IPreparedSaveable
+public partial class MainCamera : Camera2D
 {
 	private const float MinimumZoomScale = 0.000001f;
 	private const float ResponseRemainingAtConfiguredTime = 0.05f;
@@ -62,13 +61,10 @@ public partial class MainCamera : Camera2D, IPreparedSaveable
 	{
 		NormalizeZoomConfiguration();
 		Instance = this;
-		SaveManager.Instance.Register(this);
 	}
 
 	public override void _ExitTree()
 	{
-		if (SaveManager.Instance != null && GodotObject.IsInstanceValid(SaveManager.Instance))
-			SaveManager.Instance.Unregister(this);
 		if (ReferenceEquals(Instance, this))
 			Instance = null!;
 	}
@@ -209,50 +205,6 @@ public partial class MainCamera : Camera2D, IPreparedSaveable
 			InputBindingManager.CameraMoveRightAction,
 			InputBindingManager.CameraMoveUpAction,
 			InputBindingManager.CameraMoveDownAction);
-	}
-
-	// ═══════════════════════════════════════════════
-	// ISaveable 实现
-	// ═══════════════════════════════════════════════
-
-	public string SaveFileName => "camera";
-
-	public object CaptureState()
-	{
-		return new CameraData
-		{
-			PositionX = Position.X,
-			PositionY = Position.Y,
-			Zoom = defaultScale
-		};
-	}
-
-	public void RestoreState(string json)
-	{
-		RestorePreparedState(PrepareRestoreState(json));
-	}
-
-	public object PrepareRestoreState(string json)
-	{
-		CameraData? data = SaveJson.Deserialize<CameraData>(json);
-		if (data == null || !float.IsFinite(data.PositionX) || !float.IsFinite(data.PositionY) ||
-			!float.IsFinite(data.Zoom) || data.Zoom <= 0f)
-		{
-			throw new JsonException("Camera save payload must contain finite coordinates and a positive zoom.");
-		}
-
-		return data;
-	}
-
-	public void RestorePreparedState(object preparedState)
-	{
-		if (preparedState is not CameraData data)
-			throw new ArgumentException("Prepared state is not camera data.", nameof(preparedState));
-
-		Position = new Vector2(data.PositionX, data.PositionY);
-		screenVelocity = Vector2.Zero;
-		hasZoomAnchor = false;
-		defaultScale = ClampZoom(data.Zoom);
 	}
 
 }

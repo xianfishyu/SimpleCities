@@ -380,11 +380,10 @@ func test_malformed_dock() -> void:
 
 func assert_debug_metrics_continuity(map: Node, debug_panel: Control) -> void:
 	var manager: Node = map.get_node("ToolManager")
-	var groups: Label = debug_panel.get_node("PanelMargin/Rows/DebugContent/RoadGroupRow/RoadGroupValue")
 	var edges: Label = debug_panel.get_node("PanelMargin/Rows/DebugContent/GraphEdgeRow/GraphEdgeValue")
 	var nodes: Label = debug_panel.get_node("PanelMargin/Rows/DebugContent/GraphNodeRow/GraphNodeValue")
 	debug_panel.UpdateMetrics()
-	var before := Vector3i(int(groups.text), int(edges.text), int(nodes.text))
+	var before := Vector2i(int(edges.text), int(nodes.text))
 	manager.set("CurrentTool", 1)
 	await process_frame
 	var start_motion := mouse_motion_event(Vector2(320, 320))
@@ -400,12 +399,9 @@ func assert_debug_metrics_continuity(map: Node, debug_panel: Control) -> void:
 	manager._Input(mouse_button_event(false, Vector2(384, 320)))
 	await process_frame
 	debug_panel.UpdateMetrics()
-	var after := Vector3i(int(groups.text), int(edges.text), int(nodes.text))
-	if after.x != before.x + 1:
-		fail("Debug RoadGroup metric did not continue after graph mutation: %s -> %s" % [before, after])
-		return
-	assert_true(after.y > before.y, "Debug GraphEdge metric did not continue after graph mutation: %s -> %s" % [before, after])
-	assert_true(after.z > before.z, "Debug GraphNode metric did not continue after graph mutation: %s -> %s" % [before, after])
+	var after := Vector2i(int(edges.text), int(nodes.text))
+	assert_true(after.x > before.x, "Debug GraphEdge metric did not continue after graph mutation: %s -> %s" % [before, after])
+	assert_true(after.y > before.y, "Debug GraphNode metric did not continue after graph mutation: %s -> %s" % [before, after])
 
 func assert_k_runtime_contract(hud: CanvasLayer) -> void:
 	var dock: Control = hud.get_node("ConstructionDock")

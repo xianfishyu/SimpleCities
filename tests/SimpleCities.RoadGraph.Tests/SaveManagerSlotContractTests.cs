@@ -1,177 +1,107 @@
+using Godot;
+using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 
 namespace SimpleCities.Tests;
 
 public sealed class SaveManagerSlotContractTests : IDisposable
 {
-    private readonly string _saveRoot = Path.Combine(
+    private readonly string _testRoot = Path.Combine(
         Path.GetTempPath(),
-        $"simple-cities-save-tests-{Guid.NewGuid():N}");
+        $"simple-cities-v3-save-tests-{Guid.NewGuid():N}");
+
+    private string V3Root => Path.Combine(_testRoot, "v3");
+    private string V2ResourceRoot => Path.Combine(_testRoot, "legacy-res-saves");
+    private string V2UserRoot => Path.Combine(_testRoot, "legacy-user-saves");
 
     [Fact]
-    public void SaveRoot_UsesProjectDataInEditorAndUserDataInExport()
+    public void ProductionRoot_AlwaysUsesUserV3Root()
     {
-        static string Globalize(string path) => path switch
+        var requested = new List<string>();
+        string Globalize(string path)
         {
-            "res://saves" => "D:/project/saves",
-            "user://saves" => "C:/profile/SimpleCities/saves",
-            _ => throw new ArgumentOutOfRangeException(nameof(path), path, null),
-        };
+            requested.Add(path);
+            return "C:/profile/SimpleCities/saves-v3";
+        }
 
         Assert.Equal(
-            "D:/project/saves",
-            SaveManager.ResolveSaveBaseDir(isEditor: true, Globalize));
-        Assert.Equal(
-            "C:/profile/SimpleCities/saves",
-            SaveManager.ResolveSaveBaseDir(isEditor: false, Globalize));
+            "C:/profile/SimpleCities/saves-v3",
+            SaveManager.ResolveSaveBaseDir(Globalize));
+        Assert.Equal(["user://saves-v3"], requested);
     }
 
     [Fact]
-    public void SaveAndLoad_RoundTripsRegisteredStateAndManifest()
+    public void SaveAndLoad_RoundTripsStreamStateAndWritesLengthHashManifest()
     {
         var store = CreateStore();
         var saveable = new TestSaveable("road_network", 42);
 
-        Assert.Equal(1, store.Save("manual-1", "第一座城市", [saveable]));
-
-        string slotDir = Path.Combine(_saveRoot, "manual-1");
-        Assert.True(File.Exists(Path.Combine(slotDir, "manifest.json")));
-        Assert.True(File.Exists(Path.Combine(slotDir, "road_network.json")));
-        ManifestData manifest = SaveManager.ParseAndValidateManifest(
-            File.ReadAllText(Path.Combine(slotDir, "manifest.json")));
+        SavePublishResult publish = store.Save("manual-1", "第一座城市", [saveable]);
+        Assert.Equal(SavePublishResultKind.Published, publish.Kind);
+        Assert.Equal(1, publish.SavedFileCount);
+        V3Manifest manifest = store.ReadManifest("manual-1");
+        V3ManifestFile file = Assert.Single(manifest.Files);
+        string payloadPath = Path.Combine(V3Root, "manual-1", file.Name);
+        byte[] payload = File.ReadAllBytes(payloadPath);
         Assert.Equal("manual-1", manifest.SlotID);
         Assert.Equal("第一座城市", manifest.DisplayName);
-        Assert.Equal(["road_network.json"], manifest.Files);
+        Assert.Equal(payload.LongLength, file.EncodedLength);
+        Assert.Equal(
+            Convert.ToHexString(SHA256.HashData(payload)).ToLowerInvariant(),
+            file.Sha256);
 
         saveable.Value = 7;
         Assert.Equal(1, store.Load("manual-1", [saveable]));
-
         Assert.Equal(42, saveable.Value);
-        Assert.Equal(1, saveable.RestoreCount);
+        Assert.Equal(1, saveable.PrepareCount);
+        Assert.Equal(1, saveable.CommitCount);
     }
 
     [Fact]
-    public void V2Profile_SelectsOnlyRoadGraphFromRegisteredSystems()
+    public void Profile_SelectsOnlyExactRoadGraphParticipant()
     {
-        ISaveable roadGraph = new TestSaveable("road_network", 42);
-        ISaveable camera = new TestSaveable("camera", 7);
-        ISaveable future = new TestSaveable("economy", 99);
+        IStreamingSaveable graph = new TestSaveable("road_network", 1);
+        IStreamingSaveable economy = new TestSaveable("economy", 2);
 
-        IReadOnlyList<ISaveable> selected = SaveManager.SelectSaveables(
-            [camera, future, roadGraph],
+        IReadOnlyList<IStreamingSaveable> selected = SaveManager.SelectSaveables(
+            [economy, graph],
             [SaveManager.RoadGraphSaveFileName]);
 
-        Assert.Same(roadGraph, Assert.Single(selected));
-    }
-
-    [Fact]
-    public void V2Profile_MissingRoadGraphIsRejectedBeforeSaving()
-    {
-        ISaveable camera = new TestSaveable("camera", 7);
-
+        Assert.Same(graph, Assert.Single(selected));
         Assert.Throws<InvalidOperationException>(() => SaveManager.SelectSaveables(
-            [camera],
+            [economy],
             [SaveManager.RoadGraphSaveFileName]));
     }
 
     [Fact]
-    public void FutureProfile_AddsIndependentFileWithoutChangingRoadGraphPayload()
+    public void Load_TamperedPayloadMayPrepareButNeverCommits()
     {
         var store = CreateStore();
-        var roadGraph = new RoadGraph();
-        Assert.True(roadGraph.AddRoad(Godot.Vector2.Zero, new Godot.Vector2(8f, 2f), []) >= 0);
-        string roadBefore = SaveJson.Serialize(roadGraph.CaptureState());
-        var economy = new TestSaveable("economy", 99);
-        IReadOnlyList<ISaveable> selected = SaveManager.SelectSaveables(
-            [roadGraph, economy],
-            [SaveManager.RoadGraphSaveFileName, "economy"]);
+        var saved = new TestSaveable("road_network", 42);
+        store.Save("broken", "Broken", [saved]);
+        string payloadPath = Path.Combine(V3Root, "broken", "road_network.json");
+        File.WriteAllText(payloadPath, "{\"value\":99}", new UTF8Encoding(false));
+        var active = new TestSaveable("road_network", 7);
 
-        Assert.Equal(2, store.Save("future", "Future", selected));
+        Assert.Throws<InvalidDataException>(() => store.Load("broken", [active]));
 
-        ManifestData manifest = store.ReadManifest("future");
-        Assert.Equal(["road_network.json", "economy.json"], manifest.Files);
-        Assert.Equal(roadBefore, File.ReadAllText(Path.Combine(_saveRoot, "future", "road_network.json")));
-        Assert.True(File.Exists(Path.Combine(_saveRoot, "future", "economy.json")));
-    }
-
-    [Theory]
-    [InlineData(MissingSlotPart.Manifest)]
-    [InlineData(MissingSlotPart.DataFile)]
-    public void Load_MissingRequiredFileDoesNotRestore(MissingSlotPart missingPart)
-    {
-        var store = CreateStore();
-        var saveable = new TestSaveable("road_network", 42);
-        Assert.Equal(1, store.Save("broken", "Broken", [saveable]));
-        saveable.Value = 7;
-
-        string slotDir = Path.Combine(_saveRoot, "broken");
-        string fileName = missingPart == MissingSlotPart.Manifest
-            ? "manifest.json"
-            : "road_network.json";
-        File.Delete(Path.Combine(slotDir, fileName));
-
-        Assert.ThrowsAny<IOException>(() => store.Load("broken", [saveable]));
-
-        Assert.Equal(7, saveable.Value);
-        Assert.Equal(0, saveable.RestoreCount);
+        Assert.Equal(7, active.Value);
+        Assert.Equal(1, active.PrepareCount);
+        Assert.Equal(0, active.CommitCount);
     }
 
     [Fact]
-    public void Load_UnsupportedManifestDoesNotRestore()
+    public void Load_LaterPreparationFailureDoesNotCommitEarlierParticipant()
     {
         var store = CreateStore();
-        var saveable = new TestSaveable("road_network", 42);
-        Assert.Equal(1, store.Save("broken", "Broken", [saveable]));
-        saveable.Value = 7;
-        File.WriteAllText(
-            Path.Combine(_saveRoot, "broken", "manifest.json"),
-            "{\"schemaVersion\":2,\"slotId\":\"broken\",\"displayName\":\"Broken\",\"files\":[\"road_network.json\"]}");
-
-        Assert.Throws<JsonException>(() => store.Load("broken", [saveable]));
-
-        Assert.Equal(7, saveable.Value);
-        Assert.Equal(0, saveable.RestoreCount);
-    }
-
-    [Fact]
-    public void Load_ManifestMissingRegisteredFileDoesNotRestore()
-    {
-        var store = CreateStore();
-        var saveable = new TestSaveable("road_network", 42);
-        store.Save("broken", "Broken", [saveable]);
-        RewriteManifest("broken", manifest => manifest.Files.Clear());
-        saveable.Value = 7;
-
-        Assert.Throws<InvalidDataException>(() => store.Load("broken", [saveable]));
-
-        Assert.Equal(7, saveable.Value);
-        Assert.Equal(0, saveable.RestoreCount);
-    }
-
-    [Fact]
-    public void Load_InvalidJsonInLaterFileDoesNotRestoreEarlierSystem()
-    {
-        var store = CreateStore();
-        var first = new TestSaveable("first", 42);
-        var second = new TestSaveable("second", 84);
-        store.Save("broken", "Broken", [first, second]);
-        File.WriteAllText(Path.Combine(_saveRoot, "broken", "second.json"), "not json");
-        first.Value = 7;
-
-        Assert.ThrowsAny<JsonException>(() => store.Load("broken", [first, second]));
-
-        Assert.Equal(7, first.Value);
-        Assert.Equal(0, first.RestoreCount);
-        Assert.Equal(0, second.RestoreCount);
-    }
-
-    [Fact]
-    public void Load_PreparationFailureDoesNotCommitAnyPreparedSystem()
-    {
-        var store = CreateStore();
-        var first = new PreparedTestSaveable("first");
-        var second = new PreparedTestSaveable("second") { ThrowDuringPrepare = true };
-        store.Save("broken", "Broken", [first, second]);
+        store.Save("broken", "Broken", [
+            new TestSaveable("first", 1),
+            new TestSaveable("second", 2),
+        ]);
+        var first = new TestSaveable("first", 10);
+        var second = new TestSaveable("second", 20) { ThrowDuringPrepare = true };
 
         Assert.Throws<InvalidDataException>(() => store.Load("broken", [first, second]));
 
@@ -179,100 +109,218 @@ public sealed class SaveManagerSlotContractTests : IDisposable
         Assert.Equal(0, first.CommitCount);
         Assert.Equal(1, second.PrepareCount);
         Assert.Equal(0, second.CommitCount);
+        Assert.Equal(10, first.Value);
+        Assert.Equal(20, second.Value);
     }
 
     [Fact]
-    public void Load_CorruptRoadGraphDoesNotChangeActiveGraph()
+    public void Load_DetectsDirectorySetChangeDuringPrepareBeforeAnyCommit()
+    {
+        var store = CreateStore();
+        store.Save("manual-1", "Manual", [new TestSaveable("road_network", 42)]);
+        string injectedPath = Path.Combine(V3Root, "manual-1", "injected.json");
+        var active = new TestSaveable("road_network", 7)
+        {
+            DuringPrepare = () => File.WriteAllText(injectedPath, "{}", new UTF8Encoding(false)),
+        };
+
+        Assert.Throws<InvalidDataException>(() => store.Load("manual-1", [active]));
+
+        Assert.Equal(1, active.PrepareCount);
+        Assert.Equal(0, active.CommitCount);
+        Assert.Equal(7, active.Value);
+    }
+
+    [Fact]
+    public void Load_HoldsPayloadHandleAgainstReplacementDuringPrepare()
+    {
+        var store = CreateStore();
+        store.Save("manual-1", "Manual", [new TestSaveable("road_network", 42)]);
+        string payloadPath = Path.Combine(V3Root, "manual-1", "road_network.json");
+        Exception? replacementError = null;
+        var active = new TestSaveable("road_network", 7)
+        {
+            DuringPrepare = () =>
+            {
+                try
+                {
+                    File.Move(payloadPath, payloadPath + ".moved");
+                }
+                catch (Exception exception)
+                {
+                    replacementError = exception;
+                }
+            },
+        };
+
+        Assert.Equal(1, store.Load("manual-1", [active]));
+
+        Assert.IsType<IOException>(replacementError);
+        Assert.Equal(42, active.Value);
+        Assert.False(File.Exists(payloadPath + ".moved"));
+    }
+
+    [Fact]
+    public void Load_CorruptRoadGraphDoesNotChangeActiveGraphOrEmitEvent()
     {
         var store = CreateStore();
         var saved = new RoadGraph();
-        Assert.True(saved.AddRoad(Godot.Vector2.Zero, new Godot.Vector2(8f, 2f), []) >= 0);
+        Assert.True(saved.SubmitPolyline(
+            RoadType.Street,
+            [Vector2.Zero, new Vector2(8f, 2f)]).Success);
         store.Save("broken", "Broken", [saved]);
 
         var active = new RoadGraph();
-        Assert.True(active.AddRoad(Godot.Vector2.Zero, new Godot.Vector2(4f, 6f), []) >= 0);
-        string stateBefore = SaveJson.Serialize(active.CaptureState());
-        File.WriteAllText(
-            Path.Combine(_saveRoot, "broken", "road_network.json"),
-            "{\"schemaVersion\":1,\"nextID\":1,\"nodes\":[{\"id\":0,\"x\":0,\"y\":0}],\"edges\":[],\"groups\":[]}");
-        string manifestBefore = File.ReadAllText(Path.Combine(_saveRoot, "broken", "manifest.json"));
-        string roadFileBefore = File.ReadAllText(Path.Combine(_saveRoot, "broken", "road_network.json"));
+        Assert.True(active.SubmitPolyline(
+            RoadType.Highway,
+            [Vector2.Zero, new Vector2(4f, 6f)]).Success);
+        string before = RoadGraphTestCodec.CaptureJson(active);
+        GraphStateToken tokenBefore = active.CurrentStateToken;
+        int eventCount = 0;
+        active.GraphChanged += _ => eventCount++;
+        RewritePayloadAndManifest("broken", "{\"formatFamily\":\"simple-cities-v3\"}");
 
         Assert.Throws<JsonException>(() => store.Load("broken", [active]));
 
-        Assert.Equal(stateBefore, SaveJson.Serialize(active.CaptureState()));
-        Assert.Equal(manifestBefore, File.ReadAllText(Path.Combine(_saveRoot, "broken", "manifest.json")));
-        Assert.Equal(roadFileBefore, File.ReadAllText(Path.Combine(_saveRoot, "broken", "road_network.json")));
+        Assert.Equal(before, RoadGraphTestCodec.CaptureJson(active));
+        Assert.Equal(tokenBefore, active.CurrentStateToken);
+        Assert.Equal(0, eventCount);
     }
 
     [Fact]
-    public void Load_MissingOptionalThumbnailStillRestoresState()
+    public void Load_RoadGraphCreatesNewLineageAndInvalidatesOldHistory()
     {
         var store = CreateStore();
-        var saveable = new TestSaveable("road_network", 42);
-        store.Save("manual-1", "Manual 1", [saveable]);
-        RewriteManifest("manual-1", manifest => manifest.ThumbnailFile = "missing.png");
-        saveable.Value = 7;
+        var saved = new RoadGraph();
+        Assert.True(saved.SubmitPolyline(
+            RoadType.Dirt,
+            [Vector2.Zero, new Vector2(9f, 0f)]).Success);
+        store.Save("manual-1", "Manual", [saved]);
 
-        Assert.Equal(1, store.Load("manual-1", [saveable]));
+        var active = new RoadGraph();
+        var history = new RoadEditHistory(active);
+        Assert.True(history.Execute(() => active.SubmitPolyline(
+            RoadType.Street,
+            [Vector2.Zero, new Vector2(2f, 1f)]).Success));
+        Assert.True(history.CanUndo);
+        GraphLineageID oldLineage = active.CaptureRevision().LineageID;
 
-        Assert.Equal(42, saveable.Value);
-        Assert.Equal(1, saveable.RestoreCount);
+        Assert.Equal(1, store.Load("manual-1", [active]));
+
+        Assert.NotEqual(oldLineage, active.CaptureRevision().LineageID);
+        Assert.False(history.CanUndo);
+        Assert.False(history.CanRedo);
     }
 
     [Fact]
-    public void DeleteSlot_RemovesNonEmptySlotRecursively()
+    public void Save_CaptureOrWriteFailureDoesNotPublishAndPreservesExistingSlot()
     {
         var store = CreateStore();
-        Assert.Equal(1, store.Save("manual-1", "Manual 1", [new TestSaveable("road_network", 42)]));
+        Assert.Throws<InvalidOperationException>(() => store.Save(
+            "new-slot", "New", [new ThrowingCaptureSaveable()]));
+        Assert.Equal(SaveSlotOccupantKind.Absent, store.ClassifySlot("new-slot").Kind);
 
-        Assert.True(store.Delete("manual-1"));
-
-        Assert.False(Directory.Exists(Path.Combine(_saveRoot, "manual-1")));
-        Assert.False(store.Exists("manual-1"));
-        Assert.False(store.Delete("manual-1"));
-    }
-
-    [Fact]
-    public void DeleteSlot_TransactionPathFailurePreservesExistingSlot()
-    {
-        var store = CreateStore();
-        store.Save("manual-1", "Manual 1", [new TestSaveable("road_network", 42)]);
-        File.WriteAllText(Path.Combine(_saveRoot, ".manual-1.backup"), "occupied");
-
-        Assert.Throws<IOException>(() => store.Delete("manual-1"));
-
-        Assert.True(Directory.Exists(Path.Combine(_saveRoot, "manual-1")));
-        Assert.True(File.Exists(Path.Combine(_saveRoot, "manual-1", "manifest.json")));
-    }
-
-    [Fact]
-    public void Save_CaptureFailureDoesNotPublishSlot()
-    {
-        var store = CreateStore();
-
-        Assert.Throws<InvalidOperationException>(() =>
-            store.Save("broken", "Broken", [new ThrowingSaveable()]));
-
-        string slotDir = Path.Combine(_saveRoot, "broken");
-        Assert.False(store.Exists("broken"));
-        Assert.False(Directory.Exists(slotDir));
-    }
-
-    [Fact]
-    public void Save_SerializationFailurePreservesExistingSlot()
-    {
-        var store = CreateStore();
         store.Save("manual-1", "Original", [new TestSaveable("road_network", 42)]);
         IReadOnlyDictionary<string, string> before = SnapshotSlot("manual-1");
-
         Assert.Throws<JsonException>(() => store.Save(
-            "manual-1",
-            "Replacement",
-            [new TestSaveable("road_network", 99), new CyclicSaveable()]));
-
+            "manual-1", "Replacement", [new ThrowingWriteSaveable()]));
         Assert.Equal(before, SnapshotSlot("manual-1"));
         Assert.Empty(TransactionDirectories());
+    }
+
+    [Theory]
+    [InlineData(unchecked((int)0x80070070))]
+    [InlineData(28)]
+    public void Save_DiskFullAfterPartialPayloadWriteNeverPublishesAndPreservesExistingSlot(
+        int diskFullHResult)
+    {
+        var store = CreateStore();
+        var newSlotSaveable = new DiskFullAfterPartialWriteSaveable(diskFullHResult);
+
+        IOException newSlotFailure = Assert.Throws<IOException>(() => store.Save(
+            "new-slot", "New", [newSlotSaveable]));
+
+        Assert.Equal(diskFullHResult, newSlotFailure.HResult);
+        Assert.Equal(1, newSlotSaveable.CaptureCount);
+        Assert.False(Directory.Exists(Path.Combine(V3Root, "new-slot")));
+        Assert.Empty(TransactionDirectories());
+
+        store.Save("manual-1", "Original", [new TestSaveable("road_network", 42)]);
+        IReadOnlyDictionary<string, string> before = SnapshotSlot("manual-1");
+        var replacement = new DiskFullAfterPartialWriteSaveable(diskFullHResult);
+
+        IOException replacementFailure = Assert.Throws<IOException>(() => store.Save(
+            "manual-1", "Replacement", [replacement]));
+
+        Assert.Equal(diskFullHResult, replacementFailure.HResult);
+        Assert.Equal(1, replacement.CaptureCount);
+        Assert.Equal(before, SnapshotSlot("manual-1"));
+        Assert.Empty(TransactionDirectories());
+    }
+
+    [Fact]
+    public void Save_TransactionRootOccupiedByFileFailsBeforeCaptureAndPreservesOccupant()
+    {
+        Directory.CreateDirectory(V3Root);
+        string transactionRoot = Path.Combine(V3Root, ".save-transactions");
+        byte[] occupant = Encoding.UTF8.GetBytes("transaction-root-canary");
+        File.WriteAllBytes(transactionRoot, occupant);
+        var saveable = new TestSaveable("road_network", 42);
+
+        SavePublicationRecoveryException exception = Assert.Throws<SavePublicationRecoveryException>(
+            () => CreateStore().Save("new-slot", "New", [saveable]));
+
+        Assert.Contains("occupied by a file", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, saveable.CaptureCount);
+        Assert.Equal(occupant, File.ReadAllBytes(transactionRoot));
+        Assert.False(Directory.Exists(Path.Combine(V3Root, "new-slot")));
+        Assert.Empty(Directory.GetDirectories(V3Root));
+    }
+
+    [Fact]
+    public void Save_PublishesDescriptorInsideUniqueOperationTransactionBeforeCanonicalMove()
+    {
+        string? observedOperationDirectory = null;
+        var store = new SaveSlotStore(V3Root, phase =>
+        {
+            if (phase != SavePublicationPhase.Staged)
+                return;
+
+            string slotTransactions = Path.Combine(V3Root, ".save-transactions", "manual-1");
+            observedOperationDirectory = Assert.Single(Directory.GetDirectories(slotTransactions));
+            Assert.Matches("^[0-9a-f]{32}$", Path.GetFileName(observedOperationDirectory));
+            Assert.True(Directory.Exists(Path.Combine(observedOperationDirectory, "staging")));
+            Assert.True(File.Exists(Path.Combine(observedOperationDirectory, "publish.json")));
+            Assert.False(Directory.Exists(Path.Combine(V3Root, "manual-1")));
+        });
+
+        SavePublishResult result = store.Save(
+            "manual-1", "Manual", [new TestSaveable("road_network", 42)]);
+        Assert.Equal(SavePublishResultKind.Published, result.Kind);
+        Assert.Equal(1, result.SavedFileCount);
+
+        Assert.NotNull(observedOperationDirectory);
+        Assert.False(Directory.Exists(observedOperationDirectory));
+        Assert.Empty(TransactionDirectories());
+    }
+
+    [Fact]
+    public void Save_CleanupFailureAfterCanonicalPublishReturnsPendingWithoutRollback()
+    {
+        var store = new SaveSlotStore(V3Root, phase =>
+        {
+            if (phase == SavePublicationPhase.CanonicalPublished)
+                throw new IOException("Injected cleanup failure.");
+        });
+
+        SavePublishResult result = store.Save(
+            "manual-1", "Manual", [new TestSaveable("road_network", 42)]);
+
+        Assert.Equal(SavePublishResultKind.PublishedWithCleanupPending, result.Kind);
+        Assert.Contains("cleanup failure", result.Warning, StringComparison.OrdinalIgnoreCase);
+        var loaded = new TestSaveable("road_network", 0);
+        Assert.Equal(1, CreateStore().Load("manual-1", [loaded]));
+        Assert.Equal(42, loaded.Value);
     }
 
     [Fact]
@@ -281,111 +329,228 @@ public sealed class SaveManagerSlotContractTests : IDisposable
         var store = CreateStore();
         store.Save("manual-1", "Original", [new TestSaveable("road_network", 42)]);
         IReadOnlyDictionary<string, string> before = SnapshotSlot("manual-1");
-        var failingStore = new SaveSlotStore(_saveRoot, phase =>
+        var failingStore = new SaveSlotStore(V3Root, phase =>
         {
             if (phase == SavePublicationPhase.PreviousSlotMoved)
                 throw new IOException("Injected publish failure.");
         });
 
         Assert.Throws<IOException>(() => failingStore.Save(
-            "manual-1",
-            "Replacement",
-            [new TestSaveable("road_network", 99)]));
+            "manual-1", "Replacement", [new TestSaveable("road_network", 99)]));
 
         Assert.Equal(before, SnapshotSlot("manual-1"));
         Assert.Empty(TransactionDirectories());
     }
 
     [Fact]
-    public void Save_RecoversInterruptedBackupAndDiscardsStaleStaging()
+    public void Recovery_AfterPreviousSlotMoveCompletesDescriptorBoundPublication()
     {
         var store = CreateStore();
         store.Save("manual-1", "Original", [new TestSaveable("road_network", 42)]);
-        string slotDir = Path.Combine(_saveRoot, "manual-1");
-        string backupDir = Path.Combine(_saveRoot, ".manual-1.backup");
-        string stagingDir = Path.Combine(_saveRoot, ".manual-1.staging");
-        Directory.Move(slotDir, backupDir);
-        Directory.CreateDirectory(stagingDir);
-        File.WriteAllText(Path.Combine(stagingDir, "partial.json"), "partial");
+        PublicationFixture fixture = CreatePublicationFixture("manual-1", 99);
+        Directory.Move(fixture.SlotDirectory, fixture.BackupDirectory);
+
+        Assert.True(store.Exists("manual-1"));
+
+        var loaded = new TestSaveable("road_network", 0);
+        Assert.Equal(1, store.Load("manual-1", [loaded]));
+        Assert.Equal(99, loaded.Value);
+        Assert.False(Directory.Exists(fixture.OperationDirectory));
+        Assert.Empty(TransactionDirectories());
+    }
+
+    [Fact]
+    public void Recovery_OldCanonicalWithStagedReplacementQuarantinesUncommittedOperation()
+    {
+        var store = CreateStore();
+        store.Save("manual-1", "Original", [new TestSaveable("road_network", 42)]);
+        PublicationFixture fixture = CreatePublicationFixture("manual-1", 99);
+        string operationToken = Path.GetFileName(fixture.OperationDirectory);
+
+        Assert.True(store.Exists("manual-1"));
 
         var loaded = new TestSaveable("road_network", 0);
         Assert.Equal(1, store.Load("manual-1", [loaded]));
         Assert.Equal(42, loaded.Value);
-        Assert.Empty(TransactionDirectories());
+        Assert.False(Directory.Exists(fixture.OperationDirectory));
+        Assert.True(Directory.Exists(Path.Combine(
+            V3Root, ".save-quarantine", "manual-1", operationToken)));
+        Assert.False(Directory.Exists(Path.Combine(V3Root, ".save-transactions")));
+    }
 
-        store.Save("manual-1", "Recovered", [new TestSaveable("road_network", 99)]);
-        loaded.Value = 0;
+    [Fact]
+    public void Recovery_BackupWithoutCanonicalOrStagingRestoresOldSlot()
+    {
+        var store = CreateStore();
+        store.Save("manual-1", "Original", [new TestSaveable("road_network", 42)]);
+        PublicationFixture fixture = CreatePublicationFixture("manual-1", 99);
+        Directory.Move(fixture.SlotDirectory, fixture.BackupDirectory);
+        Directory.Delete(fixture.StagingDirectory, recursive: true);
+
+        Assert.True(store.Exists("manual-1"));
+
+        var loaded = new TestSaveable("road_network", 0);
         Assert.Equal(1, store.Load("manual-1", [loaded]));
-        Assert.Equal(99, loaded.Value);
-        Assert.Equal("Recovered", store.ReadManifest("manual-1").DisplayName);
-        Assert.Empty(TransactionDirectories());
+        Assert.Equal(42, loaded.Value);
+        Assert.False(Directory.Exists(fixture.OperationDirectory));
+        Assert.False(Directory.Exists(Path.Combine(V3Root, ".save-transactions")));
     }
 
     [Fact]
-    public void ListSlots_IgnoresPublicationTransactionDirectories()
+    public void Recovery_FirstSaveStagingWithoutCanonicalIsQuarantinedAndNeverPublished()
     {
-        var store = CreateStore();
-        store.Save("manual-1", "Manual 1", []);
-        Directory.CreateDirectory(Path.Combine(_saveRoot, ".manual-1.staging"));
-        Directory.CreateDirectory(Path.Combine(_saveRoot, ".manual-1.backup"));
+        PublicationFixture fixture = CreateFirstSavePublicationFixture("manual-1", 42);
+        string operationToken = Path.GetFileName(fixture.OperationDirectory);
 
-        SaveSlotSummary summary = Assert.Single(store.ListSlots());
+        Assert.False(CreateStore().Exists("manual-1"));
 
-        Assert.Equal("manual-1", summary.SlotID);
+        Assert.False(Directory.Exists(fixture.SlotDirectory));
+        Assert.False(Directory.Exists(fixture.OperationDirectory));
+        Assert.True(Directory.Exists(Path.Combine(
+            V3Root, ".save-quarantine", "manual-1", operationToken)));
+        Assert.False(Directory.Exists(Path.Combine(V3Root, ".save-transactions")));
     }
 
     [Fact]
-    public void Create_StoresFreeFormDisplayNamesUnderDistinctSafeIDs()
+    public void Recovery_CanonicalNewWithUnexpectedBackupBlocksAndPreservesEvidence()
     {
         var store = CreateStore();
-        var saveable = new TestSaveable("road_network", 42);
-        const string displayName = "同名城市 / 夏季: 2026";
+        store.Save("manual-1", "Original", [new TestSaveable("road_network", 42)]);
+        PublicationFixture fixture = CreatePublicationFixture("manual-1", 99);
+        Directory.Move(fixture.SlotDirectory, fixture.BackupDirectory);
+        Directory.Move(fixture.StagingDirectory, fixture.SlotDirectory);
+        File.AppendAllText(
+            Path.Combine(fixture.BackupDirectory, "road_network.json"),
+            " ",
+            new UTF8Encoding(false));
+        string[] pathsBefore = Directory.GetFileSystemEntries(fixture.OperationDirectory, "*", SearchOption.AllDirectories);
 
-        string firstID = store.Create(displayName, [saveable]);
-        string secondID = store.Create(displayName, [saveable]);
+        SavePublicationRecoveryException exception = Assert.Throws<SavePublicationRecoveryException>(
+            () => store.Exists("manual-1"));
 
-        Assert.NotEqual(firstID, secondID);
-        Assert.Matches("^manual-[0-9a-f]{32}$", firstID);
-        Assert.Matches("^manual-[0-9a-f]{32}$", secondID);
-        Assert.Equal(displayName, store.ReadManifest(firstID).DisplayName);
-        Assert.Equal(displayName, store.ReadManifest(secondID).DisplayName);
+        Assert.Contains("ambiguous", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.True(Directory.Exists(fixture.SlotDirectory));
+        Assert.True(Directory.Exists(fixture.BackupDirectory));
+        Assert.True(File.Exists(fixture.DescriptorPath));
         Assert.Equal(
-            Path.GetFullPath(_saveRoot),
-            Directory.GetParent(Path.Combine(_saveRoot, firstID))!.FullName);
+            pathsBefore.Order(StringComparer.Ordinal),
+            Directory.GetFileSystemEntries(fixture.OperationDirectory, "*", SearchOption.AllDirectories)
+                .Order(StringComparer.Ordinal));
     }
 
     [Fact]
-    public void Create_AcceptsMaximumDisplayNameLength()
+    public void Recovery_DescriptorlessPartialTransactionIsQuarantinedAndNeverPromoted()
+    {
+        const string operationToken = "0123456789abcdef0123456789abcdef";
+        string operationDirectory = Path.Combine(
+            V3Root, ".save-transactions", "manual-1", operationToken);
+        string stagingDirectory = Path.Combine(operationDirectory, "staging");
+        Directory.CreateDirectory(stagingDirectory);
+        File.WriteAllText(Path.Combine(stagingDirectory, "partial.json"), "{}", new UTF8Encoding(false));
+
+        Assert.False(CreateStore().Exists("manual-1"));
+
+        Assert.False(Directory.Exists(Path.Combine(V3Root, "manual-1")));
+        Assert.False(Directory.Exists(operationDirectory));
+        Assert.True(Directory.Exists(Path.Combine(
+            V3Root, ".save-quarantine", "manual-1", operationToken)));
+    }
+
+    [Fact]
+    public void Operations_RejectConcurrentRootOwnerBeforeInspectingOrMutatingSlots()
+    {
+        Directory.CreateDirectory(V3Root);
+        string lockPath = Path.Combine(V3Root, ".save-root.lock");
+        using var externalOwner = new FileStream(
+            lockPath,
+            FileMode.OpenOrCreate,
+            System.IO.FileAccess.ReadWrite,
+            FileShare.None);
+
+        SaveRootBusyException exception = Assert.Throws<SaveRootBusyException>(
+            () => CreateStore().ListSlots());
+
+        Assert.Contains("locked", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(Directory.GetDirectories(V3Root));
+    }
+
+    [Fact]
+    public async Task Operations_RejectIndependentProcessRootOwnerAfterDeterministicHandshake()
+    {
+        Directory.CreateDirectory(V3Root);
+        string lockPath = Path.Combine(V3Root, ".save-root.lock");
+        string configuration = new DirectoryInfo(AppContext.BaseDirectory).Parent!.Name;
+        string probeDll = Path.Combine(
+            ProjectRoot(),
+            "tests",
+            "SimpleCities.SaveLockProbe",
+            "bin",
+            configuration,
+            "net10.0",
+            "SimpleCities.SaveLockProbe.dll");
+        Assert.True(File.Exists(probeDll), $"Lock probe was not built: {probeDll}");
+
+        var startInfo = new ProcessStartInfo("dotnet")
+        {
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        };
+        startInfo.ArgumentList.Add(probeDll);
+        startInfo.ArgumentList.Add(lockPath);
+        using Process process = Process.Start(startInfo)
+            ?? throw new InvalidOperationException("Failed to start the save lock probe.");
+        try
+        {
+            string? ready = await process.StandardOutput.ReadLineAsync()
+                .WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.Equal("READY", ready);
+
+            SaveRootBusyException exception = Assert.Throws<SaveRootBusyException>(
+                () => CreateStore().ListSlots());
+            Assert.Contains("another operation or process", exception.Message, StringComparison.Ordinal);
+
+            await process.StandardInput.WriteLineAsync("RELEASE");
+            process.StandardInput.Close();
+            Assert.True(process.WaitForExit(10_000), "Save lock probe did not exit after release.");
+            Assert.Equal(0, process.ExitCode);
+            Assert.Empty(CreateStore().ListSlots());
+        }
+        finally
+        {
+            if (!process.HasExited)
+                process.Kill(entireProcessTree: true);
+        }
+    }
+
+    [Fact]
+    public void CreateListAndDelete_PreserveNamedSlotBehavior()
     {
         var store = CreateStore();
-        string displayName = new('城', SaveSlotStore.MaxDisplayNameLength);
+        const string displayName = "同名城市 / 夏季: 2026";
+        string first = store.Create(displayName, [new TestSaveable("road_network", 1)]);
+        string second = store.Create(displayName, [new TestSaveable("road_network", 2)]);
 
-        string slotID = store.Create(displayName, []);
-
-        Assert.Equal(displayName, store.ReadManifest(slotID).DisplayName);
+        Assert.NotEqual(first, second);
+        Assert.Matches("^manual-[0-9a-f]{32}$", first);
+        Assert.Equal(2, store.ListSlots().Count);
+        SaveDeleteResult deleted = store.Delete(AuthorizeDelete(store, first));
+        Assert.Equal(SaveDeleteResultKind.Deleted, deleted.Kind);
+        Assert.False(store.Exists(first));
+        Assert.Single(store.ListSlots());
     }
 
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
-    public void Create_RejectsEmptyDisplayNameBeforeCreatingDirectory(string displayName)
+    [InlineData(" name")]
+    public void Create_RejectsInvalidDisplayNameBeforeCreatingRoot(string displayName)
     {
         var store = CreateStore();
-
         Assert.Throws<ArgumentException>(() => store.Create(displayName, []));
-
-        Assert.False(Directory.Exists(_saveRoot));
-    }
-
-    [Fact]
-    public void Create_RejectsOverlongDisplayNameBeforeCreatingDirectory()
-    {
-        var store = CreateStore();
-        string displayName = new('a', SaveSlotStore.MaxDisplayNameLength + 1);
-
-        Assert.Throws<ArgumentException>(() => store.Create(displayName, []));
-
-        Assert.False(Directory.Exists(_saveRoot));
+        Assert.False(Directory.Exists(V3Root));
     }
 
     [Theory]
@@ -394,101 +559,23 @@ public sealed class SaveManagerSlotContractTests : IDisposable
     [InlineData("C:\\escape")]
     [InlineData("中文槽位")]
     [InlineData("slot name")]
-    public void DirectoryOperations_RejectUnsafeInternalIDs(string slotID)
+    public void Operations_RejectUnsafeSlotID(string slotID)
     {
         var store = CreateStore();
-
-        Assert.Throws<ArgumentException>(() => store.Save(slotID, "Safe display name", []));
+        Assert.Throws<ArgumentException>(() => store.Save(slotID, "Safe", []));
         Assert.Throws<ArgumentException>(() => store.Load(slotID, []));
         Assert.Throws<ArgumentException>(() => store.Exists(slotID));
-        Assert.Throws<ArgumentException>(() => store.Delete(slotID));
+        Assert.Throws<ArgumentException>(() => store.Delete(new SaveDeletionAuthorization(
+            slotID,
+            1,
+            "0123456789abcdef0123456789abcdef",
+            SaveSlotOccupantKind.CompleteV3,
+            new string('0', 64),
+            "Safe")));
     }
 
     [Fact]
-    public void ReadManifest_RejectsSlotIDThatDoesNotMatchDirectory()
-    {
-        var store = CreateStore();
-        store.Save("manual-1", "Manual 1", []);
-        string manifestPath = Path.Combine(_saveRoot, "manual-1", "manifest.json");
-        File.WriteAllText(
-            manifestPath,
-            File.ReadAllText(manifestPath).Replace("manual-1", "manual-2", StringComparison.Ordinal));
-
-        Assert.Throws<InvalidDataException>(() => store.ReadManifest("manual-1"));
-    }
-
-    [Fact]
-    public void Save_UnwritableBasePathFailsWithoutPublishingManifest()
-    {
-        Directory.CreateDirectory(_saveRoot);
-        string basePath = Path.Combine(_saveRoot, "not-a-directory");
-        File.WriteAllText(basePath, "occupied");
-        var store = new SaveSlotStore(basePath);
-
-        Assert.ThrowsAny<IOException>(() => store.Save("manual-1", "Manual 1", []));
-
-        Assert.False(File.Exists(Path.Combine(basePath, "manual-1", "manifest.json")));
-    }
-
-    [Theory]
-    [InlineData("../outside")]
-    [InlineData("..\\outside")]
-    [InlineData("nested/file")]
-    [InlineData("nested\\file")]
-    public void Save_RejectsUnsafeSystemFileName(string saveFileName)
-    {
-        var store = CreateStore();
-
-        Assert.Throws<ArgumentException>(() =>
-            store.Save("manual-1", "Manual 1", [new TestSaveable(saveFileName, 42)]));
-
-        Assert.False(File.Exists(Path.Combine(_saveRoot, "outside.json")));
-        Assert.False(File.Exists(Path.Combine(_saveRoot, "manual-1", "manifest.json")));
-    }
-
-    [Theory]
-    [InlineData("manifest")]
-    [InlineData("Manifest")]
-    public void Save_RejectsReservedManifestNameBeforeCapturingState(string saveFileName)
-    {
-        var store = CreateStore();
-        var saveable = new TestSaveable(saveFileName, 42);
-
-        Assert.Throws<ArgumentException>(() =>
-            store.Save("manual-1", "Manual 1", [saveable]));
-
-        Assert.Equal(0, saveable.CaptureCount);
-        Assert.False(Directory.Exists(_saveRoot));
-    }
-
-    [Fact]
-    public void Save_RejectsCaseInsensitiveFileCollisionAndPreservesExistingSlot()
-    {
-        var store = CreateStore();
-        store.Save("manual-1", "Original", [new TestSaveable("road_network", 42)]);
-        IReadOnlyDictionary<string, string> before = SnapshotSlot("manual-1");
-        var upper = new TestSaveable("Economy", 1);
-        var lower = new TestSaveable("economy", 2);
-
-        Assert.Throws<ArgumentException>(() =>
-            store.Save("manual-1", "Replacement", [upper, lower]));
-
-        Assert.Equal(0, upper.CaptureCount);
-        Assert.Equal(0, lower.CaptureCount);
-        Assert.Equal(before, SnapshotSlot("manual-1"));
-        Assert.Empty(TransactionDirectories());
-    }
-
-    [Fact]
-    public void ListSlots_MissingRootReturnsEmptyList()
-    {
-        var store = CreateStore();
-
-        Assert.Empty(store.ListSlots());
-    }
-
-    [Fact]
-    public void ListSlots_ReturnsMetadataWithoutLoadingSystemState()
+    public void List_ReturnsMetadataWithoutPreparingBusinessPayload()
     {
         var store = CreateStore();
         var saveable = new TestSaveable("road_network", 42);
@@ -499,225 +586,523 @@ public sealed class SaveManagerSlotContractTests : IDisposable
         Assert.True(summary.IsValid);
         Assert.Equal("manual-1", summary.SlotID);
         Assert.Equal("第一座城市", summary.DisplayName);
-        Assert.Equal("Unknown City", summary.CityName);
-        Assert.Null(summary.Population);
-        Assert.Null(summary.Funds);
-        Assert.Null(summary.ThumbnailPath);
         Assert.Equal(["road_network.json"], summary.Files);
-        Assert.NotNull(summary.SavedAtUtc);
-        Assert.Equal(TimeSpan.Zero, summary.SavedAtUtc.Value.Offset);
-        Assert.Equal(0, saveable.RestoreCount);
+        Assert.Equal(0, saveable.PrepareCount);
+        Assert.Equal(0, saveable.CommitCount);
     }
 
     [Fact]
-    public void ListSlots_MissingManifestDataFileMarksSlotInvalidWithoutRestoringState()
+    public void MissingOptionalThumbnailKeepsBusinessSlotComplete()
     {
         var store = CreateStore();
-        var saveable = new TestSaveable("road_network", 42);
-        store.Save("broken", "Broken", [saveable]);
-        File.Delete(Path.Combine(_saveRoot, "broken", "road_network.json"));
+        store.Save("manual-1", "Manual", [new TestSaveable("road_network", 42)]);
+        RewriteManifest("manual-1", manifest => manifest with { ThumbnailFile = "thumbnail.png" });
 
         SaveSlotSummary summary = Assert.Single(store.ListSlots());
 
+        Assert.True(summary.IsValid);
+        Assert.Null(summary.ThumbnailPath);
+        Assert.NotNull(summary.Warning);
+        Assert.Equal(1, store.Load("manual-1", [new TestSaveable("road_network", 0)]));
+    }
+
+    [Fact]
+    public void ValidThumbnailIsExposedButExcludedFromBusinessAggregateDigest()
+    {
+        var store = CreateStore();
+        store.Save("manual-1", "Manual", [new TestSaveable("road_network", 42)]);
+        RewriteManifest("manual-1", manifest => manifest with { ThumbnailFile = "thumbnail.png" });
+        string slot = Path.Combine(V3Root, "manual-1");
+        string thumbnail = Path.Combine(slot, "thumbnail.png");
+        File.WriteAllBytes(thumbnail, PngTestData.CreateRgba(2, 2, 0x22));
+        V3Manifest manifest = store.ReadManifest("manual-1");
+        string before = SaveSlotStore.ComputeAggregateDigest(slot, manifest);
+
+        SaveSlotSummary summary = Assert.Single(store.ListSlots());
+        File.WriteAllBytes(thumbnail, PngTestData.CreateRgba(2, 2, 0x99));
+        string after = SaveSlotStore.ComputeAggregateDigest(slot, manifest);
+
+        Assert.True(summary.IsValid);
+        Assert.Equal(thumbnail, summary.ThumbnailPath);
+        Assert.Null(summary.Warning);
+        Assert.Equal(before, after);
+    }
+
+    [Fact]
+    public void InvalidThumbnailProducesWarningWithoutInvalidatingBusinessSlot()
+    {
+        var store = CreateStore();
+        store.Save("manual-1", "Manual", [new TestSaveable("road_network", 42)]);
+        RewriteManifest("manual-1", manifest => manifest with { ThumbnailFile = "thumbnail.png" });
+        File.WriteAllText(
+            Path.Combine(V3Root, "manual-1", "thumbnail.png"),
+            "not-a-png",
+            new UTF8Encoding(false));
+
+        SaveSlotSummary summary = Assert.Single(store.ListSlots());
+
+        Assert.True(summary.IsValid);
+        Assert.Null(summary.ThumbnailPath);
+        Assert.Contains("PNG signature", summary.Warning, StringComparison.Ordinal);
+        Assert.Equal(1, store.Load("manual-1", [new TestSaveable("road_network", 0)]));
+    }
+
+    [Fact]
+    public void CopiedV2OrUnknownSlotIsForeignInvisibleAndImmutable()
+    {
+        Directory.CreateDirectory(Path.Combine(V3Root, "copied-v2"));
+        string manifestPath = Path.Combine(V3Root, "copied-v2", "manifest.json");
+        string payloadPath = Path.Combine(V3Root, "copied-v2", "road_network.json");
+        File.WriteAllText(manifestPath, "{\"schemaVersion\":1,\"slotId\":\"copied-v2\",\"files\":[\"road_network.json\"]}");
+        File.WriteAllText(payloadPath, "{\"schemaVersion\":3,\"nextID\":0,\"nodes\":[],\"edges\":[]}");
+        IReadOnlyDictionary<string, string> before = SnapshotSlot("copied-v2");
+        var saveable = new TestSaveable("road_network", 42);
+
+        Assert.Equal(SaveSlotOccupantKind.Foreign, CreateStore().ClassifySlot("copied-v2").Kind);
+        Assert.Empty(CreateStore().ListSlots());
+        Assert.Throws<InvalidDataException>(() => CreateStore().Delete(new SaveDeletionAuthorization(
+            "copied-v2",
+            1,
+            "0123456789abcdef0123456789abcdef",
+            SaveSlotOccupantKind.CompleteV3,
+            new string('0', 64),
+            "copied-v2")));
+        Assert.Throws<InvalidDataException>(() => CreateStore().Load("copied-v2", [saveable]));
+        Assert.Throws<InvalidDataException>(() => CreateStore().Save("copied-v2", "No", [saveable]));
+        Assert.Equal(0, saveable.CaptureCount);
+        Assert.Equal(before, SnapshotSlot("copied-v2"));
+    }
+
+    [Fact]
+    public void SlotPathOccupiedByFileIsUnsafeInvisibleAndImmutable()
+    {
+        Directory.CreateDirectory(V3Root);
+        string slotPath = Path.Combine(V3Root, "occupied");
+        File.WriteAllText(slotPath, "do not replace", new UTF8Encoding(false));
+        var saveable = new TestSaveable("road_network", 42);
+
+        Assert.Equal(SaveSlotOccupantKind.Unsafe, CreateStore().ClassifySlot("occupied").Kind);
+        Assert.Empty(CreateStore().ListSlots());
+        Assert.Throws<InvalidDataException>(() => CreateStore().Delete(new SaveDeletionAuthorization(
+            "occupied",
+            1,
+            "0123456789abcdef0123456789abcdef",
+            SaveSlotOccupantKind.CompleteV3,
+            new string('0', 64),
+            "occupied")));
+        Assert.Throws<InvalidDataException>(() =>
+            CreateStore().Save("occupied", "No", [saveable]));
+        Assert.Equal(0, saveable.CaptureCount);
+        Assert.Equal("do not replace", File.ReadAllText(slotPath));
+    }
+
+    [Fact]
+    public void DeclaredV3CorruptionIsListedAndCanBeExplicitlyDeleted()
+    {
+        string slotDir = Path.Combine(V3Root, "broken");
+        Directory.CreateDirectory(slotDir);
+        File.WriteAllText(
+            Path.Combine(slotDir, "manifest.json"),
+            "{\"formatFamily\":\"simple-cities-v3\",\"schemaVersion\":99}");
+
+        SaveSlotSummary summary = Assert.Single(CreateStore().ListSlots());
+
         Assert.False(summary.IsValid);
         Assert.Equal("broken", summary.SlotID);
-        Assert.False(string.IsNullOrWhiteSpace(summary.Error));
-        Assert.Equal(0, saveable.RestoreCount);
+        SaveSlotStore store = CreateStore();
+        SaveDeleteResult deleted = store.Delete(AuthorizeDelete(store, "broken"));
+        Assert.Equal(SaveDeleteResultKind.Deleted, deleted.Kind);
+        Assert.False(Directory.Exists(slotDir));
     }
 
     [Fact]
-    public void ListSlots_DistinguishesReservedAutosaveFromSameNamedManualSlot()
+    public void Delete_StaleOccupantDigestCannotDeleteReplacementSlot()
     {
         var store = CreateStore();
-        store.Save(SaveManager.AutosaveSlotID, SaveManager.AutosaveDisplayName, []);
-        string manualSlotID = store.Create(SaveManager.AutosaveDisplayName, []);
+        store.Save("manual-1", "Original", [new TestSaveable("road_network", 42)]);
+        SaveDeletionAuthorization stale = AuthorizeDelete(store, "manual-1");
+        store.Save("manual-1", "Replacement", [new TestSaveable("road_network", 99)]);
 
-        IReadOnlyList<SaveSlotSummary> summaries = store.ListSlots();
+        Assert.Throws<InvalidDataException>(() => store.Delete(stale));
 
-        SaveSlotSummary autosave = Assert.Single(summaries, summary => summary.IsAutosave);
-        SaveSlotSummary manual = Assert.Single(summaries, summary => !summary.IsAutosave);
-        Assert.Equal(SaveManager.AutosaveSlotID, autosave.SlotID);
-        Assert.Equal(SaveManager.AutosaveDisplayName, autosave.DisplayName);
-        Assert.Equal(manualSlotID, manual.SlotID);
-        Assert.Equal(SaveManager.AutosaveDisplayName, manual.DisplayName);
+        var loaded = new TestSaveable("road_network", 0);
+        Assert.Equal(1, store.Load("manual-1", [loaded]));
+        Assert.Equal(99, loaded.Value);
     }
 
     [Fact]
-    public void ListSlots_SortsNewestFirstAndUsesSlotIDAsStableTieBreaker()
+    public void Delete_CleanupFailureAfterTombstoneReturnsPendingAndNeverRestoresSlot()
     {
-        var store = CreateStore();
-        store.Save("manual-b", "同名", []);
-        store.Save("manual-a", "同名", []);
-        store.Save("manual-new", "最新", []);
-        RewriteManifest("manual-b", manifest => manifest.Timestamp = "2026-08-03T00:00:00Z");
-        RewriteManifest("manual-a", manifest => manifest.Timestamp = "2026-08-03T00:00:00Z");
-        RewriteManifest("manual-new", manifest => manifest.Timestamp = "2026-08-04T00:00:00Z");
-
-        IReadOnlyList<SaveSlotSummary> summaries = store.ListSlots();
-
-        Assert.Equal(["manual-new", "manual-a", "manual-b"], summaries.Select(item => item.SlotID));
-        Assert.Equal(["最新", "同名", "同名"], summaries.Select(item => item.DisplayName));
-    }
-
-    [Fact]
-    public void ListSlots_CorruptSlotDoesNotBlockValidSlots()
-    {
-        var store = CreateStore();
-        store.Save("valid", "有效存档", []);
-        Directory.CreateDirectory(Path.Combine(_saveRoot, "broken"));
-        File.WriteAllText(Path.Combine(_saveRoot, "broken", "manifest.json"), "not json");
-
-        IReadOnlyList<SaveSlotSummary> summaries = store.ListSlots();
-
-        Assert.Collection(
-            summaries,
-            valid =>
-            {
-                Assert.True(valid.IsValid);
-                Assert.Equal("valid", valid.SlotID);
-            },
-            broken =>
-            {
-                Assert.False(broken.IsValid);
-                Assert.Equal("broken", broken.SlotID);
-                Assert.False(string.IsNullOrWhiteSpace(broken.Error));
-            });
-    }
-
-    [Fact]
-    public void ListSlots_MissingThumbnailUsesPlaceholderUntilFileExists()
-    {
-        var store = CreateStore();
-        store.Save("manual-1", "Manual 1", []);
-        RewriteManifest("manual-1", manifest =>
+        var normalStore = CreateStore();
+        normalStore.Save("manual-1", "Manual", [new TestSaveable("road_network", 42)]);
+        SaveDeletionAuthorization authorization = AuthorizeDelete(normalStore, "manual-1");
+        var failingStore = new SaveSlotStore(V3Root, phase =>
         {
-            manifest.CityName = "Harbor City";
-            manifest.Population = 12345;
-            manifest.Funds = 67890.50m;
-            manifest.ThumbnailFile = "thumbnail.png";
+            if (phase == SavePublicationPhase.DeletionTombstoned)
+                throw new IOException("Injected tombstone cleanup failure.");
         });
 
-        SaveSlotSummary missingThumbnail = Assert.Single(store.ListSlots());
-        Assert.Equal("Harbor City", missingThumbnail.CityName);
-        Assert.Equal(12345, missingThumbnail.Population);
-        Assert.Equal(67890.50m, missingThumbnail.Funds);
-        Assert.Null(missingThumbnail.ThumbnailPath);
+        SaveDeleteResult result = failingStore.Delete(authorization);
 
-        string thumbnailPath = Path.Combine(_saveRoot, "manual-1", "thumbnail.png");
-        File.WriteAllBytes(thumbnailPath, [0x89, 0x50, 0x4E, 0x47]);
-        Assert.Equal(thumbnailPath, Assert.Single(store.ListSlots()).ThumbnailPath);
+        Assert.Equal(SaveDeleteResultKind.DeletedWithCleanupPending, result.Kind);
+        Assert.False(Directory.Exists(Path.Combine(V3Root, "manual-1")));
+        Assert.False(normalStore.Exists("manual-1"));
+        Assert.Empty(normalStore.ListSlots());
+    }
+
+    [Fact]
+    public void Delete_DescriptorPublishedBeforeMoveIsRecoveredAsDeletion()
+    {
+        var normalStore = CreateStore();
+        normalStore.Save("manual-1", "Manual", [new TestSaveable("road_network", 42)]);
+        SaveDeletionAuthorization authorization = AuthorizeDelete(normalStore, "manual-1");
+        var interruptedStore = new SaveSlotStore(V3Root, phase =>
+        {
+            if (phase == SavePublicationPhase.DeletionDescriptorPublished)
+                throw new IOException("Simulated process interruption before tombstone move.");
+        });
+
+        Assert.Throws<IOException>(() => interruptedStore.Delete(authorization));
+        Assert.True(Directory.Exists(Path.Combine(V3Root, "manual-1")));
+
+        Assert.False(normalStore.Exists("manual-1"));
+        Assert.False(Directory.Exists(Path.Combine(V3Root, "manual-1")));
+        Assert.Empty(normalStore.ListSlots());
+    }
+
+    [Fact]
+    public void Delete_RecoveryWithReplacementCanonicalBlocksAndPreservesEvidence()
+    {
+        var normalStore = CreateStore();
+        normalStore.Save("manual-1", "Original", [new TestSaveable("road_network", 42)]);
+        SaveDeletionAuthorization authorization = AuthorizeDelete(normalStore, "manual-1");
+        var interruptedStore = new SaveSlotStore(V3Root, phase =>
+        {
+            if (phase == SavePublicationPhase.DeletionTombstoned)
+                throw new IOException("Simulated interruption after tombstone move.");
+        });
+        SaveDeleteResult interrupted = interruptedStore.Delete(authorization);
+        string operationDirectory = Path.Combine(
+            V3Root, ".save-transactions", "manual-1", interrupted.OperationToken);
+        string tombstoneDirectory = Path.Combine(operationDirectory, "tombstone");
+
+        string replacementRoot = Path.Combine(_testRoot, "deletion-replacement-source");
+        var replacementStore = new SaveSlotStore(replacementRoot);
+        replacementStore.Save(
+            "manual-1", "Replacement", [new TestSaveable("road_network", 99)]);
+        Directory.Move(
+            Path.Combine(replacementRoot, "manual-1"),
+            Path.Combine(V3Root, "manual-1"));
+        IReadOnlyDictionary<string, string> replacementBefore = SnapshotSlot("manual-1");
+        string[] evidenceBefore = Directory.GetFileSystemEntries(
+            operationDirectory, "*", SearchOption.AllDirectories);
+
+        SaveDeletionRecoveryException exception = Assert.Throws<SaveDeletionRecoveryException>(
+            () => normalStore.Exists("manual-1"));
+
+        Assert.Contains("ambiguous", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(replacementBefore, SnapshotSlot("manual-1"));
+        Assert.True(Directory.Exists(tombstoneDirectory));
+        Assert.True(File.Exists(Path.Combine(operationDirectory, "delete.json")));
+        Assert.Equal(
+            evidenceBefore.Order(StringComparer.Ordinal),
+            Directory.GetFileSystemEntries(operationDirectory, "*", SearchOption.AllDirectories)
+                .Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void AllV3OperationsLeaveBothV2RootsByteAndTimestampIdentical()
+    {
+        CreateCanary(V2ResourceRoot, "resource-canary");
+        CreateCanary(V2UserRoot, "user-canary");
+        LegacyRootSnapshot resourceBefore = CaptureLegacyRoot(V2ResourceRoot);
+        LegacyRootSnapshot userBefore = CaptureLegacyRoot(V2UserRoot);
+        var store = CreateStore();
+        var saveable = new TestSaveable("road_network", 42);
+
+        Assert.Empty(store.ListSlots());
+        store.Save("manual-1", "Manual", [saveable]);
+        store.Load("manual-1", [saveable]);
+        store.Delete(AuthorizeDelete(store, "manual-1"));
+        store.Save(SaveManager.AutosaveSlotID, SaveManager.AutosaveDisplayName, [saveable]);
+        store.ListSlots();
+
+        Assert.Equal(resourceBefore, CaptureLegacyRoot(V2ResourceRoot));
+        Assert.Equal(userBefore, CaptureLegacyRoot(V2UserRoot));
     }
 
     public void Dispose()
     {
-        if (Directory.Exists(_saveRoot))
-            Directory.Delete(_saveRoot, recursive: true);
+        if (Directory.Exists(_testRoot))
+            Directory.Delete(_testRoot, recursive: true);
     }
 
-    private SaveSlotStore CreateStore() => new(_saveRoot);
+    private SaveSlotStore CreateStore() => new(V3Root);
+
+    private static string ProjectRoot()
+    {
+        DirectoryInfo? directory = new(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "SimpleCities.sln")))
+            directory = directory.Parent;
+        return directory?.FullName
+            ?? throw new DirectoryNotFoundException("SimpleCities project root was not found.");
+    }
+
+    private static SaveDeletionAuthorization AuthorizeDelete(SaveSlotStore store, string slotID)
+    {
+        SaveSlotSummary summary = Assert.Single(
+            store.ListSlots(), candidate => candidate.SlotID == slotID);
+        Assert.NotNull(summary.OccupantDigest);
+        return new SaveDeletionAuthorization(
+            slotID,
+            1,
+            Guid.NewGuid().ToString("N"),
+            summary.OccupantKind,
+            summary.OccupantDigest!,
+            summary.IsValid ? summary.DisplayName : summary.SlotID);
+    }
 
     private IReadOnlyDictionary<string, string> SnapshotSlot(string slotID) =>
-        Directory.GetFiles(Path.Combine(_saveRoot, slotID))
+        Directory.GetFiles(Path.Combine(V3Root, slotID))
             .OrderBy(path => path, StringComparer.Ordinal)
-            .ToDictionary(path => Path.GetFileName(path), File.ReadAllText, StringComparer.Ordinal);
+            .ToDictionary(
+                path => Path.GetFileName(path)!,
+                path => Convert.ToBase64String(File.ReadAllBytes(path)),
+                StringComparer.Ordinal)!;
 
-    private string[] TransactionDirectories() => Directory.Exists(_saveRoot)
-        ? Directory.GetDirectories(_saveRoot, ".*.*", SearchOption.TopDirectoryOnly)
+    private string[] TransactionDirectories() => Directory.Exists(V3Root)
+        ? Directory.GetDirectories(V3Root, ".*", SearchOption.TopDirectoryOnly)
         : [];
 
-    private void RewriteManifest(string slotID, Action<ManifestData> update)
+    private PublicationFixture CreatePublicationFixture(string slotID, int replacementValue)
     {
-        string manifestPath = Path.Combine(_saveRoot, slotID, "manifest.json");
-        ManifestData manifest = SaveManager.ParseAndValidateManifest(File.ReadAllText(manifestPath));
-        update(manifest);
-        File.WriteAllText(manifestPath, SaveJson.Serialize(manifest));
+        const string operationToken = "0123456789abcdef0123456789abcdef";
+        string sourceRoot = Path.Combine(_testRoot, "replacement-source");
+        var sourceStore = new SaveSlotStore(sourceRoot);
+        sourceStore.Save(slotID, "Replacement", [new TestSaveable("road_network", replacementValue)]);
+
+        string slotDirectory = Path.Combine(V3Root, slotID);
+        V3Manifest oldManifest = CreateStore().ReadManifest(slotID);
+        string oldDigest = SaveSlotStore.ComputeAggregateDigest(slotDirectory, oldManifest);
+        string operationDirectory = Path.Combine(
+            V3Root, ".save-transactions", slotID, operationToken);
+        string stagingDirectory = Path.Combine(operationDirectory, "staging");
+        string backupDirectory = Path.Combine(operationDirectory, "backup");
+        Directory.CreateDirectory(operationDirectory);
+        Directory.Move(Path.Combine(sourceRoot, slotID), stagingDirectory);
+        using (var manifestStream = File.OpenRead(Path.Combine(stagingDirectory, "manifest.json")))
+        {
+            V3Manifest newManifest = V3ManifestCodec.Read(manifestStream);
+            string newDigest = SaveSlotStore.ComputeAggregateDigest(stagingDirectory, newManifest);
+            using var descriptor = new FileStream(
+                Path.Combine(operationDirectory, "publish.json"),
+                FileMode.CreateNew,
+                System.IO.FileAccess.Write,
+                FileShare.None);
+            V3PublicationDescriptorCodec.Write(descriptor, new V3PublicationDescriptor(
+                slotID,
+                operationToken,
+                oldDigest,
+                newDigest,
+                "staging",
+                "backup"));
+        }
+        return new PublicationFixture(
+            operationDirectory,
+            slotDirectory,
+            stagingDirectory,
+            backupDirectory,
+            Path.Combine(operationDirectory, "publish.json"));
     }
 
-    public enum MissingSlotPart
+    private PublicationFixture CreateFirstSavePublicationFixture(string slotID, int value)
     {
-        Manifest,
-        DataFile,
+        const string operationToken = "0123456789abcdef0123456789abcdef";
+        string sourceRoot = Path.Combine(_testRoot, "first-save-source");
+        var sourceStore = new SaveSlotStore(sourceRoot);
+        sourceStore.Save(slotID, "First", [new TestSaveable("road_network", value)]);
+
+        string slotDirectory = Path.Combine(V3Root, slotID);
+        string operationDirectory = Path.Combine(
+            V3Root, ".save-transactions", slotID, operationToken);
+        string stagingDirectory = Path.Combine(operationDirectory, "staging");
+        string backupDirectory = Path.Combine(operationDirectory, "backup");
+        Directory.CreateDirectory(operationDirectory);
+        Directory.Move(Path.Combine(sourceRoot, slotID), stagingDirectory);
+        using (var manifestStream = File.OpenRead(Path.Combine(stagingDirectory, "manifest.json")))
+        {
+            V3Manifest manifest = V3ManifestCodec.Read(manifestStream);
+            string digest = SaveSlotStore.ComputeAggregateDigest(stagingDirectory, manifest);
+            using var descriptor = new FileStream(
+                Path.Combine(operationDirectory, "publish.json"),
+                FileMode.CreateNew,
+                System.IO.FileAccess.Write,
+                FileShare.None);
+            V3PublicationDescriptorCodec.Write(descriptor, new V3PublicationDescriptor(
+                slotID,
+                operationToken,
+                null,
+                digest,
+                "staging",
+                "backup"));
+        }
+        return new PublicationFixture(
+            operationDirectory,
+            slotDirectory,
+            stagingDirectory,
+            backupDirectory,
+            Path.Combine(operationDirectory, "publish.json"));
     }
 
-    private sealed class TestSaveable(string saveFileName, int value) : ISaveable
+    private void RewriteManifest(string slotID, Func<V3Manifest, V3Manifest> update)
     {
-        public string SaveFileName { get; } = saveFileName;
+        string path = Path.Combine(V3Root, slotID, "manifest.json");
+        V3Manifest manifest;
+        using (var input = File.OpenRead(path))
+            manifest = V3ManifestCodec.Read(input);
+        using var output = new FileStream(
+            path,
+            FileMode.Create,
+            System.IO.FileAccess.Write,
+            FileShare.None);
+        V3ManifestCodec.Write(output, update(manifest));
+    }
+
+    private void RewritePayloadAndManifest(string slotID, string payload)
+    {
+        string payloadPath = Path.Combine(V3Root, slotID, "road_network.json");
+        byte[] bytes = Encoding.UTF8.GetBytes(payload);
+        File.WriteAllBytes(payloadPath, bytes);
+        RewriteManifest(slotID, manifest => manifest with
+        {
+            Files = [new V3ManifestFile(
+                "road_network.json",
+                bytes.LongLength,
+                Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant())],
+        });
+    }
+
+    private static void CreateCanary(string root, string content)
+    {
+        string slot = Path.Combine(root, "autosave");
+        Directory.CreateDirectory(slot);
+        File.WriteAllText(Path.Combine(slot, "manifest.json"), content);
+        File.WriteAllText(Path.Combine(slot, "road_network.json"), content + "-road");
+        DateTime timestamp = new(2026, 8, 1, 12, 0, 0, DateTimeKind.Utc);
+        foreach (string path in Directory.GetFiles(slot))
+            File.SetLastWriteTimeUtc(path, timestamp);
+        Directory.SetLastWriteTimeUtc(slot, timestamp);
+        Directory.SetLastWriteTimeUtc(root, timestamp);
+    }
+
+    private static LegacyRootSnapshot CaptureLegacyRoot(string root) => new(
+        Directory.GetDirectories(root, "*", SearchOption.TopDirectoryOnly)
+            .Select(path => Path.GetRelativePath(root, path))
+            .Order(StringComparer.Ordinal)
+            .ToArray(),
+        Directory.GetFiles(root, "*", SearchOption.AllDirectories)
+            .Order(StringComparer.Ordinal)
+            .Select(path => new LegacyFileSnapshot(
+                Path.GetRelativePath(root, path),
+                Convert.ToBase64String(File.ReadAllBytes(path)),
+                File.GetLastWriteTimeUtc(path)))
+            .ToArray(),
+        Directory.GetLastWriteTimeUtc(root));
+
+    private sealed record LegacyRootSnapshot(
+        string[] Directories,
+        LegacyFileSnapshot[] Files,
+        DateTime LastWriteTimeUtc)
+    {
+        public bool Equals(LegacyRootSnapshot? other) =>
+            other is not null &&
+            Directories.SequenceEqual(other.Directories) &&
+            Files.SequenceEqual(other.Files) &&
+            LastWriteTimeUtc == other.LastWriteTimeUtc;
+
+        public override int GetHashCode() => HashCode.Combine(Directories.Length, Files.Length, LastWriteTimeUtc);
+    }
+
+    private sealed record LegacyFileSnapshot(string Path, string Bytes, DateTime LastWriteTimeUtc);
+
+    private sealed record PublicationFixture(
+        string OperationDirectory,
+        string SlotDirectory,
+        string StagingDirectory,
+        string BackupDirectory,
+        string DescriptorPath);
+
+    private sealed record TestSnapshot(int Value) : ISaveSnapshot;
+    private sealed record TestPreparedState(int Value) : IPreparedSaveState;
+
+    private class TestSaveable(string fileName, int value)
+        : IStreamingSaveable, IStreamingLoadReader
+    {
+        public string SaveFileName { get; } = fileName;
         public int Value { get; set; } = value;
         public int CaptureCount { get; private set; }
-        public int RestoreCount { get; private set; }
-
-        public object CaptureState()
-        {
-            CaptureCount++;
-            return new TestState { Value = Value };
-        }
-
-        public void RestoreState(string json)
-        {
-            TestState state = JsonSerializer.Deserialize<TestState>(json)
-                ?? throw new JsonException("Test state must be an object.");
-            Value = state.Value;
-            RestoreCount++;
-        }
-    }
-
-    private sealed class TestState
-    {
-        public int Value { get; set; }
-    }
-
-    private sealed class ThrowingSaveable : ISaveable
-    {
-        public string SaveFileName => "broken";
-
-        public object CaptureState() => throw new InvalidOperationException("Capture failed.");
-
-        public void RestoreState(string json) => throw new NotSupportedException();
-    }
-
-    private sealed class CyclicSaveable : ISaveable
-    {
-        public string SaveFileName => "cyclic";
-
-        public object CaptureState()
-        {
-            var state = new CyclicState();
-            state.Self = state;
-            return state;
-        }
-
-        public void RestoreState(string json) => throw new NotSupportedException();
-
-        private sealed class CyclicState
-        {
-            public CyclicState? Self { get; set; }
-        }
-    }
-
-    private sealed class PreparedTestSaveable(string saveFileName) : IPreparedSaveable
-    {
-        public string SaveFileName { get; } = saveFileName;
-        public bool ThrowDuringPrepare { get; init; }
         public int PrepareCount { get; private set; }
         public int CommitCount { get; private set; }
+        public bool ThrowDuringPrepare { get; init; }
+        public Action? DuringPrepare { get; init; }
 
-        public object CaptureState() => new TestState { Value = 1 };
+        public virtual ISaveSnapshot CaptureSnapshot()
+        {
+            CaptureCount++;
+            return new TestSnapshot(Value);
+        }
 
-        public void RestoreState(string json) => RestorePreparedState(PrepareRestoreState(json));
+        public virtual void WriteSnapshot(Stream destination, ISaveSnapshot snapshot)
+        {
+            var state = Assert.IsType<TestSnapshot>(snapshot);
+            using var writer = new Utf8JsonWriter(destination);
+            writer.WriteStartObject();
+            writer.WriteNumber("value", state.Value);
+            writer.WriteEndObject();
+            writer.Flush();
+        }
 
-        public object PrepareRestoreState(string json)
+        public IStreamingLoadReader CaptureLoadReader() => this;
+
+        public IPreparedSaveState PrepareLoad(Stream source)
         {
             PrepareCount++;
             if (ThrowDuringPrepare)
-                throw new InvalidDataException("Preparation failed.");
-            return JsonSerializer.Deserialize<TestState>(json)
-                ?? throw new JsonException("Prepared test state must be an object.");
+                throw new InvalidDataException("Injected preparation failure.");
+            DuringPrepare?.Invoke();
+            using JsonDocument document = JsonDocument.Parse(source);
+            return new TestPreparedState(document.RootElement.GetProperty("value").GetInt32());
         }
 
-        public void RestorePreparedState(object preparedState)
+        public void CommitPreparedLoad(IPreparedSaveState preparedState)
         {
-            Assert.IsType<TestState>(preparedState);
+            Value = Assert.IsType<TestPreparedState>(preparedState).Value;
             CommitCount++;
+        }
+    }
+
+    private sealed class ThrowingCaptureSaveable : TestSaveable
+    {
+        internal ThrowingCaptureSaveable() : base("road_network", 0) { }
+        public override ISaveSnapshot CaptureSnapshot() =>
+            throw new InvalidOperationException("Injected capture failure.");
+    }
+
+    private sealed class ThrowingWriteSaveable : TestSaveable
+    {
+        internal ThrowingWriteSaveable() : base("road_network", 0) { }
+        public override void WriteSnapshot(Stream destination, ISaveSnapshot snapshot) =>
+            throw new JsonException("Injected serialization failure.");
+    }
+
+    private sealed class DiskFullAfterPartialWriteSaveable(int hResult)
+        : TestSaveable("road_network", 0)
+    {
+        public override void WriteSnapshot(Stream destination, ISaveSnapshot snapshot)
+        {
+            destination.Write(Encoding.UTF8.GetBytes("{\"value\":"));
+            destination.Flush();
+            throw new IOException("Simulated disk exhaustion after a partial payload write.", hResult);
         }
     }
 }

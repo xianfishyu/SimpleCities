@@ -107,15 +107,34 @@ public sealed class ClothoidRoadGeometrySegmentTests
     }
 
     [Fact]
+    public void JsonRoundTripPreservesExactEndpointAnchorAfterReverse()
+    {
+        var source = new ClothoidRoadGeometrySegment(
+            new Vector2(3f, -7f), 0.6f, 0.01f, 0.09f, 30f);
+        var reversed = Assert.IsType<ClothoidRoadGeometrySegment>(source.Reverse());
+
+        RoadGeometryDeserializationResult result = RoadGeometrySerializer.Deserialize(
+            RoadGeometrySerializer.Serialize(reversed));
+
+        var restored = Assert.IsType<ClothoidRoadGeometrySegment>(result.Geometry);
+        Assert.True(result.Success);
+        Assert.True(RoadExactPredicates.SameBits(reversed.Start, restored.Start));
+        Assert.True(RoadExactPredicates.SameBits(reversed.End, restored.End));
+    }
+
+    [Fact]
     public void MissingOrMixedParametersAreRejectedWithoutGeometry()
     {
         var missing = ValidData();
         missing.ArcLength = null;
         var mixed = ValidData();
         mixed.Radius = 3f;
+        var unpairedReverseHeading = ValidData();
+        unpairedReverseHeading.ReverseStartHeading = 2f;
 
         AssertFailure(missing, RoadGeometryDataError.MissingRequiredParameter);
         AssertFailure(mixed, RoadGeometryDataError.UnexpectedParameter);
+        AssertFailure(unpairedReverseHeading, RoadGeometryDataError.MissingRequiredParameter);
     }
 
     [Theory]

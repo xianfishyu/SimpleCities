@@ -25,7 +25,7 @@ public sealed class RoadGraphCurveSpatialQueryTests
     public void FindClosestEdge_HitsInteriorOfEveryNativeGeometry(RoadGeometrySegment geometry)
     {
         var graph = new RoadGraph();
-        RoadPathSubmissionResult result = graph.SubmitPath(new RoadPath([geometry]));
+        RoadPathSubmissionResult result = graph.SubmitPath(new RoadBuildRequest(new RoadPath([geometry]), RoadType.Street));
         GraphEdge expected = Assert.IsType<GraphEdge>(graph.GetEdge(Assert.Single(result.Changes.CreatedEdgeIDs)));
         Vector2 query = geometry.GetPosition(0.5f);
 
@@ -40,7 +40,7 @@ public sealed class RoadGraphCurveSpatialQueryTests
         var cubic = new CubicBezierRoadGeometrySegment(
             Vector2.Zero, new Vector2(0f, 16f), new Vector2(16f, 16f), new Vector2(16f, 0f));
         var graph = new RoadGraph();
-        RoadPathSubmissionResult result = graph.SubmitPath(new RoadPath([cubic]));
+        RoadPathSubmissionResult result = graph.SubmitPath(new RoadBuildRequest(new RoadPath([cubic]), RoadType.Street));
         int edgeID = Assert.Single(result.Changes.CreatedEdgeIDs);
         Vector2 query = cubic.GetPosition(0.5f);
 
@@ -59,8 +59,8 @@ public sealed class RoadGraphCurveSpatialQueryTests
         var lower = new CubicBezierRoadGeometrySegment(
             Vector2.Zero, new Vector2(3f, 4f), new Vector2(9f, 4f), new Vector2(12f, 0f));
         var graph = new RoadGraph();
-        Assert.True(graph.SubmitPath(new RoadPath([upper])).Success);
-        RoadPathSubmissionResult lowerResult = graph.SubmitPath(new RoadPath([lower]));
+        Assert.True(graph.SubmitPath(new RoadBuildRequest(new RoadPath([upper]), RoadType.Street)).Success);
+        RoadPathSubmissionResult lowerResult = graph.SubmitPath(new RoadBuildRequest(new RoadPath([lower]), RoadType.Street));
         int expectedID = Assert.Single(lowerResult.Changes.CreatedEdgeIDs);
 
         GraphEdge? actual = graph.FindClosestEdge(new Vector2(6f, 4f), 8f);
@@ -73,7 +73,7 @@ public sealed class RoadGraphCurveSpatialQueryTests
     {
         var arc = new CircularArcRoadGeometrySegment(Vector2.Zero, 5f, 0f, Mathf.Pi);
         var graph = new RoadGraph();
-        RoadPathSubmissionResult result = graph.SubmitPath(new RoadPath([arc]));
+        RoadPathSubmissionResult result = graph.SubmitPath(new RoadBuildRequest(new RoadPath([arc]), RoadType.Street));
         int edgeID = Assert.Single(result.Changes.CreatedEdgeIDs);
 
         GraphEdge? boundary = graph.FindClosestEdge(new Vector2(0f, 7f), 2f);
@@ -87,16 +87,16 @@ public sealed class RoadGraphCurveSpatialQueryTests
     public void FindClosestEdge_EqualDistanceChoosesLowerEdgeID()
     {
         var graph = new RoadGraph();
-        RoadPathSubmissionResult first = graph.SubmitPath(new RoadPath([
+        RoadPathSubmissionResult first = graph.SubmitPath(new RoadBuildRequest(new RoadPath([
             new CubicBezierRoadGeometrySegment(
                 new Vector2(0f, -4f), new Vector2(3f, -4f),
                 new Vector2(7f, -4f), new Vector2(10f, -4f)),
-        ]));
-        RoadPathSubmissionResult second = graph.SubmitPath(new RoadPath([
+        ]), RoadType.Street));
+        RoadPathSubmissionResult second = graph.SubmitPath(new RoadBuildRequest(new RoadPath([
             new CubicBezierRoadGeometrySegment(
                 new Vector2(0f, 4f), new Vector2(3f, 4f),
                 new Vector2(7f, 4f), new Vector2(10f, 4f)),
-        ]));
+        ]), RoadType.Street));
         int expectedID = Math.Min(
             Assert.Single(first.Changes.CreatedEdgeIDs),
             Assert.Single(second.Changes.CreatedEdgeIDs));
@@ -112,11 +112,11 @@ public sealed class RoadGraphCurveSpatialQueryTests
         var cubic = new CubicBezierRoadGeometrySegment(
             Vector2.Zero, new Vector2(0f, 10f), new Vector2(10f, 10f), new Vector2(10f, 0f));
         var source = new RoadGraph();
-        Assert.True(source.SubmitPath(new RoadPath([cubic])).Success);
+        Assert.True(source.SubmitPath(new RoadBuildRequest(new RoadPath([cubic]), RoadType.Street)).Success);
         int edgeID = Assert.Single(source.GetAllEdges()).ID;
         var restored = new RoadGraph();
 
-        restored.RestoreState(SaveJson.Serialize(source.CaptureState()));
+        RoadGraphTestCodec.LoadJson(restored, RoadGraphTestCodec.CaptureJson(source));
 
         GraphEdge? actual = restored.FindClosestEdge(cubic.GetPosition(0.5f), 0.001f);
         Assert.Equal(edgeID, Assert.IsType<GraphEdge>(actual).ID);
@@ -128,7 +128,7 @@ public sealed class RoadGraphCurveSpatialQueryTests
         var cubic = new CubicBezierRoadGeometrySegment(
             Vector2.Zero, new Vector2(0f, 10f), new Vector2(10f, 10f), new Vector2(10f, 0f));
         var graph = new RoadGraph();
-        Assert.True(graph.SubmitPath(new RoadPath([cubic])).Success);
+        Assert.True(graph.SubmitPath(new RoadBuildRequest(new RoadPath([cubic]), RoadType.Street)).Success);
         int edgeID = Assert.Single(graph.GetAllEdges()).ID;
         Vector2 query = cubic.GetPosition(0.5f);
         Assert.NotNull(graph.FindClosestEdge(query, 0.001f));

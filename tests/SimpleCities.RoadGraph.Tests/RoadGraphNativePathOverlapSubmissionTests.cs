@@ -44,21 +44,18 @@ public sealed class RoadGraphNativePathOverlapSubmissionTests
         if (reversed)
             covered = Reverse(covered);
         var graph = new RoadGraph();
-        Assert.True(graph.SubmitPath(new RoadPath([full])).Success);
-        string stateBefore = SaveJson.Serialize(graph.CaptureState());
-        int addedEvents = 0;
-        int removedEvents = 0;
-        graph.EdgeAdded += _ => addedEvents++;
-        graph.EdgeRemoved += _ => removedEvents++;
+        Assert.True(graph.SubmitPath(new RoadBuildRequest(new RoadPath([full]), RoadType.Street)).Success);
+        string stateBefore = RoadGraphTestCodec.CaptureJson(graph);
+        int changedEvents = 0;
+        graph.GraphChanged += _ => changedEvents++;
 
-        RoadPathSubmissionResult result = graph.SubmitPath(new RoadPath([covered]));
+        RoadPathSubmissionResult result = graph.SubmitPath(new RoadBuildRequest(new RoadPath([covered]), RoadType.Street));
 
         Assert.False(result.Success);
         Assert.Equal(RoadPathSubmissionError.FullyCovered, result.Error);
         Assert.False(result.Changes.HasChanges);
-        Assert.Equal(stateBefore, SaveJson.Serialize(graph.CaptureState()));
-        Assert.Equal(0, addedEvents);
-        Assert.Equal(0, removedEvents);
+        Assert.Equal(stateBefore, RoadGraphTestCodec.CaptureJson(graph));
+        Assert.Equal(0, changedEvents);
     }
 
     [Theory]
@@ -71,32 +68,30 @@ public sealed class RoadGraphNativePathOverlapSubmissionTests
         if (reversed)
             existing = Reverse(existing);
         var graph = new RoadGraph();
-        RoadPathSubmissionResult existingResult = graph.SubmitPath(new RoadPath([existing]));
+        RoadPathSubmissionResult existingResult = graph.SubmitPath(new RoadBuildRequest(new RoadPath([existing]), RoadType.Street));
         int existingEdgeID = Assert.Single(existingResult.Changes.CreatedEdgeIDs);
-        int existingGroupID = existingResult.GroupID!.Value;
 
-        RoadPathSubmissionResult result = graph.SubmitPath(new RoadPath([full]));
+        RoadPathSubmissionResult result = graph.SubmitPath(new RoadBuildRequest(new RoadPath([full]), RoadType.Street));
 
         Assert.True(result.Success);
         Assert.Empty(result.Changes.RemovedEdgeIDs);
-        Assert.NotNull(graph.GetEdge(existingEdgeID));
-        Assert.Equal(1, Assert.IsType<RoadGroup>(graph.GetGroup(existingGroupID)).EdgeCount);
-        Assert.Equal(2, Assert.IsType<RoadGroup>(graph.GetGroup(result.GroupID!.Value)).EdgeCount);
-        Assert.Equal(3, graph.GetAllEdges().Count());
-        Assert.All(graph.GetAllEdges(), edge =>
-            Assert.Equal(full.GetType(), Assert.Single(edge.GeometrySegments).GetType()));
+        Assert.Empty(result.Changes.CreatedEdgeIDs);
+        GraphEdge edge = Assert.Single(graph.GetAllEdges());
+        Assert.Equal(existingEdgeID, edge.ID);
+        Assert.All(edge.GeometrySegments, segment => Assert.Equal(full.GetType(), segment.GetType()));
 
         Vector2 overlapStart = full.GetPosition(0.2f);
         Vector2 overlapEnd = full.GetPosition(0.8f);
-        Assert.Equal(2, Assert.Single(
-            graph.GetAllNodes(), node => node.Position.DistanceTo(overlapStart) <= 2e-3f).EdgeCount);
-        Assert.Equal(2, Assert.Single(
-            graph.GetAllNodes(), node => node.Position.DistanceTo(overlapEnd) <= 2e-3f).EdgeCount);
+        Assert.DoesNotContain(graph.GetAllNodes(), node =>
+            node.Position.DistanceTo(overlapStart) <= 2e-3f);
+        Assert.DoesNotContain(graph.GetAllNodes(), node =>
+            node.Position.DistanceTo(overlapEnd) <= 2e-3f);
+        Assert.Equal(2, graph.GetAllNodes().Count());
 
-        string state = SaveJson.Serialize(graph.CaptureState());
+        string state = RoadGraphTestCodec.CaptureJson(graph);
         var restored = new RoadGraph();
-        restored.RestoreState(state);
-        Assert.Equal(state, SaveJson.Serialize(restored.CaptureState()));
+        RoadGraphTestCodec.LoadJson(restored, state);
+        Assert.Equal(state, RoadGraphTestCodec.CaptureJson(restored));
     }
 
     [Fact]
@@ -106,15 +101,15 @@ public sealed class RoadGraphNativePathOverlapSubmissionTests
             Vector2.Zero, new Vector2(2f, 5f), new Vector2(7f, -3f), new Vector2(10f, 1f));
         RoadGeometrySplit halves = full.Split(0.5f);
         var graph = new RoadGraph();
-        Assert.True(graph.SubmitPath(new RoadPath([halves.Before])).Success);
-        Assert.True(graph.SubmitPath(new RoadPath([halves.After])).Success);
-        string stateBefore = SaveJson.Serialize(graph.CaptureState());
+        Assert.True(graph.SubmitPath(new RoadBuildRequest(new RoadPath([halves.Before]), RoadType.Street)).Success);
+        Assert.True(graph.SubmitPath(new RoadBuildRequest(new RoadPath([halves.After]), RoadType.Street)).Success);
+        string stateBefore = RoadGraphTestCodec.CaptureJson(graph);
 
-        RoadPathSubmissionResult result = graph.SubmitPath(new RoadPath([full]));
+        RoadPathSubmissionResult result = graph.SubmitPath(new RoadBuildRequest(new RoadPath([full]), RoadType.Street));
 
         Assert.False(result.Success);
         Assert.Equal(RoadPathSubmissionError.FullyCovered, result.Error);
-        Assert.Equal(stateBefore, SaveJson.Serialize(graph.CaptureState()));
+        Assert.Equal(stateBefore, RoadGraphTestCodec.CaptureJson(graph));
     }
 
     [Fact]
@@ -127,23 +122,31 @@ public sealed class RoadGraphNativePathOverlapSubmissionTests
         Vector2 normal = new(-tangent.Y, tangent.X);
         var extension = new LineRoadGeometrySegment(covered.End, covered.End + normal * 5f);
         var graph = new RoadGraph();
-        RoadPathSubmissionResult existingResult = graph.SubmitPath(new RoadPath([full]));
+        RoadPathSubmissionResult existingResult = graph.SubmitPath(new RoadBuildRequest(new RoadPath([full]), RoadType.Street));
         int originalEdgeID = Assert.Single(existingResult.Changes.CreatedEdgeIDs);
 
-        RoadPathSubmissionResult result = graph.SubmitPath(new RoadPath([covered, extension]));
+        RoadPathSubmissionResult result = graph.SubmitPath(new RoadBuildRequest(new RoadPath([covered, extension]), RoadType.Street));
 
         Assert.True(result.Success);
-        Assert.Contains(originalEdgeID, result.Changes.RemovedEdgeIDs);
-        Assert.Equal(3, Assert.IsType<RoadGroup>(
-            graph.GetGroup(existingResult.GroupID!.Value)).EdgeCount);
-        Assert.Equal(1, Assert.IsType<RoadGroup>(graph.GetGroup(result.GroupID!.Value)).EdgeCount);
-        Assert.Equal(4, graph.GetAllEdges().Count());
+        Assert.Empty(result.Changes.RemovedEdgeIDs);
+        Assert.NotNull(graph.GetEdge(originalEdgeID));
+        Assert.True(
+            graph.GetAllEdges().Count() == 3,
+            "Nodes=" + string.Join(
+                "; ",
+                graph.GetAllNodes().OrderBy(node => node.ID).Select(node =>
+                    $"{node.ID}@{node.Position}:inc={node.IncidenceCount}")) +
+            " Edges=" + string.Join(
+                "; ",
+                graph.GetAllEdges().OrderBy(edge => edge.ID).Select(edge =>
+                    $"{edge.ID}:{edge.NodeA}->{edge.NodeB}:" +
+                    $"{edge.GeometrySegments[0].Start}->{edge.GeometrySegments[^1].End}")));
         GraphNode join = Assert.Single(
             graph.GetAllNodes(), node => node.Position.DistanceTo(covered.End) <= 2e-3f);
-        Assert.Equal(3, join.EdgeCount);
+        Assert.Equal(3, join.IncidenceCount);
         Assert.Single(graph.GetAllEdges(), edge =>
-            edge.GroupID == result.GroupID.Value &&
-            Assert.Single(edge.GeometrySegments) is LineRoadGeometrySegment);
+            edge.GeometrySegments.Count == 1 &&
+            edge.GeometrySegments[0] is LineRoadGeometrySegment);
     }
 
     private static RoadGeometrySegment Partial(

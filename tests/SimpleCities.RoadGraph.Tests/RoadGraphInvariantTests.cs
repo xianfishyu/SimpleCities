@@ -5,33 +5,34 @@ namespace SimpleCities.Tests;
 public sealed class RoadGraphInvariantTests
 {
     [Fact]
-    public void DetachEdge_OnlyDisconnectsEdgeWithoutCleanupOrEvents()
+    public void RemoveEdge_UsesTheCommittedTransactionBoundary()
     {
         var graph = new RoadGraph();
-        int groupID = graph.AddRoad(Vector2.Zero, new Vector2(20f, 0f), []);
+        Assert.True(graph.SubmitPolyline(RoadType.Street, [Vector2.Zero, new Vector2(20f, 0f)]).Success);
         GraphEdge edge = Assert.Single(graph.GetAllEdges());
-        int removedEvents = 0;
-        graph.EdgeRemoved += _ => removedEvents++;
+        int changedEvents = 0;
+        graph.GraphChanged += _ => changedEvents++;
 
-        graph.DetachEdge(edge);
+        Assert.True(graph.RemoveEdge(edge.ID));
 
         Assert.Null(graph.GetEdge(edge.ID));
-        Assert.Equal(0, Assert.IsType<GraphNode>(graph.GetNode(edge.NodeA)).EdgeCount);
-        Assert.Equal(0, Assert.IsType<GraphNode>(graph.GetNode(edge.NodeB)).EdgeCount);
-        Assert.True(Assert.IsType<RoadGroup>(graph.GetGroup(groupID)).IsEmpty);
+        Assert.Null(graph.GetNode(edge.NodeA));
+        Assert.Null(graph.GetNode(edge.NodeB));
         Assert.Null(graph.FindClosestEdge(new Vector2(10f, 0f), 0.01f));
-        Assert.Equal(0, removedEvents);
+        Assert.Equal(1, changedEvents);
+        graph.AssertInvariants();
     }
 
     [Fact]
     public void RemoveEdge_PreservesCommittedGraphInvariants()
     {
         var graph = new RoadGraph();
-        int groupID = graph.AddRoad(
+        RoadPathSubmissionResult result = graph.SubmitPolyline(RoadType.Street, [
             Vector2.Zero,
+            new Vector2(10f, 5f),
             new Vector2(20f, 0f),
-            [new Vector2(10f, 5f)]);
-        int edgeID = Assert.IsType<RoadGroup>(graph.GetGroup(groupID)).EdgeIDs.First();
+        ]);
+        int edgeID = Assert.Single(result.Changes.CreatedEdgeIDs);
 
         Assert.True(graph.RemoveEdge(edgeID));
 
@@ -39,13 +40,19 @@ public sealed class RoadGraphInvariantTests
     }
 
     [Fact]
-    public void RemoveRoadGroup_PreservesCommittedGraphInvariants()
+    public void RemoveEdges_PreservesCommittedGraphInvariants()
     {
         var graph = new RoadGraph();
-        int removedGroupID = graph.AddRoad(Vector2.Zero, new Vector2(20f, 5f), []);
-        graph.AddRoad(new Vector2(100f, 0f), new Vector2(120f, 5f), []);
+        int removedEdgeID = Assert.Single(graph.SubmitPolyline(RoadType.Street, [
+            Vector2.Zero,
+            new Vector2(20f, 5f),
+        ]).Changes.CreatedEdgeIDs);
+        Assert.True(graph.SubmitPolyline(RoadType.Street, [
+            new Vector2(100f, 0f),
+            new Vector2(120f, 5f),
+        ]).Success);
 
-        Assert.True(graph.RemoveRoadGroup(removedGroupID));
+        Assert.True(graph.RemoveEdges([removedEdgeID]));
 
         graph.AssertInvariants();
     }
@@ -54,13 +61,13 @@ public sealed class RoadGraphInvariantTests
     public void SplitEdgeAtGeometryParameters_PreservesCommittedGraphInvariants()
     {
         var graph = new RoadGraph();
-        RoadPathSubmissionResult submitted = graph.SubmitPath(new RoadPath([
+        RoadPathSubmissionResult submitted = graph.SubmitPath(new RoadBuildRequest(new RoadPath([
             new CubicBezierRoadGeometrySegment(
                 Vector2.Zero,
                 new Vector2(0f, 10f),
                 new Vector2(20f, 10f),
                 new Vector2(20f, 0f)),
-        ]));
+        ]), RoadType.Street));
         int edgeID = Assert.Single(submitted.Changes.CreatedEdgeIDs);
 
         Assert.True(graph.SplitEdgeAtGeometryParameters(
@@ -75,7 +82,7 @@ public sealed class RoadGraphInvariantTests
     {
         var graph = new RoadGraph();
 
-        RoadPathSubmissionResult result = graph.SubmitPolyline([
+        RoadPathSubmissionResult result = graph.SubmitPolyline(RoadType.Street, [
             Vector2.Zero,
             new Vector2(10f, 5f),
             new Vector2(20f, 10f),
@@ -90,16 +97,16 @@ public sealed class RoadGraphInvariantTests
     public void SubmitPolyline_RejectedPaths_PreserveCommittedGraphInvariants()
     {
         var graph = new RoadGraph();
-        Assert.True(graph.SubmitPolyline([Vector2.Zero, new Vector2(20f, 0f)]).Success);
+        Assert.True(graph.SubmitPolyline(RoadType.Street, [Vector2.Zero, new Vector2(20f, 0f)]).Success);
 
-        RoadPathSubmissionResult invalid = graph.SubmitPolyline([
+        RoadPathSubmissionResult invalid = graph.SubmitPolyline(RoadType.Street, [
             Vector2.Zero,
             new Vector2(float.NaN, 0f),
         ]);
         Assert.False(invalid.Success);
         graph.AssertInvariants();
 
-        RoadPathSubmissionResult covered = graph.SubmitPolyline([
+        RoadPathSubmissionResult covered = graph.SubmitPolyline(RoadType.Street, [
             Vector2.Zero,
             new Vector2(20f, 0f),
         ]);

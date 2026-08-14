@@ -4,11 +4,14 @@ const ROAD_CONFIG := "res://Scenes/road_config.tres"
 const ROAD_SYSTEM_SCRIPT := "res://Scripts/Road/RoadSystem.cs"
 const ROAD_RENDERER_SCRIPT := "res://Scripts/Road/RoadRenderer.cs"
 const ROAD_BUILDER_SCRIPT := "res://Scripts/Road/RoadBuilder.cs"
+const TOOL_MANAGER_SCRIPT := "res://Scripts/Tools/ToolManager.cs"
 const DISPLAY_NAME := "导出城市 / Summer: 2026"
+const V3_SAVE_FIXTURE := preload("res://tests/godot/v3_save_fixture.gd")
 
 var test_fixture: Node
 var save_manager: Node
 var slot_id := ""
+var failure_started := false
 
 func _ready() -> void:
 	run.call_deferred()
@@ -21,7 +24,7 @@ func run() -> void:
 		return
 
 	var executable_dir := OS.get_executable_path().get_base_dir().replace("\\", "/").trim_suffix("/")
-	var save_root := ProjectSettings.globalize_path("user://saves").replace("\\", "/").trim_suffix("/")
+	var save_root := ProjectSettings.globalize_path("user://saves-v3").replace("\\", "/").trim_suffix("/")
 	if not require(
 		not save_root.begins_with(executable_dir + "/"),
 		"Exported saves still resolve beside the executable"):
@@ -38,7 +41,7 @@ func run() -> void:
 		return
 	var current_slot_before: String = save_manager.get("CurrentSlotID")
 	if expect_read_only:
-		if not require(not save_manager.SaveAs(DISPLAY_NAME), "Read-only save root unexpectedly accepted SaveAs"):
+		if not require(not await V3_SAVE_FIXTURE.save_as(save_manager, DISPLAY_NAME), "Read-only save root unexpectedly accepted SaveAs"):
 			return
 		if not require(
 			save_manager.get("CurrentSlotID") == current_slot_before,
@@ -51,13 +54,13 @@ func run() -> void:
 		get_tree().quit(0)
 		return
 
-	if not require(save_manager.SaveAs(DISPLAY_NAME), "Exported SaveAs failed in writable user data"):
+	if not require(await V3_SAVE_FIXTURE.save_as(save_manager, DISPLAY_NAME), "Exported SaveAs failed in writable user data"):
 		return
 	slot_id = save_manager.get("CurrentSlotID")
 	if not require(slot_id.begins_with("manual-") and slot_id.length() == 39, "Exported manual slot ID is unsafe"):
 		return
-	var manifest_path := "user://saves/%s/manifest.json" % slot_id
-	var road_path := "user://saves/%s/road_network.json" % slot_id
+	var manifest_path := "user://saves-v3/%s/manifest.json" % slot_id
+	var road_path := "user://saves-v3/%s/road_network.json" % slot_id
 	if not require(FileAccess.file_exists(manifest_path), "Exported manifest is missing from user data"):
 		return
 	if not require(FileAccess.file_exists(road_path), "Exported RoadGraph payload is missing from user data"):
@@ -69,9 +72,18 @@ func run() -> void:
 		return
 	if not require(manifest.displayName == DISPLAY_NAME, "Exported display name did not round-trip"):
 		return
-	if not require(manifest.files == ["road_network.json"], "Exported V2 manifest contains unexpected files"):
+	var files: Array = manifest.get("files", [])
+	if not require(
+		manifest.get("formatFamily", "") == "simple-cities-v3" and
+		manifest.get("schemaVersion", -1) == 1 and
+		files.size() == 1 and
+		files[0] is Dictionary and
+		files[0].get("name", "") == "road_network.json" and
+		int(files[0].get("encodedLength", -1)) > 0 and
+		str(files[0].get("sha256", "")).length() == 64,
+		"Exported V3 manifest metadata is invalid"):
 		return
-	if not require(save_manager.DeleteSlot(slot_id), "Exported fixture slot cleanup failed"):
+	if not require(await V3_SAVE_FIXTURE.delete_slot(save_manager, slot_id), "Exported fixture slot cleanup failed"):
 		return
 	slot_id = ""
 	await cleanup()
@@ -92,7 +104,8 @@ func create_save_fixture() -> Node:
 	var road_system_script: Script = load(ROAD_SYSTEM_SCRIPT)
 	var road_renderer_script: Script = load(ROAD_RENDERER_SCRIPT)
 	var road_builder_script: Script = load(ROAD_BUILDER_SCRIPT)
-	if road_config == null or road_system_script == null or road_renderer_script == null or road_builder_script == null:
+	var tool_manager_script: Script = load(TOOL_MANAGER_SCRIPT)
+	if road_config == null or road_system_script == null or road_renderer_script == null or road_builder_script == null or tool_manager_script == null:
 		return null
 
 	var fixture := Node2D.new()
@@ -111,11 +124,15 @@ func create_save_fixture() -> Node:
 	road_system.add_child(road_renderer)
 	road_system.add_child(road_builder)
 	fixture.add_child(road_system)
+	var tool_manager := Node2D.new()
+	tool_manager.name = "ToolManager"
+	tool_manager.set_script(tool_manager_script)
+	fixture.add_child(tool_manager)
 	return fixture
 
 func cleanup() -> void:
 	if save_manager != null and not slot_id.is_empty():
-		save_manager.DeleteSlot(slot_id)
+		await V3_SAVE_FIXTURE.delete_slot(save_manager, slot_id)
 		slot_id = ""
 	if test_fixture != null:
 		test_fixture.queue_free()
@@ -133,9 +150,16 @@ func require(condition: bool, message: String) -> bool:
 
 func fail(message: String) -> void:
 	push_error(message)
+	if failure_started:
+		return
+	failure_started = true
+	cleanup_failed_run.call_deferred()
+
+func cleanup_failed_run() -> void:
 	if save_manager != null and not slot_id.is_empty():
-		save_manager.DeleteSlot(slot_id)
+		await V3_SAVE_FIXTURE.delete_slot(save_manager, slot_id)
 		slot_id = ""
 	if test_fixture != null:
 		test_fixture.queue_free()
+		await get_tree().process_frame
 	get_tree().quit(1)

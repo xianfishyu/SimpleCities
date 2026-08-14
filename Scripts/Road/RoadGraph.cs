@@ -1,187 +1,150 @@
 ﻿using Godot;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 
-public partial class RoadGraph : IPreparedSaveable
+public partial class RoadGraph : IStreamingSaveable
 {
-    private const float SnapRadius = 0.5f;
+    private const float SnapRadius = RoadNumericPolicy.NodeSnapRadius;
     private const float GeometryEpsilon = 1e-4f;
     private const float IndexBucketSize = 64f;
 
-    private readonly Dictionary<int, GraphNode> _nodes = new();
-    private readonly Dictionary<int, GraphEdge> _edges = new();
-    private readonly Dictionary<int, RoadGroup> _groups = new();
-    private readonly UniformGrid _spatialIndex;
-    private readonly Dictionary<int, NodeSpatialRef> _nodeRefs = new();
-    private readonly Dictionary<int, List<ISpatialRef>> _edgeRefs = new();
+    private ImmutableDictionary<int, GraphNode>.Builder _nodes;
+    private ImmutableDictionary<int, GraphEdge>.Builder _edges;
+    private UniformGrid _spatialIndex;
+    private ImmutableDictionary<int, NodeSpatialRef>.Builder _nodeRefs;
+    private ImmutableDictionary<int, ImmutableArray<ISpatialRef>>.Builder _edgeRefs;
+    private readonly RoadGraphCapacity _capacity;
 
     private int _nextID;
+    private RoadGraphRevision _revision;
+    private long _nextDomainRevisionID;
+    private bool _mutationInProgress;
+    private bool _publishingChanges;
+    private RoadGraphLoadAdmission? _loadAdmission;
+    private long _loadAdmissionGeneration;
+    private long _geometrySegmentCount;
+    private long _queryFragmentCount;
+    private double _totalGeometryLength;
 
     public string SaveFileName => "road_network";
 
-    public event Action<GraphEdge>? EdgeAdded;
-    public event Action<GraphEdge>? EdgeRemoved;
-    public event Action? GraphCleared;
+    public IStreamingLoadReader CaptureLoadReader() => new RoadGraphLoadReader(
+        _capacity,
+        _spatialIndex.BucketSize);
 
-    public RoadGraph() : this(IndexBucketSize) { }
+    public event Action<RoadGraphChangedEvent>? GraphChanged;
 
-    public RoadGraph(float bucketSize)
+    public RoadGraph() : this(IndexBucketSize, RoadGraphCapacity.Default, 0) { }
+
+    public RoadGraph(float bucketSize) : this(bucketSize, RoadGraphCapacity.Default, 0) { }
+
+    internal RoadGraph(RoadGraphCapacity capacity, int initialNextID = 0)
+        : this(IndexBucketSize, capacity, initialNextID) { }
+
+    internal RoadGraph(float bucketSize, RoadGraphCapacity capacity, int initialNextID = 0)
     {
+        ArgumentNullException.ThrowIfNull(capacity);
+        if (initialNextID < 0)
+            throw new ArgumentOutOfRangeException(nameof(initialNextID));
+
+        _capacity = capacity;
+        _nextID = initialNextID;
+        _nodes = ImmutableDictionary.CreateBuilder<int, GraphNode>();
+        _edges = ImmutableDictionary.CreateBuilder<int, GraphEdge>();
+        _nodeRefs = ImmutableDictionary.CreateBuilder<int, NodeSpatialRef>();
+        _edgeRefs = ImmutableDictionary.CreateBuilder<int, ImmutableArray<ISpatialRef>>();
         _spatialIndex = new UniformGrid(bucketSize);
+        GraphLineageID lineageID = AllocateLineageID();
+        _revision = CaptureWorkingRevision(lineageID, 0, 0);
+        _nextDomainRevisionID = 1;
     }
 
-    private int NextID() => _nextID++;
-
-    public int AddRoad(Vector2 start, Vector2 end, Vector2[] waypoints)
+    private int NextID()
     {
-        var path = new List<Vector2>(waypoints.Length + 2) { start };
-        path.AddRange(waypoints);
-        path.Add(end);
-
-        return SubmitPolyline(path).GroupID ?? -1;
+        if (_nextID == int.MaxValue)
+            throw new InvalidOperationException("RoadGraph ID space is exhausted.");
+        return _nextID++;
     }
 
-    public RoadPathSubmissionResult SubmitPolyline(IReadOnlyList<Vector2>? points)
+    internal int NextIDWatermark => _nextID;
+
+    internal IReadOnlyList<EdgeGeometryRef> CaptureQueryFragments(int edgeID) =>
+        _edgeRefs.TryGetValue(edgeID, out ImmutableArray<ISpatialRef> references)
+            ? references.Cast<EdgeGeometryRef>().ToArray()
+            : Array.Empty<EdgeGeometryRef>();
+
+    internal RoadGraphResourceCounts CaptureResourceCounts()
+    {
+        return new RoadGraphResourceCounts(
+            _nodes.Count,
+            _edges.Count,
+            _geometrySegmentCount,
+            _queryFragmentCount,
+            _spatialIndex.BucketCount,
+            _spatialIndex.ReferenceEntryCount);
+    }
+
+    public RoadPathSubmissionResult SubmitPolyline(
+        RoadType roadType,
+        IReadOnlyList<Vector2>? points)
     {
         BeginMeasuredOperation();
-        var validationError = ValidatePolyline(points);
-        if (validationError != RoadPathSubmissionError.None)
-            return RoadPathSubmissionResult.Rejected(validationError);
-
-        var path = points!.ToList();
-        if (_edges.Values.Any(edge =>
-                edge.GeometrySegments.Any(segment => segment is not LineRoadGeometrySegment)))
+        return ExecuteSubmission(() =>
         {
-            var nativeSegments = new RoadGeometrySegment[path.Count - 1];
-            for (int index = 0; index < nativeSegments.Length; index++)
-                nativeSegments[index] = new LineRoadGeometrySegment(path[index], path[index + 1]);
-            return SubmitPathCore(new RoadPath(nativeSegments));
-        }
+            if (!RoadTypeContract.IsDefined(roadType))
+                return RoadPathSubmissionResult.Rejected(RoadPathSubmissionError.InvalidRoadType);
+            var validationError = ValidatePolyline(points);
+            if (validationError != RoadPathSubmissionError.None)
+                return RoadPathSubmissionResult.Rejected(validationError);
 
-        // Coverage check must run BEFORE any mutating step (ResolveIntersections,
-        // SplitEdgesAtPathAnchors) — otherwise a fully-covered AddRoad still splits
-        // existing edges at the incoming path's anchors and then returns -1, leaving
-        // the graph churned. Coverage of the polyline in R² does not depend on how
-        // the path is later subdivided by anchors.
-        if (IsPathFullyCovered(path))
-            return RoadPathSubmissionResult.Rejected(RoadPathSubmissionError.FullyCovered);
-
-        EntitySnapshot entitiesBefore = CaptureEntitySnapshot();
-        path = ResolveIntersections(path);
-        SplitEdgesAtPathAnchors(path);
-        path = InsertExistingNodeAnchors(path);
-
-        if (IsPathFullyCovered(path))
-            return RoadPathSubmissionResult.Rejected(RoadPathSubmissionError.FullyCovered);
-
-        var group = new RoadGroup(NextID());
-        _groups[group.ID] = group;
-
-        bool anyAdded = false;
-        var touchedNodeIDs = new HashSet<int>();
-
-        for (int i = 0; i < path.Count - 1; i++)
-        {
-            var a = path[i];
-            var b = path[i + 1];
-            if (a.DistanceSquaredTo(b) < GeometryEpsilon) continue;
-            if (IsPathCovered(a, b)) continue;
-
-            var nodeA = GetOrCreateNode(a);
-            var nodeB = GetOrCreateNode(b);
-            if (nodeA.ID == nodeB.ID) continue;
-
-            if (AddEdge(nodeA, nodeB, Array.Empty<Vector2>(), group.ID) != null)
-            {
-                anyAdded = true;
-                touchedNodeIDs.Add(nodeA.ID);
-                touchedNodeIDs.Add(nodeB.ID);
-            }
-        }
-
-        if (!anyAdded)
-        {
-            _groups.Remove(group.ID);
-            return RoadPathSubmissionResult.Rejected(RoadPathSubmissionError.NoChanges);
-        }
-
-        foreach (int nodeID in touchedNodeIDs.ToList())
-            TryMergeAtNode(nodeID);
-
-        if (_groups.TryGetValue(group.ID, out var maybeEmpty) && maybeEmpty.IsEmpty)
-            _groups.Remove(group.ID);
-
-        return RoadPathSubmissionResult.Succeeded(group.ID, DescribeChanges(entitiesBefore));
+            Vector2[] path = points!
+                .Select(RoadNumericPolicy.Canonicalize)
+                .ToArray();
+            var segments = new RoadGeometrySegment[path.Length - 1];
+            for (int index = 0; index < segments.Length; index++)
+                segments[index] = new LineRoadGeometrySegment(path[index], path[index + 1]);
+            return SubmitPathCore(new RoadPath(segments), roadType);
+        });
     }
-
-    private EntitySnapshot CaptureEntitySnapshot() => new(
-        [.. _nodes.Keys],
-        [.. _edges.Keys],
-        [.. _groups.Keys]);
-
-    private RoadGraphChangeSummary DescribeChanges(EntitySnapshot before) => new(
-        _nodes.Keys.Except(before.NodeIDs),
-        _edges.Keys.Except(before.EdgeIDs),
-        _groups.Keys.Except(before.GroupIDs),
-        before.NodeIDs.Except(_nodes.Keys),
-        before.EdgeIDs.Except(_edges.Keys),
-        before.GroupIDs.Except(_groups.Keys));
-
-    private readonly record struct EntitySnapshot(
-        HashSet<int> NodeIDs,
-        HashSet<int> EdgeIDs,
-        HashSet<int> GroupIDs);
 
     public bool RemoveEdge(int edgeID)
     {
         BeginMeasuredOperation();
-        return RemoveEdgesCore([edgeID]);
+        return ExecuteBooleanMutation(() => RemoveEdgesCore([edgeID]));
     }
 
     public bool RemoveEdges(IEnumerable<int>? edgeIDs)
     {
         BeginMeasuredOperation();
         ArgumentNullException.ThrowIfNull(edgeIDs);
-        return RemoveEdgesCore(edgeIDs);
-    }
-
-    public bool RemoveRoadGroup(int groupID)
-    {
-        BeginMeasuredOperation();
-        if (!_groups.TryGetValue(groupID, out var group)) return false;
-
-        return RemoveEdgesCore(group.EdgeIDs);
+        return ExecuteBooleanMutation(() => RemoveEdgesCore(edgeIDs));
     }
 
     private bool RemoveEdgesCore(IEnumerable<int> edgeIDs)
     {
         var removedEdges = new List<GraphEdge>();
         var affectedNodeIDs = new HashSet<int>();
-        var affectedGroupIDs = new HashSet<int>();
         foreach (int edgeID in edgeIDs.Distinct().Order())
         {
             if (!_edges.TryGetValue(edgeID, out GraphEdge? edge)) continue;
             removedEdges.Add(edge);
             affectedNodeIDs.Add(edge.NodeA);
             affectedNodeIDs.Add(edge.NodeB);
-            affectedGroupIDs.Add(edge.GroupID);
             DetachEdge(edge);
         }
 
         if (removedEdges.Count == 0)
             return false;
 
-        CommitEdgeMutation(affectedNodeIDs, affectedGroupIDs);
-        foreach (GraphEdge edge in removedEdges)
-            EdgeRemoved?.Invoke(edge);
+        FinalizeMutation(affectedNodeIDs);
 
         return true;
     }
 
     public GraphEdge? GetEdge(int edgeID) => _edges.GetValueOrDefault(edgeID);
     public GraphNode? GetNode(int nodeID) => _nodes.GetValueOrDefault(nodeID);
-    public RoadGroup? GetGroup(int groupID) => _groups.GetValueOrDefault(groupID);
 
     public GraphEdge? FindClosestEdge(Vector2 position, float maxRadius)
     {
@@ -190,26 +153,33 @@ public partial class RoadGraph : IPreparedSaveable
         int bestEdgeID = -1;
         float bestDistSq = maxRadius * maxRadius;
         var candidateEdgeIDs = new HashSet<int>();
+        var candidateFragments = new List<EdgeGeometryRef>();
 
-        foreach (var hit in _spatialIndex.QueryRadius(position, maxRadius))
+        foreach (ISpatialRef hit in _spatialIndex.QueryRadius(position, maxRadius))
         {
-            if (TryGetEdgeID(hit, out int edgeID))
-                candidateEdgeIDs.Add(edgeID);
+            if (hit is not EdgeGeometryRef fragment)
+                continue;
+            candidateFragments.Add(fragment);
+            candidateEdgeIDs.Add(fragment.EdgeID);
         }
         RecordSpatialCandidates(candidateEdgeIDs.Count);
+        RecordQueryFragmentCandidates(candidateFragments.Count);
 
-        foreach (int edgeID in candidateEdgeIDs)
+        foreach (EdgeGeometryRef fragment in candidateFragments)
         {
-            var edge = GetEdge(edgeID);
-            if (edge == null) continue;
-            float d2 = edge.GeometrySegments
-                .Min(segment => segment.FindClosestPoint(position).DistanceSquared);
+            if (!_edges.ContainsKey(fragment.EdgeID))
+                continue;
+            RecordExactGeometryTest();
+            RoadGeometryClosestPoint closest = fragment.Geometry.FindClosestPoint(position);
+            float d2 = closest.DistanceSquared;
+            if (d2 > maxRadius * maxRadius)
+                continue;
             bool sameDistance = Mathf.IsEqualApprox(d2, bestDistSq);
             if (d2 < bestDistSq ||
-                (sameDistance && (bestEdgeID < 0 || edgeID < bestEdgeID)))
+                (sameDistance && (bestEdgeID < 0 || fragment.EdgeID < bestEdgeID)))
             {
                 bestDistSq = d2;
-                bestEdgeID = edgeID;
+                bestEdgeID = fragment.EdgeID;
             }
         }
 
@@ -222,12 +192,19 @@ public partial class RoadGraph : IPreparedSaveable
         ValidateSpatialQuery(position, radius);
 
         var edgeIDs = new HashSet<int>();
+        int fragmentCandidates = 0;
         foreach (ISpatialRef hit in _spatialIndex.QueryRadius(position, radius))
         {
-            if (TryGetEdgeID(hit, out int edgeID) && _edges.ContainsKey(edgeID))
-                edgeIDs.Add(edgeID);
+            if (hit is not EdgeGeometryRef fragment || !_edges.ContainsKey(fragment.EdgeID))
+                continue;
+            fragmentCandidates++;
+            RecordExactGeometryTest();
+            RoadGeometryClosestPoint closest = fragment.Geometry.FindClosestPoint(position, GeometryEpsilon);
+            if (closest.DistanceSquared <= radius * radius)
+                edgeIDs.Add(fragment.EdgeID);
         }
 
+        RecordQueryFragmentCandidates(fragmentCandidates);
         RecordSpatialCandidates(edgeIDs.Count);
         return edgeIDs.Order().ToArray();
     }
@@ -237,18 +214,20 @@ public partial class RoadGraph : IPreparedSaveable
         BeginMeasuredOperation();
         Rect2 normalizedBounds = NormalizeBounds(bounds);
         var candidateEdgeIDs = new HashSet<int>();
+        int fragmentCandidates = 0;
         foreach (ISpatialRef hit in _spatialIndex.QueryBounds(normalizedBounds))
         {
-            if (TryGetEdgeID(hit, out int edgeID))
-                candidateEdgeIDs.Add(edgeID);
+            if (hit is not EdgeGeometryRef fragment || !_edges.ContainsKey(fragment.EdgeID))
+                continue;
+            fragmentCandidates++;
+            RecordExactGeometryTest();
+            if (GeometryIntersectsBounds(fragment.Geometry, normalizedBounds))
+                candidateEdgeIDs.Add(fragment.EdgeID);
         }
 
+        RecordQueryFragmentCandidates(fragmentCandidates);
         RecordSpatialCandidates(candidateEdgeIDs.Count);
-        return candidateEdgeIDs
-            .Where(edgeID => _edges.TryGetValue(edgeID, out GraphEdge? edge) &&
-                             edge.GeometrySegments.Any(geometry => GeometryIntersectsBounds(geometry, normalizedBounds)))
-            .Order()
-            .ToArray();
+        return candidateEdgeIDs.Order().ToArray();
     }
 
     public GraphNode? FindClosestNode(Vector2 position, float maxRadius)
@@ -261,7 +240,7 @@ public partial class RoadGraph : IPreparedSaveable
     {
         ValidateSpatialQuery(position, maxRadius);
         int bestNodeID = -1;
-        float bestDistSq = maxRadius * maxRadius;
+        double bestDistSq = (double)maxRadius * maxRadius;
 
         foreach (var hit in _spatialIndex.QueryRadius(position, maxRadius))
         {
@@ -270,8 +249,8 @@ public partial class RoadGraph : IPreparedSaveable
             var node = GetNode(nodeID);
             if (node == null) continue;
 
-            float d2 = node.Position.DistanceSquaredTo(position);
-            bool sameDistance = Mathf.IsEqualApprox(d2, bestDistSq);
+            double d2 = RoadNumericPolicy.DistanceSquared(node.Position, position);
+            bool sameDistance = d2 == bestDistSq;
             if (bestNodeID >= 0 && !sameDistance && d2 > bestDistSq) continue;
             if (bestNodeID >= 0 && sameDistance && nodeID > bestNodeID) continue;
 
@@ -284,15 +263,17 @@ public partial class RoadGraph : IPreparedSaveable
 
     private static void ValidateSpatialQuery(Vector2 position, float radius)
     {
-        if (!position.IsFinite())
-            throw new ArgumentException("Position must contain finite coordinates.", nameof(position));
-        if (!float.IsFinite(radius) || radius < 0f)
-            throw new ArgumentOutOfRangeException(nameof(radius), radius, "Radius must be non-negative and finite.");
+        if (!RoadNumericPolicy.IsWithinCoordinateRange(position))
+            throw new ArgumentException("Position must be finite and within the RoadGraph coordinate range.", nameof(position));
+        if (!float.IsFinite(radius) || radius < 0f || radius > RoadNumericPolicy.MaximumCoordinateMagnitude)
+            throw new ArgumentOutOfRangeException(
+                nameof(radius),
+                radius,
+                "Radius must be finite and within the RoadGraph query range.");
     }
 
     public IEnumerable<GraphEdge> GetAllEdges() => _edges.Values.ToArray();
     public IEnumerable<GraphNode> GetAllNodes() => _nodes.Values.ToArray();
-    public IEnumerable<RoadGroup> GetAllGroups() => _groups.Values.ToArray();
 
     private static Rect2 NormalizeBounds(Rect2 bounds)
     {
@@ -363,11 +344,11 @@ public partial class RoadGraph : IPreparedSaveable
         GraphNode nodeA,
         GraphNode nodeB,
         Vector2[] points,
-        int groupID,
+        RoadType roadType,
         bool emitEvent = true)
     {
         var geometrySegments = CreatePolylineGeometry(nodeA.Position, nodeB.Position, points);
-        return AddEdge(nodeA, nodeB, geometrySegments, groupID, emitEvent);
+        return AddEdge(nodeA, nodeB, geometrySegments, roadType, emitEvent: emitEvent);
     }
 
     private void SplitEdgeAtPosition(int edgeID, Vector2 splitPos)
@@ -396,6 +377,7 @@ public partial class RoadGraph : IPreparedSaveable
         if (existing != null) return existing;
 
         var node = new GraphNode(NextID(), pos);
+        TrackNodeChange(node.ID);
         _nodes[node.ID] = node;
         InsertNodeSpatialRef(node);
         return node;
@@ -528,6 +510,8 @@ public partial class RoadGraph : IPreparedSaveable
         {
             if (!float.IsFinite(point.X) || !float.IsFinite(point.Y))
                 return RoadPathSubmissionError.NonFiniteCoordinate;
+            if (!RoadNumericPolicy.IsWithinCoordinateRange(point))
+                return RoadPathSubmissionError.NumericOutOfRange;
         }
 
         for (int i = 0; i < path.Count - 1; i++)
@@ -535,42 +519,14 @@ public partial class RoadGraph : IPreparedSaveable
             if (ArePositionsApproximatelyEqual(path[i], path[i + 1]))
                 return RoadPathSubmissionError.DegenerateSegment;
 
-            if (path[i].DistanceSquaredTo(path[i + 1]) <= SnapRadius * SnapRadius)
+            if (RoadNumericPolicy.DistanceSquared(path[i], path[i + 1]) <=
+                (double)SnapRadius * SnapRadius)
                 return RoadPathSubmissionError.CollapsedByNodeIdentity;
 
             var nodeA = FindClosestIndexedNode(path[i], SnapRadius);
             var nodeB = FindClosestIndexedNode(path[i + 1], SnapRadius);
             if (nodeA != null && nodeA.ID == nodeB?.ID)
                 return RoadPathSubmissionError.CollapsedByNodeIdentity;
-        }
-
-        for (int i = 0; i < path.Count; i++)
-        for (int j = i + 2; j < path.Count; j++)
-        {
-            if (ArePositionsApproximatelyEqual(path[i], path[j]))
-                return RoadPathSubmissionError.RepeatedPoint;
-        }
-
-        for (int i = 0; i < path.Count - 2; i++)
-        {
-            if (PointOnSegmentInterior(path[i], path[i + 1], path[i + 2]) ||
-                PointOnSegmentInterior(path[i + 1], path[i + 2], path[i]))
-                return RoadPathSubmissionError.SelfIntersection;
-        }
-
-        for (int i = 0; i < path.Count - 1; i++)
-        for (int j = i + 2; j < path.Count - 1; j++)
-        {
-            var a = path[i];
-            var b = path[i + 1];
-            var c = path[j];
-            var d = path[j + 1];
-            if (TryComputeInteriorCross(a, b, c, d, out _, out _) ||
-                PointOnSegmentInteriorOrEndpoint(a, b, c) ||
-                PointOnSegmentInteriorOrEndpoint(a, b, d) ||
-                PointOnSegmentInteriorOrEndpoint(c, d, a) ||
-                PointOnSegmentInteriorOrEndpoint(c, d, b))
-                return RoadPathSubmissionError.SelfIntersection;
         }
 
         return RoadPathSubmissionError.None;
@@ -645,6 +601,26 @@ public partial class RoadGraph : IPreparedSaveable
         return result;
     }
 
+    private IReadOnlyList<EdgeGeometryRef> FindCandidateGeometryRefs(Rect2 bounds)
+    {
+        EdgeGeometryRef[] fragments = _spatialIndex.QueryBounds(bounds)
+            .OfType<EdgeGeometryRef>()
+            .OrderBy(fragment => fragment.EdgeID)
+            .ThenBy(fragment => fragment.GeometryIndex)
+            .ThenBy(fragment => fragment.FragmentIndex)
+            .ToArray();
+        RecordQueryFragmentCandidates(fragments.Length);
+        RecordSpatialCandidates(fragments.Select(fragment => fragment.EdgeID).Distinct().Count());
+        return fragments;
+    }
+
+    private IReadOnlyList<EdgeGeometryRef> FindCandidateGeometryRefs(
+        RoadGeometrySegment geometry) =>
+        FindCandidateGeometryRefs(CreateQueryBounds(
+            geometry.Bounds.Position,
+            geometry.Bounds.End,
+            Mathf.Sqrt(GeometryEpsilon)));
+
     private HashSet<int> FindCandidateEdgeIDs(RoadGeometrySegment geometry) =>
         FindCandidateEdgeIDs(CreateQueryBounds(
             geometry.Bounds.Position,
@@ -704,11 +680,8 @@ public partial class RoadGraph : IPreparedSaveable
     {
         Vector2 toA = pointA - node;
         Vector2 toB = pointB - node;
-        float lengthProduct = Mathf.Sqrt(toA.LengthSquared() * toB.LengthSquared());
-        if (lengthProduct < GeometryEpsilon) return false;
-
-        float cross = toA.X * toB.Y - toA.Y * toB.X;
-        return Mathf.Abs(cross) <= GeometryEpsilon * lengthProduct && toA.Dot(toB) < 0f;
+        return RoadExactPredicates.Orient2DSign(pointA, node, pointB) == 0 &&
+               RoadExactPredicates.DotSign(toA, toB) < 0;
     }
 
     private IEnumerable<int> FindEdgesContainingInteriorPoint(Vector2 pos)
@@ -733,64 +706,6 @@ public partial class RoadGraph : IPreparedSaveable
         return -1;
     }
 
-    private bool TryMergeAtNode(int nodeID)
-    {
-        if (!_nodes.TryGetValue(nodeID, out var node)) return false;
-        if (node.EdgeCount != 2) return false;
-
-        var refs = node.Edges.ToArray();
-        if (!_edges.TryGetValue(refs[0].EdgeID, out var edgeA)) return false;
-        if (!_edges.TryGetValue(refs[1].EdgeID, out var edgeB)) return false;
-        if (edgeA.ID == edgeB.ID) return false;
-        if (edgeA.GroupID != edgeB.GroupID) return false;
-
-        var (farAID, seqAToNode) = OrientTowardsNode(edgeA, nodeID);
-        var (farBID, seqBToNode) = OrientTowardsNode(edgeB, nodeID);
-        if (farAID == farBID) return false;
-        if (seqAToNode.Count < 2 || seqBToNode.Count < 2) return false;
-
-        if (!AreOppositeCollinear(node.Position, seqAToNode[^2], seqBToNode[^2])) return false;
-
-        int keepGroupID = edgeA.GroupID;
-        var mergedPoints = new List<Vector2>();
-        for (int i = 1; i < seqAToNode.Count - 1; i++)
-            mergedPoints.Add(seqAToNode[i]);
-        mergedPoints.Add(node.Position);
-        for (int i = seqBToNode.Count - 2; i >= 1; i--)
-            mergedPoints.Add(seqBToNode[i]);
-
-        var farA = GetNode(farAID);
-        var farB = GetNode(farBID);
-        if (farA == null || farB == null) return false;
-
-        DetachEdge(edgeA);
-        DetachEdge(edgeB);
-        GraphEdge? mergedEdge = AddEdge(
-            farA,
-            farB,
-            mergedPoints.ToArray(),
-            keepGroupID,
-            emitEvent: false);
-        if (mergedEdge is null)
-            throw new InvalidOperationException("Collinear edge merge failed to create a replacement edge.");
-
-        CommitEdgeMutation([nodeID], [keepGroupID]);
-        EdgeRemoved?.Invoke(edgeA);
-        EdgeRemoved?.Invoke(edgeB);
-        EdgeAdded?.Invoke(mergedEdge);
-        return true;
-    }
-
-    private (int farNodeID, List<Vector2> seq) OrientTowardsNode(GraphEdge edge, int nodeID)
-    {
-        var fullPath = edge.GetFullPath(GetNode);
-        if (edge.NodeB == nodeID)
-            return (edge.NodeA, fullPath.ToList());
-
-        Array.Reverse(fullPath);
-        return (edge.NodeB, fullPath.ToList());
-    }
-
     private void InsertNodeSpatialRef(GraphNode node)
     {
         if (_nodeRefs.ContainsKey(node.ID)) return;
@@ -809,10 +724,18 @@ public partial class RoadGraph : IPreparedSaveable
     private void InsertEdgeSpatialRefs(GraphEdge edge)
     {
         var refs = new List<ISpatialRef>();
-        foreach (RoadGeometrySegment geometry in edge.GeometrySegments)
-            refs.Add(new EdgeGeometryRef(edge.ID, geometry));
+        for (int geometryIndex = 0; geometryIndex < edge.GeometrySegments.Count; geometryIndex++)
+        {
+            refs.AddRange(RoadQueryFragmentFactory.Create(
+                edge.ID,
+                geometryIndex,
+                edge.GeometrySegments[geometryIndex],
+                _spatialIndex.BucketSize,
+                edge.NodeA != edge.NodeB && geometryIndex == edge.GeometrySegments.Count - 1));
+        }
 
-        _edgeRefs[edge.ID] = refs;
+        _edgeRefs[edge.ID] = [.. refs];
+        _queryFragmentCount += refs.Count;
         foreach (var edgeRef in refs)
         {
             if (edgeRef is EdgeSegmentRef segmentRef)
@@ -836,49 +759,31 @@ public partial class RoadGraph : IPreparedSaveable
             else
                 _spatialIndex.Remove(edgeRef);
         }
+        _queryFragmentCount -= refs.Length;
         _edgeRefs.Remove(edgeID);
     }
 
     private void RemoveNodeIfIsolated(GraphNode? node)
     {
-        if (node == null || node.EdgeCount > 0) return;
+        if (node == null || node.IncidenceCount > 0) return;
+        TrackNodeChange(node.ID);
         _nodes.Remove(node.ID);
         RemoveNodeSpatialRef(node.ID);
     }
 
-    private void CommitEdgeMutation(IEnumerable<int> affectedNodeIDs, IEnumerable<int> affectedGroupIDs)
-    {
-        foreach (int nodeID in affectedNodeIDs.Distinct())
-            RemoveNodeIfIsolated(GetNode(nodeID));
-
-        foreach (int groupID in affectedGroupIDs.Distinct())
-        {
-            if (_groups.TryGetValue(groupID, out RoadGroup? group) && group.IsEmpty)
-                _groups.Remove(groupID);
-        }
-
-        AssertCommittedInvariants();
-    }
-
     [System.Diagnostics.Conditional("DEBUG")]
     private void AssertCommittedInvariants() => AssertInvariants();
-
-    private void RebuildNodeEdges()
-    {
-        foreach (var edge in _edges.Values)
-        {
-            var nodeA = GetNode(edge.NodeA);
-            var nodeB = GetNode(edge.NodeB);
-            nodeA?.AddEdge(edge.ID, edge.NodeB);
-            nodeB?.AddEdge(edge.ID, edge.NodeA);
-        }
-    }
 
     private void RebuildSpatialIndex()
     {
         _spatialIndex.Clear();
         _nodeRefs.Clear();
         _edgeRefs.Clear();
+        _geometrySegmentCount = _edges.Values.Sum(edge => (long)edge.GeometrySegments.Count);
+        _totalGeometryLength = _edges.Values
+            .SelectMany(edge => edge.GeometrySegments)
+            .Sum(geometry => (double)geometry.Length);
+        _queryFragmentCount = 0;
 
         foreach (var node in _nodes.Values)
             InsertNodeSpatialRef(node);
@@ -890,10 +795,12 @@ public partial class RoadGraph : IPreparedSaveable
     {
         _nodes.Clear();
         _edges.Clear();
-        _groups.Clear();
         _nodeRefs.Clear();
         _edgeRefs.Clear();
         _spatialIndex.Clear();
+        _geometrySegmentCount = 0;
+        _queryFragmentCount = 0;
+        _totalGeometryLength = 0d;
     }
 
     private static RoadGeometrySegment[] CreatePolylineGeometry(

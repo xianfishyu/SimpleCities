@@ -102,6 +102,9 @@ public sealed class CubicBezierRoadGeometrySegment : RoadGeometrySegment
             new CubicBezierRoadGeometrySegment(splitPoint, e, c, End));
     }
 
+    public override RoadGeometrySegment Reverse() =>
+        new CubicBezierRoadGeometrySegment(End, Control2, Control1, Start);
+
     private Rect2 ComputeBounds()
     {
         var parameters = new List<float> { ParameterStart, ParameterEnd };

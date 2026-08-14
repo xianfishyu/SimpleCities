@@ -3,6 +3,7 @@ extends SceneTree
 const MAP_SCENE := "res://Scenes/MapTest.tscn"
 const AUTOSAVE_SLOT_ID := "autosave"
 const AUTOSAVE_DISPLAY_NAME := "自动存档"
+const V3_SAVE_FIXTURE := preload("res://tests/godot/v3_save_fixture.gd")
 
 var failed := false
 
@@ -22,23 +23,23 @@ func run() -> void:
 
 	var save_manager: Node = root.get_node("SaveManager")
 	assert_true(await wait_for_success_count(controller, 1), "First periodic autosave did not run")
-	assert_true(FileAccess.file_exists("res://saves/autosave/manifest.json"), "First periodic autosave did not create manifest")
-	assert_true(FileAccess.file_exists("res://saves/autosave/road_network.json"), "First periodic autosave did not create RoadGraph payload")
+	assert_true(FileAccess.file_exists("user://saves-v3/autosave/manifest.json"), "First periodic autosave did not create manifest")
+	assert_true(FileAccess.file_exists("user://saves-v3/autosave/road_network.json"), "First periodic autosave did not create RoadGraph payload")
 	assert_true(read_manifest_display_name() == AUTOSAVE_DISPLAY_NAME, "Autosave manifest is not clearly named")
 	assert_true(await wait_for_success_count(controller, 2), "Second periodic autosave did not run")
 
 	controller.SetAutosaveEnabled(false)
-	var manual_created: bool = save_manager.SaveAs(AUTOSAVE_DISPLAY_NAME)
+	var manual_created: bool = await V3_SAVE_FIXTURE.save_as(save_manager, AUTOSAVE_DISPLAY_NAME)
 	var manual_slot_id: String = save_manager.get("CurrentSlotID")
 	assert_true(manual_created and manual_slot_id.begins_with("manual-"), "Same-named manual slot was not isolated")
-	assert_true(controller.RunAutosaveNow(), "Immediate autosave after manual slot failed")
+	assert_true(await V3_SAVE_FIXTURE.run_autosave(controller, save_manager), "Immediate autosave after manual slot failed")
 	assert_true(save_manager.get("CurrentSlotID") == manual_slot_id, "Autosave replaced the selected manual slot")
 	assert_true(save_manager.SaveSlotExists(AUTOSAVE_SLOT_ID), "Reserved autosave disappeared after manual save")
 	await assert_slot_kind_labels(map, AUTOSAVE_SLOT_ID, manual_slot_id)
 
-	var manifest_before_failure := FileAccess.get_file_as_string("res://saves/autosave/manifest.json")
-	var roads_before_failure := FileAccess.get_file_as_string("res://saves/autosave/road_network.json")
-	var failure_marker_path := "res://saves/.autosave.staging"
+	var manifest_before_failure := FileAccess.get_file_as_string("user://saves-v3/autosave/manifest.json")
+	var roads_before_failure := FileAccess.get_file_as_string("user://saves-v3/autosave/road_network.json")
+	var failure_marker_path := "user://saves-v3/.save-transactions"
 	var failure_marker_absolute := ProjectSettings.globalize_path(failure_marker_path)
 	if FileAccess.file_exists(failure_marker_path):
 		DirAccess.remove_absolute(failure_marker_absolute)
@@ -47,15 +48,15 @@ func run() -> void:
 	failure_marker.store_string("autosave failure injection")
 	failure_marker.close()
 	var failed_count_before: int = controller.get("FailedSaveCount")
-	assert_true(not controller.RunAutosaveNow(), "Autosave unexpectedly succeeded with a blocked staging path")
+	assert_true(not await V3_SAVE_FIXTURE.run_autosave(controller, save_manager), "Autosave unexpectedly succeeded with a blocked staging path")
 	assert_true(controller.get("FailedSaveCount") == failed_count_before + 1, "Autosave failure was not recorded")
-	assert_true(FileAccess.get_file_as_string("res://saves/autosave/manifest.json") == manifest_before_failure, "Failed autosave changed the last valid manifest")
-	assert_true(FileAccess.get_file_as_string("res://saves/autosave/road_network.json") == roads_before_failure, "Failed autosave changed the last valid RoadGraph payload")
+	assert_true(FileAccess.get_file_as_string("user://saves-v3/autosave/manifest.json") == manifest_before_failure, "Failed autosave changed the last valid manifest")
+	assert_true(FileAccess.get_file_as_string("user://saves-v3/autosave/road_network.json") == roads_before_failure, "Failed autosave changed the last valid RoadGraph payload")
 	assert_true(DirAccess.remove_absolute(failure_marker_absolute) == OK, "Autosave failure marker cleanup failed")
 
-	assert_true(save_manager.Load(AUTOSAVE_SLOT_ID), "Valid autosave could not be loaded after a failed cycle")
+	assert_true(await V3_SAVE_FIXTURE.load_slot(save_manager, AUTOSAVE_SLOT_ID), "Valid autosave could not be loaded after a failed cycle")
 	assert_true(save_manager.get("CurrentSlotID") == AUTOSAVE_SLOT_ID, "Loading autosave did not select the reserved slot")
-	assert_true(save_manager.DeleteSlot(manual_slot_id), "Manual autosave-name test slot cleanup failed")
+	assert_true(await V3_SAVE_FIXTURE.delete_slot(save_manager, manual_slot_id), "Manual autosave-name test slot cleanup failed")
 	controller.SetAutosaveEnabled(false)
 	map.queue_free()
 	await process_frame
@@ -72,7 +73,7 @@ func wait_for_success_count(controller: Node, expected: int) -> bool:
 	return false
 
 func read_manifest_display_name() -> String:
-	var manifest_file := FileAccess.open("res://saves/autosave/manifest.json", FileAccess.READ)
+	var manifest_file := FileAccess.open("user://saves-v3/autosave/manifest.json", FileAccess.READ)
 	if manifest_file == null:
 		return ""
 	var manifest: Variant = JSON.parse_string(manifest_file.get_as_text())

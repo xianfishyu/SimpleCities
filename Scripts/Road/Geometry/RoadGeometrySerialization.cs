@@ -91,8 +91,14 @@ public sealed class RoadGeometryData
     [JsonPropertyName("sweepAngle")]
     public float? SweepAngle { get; set; }
 
+    [JsonPropertyName("endAngle")]
+    public float? EndAngle { get; set; }
+
     [JsonPropertyName("startHeading")]
     public float? StartHeading { get; set; }
+
+    [JsonPropertyName("reverseStartHeading")]
+    public float? ReverseStartHeading { get; set; }
 
     [JsonPropertyName("startCurvature")]
     public float? StartCurvature { get; set; }
@@ -159,9 +165,12 @@ public static class RoadGeometrySerializer
             {
                 Version = RoadGeometryData.CurrentVersion,
                 Kind = RoadGeometryData.CircularArcKind,
+                Start = new RoadGeometryPointData(arc.Start),
+                End = new RoadGeometryPointData(arc.End),
                 Center = new RoadGeometryPointData(arc.Center),
                 Radius = arc.Radius,
                 StartAngle = arc.StartAngle,
+                EndAngle = arc.EndAngle,
                 SweepAngle = arc.SweepAngle,
             },
             ClothoidRoadGeometrySegment clothoid => new RoadGeometryData
@@ -169,7 +178,9 @@ public static class RoadGeometrySerializer
                 Version = RoadGeometryData.CurrentVersion,
                 Kind = RoadGeometryData.ClothoidKind,
                 Start = new RoadGeometryPointData(clothoid.Start),
+                End = new RoadGeometryPointData(clothoid.End),
                 StartHeading = clothoid.StartHeading,
+                ReverseStartHeading = clothoid.ReverseStartHeading,
                 StartCurvature = clothoid.StartCurvature,
                 EndCurvature = clothoid.EndCurvature,
                 ArcLength = clothoid.ArcLength,
@@ -291,8 +302,8 @@ public static class RoadGeometrySerializer
 
     private static RoadGeometryDeserializationResult DeserializeCircularArc(RoadGeometryData data)
     {
-        if (data.Start is not null || data.End is not null || data.Control1 is not null ||
-            data.Control2 is not null || data.StartTangent is not null || data.EndTangent is not null)
+        if (data.Control1 is not null || data.Control2 is not null ||
+            data.StartTangent is not null || data.EndTangent is not null)
             return Failure(RoadGeometryDataError.UnexpectedParameter);
         if (HasClothoidParameters(data))
             return Failure(RoadGeometryDataError.UnexpectedParameter);
@@ -304,13 +315,27 @@ public static class RoadGeometrySerializer
             !TryReadFinite(data.SweepAngle, out float sweepAngle, out error))
             return Failure(error);
 
-        return CreateGeometry(() =>
-            new CircularArcRoadGeometrySegment(center, radius, startAngle, sweepAngle));
+        if (data.Start is null && data.End is null && data.EndAngle is null)
+        {
+            return CreateGeometry(() =>
+                new CircularArcRoadGeometrySegment(center, radius, startAngle, sweepAngle));
+        }
+        if (data.Start is null || data.End is null || data.EndAngle is null)
+            return Failure(RoadGeometryDataError.MissingRequiredParameter);
+        if (!TryReadPoint(data.Start, out Vector2 start, out error) ||
+            !TryReadPoint(data.End, out Vector2 end, out error) ||
+            !TryReadFinite(data.EndAngle, out float endAngle, out error))
+        {
+            return Failure(error);
+        }
+
+        return CreateGeometry(() => CircularArcRoadGeometrySegment.CreateAnchored(
+            center, radius, startAngle, sweepAngle, start, end, endAngle));
     }
 
     private static RoadGeometryDeserializationResult DeserializeClothoid(RoadGeometryData data)
     {
-        if (data.End is not null || data.Control1 is not null || data.Control2 is not null ||
+        if (data.Control1 is not null || data.Control2 is not null ||
             data.StartTangent is not null || data.EndTangent is not null || HasArcParameters(data))
             return Failure(RoadGeometryDataError.UnexpectedParameter);
         if (HasRationalParameters(data))
@@ -322,8 +347,30 @@ public static class RoadGeometrySerializer
             !TryReadFinite(data.ArcLength, out float arcLength, out error))
             return Failure(error);
 
-        return CreateGeometry(() => new ClothoidRoadGeometrySegment(
-            start, startHeading, startCurvature, endCurvature, arcLength));
+        if (data.End is null && data.ReverseStartHeading is null)
+        {
+            return CreateGeometry(() => new ClothoidRoadGeometrySegment(
+                start, startHeading, startCurvature, endCurvature, arcLength));
+        }
+        if (data.End is null || data.ReverseStartHeading is null)
+            return Failure(RoadGeometryDataError.MissingRequiredParameter);
+        if (!TryReadPoint(data.End, out Vector2 end, out error) ||
+            !TryReadFinite(
+                data.ReverseStartHeading,
+                out float reverseStartHeading,
+                out error))
+        {
+            return Failure(error);
+        }
+
+        return CreateGeometry(() => ClothoidRoadGeometrySegment.CreateAnchored(
+            start,
+            startHeading,
+            startCurvature,
+            endCurvature,
+            arcLength,
+            end,
+            reverseStartHeading));
     }
 
     private static RoadGeometryDeserializationResult DeserializeRationalQuadratic(RoadGeometryData data)
@@ -406,10 +453,11 @@ public static class RoadGeometrySerializer
 
     private static bool HasArcParameters(RoadGeometryData data) =>
         data.Center is not null || data.Radius is not null ||
-        data.StartAngle is not null || data.SweepAngle is not null;
+        data.StartAngle is not null || data.EndAngle is not null || data.SweepAngle is not null;
 
     private static bool HasClothoidParameters(RoadGeometryData data) =>
-        data.StartHeading is not null || data.StartCurvature is not null ||
+        data.StartHeading is not null || data.ReverseStartHeading is not null ||
+        data.StartCurvature is not null ||
         data.EndCurvature is not null || data.ArcLength is not null;
 
     private static bool HasRationalParameters(RoadGeometryData data) =>

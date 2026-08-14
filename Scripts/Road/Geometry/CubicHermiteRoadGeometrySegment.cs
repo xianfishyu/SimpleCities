@@ -52,6 +52,13 @@ public sealed class CubicHermiteRoadGeometrySegment : RoadGeometrySegment
         return new RoadGeometrySplit(FromBezier(before), FromBezier(after));
     }
 
+    public override RoadGeometrySegment Reverse() =>
+        new CubicHermiteRoadGeometrySegment(
+            End,
+            RoadNumericPolicy.Canonicalize(-EndTangent),
+            Start,
+            RoadNumericPolicy.Canonicalize(-StartTangent));
+
     private static CubicHermiteRoadGeometrySegment FromBezier(CubicBezierRoadGeometrySegment segment) =>
         new(
             segment.Start,

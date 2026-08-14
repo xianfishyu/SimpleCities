@@ -45,66 +45,77 @@ public sealed class RoadGraphNativePathSubmissionTests
         Type expectedType)
     {
         var graph = new RoadGraph();
-        var added = new List<GraphEdge>();
-        graph.EdgeAdded += added.Add;
+        var events = new List<RoadGraphChangedEvent>();
+        graph.GraphChanged += events.Add;
 
-        RoadPathSubmissionResult result = graph.SubmitPath(new RoadPath([geometry]));
+        RoadPathSubmissionResult result = graph.SubmitPath(new RoadBuildRequest(new RoadPath([geometry]), RoadType.Street));
 
-        Assert.True(result.Success);
-        int groupID = Assert.IsType<int>(result.GroupID);
+        Assert.True(result.Success, $"Submission failed with {result.Error}.");
         GraphEdge edge = Assert.Single(graph.GetAllEdges());
         Assert.IsType(expectedType, Assert.Single(edge.GeometrySegments));
-        Assert.Equal(groupID, edge.GroupID);
         Assert.Equal([edge.ID], result.Changes.CreatedEdgeIDs);
-        Assert.Equal([groupID], result.Changes.CreatedGroupIDs);
         Assert.Equal(2, result.Changes.CreatedNodeIDs.Count);
-        Assert.Equal([edge], added);
+        RoadGraphChangedEvent change = Assert.Single(events);
+        Assert.Same(edge, Assert.Single(change.Delta.Edges).After);
     }
 
     [Fact]
-    public void SubmitPath_ContinuousSegmentsShareNodeAndReportCompleteChanges()
+    public void SubmitPath_ContinuousSegmentsFormOneMaximalEdgeAndReportFinalEntities()
     {
         var line = new LineRoadGeometrySegment(Vector2.Zero, new Vector2(5f, 0f));
         var cubic = new CubicBezierRoadGeometrySegment(
             line.End, new Vector2(7f, 2f), new Vector2(9f, -1f), new Vector2(11f, 1f));
         var graph = new RoadGraph();
-        int addedEvents = 0;
-        graph.EdgeAdded += _ => addedEvents++;
+        int changedEvents = 0;
+        graph.GraphChanged += _ => changedEvents++;
 
-        RoadPathSubmissionResult result = graph.SubmitPath(new RoadPath([line, cubic]));
+        RoadPathSubmissionResult result = graph.SubmitPath(new RoadBuildRequest(new RoadPath([line, cubic]), RoadType.Street));
 
         Assert.True(result.Success);
-        Assert.Equal(2, graph.GetAllEdges().Count());
-        Assert.Equal(3, graph.GetAllNodes().Count());
-        Assert.Equal(2, graph.GetNode(FindNodeID(graph, line.End))!.EdgeCount);
-        Assert.Equal(2, result.Changes.CreatedEdgeIDs.Count);
-        Assert.Equal(3, result.Changes.CreatedNodeIDs.Count);
-        Assert.Equal(2, addedEvents);
+        GraphEdge edge = Assert.Single(graph.GetAllEdges());
+        Assert.Collection(
+            edge.GeometrySegments,
+            segment => Assert.IsType<LineRoadGeometrySegment>(segment),
+            segment => Assert.IsType<CubicBezierRoadGeometrySegment>(segment));
+        Assert.DoesNotContain(graph.GetAllNodes(), node => node.Position == line.End);
+        Assert.Equal(2, graph.GetAllNodes().Count());
+        Assert.Equal([edge.ID], result.Changes.CreatedEdgeIDs);
+        Assert.Equal(2, result.Changes.CreatedNodeIDs.Count);
+        Assert.Equal(1, changedEvents);
     }
 
     [Fact]
     public void SubmitPath_StartNearExistingTerminalReusesNode()
     {
         var graph = new RoadGraph();
-        Assert.True(graph.AddRoad(Vector2.Zero, new Vector2(10f, 0f), []) >= 0);
+        RoadPathSubmissionResult existing = graph.SubmitPolyline(RoadType.Street, [
+            Vector2.Zero,
+            new Vector2(10f, 0f),
+        ]);
+        Assert.True(existing.Success);
+        int originalEdgeID = Assert.Single(existing.Changes.CreatedEdgeIDs);
         GraphNode terminal = Assert.Single(graph.GetAllNodes(), node => node.Position == new Vector2(10f, 0f));
         var cubic = new CubicBezierRoadGeometrySegment(
             new Vector2(10.25f, 0f), new Vector2(12f, 3f),
             new Vector2(16f, 3f), new Vector2(20f, 1f));
 
-        RoadPathSubmissionResult result = graph.SubmitPath(new RoadPath([cubic]));
+        RoadPathSubmissionResult result = graph.SubmitPath(new RoadBuildRequest(new RoadPath([cubic]), RoadType.Street));
 
-        Assert.True(result.Success);
-        GraphEdge created = Assert.Single(
-            result.Changes.CreatedEdgeIDs.Select(id => Assert.IsType<GraphEdge>(graph.GetEdge(id))));
-        Assert.True(created.NodeA == terminal.ID || created.NodeB == terminal.ID);
+        Assert.True(result.Success, $"Submission failed with {result.Error}.");
+        GraphEdge created = Assert.Single(graph.GetAllEdges());
+        Assert.Equal(originalEdgeID, created.ID);
+        Assert.DoesNotContain(graph.GetAllNodes(), node => node.ID == terminal.ID);
         Assert.Single(result.Changes.CreatedNodeIDs);
-        var snapped = Assert.IsType<CubicBezierRoadGeometrySegment>(Assert.Single(created.GeometrySegments));
+        Assert.Single(result.Changes.RemovedNodeIDs);
+        Assert.Empty(result.Changes.CreatedEdgeIDs);
+        Assert.Empty(result.Changes.RemovedEdgeIDs);
+        Assert.IsType<LineRoadGeometrySegment>(created.GeometrySegments[0]);
+        var snapped = Assert.IsType<CubicBezierRoadGeometrySegment>(created.GeometrySegments[1]);
         Assert.Equal(terminal.Position, snapped.Start);
         Assert.Equal(new Vector2(11.75f, 3f), snapped.Control1);
 
         var restored = new RoadGraph();
-        restored.RestoreState(SaveJson.Serialize(graph.CaptureState()));
+        RoadGraphTestCodec.LoadJson(restored, RoadGraphTestCodec.CaptureJson(graph));
         Assert.Equal(CaptureState(graph), CaptureState(restored));
     }
 
@@ -114,38 +125,41 @@ public sealed class RoadGraphNativePathSubmissionTests
         var cubic = new CubicBezierRoadGeometrySegment(
             Vector2.Zero, new Vector2(2f, 4f), new Vector2(7f, -2f), new Vector2(10f, 1f));
         var graph = new RoadGraph();
-        Assert.True(graph.SubmitPath(new RoadPath([cubic])).Success);
+        Assert.True(graph.SubmitPath(new RoadBuildRequest(new RoadPath([cubic]), RoadType.Street)).Success);
         string stateBefore = CaptureState(graph);
-        int addedEvents = 0;
-        graph.EdgeAdded += _ => addedEvents++;
+        int changedEvents = 0;
+        graph.GraphChanged += _ => changedEvents++;
 
-        RoadPathSubmissionResult result = graph.SubmitPath(new RoadPath([cubic]));
+        RoadPathSubmissionResult result = graph.SubmitPath(new RoadBuildRequest(new RoadPath([cubic]), RoadType.Street));
 
         Assert.False(result.Success);
         Assert.Equal(RoadPathSubmissionError.FullyCovered, result.Error);
         Assert.False(result.Changes.HasChanges);
         Assert.Equal(stateBefore, CaptureState(graph));
-        Assert.Equal(0, addedEvents);
+        Assert.Equal(0, changedEvents);
     }
 
     [Fact]
-    public void SubmitPath_CurveAndItsEndpointChordRemainDistinctGeometry()
+    public void SubmitPath_CurveAndItsEndpointChordFormOneRootedSelfLoop()
     {
         var cubic = new CubicBezierRoadGeometrySegment(
             Vector2.Zero, new Vector2(2f, 6f), new Vector2(8f, 6f), new Vector2(10f, 0f));
         var graph = new RoadGraph();
-        Assert.True(graph.SubmitPath(new RoadPath([cubic])).Success);
+        Assert.True(graph.SubmitPath(new RoadBuildRequest(new RoadPath([cubic]), RoadType.Street)).Success);
 
-        RoadPathSubmissionResult chordResult = graph.SubmitPath(new RoadPath([
+        RoadPathSubmissionResult chordResult = graph.SubmitPath(new RoadBuildRequest(new RoadPath([
             new LineRoadGeometrySegment(cubic.Start, cubic.End),
-        ]));
+        ]), RoadType.Street));
 
         Assert.True(chordResult.Success);
-        Assert.Equal(2, graph.GetAllEdges().Count());
-        Assert.Contains(graph.GetAllEdges(), edge =>
-            Assert.Single(edge.GeometrySegments) is CubicBezierRoadGeometrySegment);
-        Assert.Contains(graph.GetAllEdges(), edge =>
-            Assert.Single(edge.GeometrySegments) is LineRoadGeometrySegment);
+        GraphEdge loop = Assert.Single(graph.GetAllEdges());
+        Assert.Equal(loop.NodeA, loop.NodeB);
+        Assert.Equal(2, loop.GeometrySegments.Count);
+        Assert.Contains(loop.GeometrySegments, segment => segment is CubicBezierRoadGeometrySegment);
+        Assert.Contains(loop.GeometrySegments, segment => segment is LineRoadGeometrySegment);
+        GraphNode seam = Assert.Single(graph.GetAllNodes());
+        Assert.Equal(2, seam.IncidenceCount);
+        graph.AssertInvariants();
     }
 
     [Fact]
@@ -154,10 +168,10 @@ public sealed class RoadGraphNativePathSubmissionTests
         var rational = new RationalQuadraticRoadGeometrySegment(
             Vector2.Zero, 1f, new Vector2(3f, 5f), 0.6f, new Vector2(8f, 1f), 1.2f);
         var source = new RoadGraph();
-        Assert.True(source.SubmitPath(new RoadPath([rational])).Success);
+        Assert.True(source.SubmitPath(new RoadBuildRequest(new RoadPath([rational]), RoadType.Street)).Success);
         var restored = new RoadGraph();
 
-        restored.RestoreState(SaveJson.Serialize(source.CaptureState()));
+        RoadGraphTestCodec.LoadJson(restored, RoadGraphTestCodec.CaptureJson(source));
 
         var actual = Assert.IsType<RationalQuadraticRoadGeometrySegment>(
             Assert.Single(Assert.Single(restored.GetAllEdges()).GeometrySegments));
@@ -173,7 +187,7 @@ public sealed class RoadGraphNativePathSubmissionTests
     public void SubmitPath_InvalidRequestsReturnStructuredReasonsWithoutSideEffects()
     {
         var graph = new RoadGraph();
-        Assert.True(graph.AddRoad(Vector2.Zero, new Vector2(10f, 0f), []) >= 0);
+        Assert.True(graph.SubmitPolyline(RoadType.Street, [Vector2.Zero, new Vector2(10f, 0f)]).Success);
 
         AssertRejected(graph, null, RoadPathSubmissionError.MissingPath);
         AssertRejected(graph, new RoadPath([]), RoadPathSubmissionError.NoSegments);
@@ -200,13 +214,6 @@ public sealed class RoadGraphNativePathSubmissionTests
                     new Vector2(12.25f, 0f), 2f, Mathf.Pi, Mathf.Pi / 2f),
             ]),
             RoadPathSubmissionError.UnsupportedEndpointSnap);
-        AssertRejected(
-            graph,
-            new RoadPath([
-                new LineRoadGeometrySegment(new Vector2(-0.25f, 0f), new Vector2(20f, 5f)),
-                new LineRoadGeometrySegment(new Vector2(20f, 5f), new Vector2(0.25f, 0f)),
-            ]),
-            RoadPathSubmissionError.RepeatedPoint);
     }
 
     private static void AssertRejected(
@@ -215,31 +222,26 @@ public sealed class RoadGraphNativePathSubmissionTests
         RoadPathSubmissionError expectedError)
     {
         string stateBefore = CaptureState(graph);
-        int addedEvents = 0;
-        int removedEvents = 0;
-        graph.EdgeAdded += OnAdded;
-        graph.EdgeRemoved += OnRemoved;
+        int changedEvents = 0;
+        graph.GraphChanged += OnChanged;
 
-        RoadPathSubmissionResult result = graph.SubmitPath(path);
+        RoadBuildRequest? request = path is null
+            ? null
+            : new RoadBuildRequest(path, RoadType.Street);
+        RoadPathSubmissionResult result = graph.SubmitPath(request);
 
-        graph.EdgeAdded -= OnAdded;
-        graph.EdgeRemoved -= OnRemoved;
+        graph.GraphChanged -= OnChanged;
         Assert.False(result.Success);
         Assert.Equal(expectedError, result.Error);
         Assert.False(result.Changes.HasChanges);
         Assert.Equal(stateBefore, CaptureState(graph));
-        Assert.Equal(0, addedEvents);
-        Assert.Equal(0, removedEvents);
+        Assert.Equal(0, changedEvents);
         return;
 
-        void OnAdded(GraphEdge _) => addedEvents++;
-        void OnRemoved(GraphEdge _) => removedEvents++;
+        void OnChanged(RoadGraphChangedEvent _) => changedEvents++;
     }
 
-    private static int FindNodeID(RoadGraph graph, Vector2 position) =>
-        Assert.Single(graph.GetAllNodes(), node => node.Position == position).ID;
-
-    private static string CaptureState(RoadGraph graph) => SaveJson.Serialize(graph.CaptureState());
+    private static string CaptureState(RoadGraph graph) => RoadGraphTestCodec.CaptureJson(graph);
 
     private sealed class UnknownRoadGeometrySegment : RoadGeometrySegment
     {
@@ -261,5 +263,8 @@ public sealed class RoadGraphNativePathSubmissionTests
             new(
                 new UnknownRoadGeometrySegment(Start, GetPosition(parameter)),
                 new UnknownRoadGeometrySegment(GetPosition(parameter), End));
+
+        public override RoadGeometrySegment Reverse() =>
+            throw new NotSupportedException();
     }
 }

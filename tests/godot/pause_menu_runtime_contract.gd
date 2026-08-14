@@ -2,6 +2,7 @@ extends SceneTree
 
 const MAP_SCENE := "res://Scenes/MapTest.tscn"
 const MAIN_MENU_SCENE := "res://Scenes/MainMenu.tscn"
+const V3_SAVE_FIXTURE := preload("res://tests/godot/v3_save_fixture.gd")
 
 var failed := false
 
@@ -179,7 +180,9 @@ func run() -> void:
 
 	await activate_focused_with_keyboard(save_button)
 	assert_true(paused and pause_menu.visible and save_management_content.visible, "Keyboard Save did not open save management")
-	assert_true(root.gui_get_focus_owner() == save_name_input, "Save management did not focus the name input")
+	assert_true(
+		await wait_for_focus(save_name_input),
+		"Save management did not focus the name input; actual=%s" % root.gui_get_focus_owner())
 	assert_rect_in_viewport(pause_menu.get_node("Center/MainPanel").get_global_rect(), Vector2(1600, 900), "Save management panel")
 	DisplayServer.window_set_size(Vector2i(435, 480))
 	root.size = Vector2i(435, 480)
@@ -190,7 +193,7 @@ func run() -> void:
 	root.size = Vector2i(1600, 900)
 	await process_frame
 	await process_frame
-	if cleanup_runtime_ui_slots(save_manager, save_slot_list):
+	if await cleanup_runtime_ui_slots(save_manager, save_slot_list):
 		save_management_back_button.emit_signal("pressed")
 		await activate_focused_with_keyboard(save_button)
 
@@ -209,7 +212,7 @@ func run() -> void:
 	assert_true(first_ui_index >= 0, "First manual slot is missing from save management")
 	await mouse_click_item(save_slot_list, first_ui_index)
 	assert_selected_slot(save_slot_list, first_ui_slot_id, "first slot before overwrite")
-	var first_manifest_path := "res://saves/%s/manifest.json" % first_ui_slot_id
+	var first_manifest_path := "user://saves-v3/%s/manifest.json" % first_ui_slot_id
 	var first_manifest_before_cancel := FileAccess.get_file_as_string(first_manifest_path)
 	await mouse_click(overwrite_save_button)
 	await process_frame
@@ -237,6 +240,11 @@ func run() -> void:
 	await process_frame
 	await activate_focused_with_keyboard(confirm_button)
 	assert_true(save_manager.get("CurrentSlotID") == second_ui_slot_id and save_status.text.contains("已加载"), "Confirmed load did not select the target slot")
+	assert_true(not pause_menu.visible and not paused, "Successful load did not close PauseMenu after the matching commit")
+	hud._Input(key_event(KEY_ESCAPE))
+	await process_frame
+	await activate_focused_with_keyboard(load_button)
+	assert_true(save_management_content.visible and paused, "PauseMenu did not reopen save management after successful load")
 
 	first_ui_index = find_item_by_metadata(save_slot_list, first_ui_slot_id)
 	await mouse_click_item(save_slot_list, first_ui_index)
@@ -254,9 +262,9 @@ func run() -> void:
 	save_name_input.text = "Runtime UI damaged"
 	await mouse_click(save_as_button)
 	var damaged_ui_slot_id: String = save_manager.get("CurrentSlotID")
-	var damaged_manifest := FileAccess.open("res://saves/%s/manifest.json" % damaged_ui_slot_id, FileAccess.WRITE)
+	var damaged_manifest := FileAccess.open("user://saves-v3/%s/manifest.json" % damaged_ui_slot_id, FileAccess.WRITE)
 	assert_true(damaged_manifest != null, "Could not open manual manifest for damaged-slot UI contract")
-	damaged_manifest.store_string("{broken")
+	damaged_manifest.store_string('{"formatFamily":"simple-cities-v3","schemaVersion":99}')
 	damaged_manifest.close()
 	await mouse_click(save_management_back_button)
 	await activate_focused_with_keyboard(load_button)
@@ -269,7 +277,7 @@ func run() -> void:
 	await process_frame
 	await mouse_click(confirm_button)
 	assert_true(not save_manager.SaveSlotExists(damaged_ui_slot_id), "Damaged slot could not be deleted through save management")
-	assert_true(save_manager.DeleteSlot(second_ui_slot_id), "Runtime duplicate slot cleanup failed")
+	assert_true(await V3_SAVE_FIXTURE.delete_slot(save_manager, second_ui_slot_id), "Runtime duplicate slot cleanup failed")
 	await mouse_click(save_management_back_button)
 	assert_true(main_content.visible and paused, "Save management Back did not return to the paused main view")
 
@@ -300,33 +308,41 @@ func run() -> void:
 	await process_frame
 	await process_frame
 	assert_true(current_scene != null and current_scene.scene_file_path == MAP_SCENE, "MainMenu did not start a new MapTest session")
-	assert_true(save_manager.get("RegisteredSaveableCount") == 2, "New MapTest session did not register exactly camera and road graph")
-	assert_true(save_manager.Save("autosave"), "Saving after returning through MainMenu failed")
-	var manifest_file := FileAccess.open("res://saves/autosave/manifest.json", FileAccess.READ)
-	assert_true(manifest_file != null, "V2 autosave manifest is missing")
+	assert_true(save_manager.get("RegisteredSaveableCount") == 1, "New MapTest session did not register exactly the RoadGraph")
+	assert_true(await V3_SAVE_FIXTURE.save(save_manager, "autosave"), "Saving after returning through MainMenu failed")
+	var manifest_file := FileAccess.open("user://saves-v3/autosave/manifest.json", FileAccess.READ)
+	assert_true(manifest_file != null, "V3 autosave manifest is missing")
 	var manifest: Dictionary = JSON.parse_string(manifest_file.get_as_text())
 	manifest_file.close()
-	assert_true(manifest.get("files", []) == ["road_network.json"], "V2 manifest must contain only road_network.json")
-	assert_true(not FileAccess.file_exists("res://saves/autosave/camera.json"), "V2 autosave unexpectedly contains camera.json")
+	var manifest_files: Array = manifest.get("files", [])
+	assert_true(
+		manifest.get("formatFamily", "") == "simple-cities-v3" and
+		manifest.get("schemaVersion", -1) == 1 and
+		manifest_files.size() == 1 and
+		manifest_files[0] is Dictionary and
+		manifest_files[0].get("name", "") == "road_network.json",
+		"V3 manifest must contain only road_network.json")
+	assert_true(not FileAccess.file_exists("user://saves-v3/autosave/camera.json"), "V3 autosave unexpectedly contains camera.json")
 	var runtime_camera: Camera2D = current_scene.get_node("Camera2D")
 	runtime_camera.position = Vector2(321.0, 654.0)
-	assert_true(save_manager.Load("autosave"), "Loading after returning through MainMenu failed")
-	assert_true(runtime_camera.position == Vector2(321.0, 654.0), "V2 load changed excluded camera state")
-	assert_true(save_manager.SaveAs("Runtime prevalidation"), "Creating runtime manual slot failed")
+	assert_true(await V3_SAVE_FIXTURE.load_slot(save_manager, "autosave"), "Loading after returning through MainMenu failed")
+	assert_true(runtime_camera.position == Vector2(321.0, 654.0), "V3 load changed excluded camera state")
+	assert_true(await V3_SAVE_FIXTURE.save_as(save_manager, "Runtime prevalidation"), "Creating runtime manual slot failed")
 	var manual_slot_id: String = save_manager.get("CurrentSlotID")
 	assert_true(manual_slot_id.begins_with("manual-"), "SaveAs did not select a generated manual slot ID")
-	assert_true(not save_manager.Save("missing-slot"), "Saving a nonexistent manual slot should fail")
+	assert_true(not await V3_SAVE_FIXTURE.save(save_manager, "missing-slot"), "Saving a nonexistent manual slot should fail")
 	assert_true(save_manager.get("CurrentSlotID") == manual_slot_id, "Failed save changed CurrentSlotID")
-	assert_true(not save_manager.DeleteSlot("../escape"), "Deleting an unsafe slot ID should fail")
+	assert_true(not await V3_SAVE_FIXTURE.delete_slot(save_manager, "../escape"), "Deleting an unsafe slot ID should fail")
 	assert_true(save_manager.get("CurrentSlotID") == manual_slot_id, "Failed delete changed CurrentSlotID")
-	var road_file := FileAccess.open("res://saves/autosave/road_network.json", FileAccess.WRITE)
-	assert_true(road_file != null, "Could not corrupt autosave road file for prevalidation contract")
-	road_file.store_string("{\"schemaVersion\":1,\"nextID\":1,\"nodes\":[{\"id\":0,\"x\":0,\"y\":0}],\"edges\":[],\"groups\":[]}")
-	road_file.close()
-	assert_true(not save_manager.Load("autosave"), "Corrupt RoadGraph payload was accepted")
+	assert_true(
+		V3_SAVE_FIXTURE.publish_payload_text(
+			"autosave",
+			"{\"formatFamily\":\"simple-cities-v3\",\"payloadType\":\"road-network\",\"schemaVersion\":1,\"nextID\":1,\"nodes\":[{\"id\":0,\"x\":0,\"y\":0}],\"edges\":[]}"),
+		"Could not publish corrupt autosave RoadGraph for prevalidation contract")
+	assert_true(not await V3_SAVE_FIXTURE.load_slot(save_manager, "autosave"), "Corrupt RoadGraph payload was accepted")
 	assert_true(save_manager.get("CurrentSlotID") == manual_slot_id, "Failed load changed CurrentSlotID")
-	assert_true(save_manager.DeleteSlot(manual_slot_id), "Runtime manual slot cleanup failed")
-	assert_true(save_manager.Save("autosave"), "Autosave cleanup after corrupt-load contract failed")
+	assert_true(await V3_SAVE_FIXTURE.delete_slot(save_manager, manual_slot_id), "Runtime manual slot cleanup failed")
+	assert_true(await V3_SAVE_FIXTURE.save(save_manager, "autosave"), "Autosave cleanup after corrupt-load contract failed")
 
 	print("PASS pause menu runtime contract")
 	quit(0)
@@ -357,6 +373,16 @@ func activate_focused_with_keyboard(control: Control) -> void:
 	release.strength = 0.0
 	Input.parse_input_event(release)
 	await process_frame
+	var owning_pause_menu := find_ancestor_named(control, "PauseMenu")
+	if owning_pause_menu != null:
+		assert_true(await wait_for_save_operation_idle(owning_pause_menu), "Keyboard save operation did not reach a terminal state")
+
+func wait_for_focus(control: Control) -> bool:
+	for _frame in 8:
+		if root.gui_get_focus_owner() == control:
+			return true
+		await process_frame
+	return false
 
 func mouse_click(control: Control) -> void:
 	assert_true(control is BaseButton, "%s is not a mouse-activatable button" % control.name)
@@ -365,6 +391,24 @@ func mouse_click(control: Control) -> void:
 	assert_true(control.get_global_rect().has_point(control.get_global_rect().get_center()), "%s has no mouse hit area" % control.name)
 	control.emit_signal("pressed")
 	await process_frame
+	var owning_pause_menu := find_ancestor_named(control, "PauseMenu")
+	if owning_pause_menu != null:
+		assert_true(await wait_for_save_operation_idle(owning_pause_menu), "Save operation did not reach a terminal state")
+
+func find_ancestor_named(node: Node, ancestor_name: String) -> Node:
+	var current := node
+	while current != null:
+		if current.name == ancestor_name:
+			return current
+		current = current.get_parent()
+	return null
+
+func wait_for_save_operation_idle(pause_menu: Node) -> bool:
+	for _frame in 7200:
+		if not bool(pause_menu.get("IsSaveOperationBusy")):
+			return true
+		await process_frame
+	return false
 
 func mouse_click_item(item_list: ItemList, index: int) -> void:
 	var item_rect := item_list.get_item_rect(index)
@@ -396,7 +440,7 @@ func cleanup_runtime_ui_slots(save_manager: Node, item_list: ItemList) -> bool:
 	for index in item_list.item_count:
 		if not item_list.get_item_text(index).begins_with("手动  ·  Runtime UI "):
 			continue
-		removed = save_manager.DeleteSlot(str(item_list.get_item_metadata(index))) or removed
+		removed = await V3_SAVE_FIXTURE.delete_slot(save_manager, str(item_list.get_item_metadata(index))) or removed
 	return removed
 
 func confirmation_message(pause_menu: Control) -> String:

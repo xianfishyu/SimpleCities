@@ -182,21 +182,6 @@ size_flags_horizontal = 3
 layout_mode = 2
 text = "--"
 
-[node name="RoadGroupRow" type="HBoxContainer" parent="DebugPanel/PanelMargin/Rows/DebugContent" unique_id=301884421]
-layout_mode = 2
-
-[node name="RoadGroupLabel" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/RoadGroupRow" unique_id=182247382]
-layout_mode = 2
-text = "RoadGroup"
-
-[node name="RoadGroupSpacer" type="Control" parent="DebugPanel/PanelMargin/Rows/DebugContent/RoadGroupRow" unique_id=664671129]
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="RoadGroupValue" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/RoadGroupRow" unique_id=1677075965]
-layout_mode = 2
-text = "--"
-
 [node name="GraphEdgeRow" type="HBoxContainer" parent="DebugPanel/PanelMargin/Rows/DebugContent" unique_id=1572964922]
 layout_mode = 2
 

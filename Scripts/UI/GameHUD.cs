@@ -1,4 +1,5 @@
 using Godot;
+using System;
 
 /// <summary>
 /// 游戏内 HUD 的协调器。它解析游戏系统依赖、连接各子面板事件，并统一处理响应式布局和暂停菜单依赖。
@@ -24,6 +25,7 @@ public partial class GameHUD : CanvasLayer
     private Callable _panelResizedCallable;
     private bool _layoutRefreshQueued;
     private bool _layoutSignalsConnected;
+    private bool _exitTransitionPending;
 
     /// <summary>解析依赖并完成一次 HUD 生命周期内的组件配置、信号连接和首帧布局。</summary>
     public override void _Ready()
@@ -59,7 +61,10 @@ public partial class GameHUD : CanvasLayer
     public override void _ExitTree()
     {
         if (_pauseMenu != null && _pauseMenu.IsOpen)
+        {
+            _pauseMenu.SetExitConvergencePending(false);
             _pauseMenu.Close();
+        }
         DisconnectViewportResize();
         if (_constructionDock != null)
         {
@@ -340,6 +345,7 @@ public partial class GameHUD : CanvasLayer
         if (_pauseMenu.IsOpen || _uiManager.IsModalActive)
             return;
 
+        _toolManager?.CancelRoadSessions();
         _uiManager.PushModal(PauseMenuPanelName);
         _pauseMenu.Open();
     }
@@ -353,23 +359,62 @@ public partial class GameHUD : CanvasLayer
         _uiManager.PopModal();
     }
 
-    private void ReturnToMainMenu()
+    private async void ReturnToMainMenu()
     {
-        ClosePauseMenu();
-        CallDeferred(MethodName.ChangeToMainMenu);
-    }
+        if (_exitTransitionPending)
+            return;
+        _exitTransitionPending = true;
+        _pauseMenu.SetExitConvergencePending(true);
 
-    private void ChangeToMainMenu()
-    {
-        Error result = GetTree().ChangeSceneToFile(MainMenuScenePath);
-        if (result != Error.Ok)
-            GD.PushError($"GameHUD: failed to change to main menu ({result}).");
+        SaveManager? saveManager = GodotObject.IsInstanceValid(SaveManager.Instance)
+            ? SaveManager.Instance
+            : null;
+        try
+        {
+            if (saveManager is not null)
+                await saveManager.DrainCurrentSceneOperationsAsync();
+            if (!IsInsideTree())
+                return;
+            if (saveManager?.IsApplicationExitPending == true)
+                return;
+
+            _pauseMenu.SetExitConvergencePending(false);
+            ClosePauseMenu();
+            Error result = GetTree().ChangeSceneToFile(MainMenuScenePath);
+            if (result == Error.Ok)
+                return;
+
+            bool resumed = saveManager?.ResumeCurrentSceneOperations() != false;
+            GD.PushError(
+                $"GameHUD: failed to change to main menu ({result}); save admission resumed={resumed}.");
+            OpenPauseMenu();
+            _exitTransitionPending = false;
+        }
+        catch (Exception exception)
+        {
+            if (IsInsideTree())
+            {
+                saveManager?.ResumeCurrentSceneOperations();
+                _pauseMenu.SetExitConvergencePending(false);
+                _exitTransitionPending = false;
+            }
+            GD.PushError($"GameHUD: failed to converge scene exit: {exception.Message}");
+        }
     }
 
     private void QuitToDesktop()
     {
-        ClosePauseMenu();
-        GetTree().Quit();
+        if (_exitTransitionPending)
+            return;
+        _exitTransitionPending = true;
+        _pauseMenu.SetExitConvergencePending(true);
+        SaveManager? saveManager = GodotObject.IsInstanceValid(SaveManager.Instance)
+            ? SaveManager.Instance
+            : null;
+        if (saveManager is not null)
+            saveManager.RequestApplicationQuit();
+        else
+            GetTree().Quit();
     }
 
 }

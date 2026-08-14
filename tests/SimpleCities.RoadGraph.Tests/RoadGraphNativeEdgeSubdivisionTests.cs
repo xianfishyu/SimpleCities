@@ -1,5 +1,4 @@
 using Godot;
-using System.Text.Json.Nodes;
 
 namespace SimpleCities.Tests;
 
@@ -23,11 +22,11 @@ public sealed class RoadGraphNativeEdgeSubdivisionTests
 
     [Theory]
     [MemberData(nameof(NativeGeometryCases))]
-    public void SplitEdgeAtGeometryParameters_PreservesEveryNativeGeometryType(
+    public void SplitEdgeAtGeometryParameters_RecanonicalizesEveryNativeGeometryType(
         RoadGeometrySegment geometry)
     {
         var graph = new RoadGraph();
-        RoadPathSubmissionResult submitted = graph.SubmitPath(new RoadPath([geometry]));
+        RoadPathSubmissionResult submitted = graph.SubmitPath(new RoadBuildRequest(new RoadPath([geometry]), RoadType.Street));
         int originalEdgeID = Assert.Single(submitted.Changes.CreatedEdgeIDs);
         GraphEdge original = Assert.IsType<GraphEdge>(graph.GetEdge(originalEdgeID));
         int originalNodeA = original.NodeA;
@@ -38,14 +37,14 @@ public sealed class RoadGraphNativeEdgeSubdivisionTests
             [new EdgeGeometrySplitPoint(0, 0.4f)]);
 
         Assert.True(split);
-        Assert.Null(graph.GetEdge(originalEdgeID));
-        GraphEdge[] replacements = graph.GetAllEdges().OrderBy(edge => edge.ID).ToArray();
-        Assert.Equal(2, replacements.Length);
-        Assert.All(replacements, edge => Assert.IsType(geometry.GetType(), Assert.Single(edge.GeometrySegments)));
-        Assert.Contains(replacements, edge => edge.NodeA == originalNodeA || edge.NodeB == originalNodeA);
-        Assert.Contains(replacements, edge => edge.NodeA == originalNodeB || edge.NodeB == originalNodeB);
-        GraphNode splitNode = Assert.Single(graph.GetAllNodes(), node => node.EdgeCount == 2);
-        Assert.Equal(geometry.GetPosition(0.4f), splitNode.Position);
+        GraphEdge replacement = Assert.Single(graph.GetAllEdges());
+        Assert.Equal(originalEdgeID, replacement.ID);
+        Assert.Equal(originalNodeA, replacement.NodeA);
+        Assert.Equal(originalNodeB, replacement.NodeB);
+        Assert.All(replacement.GeometrySegments, segment => Assert.IsType(geometry.GetType(), segment));
+        Assert.Equal(2, replacement.GeometrySegments.Count);
+        Assert.DoesNotContain(graph.GetAllNodes(), node =>
+            node.Position.DistanceTo(geometry.GetPosition(0.4f)) <= 2e-3f);
     }
 
     [Fact]
@@ -54,17 +53,10 @@ public sealed class RoadGraphNativeEdgeSubdivisionTests
         var geometry = new CubicBezierRoadGeometrySegment(
             Vector2.Zero, new Vector2(0f, 12f), new Vector2(16f, 12f), new Vector2(16f, 0f));
         var graph = new RoadGraph();
-        RoadPathSubmissionResult submitted = graph.SubmitPath(new RoadPath([geometry]));
+        RoadPathSubmissionResult submitted = graph.SubmitPath(new RoadBuildRequest(new RoadPath([geometry]), RoadType.Street));
         int originalEdgeID = Assert.Single(submitted.Changes.CreatedEdgeIDs);
-        int groupID = Assert.IsType<GraphEdge>(graph.GetEdge(originalEdgeID)).GroupID;
-        int removedEvents = 0;
-        var addedEdgeIDs = new List<int>();
-        graph.EdgeRemoved += edge =>
-        {
-            Assert.Equal(originalEdgeID, edge.ID);
-            removedEvents++;
-        };
-        graph.EdgeAdded += edge => addedEdgeIDs.Add(edge.ID);
+        var events = new List<RoadGraphChangedEvent>();
+        graph.GraphChanged += events.Add;
 
         bool split = graph.SplitEdgeAtGeometryParameters(
             originalEdgeID,
@@ -78,25 +70,16 @@ public sealed class RoadGraphNativeEdgeSubdivisionTests
             ]);
 
         Assert.True(split);
-        Assert.Equal(1, removedEvents);
-        Assert.Equal(4, addedEdgeIDs.Count);
-        Assert.Equal(4, graph.GetAllEdges().Count());
-        Assert.Equal(5, graph.GetAllNodes().Count());
-        RoadGroup group = Assert.IsType<RoadGroup>(graph.GetGroup(groupID));
-        Assert.Equal(4, group.EdgeCount);
-        Assert.All(graph.GetAllEdges(), edge => Assert.Equal(groupID, edge.GroupID));
-        Assert.All(graph.GetAllEdges(), edge =>
-        {
-            Assert.Contains(
-                Assert.IsType<GraphNode>(graph.GetNode(edge.NodeA)).Edges,
-                reference => reference.EdgeID == edge.ID);
-            Assert.Contains(
-                Assert.IsType<GraphNode>(graph.GetNode(edge.NodeB)).Edges,
-                reference => reference.EdgeID == edge.ID);
-        });
-        Assert.DoesNotContain(originalEdgeID, addedEdgeIDs);
+        RoadGraphChangedEvent change = Assert.Single(events);
+        Assert.Equal([originalEdgeID], change.Changes.UpdatedEdgeIDs);
+        Assert.Empty(change.Changes.CreatedEdgeIDs);
+        Assert.Empty(change.Changes.RemovedEdgeIDs);
+        GraphEdge replacement = Assert.Single(graph.GetAllEdges());
+        Assert.Equal(originalEdgeID, replacement.ID);
+        Assert.Equal(4, replacement.GeometrySegments.Count);
+        Assert.Equal(2, graph.GetAllNodes().Count());
         GraphEdge closest = Assert.IsType<GraphEdge>(graph.FindClosestEdge(geometry.GetPosition(0.6f), 0.001f));
-        Assert.Contains(closest.ID, addedEdgeIDs);
+        Assert.Equal(originalEdgeID, closest.ID);
     }
 
     [Fact]
@@ -115,16 +98,17 @@ public sealed class RoadGraphNativeEdgeSubdivisionTests
                 new EdgeGeometrySplitPoint(0, 1f),
             ]));
 
-        GraphEdge[] replacements = graph.GetAllEdges().OrderBy(edge => edge.ID).ToArray();
-        Assert.Equal(2, replacements.Length);
-        Assert.IsType<LineRoadGeometrySegment>(Assert.Single(replacements[0].GeometrySegments));
-        Assert.IsType<CubicBezierRoadGeometrySegment>(Assert.Single(replacements[1].GeometrySegments));
-        Assert.Single(graph.GetAllNodes(), node => node.Position == line.End && node.EdgeCount == 2);
+        GraphEdge replacement = Assert.Single(graph.GetAllEdges());
+        Assert.Collection(
+            replacement.GeometrySegments,
+            segment => Assert.IsType<LineRoadGeometrySegment>(segment),
+            segment => Assert.IsType<CubicBezierRoadGeometrySegment>(segment));
+        Assert.DoesNotContain(graph.GetAllNodes(), node => node.Position == line.End);
 
-        string state = SaveJson.Serialize(graph.CaptureState());
+        string state = RoadGraphTestCodec.CaptureJson(graph);
         var restored = new RoadGraph();
-        restored.RestoreState(state);
-        Assert.Equal(state, SaveJson.Serialize(restored.CaptureState()));
+        RoadGraphTestCodec.LoadJson(restored, state);
+        Assert.Equal(state, RoadGraphTestCodec.CaptureJson(restored));
     }
 
     [Fact]
@@ -143,29 +127,25 @@ public sealed class RoadGraphNativeEdgeSubdivisionTests
                 new EdgeGeometrySplitPoint(0, 0.5f),
             ]));
 
-        GraphEdge[] replacements = graph.GetAllEdges().OrderBy(edge => edge.ID).ToArray();
-        Assert.Equal(3, replacements.Length);
-        Assert.IsType<LineRoadGeometrySegment>(Assert.Single(replacements[0].GeometrySegments));
+        GraphEdge replacement = Assert.Single(graph.GetAllEdges());
         Assert.Collection(
-            replacements[1].GeometrySegments,
+            replacement.GeometrySegments,
             segment => Assert.IsType<LineRoadGeometrySegment>(segment),
+            segment => Assert.IsType<CubicBezierRoadGeometrySegment>(segment),
             segment => Assert.IsType<CubicBezierRoadGeometrySegment>(segment));
-        Assert.IsType<CubicBezierRoadGeometrySegment>(Assert.Single(replacements[2].GeometrySegments));
     }
 
     [Fact]
     public void SplitEdgeAtGeometryParameters_EndpointOnlyRequestHasNoSideEffects()
     {
         var graph = new RoadGraph();
-        RoadPathSubmissionResult submitted = graph.SubmitPath(new RoadPath([
+        RoadPathSubmissionResult submitted = graph.SubmitPath(new RoadBuildRequest(new RoadPath([
             new LineRoadGeometrySegment(Vector2.Zero, new Vector2(10f, 0f)),
-        ]));
+        ]), RoadType.Street));
         int edgeID = Assert.Single(submitted.Changes.CreatedEdgeIDs);
-        string stateBefore = SaveJson.Serialize(graph.CaptureState());
-        int addedEvents = 0;
-        int removedEvents = 0;
-        graph.EdgeAdded += _ => addedEvents++;
-        graph.EdgeRemoved += _ => removedEvents++;
+        string stateBefore = RoadGraphTestCodec.CaptureJson(graph);
+        int changedEvents = 0;
+        graph.GraphChanged += _ => changedEvents++;
 
         bool split = graph.SplitEdgeAtGeometryParameters(
             edgeID,
@@ -175,47 +155,19 @@ public sealed class RoadGraphNativeEdgeSubdivisionTests
             ]);
 
         Assert.False(split);
-        Assert.Equal(stateBefore, SaveJson.Serialize(graph.CaptureState()));
-        Assert.Equal(0, addedEvents);
-        Assert.Equal(0, removedEvents);
+        Assert.Equal(stateBefore, RoadGraphTestCodec.CaptureJson(graph));
+        Assert.Equal(0, changedEvents);
     }
 
     private static RoadGraph RestoreSingleEdge(IReadOnlyList<RoadGeometrySegment> geometry)
     {
-        var geometryData = new JsonArray();
-        foreach (RoadGeometrySegment segment in geometry)
-            geometryData.Add(JsonNode.Parse(SaveJson.Serialize(RoadGeometrySerializer.ToData(segment))));
-
-        var payload = new JsonObject
-        {
-            ["schemaVersion"] = 1,
-            ["nextID"] = 4,
-            ["nodes"] = new JsonArray(
-                CreateNode(0, geometry[0].Start),
-                CreateNode(1, geometry[^1].End)),
-            ["edges"] = new JsonArray(new JsonObject
-            {
-                ["id"] = 2,
-                ["nodeAID"] = 0,
-                ["nodeBID"] = 1,
-                ["groupID"] = 3,
-                ["geometry"] = geometryData,
-            }),
-            ["groups"] = new JsonArray(new JsonObject
-            {
-                ["id"] = 3,
-                ["edgeIDs"] = new JsonArray(2),
-            }),
-        };
-        var graph = new RoadGraph();
-        graph.RestoreState(payload.ToJsonString());
-        return graph;
+        RoadGraph source = RoadGraph.FromPreparedTopology(new PreparedRoadGraphTopology(
+            3,
+            [
+                new PreparedRoadNode(0, geometry[0].Start),
+                new PreparedRoadNode(1, geometry[^1].End),
+            ],
+            [new PreparedRoadEdge(RoadType.Street, 2, 0, 1, geometry)]));
+        return RoadGraphTestCodec.Clone(source);
     }
-
-    private static JsonObject CreateNode(int id, Vector2 position) => new()
-    {
-        ["id"] = id,
-        ["x"] = position.X,
-        ["y"] = position.Y,
-    };
 }

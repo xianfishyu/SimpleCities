@@ -4,6 +4,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleCities", "SimpleCitie
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleCities.RoadGraph.Tests", "tests\SimpleCities.RoadGraph.Tests\SimpleCities.RoadGraph.Tests.csproj", "{A71E645F-C562-48B3-81C7-256958068164}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleCities.SaveLockProbe", "tests\SimpleCities.SaveLockProbe\SimpleCities.SaveLockProbe.csproj", "{B8A40A6E-4AF7-4E28-A7E8-C2D953F7CB64}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 	Debug|Any CPU = Debug|Any CPU
@@ -23,5 +25,11 @@ Global
 		{A71E645F-C562-48B3-81C7-256958068164}.ExportDebug|Any CPU.Build.0 = Debug|Any CPU
 		{A71E645F-C562-48B3-81C7-256958068164}.ExportRelease|Any CPU.ActiveCfg = Release|Any CPU
 		{A71E645F-C562-48B3-81C7-256958068164}.ExportRelease|Any CPU.Build.0 = Release|Any CPU
+		{B8A40A6E-4AF7-4E28-A7E8-C2D953F7CB64}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B8A40A6E-4AF7-4E28-A7E8-C2D953F7CB64}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B8A40A6E-4AF7-4E28-A7E8-C2D953F7CB64}.ExportDebug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B8A40A6E-4AF7-4E28-A7E8-C2D953F7CB64}.ExportDebug|Any CPU.Build.0 = Debug|Any CPU
+		{B8A40A6E-4AF7-4E28-A7E8-C2D953F7CB64}.ExportRelease|Any CPU.ActiveCfg = Release|Any CPU
+		{B8A40A6E-4AF7-4E28-A7E8-C2D953F7CB64}.ExportRelease|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

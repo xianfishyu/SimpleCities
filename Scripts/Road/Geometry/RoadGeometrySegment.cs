@@ -54,6 +54,7 @@ public abstract class RoadGeometrySegment
     public abstract Vector2 GetPosition(float parameter);
     public abstract Vector2 GetUnitTangent(float parameter);
     public abstract RoadGeometrySplit Split(float parameter);
+    public abstract RoadGeometrySegment Reverse();
 
     public virtual RoadGeometryClosestPoint FindClosestPoint(Vector2 point, float tolerance = 1e-3f)
     {

@@ -5,16 +5,16 @@ namespace SimpleCities.Tests;
 public sealed class GraphEdgeGeometryTests
 {
     [Fact]
-    public void AddRoad_PolylineIsStoredAsAuthoritativeLineSegments()
+    public void SubmitPolyline_PolylineIsStoredAsAuthoritativeLineSegments()
     {
         var graph = new RoadGraph();
         Vector2 start = new(-4f, 1f);
-        Vector2 waypoint = new(2f, 4f);
+        Vector2 waypoint = new(2f, 5f);
         Vector2 end = new(10f, 8f);
 
-        int groupID = graph.AddRoad(start, end, [waypoint]);
+        RoadPathSubmissionResult result = graph.SubmitPolyline(RoadType.Street, [start, waypoint, end]);
 
-        Assert.True(groupID >= 0);
+        Assert.True(result.Success);
         GraphEdge edge = Assert.Single(graph.GetAllEdges());
         Assert.Collection(
             edge.GeometrySegments,
@@ -28,7 +28,7 @@ public sealed class GraphEdgeGeometryTests
     public void GeometrySegments_CannotBeReplacedThroughThePublicView()
     {
         var graph = new RoadGraph();
-        graph.AddRoad(Vector2.Zero, new Vector2(8f, 0f), []);
+        Assert.True(graph.SubmitPolyline(RoadType.Street, [Vector2.Zero, new Vector2(8f, 0f)]).Success);
         GraphEdge edge = Assert.Single(graph.GetAllEdges());
         var replacement = new LineRoadGeometrySegment(Vector2.Zero, Vector2.One);
 
@@ -47,7 +47,7 @@ public sealed class GraphEdgeGeometryTests
             new Vector2(10f, 2f));
         RoadGeometrySegment[] callerOwnedSegments = [cubic];
 
-        var edge = new GraphEdge(1, 2, 3, callerOwnedSegments, 4);
+        var edge = new GraphEdge(RoadType.Street, 1, 2, 3, callerOwnedSegments);
         callerOwnedSegments[0] = new LineRoadGeometrySegment(Vector2.Zero, Vector2.One);
 
         var stored = Assert.IsType<CubicBezierRoadGeometrySegment>(Assert.Single(edge.GeometrySegments));
@@ -61,13 +61,15 @@ public sealed class GraphEdgeGeometryTests
     public void CaptureAndRestore_PreservesPolylineLineSegmentSemantics()
     {
         var source = new RoadGraph();
-        source.AddRoad(
+        Assert.True(source.SubmitPolyline(RoadType.Street, [
             new Vector2(-6f, -2f),
+            new Vector2(-2f, 0f),
+            new Vector2(8f, 5f),
             new Vector2(14f, 8f),
-            [new Vector2(-2f, 0f), new Vector2(8f, 5f)]);
+        ]).Success);
         var restored = new RoadGraph();
 
-        restored.RestoreState(SaveJson.Serialize(source.CaptureState()));
+        RoadGraphTestCodec.LoadJson(restored, RoadGraphTestCodec.CaptureJson(source));
 
         GraphEdge sourceEdge = Assert.Single(source.GetAllEdges());
         GraphEdge restoredEdge = Assert.Single(restored.GetAllEdges());
@@ -87,7 +89,7 @@ public sealed class GraphEdgeGeometryTests
     public void Constructor_RejectsEmptyOrDiscontinuousGeometry()
     {
         Assert.Throws<ArgumentException>(() =>
-            new GraphEdge(1, 2, 3, [], 4));
+            new GraphEdge(RoadType.Street, 1, 2, 3, []));
 
         RoadGeometrySegment[] discontinuous =
         [
@@ -95,7 +97,7 @@ public sealed class GraphEdgeGeometryTests
             new LineRoadGeometrySegment(Vector2.Right, new Vector2(2f, 0f)),
         ];
         Assert.Throws<ArgumentException>(() =>
-            new GraphEdge(1, 2, 3, discontinuous, 4));
+            new GraphEdge(RoadType.Street, 1, 2, 3, discontinuous));
     }
 
     private static void AssertLine(RoadGeometrySegment segment, Vector2 start, Vector2 end)

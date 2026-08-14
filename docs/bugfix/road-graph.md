@@ -718,3 +718,80 @@ path = InsertExistingNodeAnchors(path);
 - `ClosestQueries_RejectNonFinitePosition` 覆盖 `NaN` 和正负无穷坐标；`ClosestQueries_RejectInvalidRadius` 覆盖负数、`NaN` 和正无穷半径。
 - `dotnet test SimpleCities.sln --no-restore`：492/492 通过；`dotnet build SimpleCities.sln --no-restore`：0 警告、0 错误。
 - `road_system_v2_final_runtime_contract.gd` 输出 `PASS`；严格查询接入后真实道路系统运行路径无新增失败。
+
+---
+
+<a id="road-graph-bug-21"></a>
+## BUG-21：空间索引覆盖不变式使 100k V3 Load 二次退化并无响应
+
+> 修复日期：2026-08-14
+> 影响文件：`Scripts/Road/RoadGraph.Diagnostics.cs`、`Scripts/Road/SpatialIndex.cs`、`tests/SimpleCities.RoadGraph.Tests/UniformGridInvariantTests.cs`
+
+### 症状
+
+Godot 道路渲染性能契约写入大型 V3 fixture 后停在 `STAGE load-start`。旧 10k Load/renderer rebuild 约需 18 秒，20k 已长时间无进展，100k 进程被 Windows 判定为 AppHang；payload 写入和 manifest hash 阶段均已完成，因此卡顿发生在 Load 构图/不变式阶段，而不是 fixture I/O。
+
+### 根因分析
+
+Debug `RoadGraph.AssertInvariants()` 对每个 Node ref 和每个 Edge query fragment 分别调用 `UniformGrid.HasExactCoverage(reference, bounds)`。旧方法每次都遍历 `_buckets` 的全部 bucket 与条目来寻找单个引用；随着图规模增长，总成本约为 `空间引用数 × bucket 数`，而 V3 Load 在完成 prepared graph 和 full-reset commit 时都会执行这条严格不变式。100k 独立 Edge 同时带来大量引用和 bucket，因此正确的 payload 被二次诊断扫描拖入近似二次复杂度。
+
+### 修复方案
+
+`RoadGraph.AssertInvariants()` 先用引用 identity 字典收集所有已注册引用及其预期 bounds，再一次调用批量 `UniformGrid.HasExactCoverage(expectedBounds)`。批量实现为每个引用计算预期 `BucketCoverage` 与剩余条目数，然后只扫描一次全部实际 bucket entry；扫描中同时验证引用是否已注册、是否落在预期 bucket、同一 bucket 是否重复、引用是否出现过多，最后比较 `_referenceEntryCount` 并要求每个预期条目计数归零。
+
+该修复没有削弱诊断：缺失引用、额外引用、错桶、同桶重复、重复 expected identity 和内部条目计数不一致仍返回失败。复杂度降为预期引用与实际索引条目的线性总和；图拓扑、存档格式、空间查询结果和 Release mutation 行为不变。
+
+### 影响范围
+
+影响 Debug invariant、V3 Load/full reset 以及任何提交后运行 `AssertInvariants()` 的大型 RoadGraph 操作。`UniformGridInvariantTests` 直接覆盖单桶/跨桶合法情况和缺失、额外、错桶、重复、计数不符；正常查询、query fragment 半开所有权和容量上限未改变。
+
+## BUG-21 验证状态
+
+- 修复前证据：10k Load/重建约 18 秒，20k 停在 `STAGE load-start`，100k 被 Windows 判为 AppHang；新增 `STAGE fixture-write-*`、`manifest-hash-*`、`load-*`、`renderer-count-*` 将停顿定位到 Load。
+- 逐级恢复：12k、20k、40k、60k、80k、100k Load/renderer rebuild 分别为 906.549、1244.115、2563.902、3429.621、4327.669、5069.431 ms；100k 单规模契约完整通过并删除测试槽。
+- `UniformGridInvariantTests` 覆盖合法单桶/跨桶及缺失、额外、错桶、同桶重复和 `_referenceEntryCount` 不符；聚焦 invariant + V3 persistence 为 31/31，`dotnet test SimpleCities.sln --no-restore` 为 637/637。
+- `dotnet build SimpleCities.sln --no-restore` 与 Release performance build 均为 0 警告、0 错误；Roslyn compiler/analyzer 为 0 diagnostics；Godot 4.7 相关 8 个 GDScript parser 检查为 8/8，editor error 与 DAP console 增量通道为空。
+- `dotnet run --project tests/SimpleCities.RoadGraph.Performance/SimpleCities.RoadGraph.Performance.csproj --configuration Release --no-restore -- --enforce-budget` 通过：10k 最坏多交叉 P95 为 7.556 ms，100k 多交叉为 10.797 ms。
+- Godot 默认 `--enforce-budget` 第一次冷启动虽完成 10k/100k，但 10k camera/preview/highlight P95 为 20.041/17.278/20.505 ms，超过 16.67 ms，门禁失败；原样复跑为 16.471/14.702/13.750 ms 并通过，100k 为 18.641/19.901/15.825 ms、重建 4393.478 ms。该冷启动抖动保留为 Phase 7/8 风险，不归因于本次二次复杂度修复。
+- Windows Debug QA 导出包的 V3 根、manifest family/schema/长度/hash 与删除契约通过；Release 导出因 ImGui GDExtension 导出错误且 MCP 6550 端口占用未正常返回，未记为通过。两个中断遗留性能槽已删除，测试结束后项目停止且错误通道为空。
+- 后续最终复跑（2026-08-14）中，Release C# 10k 最坏多交叉 P95 为 7.783 ms、100k 为 10.120 ms；Vulkan 10k camera/preview/highlight P95 为 2.183/2.633/2.297 ms，100k 为 2.088/1.959/1.853 ms，100k Load 与 renderer rebuild 为 4111.449 ms，契约输出 PASS。Windows Desktop QA 导出也已在显示驱动下通过；这些后续证据补齐导出与抖动复核，不改变 BUG-21 的线性覆盖修复范围。
+- 本轮收口复跑（2026-08-14）继续通过：Vulkan 10k camera/preview/highlight P95 为 0.410/0.477/0.395 ms，100k 为 0.635/0.697/0.612 ms，100k Load 与 renderer rebuild 为 3824.467 ms，`.godot/qa-road-rendering-performance-v3-current.log` 输出 PASS；renderer lifecycle 和当前 V3 综合运行时契约也分别输出 PASS。完整自动化更新为 720/720，双配置构建及 Roslyn diagnostics 继续为 0。该热复跑只增加当前证据，不覆盖前述首次冷启动失败，也不把尚未完成的 Phase 7 分级 surface 门禁记为通过。
+
+---
+
+<a id="road-graph-bug-22"></a>
+## BUG-22：删除两路口环的一侧支路后 seam 无法迁移到剩余 junction
+
+> 修复日期：2026-08-14
+> 影响文件：`Scripts/Road/RoadGraph.Canonicalization.cs`、`tests/SimpleCities.RoadGraph.Tests/RoadGraphClosedPathV3Tests.cs`、`tests/SimpleCities.RoadGraph.Tests/RoadRendererLoadPrepareTests.cs`
+> 关联事项：`v3-grid-rendering:2.0`、`v3-road-graph:8.6`
+
+### 症状
+
+一个闭环在两个不同节点各接一条支路时，环由两条 junction 间弧和两条支路组成。删除原 rooted seam 一侧的支路后，该节点只剩同类型的两条环弧，本应被消除并把两条弧合并为以另一处真实 junction 为 seam 的 self-loop；旧实现却保留原二 incidence 节点和两条平行环弧，导致最大连续 Edge 规范形没有恢复，renderer 也会保留不应存在的 seam 边界。
+
+### 根因分析
+
+`RoadGraph.Canonicalization.TryMergeAtNode()` 在两条待合并 Edge 的远端相同时包含额外守卫：
+
+```csharp
+if (firstFarID == secondFarID && nodeID < firstFarID)
+    return false;
+```
+
+该判断只比较 Node ID，无法区分“全分量都是二 incidence、必须保留一个确定 seam 的纯环”和“远端仍有支路、当前节点已经不是结构边界”的两路口环。当前规范化流程已经由 `FindProtectedCycleSeams()` 只为同类型纯二度闭合分量保护最小 Node ID；旧守卫与这条结构化规则重复，并在真实 junction 仍存在时错误阻止合法合并。
+
+### 修复方案
+
+移除 `TryMergeAtNode()` 中按 `firstFarID == secondFarID` 与 Node ID 拒绝合并的旧守卫。未被 `FindProtectedCycleSeams()` 保护的二 incidence 节点现在继续走既有 typed geometry 拼接、canonicalize、容量校验和最小 Edge ID 保留流程；当两条弧的远端相同时，结果自然成为以剩余 junction 为 A/B 端的 canonical self-loop。纯二度环仍由 protected seam 集合保留确定 seam，不会被本修复消除全部节点。
+
+### 影响范围
+
+影响删除或其他规范化操作使二 incidence 节点的两条同类型 Edge 指向同一远端节点的场景，主要是两路口环移除一侧支路后的 seam 重定位。异类型 semantic boundary、纯二度闭合分量的 protected seam、非环合并、geometry 校验和 ID 保留规则不变。
+
+## BUG-22 验证状态
+
+- `RoadGraphClosedPathV3Tests.RemoveEdge_TwoJunctionLoopRelocatesSeamToRemainingJunction` 验证原 seam 与已删支路端点消失，剩余 junction 具有 3 条 incidence，图收敛为 1 条 rooted self-loop 与 1 条支路，共 2 Node / 2 Edge。
+- `RoadRendererLoadPrepareTests.PurePreparer_RemovingOneBranchRelocatesSeamAndClosesRemainingLoop` 验证删除前后 marker、closed 点列、顶点和索引均与重定位后的拓扑一致；`PurePreparer_FigureEightClosesBothLoopsAndKeepsSharedJunction` 继续保护共享 junction 上的两个 closed ribbon。本轮相关聚焦组合为 33/33。
+- `dotnet test SimpleCities.sln --no-restore`：727/727 通过；Debug 与 `ExportRelease` build 均为 0 警告、0 错误；Roslyn compiler/analyzer 为 0 diagnostics。
+- `road_closed_ribbon_runtime_contract.gd` 输出 `PASS`：aggregate Load 后的两路口环删除 seam 侧支路前为 `4 Edge / 20 mesh vertices / 4 node markers`，删除后为 `2 Edge / 12 mesh vertices / 2 node markers`。Godot MCP 冻结场景显示原 seam 无伪标记，剩余 junction/endpoint 正确，editor error 与 DAP `stderr` 均为空。

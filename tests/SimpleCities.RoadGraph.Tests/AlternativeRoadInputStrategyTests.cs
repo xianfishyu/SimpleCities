@@ -107,7 +107,67 @@ public sealed class AlternativeRoadInputStrategyTests
             Assert.False(tooShort.CanCommit);
             Assert.True(draft.CanCommit);
             AssertLineSegmentsMatchPreview(draft);
-            Assert.True(graph.SubmitPath(draft.Path).Success);
+            RoadPath path = Assert.IsType<RoadPath>(draft.Path);
+            Assert.True(graph.SubmitPath(new RoadBuildRequest(path, RoadType.Street)).Success);
+            graph.AssertInvariants();
+        }
+    }
+
+    [Fact]
+    public void EveryGridStrategyClosesThroughSharedPlacementSessionAndCreatesOneHistoryEntry()
+    {
+        float halfWidth = Mathf.Sqrt(3f) * StepLength / 2f;
+        (IRoadInputStrategy Strategy, Vector2[] FixedCorners)[] cases =
+        [
+            (
+                new SquareEightRoadInputStrategy(StepLength),
+                [
+                    new Vector2(128f, 0f),
+                    new Vector2(128f, 128f),
+                    new Vector2(0f, 128f),
+                ]),
+            (
+                new HexSixRoadInputStrategy(StepLength),
+                [
+                    new Vector2(halfWidth * 2f, StepLength),
+                    new Vector2(0f, StepLength * 2f),
+                ]),
+            (
+                new TriangularThreeRoadInputStrategy(StepLength),
+                [
+                    new Vector2(0f, StepLength),
+                    new Vector2(halfWidth, StepLength * 1.5f),
+                    new Vector2(halfWidth * 2f, StepLength),
+                    new Vector2(halfWidth * 2f, 0f),
+                    new Vector2(halfWidth, -StepLength * 0.5f),
+                ]),
+        ];
+
+        foreach ((IRoadInputStrategy strategy, Vector2[] fixedCorners) in cases)
+        {
+            var session = new RoadPlacementSession(strategy, Vector2.Zero);
+            foreach (Vector2 corner in fixedCorners)
+                Assert.True(session.TryAddPoint(corner), strategy.GetType().Name);
+
+            RoadPathDraft draft = session.Update(Vector2.Zero);
+            RoadPath path = Assert.IsType<RoadPath>(draft.Path);
+            var graph = new RoadGraph();
+            using var history = new RoadEditHistory(graph);
+            RoadPathSubmissionResult? result = null;
+
+            bool submitted = history.Execute(() =>
+            {
+                result = graph.SubmitPath(new RoadBuildRequest(path, RoadType.Street));
+                return result.Success;
+            });
+
+            Assert.True(draft.IsClosed, strategy.GetType().Name);
+            Assert.True(submitted, $"{strategy.GetType().Name}: {result?.Error}");
+            Assert.Equal(1, history.UndoCount);
+            Assert.Equal(0, history.RedoCount);
+            GraphEdge loop = Assert.Single(graph.GetAllEdges());
+            Assert.Equal(loop.NodeA, loop.NodeB);
+            Assert.Single(graph.GetAllNodes());
             graph.AssertInvariants();
         }
     }
@@ -120,31 +180,35 @@ public sealed class AlternativeRoadInputStrategyTests
         var hex = new HexSixRoadInputStrategy(StepLength);
         var triangular = new TriangularThreeRoadInputStrategy(StepLength);
 
-        RoadPathSubmissionResult squareResult = graph.SubmitPath(
+        RoadPath squarePath = Assert.IsType<RoadPath>(
             square.BuildDraft(Vector2.Zero, new Vector2(130f, 0f)).Path);
+        RoadPathSubmissionResult squareResult = graph.SubmitPath(
+            new RoadBuildRequest(squarePath, RoadType.Street));
         Assert.True(squareResult.Success);
-        int crossedEdgeID = Assert.Single(graph.GetAllEdges(), edge =>
-            edge.GeometrySegments[0].Start == Vector2.Zero &&
-            edge.GeometrySegments[0].End == new Vector2(64f, 0f)).ID;
+        int crossedEdgeID = Assert.Single(graph.GetAllEdges()).ID;
 
-        RoadPathSubmissionResult hexResult = graph.SubmitPath(
+        RoadPath hexPath = Assert.IsType<RoadPath>(
             hex.BuildDraft(new Vector2(32f, -128f), new Vector2(32f, 130f)).Path);
+        RoadPathSubmissionResult hexResult = graph.SubmitPath(
+            new RoadBuildRequest(hexPath, RoadType.Street));
         Assert.True(hexResult.Success);
-        Assert.Contains(crossedEdgeID, hexResult.Changes.RemovedEdgeIDs);
-        Assert.Null(graph.GetEdge(crossedEdgeID));
+        Assert.DoesNotContain(crossedEdgeID, hexResult.Changes.RemovedEdgeIDs);
+        Assert.NotNull(graph.GetEdge(crossedEdgeID));
         Assert.Contains(graph.GetAllNodes(), node => node.Position == new Vector2(32f, 0f));
 
-        RoadPathSubmissionResult triangularResult = graph.SubmitPath(
+        RoadPath triangularPath = Assert.IsType<RoadPath>(
             triangular.BuildDraft(new Vector2(320f, 0f), new Vector2(510f, 80f)).Path);
+        RoadPathSubmissionResult triangularResult = graph.SubmitPath(
+            new RoadBuildRequest(triangularPath, RoadType.Street));
         Assert.True(triangularResult.Success);
         graph.AssertInvariants();
 
-        string saved = SaveJson.Serialize(graph.CaptureState());
+        string saved = RoadGraphTestCodec.CaptureJson(graph);
         var restored = new RoadGraph();
-        restored.RestoreState(saved);
+        RoadGraphTestCodec.LoadJson(restored, saved);
 
         restored.AssertInvariants();
-        Assert.Equal(saved, SaveJson.Serialize(restored.CaptureState()));
+        Assert.Equal(saved, RoadGraphTestCodec.CaptureJson(restored));
     }
 
     [Fact]

@@ -83,13 +83,12 @@ public sealed class RoadRemovalSessionTests
     }
 
     [Fact]
-    public void DiscardingASelectionLeavesEveryGroupAndEdgeUntouched()
+    public void DiscardingASelectionLeavesEveryEdgeUntouched()
     {
         var graph = new RoadGraph();
         AddLine(graph, new Vector2(0f, -20f), new Vector2(0f, 20f));
         AddLine(graph, new Vector2(100f, -20f), new Vector2(100f, 20f));
         int[] edgeIDs = graph.GetAllEdges().Select(edge => edge.ID).Order().ToArray();
-        int[] groupIDs = graph.GetAllGroups().Select(group => group.ID).Order().ToArray();
         var session = new RoadRemovalSession(
             graph,
             RoadRemovalSelectionMode.Continuous,
@@ -100,31 +99,30 @@ public sealed class RoadRemovalSessionTests
 
         Assert.Equal(2, session.SelectedEdgeIDs.Length);
         Assert.Equal(edgeIDs, graph.GetAllEdges().Select(edge => edge.ID).Order());
-        Assert.Equal(groupIDs, graph.GetAllGroups().Select(group => group.ID).Order());
         graph.AssertInvariants();
     }
 
     [Fact]
-    public void BatchRemovalSkipsMissingAndDuplicateTargetsAcrossGroups()
+    public void BatchRemovalSkipsMissingAndDuplicateTargets()
     {
         var graph = new RoadGraph();
         int first = AddLine(graph, new Vector2(0f, 0f), new Vector2(20f, 0f));
         int second = AddLine(graph, new Vector2(0f, 40f), new Vector2(20f, 40f));
         int survivor = AddLine(graph, new Vector2(0f, 80f), new Vector2(20f, 80f));
         Assert.True(graph.RemoveEdge(first));
-        var observed = new List<int>();
-        graph.EdgeRemoved += edge =>
+        var observed = new List<RoadGraphChangedEvent>();
+        graph.GraphChanged += change =>
         {
             graph.AssertInvariants();
             Assert.Null(graph.GetEdge(first));
             Assert.Null(graph.GetEdge(second));
             Assert.NotNull(graph.GetEdge(survivor));
-            observed.Add(edge.ID);
+            observed.Add(change);
         };
 
         Assert.True(graph.RemoveEdges([second, first, second, int.MaxValue]));
 
-        Assert.Equal([second], observed);
+        Assert.Equal([second], Assert.Single(observed).Changes.RemovedEdgeIDs);
         Assert.Equal([survivor], graph.GetAllEdges().Select(edge => edge.ID));
         graph.AssertInvariants();
     }
@@ -133,13 +131,13 @@ public sealed class RoadRemovalSessionTests
     public void RectangleQueryUsesNativeCurveGeometryInsteadOfOnlyItsBounds()
     {
         var graph = new RoadGraph();
-        RoadPathSubmissionResult result = graph.SubmitPath(new RoadPath([
+        RoadPathSubmissionResult result = graph.SubmitPath(new RoadBuildRequest(new RoadPath([
             new CubicBezierRoadGeometrySegment(
                 new Vector2(-10f, 0f),
                 new Vector2(-10f, 10f),
                 new Vector2(10f, 10f),
                 new Vector2(10f, 0f)),
-        ]));
+        ]), RoadType.Street));
         int edgeID = Assert.Single(result.Changes.CreatedEdgeIDs);
 
         Assert.Empty(graph.FindEdgeIDsIntersecting(new Rect2(-1f, 0f, 2f, 1f)));
@@ -148,7 +146,7 @@ public sealed class RoadRemovalSessionTests
 
     private static int AddLine(RoadGraph graph, Vector2 start, Vector2 end)
     {
-        RoadPathSubmissionResult result = graph.SubmitPolyline([start, end]);
+        RoadPathSubmissionResult result = graph.SubmitPolyline(RoadType.Street, [start, end]);
         Assert.True(result.Success);
         return Assert.Single(result.Changes.CreatedEdgeIDs);
     }

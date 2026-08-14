@@ -9,6 +9,7 @@ public partial class AutosaveController : Node
     private const double MinimumIntervalSeconds = 0.001d;
 
     private Timer _timer = null!;
+    private SaveManager? _saveManager;
 
     [Export(PropertyHint.Range, "1,3600,1,or_greater")]
     public double IntervalSeconds { get; set; } = 300d;
@@ -19,7 +20,10 @@ public partial class AutosaveController : Node
     public int AttemptCount { get; private set; }
     public int SuccessfulSaveCount { get; private set; }
     public int FailedSaveCount { get; private set; }
+    public int CanceledSaveCount { get; private set; }
+    public int SkippedBusyCount { get; private set; }
     public bool LastAttemptSucceeded { get; private set; }
+    public string LastOperationToken { get; private set; } = string.Empty;
 
     [Signal]
     public delegate void AutosaveCompletedEventHandler(bool success);
@@ -33,6 +37,11 @@ public partial class AutosaveController : Node
         };
         AddChild(_timer);
         _timer.Timeout += OnAutosaveTimeout;
+        _saveManager = GodotObject.IsInstanceValid(SaveManager.Instance)
+            ? SaveManager.Instance
+            : null;
+        if (_saveManager is not null)
+            _saveManager.OperationCompleted += OnSaveOperationCompleted;
 
         if (AutosaveEnabled)
             StartTimer();
@@ -45,6 +54,9 @@ public partial class AutosaveController : Node
             _timer.Timeout -= OnAutosaveTimeout;
             _timer.Stop();
         }
+        if (_saveManager is not null && GodotObject.IsInstanceValid(_saveManager))
+            _saveManager.OperationCompleted -= OnSaveOperationCompleted;
+        _saveManager = null;
     }
 
     /// <summary>启用或停止周期触发；重新启用时从完整周期开始计时。</summary>
@@ -61,21 +73,56 @@ public partial class AutosaveController : Node
     }
 
     /// <summary>立即执行一次自动存档；不会改变玩家当前选中的手动槽。</summary>
-    public bool RunAutosaveNow()
+    public string RunAutosaveNow()
     {
         AttemptCount++;
-        SaveManager? saveManager = GodotObject.IsInstanceValid(SaveManager.Instance)
-            ? SaveManager.Instance
-            : null;
-        bool success = saveManager?.SaveAutosave() == true;
-        LastAttemptSucceeded = success;
-        if (success)
-            SuccessfulSaveCount++;
-        else
+        SaveManager? saveManager = _saveManager is not null &&
+            GodotObject.IsInstanceValid(_saveManager)
+                ? _saveManager
+                : null;
+        if (saveManager is null)
+        {
+            LastOperationToken = string.Empty;
+            LastAttemptSucceeded = false;
             FailedSaveCount++;
+            EmitSignal(SignalName.AutosaveCompleted, false);
+            return string.Empty;
+        }
 
-        EmitSignal(SignalName.AutosaveCompleted, success);
-        return success;
+        LastOperationToken = saveManager.StartAutosave();
+        return LastOperationToken;
+    }
+
+    private void OnSaveOperationCompleted(SaveOperationResult result)
+    {
+        if (result.Kind != SaveOperationKind.Autosave)
+            return;
+
+        switch (result.ResultKind)
+        {
+            case SaveOperationResultKind.Succeeded:
+            case SaveOperationResultKind.SucceededWithWarnings:
+                LastAttemptSucceeded = true;
+                SuccessfulSaveCount++;
+                EmitSignal(SignalName.AutosaveCompleted, true);
+                break;
+            case SaveOperationResultKind.SkippedBusy:
+                LastAttemptSucceeded = false;
+                SkippedBusyCount++;
+                break;
+            case SaveOperationResultKind.Canceled:
+            case SaveOperationResultKind.RejectedSceneClosing:
+            case SaveOperationResultKind.RejectedShuttingDown:
+                LastAttemptSucceeded = false;
+                CanceledSaveCount++;
+                EmitSignal(SignalName.AutosaveCompleted, false);
+                break;
+            default:
+                LastAttemptSucceeded = false;
+                FailedSaveCount++;
+                EmitSignal(SignalName.AutosaveCompleted, false);
+                break;
+        }
     }
 
     private void StartTimer()

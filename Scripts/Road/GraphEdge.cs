@@ -7,8 +7,9 @@ using System.Linq;
 public class GraphEdge
 {
     public int ID { get; }
-    public int NodeA { get; internal set; }
-    public int NodeB { get; internal set; }
+    public int NodeA { get; }
+    public int NodeB { get; }
+    public RoadType RoadType { get; }
 
     private readonly RoadGeometrySegment[] _geometrySegments;
     private readonly ReadOnlyCollection<RoadGeometrySegment> _readOnlyGeometrySegments;
@@ -21,35 +22,80 @@ public class GraphEdge
     public Vector2[] Points => (Vector2[])_points.Clone();
     internal Vector2[] InternalPoints => _points;
 
-    public int GroupID { get; internal set; }
     public float Length { get; }
 
     public GraphEdge(
+        RoadType roadType,
         int id,
         int nodeA,
         int nodeB,
-        IReadOnlyList<RoadGeometrySegment> geometrySegments,
-        int groupID)
+        IReadOnlyList<RoadGeometrySegment> geometrySegments)
     {
         ArgumentNullException.ThrowIfNull(geometrySegments);
+        if (id < 0)
+            throw new ArgumentOutOfRangeException(nameof(id));
+        if (nodeA < 0)
+            throw new ArgumentOutOfRangeException(nameof(nodeA));
+        if (nodeB < 0)
+            throw new ArgumentOutOfRangeException(nameof(nodeB));
+        if (!RoadTypeContract.IsDefined(roadType))
+            throw new ArgumentOutOfRangeException(nameof(roadType));
         if (geometrySegments.Count == 0)
             throw new ArgumentException("An edge must contain at least one geometry segment.", nameof(geometrySegments));
 
-        _geometrySegments = geometrySegments.ToArray();
-        for (int i = 0; i < _geometrySegments.Length; i++)
+        var normalizedGeometry = new RoadGeometrySegment[geometrySegments.Count];
+        for (int i = 0; i < normalizedGeometry.Length; i++)
         {
-            if (_geometrySegments[i] is null)
+            if (geometrySegments[i] is null)
                 throw new ArgumentException("Geometry segments cannot contain null.", nameof(geometrySegments));
-            if (i > 0 && _geometrySegments[i - 1].End != _geometrySegments[i].Start)
+            normalizedGeometry[i] = RoadGeometryCanonicalizer.CanonicalizeSegment(
+                geometrySegments[i],
+                out _);
+            if (i > 0 && !RoadExactPredicates.SameBits(
+                    normalizedGeometry[i - 1].End,
+                    normalizedGeometry[i].Start))
                 throw new ArgumentException("Geometry segments must form a continuous path.", nameof(geometrySegments));
         }
+
+        normalizedGeometry = [.. RoadGeometryCanonicalizer.Canonicalize(normalizedGeometry).GeometrySegments];
+
+        if (nodeA != nodeB && nodeA > nodeB)
+        {
+            (nodeA, nodeB) = (nodeB, nodeA);
+            normalizedGeometry = [.. RoadGeometryDirection.ReverseChain(normalizedGeometry)];
+        }
+        else if (nodeA == nodeB)
+        {
+            if (!RoadExactPredicates.SameBits(normalizedGeometry[0].Start, normalizedGeometry[^1].End))
+                throw new ArgumentException(
+                    "A self-loop geometry chain must close exactly at its seam.",
+                    nameof(geometrySegments));
+            IReadOnlyList<RoadGeometrySegment> reversed =
+                RoadGeometryDirection.ReverseChain(normalizedGeometry);
+            if (RoadGeometryDirection.CompareCanonicalKeys(reversed, normalizedGeometry) < 0)
+                normalizedGeometry = [.. reversed];
+        }
+
+        for (int index = 1; index < normalizedGeometry.Length; index++)
+        {
+            if (!RoadExactPredicates.SameBits(
+                    normalizedGeometry[index - 1].End,
+                    normalizedGeometry[index].Start))
+            {
+                throw new ArgumentException(
+                    "Directed geometry segments must remain bitwise continuous.",
+                    nameof(geometrySegments));
+            }
+        }
+
+        _geometrySegments = normalizedGeometry;
 
         ID = id;
         NodeA = nodeA;
         NodeB = nodeB;
+        RoadType = roadType;
         _readOnlyGeometrySegments = Array.AsReadOnly(_geometrySegments);
         _points = _geometrySegments.Take(_geometrySegments.Length - 1).Select(segment => segment.End).ToArray();
-        GroupID = groupID;
         Length = _geometrySegments.Sum(segment => segment.Length);
     }
 

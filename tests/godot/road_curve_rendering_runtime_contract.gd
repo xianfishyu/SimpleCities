@@ -3,10 +3,12 @@ extends SceneTree
 const MAP_SCENE := "res://Scenes/MapTest.tscn"
 const TEST_SLOT_NAME := "Road curve rendering runtime contract"
 const SCREENSHOT_PATH := "res://.godot/qa-road-curve-rendering.png"
+const V3_SAVE_FIXTURE := preload("res://tests/godot/v3_save_fixture.gd")
 
 var test_map: Node
 var save_manager: Node
 var slot_id := ""
+var failure_cleanup_started := false
 
 func _initialize() -> void:
 	run.call_deferred()
@@ -25,18 +27,17 @@ func run() -> void:
 	autosave_controller.SetAutosaveEnabled(false)
 
 	save_manager = root.get_node("SaveManager")
-	if not require(save_manager.SaveAs(TEST_SLOT_NAME), "Curve rendering fixture slot was not created"):
+	if not require(await V3_SAVE_FIXTURE.save_as(save_manager, TEST_SLOT_NAME), "Curve rendering fixture slot was not created"):
 		return
 	slot_id = save_manager.get("CurrentSlotID")
-	var road_path := "res://saves/%s/road_network.json" % slot_id
+	var road_path: String = V3_SAVE_FIXTURE.slot_path(slot_id, "road_network.json")
 	var fixture := build_fixture()
-	var road_file := FileAccess.open(road_path, FileAccess.WRITE)
-	if not require(road_file != null, "Curve rendering fixture payload could not be opened"):
+	if not require(
+		V3_SAVE_FIXTURE.publish_payload(slot_id, fixture),
+		"Curve rendering fixture payload and manifest could not be published"):
 		return
-	road_file.store_string(JSON.stringify(fixture, "\t"))
-	road_file.close()
 
-	if not require(save_manager.Load(slot_id), "Curve rendering fixture did not load"):
+	if not require(await V3_SAVE_FIXTURE.load_slot(save_manager, slot_id), "Curve rendering fixture did not load"):
 		return
 	await process_frame
 	await process_frame
@@ -48,7 +49,7 @@ func run() -> void:
 	if not verify_curve_fallback_snaps_to_native_interior(builder, renderer, fixture):
 		return
 	if OS.get_cmdline_user_args().has("--snap-only"):
-		if not require(save_manager.DeleteSlot(slot_id), "Curve snap fixture slot cleanup failed"):
+		if not require(await V3_SAVE_FIXTURE.delete_slot(save_manager, slot_id), "Curve snap fixture slot cleanup failed"):
 			return
 		slot_id = ""
 		test_map.queue_free()
@@ -94,14 +95,14 @@ func run() -> void:
 	if not require(rendered_points_match(renderer, original_points), "Camera zoom changed stable world-space curve samples"):
 		return
 
-	if not require(save_manager.Save(slot_id), "Curve rendering fixture could not be saved after display sampling"):
+	if not require(await V3_SAVE_FIXTURE.save(save_manager, slot_id), "Curve rendering fixture could not be saved after display sampling"):
 		return
 	var saved_payload: Variant = JSON.parse_string(FileAccess.get_file_as_string(road_path))
 	if not require(saved_payload is Dictionary, "Saved curve payload is not an object"):
 		return
 	if not require(geometry_parameters_match(fixture, saved_payload), "Display sampling changed native control parameters"):
 		return
-	if not require(save_manager.Load(slot_id), "Saved curve fixture could not be reloaded"):
+	if not require(await V3_SAVE_FIXTURE.load_slot(save_manager, slot_id), "Saved curve fixture could not be reloaded"):
 		return
 	await process_frame
 	await process_frame
@@ -116,7 +117,7 @@ func run() -> void:
 	if not require(screenshot != null and screenshot.save_png(SCREENSHOT_PATH) == OK, "Curve rendering QA screenshot was not written"):
 		return
 
-	if not require(save_manager.DeleteSlot(slot_id), "Curve rendering fixture slot cleanup failed"):
+	if not require(await V3_SAVE_FIXTURE.delete_slot(save_manager, slot_id), "Curve rendering fixture slot cleanup failed"):
 		return
 	slot_id = ""
 	test_map.queue_free()
@@ -154,12 +155,12 @@ func build_fixture() -> Dictionary:
 		{
 			"start": Vector2(-400.0, 50.0),
 			"end": Vector2(-100.0, 50.0),
-			"geometry": {"version": 1, "kind": "circularArc", "center": point(-250.0, 50.0), "radius": 150.0, "startAngle": PI, "sweepAngle": PI},
+			"geometry": {"version": 1, "kind": "circularArc", "start": point(-400.0, 50.0), "end": point(-100.0, 50.0), "center": point(-250.0, 50.0), "radius": 150.0, "startAngle": PI, "endAngle": 0.0, "sweepAngle": PI},
 		},
 		{
 			"start": clothoid_start,
 			"end": clothoid_end,
-			"geometry": {"version": 1, "kind": "clothoid", "start": point(clothoid_start.x, clothoid_start.y), "startHeading": 0.0, "startCurvature": curvature, "endCurvature": curvature, "arcLength": arc_length},
+			"geometry": {"version": 1, "kind": "clothoid", "start": point(clothoid_start.x, clothoid_start.y), "end": point(clothoid_end.x, clothoid_end.y), "startHeading": 0.0, "reverseStartHeading": fposmod(heading_delta + PI, TAU), "startCurvature": curvature, "endCurvature": curvature, "arcLength": arc_length},
 		},
 		{
 			"start": Vector2(-50.0, 250.0),
@@ -169,20 +170,24 @@ func build_fixture() -> Dictionary:
 	]
 	var nodes := []
 	var edges := []
-	var groups := []
 	for index in range(definitions.size()):
 		var definition: Dictionary = definitions[index]
 		var node_a_id := index * 2 + 1
 		var node_b_id := node_a_id + 1
 		var edge_id := 13 + index
-		var group_id := 19 + index
 		var start: Vector2 = definition.start
 		var end: Vector2 = definition.end
 		nodes.append({"id": node_a_id, "x": start.x, "y": start.y})
 		nodes.append({"id": node_b_id, "x": end.x, "y": end.y})
-		edges.append({"id": edge_id, "nodeAID": node_a_id, "nodeBID": node_b_id, "groupID": group_id, "geometry": [definition.geometry]})
-		groups.append({"id": group_id, "edgeIDs": [edge_id]})
-	return {"schemaVersion": 1, "nextID": 25, "nodes": nodes, "edges": edges, "groups": groups}
+		edges.append({"id": edge_id, "nodeAID": node_a_id, "nodeBID": node_b_id, "roadType": "street", "geometry": [definition.geometry]})
+	return {
+		"formatFamily": "simple-cities-v3",
+		"payloadType": "road-network",
+		"schemaVersion": 1,
+		"nextID": 19,
+		"nodes": nodes,
+		"edges": edges,
+	}
 
 func point(x: float, y: float) -> Dictionary:
 	return {"x": x, "y": y}
@@ -286,13 +291,15 @@ func require(condition: bool, message: String) -> bool:
 	if condition:
 		return true
 	push_error(message)
-	cleanup_after_failure()
-	quit(1)
+	if not failure_cleanup_started:
+		failure_cleanup_started = true
+		cleanup_after_failure.call_deferred()
 	return false
 
 func cleanup_after_failure() -> void:
 	if save_manager != null and not slot_id.is_empty():
-		save_manager.DeleteSlot(slot_id)
+		await V3_SAVE_FIXTURE.delete_slot(save_manager, slot_id)
 		slot_id = ""
 	if test_map != null:
 		test_map.queue_free()
+	quit(1)

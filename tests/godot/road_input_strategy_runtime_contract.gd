@@ -2,6 +2,7 @@ extends SceneTree
 
 const MAP_SCENE := "res://Scenes/MapTest.tscn"
 const TEST_SLOT_NAME := "Road input strategy runtime contract"
+const V3_SAVE_FIXTURE := preload("res://tests/godot/v3_save_fixture.gd")
 
 func _initialize() -> void:
 	run.call_deferred()
@@ -23,6 +24,8 @@ func run() -> void:
 	var road_builder: Node = road_system.get_node("RoadBuilder")
 	var road_renderer: Node = road_system.get_node("RoadRenderer")
 	var hud: CanvasLayer = map.get_node("GameHUD")
+	var tool_manager: Node = map.get_node("ToolManager")
+	var pause_menu: Control = hud.get_node("PauseMenu")
 	var save_manager: Node = root.get_node("SaveManager")
 
 	if not assert_true(road_builder.BeginPlace(Vector2(5, 5)), "RoadBuilder did not begin a placement"):
@@ -30,10 +33,10 @@ func run() -> void:
 	road_builder.UpdatePlace(Vector2(130, 10))
 	if not assert_true(road_builder.CommitPlace(Vector2(130, 10)), "RoadBuilder did not commit the strategy path"):
 		return
-	if not assert_true(save_manager.SaveAs(TEST_SLOT_NAME), "Strategy path save failed"):
+	if not assert_true(await V3_SAVE_FIXTURE.save_as(save_manager, TEST_SLOT_NAME), "Strategy path save failed"):
 		return
 	var slot_id: String = save_manager.get("CurrentSlotID")
-	var roads_path := "res://saves/%s/road_network.json" % slot_id
+	var roads_path := "user://saves-v3/%s/road_network.json" % slot_id
 	if not assert_true(slot_id.begins_with("manual-"), "Strategy path save did not create an isolated slot"):
 		return
 	if not assert_true(FileAccess.file_exists(roads_path), "Strategy path payload is missing"):
@@ -58,16 +61,29 @@ func run() -> void:
 		return
 	if not assert_true(road_builder.AddPlacePoint(Vector2(400, 400)), "Continuous placement did not restore its second segment"):
 		return
-	road_builder.UpdatePlace(Vector2(300, 400))
-	if not assert_true(road_builder.ConfirmPlace(Vector2(300, 400)), "Continuous placement did not commit"):
+	if not assert_true(road_builder.AddPlacePoint(Vector2(300, 400)), "Closed placement did not add its third segment"):
+		return
+	road_builder.UpdatePlace(Vector2(300, 300))
+	if not assert_preview_points(
+		road_renderer,
+		[Vector2(300, 300), Vector2(400, 300), Vector2(400, 400), Vector2(300, 400), Vector2(300, 300)]):
+		return
+	if not assert_true(road_builder.ConfirmPlace(Vector2(300, 300)), "Closed placement did not commit"):
 		return
 	if not assert_true(
 		not road_builder.HasActivePlaceSession() and road_renderer.GetPreviewPointCount() == 0,
-		"Continuous placement retained its session or preview after commit"):
+		"Closed placement retained its session or preview after commit"):
 		return
-	if not assert_true(save_manager.Save(slot_id), "Continuous placement save failed"):
+	await process_frame
+	if not assert_true(
+		road_renderer.GetRenderedEdgeCount() == 2 and
+		road_renderer.GetRoadMeshVertexCount() == 12 and
+		road_renderer.GetNodeMarkerCount() == 2,
+		"Closed placement did not publish a seamless ribbon without a seam marker"):
 		return
-	if not assert_saved_continuous_path(roads_path):
+	if not assert_true(await V3_SAVE_FIXTURE.save(save_manager, slot_id), "Closed placement save failed"):
+		return
+	if not assert_saved_closed_path(roads_path):
 		return
 	var roads_before_cancel := FileAccess.get_file_as_string(roads_path)
 
@@ -75,7 +91,7 @@ func run() -> void:
 		return
 	road_builder.UpdatePlace(Vector2(400, 256))
 	road_builder.CancelPlaceDrag()
-	if not assert_true(save_manager.Save(slot_id), "Save after cancel failed"):
+	if not assert_true(await V3_SAVE_FIXTURE.save(save_manager, slot_id), "Save after cancel failed"):
 		return
 	if not assert_true(FileAccess.get_file_as_string(roads_path) == roads_before_cancel, "Cancel changed the saved RoadGraph"):
 		return
@@ -84,14 +100,12 @@ func run() -> void:
 		return
 	if not assert_true(road_builder.AddPlacePoint(Vector2(700, 600)), "Rejected placement did not add its first segment"):
 		return
-	if not assert_true(road_builder.AddPlacePoint(Vector2(700, 700)), "Rejected placement did not add its second segment"):
-		return
 	if not assert_true(
 		not road_builder.ConfirmPlace(Vector2(600, 600)) and road_builder.HasActivePlaceSession(),
-		"Repeated-point placement was accepted or discarded its editable session"):
+		"Backtracking placement was accepted or discarded its editable session"):
 		return
 	road_builder.CancelPlaceSession()
-	if not assert_true(save_manager.Save(slot_id), "Save after rejected placement failed"):
+	if not assert_true(await V3_SAVE_FIXTURE.save(save_manager, slot_id), "Save after rejected placement failed"):
 		return
 	if not assert_true(FileAccess.get_file_as_string(roads_path) == roads_before_cancel, "Rejected placement changed the saved RoadGraph"):
 		return
@@ -121,7 +135,7 @@ func run() -> void:
 	await process_frame
 	if not assert_true(not road_builder.HasActivePlaceSession(), "Enter did not confirm the click placement"):
 		return
-	if not assert_true(save_manager.Save(slot_id), "Click placement save failed"):
+	if not assert_true(await V3_SAVE_FIXTURE.save(save_manager, slot_id), "Click placement save failed"):
 		return
 	if not assert_saved_input_path(roads_path):
 		return
@@ -129,14 +143,54 @@ func run() -> void:
 
 	move_pointer(road_builder, Vector2(1000, 300))
 	click_left(road_builder, Vector2(1000, 300))
+	move_pointer(road_builder, Vector2(1100, 300))
+	click_left(road_builder, Vector2(1100, 300))
+	if not assert_true(
+		road_builder.GetFixedCornerCount() == 1 and road_renderer.GetPreviewPointCount() >= 2,
+		"Right-click cancel scenario did not retain its fixed segment and preview"):
+		return
 	road_builder.HandlePlaceInput(mouse_button_event(
 		MOUSE_BUTTON_RIGHT,
 		true,
-		road_builder.get_canvas_transform() * Vector2(1000, 300)))
+		road_builder.get_canvas_transform() * Vector2(1100, 300)))
 	await process_frame
-	if not assert_true(not road_builder.HasActivePlaceSession(), "Right click did not cancel a zero-segment placement"):
+	if not assert_true(
+		not road_builder.HasActivePlaceSession() and road_renderer.GetPreviewPointCount() == 0,
+		"Right click did not cancel the fixed placement and preview"):
 		return
-	if not assert_true(save_manager.Save(slot_id), "Save after right-click cancel failed"):
+
+	tool_manager.set("CurrentTool", 1)
+	if not assert_true(road_builder.BeginPlace(Vector2(1200, 300)), "Tool-switch cancel scenario did not begin"):
+		return
+	if not assert_true(road_builder.AddPlacePoint(Vector2(1300, 300)), "Tool-switch cancel scenario did not add a fixed segment"):
+		return
+	tool_manager.set("CurrentTool", 0)
+	await process_frame
+	if not assert_true(
+		not road_builder.HasActivePlaceSession() and road_renderer.GetPreviewPointCount() == 0,
+		"Switching away from Road did not clear the placement and preview"):
+		return
+
+	tool_manager.set("CurrentTool", 1)
+	if not assert_true(road_builder.BeginPlace(Vector2(1200, 500)), "Pause cancel scenario did not begin"):
+		return
+	if not assert_true(road_builder.AddPlacePoint(Vector2(1300, 500)), "Pause cancel scenario did not add a fixed segment"):
+		return
+	hud._Input(action_event("pause_menu"))
+	if not assert_true(
+		pause_menu.visible and paused and not road_builder.HasActivePlaceSession() and
+		road_renderer.GetPreviewPointCount() == 0,
+		"Pausing did not clear the placement session and preview"):
+		return
+	pause_menu._Input(key_event(KEY_ESCAPE))
+	await process_frame
+	if not assert_true(not pause_menu.visible and not paused, "Pause cancel scenario did not resume"):
+		return
+	if not assert_true(
+		road_builder.GetUndoEditCount() == 3 and road_builder.GetRedoEditCount() == 0,
+		"Rejected or cancelled placements changed edit history"):
+		return
+	if not assert_true(await V3_SAVE_FIXTURE.save(save_manager, slot_id), "Save after right-click cancel failed"):
 		return
 	if not assert_true(FileAccess.get_file_as_string(roads_path) == roads_before_right_cancel, "Right-click cancel changed the saved RoadGraph"):
 		return
@@ -158,7 +212,7 @@ func run() -> void:
 		not road_builder.HasActiveRemoveSession() and road_renderer.GetRemovalPreviewEdgeCount() == 0,
 		"Right click did not cancel the removal selection and preview"):
 		return
-	if not assert_true(save_manager.Save(slot_id), "Save after removal cancel failed"):
+	if not assert_true(await V3_SAVE_FIXTURE.save(save_manager, slot_id), "Save after removal cancel failed"):
 		return
 	if not assert_true(FileAccess.get_file_as_string(roads_path) == roads_before_right_cancel, "Removal cancel changed the saved RoadGraph"):
 		return
@@ -169,8 +223,8 @@ func run() -> void:
 		road_builder.get_canvas_transform() * Vector2(280, 350)))
 	move_remove_pointer(road_builder, Vector2(420, 350))
 	if not assert_true(
-		road_builder.GetRemovalSelectionCount() == 3 and road_renderer.GetRemovalPreviewEdgeCount() == 3,
-		"Continuous removal did not select the three crossed edges exactly once"):
+		road_builder.GetRemovalSelectionCount() == 1 and road_renderer.GetRemovalPreviewEdgeCount() == 1,
+		"Continuous removal did not select the crossed maximal Edge exactly once"):
 		return
 	var mesh_vertices_before_continuous_remove: int = road_renderer.GetRoadMeshVertexCount()
 	road_builder.HandleRemoveInput(mouse_button_event(
@@ -182,18 +236,18 @@ func run() -> void:
 		"Continuous removal did not commit and clear its preview"):
 		return
 	if not assert_true(
-		road_renderer.GetRenderedEdgeCount() == 4 and
+		road_renderer.GetRenderedEdgeCount() == 2 and
 		road_renderer.GetRoadMeshVertexCount() == mesh_vertices_before_continuous_remove,
 		"Continuous removal did not defer its merged static batch rebuild"):
 		return
 	await process_frame
 	if not assert_true(
-		road_renderer.GetRoadMeshVertexCount() == road_renderer.GetRenderedEdgeCount() * 4,
+		road_renderer.GetRoadMeshVertexCount() == 12,
 		"Continuous removal did not publish the merged static batch on the next frame"):
 		return
-	if not assert_true(save_manager.Save(slot_id), "Continuous removal save failed"):
+	if not assert_true(await V3_SAVE_FIXTURE.save(save_manager, slot_id), "Continuous removal save failed"):
 		return
-	if not assert_saved_counts(roads_path, 6, 4, 2, "Continuous removal"):
+	if not assert_saved_counts(roads_path, 4, 2, "Continuous removal"):
 		return
 
 	road_builder.HandleRemoveInput(mouse_button_event(
@@ -204,16 +258,16 @@ func run() -> void:
 	move_remove_pointer(road_builder, Vector2(850, 350))
 	if not assert_true(
 		road_builder.GetRemovalSelectionCount() == 2 and road_renderer.GetRemovalPreviewEdgeCount() == 2,
-		"Rectangle removal did not select two edges across groups"):
+		"Rectangle removal did not select two edges"):
 		return
 	road_builder.HandleRemoveInput(mouse_button_event(
 		MOUSE_BUTTON_LEFT,
 		false,
 		road_builder.get_canvas_transform() * Vector2(850, 350),
 		true))
-	if not assert_true(save_manager.Save(slot_id), "Rectangle removal save failed"):
+	if not assert_true(await V3_SAVE_FIXTURE.save(save_manager, slot_id), "Rectangle removal save failed"):
 		return
-	if not assert_saved_counts(roads_path, 3, 2, 1, "Rectangle removal"):
+	if not assert_saved_counts(roads_path, 0, 0, "Rectangle removal"):
 		return
 	if not assert_true(
 		road_builder.GetUndoEditCount() == 5 and road_builder.GetRedoEditCount() == 0,
@@ -223,42 +277,42 @@ func run() -> void:
 	hud._Input(action_event("edit_undo"))
 	await process_frame
 	if not assert_true(
-		road_renderer.GetRenderedEdgeCount() == 4 and road_builder.GetUndoEditCount() == 4 and road_builder.GetRedoEditCount() == 1,
+		road_renderer.GetRenderedEdgeCount() == 2 and road_builder.GetUndoEditCount() == 4 and road_builder.GetRedoEditCount() == 1,
 		"Undo did not restore the rectangle removal boundary and rebuild rendering"):
 		return
-	if not assert_true(save_manager.Save(slot_id), "First undo save failed"):
+	if not assert_true(await V3_SAVE_FIXTURE.save(save_manager, slot_id), "First undo save failed"):
 		return
-	if not assert_saved_counts(roads_path, 6, 4, 2, "First undo"):
+	if not assert_saved_counts(roads_path, 4, 2, "First undo"):
 		return
 
 	hud._Input(action_event("edit_undo"))
 	await process_frame
 	if not assert_true(
-		road_renderer.GetRenderedEdgeCount() == 7 and road_builder.GetUndoEditCount() == 3 and road_builder.GetRedoEditCount() == 2,
+		road_renderer.GetRenderedEdgeCount() == 3 and road_builder.GetUndoEditCount() == 3 and road_builder.GetRedoEditCount() == 2,
 		"Second undo did not restore the continuous removal boundary"):
 		return
-	if not assert_true(save_manager.Save(slot_id), "Second undo save failed"):
+	if not assert_true(await V3_SAVE_FIXTURE.save(save_manager, slot_id), "Second undo save failed"):
 		return
-	if not assert_saved_counts(roads_path, 10, 7, 3, "Second undo"):
+	if not assert_saved_counts(roads_path, 5, 3, "Second undo"):
 		return
 
 	hud._Input(action_event("edit_redo"))
 	await process_frame
 	if not assert_true(
-		road_renderer.GetRenderedEdgeCount() == 4 and road_builder.GetUndoEditCount() == 4 and road_builder.GetRedoEditCount() == 1,
+		road_renderer.GetRenderedEdgeCount() == 2 and road_builder.GetUndoEditCount() == 4 and road_builder.GetRedoEditCount() == 1,
 		"First redo did not reproduce the continuous removal"):
 		return
 	hud._Input(action_event("edit_redo"))
 	await process_frame
 	if not assert_true(
-		road_renderer.GetRenderedEdgeCount() == 2 and road_builder.GetUndoEditCount() == 5 and road_builder.GetRedoEditCount() == 0,
+		road_renderer.GetRenderedEdgeCount() == 0 and road_builder.GetUndoEditCount() == 5 and road_builder.GetRedoEditCount() == 0,
 		"Second redo did not reproduce the rectangle removal"):
 		return
-	if not assert_true(save_manager.Save(slot_id), "Redo save failed"):
+	if not assert_true(await V3_SAVE_FIXTURE.save(save_manager, slot_id), "Redo save failed"):
 		return
-	if not assert_saved_counts(roads_path, 3, 2, 1, "Redo"):
+	if not assert_saved_counts(roads_path, 0, 0, "Redo"):
 		return
-	if not assert_true(save_manager.DeleteSlot(slot_id), "Strategy path test slot cleanup failed"):
+	if not assert_true(await V3_SAVE_FIXTURE.delete_slot(save_manager, slot_id), "Strategy path test slot cleanup failed"):
 		return
 
 	map.queue_free()
@@ -312,14 +366,13 @@ func assert_saved_line_path(roads_path: String) -> bool:
 	if not assert_true(payload is Dictionary, "RoadGraph payload is not an object"):
 		return false
 	var graph_data: Dictionary = payload
+	if not assert_street_road_payload(graph_data, "Saved strategy path"):
+		return false
 	var nodes: Array = graph_data.get("nodes", [])
 	var edges: Array = graph_data.get("edges", [])
-	var groups: Array = graph_data.get("groups", [])
 	if not assert_true(nodes.size() == 2, "Saved strategy path node count is wrong"):
 		return false
 	if not assert_true(edges.size() == 1, "Saved strategy path edge count is wrong"):
-		return false
-	if not assert_true(groups.size() == 1, "Saved strategy path group count is wrong"):
 		return false
 	for edge: Variant in edges:
 		if not assert_true(edge is Dictionary, "Saved edge is not an object"):
@@ -353,19 +406,27 @@ func assert_preview_points(road_renderer: Node, expected: Array[Vector2]) -> boo
 			return false
 	return true
 
-func assert_saved_continuous_path(roads_path: String) -> bool:
+func assert_saved_closed_path(roads_path: String) -> bool:
 	var payload: Variant = JSON.parse_string(FileAccess.get_file_as_string(roads_path))
-	if not assert_true(payload is Dictionary, "Continuous RoadGraph payload is not an object"):
+	if not assert_true(payload is Dictionary, "Closed RoadGraph payload is not an object"):
 		return false
 	var graph_data: Dictionary = payload
+	if not assert_street_road_payload(graph_data, "Closed path"):
+		return false
 	var nodes: Array = graph_data.get("nodes", [])
 	var edges: Array = graph_data.get("edges", [])
-	var groups: Array = graph_data.get("groups", [])
-	if not assert_true(nodes.size() == 6, "Continuous path node count is wrong"):
+	if not assert_true(nodes.size() == 3, "Closed path node count is wrong"):
 		return false
-	if not assert_true(edges.size() == 4, "Continuous path edge count is wrong"):
+	if not assert_true(edges.size() == 2, "Closed path edge count is wrong"):
 		return false
-	if not assert_true(groups.size() == 2, "Continuous path group count is wrong"):
+	var loops: Array = edges.filter(func(edge: Dictionary) -> bool:
+		return edge.get("nodeAID", -1) == edge.get("nodeBID", -2))
+	if not assert_true(loops.size() == 1, "Closed path was not stored as one self-loop"):
+		return false
+	var closed_geometry: Array = loops[0].get("geometry", [])
+	if not assert_true(
+		closed_geometry.size() == 4,
+		"Closed path was not stored as one self-loop with four geometry primitives"):
 		return false
 	return true
 
@@ -374,11 +435,21 @@ func assert_saved_input_path(roads_path: String) -> bool:
 	if not assert_true(payload is Dictionary, "Input RoadGraph payload is not an object"):
 		return false
 	var graph_data: Dictionary = payload
-	if not assert_true(graph_data.get("nodes", []).size() == 10, "Click path node count is wrong"):
+	if not assert_street_road_payload(graph_data, "Input path"):
 		return false
-	if not assert_true(graph_data.get("edges", []).size() == 7, "Click path edge count is wrong"):
+	var nodes: Array = graph_data.get("nodes", [])
+	var edges: Array = graph_data.get("edges", [])
+	if not assert_true(nodes.size() == 5, "Click path node count is wrong"):
 		return false
-	if not assert_true(graph_data.get("groups", []).size() == 3, "Click path group count is wrong"):
+	if not assert_true(edges.size() == 3, "Click path edge count is wrong"):
+		return false
+	var primitive_counts: Array[int] = []
+	for edge: Dictionary in edges:
+		primitive_counts.append(edge.get("geometry", []).size())
+	primitive_counts.sort()
+	if not assert_true(
+		primitive_counts == [1, 3, 4],
+		"Click paths did not preserve their geometry chains inside maximal Edges"):
 		return false
 	return true
 
@@ -386,18 +457,31 @@ func assert_saved_counts(
 	roads_path: String,
 	expected_nodes: int,
 	expected_edges: int,
-	expected_groups: int,
 	label: String) -> bool:
 	var payload: Variant = JSON.parse_string(FileAccess.get_file_as_string(roads_path))
 	if not assert_true(payload is Dictionary, "%s RoadGraph payload is not an object" % label):
 		return false
 	var graph_data: Dictionary = payload
+	if not assert_street_road_payload(graph_data, label):
+		return false
 	if not assert_true(graph_data.get("nodes", []).size() == expected_nodes, "%s node count is wrong" % label):
 		return false
 	if not assert_true(graph_data.get("edges", []).size() == expected_edges, "%s edge count is wrong" % label):
 		return false
-	if not assert_true(graph_data.get("groups", []).size() == expected_groups, "%s group count is wrong" % label):
+	return true
+
+func assert_street_road_payload(graph_data: Dictionary, label: String) -> bool:
+	if not assert_true(
+		graph_data.get("formatFamily", "") == "simple-cities-v3" and
+		graph_data.get("payloadType", "") == "road-network" and
+		graph_data.get("schemaVersion", -1) == 1,
+		"%s V3 admission fields are wrong" % label):
 		return false
+	for edge: Variant in graph_data.get("edges", []):
+		if not assert_true(edge is Dictionary, "%s edge is not an object" % label):
+			return false
+		if not assert_true(edge.get("roadType", "") == "street", "%s edge roadType is not street" % label):
+			return false
 	return true
 
 func move_pointer(road_builder: Node, position: Vector2) -> void:
@@ -434,8 +518,8 @@ func mouse_button_event(
 
 func key_event(keycode: int) -> InputEventKey:
 	var event := InputEventKey.new()
-	event.keycode = keycode
-	event.physical_keycode = keycode
+	event.keycode = keycode as Key
+	event.physical_keycode = keycode as Key
 	event.pressed = true
 	return event
 

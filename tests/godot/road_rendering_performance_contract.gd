@@ -2,6 +2,7 @@ extends SceneTree
 
 const MAP_SCENE := "res://Scenes/MapTest.tscn"
 const TEST_SLOT_NAME := "Road rendering performance contract"
+const V3_SAVE_FIXTURE := preload("res://tests/godot/v3_save_fixture.gd")
 const DATASET_SIZES: Array[int] = [10_000, 100_000]
 const EDGE_LENGTH := 8.0
 const EDGE_SPACING := 32.0
@@ -14,12 +15,18 @@ var save_manager: Node
 var slot_id := ""
 var enforce_budget := false
 var failed_budget_scenarios: Array[String] = []
+var failure_cleanup_started := false
 
 func _initialize() -> void:
 	run.call_deferred()
 
 func run() -> void:
 	enforce_budget = OS.get_cmdline_user_args().has("--enforce-budget")
+	var requested_dataset_size := read_requested_dataset_size()
+	var dataset_sizes: Array[int] = DATASET_SIZES.duplicate()
+	if requested_dataset_size > 0:
+		dataset_sizes.clear()
+		dataset_sizes.append(requested_dataset_size)
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
 	Engine.max_fps = 0
 	OS.low_processor_usage_mode = false
@@ -41,24 +48,30 @@ func run() -> void:
 	var renderer: Node = test_map.get_node("RoadSystem/RoadRenderer")
 
 	save_manager = root.get_node("SaveManager")
-	if not require(save_manager.SaveAs(TEST_SLOT_NAME), "Performance fixture slot was not created"):
+	if not require(await V3_SAVE_FIXTURE.save_as(save_manager, TEST_SLOT_NAME), "Performance fixture slot was not created"):
 		return
 	slot_id = save_manager.get("CurrentSlotID")
-	var road_path := "res://saves/%s/road_network.json" % slot_id
+	var road_path: String = V3_SAVE_FIXTURE.slot_path(slot_id, "road_network.json")
 
-	for edge_count: int in DATASET_SIZES:
+	for edge_count: int in dataset_sizes:
 		var columns: int = ceili(sqrt(float(edge_count) * 16.0 / 9.0))
 		var rows: int = ceili(float(edge_count) / float(columns))
 		camera.position = Vector2(EDGE_LENGTH * 0.5, 0.0)
+		print("STAGE fixture-write-start edges=%d" % edge_count)
 		if not require(write_fixture(road_path, edge_count, columns, rows), "Performance fixture could not be written"):
 			return
+		print("STAGE fixture-write-done edges=%d" % edge_count)
 
 		var rebuild_start_us: int = Time.get_ticks_usec()
-		if not require(save_manager.Load(slot_id), "Performance fixture did not load"):
+		print("STAGE load-start edges=%d" % edge_count)
+		if not require(await V3_SAVE_FIXTURE.load_slot(save_manager, slot_id), "Performance fixture did not load"):
 			return
+		print("STAGE load-done edges=%d" % edge_count)
 		var rebuild_ms: float = float(Time.get_ticks_usec() - rebuild_start_us) / 1000.0
+		print("STAGE renderer-count-start edges=%d" % edge_count)
 		if not require(renderer.GetRenderedEdgeCount() == edge_count, "Renderer did not rebuild the requested Edge count"):
 			return
+		print("STAGE renderer-count-done edges=%d" % edge_count)
 		for _warmup in range(10):
 			await wait_rendered_frame()
 
@@ -83,7 +96,7 @@ func run() -> void:
 		fail("10k rendering frame budget exceeded: %s" % "、".join(failed_budget_scenarios))
 		return
 
-	if not require(save_manager.DeleteSlot(slot_id), "Performance fixture slot cleanup failed"):
+	if not require(await V3_SAVE_FIXTURE.delete_slot(save_manager, slot_id), "Performance fixture slot cleanup failed"):
 		return
 	slot_id = ""
 	test_map.queue_free()
@@ -177,7 +190,7 @@ func write_fixture(path: String, edge_count: int, columns: int, rows: int) -> bo
 		return false
 	var width := float(columns - 1) * EDGE_SPACING
 	var height := float(rows - 1) * EDGE_SPACING
-	file.store_string('{"schemaVersion":1,"nextID":%d,"nodes":[' % (edge_count * 4 + 1))
+	file.store_string('{"formatFamily":"simple-cities-v3","payloadType":"road-network","schemaVersion":1,"nextID":%d,"nodes":[' % (edge_count * 3 + 1))
 	for index in range(edge_count):
 		var position := fixture_position(index, columns, width, height)
 		write_item(file, {
@@ -194,12 +207,11 @@ func write_fixture(path: String, edge_count: int, columns: int, rows: int) -> bo
 	for index in range(edge_count):
 		var position := fixture_position(index, columns, width, height)
 		var edge_id := edge_count * 2 + index + 1
-		var group_id := edge_count * 3 + index + 1
 		write_item(file, {
 			"id": edge_id,
 			"nodeAID": index * 2 + 1,
 			"nodeBID": index * 2 + 2,
-			"groupID": group_id,
+			"roadType": "street",
 			"geometry": [{
 				"version": 1,
 				"kind": "line",
@@ -207,14 +219,18 @@ func write_fixture(path: String, edge_count: int, columns: int, rows: int) -> bo
 				"end": {"x": position.x + EDGE_LENGTH, "y": position.y},
 			}],
 		}, index > 0)
-	file.store_string('],"groups":[')
-	for index in range(edge_count):
-		var edge_id := edge_count * 2 + index + 1
-		var group_id := edge_count * 3 + index + 1
-		write_item(file, {"id": group_id, "edgeIDs": [edge_id]}, index > 0)
 	file.store_string(']}')
 	file.close()
-	return true
+	print("STAGE manifest-hash-start edges=%d" % edge_count)
+	var refreshed: bool = V3_SAVE_FIXTURE.refresh_manifest_payload(slot_id)
+	print("STAGE manifest-hash-done edges=%d" % edge_count)
+	return refreshed
+
+func read_requested_dataset_size() -> int:
+	for argument: String in OS.get_cmdline_user_args():
+		if argument.begins_with("--dataset-size="):
+			return argument.trim_prefix("--dataset-size=").to_int()
+	return 0
 
 func fixture_position(index: int, columns: int, width: float, height: float) -> Vector2:
 	var column := index % columns
@@ -234,8 +250,14 @@ func require(condition: bool, message: String) -> bool:
 
 func fail(message: String) -> void:
 	push_error(message)
+	if failure_cleanup_started:
+		return
+	failure_cleanup_started = true
+	cleanup_after_failure.call_deferred()
+
+func cleanup_after_failure() -> void:
 	if save_manager != null and not slot_id.is_empty():
-		save_manager.DeleteSlot(slot_id)
+		await V3_SAVE_FIXTURE.delete_slot(save_manager, slot_id)
 		slot_id = ""
 	if test_map != null:
 		test_map.queue_free()

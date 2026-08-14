@@ -1,5 +1,7 @@
 using Godot;
+using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 
 /// <summary>
@@ -20,6 +22,11 @@ public enum SpatialRefKind
     EdgeGeometry,
 }
 
+internal readonly record struct RoadLocation(
+    int EdgeID,
+    int GeometryIndex,
+    float Parameter);
+
 /// <summary>
 /// 节点的空间引用。持有节点 ID 和位置。
 /// </summary>
@@ -29,7 +36,7 @@ public class NodeSpatialRef : ISpatialRef
     public Vector2 Position { get; }
     public SpatialRefKind Kind => SpatialRefKind.Node;
     public bool IntersectsCircle(Vector2 center, float radius) =>
-        Position.DistanceSquaredTo(center) <= radius * radius;
+        RoadNumericPolicy.DistanceSquared(Position, center) <= (double)radius * radius;
 
     public NodeSpatialRef(int nodeID, Vector2 position)
     {
@@ -47,7 +54,7 @@ public class EdgePointRef : ISpatialRef
     public Vector2 Position { get; }
     public SpatialRefKind Kind => SpatialRefKind.EdgePoint;
     public bool IntersectsCircle(Vector2 center, float radius) =>
-        Position.DistanceSquaredTo(center) <= radius * radius;
+        RoadNumericPolicy.DistanceSquared(Position, center) <= (double)radius * radius;
 
     public EdgePointRef(int edgeID, Vector2 position)
     {
@@ -88,26 +95,208 @@ public class EdgeSegmentRef : ISpatialRef
 
 public sealed class EdgeGeometryRef : ISpatialRef
 {
-    private const float QueryTolerance = 1e-4f;
-
     public int EdgeID { get; }
+    public int GeometryIndex { get; }
+    public int FragmentIndex { get; }
+    public float ParameterStart { get; }
+    public float ParameterEnd { get; }
+    public RoadGeometrySegment SourceGeometry { get; }
     public RoadGeometrySegment Geometry { get; }
+    public bool OwnsParameterEnd { get; }
     public Rect2 Bounds => Geometry.Bounds;
     public Vector2 Position => Bounds.GetCenter();
     public SpatialRefKind Kind => SpatialRefKind.EdgeGeometry;
 
-    public EdgeGeometryRef(int edgeID, RoadGeometrySegment geometry)
+    internal EdgeGeometryRef(
+        int edgeID,
+        int geometryIndex,
+        int fragmentIndex,
+        float parameterStart,
+        float parameterEnd,
+        RoadGeometrySegment sourceGeometry,
+        RoadGeometrySegment geometry,
+        bool ownsParameterEnd)
     {
         EdgeID = edgeID;
+        GeometryIndex = geometryIndex;
+        FragmentIndex = fragmentIndex;
+        ParameterStart = parameterStart;
+        ParameterEnd = parameterEnd;
+        SourceGeometry = sourceGeometry;
         Geometry = geometry;
+        OwnsParameterEnd = ownsParameterEnd;
     }
 
-    public bool IntersectsCircle(Vector2 center, float radius)
+    public bool IntersectsCircle(Vector2 center, float radius) =>
+        DistanceSquaredToBounds(center, Bounds) <= (double)radius * radius;
+
+    internal bool OwnsLocalParameter(float parameter) =>
+        parameter < RoadGeometrySegment.ParameterEnd || OwnsParameterEnd;
+
+    internal float ToSourceParameter(float localParameter) =>
+        Mathf.Lerp(ParameterStart, ParameterEnd, localParameter);
+
+    internal bool TryGetRoadLocation(float localParameter, out RoadLocation location)
     {
-        RoadGeometryClosestPoint closest = Geometry.FindClosestPoint(center, QueryTolerance);
-        float inclusiveRadius = radius + QueryTolerance;
-        return closest.DistanceSquared <= inclusiveRadius * inclusiveRadius;
+        if (!float.IsFinite(localParameter) ||
+            localParameter < RoadGeometrySegment.ParameterStart ||
+            localParameter > RoadGeometrySegment.ParameterEnd)
+        {
+            throw new ArgumentOutOfRangeException(nameof(localParameter));
+        }
+
+        if (!OwnsLocalParameter(localParameter))
+        {
+            location = default;
+            return false;
+        }
+
+        location = new RoadLocation(EdgeID, GeometryIndex, ToSourceParameter(localParameter));
+        return true;
     }
+
+    private static double DistanceSquaredToBounds(Vector2 point, Rect2 bounds)
+    {
+        Vector2 end = bounds.End;
+        double closestX = Math.Clamp((double)point.X, bounds.Position.X, end.X);
+        double closestY = Math.Clamp((double)point.Y, bounds.Position.Y, end.Y);
+        double dx = point.X - closestX;
+        double dy = point.Y - closestY;
+        return dx * dx + dy * dy;
+    }
+}
+
+internal static class RoadQueryFragmentFactory
+{
+    private const int MaximumSubdivisionDepth = 24;
+
+    internal static IReadOnlyList<EdgeGeometryRef> Create(
+        int edgeID,
+        int geometryIndex,
+        RoadGeometrySegment geometry,
+        float targetSpan,
+        bool ownsGeometryEnd)
+    {
+        if (!TryCreate(
+                edgeID,
+                geometryIndex,
+                geometry,
+                targetSpan,
+                ownsGeometryEnd,
+                int.MaxValue,
+                out IReadOnlyList<EdgeGeometryRef> fragments))
+        {
+            throw new InvalidOperationException("Query-fragment planning exceeded the supported fragment count.");
+        }
+
+        return fragments;
+    }
+
+    internal static bool TryCreateChain(
+        int edgeID,
+        IReadOnlyList<RoadGeometrySegment> geometrySegments,
+        float targetSpan,
+        bool ownsEdgeEnd,
+        int maximumFragments,
+        out IReadOnlyList<EdgeGeometryRef> fragments)
+    {
+        ArgumentNullException.ThrowIfNull(geometrySegments);
+        if (maximumFragments < 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumFragments));
+
+        var planned = new List<EdgeGeometryRef>(Math.Min(geometrySegments.Count, maximumFragments));
+        for (int geometryIndex = 0; geometryIndex < geometrySegments.Count; geometryIndex++)
+        {
+            RoadGeometrySegment geometry = geometrySegments[geometryIndex]
+                ?? throw new ArgumentException("A geometry chain cannot contain null segments.", nameof(geometrySegments));
+            int remaining = maximumFragments - planned.Count;
+            if (!TryCreate(
+                    edgeID,
+                    geometryIndex,
+                    geometry,
+                    targetSpan,
+                    ownsEdgeEnd && geometryIndex == geometrySegments.Count - 1,
+                    remaining,
+                    out IReadOnlyList<EdgeGeometryRef> geometryFragments))
+            {
+                fragments = Array.Empty<EdgeGeometryRef>();
+                return false;
+            }
+            planned.AddRange(geometryFragments);
+        }
+
+        fragments = planned;
+        return true;
+    }
+
+    private static bool TryCreate(
+        int edgeID,
+        int geometryIndex,
+        RoadGeometrySegment geometry,
+        float targetSpan,
+        bool ownsGeometryEnd,
+        int maximumFragments,
+        out IReadOnlyList<EdgeGeometryRef> fragments)
+    {
+        if (!float.IsFinite(targetSpan) || targetSpan <= 0f)
+            throw new ArgumentOutOfRangeException(nameof(targetSpan));
+        if (maximumFragments < 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumFragments));
+
+        var planned = new List<EdgeGeometryRef>(Math.Min(maximumFragments, 256));
+        var pending = new Stack<PendingFragment>();
+        pending.Push(new PendingFragment(
+            geometry,
+            RoadGeometrySegment.ParameterStart,
+            RoadGeometrySegment.ParameterEnd,
+            0));
+
+        while (pending.TryPop(out PendingFragment candidate))
+        {
+            Rect2 bounds = candidate.Geometry.Bounds;
+            float span = Mathf.Max(Mathf.Abs(bounds.Size.X), Mathf.Abs(bounds.Size.Y));
+            if (span <= targetSpan || candidate.Depth == MaximumSubdivisionDepth)
+            {
+                if (planned.Count == maximumFragments)
+                {
+                    fragments = Array.Empty<EdgeGeometryRef>();
+                    return false;
+                }
+                planned.Add(new EdgeGeometryRef(
+                    edgeID,
+                    geometryIndex,
+                    planned.Count,
+                    candidate.ParameterStart,
+                    candidate.ParameterEnd,
+                    geometry,
+                    candidate.Geometry,
+                    ownsGeometryEnd && candidate.ParameterEnd == RoadGeometrySegment.ParameterEnd));
+                continue;
+            }
+
+            RoadGeometrySplit split = candidate.Geometry.Split(0.5f);
+            float midpoint = (candidate.ParameterStart + candidate.ParameterEnd) * 0.5f;
+            pending.Push(new PendingFragment(
+                split.After,
+                midpoint,
+                candidate.ParameterEnd,
+                candidate.Depth + 1));
+            pending.Push(new PendingFragment(
+                split.Before,
+                candidate.ParameterStart,
+                midpoint,
+                candidate.Depth + 1));
+        }
+
+        fragments = planned;
+        return true;
+    }
+
+    private readonly record struct PendingFragment(
+        RoadGeometrySegment Geometry,
+        float ParameterStart,
+        float ParameterEnd,
+        int Depth);
 }
 
 /// <summary>
@@ -123,12 +312,33 @@ public sealed class EdgeGeometryRef : ISpatialRef
 public class UniformGrid
 {
     private readonly float _bucketSize;
-    private readonly Dictionary<(int bx, int by), List<ISpatialRef>> _buckets = new();
+    private ImmutableDictionary<(int bx, int by), ImmutableArray<ISpatialRef>>.Builder _buckets;
+    private long _referenceEntryCount;
 
     public UniformGrid(float bucketSize)
     {
         _bucketSize = Mathf.Max(bucketSize, 1f);
+        _buckets = ImmutableDictionary.CreateBuilder<
+            (int bx, int by),
+            ImmutableArray<ISpatialRef>>();
     }
+
+    internal UniformGrid(UniformGridSnapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        _bucketSize = snapshot.BucketSize;
+        _buckets = snapshot.Buckets.ToBuilder();
+        _referenceEntryCount = snapshot.ReferenceEntryCount;
+    }
+
+    internal int BucketCount => _buckets.Count;
+    internal long ReferenceEntryCount => _referenceEntryCount;
+    internal float BucketSize => _bucketSize;
+
+    internal UniformGridSnapshot CaptureSnapshot() => new(
+        _bucketSize,
+        _buckets.ToImmutable(),
+        _referenceEntryCount);
 
     /// <summary>插入一个空间引用。同一实体可多次插入（如一个边插入其所有途经点）。</summary>
     public void Insert(ISpatialRef entity)
@@ -153,26 +363,19 @@ public class UniformGrid
     public void Remove(ISpatialRef entity)
     {
         var (bx, by) = WorldToBucket(entity.Position);
-        if (_buckets.TryGetValue((bx, by), out var list))
-            list.RemoveAll(r => r == entity);
+        RemoveFromBucket(bx, by, reference => reference == entity);
     }
 
     public void RemoveSegment(EdgeSegmentRef segment)
     {
         foreach (var (bx, by) in GetCoveredBuckets(segment.Start, segment.End))
-        {
-            if (_buckets.TryGetValue((bx, by), out var list))
-                list.RemoveAll(reference => reference == segment);
-        }
+            RemoveFromBucket(bx, by, reference => reference == segment);
     }
 
     public void RemoveGeometry(EdgeGeometryRef geometry)
     {
         foreach (var (bx, by) in GetCoveredBuckets(geometry.Bounds))
-        {
-            if (_buckets.TryGetValue((bx, by), out var list))
-                list.RemoveAll(reference => reference == geometry);
-        }
+            RemoveFromBucket(bx, by, reference => reference == geometry);
     }
 
     /// <summary>
@@ -191,7 +394,7 @@ public class UniformGrid
         for (int bx = minBX; bx <= maxBX; bx++)
         for (int by = minBY; by <= maxBY; by++)
         {
-            if (!_buckets.TryGetValue((bx, by), out var list)) continue;
+            if (!_buckets.TryGetValue((bx, by), out ImmutableArray<ISpatialRef> list)) continue;
             foreach (var entity in list)
             {
                 if (returned.Add(entity) && entity.IntersectsCircle(center, radius))
@@ -208,7 +411,7 @@ public class UniformGrid
         var returned = new HashSet<ISpatialRef>();
         foreach ((int bx, int by) in GetCoveredBuckets(bounds))
         {
-            if (!_buckets.TryGetValue((bx, by), out var list)) continue;
+            if (!_buckets.TryGetValue((bx, by), out ImmutableArray<ISpatialRef> list)) continue;
             foreach (ISpatialRef entity in list)
                 if (returned.Add(entity))
                     yield return entity;
@@ -216,26 +419,82 @@ public class UniformGrid
     }
 
     /// <summary>清空所有索引。</summary>
-    public void Clear() => _buckets.Clear();
-
-    internal HashSet<ISpatialRef> CaptureDistinctReferences() =>
-        _buckets.Values.SelectMany(bucket => bucket).ToHashSet();
-
-    internal bool HasExactCoverage(ISpatialRef reference, Rect2 bounds)
+    public void Clear()
     {
-        HashSet<(int bx, int by)> expected = GetCoveredBuckets(bounds).ToHashSet();
-        var actual = new HashSet<(int bx, int by)>();
+        _buckets = ImmutableDictionary.CreateBuilder<
+            (int bx, int by),
+            ImmutableArray<ISpatialRef>>();
+        _referenceEntryCount = 0;
+    }
 
-        foreach (((int bx, int by) bucket, List<ISpatialRef> references) in _buckets)
+    internal bool TryCountCoveredBuckets(Rect2 bounds, out long count)
+    {
+        if (!TryGetBucketCoverage(bounds, out BucketCoverage coverage))
         {
-            int occurrences = references.Count(candidate => ReferenceEquals(candidate, reference));
-            if (occurrences > 1)
-                return false;
-            if (occurrences == 1)
-                actual.Add(bucket);
+            count = 0;
+            return false;
         }
 
-        return expected.SetEquals(actual);
+        count = coverage.Count;
+        return true;
+    }
+
+    internal bool HasExactCoverage(IReadOnlyDictionary<ISpatialRef, Rect2> expectedBounds)
+    {
+        ArgumentNullException.ThrowIfNull(expectedBounds);
+        var coverageByReference = new Dictionary<ISpatialRef, BucketCoverage>(
+            ReferenceEqualityComparer.Instance);
+        var remainingEntries = new Dictionary<ISpatialRef, long>(
+            ReferenceEqualityComparer.Instance);
+        foreach ((ISpatialRef reference, Rect2 bounds) in expectedBounds)
+        {
+            if (!TryGetBucketCoverage(bounds, out BucketCoverage coverage) ||
+                !coverageByReference.TryAdd(reference, coverage) ||
+                !remainingEntries.TryAdd(reference, coverage.Count))
+            {
+                return false;
+            }
+        }
+
+        long observedEntryCount = 0L;
+        foreach (((int bx, int by) bucket, ImmutableArray<ISpatialRef> references) in _buckets)
+        {
+            var referencesInBucket = new HashSet<ISpatialRef>(ReferenceEqualityComparer.Instance);
+            foreach (ISpatialRef reference in references)
+            {
+                observedEntryCount++;
+                if (!referencesInBucket.Add(reference) ||
+                    !coverageByReference.TryGetValue(reference, out BucketCoverage coverage) ||
+                    bucket.bx < coverage.MinBX || bucket.bx > coverage.MaxBX ||
+                    bucket.by < coverage.MinBY || bucket.by > coverage.MaxBY ||
+                    --remainingEntries[reference] < 0L)
+                {
+                    return false;
+                }
+            }
+        }
+
+        return observedEntryCount == _referenceEntryCount &&
+               remainingEntries.Values.All(remaining => remaining == 0L);
+    }
+
+    private bool TryGetBucketCoverage(Rect2 bounds, out BucketCoverage coverage)
+    {
+        coverage = default;
+        if (!bounds.Position.IsFinite() || !bounds.End.IsFinite())
+            return false;
+
+        int minBX = WorldToBucketCoord(Mathf.Min(bounds.Position.X, bounds.End.X));
+        int maxBX = WorldToBucketCoord(Mathf.Max(bounds.Position.X, bounds.End.X));
+        int minBY = WorldToBucketCoord(Mathf.Min(bounds.Position.Y, bounds.End.Y));
+        int maxBY = WorldToBucketCoord(Mathf.Max(bounds.Position.Y, bounds.End.Y));
+        long width = (long)maxBX - minBX + 1L;
+        long height = (long)maxBY - minBY + 1L;
+        if (width <= 0L || height <= 0L || width > long.MaxValue / height)
+            return false;
+
+        coverage = new BucketCoverage(minBX, maxBX, minBY, maxBY, width * height);
+        return true;
     }
 
     private (int bx, int by) WorldToBucket(Vector2 pos)
@@ -250,9 +509,35 @@ public class UniformGrid
 
     private void InsertIntoBucket(int bx, int by, ISpatialRef entity)
     {
-        if (!_buckets.TryGetValue((bx, by), out var list))
-            _buckets[(bx, by)] = list = new List<ISpatialRef>();
-        list.Add(entity);
+        (int bx, int by) key = (bx, by);
+        ImmutableArray<ISpatialRef> page = _buckets.GetValueOrDefault(
+            key,
+            ImmutableArray<ISpatialRef>.Empty);
+        _buckets[key] = page.Add(entity);
+        _referenceEntryCount++;
+    }
+
+    private void RemoveFromBucket(
+        int bx,
+        int by,
+        Func<ISpatialRef, bool> predicate)
+    {
+        (int bx, int by) key = (bx, by);
+        if (!_buckets.TryGetValue(key, out ImmutableArray<ISpatialRef> page))
+            return;
+
+        ImmutableArray<ISpatialRef>.Builder retained = page.ToBuilder();
+        int beforeCount = retained.Count;
+        retained.RemoveAll(reference => predicate(reference));
+        int removed = beforeCount - retained.Count;
+        if (removed == 0)
+            return;
+
+        _referenceEntryCount -= removed;
+        if (retained.Count == 0)
+            _buckets.Remove(key);
+        else
+            _buckets[key] = retained.ToImmutable();
     }
 
     private IEnumerable<(int bx, int by)> GetCoveredBuckets(Vector2 start, Vector2 end)
@@ -277,5 +562,29 @@ public class UniformGrid
         for (int bx = minBX; bx <= maxBX; bx++)
         for (int by = minBY; by <= maxBY; by++)
             yield return (bx, by);
+    }
+
+    private readonly record struct BucketCoverage(
+        int MinBX,
+        int MaxBX,
+        int MinBY,
+        int MaxBY,
+        long Count);
+}
+
+internal sealed class UniformGridSnapshot
+{
+    internal float BucketSize { get; }
+    internal ImmutableDictionary<(int bx, int by), ImmutableArray<ISpatialRef>> Buckets { get; }
+    internal long ReferenceEntryCount { get; }
+
+    internal UniformGridSnapshot(
+        float bucketSize,
+        ImmutableDictionary<(int bx, int by), ImmutableArray<ISpatialRef>> buckets,
+        long referenceEntryCount)
+    {
+        BucketSize = bucketSize;
+        Buckets = buckets ?? throw new ArgumentNullException(nameof(buckets));
+        ReferenceEntryCount = referenceEntryCount;
     }
 }

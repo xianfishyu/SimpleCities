@@ -1,4 +1,5 @@
 using Godot;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace SimpleCities.Tests;
@@ -9,18 +10,16 @@ public sealed class RoadGraphNodeIdentityTests
     [InlineData(0.4999f, true)]
     [InlineData(0.5f, true)]
     [InlineData(0.5001f, false)]
-    public void AddRoad_StartNearExistingNode_UsesInclusiveHalfUnitSnapRadius(
+    public void SubmitPolyline_StartNearExistingNode_UsesInclusiveHalfUnitSnapRadius(
         float offset,
         bool shouldReuseExistingNode)
     {
         var graph = CreateGraphWithTerminalNodes(Vector2.Zero);
-        int existingNodeID = FindNodeAt(graph, Vector2.Zero).ID;
-
         var addedEdge = AddProbeRoad(graph, new Vector2(offset, 0));
 
-        bool reusedExistingNode = addedEdge.NodeA == existingNodeID || addedEdge.NodeB == existingNodeID;
+        bool reusedExistingNode = HasGeometryAnchor(addedEdge, Vector2.Zero);
         Assert.Equal(shouldReuseExistingNode, reusedExistingNode);
-        Assert.Equal(shouldReuseExistingNode ? 3 : 4, graph.GetAllNodes().Count());
+        Assert.Equal(shouldReuseExistingNode ? 2 : 4, graph.GetAllNodes().Count());
     }
 
     [Fact]
@@ -36,44 +35,43 @@ public sealed class RoadGraphNodeIdentityTests
     }
 
     [Fact]
-    public void AddRoad_StartWithinTwoSnapRadii_ReusesNearestNode()
+    public void SubmitPolyline_StartWithinTwoSnapRadii_ReusesNearestNode()
     {
         var graph = CreateGraphWithTerminalNodes(Vector2.Zero, new Vector2(0.75f, 0));
         var expected = FindNodeAt(graph, new Vector2(0.75f, 0));
 
         var addedEdge = AddProbeRoad(graph, new Vector2(0.4f, 0));
 
-        Assert.True(addedEdge.NodeA == expected.ID || addedEdge.NodeB == expected.ID);
+        Assert.True(HasGeometryAnchor(addedEdge, expected.Position));
     }
 
     [Fact]
-    public void AddRoad_StartEquidistantFromTwoNodes_ReusesLowerNodeIDAfterRestore()
+    public void SubmitPolyline_StartEquidistantFromTwoNodes_ReusesLowerNodeIDAfterRoundTrip()
     {
         var source = CreateGraphWithTerminalNodes(Vector2.Zero, new Vector2(0.75f, 0));
-        int expectedNodeID = new[]
+        GraphNode expectedNode = new[]
         {
-            FindNodeAt(source, Vector2.Zero).ID,
-            FindNodeAt(source, new Vector2(0.75f, 0)).ID,
-        }.Min();
-        var restored = RestoreWithReversedNodeOrder(source);
+            FindNodeAt(source, Vector2.Zero),
+            FindNodeAt(source, new Vector2(0.75f, 0)),
+        }.MinBy(node => node.ID)!;
+        RoadGraph restored = RoadGraphTestCodec.Clone(source);
 
         var addedEdge = AddProbeRoad(restored, new Vector2(0.375f, 0));
 
-        Assert.True(addedEdge.NodeA == expectedNodeID || addedEdge.NodeB == expectedNodeID);
+        Assert.True(HasGeometryAnchor(addedEdge, expectedNode.Position));
     }
 
     [Fact]
-    public void RestoreState_AddRoadNearLoadedNode_ReusesLoadedNode()
+    public void Load_SubmitPolylineNearLoadedNode_ReusesLoadedNode()
     {
         var source = CreateGraphWithTerminalNodes(Vector2.Zero);
-        int loadedNodeID = FindNodeAt(source, Vector2.Zero).ID;
         var restored = new RoadGraph();
-        restored.RestoreState(SaveJson.Serialize(source.CaptureState()));
+        RoadGraphTestCodec.LoadJson(restored, RoadGraphTestCodec.CaptureJson(source));
 
         var addedEdge = AddProbeRoad(restored, new Vector2(0.25f, 0));
 
-        Assert.True(addedEdge.NodeA == loadedNodeID || addedEdge.NodeB == loadedNodeID);
-        Assert.Equal(3, restored.GetAllNodes().Count());
+        Assert.True(HasGeometryAnchor(addedEdge, Vector2.Zero));
+        Assert.Equal(2, restored.GetAllNodes().Count());
     }
 
     private static RoadGraph CreateGraphWithTerminalNodes(params Vector2[] terminalPositions)
@@ -83,7 +81,7 @@ public sealed class RoadGraphNodeIdentityTests
         {
             Vector2 terminal = terminalPositions[i];
             Vector2 remote = terminal + new Vector2(-10 - i, 5 * i);
-            Assert.True(graph.AddRoad(remote, terminal, []) >= 0);
+            Assert.True(graph.SubmitPolyline(RoadType.Street, [remote, terminal]).Success);
         }
 
         return graph;
@@ -96,23 +94,27 @@ public sealed class RoadGraphNodeIdentityTests
 
     private static GraphEdge AddProbeRoad(RoadGraph graph, Vector2 start)
     {
-        int groupID = graph.AddRoad(start, start + new Vector2(0, -10), []);
-        var group = Assert.IsType<RoadGroup>(graph.GetGroup(groupID));
-        int edgeID = Assert.Single(group.EdgeIDs);
-        return Assert.IsType<GraphEdge>(graph.GetEdge(edgeID));
+        Vector2 end = start + new Vector2(0, -10);
+        RoadPathSubmissionResult result = graph.SubmitPolyline(RoadType.Street, [start, end]);
+        Assert.True(result.Success);
+        return Assert.IsType<GraphEdge>(graph.FindClosestEdge(end, 0.01f));
     }
 
-    private static RoadGraph RestoreWithReversedNodeOrder(RoadGraph source)
+    private static bool HasGeometryAnchor(GraphEdge edge, Vector2 position) =>
+        edge.GeometrySegments.Any(segment => segment.Start == position || segment.End == position);
+
+    [Fact]
+    public void Reader_ReversedNodeOrderIsRejected()
     {
-        var root = Assert.IsType<JsonObject>(JsonNode.Parse(SaveJson.Serialize(source.CaptureState())));
+        RoadGraph source = CreateGraphWithTerminalNodes(Vector2.Zero, new Vector2(0.75f, 0));
+        var root = Assert.IsType<JsonObject>(JsonNode.Parse(RoadGraphTestCodec.CaptureJson(source)));
         var nodes = Assert.IsType<JsonArray>(root["nodes"]);
         var reversedNodes = nodes.Select(node => node!.DeepClone()).Reverse().ToArray();
         nodes.Clear();
         foreach (var node in reversedNodes)
             nodes.Add(node);
 
-        var restored = new RoadGraph();
-        restored.RestoreState(root.ToJsonString());
-        return restored;
+        Assert.Throws<JsonException>(() =>
+            RoadGraphTestCodec.PrepareJson(new RoadGraph(), root.ToJsonString()));
     }
 }

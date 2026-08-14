@@ -5,13 +5,20 @@ using System.Linq;
 
 public partial class RoadGraph
 {
-    public RoadPathSubmissionResult SubmitPath(RoadPath? path)
+    public RoadPathSubmissionResult SubmitPath(RoadBuildRequest? request)
     {
         BeginMeasuredOperation();
-        return SubmitPathCore(path);
+        return ExecuteSubmission(() =>
+        {
+            if (request is null)
+                return RoadPathSubmissionResult.Rejected(RoadPathSubmissionError.MissingPath);
+            if (!RoadTypeContract.IsDefined(request.RoadType))
+                return RoadPathSubmissionResult.Rejected(RoadPathSubmissionError.InvalidRoadType);
+            return SubmitPathCore(request.Path, request.RoadType);
+        });
     }
 
-    private RoadPathSubmissionResult SubmitPathCore(RoadPath? path)
+    private RoadPathSubmissionResult SubmitPathCore(RoadPath? path, RoadType roadType)
     {
         RoadPathSubmissionError validationError = ValidateNativePath(path);
         if (validationError != RoadPathSubmissionError.None)
@@ -20,20 +27,29 @@ public partial class RoadGraph
         RoadPathSubmissionError resolutionError = ResolveNativeSegments(path!, out RoadGeometrySegment[] segments);
         if (resolutionError != RoadPathSubmissionError.None)
             return RoadPathSubmissionResult.Rejected(resolutionError);
+        RoadPathSubmissionError planningError =
+            PlanNativePathIntersections(segments, out NativePathIntersectionPlan intersectionPlan);
+        if (planningError != RoadPathSubmissionError.None)
+            return RoadPathSubmissionResult.Rejected(planningError);
         bool[] coveredSegments = segments.Select(IsGeometryCovered).ToArray();
         if (coveredSegments.All(covered => covered))
             return RoadPathSubmissionResult.Rejected(RoadPathSubmissionError.FullyCovered);
-
-        NativePathIntersectionPlan intersectionPlan = PlanNativePathIntersections(segments);
-        IReadOnlyList<NativePathPiece> incomingPieces =
-            PlanIncomingPieces(segments, coveredSegments, intersectionPlan);
+        RoadPathSubmissionError piecePlanningError = PlanIncomingPieces(
+            segments,
+            coveredSegments,
+            intersectionPlan,
+            out IReadOnlyList<NativePathPiece> incomingPieces);
+        if (piecePlanningError != RoadPathSubmissionError.None)
+            return RoadPathSubmissionResult.Rejected(piecePlanningError);
         if (incomingPieces.All(piece => piece.Covered))
             return RoadPathSubmissionResult.Rejected(RoadPathSubmissionError.FullyCovered);
 
-        EntitySnapshot entitiesBefore = CaptureEntitySnapshot();
+        RoadPathSubmissionError admissionError =
+            AdmitNativePathMutation(incomingPieces, intersectionPlan, out _);
+        if (admissionError != RoadPathSubmissionError.None)
+            return RoadPathSubmissionResult.Rejected(admissionError);
+
         ApplyExistingEdgeSplits(intersectionPlan);
-        var group = new RoadGroup(NextID());
-        _groups.Add(group.ID, group);
 
         bool anyAdded = false;
         foreach (NativePathPiece piece in incomingPieces)
@@ -47,17 +63,16 @@ public partial class RoadGraph
                     nodeA,
                     nodeB,
                     new[] { piece.Geometry },
-                    group.ID) is not null)
+                    roadType,
+                    emitEvent: false) is not null)
                 anyAdded = true;
         }
 
         if (!anyAdded)
-        {
-            _groups.Remove(group.ID);
             return RoadPathSubmissionResult.Rejected(RoadPathSubmissionError.NoChanges);
-        }
 
-        return RoadPathSubmissionResult.Succeeded(group.ID, DescribeChanges(entitiesBefore));
+        FinalizeMutation(_touchedNodeIDs.ToArray());
+        return RoadPathSubmissionResult.Succeeded(RoadGraphChangeSummary.Empty);
     }
 
     private RoadPathSubmissionError ValidateNativePath(RoadPath? path)
@@ -77,7 +92,11 @@ public partial class RoadGraph
                 return RoadPathSubmissionError.UnknownGeometryType;
             if (!IsFiniteGeometry(segment))
                 return RoadPathSubmissionError.NonFiniteCoordinate;
-            if (segment.Length <= 0f || segment.Start.DistanceSquaredTo(segment.End) < GeometryEpsilon)
+            if (RoadNumericPolicy.ValidateGeometry(segment) != RoadNumericError.None)
+                return RoadPathSubmissionError.NumericOutOfRange;
+            bool exactFullTurn = segment is CircularArcRoadGeometrySegment { IsFullTurn: true };
+            if (segment.Length <= 0f ||
+                (!exactFullTurn && segment.Start.DistanceSquaredTo(segment.End) < GeometryEpsilon))
                 return RoadPathSubmissionError.DegenerateSegment;
             if (index > 0 && path.Segments[index - 1]!.End != segment.Start)
                 return RoadPathSubmissionError.DiscontinuousGeometry;
@@ -89,6 +108,12 @@ public partial class RoadGraph
 
         for (int index = 0; index < anchors.Count - 1; index++)
         {
+            bool exactFullTurn = path.Segments[index] is CircularArcRoadGeometrySegment
+            {
+                IsFullTurn: true,
+            };
+            if (exactFullTurn)
+                continue;
             if (anchors[index].DistanceTo(anchors[index + 1]) <= SnapRadius)
                 return RoadPathSubmissionError.CollapsedByNodeIdentity;
 
@@ -98,47 +123,32 @@ public partial class RoadGraph
                 return RoadPathSubmissionError.CollapsedByNodeIdentity;
         }
 
-        for (int i = 0; i < anchors.Count; i++)
-        {
-            for (int j = i + 1; j < anchors.Count; j++)
-            {
-                if (anchors[i].DistanceSquaredTo(anchors[j]) < GeometryEpsilon)
-                    return RoadPathSubmissionError.RepeatedPoint;
-            }
-        }
-
         return RoadPathSubmissionError.None;
     }
 
     private RoadPathSubmissionError ResolveNativeSegments(RoadPath path, out RoadGeometrySegment[] resolved)
     {
         resolved = new RoadGeometrySegment[path.Segments.Count];
-        var resolvedAnchors = new List<Vector2>(resolved.Length + 1);
         for (int index = 0; index < resolved.Length; index++)
         {
             RoadGeometrySegment source = path.Segments[index]!;
             Vector2 resolvedStart = FindClosestIndexedNode(source.Start, SnapRadius)?.Position ?? source.Start;
             Vector2 resolvedEnd = FindClosestIndexedNode(source.End, SnapRadius)?.Position ?? source.End;
-            if (resolvedStart.DistanceTo(resolvedEnd) <= SnapRadius)
+            bool exactFullTurn = source is CircularArcRoadGeometrySegment { IsFullTurn: true };
+            if (!exactFullTurn && resolvedStart.DistanceTo(resolvedEnd) <= SnapRadius)
                 return RoadPathSubmissionError.CollapsedByNodeIdentity;
             if (!TrySnapGeometry(source, resolvedStart, resolvedEnd, out RoadGeometrySegment? snapped))
                 return RoadPathSubmissionError.UnsupportedEndpointSnap;
+            RoadGeometryCanonicalizationResult canonical =
+                RoadGeometryCanonicalizer.Canonicalize([snapped]);
+            snapped = canonical.GeometrySegments[0];
+            if (RoadNumericPolicy.ValidateGeometry(snapped) != RoadNumericError.None)
+                return RoadPathSubmissionError.NumericOutOfRange;
             if (index > 0 && resolved[index - 1].End != snapped.Start)
                 return RoadPathSubmissionError.UnsupportedEndpointSnap;
-            if (index == 0)
-                resolvedAnchors.Add(snapped.Start);
-            resolvedAnchors.Add(snapped.End);
             resolved[index] = snapped;
         }
 
-        for (int i = 0; i < resolvedAnchors.Count; i++)
-        {
-            for (int j = i + 1; j < resolvedAnchors.Count; j++)
-            {
-                if (resolvedAnchors[i].DistanceSquaredTo(resolvedAnchors[j]) < GeometryEpsilon)
-                    return RoadPathSubmissionError.RepeatedPoint;
-            }
-        }
         return RoadPathSubmissionError.None;
     }
 
@@ -180,16 +190,24 @@ public partial class RoadGraph
                     rational.EndWeight);
                 return true;
             case CircularArcRoadGeometrySegment arc when startDelta == endDelta:
-                geometry = new CircularArcRoadGeometrySegment(
-                    arc.Center + startDelta, arc.Radius, arc.StartAngle, arc.SweepAngle);
+                geometry = CircularArcRoadGeometrySegment.CreateAnchored(
+                    arc.Center + startDelta,
+                    arc.Radius,
+                    arc.StartAngle,
+                    arc.SweepAngle,
+                    start,
+                    end,
+                    arc.EndAngle);
                 return true;
             case ClothoidRoadGeometrySegment clothoid when startDelta == endDelta:
-                geometry = new ClothoidRoadGeometrySegment(
-                    clothoid.Start + startDelta,
+                geometry = ClothoidRoadGeometrySegment.CreateAnchored(
+                    start,
                     clothoid.StartHeading,
                     clothoid.StartCurvature,
                     clothoid.EndCurvature,
-                    clothoid.ArcLength);
+                    clothoid.ArcLength,
+                    end,
+                    clothoid.ReverseStartHeading);
                 return true;
             default:
                 return false;
@@ -225,21 +243,23 @@ public partial class RoadGraph
             return IsNativeLineCovered(line);
 
         string serialized = SaveJson.Serialize(RoadGeometrySerializer.ToData(geometry));
-        return FindCandidateEdgeIDs(geometry).Any(edgeID =>
-            _edges.TryGetValue(edgeID, out GraphEdge? edge) &&
-            edge.GeometrySegments.Count == 1 &&
-            SaveJson.Serialize(RoadGeometrySerializer.ToData(edge.GeometrySegments[0])) == serialized);
+        return FindCandidateGeometryRefs(geometry)
+            .Select(fragment => (fragment.EdgeID, fragment.GeometryIndex))
+            .Distinct()
+            .Any(candidate =>
+                _edges.TryGetValue(candidate.EdgeID, out GraphEdge? edge) &&
+                edge.GeometrySegments.Count == 1 &&
+                SaveJson.Serialize(RoadGeometrySerializer.ToData(
+                    edge.GeometrySegments[candidate.GeometryIndex])) == serialized);
     }
 
     private bool IsNativeLineCovered(LineRoadGeometrySegment line)
     {
         Vector2 direction = line.End - line.Start;
         var intervals = new List<(float Start, float End)>();
-        foreach (LineRoadGeometrySegment existing in FindCandidateEdgeIDs(line)
-            .Select(edgeID => _edges.GetValueOrDefault(edgeID))
-            .Where(edge => edge is not null)
-            .SelectMany(edge => edge!.GeometrySegments)
-            .OfType<LineRoadGeometrySegment>())
+        foreach (LineRoadGeometrySegment existing in FindCandidateGeometryRefs(line)
+                     .Select(fragment => fragment.Geometry)
+                     .OfType<LineRoadGeometrySegment>())
         {
             if (!IsPointOnInfiniteLine(line.Start, line.End, existing.Start) ||
                 !IsPointOnInfiniteLine(line.Start, line.End, existing.End))
@@ -268,28 +288,39 @@ public partial class RoadGraph
         GraphNode nodeA,
         GraphNode nodeB,
         IReadOnlyList<RoadGeometrySegment> geometrySegments,
-        int groupID,
+        RoadType roadType,
+        int? edgeID = null,
         bool emitEvent = true)
     {
-        if (nodeA.ID == nodeB.ID)
-            return null;
+        IReadOnlyList<RoadGeometrySegment> anchoredGeometry =
+            RoadGeometryCanonicalizer.ReanchorChain(
+                geometrySegments,
+                nodeA.Position,
+                nodeB.Position);
+        var edge = new GraphEdge(roadType, edgeID ?? NextID(), nodeA.ID, nodeB.ID, anchoredGeometry);
+        AttachEdge(edge);
 
-        var edge = new GraphEdge(NextID(), nodeA.ID, nodeB.ID, geometrySegments, groupID);
-        _edges.Add(edge.ID, edge);
-
-        if (!_groups.TryGetValue(groupID, out RoadGroup? group))
-        {
-            group = new RoadGroup(groupID);
-            _groups.Add(groupID, group);
-        }
-        group.AddEdge(edge.ID);
-
-        nodeA.AddEdge(edge.ID, nodeB.ID);
-        nodeB.AddEdge(edge.ID, nodeA.ID);
-        InsertEdgeSpatialRefs(edge);
-
-        if (emitEvent)
-            EdgeAdded?.Invoke(edge);
         return edge;
+    }
+
+    private void AttachEdge(GraphEdge edge)
+    {
+        _edges.Add(edge.ID, edge);
+        TrackEdgeChange(edge.ID);
+        _geometrySegmentCount += edge.GeometrySegments.Count;
+        AdjustTotalGeometryLength(SumGeometryLength(edge));
+        AttachEdgeIncidences(edge);
+        InsertEdgeSpatialRefs(edge);
+    }
+
+    private static double SumGeometryLength(GraphEdge edge) =>
+        edge.GeometrySegments.Sum(geometry => (double)geometry.Length);
+
+    private void AdjustTotalGeometryLength(double delta)
+    {
+        double next = _totalGeometryLength + delta;
+        if (!double.IsFinite(next) || next < -1e-6d)
+            throw new InvalidOperationException("RoadGraph total geometry length became invalid.");
+        _totalGeometryLength = next <= 0d ? 0d : next;
     }
 }

@@ -9,6 +9,7 @@ public partial class MainMenu : Control
 
     private Button _startButton = null!;
     private Button _quitButton = null!;
+    private bool _quitPending;
 
     public override void _Ready()
     {
@@ -34,5 +35,16 @@ public partial class MainMenu : Control
             GD.PushError($"MainMenu: failed to start MapTest ({result}).");
     }
 
-    private void QuitToDesktop() => GetTree().Quit();
+    private void QuitToDesktop()
+    {
+        if (_quitPending)
+            return;
+        _quitPending = true;
+        _startButton.Disabled = true;
+        _quitButton.Disabled = true;
+        if (GodotObject.IsInstanceValid(SaveManager.Instance))
+            SaveManager.Instance.RequestApplicationQuit();
+        else
+            GetTree().Quit();
+    }
 }

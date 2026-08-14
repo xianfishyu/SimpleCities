@@ -12,6 +12,8 @@ public sealed class RoadPathDraft
     public IReadOnlyList<Vector2> PreviewPoints => _previewPoints;
     public RoadPath? Path { get; }
     public bool CanCommit => Path != null;
+    public bool IsClosed => Path is not null && Path.Segments.Count > 0 &&
+        RoadExactPredicates.SameBits(Path.Segments[0]!.Start, Path.Segments[^1]!.End);
     public Vector2 PreviewFrom => _previewPoints[0];
     public Vector2 PreviewTo => _previewPoints[^1];
 

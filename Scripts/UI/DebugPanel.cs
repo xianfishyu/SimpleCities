@@ -1,5 +1,4 @@
 using Godot;
-using System.Linq;
 
 /// <summary>
 /// 左上角的运行时诊断面板，展示帧率、鼠标网格位置和当前路网的规模统计。
@@ -12,7 +11,6 @@ public partial class DebugPanel : PanelContainer
     private VBoxContainer _debugContent = null!;
     private Label _fpsValue = null!;
     private Label _gridValue = null!;
-    private Label _roadGroupValue = null!;
     private Label _graphEdgeValue = null!;
     private Label _graphNodeValue = null!;
 
@@ -26,7 +24,6 @@ public partial class DebugPanel : PanelContainer
         _debugContent = GetNode<VBoxContainer>("PanelMargin/Rows/DebugContent");
         _fpsValue = GetNode<Label>("PanelMargin/Rows/DebugContent/FpsRow/FpsValue");
         _gridValue = GetNode<Label>("PanelMargin/Rows/DebugContent/GridRow/GridValue");
-        _roadGroupValue = GetNode<Label>("PanelMargin/Rows/DebugContent/RoadGroupRow/RoadGroupValue");
         _graphEdgeValue = GetNode<Label>("PanelMargin/Rows/DebugContent/GraphEdgeRow/GraphEdgeValue");
         _graphNodeValue = GetNode<Label>("PanelMargin/Rows/DebugContent/GraphNodeRow/GraphNodeValue");
 
@@ -62,15 +59,14 @@ public partial class DebugPanel : PanelContainer
 
         if (_network == null)
         {
-            _roadGroupValue.Text = "--";
             _graphEdgeValue.Text = "--";
             _graphNodeValue.Text = "--";
             return;
         }
 
-        _roadGroupValue.Text = _network.GetAllGroups().Count().ToString();
-        _graphEdgeValue.Text = _network.GetAllEdges().Count().ToString();
-        _graphNodeValue.Text = _network.GetAllNodes().Count().ToString();
+        RoadGraphRevision revision = _network.CaptureRevision();
+        _graphEdgeValue.Text = revision.Edges.Count.ToString();
+        _graphNodeValue.Text = revision.Nodes.Count.ToString();
     }
 
     private void ToggleDebugContent()

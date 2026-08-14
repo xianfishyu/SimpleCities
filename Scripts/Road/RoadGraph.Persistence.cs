@@ -1,298 +1,296 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 
 public partial class RoadGraph
 {
-    private const int RoadGraphSchemaVersion = 1;
+    private const string RoadGraphPayloadType = "road-network";
+    private const float MinimumIntersectionEndpointParameterTolerance = 1e-4f;
+    private const float MaximumIntersectionEndpointParameterTolerance = 1e-2f;
 
-    private static readonly JsonSerializerOptions RoadGraphJsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = false,
-    };
+    public ISaveSnapshot CaptureSnapshot() => CaptureRevision();
 
-    public object CaptureState()
+    public void WriteSnapshot(Stream destination, ISaveSnapshot snapshot)
     {
-        return new RoadGraphSaveData
+        ArgumentNullException.ThrowIfNull(destination);
+        if (!destination.CanWrite)
+            throw new ArgumentException("Snapshot destination must be writable.", nameof(destination));
+        if (snapshot is not RoadGraphRevision revision)
+            throw new ArgumentException("Snapshot is not a RoadGraph revision.", nameof(snapshot));
+
+        using var writer = new Utf8JsonWriter(destination, new JsonWriterOptions
         {
-            SchemaVersion = RoadGraphSchemaVersion,
-            NextID = _nextID,
-            Nodes = _nodes.Values
-                .OrderBy(node => node.ID)
-                .Select(node => new NodeSaveData
+            Indented = false,
+            SkipValidation = false,
+        });
+        WritePayload(writer, revision);
+        writer.Flush();
+    }
+
+    private static IPreparedSaveState PrepareLoad(
+        Stream source,
+        RoadGraphCapacity capacity,
+        float bucketSize)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        if (!source.CanRead)
+            throw new ArgumentException("Save payload source must be readable.", nameof(source));
+
+        try
+        {
+            using var reader = new V3JsonStreamReader(
+                source,
+                V3StorageBudget.CreateRoadGraphJson(capacity));
+            PreparedRoadGraphTopology topology = ReadTopology(reader, capacity);
+            RoadGraph preparedGraph = FromPreparedTopology(
+                topology,
+                capacity,
+                bucketSize);
+            ValidateCanonicalIntersections(preparedGraph);
+            return preparedGraph.CaptureRevision();
+        }
+        catch (JsonException)
+        {
+            throw;
+        }
+        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
+        {
+            throw new JsonException("RoadGraph payload does not describe a canonical graph.", exception);
+        }
+    }
+
+    private sealed class RoadGraphLoadReader(
+        RoadGraphCapacity capacity,
+        float bucketSize) : IStreamingLoadReader
+    {
+        public IPreparedSaveState PrepareLoad(Stream source) =>
+            RoadGraph.PrepareLoad(source, capacity, bucketSize);
+    }
+
+    public void CommitPreparedLoad(IPreparedSaveState preparedState)
+    {
+        using RoadGraphLoadAdmission admission = BeginLoadAdmission();
+        using var aggregate = new PreparedAggregateLoad(
+            [PreflightPreparedLoad(admission, preparedState, out _)]);
+        aggregate.Commit(new UncoordinatedStorageOperationLease(SaveOperationKind.Load));
+    }
+
+    private static void WritePayload(Utf8JsonWriter writer, RoadGraphRevision revision)
+    {
+        writer.WriteStartObject();
+        writer.WriteString("formatFamily", V3Json.FormatFamily);
+        writer.WriteString("payloadType", RoadGraphPayloadType);
+        writer.WriteNumber("schemaVersion", V3Json.SchemaVersion);
+        writer.WriteNumber("nextID", revision.NextIDWatermark);
+
+        writer.WriteStartArray("nodes");
+        foreach (GraphNode node in revision.Nodes.Values.OrderBy(node => node.ID))
+        {
+            writer.WriteStartObject();
+            writer.WriteNumber("id", node.ID);
+            writer.WriteNumber("x", node.Position.X);
+            writer.WriteNumber("y", node.Position.Y);
+            writer.WriteEndObject();
+        }
+        writer.WriteEndArray();
+
+        writer.WriteStartArray("edges");
+        foreach (GraphEdge edge in revision.Edges.Values.OrderBy(edge => edge.ID))
+        {
+            writer.WriteStartObject();
+            writer.WriteNumber("id", edge.ID);
+            writer.WriteNumber("nodeAID", edge.NodeA);
+            writer.WriteNumber("nodeBID", edge.NodeB);
+            writer.WriteString("roadType", RoadTypeContract.ToStorageToken(edge.RoadType));
+            writer.WriteStartArray("geometry");
+            foreach (RoadGeometrySegment geometry in edge.GeometrySegments)
+                WriteGeometry(writer, geometry);
+            writer.WriteEndArray();
+            writer.WriteEndObject();
+        }
+        writer.WriteEndArray();
+        writer.WriteEndObject();
+    }
+
+    private static void WriteGeometry(Utf8JsonWriter writer, RoadGeometrySegment geometry)
+    {
+        writer.WriteStartObject();
+        writer.WriteNumber("version", 1);
+        switch (geometry)
+        {
+            case LineRoadGeometrySegment line:
+                writer.WriteString("kind", "line");
+                WritePoint(writer, "start", line.Start);
+                WritePoint(writer, "end", line.End);
+                break;
+            case CubicBezierRoadGeometrySegment cubic:
+                writer.WriteString("kind", "cubicBezier");
+                WritePoint(writer, "start", cubic.Start);
+                WritePoint(writer, "control1", cubic.Control1);
+                WritePoint(writer, "control2", cubic.Control2);
+                WritePoint(writer, "end", cubic.End);
+                break;
+            case CubicHermiteRoadGeometrySegment hermite:
+                writer.WriteString("kind", "cubicHermite");
+                WritePoint(writer, "start", hermite.Start);
+                WritePoint(writer, "startTangent", hermite.StartTangent);
+                WritePoint(writer, "end", hermite.End);
+                WritePoint(writer, "endTangent", hermite.EndTangent);
+                break;
+            case CircularArcRoadGeometrySegment arc:
+                writer.WriteString("kind", "circularArc");
+                WritePoint(writer, "start", arc.Start);
+                WritePoint(writer, "end", arc.End);
+                WritePoint(writer, "center", arc.Center);
+                writer.WriteNumber("radius", arc.Radius);
+                writer.WriteNumber("startAngle", arc.StartAngle);
+                writer.WriteNumber("endAngle", arc.EndAngle);
+                writer.WriteNumber("sweepAngle", arc.SweepAngle);
+                break;
+            case ClothoidRoadGeometrySegment clothoid:
+                writer.WriteString("kind", "clothoid");
+                WritePoint(writer, "start", clothoid.Start);
+                WritePoint(writer, "end", clothoid.End);
+                writer.WriteNumber("startHeading", clothoid.StartHeading);
+                writer.WriteNumber("reverseStartHeading", clothoid.ReverseStartHeading);
+                writer.WriteNumber("startCurvature", clothoid.StartCurvature);
+                writer.WriteNumber("endCurvature", clothoid.EndCurvature);
+                writer.WriteNumber("arcLength", clothoid.ArcLength);
+                break;
+            case RationalQuadraticRoadGeometrySegment rational:
+                writer.WriteString("kind", "rationalQuadratic");
+                WritePoint(writer, "start", rational.Start);
+                writer.WriteNumber("startWeight", rational.StartWeight);
+                WritePoint(writer, "control1", rational.Control);
+                writer.WriteNumber("controlWeight", rational.ControlWeight);
+                WritePoint(writer, "end", rational.End);
+                writer.WriteNumber("endWeight", rational.EndWeight);
+                break;
+            default:
+                throw new NotSupportedException(
+                    $"Unsupported road geometry type: {geometry.GetType().Name}.");
+        }
+        writer.WriteEndObject();
+    }
+
+    private static void WritePoint(Utf8JsonWriter writer, string propertyName, Vector2 point)
+    {
+        writer.WriteStartObject(propertyName);
+        writer.WriteNumber("x", point.X);
+        writer.WriteNumber("y", point.Y);
+        writer.WriteEndObject();
+    }
+
+    private static void ValidateCanonicalIntersections(RoadGraph graph)
+    {
+        var testedPairs = new HashSet<(int FirstEdge, int FirstGeometry, int SecondEdge, int SecondGeometry)>();
+        foreach (GraphEdge edge in graph._edges.Values.OrderBy(edge => edge.ID))
+        {
+            for (int geometryIndex = 0; geometryIndex < edge.GeometrySegments.Count; geometryIndex++)
+            {
+                RoadGeometrySegment geometry = edge.GeometrySegments[geometryIndex];
+                foreach (EdgeGeometryRef candidate in graph._spatialIndex.QueryBounds(geometry.Bounds)
+                             .OfType<EdgeGeometryRef>())
                 {
-                    ID = node.ID,
-                    X = node.Position.X,
-                    Y = node.Position.Y,
-                })
-                .Cast<NodeSaveData?>()
-                .ToList(),
-            Edges = _edges.Values
-                .OrderBy(edge => edge.ID)
-                .Select(edge => new EdgeSaveData
-                {
-                    ID = edge.ID,
-                    NodeAID = edge.NodeA,
-                    NodeBID = edge.NodeB,
-                    GroupID = edge.GroupID,
-                    Geometry = edge.GeometrySegments
-                        .Select(RoadGeometrySerializer.ToData)
-                        .Cast<RoadGeometryData?>()
-                        .ToList(),
-                })
-                .Cast<EdgeSaveData?>()
-                .ToList(),
-            Groups = _groups.Values
-                .OrderBy(group => group.ID)
-                .Select(group => new GroupSaveData
-                {
-                    ID = group.ID,
-                    EdgeIDs = group.EdgeIDs.Order().Select(id => (int?)id).ToList(),
-                })
-                .Cast<GroupSaveData?>()
-                .ToList(),
-        };
+                    if (candidate.EdgeID < edge.ID ||
+                        (candidate.EdgeID == edge.ID && candidate.GeometryIndex <= geometryIndex))
+                    {
+                        continue;
+                    }
+                    var key = (edge.ID, geometryIndex, candidate.EdgeID, candidate.GeometryIndex);
+                    if (!testedPairs.Add(key))
+                        continue;
+
+                    GraphEdge secondEdge = graph._edges[candidate.EdgeID];
+                    RoadGeometrySegment secondGeometry = secondEdge.GeometrySegments[candidate.GeometryIndex];
+                    RoadGeometryIntersectionResult result =
+                        RoadGeometryIntersectionQuery.FindIntersections(geometry, secondGeometry);
+                    if (result.HasOverlap)
+                        throw new JsonException("RoadGraph payload contains overlapping geometry.");
+                    foreach (RoadGeometryIntersection intersection in result.Intersections)
+                    {
+                        if (!IsAllowedTopologyJoin(
+                                graph,
+                                edge,
+                                geometryIndex,
+                                secondEdge,
+                                candidate.GeometryIndex,
+                                intersection))
+                        {
+                            throw new JsonException(
+                                FormattableString.Invariant(
+                                    $"RoadGraph payload contains an internal intersection without a node: edge {edge.ID} geometry {geometryIndex} at {intersection.FirstParameter:R}, edge {secondEdge.ID} geometry {candidate.GeometryIndex} at {intersection.SecondParameter:R} ({intersection.Kind})."));
+                        }
+                    }
+                }
+            }
+        }
     }
 
-    public void RestoreState(string json)
+    private static bool IsAllowedTopologyJoin(
+        RoadGraph graph,
+        GraphEdge firstEdge,
+        int firstGeometryIndex,
+        GraphEdge secondEdge,
+        int secondGeometryIndex,
+        RoadGeometryIntersection intersection)
     {
-        RestorePreparedState(PrepareRestoreState(json));
-    }
+        if (intersection.Kind != RoadGeometryIntersectionKind.EndpointTouch)
+            return false;
+        RoadGeometrySegment firstGeometry = firstEdge.GeometrySegments[firstGeometryIndex];
+        RoadGeometrySegment secondGeometry = secondEdge.GeometrySegments[secondGeometryIndex];
+        bool firstAtStart = IsStartParameter(intersection.FirstParameter, firstGeometry) &&
+                            firstGeometryIndex == 0;
+        bool firstAtEnd = IsEndParameter(intersection.FirstParameter, firstGeometry) &&
+                          firstGeometryIndex == firstEdge.GeometrySegments.Count - 1;
+        bool secondAtStart = IsStartParameter(intersection.SecondParameter, secondGeometry) &&
+                             secondGeometryIndex == 0;
+        bool secondAtEnd = IsEndParameter(intersection.SecondParameter, secondGeometry) &&
+                            secondGeometryIndex == secondEdge.GeometrySegments.Count - 1;
 
-    public object PrepareRestoreState(string json) => ParseAndValidateState(json);
-
-    public void RestorePreparedState(object preparedState)
-    {
-        if (preparedState is not RestoredGraphState restored)
-            throw new ArgumentException("Prepared state is not a RoadGraph restore model.", nameof(preparedState));
-
-        ClearGraph();
-        foreach ((int id, GraphNode node) in restored.Nodes)
-            _nodes.Add(id, node);
-        foreach ((int id, GraphEdge edge) in restored.Edges)
-            _edges.Add(id, edge);
-        foreach ((int id, RoadGroup group) in restored.Groups)
-            _groups.Add(id, group);
-        _nextID = restored.NextID;
-
-        RebuildNodeEdges();
-        RebuildSpatialIndex();
-        GraphCleared?.Invoke();
-    }
-
-    private static RestoredGraphState ParseAndValidateState(string json)
-    {
-        if (string.IsNullOrWhiteSpace(json))
-            throw new JsonException("RoadGraph save payload is empty.");
-
-        RoadGraphSaveData data = JsonSerializer.Deserialize<RoadGraphSaveData>(json, RoadGraphJsonOptions)
-            ?? throw new JsonException("RoadGraph save payload must be a JSON object.");
-
-        if (HasExtraFields(data.ExtraFields))
-            throw new JsonException("RoadGraph save payload contains unknown root fields.");
-        if (data.SchemaVersion != RoadGraphSchemaVersion)
-            throw new JsonException($"Unsupported RoadGraph schemaVersion '{data.SchemaVersion?.ToString() ?? "missing"}'.");
-        if (data.NextID is null || data.NextID < 0)
-            throw new JsonException("RoadGraph nextID must be a non-negative integer.");
-        if (data.Nodes is null || data.Edges is null || data.Groups is null)
-            throw new JsonException("RoadGraph nodes, edges and groups arrays are required.");
-
-        var allIDs = new HashSet<int>();
-        var nodes = new Dictionary<int, GraphNode>();
-        foreach (NodeSaveData? nodeData in data.Nodes)
+        if (firstEdge.ID == secondEdge.ID)
         {
-            if (nodeData is null || HasExtraFields(nodeData.ExtraFields))
-                throw new JsonException("RoadGraph nodes cannot be null or contain unknown fields.");
-            int id = ReadEntityID(nodeData.ID, "Node", allIDs);
-            if (nodeData.X is null || nodeData.Y is null ||
-                !float.IsFinite(nodeData.X.Value) || !float.IsFinite(nodeData.Y.Value))
-                throw new JsonException($"Node {id} must have finite x and y coordinates.");
-            nodes.Add(id, new GraphNode(id, new Vector2(nodeData.X.Value, nodeData.Y.Value)));
+            bool adjacent = secondGeometryIndex == firstGeometryIndex + 1 &&
+                            IsEndParameter(intersection.FirstParameter, firstGeometry) &&
+                            IsStartParameter(intersection.SecondParameter, secondGeometry) &&
+                            IsNearCanonicalJoin(intersection.Position, firstGeometry.End);
+            bool loopSeam = firstEdge.NodeA == firstEdge.NodeB && firstGeometryIndex == 0 &&
+                            secondGeometryIndex == firstEdge.GeometrySegments.Count - 1 &&
+                            IsStartParameter(intersection.FirstParameter, firstGeometry) &&
+                            IsEndParameter(intersection.SecondParameter, secondGeometry) &&
+                            IsNearCanonicalJoin(
+                                intersection.Position,
+                                graph._nodes[firstEdge.NodeA].Position);
+            return adjacent || loopSeam;
         }
 
-        var groups = new Dictionary<int, RoadGroup>();
-        var savedGroupEdges = new Dictionary<int, HashSet<int>>();
-        foreach (GroupSaveData? groupData in data.Groups)
-        {
-            if (groupData is null || HasExtraFields(groupData.ExtraFields))
-                throw new JsonException("RoadGraph groups cannot be null or contain unknown fields.");
-            int id = ReadEntityID(groupData.ID, "Group", allIDs);
-            if (groupData.EdgeIDs is null || groupData.EdgeIDs.Count == 0)
-                throw new JsonException($"Group {id} must contain at least one edge ID.");
-
-            var edgeIDs = new HashSet<int>();
-            foreach (int? edgeIDValue in groupData.EdgeIDs)
-            {
-                if (edgeIDValue is null || edgeIDValue < 0 || !edgeIDs.Add(edgeIDValue.Value))
-                    throw new JsonException($"Group {id} contains an invalid or duplicate edge ID.");
-            }
-
-            groups.Add(id, new RoadGroup(id));
-            savedGroupEdges.Add(id, edgeIDs);
-        }
-
-        var edges = new Dictionary<int, GraphEdge>();
-        var actualGroupEdges = groups.Keys.ToDictionary(id => id, _ => new HashSet<int>());
-        var referencedNodeIDs = new HashSet<int>();
-        foreach (EdgeSaveData? edgeData in data.Edges)
-        {
-            if (edgeData is null || HasExtraFields(edgeData.ExtraFields))
-                throw new JsonException("RoadGraph edges cannot be null or contain unknown fields.");
-            int id = ReadEntityID(edgeData.ID, "Edge", allIDs);
-            int nodeAID = ReadReferenceID(edgeData.NodeAID, $"Edge {id} nodeAID");
-            int nodeBID = ReadReferenceID(edgeData.NodeBID, $"Edge {id} nodeBID");
-            int groupID = ReadReferenceID(edgeData.GroupID, $"Edge {id} groupID");
-            if (nodeAID == nodeBID)
-                throw new JsonException($"Edge {id} cannot reference the same endpoint twice.");
-            if (!nodes.TryGetValue(nodeAID, out GraphNode? nodeA) ||
-                !nodes.TryGetValue(nodeBID, out GraphNode? nodeB))
-                throw new JsonException($"Edge {id} references a missing endpoint node.");
-            if (!groups.ContainsKey(groupID))
-                throw new JsonException($"Edge {id} references missing Group {groupID}.");
-            if (edgeData.Geometry is null || edgeData.Geometry.Count == 0)
-                throw new JsonException($"Edge {id} must contain at least one geometry segment.");
-
-            var geometry = new RoadGeometrySegment[edgeData.Geometry.Count];
-            for (int index = 0; index < geometry.Length; index++)
-            {
-                RoadGeometryDeserializationResult result =
-                    RoadGeometrySerializer.FromData(edgeData.Geometry[index]);
-                if (!result.Success)
-                    throw new JsonException($"Edge {id} geometry segment {index} is invalid: {result.Error}.");
-                geometry[index] = result.Geometry!;
-                if (index > 0 && geometry[index - 1].End != geometry[index].Start)
-                    throw new JsonException($"Edge {id} geometry segments are not continuous.");
-            }
-
-            if (!ArePositionsApproximatelyEqual(geometry[0].Start, nodeA.Position) ||
-                !ArePositionsApproximatelyEqual(geometry[^1].End, nodeB.Position))
-                throw new JsonException($"Edge {id} geometry endpoints do not match its nodes.");
-
-            GraphEdge edge;
-            try
-            {
-                edge = new GraphEdge(id, nodeAID, nodeBID, geometry, groupID);
-            }
-            catch (ArgumentException exception)
-            {
-                throw new JsonException($"Edge {id} geometry is invalid.", exception);
-            }
-
-            edges.Add(id, edge);
-            actualGroupEdges[groupID].Add(id);
-            referencedNodeIDs.Add(nodeAID);
-            referencedNodeIDs.Add(nodeBID);
-        }
-
-        foreach ((int groupID, HashSet<int> expectedEdgeIDs) in savedGroupEdges)
-        {
-            if (!expectedEdgeIDs.SetEquals(actualGroupEdges[groupID]))
-                throw new JsonException($"Group {groupID} edge membership does not match Edge groupID values.");
-            foreach (int edgeID in expectedEdgeIDs)
-                groups[groupID].AddEdge(edgeID);
-        }
-        if (referencedNodeIDs.Count != nodes.Count)
-            throw new JsonException("RoadGraph save payload contains isolated nodes.");
-
-        int maxID = allIDs.Count == 0 ? -1 : allIDs.Max();
-        if (data.NextID.Value <= maxID)
-            throw new JsonException($"RoadGraph nextID must be greater than every entity ID ({maxID}).");
-
-        return new RestoredGraphState(data.NextID.Value, nodes, edges, groups);
+        int? firstNodeID = firstAtStart ? firstEdge.NodeA : firstAtEnd ? firstEdge.NodeB : null;
+        int? secondNodeID = secondAtStart ? secondEdge.NodeA : secondAtEnd ? secondEdge.NodeB : null;
+        return firstNodeID.HasValue && firstNodeID == secondNodeID &&
+               IsNearCanonicalJoin(
+                   intersection.Position,
+                   graph._nodes[firstNodeID.Value].Position);
     }
 
-    private static int ReadEntityID(int? value, string entityName, HashSet<int> allIDs)
-    {
-        int id = ReadReferenceID(value, $"{entityName} ID");
-        if (!allIDs.Add(id))
-            throw new JsonException($"{entityName} ID {id} conflicts with another entity ID.");
-        return id;
-    }
+    private static bool IsStartParameter(float value, RoadGeometrySegment geometry) =>
+        value <= GetEndpointParameterTolerance(geometry);
 
-    private static int ReadReferenceID(int? value, string fieldName)
-    {
-        if (value is null || value < 0)
-            throw new JsonException($"{fieldName} must be a non-negative integer.");
-        return value.Value;
-    }
+    private static bool IsEndParameter(float value, RoadGeometrySegment geometry) =>
+        value >= 1f - GetEndpointParameterTolerance(geometry);
 
-    private static bool HasExtraFields(Dictionary<string, JsonElement>? fields) => fields?.Count > 0;
+    private static float GetEndpointParameterTolerance(RoadGeometrySegment geometry) =>
+        Mathf.Clamp(
+            RoadNumericPolicy.IntersectionClusterEpsilon * 8f /
+            Mathf.Max(geometry.Length, RoadNumericPolicy.IntersectionClusterEpsilon),
+            MinimumIntersectionEndpointParameterTolerance,
+            MaximumIntersectionEndpointParameterTolerance);
 
-    private sealed record RestoredGraphState(
-        int NextID,
-        Dictionary<int, GraphNode> Nodes,
-        Dictionary<int, GraphEdge> Edges,
-        Dictionary<int, RoadGroup> Groups);
+    private static bool IsNearCanonicalJoin(Vector2 position, Vector2 canonicalPosition) =>
+        RoadNumericPolicy.DistanceSquared(position, canonicalPosition) <=
+        (double)RoadNumericPolicy.IntersectionClusterEpsilon *
+        RoadNumericPolicy.IntersectionClusterEpsilon;
 
-    private sealed class RoadGraphSaveData
-    {
-        [JsonPropertyName("schemaVersion")]
-        public int? SchemaVersion { get; set; }
-
-        [JsonPropertyName("nextID")]
-        public int? NextID { get; set; }
-
-        [JsonPropertyName("nodes")]
-        public List<NodeSaveData?>? Nodes { get; set; }
-
-        [JsonPropertyName("edges")]
-        public List<EdgeSaveData?>? Edges { get; set; }
-
-        [JsonPropertyName("groups")]
-        public List<GroupSaveData?>? Groups { get; set; }
-
-        [JsonExtensionData]
-        public Dictionary<string, JsonElement>? ExtraFields { get; set; }
-    }
-
-    private sealed class NodeSaveData
-    {
-        [JsonPropertyName("id")]
-        public int? ID { get; set; }
-
-        [JsonPropertyName("x")]
-        public float? X { get; set; }
-
-        [JsonPropertyName("y")]
-        public float? Y { get; set; }
-
-        [JsonExtensionData]
-        public Dictionary<string, JsonElement>? ExtraFields { get; set; }
-    }
-
-    private sealed class EdgeSaveData
-    {
-        [JsonPropertyName("id")]
-        public int? ID { get; set; }
-
-        [JsonPropertyName("nodeAID")]
-        public int? NodeAID { get; set; }
-
-        [JsonPropertyName("nodeBID")]
-        public int? NodeBID { get; set; }
-
-        [JsonPropertyName("groupID")]
-        public int? GroupID { get; set; }
-
-        [JsonPropertyName("geometry")]
-        public List<RoadGeometryData?>? Geometry { get; set; }
-
-        [JsonExtensionData]
-        public Dictionary<string, JsonElement>? ExtraFields { get; set; }
-    }
-
-    private sealed class GroupSaveData
-    {
-        [JsonPropertyName("id")]
-        public int? ID { get; set; }
-
-        [JsonPropertyName("edgeIDs")]
-        public List<int?>? EdgeIDs { get; set; }
-
-        [JsonExtensionData]
-        public Dictionary<string, JsonElement>? ExtraFields { get; set; }
-    }
 }

@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 /// <summary>组合一次连续铺路会话中已固定的段和当前可移动末端。</summary>
 public sealed class RoadPlacementSession
@@ -28,14 +29,20 @@ public sealed class RoadPlacementSession
 
     public RoadPathDraft Update(Vector2 pointerPosition)
     {
-        RoadPathDraft movingDraft = _strategy.BuildDraft(CurrentAnchor, pointerPosition);
+        if (CurrentDraft.IsClosed)
+            return CurrentDraft;
+
+        RoadPathDraft movingDraft = BuildMovingDraft(pointerPosition);
         CurrentDraft = Compose(movingDraft);
         return CurrentDraft;
     }
 
     public bool TryAddPoint(Vector2 pointerPosition)
     {
-        RoadPathDraft segmentDraft = _strategy.BuildDraft(CurrentAnchor, pointerPosition);
+        if (CurrentDraft.IsClosed)
+            return false;
+
+        RoadPathDraft segmentDraft = BuildMovingDraft(pointerPosition);
         if (!segmentDraft.CanCommit)
         {
             CurrentDraft = Compose(segmentDraft);
@@ -45,6 +52,32 @@ public sealed class RoadPlacementSession
         _fixedDrafts.Add(segmentDraft);
         CurrentDraft = Compose(RoadPathDraft.Empty(CurrentAnchor));
         return true;
+    }
+
+    private RoadPathDraft BuildMovingDraft(Vector2 pointerPosition)
+    {
+        if (_fixedDrafts.Count == 0 ||
+            RoadNumericPolicy.DistanceSquared(pointerPosition, StartPosition) >
+            (double)_strategy.InteractionRadius * _strategy.InteractionRadius)
+        {
+            return _strategy.BuildDraft(CurrentAnchor, pointerPosition);
+        }
+
+        RoadPathDraft closure = _strategy.BuildDraft(CurrentAnchor, StartPosition);
+        if (!closure.CanCommit)
+        {
+            if (RoadExactPredicates.SameBits(CurrentAnchor, StartPosition))
+                return RoadPathDraft.Empty(CurrentAnchor);
+            closure = RoadPathDraft.FromPolyline([CurrentAnchor, StartPosition]);
+        }
+
+        var previewPoints = new List<Vector2>(closure.PreviewPoints);
+        previewPoints[^1] = StartPosition;
+        IReadOnlyList<RoadGeometrySegment> geometry = RoadGeometryCanonicalizer.ReanchorChain(
+            closure.Path!.Segments.Select(segment => segment!).ToArray(),
+            CurrentAnchor,
+            StartPosition);
+        return new RoadPathDraft(previewPoints, new RoadPath(geometry.ToArray()));
     }
 
     public bool TryRemoveLastPoint(Vector2 pointerPosition)

@@ -7,11 +7,13 @@ public sealed class ClothoidRoadGeometrySegment : RoadGeometrySegment
     private const float RelativePositionTolerance = 1e-5f;
 
     private readonly float _curvatureRate;
+    private readonly float _evaluationStartHeading;
     private readonly Vector2 _end;
 
     public override RoadGeometryKind Kind => RoadGeometryKind.Clothoid;
     public override Vector2 Start { get; }
     public float StartHeading { get; }
+    public float ReverseStartHeading { get; }
     public float StartCurvature { get; }
     public float EndCurvature { get; }
     public float ArcLength { get; }
@@ -25,6 +27,18 @@ public sealed class ClothoidRoadGeometrySegment : RoadGeometrySegment
         float startCurvature,
         float endCurvature,
         float arcLength)
+        : this(start, startHeading, startCurvature, endCurvature, arcLength, null)
+    {
+    }
+
+    private ClothoidRoadGeometrySegment(
+        Vector2 start,
+        float startHeading,
+        float startCurvature,
+        float endCurvature,
+        float arcLength,
+        Vector2? endAnchor,
+        float? reverseStartHeading = null)
     {
         if (!IsFinite(start))
             throw new ArgumentException("Start must contain finite coordinates.", nameof(start));
@@ -39,22 +53,54 @@ public sealed class ClothoidRoadGeometrySegment : RoadGeometrySegment
 
         Start = start;
         StartHeading = startHeading;
+        _evaluationStartHeading = RoadGeometryDirection.NormalizePeriodicAngle(startHeading);
         StartCurvature = startCurvature;
         EndCurvature = endCurvature;
         ArcLength = arcLength;
         _curvatureRate = (endCurvature - startCurvature) / arcLength;
         if (!float.IsFinite(_curvatureRate) || !float.IsFinite(GetHeadingAtArcLength(arcLength)))
             throw new ArgumentException("Clothoid parameters produce non-finite curvature or heading.");
+        ReverseStartHeading = reverseStartHeading ?? RoadGeometryDirection.NormalizePeriodicAngle(
+            GetHeadingAtArcLength(arcLength) + Mathf.Pi);
+        if (!float.IsFinite(ReverseStartHeading))
+            throw new ArgumentOutOfRangeException(
+                nameof(reverseStartHeading),
+                reverseStartHeading,
+                "ReverseStartHeading must be finite.");
+        ValidateReverseStartHeading();
 
-        _end = Start + IntegrateDisplacement(arcLength);
+        Vector2 derivedEnd = Start + IntegrateDisplacement(arcLength);
+        _end = endAnchor ?? derivedEnd;
         if (!IsFinite(_end))
             throw new ArgumentException("Clothoid parameters produce a non-finite endpoint.");
+        float endpointTolerance = Mathf.Max(
+            RoadNumericPolicy.MaximumIntersectionClusterDiameter,
+            ArcLength * RelativePositionTolerance * 4f);
+        if (derivedEnd.DistanceTo(_end) > endpointTolerance)
+            throw new ArgumentException("Clothoid endpoint anchor does not agree with the native parameters.");
 
         Vector2 extent = Vector2.One * arcLength;
         Bounds = new Rect2(Start - extent, extent * 2f);
         if (!IsFinite(Bounds.Position) || !IsFinite(Bounds.End))
             throw new ArgumentException("Clothoid parameters produce non-finite bounds.");
     }
+
+    internal static ClothoidRoadGeometrySegment CreateAnchored(
+        Vector2 start,
+        float startHeading,
+        float startCurvature,
+        float endCurvature,
+        float arcLength,
+        Vector2 end,
+        float? reverseStartHeading = null) =>
+        new(
+            start,
+            startHeading,
+            startCurvature,
+            endCurvature,
+            arcLength,
+            end,
+            reverseStartHeading);
 
     public float GetCurvature(float parameter)
     {
@@ -85,22 +131,38 @@ public sealed class ClothoidRoadGeometrySegment : RoadGeometrySegment
         Vector2 splitPosition = GetPosition(parameter);
         float splitHeading = GetHeadingAtArcLength(beforeLength);
         return new RoadGeometrySplit(
-            new ClothoidRoadGeometrySegment(
+            CreateAnchored(
                 Start,
-                StartHeading,
+                _evaluationStartHeading,
                 StartCurvature,
                 splitCurvature,
-                beforeLength),
-            new ClothoidRoadGeometrySegment(
+                beforeLength,
+                splitPosition,
+                RoadGeometryDirection.NormalizePeriodicAngle(splitHeading + Mathf.Pi)),
+            CreateAnchored(
                 splitPosition,
                 splitHeading,
                 splitCurvature,
                 EndCurvature,
-                ArcLength - beforeLength));
+                ArcLength - beforeLength,
+                End,
+                ReverseStartHeading));
+    }
+
+    public override RoadGeometrySegment Reverse()
+    {
+        return CreateAnchored(
+            End,
+            ReverseStartHeading,
+            RoadNumericPolicy.Canonicalize(-EndCurvature),
+            RoadNumericPolicy.Canonicalize(-StartCurvature),
+            ArcLength,
+            Start,
+            StartHeading);
     }
 
     private float GetHeadingAtArcLength(float distance) =>
-        StartHeading + StartCurvature * distance + 0.5f * _curvatureRate * distance * distance;
+        _evaluationStartHeading + StartCurvature * distance + 0.5f * _curvatureRate * distance * distance;
 
     private Vector2 IntegrateDisplacement(float distance)
     {
@@ -118,12 +180,14 @@ public sealed class ClothoidRoadGeometrySegment : RoadGeometrySegment
     private Vector2 IntegrateConstantCurvature(float distance)
     {
         if (StartCurvature == 0f)
-            return distance * new Vector2(Mathf.Cos(StartHeading), Mathf.Sin(StartHeading));
+            return distance * new Vector2(
+                Mathf.Cos(_evaluationStartHeading),
+                Mathf.Sin(_evaluationStartHeading));
 
-        float endHeading = StartHeading + StartCurvature * distance;
+        float endHeading = _evaluationStartHeading + StartCurvature * distance;
         return new Vector2(
-            (Mathf.Sin(endHeading) - Mathf.Sin(StartHeading)) / StartCurvature,
-            (Mathf.Cos(StartHeading) - Mathf.Cos(endHeading)) / StartCurvature);
+            (Mathf.Sin(endHeading) - Mathf.Sin(_evaluationStartHeading)) / StartCurvature,
+            (Mathf.Cos(_evaluationStartHeading) - Mathf.Cos(endHeading)) / StartCurvature);
     }
 
     private Vector2 IntegrateAdaptive(
@@ -162,6 +226,16 @@ public sealed class ClothoidRoadGeometrySegment : RoadGeometrySegment
     {
         float heading = GetHeadingAtArcLength(distance);
         return new Vector2(Mathf.Cos(heading), Mathf.Sin(heading));
+    }
+
+    private void ValidateReverseStartHeading()
+    {
+        float expected = RoadGeometryDirection.NormalizePeriodicAngle(
+            GetHeadingAtArcLength(ArcLength) + Mathf.Pi);
+        float actual = RoadGeometryDirection.NormalizePeriodicAngle(ReverseStartHeading);
+        float difference = Mathf.PosMod(actual - expected + Mathf.Pi, Mathf.Tau) - Mathf.Pi;
+        if (Mathf.Abs(difference) > 2e-5f)
+            throw new ArgumentException("ReverseStartHeading does not agree with the clothoid parameters.");
     }
 
     private static Vector2 Simpson(

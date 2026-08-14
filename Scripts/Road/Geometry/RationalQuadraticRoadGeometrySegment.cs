@@ -106,6 +106,15 @@ public sealed class RationalQuadraticRoadGeometrySegment : RoadGeometrySegment
         return new RoadGeometrySplit(Create(h0, h01, split), Create(split, h12, h2));
     }
 
+    public override RoadGeometrySegment Reverse() =>
+        new RationalQuadraticRoadGeometrySegment(
+            End,
+            EndWeight,
+            Control,
+            ControlWeight,
+            Start,
+            StartWeight);
+
     private Rect2 ComputeBounds()
     {
         var parameters = new List<float> { ParameterStart, ParameterEnd };

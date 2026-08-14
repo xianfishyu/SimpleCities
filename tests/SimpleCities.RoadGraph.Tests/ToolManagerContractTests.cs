@@ -26,5 +26,10 @@ public sealed class ToolManagerContractTests
         Assert.Contains("_roadBuilder.HandleRemoveInput(@event);", source, StringComparison.Ordinal);
         Assert.Contains("_roadBuilder?.UndoLastEdit()", source, StringComparison.Ordinal);
         Assert.Contains("_roadBuilder?.RedoLastEdit()", source, StringComparison.Ordinal);
+        Assert.Contains("if (_currentTool == ToolType.Road)", source, StringComparison.Ordinal);
+        Assert.Contains("_roadBuilder?.CancelPlaceSession();", source, StringComparison.Ordinal);
+        Assert.Contains("public void CancelRoadSessions()", source, StringComparison.Ordinal);
+        Assert.Contains("RegisterSceneParticipants(roadSystem.Graph, this, renderer)", source, StringComparison.Ordinal);
+        Assert.Contains("_registeredSaveManager.UnregisterSceneParticipants(this)", source, StringComparison.Ordinal);
     }
 }

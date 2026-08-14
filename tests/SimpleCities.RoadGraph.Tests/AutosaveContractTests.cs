@@ -24,7 +24,10 @@ public sealed class AutosaveContractTests
         Assert.Contains("IntervalSeconds { get; set; } = 300d", controller, StringComparison.Ordinal);
         Assert.Contains("new Timer", controller, StringComparison.Ordinal);
         Assert.Contains("_timer.Timeout += OnAutosaveTimeout", controller, StringComparison.Ordinal);
-        Assert.Contains("saveManager?.SaveAutosave()", controller, StringComparison.Ordinal);
+        Assert.Contains("saveManager.StartAutosave()", controller, StringComparison.Ordinal);
+        Assert.Contains("_saveManager.OperationCompleted += OnSaveOperationCompleted", controller, StringComparison.Ordinal);
+        Assert.Contains("SaveOperationResultKind.SkippedBusy", controller, StringComparison.Ordinal);
+        Assert.DoesNotContain("SaveAutosave()", controller, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -34,8 +37,11 @@ public sealed class AutosaveContractTests
         string summary = File.ReadAllText(Path.Combine(ProjectRoot, "Scripts", "Core", "SaveData.cs"));
         string pauseMenu = File.ReadAllText(Path.Combine(ProjectRoot, "Scripts", "UI", "PauseMenu.cs"));
 
-        Assert.Contains("public bool SaveAutosave()", manager, StringComparison.Ordinal);
-        Assert.Contains("AutosaveSlotID,\n                AutosaveDisplayName", manager, StringComparison.Ordinal);
+        Assert.Contains("public string StartAutosave()", manager, StringComparison.Ordinal);
+        Assert.Contains("RunAdmittedPublishAsync(", manager, StringComparison.Ordinal);
+        Assert.Contains("AutosaveDisplayName", manager, StringComparison.Ordinal);
+        Assert.Contains("StartPendingAutosaveIfReady", manager, StringComparison.Ordinal);
+        Assert.DoesNotContain("public bool SaveAutosave()", manager, StringComparison.Ordinal);
         Assert.Contains("public bool IsAutosave", summary, StringComparison.Ordinal);
         Assert.Contains("summary.IsAutosave ? \"自动\" : \"手动\"", pauseMenu, StringComparison.Ordinal);
     }

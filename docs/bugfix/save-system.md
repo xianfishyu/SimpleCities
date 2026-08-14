@@ -350,3 +350,102 @@ manifest 缺少 `schemaVersion`，或只提供大小写错误的 `SchemaVersion`
 - `ParseAndValidateManifest_CaseInsensitiveDuplicateFilesAreRejected` 确认外部大小写重复文件表被拒绝。
 - `dotnet test SimpleCities.sln --no-restore`：492/492 通过；`dotnet build SimpleCities.sln --no-restore`：0 警告、0 错误。
 - Roslyn CodeLens 解决方案诊断为 0 error、0 warning；Godot 4.7 editor 错误日志为 0。
+
+---
+
+<a id="save-system-bug-11"></a>
+## BUG-11：缩略图 PNG 可接受非法 chunk type 与 reserved bit
+
+> 修复日期：2026-08-14
+> 影响文件：`Scripts/Core/V3PngValidator.cs`、`tests/SimpleCities.RoadGraph.Tests/V3PngValidatorTests.cs`
+> 关联事项：`v3-save-system:2.2`
+
+### 症状
+
+可选存档缩略图的 PNG chunk type 包含非 ASCII 字母，或第三个字符把 PNG 保留位设为 1 时，旧验证器仍可能继续按字符串解释 chunk。该文件不是规范 PNG，却可能被当作可展示缩略图路径返回；业务 payload 本身仍完整，因此问题只影响缩略图完整性和占位回退判定。
+
+### 根因分析
+
+`V3PngValidator.ValidateEncodedPng()` 已校验 signature、chunk 长度、CRC、顺序、尺寸、像素和解码扫描线，但读取 4-byte chunk type 后没有先执行 PNG 结构位规则。CRC 只能证明 type/data 未意外改变，不能证明 type 的四个字节都是字母，也不能证明第三个字节的 reserved bit 为 0。
+
+### 修复方案
+
+新增 `ValidateChunkType()` 并在读取每个 chunk 后、CRC 和语义分派前调用：四个字节必须全部属于 ASCII `A-Z` 或 `a-z`，第三个字节必须为大写字母。违规输入抛出 `InvalidDataException`，上层继续沿既有缩略图 warning/占位路径处理，不把可选展示资产错误提升为业务槽损坏。
+
+### 影响范围
+
+只收紧 V3 可选 PNG 缩略图的容器校验。合法 critical/ancillary chunk、业务 `manifest.json`、`road_network.json`、aggregate digest 和 Load/Publish/Delete 语义不变。
+
+## BUG-11 验证状态
+
+- `V3PngValidatorTests.ValidateEncodedPng_RejectsInvalidChunkTypeOrReservedBit` 构造 `a0Bc` 非字母 type 与 `abcD` 非法 reserved bit，两者均在验证阶段拒绝。
+- 保存/manifest/PNG/persistence/export 聚焦测试：118/118 通过；完整 `dotnet test SimpleCities.sln --no-restore`：698/698 通过。
+- `dotnet build SimpleCities.sln --configuration Debug --no-restore` 与 `--configuration ExportRelease`：均为 0 警告、0 错误。
+- Windows Desktop QA 导出包的可写与只读 ACL 存档契约均输出 PASS；缩略图修复未改变业务槽的发布、加载或删除行为。Godot 全库 GDScript 诊断无 error，另有 3 条与本修复无关的既有 warning。
+
+---
+
+<a id="save-system-bug-12"></a>
+## BUG-12：场景或应用退出可能在异步存档操作收敛前销毁参与者
+
+> 修复日期：2026-08-14
+> 影响文件：`Scripts/Core/SaveManager.cs`、`Scripts/Core/SaveOperationCoordinator.cs`、`Scripts/UI/GameHUD.cs`、`Scripts/UI/MainMenu.cs`、`Scripts/UI/PauseMenu.cs`
+> 关联事项：`v3-save-system:2.3`；UI 焦点伴随修复见 `ui:BUG-16`
+
+### 症状
+
+保存、加载或删除已经进入异步流程时，返回主菜单、窗口关闭和退出到桌面原先没有共用存档收敛边界。场景切换可能先移除 `RoadGraph`、`ToolManager` 或 `RoadRenderer`，应用退出也可能先销毁 `SaveManager`；同时，busy 期间合并的 autosave 仍可能在旧场景关闭后被唤醒。结果是未越过提交边界的任务继续引用失效场景，或已越界的目录事务来不及完成发布/恢复。
+
+### 根因分析
+
+场景与应用生命周期只表达“立即切换/退出”，没有把 scene generation、操作取消点和 coordinator shutdown 纳入同一协议。缺少 scene-closing admission gate、按场景 generation 跟踪的完成任务以及应用级 await；因此 `GetTree().ChangeSceneToFile(...)`、窗口关闭和 `GetTree().Quit()` 无法证明后台任务已经取消或收敛。
+
+### 修复方案
+
+`SaveManager` 为每个公开操作跟踪 token、scene generation、取消源和完成任务。`BeginSceneClose()` 先关闭 admission、丢弃 pending autosave、取消当前场景 token，并请求取消尚未越过提交边界的活动操作；新请求分别返回 `RejectedSceneClosing` 或 `RejectedShuttingDown`。
+
+返回主菜单时，`GameHUD.ReturnToMainMenu()` 先设置退出收敛状态并 `await DrainCurrentSceneOperationsAsync()`，只有当前 generation 的任务全部结束后才切换场景；切换失败则显式恢复 scene admission。应用退出时，`SceneTree.AutoAcceptQuit` 被关闭，窗口关闭、暂停菜单和 `MainMenu` 都路由到 `RequestApplicationQuit()`；该入口同时等待 `SaveOperationCoordinator.BeginShutdownAsync()` 与全部 tracked operation。未越界操作取消，已越界操作完成同一事务后才调用 `GetTree().Quit()`。
+
+### 影响范围
+
+影响 V3 Save/Load/Delete/autosave 的场景关闭和应用退出生命周期，以及暂停菜单退出期间的输入禁用。磁盘 format、descriptor/digest 恢复矩阵和操作自身的不可取消点不变。完整 surface/hit-index 与六分量 presentation token 尚未完成，因此 `v3-save-system:2.3` 仍保持开放。
+
+## BUG-12 验证状态
+
+- `SaveOperationCoordinatorTests.Shutdown_CancelsUncommittedOperationWaitsAndRejectsNewAdmission` 验证 shutdown 会取消未越界操作、等待完成并拒绝新请求；`Shutdown_WaitsForCommittedOperationRejectsWaiterAndDropsPendingAutosave` 验证已越界操作必须收敛、等待者被拒绝且 pending autosave 被丢弃。
+- `PauseMenuContractTests.ExitFlows_DrainSceneOperationsAndRouteApplicationQuitThroughSaveManager` 锁定场景切换前 drain、窗口关闭接管、pending autosave 丢弃和 awaited coordinator shutdown，禁止恢复 fire-and-forget 退出。
+- `dotnet test SimpleCities.sln --no-restore`：720/720 通过；Debug 与 `ExportRelease` build 均为 0 警告、0 错误；Roslyn compiler/analyzer diagnostics 均为 0。
+- `godot --headless --path . --log-file .godot/qa-v3-exit-convergence.log --script tests/godot/pause_menu_runtime_contract.gd`：输出 `PASS pause menu runtime contract`，覆盖暂停菜单确认返回主菜单、场景注销、重新进入和后续 V3 Save/Load；日志只有契约预期的缺依赖/损坏槽 warning，没有退出收敛错误。
+- 当前验证把 coordinator 的越界语义与真实场景退出分别覆盖；尚未用每个磁盘故障注入点逐一触发“退出发生在该点”的完整运行时矩阵，因此不据此关闭 `v3-save-system:2.3`。
+
+---
+
+<a id="save-system-bug-13"></a>
+## BUG-13：等待根 gate 的请求在取消竞争中返回占锁 lease 并阻塞收敛
+
+> 修复日期：2026-08-14
+> 影响文件：`Scripts/Core/SaveOperationCoordinator.cs`、`tests/SimpleCities.RoadGraph.Tests/SaveOperationCoordinatorTests.cs`
+> 关联事项：`v3-save-system:2.3`
+
+### 症状
+
+完整测试并行运行时，`SceneStyleDrain_DiscardsPendingCancelsWaitersAndRemainsReusable` 在前 718 项通过后可能不再结束。场景取消一个正在等待 `_rootGate` 的手动请求，同时活动 operation 释放 gate；等待请求偶尔返回 `SaveOperationLease`，而不是 Admission 阶段的 `Canceled`。调用方按取消结果结束流程后，这个意外 lease 仍持有 coordinator 的活动操作，测试断言失败后的 `DisposeAsync()` 和真实 scene drain 都会继续等待它，表现为无响应。
+
+### 根因分析
+
+`SemaphoreSlim.WaitAsync(cancellationToken)` 只保证在等待尚未成功完成时响应取消。gate 释放与外部 token 取消并发发生时，await 可以先按“成功取得 gate”返回，而 token 随即进入已取消状态。旧 `AdmitManualAsync()` 在 await 后只检查 `_stopping`，没有在 `CreateLeaseLocked()` 前重新检查调用方 token，因此把已经取消的 waiter 提升成新的活动 lease。
+
+### 修复方案
+
+`AdmitManualAsync()` 记录 gate 是否已取得，并在进入 coordinator 锁后首先重新检查外部 cancellation token。若已取消，则释放刚取得的 `_rootGate`，返回 `SaveOperationPhase.Admission` 的结构化 `Canceled` 结果，不创建 lease；随后才检查 shutdown 状态并处理正常 admission。回归测试在失败诊断路径也会先终结任何意外 lease，确保未来断言失败不会再次把测试进程伪装成永久无响应。
+
+### 影响范围
+
+影响手动 Save、Load、Delete 等等待进程内根 gate 时与 scene cancellation/shutdown 竞争的 admission。已活动 operation 的提交边界、跨进程根锁、pending autosave 合并、Publish/Delete 磁盘事务和成功 lease 生命周期不变。
+
+## BUG-13 验证状态
+
+- 修复前完整套件在 718 项通过后停住；聚焦回归捕获到 waiter 获得已取消 lease。修复后 `SceneStyleDrain_DiscardsPendingCancelsWaitersAndRemainsReusable` 返回 `Canceled`、无 lease，并继续证明 coordinator 可被下一场景复用。
+- `dotnet test SimpleCities.sln --no-restore`：727/727 在约 2 秒内通过；Debug 与 `ExportRelease` build 均为 0 警告、0 错误；Roslyn compiler/analyzer 为 0 diagnostics。
+- `pause_menu_runtime_contract.gd` 输出 `PASS pause menu runtime contract`；场景取消、退出收敛及后续 Save/Load 路径没有新增错误。日志中的损坏测试槽和缺失 `ToolManager` warning 为契约预期或既有隔离场景输出。
+- 本修复只关闭等待取消竞争，不补齐 `RoadSurfaceSnapshot`、完整 `RoadRenderToken`、第二 saveable 或逐关键资源故障矩阵，因此 `v3-save-system:2.3` 保持开放。

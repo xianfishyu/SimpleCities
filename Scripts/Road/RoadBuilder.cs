@@ -18,6 +18,8 @@ public partial class RoadBuilder : Node2D
     private bool _isRemoveHoverActive;
     private int _lastHoveredEdgeID = -1;
     private RoadRemovalSession? _removalSession;
+    private RoadBuilderLoadAdmission? _loadAdmission;
+    private long _loadAdmissionGeneration;
 
     public bool IsPlacing => _placementSession != null;
     public int FixedCornerCount => _placementSession?.FixedCornerCount ?? 0;
@@ -45,6 +47,8 @@ public partial class RoadBuilder : Node2D
     public void SetGraph(RoadGraph graph)
     {
         ArgumentNullException.ThrowIfNull(graph);
+        if (_loadAdmission is not null)
+            throw new InvalidOperationException("RoadBuilder graph cannot change during load admission.");
         CancelPlaceSession();
         CancelRemoveSession();
         _editHistory?.Dispose();
@@ -55,6 +59,8 @@ public partial class RoadBuilder : Node2D
     public void SetInputStrategy(IRoadInputStrategy inputStrategy)
     {
         ArgumentNullException.ThrowIfNull(inputStrategy);
+        if (_loadAdmission is not null)
+            throw new InvalidOperationException("RoadBuilder input strategy cannot change during load admission.");
         CancelPlaceSession();
         CancelRemoveSession();
         _inputStrategy = inputStrategy;
@@ -81,6 +87,8 @@ public partial class RoadBuilder : Node2D
 
     public void HandlePlaceInput(InputEvent @event)
     {
+        if (_loadAdmission is not null)
+            return;
         if (@event is InputEventKey keyEvent &&
             keyEvent.Pressed &&
             !keyEvent.Echo &&
@@ -104,10 +112,7 @@ public partial class RoadBuilder : Node2D
         Vector2 pointerPosition = ToWorldPosition(mouseButton.Position);
         if (mouseButton.ButtonIndex == MouseButton.Right && mouseButton.Pressed && IsPlacing)
         {
-            if (FixedCornerCount == 0)
-                CancelPlaceSession();
-            else
-                RemoveLastPlacePoint(pointerPosition);
+            CancelPlaceSession();
             return;
         }
 
@@ -149,7 +154,7 @@ public partial class RoadBuilder : Node2D
 
     public override void _Process(double delta)
     {
-        if (_graph == null || _renderer == null)
+        if (_graph == null || _renderer == null || _loadAdmission is not null)
             return;
 
         if (_isRemoveHoverActive && !IsRemoving)
@@ -158,7 +163,7 @@ public partial class RoadBuilder : Node2D
 
     public bool BeginPlace(Vector2 pointerPosition)
     {
-        if (_graph == null || _inputStrategy == null || IsPlacing)
+        if (_loadAdmission is not null || _graph == null || _inputStrategy == null || IsPlacing)
             return false;
 
         _lastPlacePointerPosition = pointerPosition;
@@ -185,7 +190,7 @@ public partial class RoadBuilder : Node2D
 
     public void UpdatePlace(Vector2 pointerPosition)
     {
-        if (_placementSession == null)
+        if (_loadAdmission is not null || _placementSession == null)
             return;
 
         _lastPlacePointerPosition = pointerPosition;
@@ -194,7 +199,7 @@ public partial class RoadBuilder : Node2D
 
     public bool AddPlacePoint(Vector2 pointerPosition)
     {
-        if (_placementSession == null)
+        if (_loadAdmission is not null || _placementSession == null)
             return false;
 
         _lastPlacePointerPosition = pointerPosition;
@@ -205,7 +210,7 @@ public partial class RoadBuilder : Node2D
 
     public bool RemoveLastPlacePoint(Vector2 pointerPosition)
     {
-        if (_placementSession == null)
+        if (_loadAdmission is not null || _placementSession == null)
             return false;
 
         _lastPlacePointerPosition = pointerPosition;
@@ -216,7 +221,7 @@ public partial class RoadBuilder : Node2D
 
     public bool ConfirmPlace(Vector2 pointerPosition)
     {
-        if (_placementSession == null || _graph == null)
+        if (_loadAdmission is not null || _placementSession == null || _graph == null)
             return false;
 
         _lastPlacePointerPosition = pointerPosition;
@@ -228,7 +233,7 @@ public partial class RoadBuilder : Node2D
         RoadPathSubmissionResult? result = null;
         bool submitted = ExecuteRoadEdit(() =>
         {
-            result = _graph.SubmitPath(draft.Path);
+            result = _graph.SubmitPath(new RoadBuildRequest(draft.Path, RoadType.Street));
             return result.Success;
         });
         if (!submitted)
@@ -247,7 +252,7 @@ public partial class RoadBuilder : Node2D
 
     public void HandleRemoveInput(InputEvent @event)
     {
-        if (_graph == null || _inputStrategy == null)
+        if (_loadAdmission is not null || _graph == null || _inputStrategy == null)
             return;
 
         if (@event is InputEventMouseMotion mouseMotion)
@@ -277,7 +282,7 @@ public partial class RoadBuilder : Node2D
 
     public bool BeginRemove(Vector2 pointerPosition, bool rectangleSelection = false)
     {
-        if (_graph == null || _inputStrategy == null || IsRemoving)
+        if (_loadAdmission is not null || _graph == null || _inputStrategy == null || IsRemoving)
             return false;
 
         _removalSession = new RoadRemovalSession(
@@ -294,7 +299,7 @@ public partial class RoadBuilder : Node2D
 
     public void UpdateRemove(Vector2 pointerPosition)
     {
-        if (_removalSession == null)
+        if (_loadAdmission is not null || _removalSession == null)
             return;
 
         _removalSession.Update(pointerPosition);
@@ -303,7 +308,7 @@ public partial class RoadBuilder : Node2D
 
     public bool ConfirmRemove(Vector2 pointerPosition)
     {
-        if (_removalSession == null || _graph == null)
+        if (_loadAdmission is not null || _removalSession == null || _graph == null)
             return false;
 
         _removalSession.Update(pointerPosition);
@@ -314,7 +319,7 @@ public partial class RoadBuilder : Node2D
 
     public void CancelRemoveSession()
     {
-        if (_removalSession == null)
+        if (_loadAdmission is not null || _removalSession == null)
             return;
 
         EndRemoveSession();
@@ -322,6 +327,8 @@ public partial class RoadBuilder : Node2D
 
     public bool UndoLastEdit()
     {
+        if (_loadAdmission is not null)
+            return false;
         CancelPlaceSession();
         CancelRemoveSession();
         return _editHistory?.Undo() == true;
@@ -329,6 +336,8 @@ public partial class RoadBuilder : Node2D
 
     public bool RedoLastEdit()
     {
+        if (_loadAdmission is not null)
+            return false;
         CancelPlaceSession();
         CancelRemoveSession();
         return _editHistory?.Redo() == true;
@@ -337,7 +346,7 @@ public partial class RoadBuilder : Node2D
     /// <summary>取消当前连续铺路会话，不修改路网。</summary>
     public void CancelPlaceSession()
     {
-        if (_placementSession == null)
+        if (_loadAdmission is not null || _placementSession == null)
             return;
 
         EndPlaceSession();
@@ -348,6 +357,8 @@ public partial class RoadBuilder : Node2D
 
     public void SetRemoveHoverActive(bool active)
     {
+        if (_loadAdmission is not null)
+            return;
         _isRemoveHoverActive = active;
         if (!active)
         {

@@ -25,53 +25,46 @@ public sealed class RoadPathSubmissionChangeSummaryTests
     {
         var graph = new RoadGraph();
 
-        RoadPathSubmissionResult result = graph.SubmitPolyline(
+        RoadPathSubmissionResult result = graph.SubmitPolyline(RoadType.Street,
             [Vector2.Zero, new Vector2(10f, 0f)]);
 
         Assert.True(result.Success);
         Assert.True(result.Changes.HasChanges);
         Assert.Equal(graph.GetAllNodes().Select(node => node.ID).Order(), result.Changes.CreatedNodeIDs);
         Assert.Equal(graph.GetAllEdges().Select(edge => edge.ID).Order(), result.Changes.CreatedEdgeIDs);
-        Assert.Equal(graph.GetAllGroups().Select(group => group.ID).Order(), result.Changes.CreatedGroupIDs);
-        Assert.Equal([result.GroupID!.Value], result.Changes.CreatedGroupIDs);
         Assert.Empty(result.Changes.RemovedNodeIDs);
         Assert.Empty(result.Changes.RemovedEdgeIDs);
-        Assert.Empty(result.Changes.RemovedGroupIDs);
     }
 
     [Fact]
     public void CrossingPolylineReportsReplacedAndCreatedEdgesInSortedOrder()
     {
         var graph = new RoadGraph();
-        graph.SubmitPolyline([new Vector2(-10f, 0f), new Vector2(10f, 0f)]);
+        graph.SubmitPolyline(RoadType.Street, [new Vector2(-10f, 0f), new Vector2(10f, 0f)]);
         int originalEdgeID = Assert.Single(graph.GetAllEdges()).ID;
 
-        RoadPathSubmissionResult result = graph.SubmitPolyline(
+        RoadPathSubmissionResult result = graph.SubmitPolyline(RoadType.Street,
             [new Vector2(0f, -10f), new Vector2(0f, 10f)]);
 
         Assert.True(result.Success);
-        Assert.Contains(originalEdgeID, result.Changes.RemovedEdgeIDs);
-        Assert.DoesNotContain(originalEdgeID, graph.GetAllEdges().Select(edge => edge.ID));
+        Assert.DoesNotContain(originalEdgeID, result.Changes.RemovedEdgeIDs);
+        Assert.NotNull(graph.GetEdge(originalEdgeID));
         Assert.Equal(result.Changes.CreatedEdgeIDs.Order(), result.Changes.CreatedEdgeIDs);
         Assert.All(result.Changes.CreatedEdgeIDs, id => Assert.NotNull(graph.GetEdge(id)));
-        Assert.Equal([result.GroupID!.Value], result.Changes.CreatedGroupIDs);
     }
 
     [Fact]
-    public void RejectedSubmissionHasNoGroupOrChangeSummary()
+    public void RejectedSubmissionHasNoChangeSummary()
     {
         var graph = new RoadGraph();
 
-        RoadPathSubmissionResult result = graph.SubmitPolyline([Vector2.Zero]);
+        RoadPathSubmissionResult result = graph.SubmitPolyline(RoadType.Street, [Vector2.Zero]);
 
         Assert.False(result.Success);
-        Assert.Null(result.GroupID);
         Assert.False(result.Changes.HasChanges);
         Assert.Empty(result.Changes.CreatedNodeIDs);
         Assert.Empty(result.Changes.CreatedEdgeIDs);
-        Assert.Empty(result.Changes.CreatedGroupIDs);
         Assert.Empty(result.Changes.RemovedNodeIDs);
         Assert.Empty(result.Changes.RemovedEdgeIDs);
-        Assert.Empty(result.Changes.RemovedGroupIDs);
     }
 }
