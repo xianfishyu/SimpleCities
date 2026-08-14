@@ -113,6 +113,53 @@ public sealed class RoadSurfaceSnapshotTests
     }
 
     [Fact]
+    public void SemanticJoinTriangleCarriesFixedCanonicalEndpointLocation()
+    {
+        var location = new RoadLocation(7, 0, 0f);
+        var triangle = new RoadSurfaceTriangle(
+            RoadSurfaceOwner.SemanticJoin(
+                edgeID: 7,
+                nodeID: 3,
+                endpoint: EdgeEndpoint.A,
+                sectorOrder: 1),
+            Vector2.Zero,
+            new Vector2(-4f, 0f),
+            new Vector2(0f, -2f),
+            centerlineStart: Vector2.Zero,
+            centerlineEnd: Vector2.Right,
+            locationStart: null,
+            locationEnd: null,
+            fixedLocation: location);
+        var snapshot = new RoadSurfaceSnapshot(Token(), [triangle]);
+
+        RoadSurfaceHit hit = Assert.IsType<RoadSurfaceHit>(
+            snapshot.FindClosest(new Vector2(-1f, -0.5f), maxSurfaceDistance: 0f));
+
+        Assert.Equal(RoadSurfaceOwnerKind.SemanticJoin, hit.OwnerKind);
+        Assert.Equal(7, hit.EdgeID);
+        Assert.Equal(3, hit.NodeID);
+        Assert.Equal(EdgeEndpoint.A, hit.Endpoint);
+        Assert.Equal(location, hit.Location);
+    }
+
+    [Fact]
+    public void SurfaceTriangleRejectsCombinedIntervalAndFixedLocation()
+    {
+        RoadSurfaceOwner owner = RoadSurfaceOwner.EdgeRibbon(edgeID: 7);
+
+        Assert.Throws<ArgumentException>(() => new RoadSurfaceTriangle(
+            owner,
+            Vector2.Zero,
+            new Vector2(1f, 0f),
+            new Vector2(0f, 1f),
+            centerlineStart: Vector2.Zero,
+            centerlineEnd: Vector2.Right,
+            locationStart: new RoadLocation(7, 0, 0f),
+            locationEnd: new RoadLocation(7, 0, 1f),
+            fixedLocation: new RoadLocation(7, 0, 0f)));
+    }
+
+    [Fact]
     public void PointQueryBreaksVisualTiesByCenterlineThenStableOwner()
     {
         RoadSurfaceTriangle fartherCenterline = Triangle(

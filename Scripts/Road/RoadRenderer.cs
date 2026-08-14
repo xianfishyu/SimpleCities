@@ -361,15 +361,19 @@ public partial class RoadRenderer : Node2D
                 surfaceTriangles);
         }
 
-        ArrayMesh? roadMesh = CreateRoadMesh(
-            roadVertices,
-            roadUvs,
-            roadColors,
-            roadIndices);
-
         var nodeMarkers = new List<RoadRendererNodeMarker>();
         foreach (GraphNode node in _network.GetAllNodes().OrderBy(node => node.ID))
         {
+            AppendSemanticJoin(
+                node,
+                _network.GetEdge,
+                _edgePoints,
+                roadTypeStyles,
+                roadVertices,
+                roadUvs,
+                roadColors,
+                roadIndices,
+                surfaceTriangles);
             RoadRendererNodeSurface? nullableSurface = CreateNodeSurface(
                 _network,
                 node,
@@ -383,6 +387,11 @@ public partial class RoadRenderer : Node2D
             if (nodeSurface.Surface is RoadSurfaceDisc surfaceDisc)
                 surfaceDiscs.Add(surfaceDisc);
         }
+        ArrayMesh? roadMesh = CreateRoadMesh(
+            roadVertices,
+            roadUvs,
+            roadColors,
+            roadIndices);
         MultiMesh nodeBatch = CreateNodeBatch(nodeMarkers);
         var surfaceSnapshot = new RoadSurfaceSnapshot(
             targetToken,
@@ -522,6 +531,281 @@ public partial class RoadRenderer : Node2D
                 locationEnd,
                 ownsLocationEnd));
         }
+    }
+
+    private static void AppendSemanticJoin(
+        GraphNode node,
+        Func<int, GraphEdge?> getEdge,
+        IReadOnlyDictionary<int, Vector2[]> edgePoints,
+        RoadTypeStyleSnapshot roadTypeStyles,
+        List<Vector2> vertices,
+        List<Vector2> uvs,
+        List<Color> colors,
+        List<int> indices,
+        List<RoadSurfaceTriangle> surfaceTriangles)
+    {
+        ArgumentNullException.ThrowIfNull(node);
+        ArgumentNullException.ThrowIfNull(getEdge);
+        ArgumentNullException.ThrowIfNull(edgePoints);
+        ArgumentNullException.ThrowIfNull(vertices);
+        ArgumentNullException.ThrowIfNull(uvs);
+        ArgumentNullException.ThrowIfNull(colors);
+        ArgumentNullException.ThrowIfNull(indices);
+        ArgumentNullException.ThrowIfNull(surfaceTriangles);
+        if (node.IncidenceCount != 2 ||
+            node.Incidences[0].EdgeID == node.Incidences[1].EdgeID)
+            return;
+
+        RoadRendererSemanticIncidence first = CreateSemanticIncidence(
+            node,
+            node.Incidences[0],
+            getEdge,
+            edgePoints,
+            roadTypeStyles);
+        RoadRendererSemanticIncidence second = CreateSemanticIncidence(
+            node,
+            node.Incidences[1],
+            getEdge,
+            edgePoints,
+            roadTypeStyles);
+        if (first.Edge.RoadType == second.Edge.RoadType)
+        {
+            throw new InvalidOperationException(
+                $"RoadRenderer semantic Node {node.ID} has the same RoadType on both incidences.");
+        }
+
+        int orientation = RoadExactPredicates.Orient2DSign(
+            Vector2.Zero,
+            first.OutwardDirection,
+            second.OutwardDirection);
+        if (orientation < 0)
+            (first, second) = (second, first);
+        else if (orientation == 0)
+        {
+            int directionDot = RoadExactPredicates.DotSign(
+                first.OutwardDirection,
+                second.OutwardDirection);
+            if (directionDot < 0)
+                return;
+            if (directionDot == 0)
+            {
+                throw new InvalidOperationException(
+                    $"RoadRenderer semantic Node {node.ID} has an invalid incidence direction pair.");
+            }
+            if (first.Edge.RoadType > second.Edge.RoadType)
+                (first, second) = (second, first);
+
+            AppendSameDirectionSemanticJoin(
+                node.Position,
+                first,
+                second,
+                vertices,
+                uvs,
+                colors,
+                indices,
+                surfaceTriangles);
+            return;
+        }
+
+        AppendBevelSemanticJoin(
+            node.Position,
+            first,
+            second,
+            vertices,
+            uvs,
+            colors,
+            indices,
+            surfaceTriangles);
+    }
+
+    private static RoadRendererSemanticIncidence CreateSemanticIncidence(
+        GraphNode node,
+        EdgeIncidence incidence,
+        Func<int, GraphEdge?> getEdge,
+        IReadOnlyDictionary<int, Vector2[]> edgePoints,
+        RoadTypeStyleSnapshot roadTypeStyles)
+    {
+        GraphEdge edge = getEdge(incidence.EdgeID) ??
+            throw new InvalidOperationException(
+                $"RoadRenderer semantic Node {node.ID} references missing Edge {incidence.EdgeID}.");
+        if (!edgePoints.TryGetValue(edge.ID, out Vector2[]? points) || points.Length < 2)
+        {
+            throw new InvalidOperationException(
+                $"RoadRenderer semantic Edge {edge.ID} has no valid display path.");
+        }
+
+        Vector2 outwardDirection;
+        RoadLocation location;
+        switch (incidence.Endpoint)
+        {
+            case EdgeEndpoint.A when edge.NodeA == node.ID &&
+                                     RoadExactPredicates.SameBits(points[0], node.Position):
+                outwardDirection = points[1] - points[0];
+                location = new RoadLocation(
+                    edge.ID,
+                    0,
+                    RoadGeometrySegment.ParameterStart);
+                break;
+            case EdgeEndpoint.B when edge.NodeB == node.ID &&
+                                     RoadExactPredicates.SameBits(points[^1], node.Position):
+                outwardDirection = points[^2] - points[^1];
+                location = new RoadLocation(
+                    edge.ID,
+                    edge.GeometrySegments.Count - 1,
+                    RoadGeometrySegment.ParameterEnd);
+                break;
+            default:
+                throw new InvalidOperationException(
+                    $"RoadRenderer semantic Node {node.ID} is not Edge {edge.ID} endpoint {incidence.Endpoint}.");
+        }
+        if (!outwardDirection.IsFinite() || outwardDirection.IsZeroApprox())
+        {
+            throw new InvalidOperationException(
+                $"RoadRenderer semantic Edge {edge.ID} has no valid visible endpoint direction.");
+        }
+
+        return new RoadRendererSemanticIncidence(
+            node.ID,
+            edge,
+            incidence.Endpoint,
+            outwardDirection.Normalized(),
+            roadTypeStyles.Resolve(edge.RoadType),
+            location);
+    }
+
+    private static void AppendBevelSemanticJoin(
+        Vector2 nodePosition,
+        RoadRendererSemanticIncidence first,
+        RoadRendererSemanticIncidence second,
+        List<Vector2> vertices,
+        List<Vector2> uvs,
+        List<Color> colors,
+        List<int> indices,
+        List<RoadSurfaceTriangle> surfaceTriangles)
+    {
+        Vector2 firstRight = nodePosition -
+            LeftNormal(first.OutwardDirection) * first.HalfWidth;
+        Vector2 secondLeft = nodePosition +
+            LeftNormal(second.OutwardDirection) * second.HalfWidth;
+        Vector2 splitPoint = (firstRight + secondLeft) * 0.5f;
+        AppendSemanticJoinTriangle(
+            nodePosition,
+            splitPoint,
+            firstRight,
+            first,
+            sectorOrder: 0,
+            vertices,
+            uvs,
+            colors,
+            indices,
+            surfaceTriangles);
+        AppendSemanticJoinTriangle(
+            nodePosition,
+            secondLeft,
+            splitPoint,
+            second,
+            sectorOrder: 1,
+            vertices,
+            uvs,
+            colors,
+            indices,
+            surfaceTriangles);
+    }
+
+    private static void AppendSameDirectionSemanticJoin(
+        Vector2 nodePosition,
+        RoadRendererSemanticIncidence first,
+        RoadRendererSemanticIncidence second,
+        List<Vector2> vertices,
+        List<Vector2> uvs,
+        List<Color> colors,
+        List<int> indices,
+        List<RoadSurfaceTriangle> surfaceTriangles)
+    {
+        float halfWidth = MathF.Max(first.HalfWidth, second.HalfWidth);
+        Vector2 normal = LeftNormal(first.OutwardDirection);
+        Vector2 left = nodePosition + normal * halfWidth;
+        Vector2 tip = nodePosition - first.OutwardDirection * halfWidth;
+        Vector2 right = nodePosition - normal * halfWidth;
+        AppendSemanticJoinTriangle(
+            nodePosition,
+            left,
+            tip,
+            first,
+            sectorOrder: 0,
+            vertices,
+            uvs,
+            colors,
+            indices,
+            surfaceTriangles);
+        AppendSemanticJoinTriangle(
+            nodePosition,
+            tip,
+            right,
+            second,
+            sectorOrder: 1,
+            vertices,
+            uvs,
+            colors,
+            indices,
+            surfaceTriangles);
+    }
+
+    private static void AppendSemanticJoinTriangle(
+        Vector2 a,
+        Vector2 b,
+        Vector2 c,
+        RoadRendererSemanticIncidence incidence,
+        int sectorOrder,
+        List<Vector2> vertices,
+        List<Vector2> uvs,
+        List<Color> colors,
+        List<int> indices,
+        List<RoadSurfaceTriangle> surfaceTriangles)
+    {
+        var owner = RoadSurfaceOwner.SemanticJoin(
+            incidence.Edge.ID,
+            incidence.NodeID,
+            incidence.Endpoint,
+            sectorOrder);
+        var surface = new RoadSurfaceTriangle(
+            owner,
+            a,
+            b,
+            c,
+            centerlineStart: a,
+            centerlineEnd: a + incidence.OutwardDirection * incidence.HalfWidth,
+            locationStart: null,
+            locationEnd: null,
+            fixedLocation: incidence.Location);
+        int vertexOffset = vertices.Count;
+        vertices.Add(a);
+        uvs.Add(new Vector2(0f, 0.5f));
+        colors.Add(incidence.Style.Color);
+        vertices.Add(b);
+        uvs.Add(Vector2.Zero);
+        colors.Add(incidence.Style.Color);
+        vertices.Add(c);
+        uvs.Add(Vector2.Zero);
+        colors.Add(incidence.Style.Color);
+        indices.Add(vertexOffset);
+        indices.Add(vertexOffset + 1);
+        indices.Add(vertexOffset + 2);
+        surfaceTriangles.Add(surface);
+    }
+
+    private static Vector2 LeftNormal(Vector2 direction) =>
+        new(-direction.Y, direction.X);
+
+    private readonly record struct RoadRendererSemanticIncidence(
+        int NodeID,
+        GraphEdge Edge,
+        EdgeEndpoint Endpoint,
+        Vector2 OutwardDirection,
+        RoadTypeStyleDefinition Style,
+        RoadLocation Location)
+    {
+        internal float HalfWidth => Style.Width * 0.5f;
     }
 
     private static Vector2 CalculateRoadOffset(
@@ -797,43 +1081,9 @@ public partial class RoadRenderer : Node2D
 
     internal static bool IsJunctionNode(RoadGraph graph, GraphNode node)
     {
-        if (node.IncidenceCount >= 3)
-            return true;
-        if (node.IncidenceCount != 2)
-            return false;
-
-        GraphEdge? sharedEdge = node.Incidences[0].EdgeID == node.Incidences[1].EdgeID
-            ? graph.GetEdge(node.Incidences[0].EdgeID)
-            : null;
-        if (IsPureSelfLoopSeam(node, sharedEdge))
-            return false;
-
-        if (!TryGetOutgoingDirection(graph, node, node.Incidences[0], out Vector2 first) ||
-            !TryGetOutgoingDirection(graph, node, node.Incidences[1], out Vector2 second))
-        {
-            return true;
-        }
-
-        return first.Dot(second) > -0.999f;
-    }
-
-    private static bool IsPureSelfLoopSeam(GraphNode node, GraphEdge? edge)
-    {
-        if (node.IncidenceCount != 2 ||
-            edge is null ||
-            edge.NodeA != node.ID ||
-            edge.NodeB != node.ID)
-        {
-            return false;
-        }
-
-        EdgeIncidence first = node.Incidences[0];
-        EdgeIncidence second = node.Incidences[1];
-        return first.EdgeID == edge.ID &&
-               second.EdgeID == edge.ID &&
-               first.Endpoint != second.Endpoint &&
-               first.NeighborNodeID == node.ID &&
-               second.NeighborNodeID == node.ID;
+        ArgumentNullException.ThrowIfNull(graph);
+        ArgumentNullException.ThrowIfNull(node);
+        return node.IncidenceCount >= 3;
     }
 
     private static bool TryGetOutgoingDirection(

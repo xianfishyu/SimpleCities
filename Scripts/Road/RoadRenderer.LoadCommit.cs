@@ -187,9 +187,21 @@ public partial class RoadRenderer
                     surfaceTriangles);
             }
 
+            GraphEdge? GetEdge(int edgeID) =>
+                revision.Edges.TryGetValue(edgeID, out GraphEdge? edge) ? edge : null;
             var nodeMarkers = new List<RoadRendererNodeMarker>();
             foreach (GraphNode node in revision.Nodes.Values.OrderBy(node => node.ID))
             {
+                AppendSemanticJoin(
+                    node,
+                    GetEdge,
+                    edgePoints,
+                    _settings.RoadTypeStyles,
+                    roadVertices,
+                    roadUvs,
+                    roadColors,
+                    roadIndices,
+                    surfaceTriangles);
                 RoadRendererNodeSurface? nullableSurface = CreateNodeSurface(
                     revision,
                     node,
@@ -338,8 +350,7 @@ public partial class RoadRenderer
                 settings.RoadTypeStyles.Resolve(edge.RoadType));
         }
 
-        bool junction = IsJunctionNode(revision, node);
-        if (!junction || settings.JunctionRadius <= 0f)
+        if (node.IncidenceCount < 3 || settings.JunctionRadius <= 0f)
             return null;
         return new RoadRendererNodeSurface(
             new RoadRendererNodeMarker(
@@ -347,23 +358,6 @@ public partial class RoadRenderer
                 settings.JunctionRadius * 2f,
                 settings.JunctionColor),
             Surface: null);
-    }
-
-    private static bool IsJunctionNode(RoadGraphRevision revision, GraphNode node)
-    {
-        if (node.IncidenceCount >= 3)
-            return true;
-        if (node.IncidenceCount != 2)
-            return false;
-        GraphEdge? sharedEdge = node.Incidences[0].EdgeID == node.Incidences[1].EdgeID &&
-                                revision.Edges.TryGetValue(node.Incidences[0].EdgeID, out GraphEdge? edge)
-            ? edge
-            : null;
-        if (IsPureSelfLoopSeam(node, sharedEdge))
-            return false;
-        return !TryGetOutgoingDirection(revision, node, node.Incidences[0], out Vector2 first) ||
-               !TryGetOutgoingDirection(revision, node, node.Incidences[1], out Vector2 second) ||
-               first.Dot(second) > -0.999f;
     }
 
     private static bool TryGetOutgoingDirection(

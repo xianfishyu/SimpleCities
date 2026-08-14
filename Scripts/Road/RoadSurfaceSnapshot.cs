@@ -107,6 +107,7 @@ internal readonly record struct RoadSurfaceTriangle
     internal RoadLocation? LocationStart { get; }
     internal RoadLocation? LocationEnd { get; }
     internal bool OwnsLocationEnd { get; }
+    internal RoadLocation? FixedLocation { get; }
 
     internal RoadSurfaceTriangle(
         RoadSurfaceOwner owner,
@@ -117,7 +118,8 @@ internal readonly record struct RoadSurfaceTriangle
         Vector2 centerlineEnd,
         RoadLocation? locationStart,
         RoadLocation? locationEnd,
-        bool ownsLocationEnd = true)
+        bool ownsLocationEnd = true,
+        RoadLocation? fixedLocation = null)
     {
         ValidatePoint(a, nameof(a));
         ValidatePoint(b, nameof(b));
@@ -132,6 +134,11 @@ internal readonly record struct RoadSurfaceTriangle
         {
             throw new ArgumentException(
                 "Road surface location endpoints must either both be present or both be absent.");
+        }
+        if (fixedLocation.HasValue && locationStart.HasValue)
+        {
+            throw new ArgumentException(
+                "A road surface triangle cannot combine an interval and a fixed location.");
         }
         if (locationStart is RoadLocation start && locationEnd is RoadLocation end)
         {
@@ -148,6 +155,13 @@ internal readonly record struct RoadSurfaceTriangle
                     "A road surface triangle location interval must be increasing.");
             }
         }
+        if (fixedLocation is RoadLocation canonicalLocation)
+        {
+            ValidateLocation(
+                owner,
+                canonicalLocation,
+                nameof(fixedLocation));
+        }
 
         Owner = owner;
         A = a;
@@ -158,10 +172,13 @@ internal readonly record struct RoadSurfaceTriangle
         LocationStart = locationStart;
         LocationEnd = locationEnd;
         OwnsLocationEnd = ownsLocationEnd;
+        FixedLocation = fixedLocation;
     }
 
     internal RoadLocation? InterpolateLocation(float parameter)
     {
+        if (FixedLocation is RoadLocation fixedLocation)
+            return fixedLocation;
         if (LocationStart is not RoadLocation start ||
             LocationEnd is not RoadLocation end)
         {

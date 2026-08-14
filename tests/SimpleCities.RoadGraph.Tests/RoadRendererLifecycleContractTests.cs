@@ -97,6 +97,42 @@ public sealed class RoadRendererLifecycleContractTests
                 junctionRadius: 10f));
     }
 
+    [Fact]
+    public void SemanticBoundaryIsNotClassifiedAsJunctionMarker()
+    {
+        var graph = RoadGraph.FromPreparedTopology(new PreparedRoadGraphTopology(
+            5,
+            [
+                new PreparedRoadNode(0, Vector2.Zero),
+                new PreparedRoadNode(1, new Vector2(10f, 0f)),
+                new PreparedRoadNode(2, new Vector2(0f, 10f)),
+            ],
+            [
+                new PreparedRoadEdge(
+                    RoadType.Street,
+                    3,
+                    0,
+                    1,
+                    [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(10f, 0f))]),
+                new PreparedRoadEdge(
+                    RoadType.Highway,
+                    4,
+                    0,
+                    2,
+                    [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(0f, 10f))]),
+            ]));
+        global::GraphNode boundary = Assert.IsType<global::GraphNode>(graph.GetNode(0));
+
+        Assert.False(RoadRenderer.IsJunctionNode(graph, boundary));
+        Assert.Equal(
+            0f,
+            RoadRenderer.GetNodeMarkerRadius(
+                graph,
+                boundary,
+                RoadTypeStyles,
+                junctionRadius: 10f));
+    }
+
     private static string ExtractMethod(string source, string startMarker, string endMarker)
     {
         int start = source.IndexOf(startMarker, StringComparison.Ordinal);

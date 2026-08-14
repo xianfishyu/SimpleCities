@@ -39,8 +39,8 @@ public partial class RoadConfig : Resource
     [Export] public float CurveDisplayTolerance { get; set; } = RoadGeometryDisplaySampler.DefaultTolerance;
 
     /// <summary>
-    /// 真路口（ConnectionCount >= 3 或 ConnectionCount == 2 且方向非对向）的圆点半径。
-    /// 用于让 T 字、十字、转弯点在视觉上明显区别于"一条直路"。
+    /// 真路口（IncidenceCount >= 3）的圆点半径。
+    /// degree-2 semantic boundary 由道路类型过渡 join 表现，不使用该圆点。
     /// </summary>
     [Export] public float JunctionRadius { get; set; } = 10f;
 

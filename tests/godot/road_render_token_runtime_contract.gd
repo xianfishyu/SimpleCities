@@ -86,9 +86,11 @@ func run() -> void:
 	var loaded := presentation_token(renderer, "Aggregate Load")
 	if loaded.is_empty() or not require_load_change(styled, loaded):
 		return
-	if not require_surface_hit(renderer, Vector2(0.0, 100.0), loaded, "Aggregate Load"):
+	if not require_surface_hit(renderer, Vector2(-50.0, 100.0), loaded, "Aggregate Load"):
 		return
 	if not require_terminal_cap_hit(renderer, Vector2(-108.0, 100.0), loaded, "Aggregate Load"):
+		return
+	if not require_semantic_join_hit(renderer, Vector2(5.0, 95.0), loaded, "Aggregate Load"):
 		return
 
 	if not require(
@@ -239,6 +241,38 @@ func require_terminal_cap_hit(
 			is_zero_approx(float(location.get("parameter", -1.0))),
 			"%s terminal cap did not return the canonical Edge start" % source))
 
+func require_semantic_join_hit(
+	renderer: Node,
+	position: Vector2,
+	expected_token: Dictionary,
+	source: String) -> bool:
+	var state: Dictionary = renderer.GetPresentationState()
+	var hit: Dictionary = renderer.FindRoadSurfaceHit(position, 0.0)
+	var location: Dictionary = hit.get("location", {})
+	return (
+		require(
+			int(state.get("surfacePrimitiveCount", 0)) == 8,
+			"%s did not publish ribbon, cap, and semantic join primitives together" % source) and
+		require(
+			renderer.GetNodeMarkerCount() == 2,
+			"%s rendered the degree-two semantic boundary as a node marker" % source) and
+		require(not hit.is_empty(), "%s did not return a semantic join hit" % source) and
+		require(
+			hit.get("ownerKind", "") == "SemanticJoin",
+			"%s returned the wrong semantic join owner kind" % source) and
+		require(
+			hit.get("endpoint", "") == "A" and int(hit.get("nodeID", -1)) == 1,
+			"%s semantic join did not preserve its Node incidence" % source) and
+		require(
+			hit.get("renderToken", {}) == expected_token,
+			"%s semantic join token did not match the presented token" % source) and
+		require(not location.is_empty(), "%s semantic join omitted its canonical location" % source) and
+		require(
+			int(location.get("edgeID", -1)) == int(hit.get("edgeID", -2)) and
+			int(location.get("geometryIndex", -1)) == 0 and
+			is_zero_approx(float(location.get("parameter", -1.0))),
+			"%s semantic join did not return the canonical Edge endpoint" % source))
+
 func require_same(
 	before: Dictionary,
 	after: Dictionary,
@@ -256,23 +290,38 @@ func build_fixture() -> Dictionary:
 		"formatFamily": "simple-cities-v3",
 		"payloadType": "road-network",
 		"schemaVersion": 1,
-		"nextID": 3,
+		"nextID": 5,
 		"nodes": [
 			{"id": 0, "x": -100.0, "y": 100.0},
-			{"id": 1, "x": 100.0, "y": 100.0},
+			{"id": 1, "x": 0.0, "y": 100.0},
+			{"id": 2, "x": 0.0, "y": 200.0},
 		],
-		"edges": [{
-			"id": 2,
-			"nodeAID": 0,
-			"nodeBID": 1,
-			"roadType": "highway",
-			"geometry": [{
-				"version": 1,
-				"kind": "line",
-				"start": {"x": -100.0, "y": 100.0},
-				"end": {"x": 100.0, "y": 100.0},
-			}],
-		}],
+		"edges": [
+			{
+				"id": 3,
+				"nodeAID": 0,
+				"nodeBID": 1,
+				"roadType": "highway",
+				"geometry": [{
+					"version": 1,
+					"kind": "line",
+					"start": {"x": -100.0, "y": 100.0},
+					"end": {"x": 0.0, "y": 100.0},
+				}],
+			},
+			{
+				"id": 4,
+				"nodeAID": 1,
+				"nodeBID": 2,
+				"roadType": "street",
+				"geometry": [{
+					"version": 1,
+					"kind": "line",
+					"start": {"x": 0.0, "y": 100.0},
+					"end": {"x": 0.0, "y": 200.0},
+				}],
+			},
+		],
 	}
 
 func require(condition: bool, message: String) -> bool:

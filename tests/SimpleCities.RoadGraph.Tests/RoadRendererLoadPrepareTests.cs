@@ -555,6 +555,224 @@ public sealed class RoadRendererLoadPrepareTests
             });
     }
 
+    [Fact]
+    public void PurePreparer_BuildsQueryableSemanticJoinWithoutDegreeTwoMarker()
+    {
+        RoadGraph graph = CreateRightAngleSemanticBoundary(
+            streetEdgeID: 3,
+            highwayEdgeID: 4);
+        GraphNode boundary = Assert.IsType<GraphNode>(graph.GetNode(0));
+        GraphEdge street = Assert.Single(
+            graph.GetAllEdges(),
+            edge => edge.RoadType == RoadType.Street);
+        GraphEdge highway = Assert.Single(
+            graph.GetAllEdges(),
+            edge => edge.RoadType == RoadType.Highway);
+        var preparer = new RoadRenderer.RoadRendererLoadPreparer(Settings);
+
+        RoadRendererPreparedLoad prepared = preparer.Prepare(graph.CaptureRevision());
+        var snapshot = new RoadSurfaceSnapshot(Token(), prepared.RoadSurface);
+        (int Index, RoadSurfaceTriangle Triangle)[] joins = Enumerable
+            .Range(0, prepared.RoadSurface.TriangleCount)
+            .Select(index => (
+                Index: index,
+                Triangle: prepared.RoadSurface.GetPrimitive(index).Triangle))
+            .Where(item => item.Triangle.Owner.Kind == RoadSurfaceOwnerKind.SemanticJoin)
+            .ToArray();
+
+        Assert.Equal(2, joins.Length);
+        Assert.DoesNotContain(
+            prepared.NodeMarkers,
+            marker => marker.Position == boundary.Position);
+        Assert.All(joins, item =>
+        {
+            RoadSurfaceTriangle triangle = item.Triangle;
+            Assert.Equal(boundary.ID, triangle.Owner.NodeID);
+            Assert.Equal(EdgeEndpoint.A, triangle.Owner.Endpoint);
+            Assert.Equal(
+                new RoadLocation(triangle.Owner.EdgeID, 0, 0f),
+                triangle.FixedLocation);
+            int meshIndex = item.Index * 3;
+            Assert.Equal(
+                [triangle.A, triangle.B, triangle.C],
+                prepared.RoadIndices[meshIndex..(meshIndex + 3)]
+                    .Select(index => prepared.RoadVertices[index]));
+            Color expectedColor = RoadTypeStyles.Resolve(
+                Assert.Single(
+                    graph.GetAllEdges(),
+                    edge => edge.ID == triangle.Owner.EdgeID).RoadType).Color;
+            Assert.All(
+                prepared.RoadIndices[meshIndex..(meshIndex + 3)],
+                index => Assert.Equal(expectedColor, prepared.RoadColors[index]));
+        });
+
+        RoadSurfaceHit streetHit = Assert.IsType<RoadSurfaceHit>(
+            snapshot.FindClosest(new Vector2(-1f, -1f), maxSurfaceDistance: 0f));
+        RoadSurfaceHit highwayHit = Assert.IsType<RoadSurfaceHit>(
+            snapshot.FindClosest(new Vector2(-3f, -0.5f), maxSurfaceDistance: 0f));
+        Assert.Equal(RoadSurfaceOwnerKind.SemanticJoin, streetHit.OwnerKind);
+        Assert.Equal(street.ID, streetHit.EdgeID);
+        Assert.Equal(new RoadLocation(street.ID, 0, 0f), streetHit.Location);
+        Assert.Equal(RoadSurfaceOwnerKind.SemanticJoin, highwayHit.OwnerKind);
+        Assert.Equal(highway.ID, highwayHit.EdgeID);
+        Assert.Equal(new RoadLocation(highway.ID, 0, 0f), highwayHit.Location);
+        Assert.Equal(
+            new[] { street.ID, highway.ID }.Order(),
+            snapshot.FindEdgeIDsIntersecting(new Rect2(-4f, -2f, 4f, 2f)));
+    }
+
+    [Fact]
+    public void PurePreparer_SemanticJoinVisualDoesNotDependOnEdgeIDs()
+    {
+        var preparer = new RoadRenderer.RoadRendererLoadPreparer(Settings);
+        RoadRendererPreparedLoad first = preparer.Prepare(
+            CreateRightAngleSemanticBoundary(3, 4).CaptureRevision());
+        RoadRendererPreparedLoad second = preparer.Prepare(
+            CreateRightAngleSemanticBoundary(4, 3).CaptureRevision());
+
+        Assert.Equal(
+            ExtractSemanticJoinVisual(first),
+            ExtractSemanticJoinVisual(second));
+    }
+
+    [Fact]
+    public void PurePreparer_UsesFixedBevelFallbackForSameDirectionSemanticBoundary()
+    {
+        Vector2 boundaryPosition = Vector2.Zero;
+        var graph = RoadGraph.FromPreparedTopology(new PreparedRoadGraphTopology(
+            5,
+            [
+                new PreparedRoadNode(0, boundaryPosition),
+                new PreparedRoadNode(1, new Vector2(10f, 5f)),
+                new PreparedRoadNode(2, new Vector2(10f, -5f)),
+            ],
+            [
+                new PreparedRoadEdge(
+                    RoadType.Street,
+                    3,
+                    0,
+                    1,
+                    [
+                        new LineRoadGeometrySegment(boundaryPosition, new Vector2(2f, 0f)),
+                        new LineRoadGeometrySegment(new Vector2(2f, 0f), new Vector2(10f, 5f)),
+                    ]),
+                new PreparedRoadEdge(
+                    RoadType.Highway,
+                    4,
+                    0,
+                    2,
+                    [
+                        new LineRoadGeometrySegment(boundaryPosition, new Vector2(2f, 0f)),
+                        new LineRoadGeometrySegment(new Vector2(2f, 0f), new Vector2(10f, -5f)),
+                    ]),
+            ]));
+        var preparer = new RoadRenderer.RoadRendererLoadPreparer(Settings);
+
+        RoadRendererPreparedLoad prepared = preparer.Prepare(graph.CaptureRevision());
+        var snapshot = new RoadSurfaceSnapshot(Token(), prepared.RoadSurface);
+        RoadSurfaceTriangle[] joins = Enumerable
+            .Range(0, prepared.RoadSurface.TriangleCount)
+            .Select(index => prepared.RoadSurface.GetPrimitive(index).Triangle)
+            .Where(triangle => triangle.Owner.Kind == RoadSurfaceOwnerKind.SemanticJoin)
+            .ToArray();
+
+        Assert.Equal(2, joins.Length);
+        Assert.Equal([0, 1], joins.Select(triangle => triangle.Owner.SectorOrder));
+        Assert.All(joins, triangle => Assert.True(
+            triangle.A.IsFinite() && triangle.B.IsFinite() && triangle.C.IsFinite()));
+        Assert.Equal(
+            RoadTypeStyles.Resolve(RoadType.Highway).Width * 0.5f,
+            joins.SelectMany(triangle => new[] { triangle.A, triangle.B, triangle.C })
+                .Max(point => point.DistanceTo(boundaryPosition)),
+            precision: 5);
+        Assert.Equal(
+            RoadSurfaceOwnerKind.SemanticJoin,
+            Assert.IsType<RoadSurfaceHit>(snapshot.FindClosest(
+                new Vector2(-1f, 1f),
+                maxSurfaceDistance: 0f)).OwnerKind);
+        Assert.DoesNotContain(
+            prepared.NodeMarkers,
+            marker => marker.Position == boundaryPosition);
+    }
+
+    [Fact]
+    public void PurePreparer_OppositeSemanticBoundaryNeedsNoExtraPrimitiveOrMarker()
+    {
+        Vector2 boundaryPosition = Vector2.Zero;
+        var graph = RoadGraph.FromPreparedTopology(new PreparedRoadGraphTopology(
+            5,
+            [
+                new PreparedRoadNode(0, boundaryPosition),
+                new PreparedRoadNode(1, new Vector2(10f, 0f)),
+                new PreparedRoadNode(2, new Vector2(-10f, 0f)),
+            ],
+            [
+                new PreparedRoadEdge(
+                    RoadType.Street,
+                    3,
+                    0,
+                    1,
+                    [new LineRoadGeometrySegment(boundaryPosition, new Vector2(10f, 0f))]),
+                new PreparedRoadEdge(
+                    RoadType.Highway,
+                    4,
+                    0,
+                    2,
+                    [new LineRoadGeometrySegment(boundaryPosition, new Vector2(-10f, 0f))]),
+            ]));
+        var preparer = new RoadRenderer.RoadRendererLoadPreparer(Settings);
+
+        RoadRendererPreparedLoad prepared = preparer.Prepare(graph.CaptureRevision());
+
+        Assert.DoesNotContain(
+            Enumerable.Range(0, prepared.RoadSurface.TriangleCount)
+                .Select(index => prepared.RoadSurface.GetPrimitive(index).Triangle),
+            triangle => triangle.Owner.Kind == RoadSurfaceOwnerKind.SemanticJoin);
+        Assert.DoesNotContain(
+            prepared.NodeMarkers,
+            marker => marker.Position == boundaryPosition);
+    }
+
+    private static RoadGraph CreateRightAngleSemanticBoundary(
+        int streetEdgeID,
+        int highwayEdgeID) =>
+        RoadGraph.FromPreparedTopology(new PreparedRoadGraphTopology(
+            Math.Max(streetEdgeID, highwayEdgeID) + 1,
+            [
+                new PreparedRoadNode(0, Vector2.Zero),
+                new PreparedRoadNode(1, new Vector2(10f, 0f)),
+                new PreparedRoadNode(2, new Vector2(0f, 10f)),
+            ],
+            [
+                new PreparedRoadEdge(
+                    RoadType.Street,
+                    streetEdgeID,
+                    0,
+                    1,
+                    [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(10f, 0f))]),
+                new PreparedRoadEdge(
+                    RoadType.Highway,
+                    highwayEdgeID,
+                    0,
+                    2,
+                    [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(0f, 10f))]),
+            ]));
+
+    private static (Vector2 A, Vector2 B, Vector2 C, Color Color, int Sector)[]
+        ExtractSemanticJoinVisual(RoadRendererPreparedLoad prepared) =>
+        Enumerable.Range(0, prepared.RoadSurface.TriangleCount)
+            .Select(index => (
+                Index: index,
+                Triangle: prepared.RoadSurface.GetPrimitive(index).Triangle))
+            .Where(item => item.Triangle.Owner.Kind == RoadSurfaceOwnerKind.SemanticJoin)
+            .Select(item => (
+                item.Triangle.A,
+                item.Triangle.B,
+                item.Triangle.C,
+                prepared.RoadColors[prepared.RoadIndices[item.Index * 3]],
+                item.Triangle.Owner.SectorOrder))
+            .ToArray();
+
     private static RoadTypeStyleDefinition Style(
         RoadType roadType,
         string displayName,
