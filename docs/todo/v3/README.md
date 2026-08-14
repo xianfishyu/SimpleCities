@@ -2,7 +2,7 @@
 
 > 适用范围：仅包含第三代道路系统（V3）的系统路线图导航、全局阶段依赖和最终集成归属。
 >
-> 整理日期：2026-08-14
+> 整理日期：2026-08-15
 >
 > 架构与验收规范：[`docs/manuals/road-system-v3-gen.md`](../../manuals/road-system-v3-gen.md)
 
@@ -36,11 +36,11 @@
 | Phase 7 | `v3-grid-rendering:2.0`～`2.3`、`v3-tool-input:2.0`～`2.4`、`v3-ui:1.1`～`1.4`、`v3-save-system:2.3` | Phase 3～6 | 完成表现、工具、UI、加载参与者和唯一 V3 应用装配；各条目的精确依赖以所属路线图为准 |
 | Phase 8 | `v3-road-graph:8.6` | `v3-road-graph:8.0`～`8.5`、`v3-save-system:2.1`～`2.3`、`v3-grid-rendering:2.0`～`2.3`、`v3-tool-input:2.0`～`2.4`、`v3-ui:1.1`～`1.4` | 汇总全部跨系统证据并完成最终组合验收 |
 
-当前进度（2026-08-14）：Phase 1～4 已完成；Phase 5 已完成 `v3-save-system:2.1`～`2.2`，`2.3` 已部分实现 async coordinator、结构化 token/state/result、手动优先与 pending autosave、取消/退出收敛，以及 RoadGraph + 空工具/history + renderer mesh/indexed ribbon-cap-join surface + 槽目标的 non-yield aggregate Load；等待 gate 时外部取消不会再遗留占锁 lease。Phase 6 的 `v3-tool-input:2.3` 已完成：delta/history 双预算通过自动化与 Release 证据，真实 V3 Load 已验证新 lineage 清空旧 undo/redo 与 token。
+当前进度（2026-08-15）：Phase 1～4 已完成；Phase 5 已完成 `v3-save-system:2.1`～`2.2`，`2.3` 已部分实现 async coordinator、结构化 token/state/result、手动优先与 pending autosave、取消/退出收敛，以及 RoadGraph + 空工具/history + renderer mesh/indexed ribbon-cap-join-patch surface + 槽目标的 non-yield aggregate Load；等待 gate 时外部取消不会再遗留占锁 lease。Phase 6 的 `v3-tool-input:2.3` 已完成：delta/history 双预算通过自动化与 Release 证据，真实 V3 Load 已验证新 lineage 清空旧 undo/redo 与 token。
 
-Phase 7 的 `v3-grid-rendering:2.0` 已部分实现普通与 Load 共用的 closed ribbon、循环 seam join、纯 seam marker 隐藏，并完成两路口环、八字形和删除支路后的 seam 重定位；`v3-grid-rendering:2.1` 已完成四类 `RoadTypeStyle` 资源、严格唯一覆盖/查询、生产 `.tres` 往返与场景启动校验；`v3-grid-rendering:2.2` 已让普通 rebuild 与 Load preparer 从不可变样式快照向同一个 mesh 写入 per-edge width/color，建立六分量 desired/presented token，并从真实 mesh triangle 同步发布 `EdgeRibbon` surface。degree-1 Node 另按相邻样式生成同宽同色 marker 与解析 `TerminalCap` disc，A/B owner 返回 canonical 参数 `0/1`；两条不同 Edge、不同 RoadType 的 degree-2 Node 由实际 ribbon 端截面生成同源 `SemanticJoin` triangle，按 exact orientation/dot sign 处理非共线、同向和精确对向关系，并固定返回所属 Edge 的 canonical endpoint。三类 primitive 共用 matching token 和不可变 AABB 索引，degree-2 boundary 不再绘制 marker。Load worker 用 `RoadSurfaceSnapshot.PreparedData` 分别完成 triangle/disc defensive copy 与统一建树，Preflight 只绑定 reserved token。
+Phase 7 的 `v3-grid-rendering:2.0` 已部分实现普通与 Load 共用的 closed ribbon、循环 seam join、纯 seam marker 隐藏，并完成两路口环、八字形和删除支路后的 seam 重定位；`v3-grid-rendering:2.1` 已完成四类 `RoadTypeStyle` 资源、严格唯一覆盖/查询、生产 `.tres` 往返与场景启动校验；`v3-grid-rendering:2.2` 已让普通 rebuild 与 Load preparer 从不可变样式快照向同一个 mesh 写入 per-edge width/color，建立六分量 desired/presented token，并同步发布带 canonical `RoadLocation` 的 `EdgeRibbon`、degree-1 `TerminalCap`、degree-2 `SemanticJoin` 与 degree≥3 `JunctionPatch`。四类 primitive 共用 matching token 和不可变 AABB 索引；fixed-quantization Clipper2 patch 以确定 incidence sector 覆盖 T/X/锐角、self-loop 加支路和平行 Edge，degree≥2 伪 marker 已移除。Load worker 用 `RoadSurfaceSnapshot.PreparedData` 完成 triangle/disc defensive copy、patch 细分与统一建树，Preflight 只绑定 reserved token。普通 rebuild 现在也复用该纯 preparer，只重采样 created/updated Edge；失败会保留上一代完整表现并以同一 desired token 进入可诊断 stalled，provider 拒绝 hit，显式重试成功后才一次推进 presented。
 
-`v3-tool-input:2.4`、`v3-ui:1.4` 及完整 surface 接管仍开放；当前仍缺 junction patch、普通 mutation stalled/retry、类型 UI、RoadUpgrade、缩放/重建视觉矩阵，以及平行 Edge 工具命中。完整自动化当前为 793/793，surface/load 聚焦组合为 41/41，双配置构建及 Roslyn/GDScript diagnostics 为 0；隔离 `road_render_token_runtime_contract.gd` 已验证混合边界 aggregate Load 的 mesh/surface/index/token 同代交换，发布 `4 ribbon + 2 cap + 2 SemanticJoin = 8` 个 primitive，只保留两个远端 cap marker，并让 join hit 返回 matching token、稳定 owner 与 canonical endpoint location。Godot MCP 另验证普通 mutation 的单路 `surfacePrimitiveCount=4` 与 ribbon/cap 命中。本轮未重跑 10k/100k；此前 TerminalCap 的 1k Vulkan camera/preview/highlight P95 0.393/0.378/0.339 ms、renderer rebuild 135.918 ms 与静态节点 2 只作历史增量证据，既有分级 ribbon 规模数据也不替代 Phase 7 的混合 junction/surface 门禁。
+`v3-grid-rendering:2.2`、`v3-tool-input:2.4` 与 `v3-ui:1.4` 仍保持开放；下一入口是让 hover、拆除、改造和框选真正消费 surface provider，并对每条道路命令执行 `hit == presented == desired == graph` admission。类型 UI、RoadUpgrade、缩放/重建视觉矩阵、平行 Edge 独立工具命中及完整 Preflight/性能故障矩阵也仍缺失。完整自动化当前为 817/817；Debug 与 `ExportRelease` build 均为 0 错误，各有 1 条既有 `NU1900`，Roslyn compiler/analyzer 与 GDScript workspace scan 为 0 diagnostics。隔离 `road_render_token_runtime_contract.gd` 输出 PASS，除既有四类 surface aggregate 外，还以真实非法样式验证 attempt 1 stalled、attempt 2 同 token 失败及修复后 attempt 3 同 token 成功；失败期间旧表现完整保留但 surface 查询为空。测试槽、隔离目录和日志均已清理，editor 无新增错误且 DAP 两个通道为空。本轮未重跑 10k/100k；既有分级 ribbon 与 TerminalCap 性能数据只作历史证据，不替代 Phase 7 的工具接管和混合 junction/surface 规模门禁。
 
 各 Phase 是实现分支中的可编译检查点，不是玩家可选的运行模式。V3 可以完全重写现有架构，但产品装配始终只有一套新 runtime/API/event/format；不得用 feature gate、兼容适配器、双事件或双 writer 保留 V2 生产路径。V2 存档根只作为未触碰的历史数据保留。
 
