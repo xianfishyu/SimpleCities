@@ -1,12 +1,42 @@
-[gd_resource type="Resource" script_class="RoadConfig" format=3 uid="uid://ebbitynntrvx"]
+[gd_resource type="Resource" script_class="RoadConfig" load_steps=6 format=3 uid="uid://ebbitynntrvx"]
 
 [ext_resource type="Script" uid="uid://mo4q7fauurvd" path="res://Scripts/Road/RoadConfig.cs" id="1_roadconfig"]
+[ext_resource type="Script" path="res://Scripts/Road/RoadTypeStyle.cs" id="2_style"]
+
+[sub_resource type="Resource" id="RoadTypeStyle_dirt"]
+script = ExtResource("2_style")
+RoadType = 0
+DisplayName = "土路"
+Color = Color(0.541176, 0.4, 0.321569, 1)
+Width = 14.0
+
+[sub_resource type="Resource" id="RoadTypeStyle_street"]
+script = ExtResource("2_style")
+RoadType = 1
+DisplayName = "街道"
+Color = Color(0.376471, 0.447059, 0.486275, 1)
+Width = 20.0
+
+[sub_resource type="Resource" id="RoadTypeStyle_arterial"]
+script = ExtResource("2_style")
+RoadType = 2
+DisplayName = "主干道"
+Color = Color(0.843137, 0.662745, 0.156863, 1)
+Width = 26.0
+
+[sub_resource type="Resource" id="RoadTypeStyle_highway"]
+script = ExtResource("2_style")
+RoadType = 3
+DisplayName = "高速道路"
+Color = Color(0.784314, 0.294118, 0.227451, 1)
+Width = 32.0
 
 [resource]
 script = ExtResource("1_roadconfig")
 CellSize = 100.0
 RoadColor = Color(1, 1, 1, 1)
 RoadWidth = 20.0
+RoadTypeStyles = Array[ExtResource("2_style")]([SubResource("RoadTypeStyle_dirt"), SubResource("RoadTypeStyle_street"), SubResource("RoadTypeStyle_arterial"), SubResource("RoadTypeStyle_highway")])
 JunctionRadius = 20.0
 JunctionColor = Color(1, 1, 1, 1)
 EndpointRadius = 20.0

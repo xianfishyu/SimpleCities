@@ -69,6 +69,8 @@ public partial class RoadRenderer : Node2D
             Config = new RoadConfig();
         }
         Config.NormalizeRuntimeValues(message => GD.PushWarning($"RoadRenderer: {message}"));
+        if (!Config.TryValidateRoadTypeStyles(out string roadTypeStyleError))
+            GD.PushError($"RoadRenderer: RoadTypeStyles resource is invalid: {roadTypeStyleError}");
         if (!float.IsFinite(Config.CurveDisplayTolerance) || Config.CurveDisplayTolerance <= 0f)
         {
             GD.PushError("RoadRenderer: CurveDisplayTolerance must be positive and finite; using the default.");

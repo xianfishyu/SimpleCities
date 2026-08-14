@@ -1,6 +1,6 @@
 # 第三代道路系统迭代指南
 
-> 文档状态：实施中；Phase 1～4 与 Phase 6 已完成，Phase 5 的 `v3-save-system:2.1`～`2.2` 已完成、`2.3` 部分实现，Phase 7 的 Load 协作参与者部分接入；当前入口为补齐 `v3-save-system:2.3` 与 Phase 7 的完整 surface/token 联合接管
+> 文档状态：实施中；Phase 1～4 与 Phase 6 已完成，Phase 5 的 `v3-save-system:2.1`～`2.2` 已完成、`2.3` 部分实现，Phase 7 的 `v3-grid-rendering:2.1` 已完成且 Load 协作参与者部分接入；当前入口为 `v3-grid-rendering:2.2` 的 per-edge surface/token 联合接管
 >
 > 编写日期：2026-08-14
 >
@@ -8,7 +8,7 @@
 >
 > 路线图入口：[第三代道路系统路线图](../todo/v3/README.md)；`v3-road-graph:8.0`～`8.6` 负责领域实现和最终集成，跨系统工作分别记录在 `docs/todo/v3/` 的 owning system 文档中。
 
-> 当前实施记录（2026-08-14）：Phase 1～4 已完成 mutation 数值/容量门禁、endpoint-role incidence、self-loop/parallel Edge、六类原生方向与权威锚、最大连续 Edge、半开 query fragment locality、RoadGroup 移除、closed/self-intersection、四类 `RoadType`、原子 `ChangeRoadType`、不可变 `RoadGraphRevision` root、统一 `GraphChanged`/可逆 delta，以及 lineage/domain revision/change sequence 身份。Phase 5 已完成独立 `user://saves-v3` 根、严格 `simple-cities-v3` format v1、有界 streaming reader、同句柄完整性校验、PNG 预算、五类 occupant、publish/delete descriptor、tombstone、OS 根锁和 digest 恢复矩阵；`SaveOperationCoordinator`、结构化 token/state/result、手动优先与单 pending autosave、取消/退出收敛，以及 RoadGraph + 空工具/history + 基础 renderer mesh + 槽目标的首个 aggregate Load 已实现，等待 gate 时外部取消不会再产生占锁 lease。Phase 6 的 delta/token 与 entry/估算字节双预算已完成。Phase 7 已部分实现普通与 Load 共用的 closed ribbon、循环 seam join、纯 self-loop seam marker 隐藏，以及两路口环、八字形和删除支路后的 seam 重定位；`v3-save-system:2.3` 及 Phase 7 协作项仍开放，因为当前 renderer 仍只有统一样式 open/closed ribbon 和 `GraphStateToken`，尚无 `RoadSurfaceSnapshot` / `RoadSurfaceHit`、junction patch、六分量 `RoadRenderToken`、RoadType 样式/UI、RoadUpgrade、缩放/重建视觉矩阵或平行 Edge 表面命中。完整自动化当前为 727/727；Debug 与 `ExportRelease` build 均为 0 警告/0 错误，Roslyn compiler/analyzer 为 0 diagnostics，Godot MCP 主场景 smoke 的 editor error 与 DAP `stderr` 为空。最新完整 Vulkan 运行中，10k camera/preview/highlight P95 为 0.657/0.779/0.672 ms、Load 与 renderer rebuild 为 608.025 ms；首轮 100k 为 13.517/0.722/0.699 ms、重建 4108.956 ms，100k 原样复跑为 0.616/0.661/0.637 ms、重建 4492.629 ms，两轮均 PASS。renderer lifecycle、闭环普通/Load 与 V3 综合运行时契约也均输出 PASS。Windows Desktop QA 导出包继续通过可写与只读 ACL profile。首次冷启动超门和首轮 100k camera 尾延迟证据仍保留在第 11 节；Phase 8 附录 D 继续保持为空。
+> 当前实施记录（2026-08-14）：Phase 1～4 已完成 mutation 数值/容量门禁、endpoint-role incidence、self-loop/parallel Edge、六类原生方向与权威锚、最大连续 Edge、半开 query fragment locality、RoadGroup 移除、closed/self-intersection、四类 `RoadType`、原子 `ChangeRoadType`、不可变 `RoadGraphRevision` root、统一 `GraphChanged`/可逆 delta，以及 lineage/domain revision/change sequence 身份。Phase 5 已完成独立 `user://saves-v3` 根、严格 `simple-cities-v3` format v1、有界 streaming reader、同句柄完整性校验、PNG 预算、五类 occupant、publish/delete descriptor、tombstone、OS 根锁和 digest 恢复矩阵；`SaveOperationCoordinator`、结构化 token/state/result、手动优先与单 pending autosave、取消/退出收敛，以及 RoadGraph + 空工具/history + 基础 renderer mesh + 槽目标的首个 aggregate Load 已实现，等待 gate 时外部取消不会再产生占锁 lease。Phase 6 的 delta/token 与 entry/估算字节双预算已完成。Phase 7 已部分实现普通与 Load 共用的 closed ribbon、循环 seam join、纯 self-loop seam marker 隐藏，以及两路口环、八字形和删除支路后的 seam 重定位；`v3-grid-rendering:2.1` 已完成四类 `RoadTypeStyle` 资源、严格唯一覆盖/查询、生产 `.tres` 往返与场景启动校验。`v3-save-system:2.3` 及其余 Phase 7 协作项仍开放，因为当前 renderer 仍只有统一样式 open/closed ribbon 和 `GraphStateToken`，尚未消费 per-edge 样式，也没有 `RoadSurfaceSnapshot` / `RoadSurfaceHit`、junction patch、六分量 `RoadRenderToken`、类型 UI、RoadUpgrade、缩放/重建视觉矩阵或平行 Edge 表面命中。完整自动化当前为 749/749；Debug 与 `ExportRelease` build 均为 0 警告/0 错误，Roslyn compiler/analyzer 及新增 GDScript 契约为 0 diagnostics，Godot MCP 主场景 smoke 的 editor error 与 DAP `stderr` 为空。最新完整 Vulkan 运行中，10k camera/preview/highlight P95 为 0.657/0.779/0.672 ms、Load 与 renderer rebuild 为 608.025 ms；首轮 100k 为 13.517/0.722/0.699 ms、重建 4108.956 ms，100k 原样复跑为 0.616/0.661/0.637 ms、重建 4492.629 ms，两轮均 PASS。renderer lifecycle、闭环普通/Load、RoadType 样式与 V3 综合运行时契约也均输出 PASS。Windows Desktop QA 导出包继续通过可写与只读 ACL profile。首次冷启动超门和首轮 100k camera 尾延迟证据仍保留在第 11 节；Phase 8 附录 D 继续保持为空。
 
 ---
 
@@ -57,6 +57,7 @@ V2 存档不属于 V3 输入：不扫描、不列出、不迁移、不只读加�
 | renderer 已从 `EdgeEndpoint` 选择首/末端切线            | `RoadRenderer.TryGetOutgoingDirection`                      | self-loop A/B 得到各自的出射方向；Phase 7 已完成基础 closed ribbon，复杂表面矩阵仍开放 |
 | 闭合与自交路径已进入公共提交，连续重叠结构化拒绝           | `ValidateNativePath`、`PlanNativePathIntersections`、`RoadPlacementSession` | Phase 3 已完成；RoadType 与 closed ribbon 分属 Phase 4/7 |
 | Edge 已强制携带合法 `RoadType`，提交、拆分、交叉、批量改造和归一化均传播类型 | `RoadBuildRequest`、`GraphEdge`、`SubmitPathCore`、`ChangeRoadType` | Phase 4 已完成；类型选择与 RoadUpgrade 工具仍属 Phase 7 |
+| `RoadConfig` 已恰好提供四类合法 `RoadTypeStyle`，查询不回退 | `RoadTypeStyle.cs`、`RoadConfig.cs`、`road_config.tres` | `v3-grid-rendering:2.1` 已完成；renderer 消费 per-edge 样式与完整 surface 仍属 2.2 |
 | 活动图由不可变 root、统一 delta 和完整 state token 表达 | `RoadGraphRevision`、`RoadGraph.Transactions.cs`、`GraphChanged` | Phase 4 已完成；V3 writer 可直接 O(1) 捕获 root，表现层仍需自己的完整 generation token |
 | 保存以 O(1) 捕获不可变 revision，并直接写无缩进 UTF-8 流 | `IStreamingSaveable`、`RoadGraph.CaptureSnapshot`、`WriteSnapshot` | 已消除完整业务 DTO/字符串副本；async coordinator 在后台执行 serialize/hash/I/O |
 | Save/Load/Delete/autosave 只公开 token 入口和结构化 state/result | `SaveOperationCoordinator`、`SaveManager.Start*`、`AutosaveController`、`PauseMenu` | 进程内排他、手动优先、pending autosave、取消与退出收敛已接入；完整表现结果仍属开放的联合项 |
@@ -64,7 +65,7 @@ V2 存档不属于 V3 输入：不扫描、不列出、不迁移、不只读加�
 | 撤销项只保存可逆 delta、完整 token 和估算字节             | `RoadEditHistory`                                         | Phase 6 已完成；真实 V3 Load 已证明新 lineage 清空旧历史与 token |
 | manifest 绑定 payload 名称、长度和 SHA-256，operation-specific transaction 绑定 publish/delete descriptor | `V3ManifestCodec`、`V3PublicationDescriptorCodec`、`V3DeletionDescriptorCodec`、`SaveSlotStore` | OS 根锁、quarantine/tombstone、digest 恢复矩阵和 cleanup-pending 已由 `v3-save-system:2.2` 完成 |
 
-Phase 1 已把 `NodeA == NodeB`、邻接、度数、方向、查询和现有 renderer 的图基础作为同一垂直切片完成；Phase 2 已在此基础上完成最大连续 Edge、Group 移除与局部 fragment 索引；Phase 3 已让公共闭合/自交提交和共享 placement 生命周期消费同一契约；Phase 4 已让类型化建造、改造、不可变 root、delta 和事务身份消费相同规范 Edge；Phase 5 已让 V3 reader/writer、独立保存根和 async coordinator 消费 canonical root，并以首个 aggregate 连接 graph/tool/basic renderer/slot；Phase 6 已用真实 V3 Load 验证历史 lineage 边界；Phase 7 已让基础 closed ribbon 在普通 mutation 与 Load 中共享同一 seam 语义，并覆盖两路口环、八字形和删除支路后的 seam 重定位。后续完整 surface aggregate、缩放/重建视觉矩阵和平行 Edge 独立表面命中必须继续保留 seam、typed direction、规范交点坐标、RoadType、root/token 和失败原子性，不能重新引入提交来源身份、默认类型、伪拓扑边界、二次模糊吸附、全图 JSON 历史或整 Edge 局部扫描。
+Phase 1 已把 `NodeA == NodeB`、邻接、度数、方向、查询和现有 renderer 的图基础作为同一垂直切片完成；Phase 2 已在此基础上完成最大连续 Edge、Group 移除与局部 fragment 索引；Phase 3 已让公共闭合/自交提交和共享 placement 生命周期消费同一契约；Phase 4 已让类型化建造、改造、不可变 root、delta 和事务身份消费相同规范 Edge；Phase 5 已让 V3 reader/writer、独立保存根和 async coordinator 消费 canonical root，并以首个 aggregate 连接 graph/tool/basic renderer/slot；Phase 6 已用真实 V3 Load 验证历史 lineage 边界；Phase 7 已让基础 closed ribbon 在普通 mutation 与 Load 中共享同一 seam 语义，覆盖两路口环、八字形和删除支路后的 seam 重定位，并固定四类可校验 `RoadTypeStyle`。后续 renderer 消费样式、完整 surface aggregate、缩放/重建视觉矩阵和平行 Edge 独立表面命中必须继续保留 seam、typed direction、规范交点坐标、RoadType、root/token 和失败原子性，不能重新引入提交来源身份、默认类型、伪拓扑边界、二次模糊吸附、全图 JSON 历史或整 Edge 局部扫描。
 
 ---
 
@@ -403,7 +404,9 @@ public RoadTypeChangeResult ChangeRoadType(
 
 ### 9.4 分级样式与可见路面命中
 
-`RoadConfig` 为四类道路各提供唯一 `RoadTypeStyle`，首版只含展示名称、颜色和正有限宽度。一个道路 mesh 使用 per-edge 宽度和 vertex color，不按类型创建四套 renderer。
+`v3-grid-rendering:2.1` 已实现 `[GlobalClass] RoadTypeStyle`，首版只含 `RoadType`、展示名称、颜色和正有限宽度。`RoadConfig` 与生产 `road_config.tres` 恰好提供 `Dirt / 土路 / #8A6652 / 14`、`Street / 街道 / #60727C / 20`、`Arterial / 主干道 / #D7A928 / 26`、`Highway / 高速道路 / #C84B3A / 32`；校验拒绝缺失、空引用、重复或非法类型、空名称、非有限/透明颜色和非法宽度，查询在资源无效或目标非法时严格失败。`RoadRenderer._Ready()` 会输出非法映射诊断。
+
+当前 renderer 尚未消费上述映射，仍使用全局 `RoadWidth` / `RoadColor`。`v3-grid-rendering:2.2` 必须让一个道路 mesh 使用 per-edge 宽度和 vertex color，而不是按类型创建四套 renderer；样式 revision、同源 surface 与刷新协议也在该切片接入。
 
 宽路交互不能只使用 `max(0, centerlineDistance - width / 2)`：该近似没有 terminal cap、miter/bevel、semantic join 或 junction patch，会让画面可见区域与 hover、拆除、改造和框选产生分歧。renderer 必须从与实际 mesh 同源的不可变 `RoadSurfaceSnapshot` 建立派生表面索引；每个 primitive 携带完整 render token 和稳定 owner，点查询返回统一的 `RoadSurfaceHit(RenderToken, OwnerKind, NodeID?, EdgeID?, Endpoint?, SurfaceDistance, CenterlineDistance, RoadLocation?)`。`OwnerKind` 至少区分 Edge ribbon、terminal cap、semantic join 和 junction patch；工具只接受 token 等于当前 `PresentedRenderToken` 的命中。
 
@@ -740,13 +743,15 @@ Phase 6 验收（2026-08-14）：`RoadEditHistoryTests` 为 16/16，检查点完
 ### Phase 7：渲染、类型 UI 与规模门禁
 
 1. 修复 closed ribbon join、seam 标记和 self-loop/parallel Edge 表面生成。
-2. 增加四类样式、per-edge width/color、确定 junction patch，以及 mesh 同源 `RoadSurfaceSnapshot` / `RoadSurfaceHit`；renderer provider 先用 fake consumer 验证 mesh/surface/token 一次交换。
+2. 四类样式资源与严格校验已完成；继续接入 per-edge width/color、确定 junction patch，以及 mesh 同源 `RoadSurfaceSnapshot` / `RoadSurfaceHit`，并先用 fake consumer 验证 mesh/surface/token 一次交换。
 3. 让 hover、拆除、改造和框选消费同一已呈现表面；增加类型选择器和 RoadUpgrade，成功普通事务清理失效 owner。
 4. 接入 full-reset tool participant 与 PauseMenu；Load 在 Prepare/Preflight 完成 graph、empty tool root、隐藏 mesh/RID、surface/hit index 后一次 non-yield 交换并通知，关键表现失败只发生在 commit 前。
 5. 完成唯一 V3 应用装配：只注册新的 graph/renderer/tool/save/UI 实现和必填 `RoadBuildRequest`；完整构建与源码契约证明旧 Group/API/事件/DTO/writer 已删除，没有适配器、双消费、双写或运行时版本选择。
 6. 执行 junction-dense、geometry-dense、环路、四工具表面命中和混合类型视觉/性能契约。
 
-Phase 7 当前已有两个可验证切片。其一，普通 mutation 与 `RoadRendererLoadPreparer` 共用 closed ribbon：显示点列仍保留首尾 seam，mesh 只生成唯一逻辑点的顶点，以循环相邻方向计算 seam miter 并补上末段回首段索引；纯 self-loop 的 A/B incidence 不绘制 marker，self-loop 加支路仍是 junction。方形环、`+Tau` 全圆弧、棒棒糖、两路口环、八字形、支路删除后 seam 重定位、开放 ribbon 和 worker/direct 确定性已有自动化；真实 `MapTest` 的普通提交与 aggregate Load 均为 `1 Edge / 8 vertices / 0 markers`，aggregate Load 后的两路口环从删除前 `4 Edge / 20 vertices / 4 markers` 收敛为删除后 `2 Edge / 12 vertices / 2 markers`。其二，基础 Load participant 已在 Preflight 创建未发布 open/closed ribbon mesh/node batch，`ToolManager`/`RoadBuilder` 已准备空 placement/removal/history，PauseMenu 已接入 token/generation/busy/Escape 与退出收敛；`road_renderer_lifecycle_runtime_contract.gd` 证明 renderer 缺失时 Load 在 commit 前失败且旧图/历史/会话/槽不变。`v3-grid-rendering:2.0` 仍缺缩放/重建视觉矩阵和依赖 surface 的平行 Edge 独立命中；四类 `RoadTypeStyle`、junction patch、`RoadSurfaceSnapshot`/`RoadSurfaceHit`、六分量 token、RoadUpgrade 与最终 UI 也尚不存在，因此 `v3-grid-rendering:2.0`、`2.2`、`v3-tool-input:2.4`、`v3-ui:1.4` 和 `v3-save-system:2.3` 均保持开放，现有 100k PASS 不能替代本阶段门禁。
+Phase 7 当前已有三个可验证切片。其一，普通 mutation 与 `RoadRendererLoadPreparer` 共用 closed ribbon：显示点列仍保留首尾 seam，mesh 只生成唯一逻辑点的顶点，以循环相邻方向计算 seam miter 并补上末段回首段索引；纯 self-loop 的 A/B incidence 不绘制 marker，self-loop 加支路仍是 junction。方形环、`+Tau` 全圆弧、棒棒糖、两路口环、八字形、支路删除后 seam 重定位、开放 ribbon 和 worker/direct 确定性已有自动化；真实 `MapTest` 的普通提交与 aggregate Load 均为 `1 Edge / 8 vertices / 0 markers`，aggregate Load 后的两路口环从删除前 `4 Edge / 20 vertices / 4 markers` 收敛为删除后 `2 Edge / 12 vertices / 2 markers`。其二，基础 Load participant 已在 Preflight 创建未发布 open/closed ribbon mesh/node batch，`ToolManager`/`RoadBuilder` 已准备空 placement/removal/history，PauseMenu 已接入 token/generation/busy/Escape 与退出收敛；`road_renderer_lifecycle_runtime_contract.gd` 证明 renderer 缺失时 Load 在 commit 前失败且旧图/历史/会话/槽不变。其三，`v3-grid-rendering:2.1` 已建立四类 `RoadTypeStyle` 及生产资源，严格校验唯一覆盖和字段合法性，非法查找不 fallback；`RoadTypeStyleTests` 聚焦组合 23/23、完整自动化 749/749，资源往返与真实 Vulkan `MapTest` 契约均 PASS，双配置 build 和 Roslyn/GDScript diagnostics 为 0。
+
+`v3-grid-rendering:2.0` 仍缺缩放/重建视觉矩阵和依赖 surface 的平行 Edge 独立命中；renderer 仍未消费 `RoadTypeStyle` 生成 per-edge width/color，junction patch、`RoadSurfaceSnapshot`/`RoadSurfaceHit`、六分量 token、RoadUpgrade 与最终 UI 也尚不存在。因此 `v3-grid-rendering:2.0`、`2.2`、`v3-tool-input:2.4`、`v3-ui:1.4` 和 `v3-save-system:2.3` 均保持开放，现有 100k PASS 不能替代本阶段门禁。
 
 ### Phase 8：最终组合验收
 
@@ -874,8 +879,9 @@ Phase 7 当前已有两个可验证切片。其一，普通 mutation 与 `RoadRe
 | `Scripts/Core/SaveManager.cs`、`AutosaveController.cs` | 保存根排他 gate、snapshot/load 提交和 autosave 合并 |
 | `Scripts/Core/SaveSlotStore.cs`                     | V3 manifest v1、独立保存根、同句柄流式校验、publish descriptor 与恢复矩阵 |
 | `Scripts/Road/RoadPathSubmissionResult.cs`          | 无 Group 的 created/removed/updated 事务摘要         |
-| `Scripts/Road/RoadConfig.cs`                        | 四类样式资源与校验                                   |
-| `Scripts/Road/RoadRenderer.cs`                      | closed ribbon、junction patch、per-edge width/color 和 sequence 接管 |
+| `Scripts/Road/RoadTypeStyle.cs`                     | 四类 RoadType 的首版展示字段与单项合法性校验         |
+| `Scripts/Road/RoadConfig.cs`                        | 四类样式唯一覆盖、严格查询与资源级校验               |
+| `Scripts/Road/RoadRenderer.cs`                      | 已实现 closed ribbon；继续负责 junction patch、per-edge width/color 和完整 token 接管 |
 | `Scripts/Road/RoadBuilder.cs`                       | 闭合确认、选中类型和改造事务                         |
 | `Scripts/Road/Input/`                               | 闭合 placement 和 canonical Edge 选择生命周期        |
 | `Scripts/Road/Input/RoadEditHistory.cs`             | entry/字节双预算的可逆 delta 历史                     |

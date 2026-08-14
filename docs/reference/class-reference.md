@@ -458,6 +458,23 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 
 ## 7. Road 输入、渲染与系统装配
 
+### RoadTypeStyle
+
+**文件**：`Scripts/Road/RoadTypeStyle.cs`
+**继承**：`[GlobalClass] public partial class RoadTypeStyle : Resource`
+
+| 导出属性 | 签名 | 默认值 | 说明 |
+|---|---|---|---|
+| `RoadType` | `[Export] public RoadType RoadType { get; set; }` | `Street` | 显式绑定的稳定道路类型 |
+| `DisplayName` | `[Export] public string DisplayName { get; set; }` | 空字符串 | 面向玩家的类型名称；合法资源不得为空白 |
+| `Color` | `[Export] public Color Color { get; set; }` | `White` | 必须为有限且 alpha 大于零的展示颜色 |
+| `Width` | `[Export] public float Width { get; set; }` | `12f` | 必须为正有限值的世界空间宽度 |
+
+| 公开方法 | 签名 | 说明 |
+|---|---|---|
+| `TryValidate` | `public bool TryValidate(out string error)` | 校验类型、名称、颜色和宽度并返回结构化失败文本 |
+| `GetValidationResult` | `public Godot.Collections.Dictionary GetValidationResult()` | 为 GDScript/运行时契约公开 `valid` 与 `error` |
+
 ### RoadConfig
 
 **文件**：`Scripts/Road/RoadConfig.cs`
@@ -468,6 +485,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `CellSize` | `[Export] public float CellSize { get; set; } = 64f` | `64f` | 网格单元尺寸 |
 | `RoadColor` | `[Export] public Color RoadColor { get; set; } = new("#37474F")` | `#37474F` | 统一道路颜色 |
 | `RoadWidth` | `[Export] public float RoadWidth { get; set; } = 12f` | `12f` | 统一道路线宽 |
+| `RoadTypeStyles` | `[Export] public Array<RoadTypeStyle>? RoadTypeStyles { get; set; }` | 四类内置样式 | `Dirt`、`Street`、`Arterial`、`Highway` 的唯一展示映射 |
 | `CurveDisplayTolerance` | `[Export] public float CurveDisplayTolerance { get; set; } = 0.25f` | `0.25f` | 原生曲线生成显示折线时允许的最大世界空间误差 |
 | `JunctionRadius` | `[Export] public float JunctionRadius { get; set; } = 10f` | `10f` | 节点圆半径，当前 `EdgeCount >= 2` 绘制 |
 | `JunctionColor` | `[Export] public Color JunctionColor { get; set; } = new("#FFC107")` | `#FFC107` | 节点圆颜色 |
@@ -475,6 +493,14 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `EndpointColor` | `[Export] public Color EndpointColor { get; set; } = new("#90A4AE")` | `#90A4AE` | 端点圆颜色 |
 | `HoverHighlightColor` | `[Export] public Color HoverHighlightColor { get; set; } = new(1f, 0.8f, 0.2f, 0.6f)` | 半透明黄 | 拆除悬停高亮 |
 | `HoverHighlightWidth` | `[Export] public float HoverHighlightWidth { get; set; } = 18f` | `18f` | 拆除悬停高亮宽度 |
+
+| 公开方法 | 签名 | 说明 |
+|---|---|---|
+| `TryValidateRoadTypeStyles` | `public bool TryValidateRoadTypeStyles(out string error)` | 要求四类恰好各一项，并校验每项字段；不修复无效资源 |
+| `GetRoadTypeStylesValidationResult` | `public Godot.Collections.Dictionary GetRoadTypeStylesValidationResult()` | 为 GDScript/运行时契约公开 `valid` 与 `error` |
+| `GetRoadTypeStyle` | `public RoadTypeStyle GetRoadTypeStyle(RoadType roadType)` | 在完整映射中返回目标样式；映射无效或类型非法时抛错，不 fallback |
+
+生产 `Scenes/road_config.tres` 使用 `Dirt / 土路 / #8A6652 / 14`、`Street / 街道 / #60727C / 20`、`Arterial / 主干道 / #D7A928 / 26`、`Highway / 高速道路 / #C84B3A / 32`。当前 `RoadRenderer` 只在启动时校验这组资源，per-edge 消费由 `v3-grid-rendering:2.2` 跟踪。
 
 ### RoadBuilder
 
@@ -585,7 +611,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `GetStaticRenderNodeCount` | `public int GetStaticRenderNodeCount()` | 返回固定的道路 mesh 与节点 MultiMesh 子节点数 2 |
 | `GetRoadMeshVertexCount` | `public int GetRoadMeshVertexCount()` | Godot 契约读取连续道路 ribbon 顶点数 |
 | `HoveredEdgeID` | `public int? HoveredEdgeID { get; set; }` | 拆除工具悬停边 |
-| `_Ready` | `public override void _Ready()` | 校验 `Config`，创建道路 `MeshInstance2D` 与节点 `MultiMeshInstance2D` |
+| `_Ready` | `public override void _Ready()` | 校验基础 `Config` 与四类 `RoadTypeStyles`，创建道路 `MeshInstance2D` 与节点 `MultiMeshInstance2D` |
 | `SetGraph` | `public void SetGraph(RoadGraph graph)` | 订阅唯一 `GraphChanged`，并从当前 revision 重建初始 cache |
 | `_Draw` | `public override void _Draw()` | 绘制拆除 hover/稳定选择/矩形框线和完整多段施工虚线预览 |
 
@@ -594,7 +620,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | 普通 delta | 删除 `RemovedEdgeIDs` cache，重新采样 `UpdatedEdgeIDs` 和 `CreatedEdgeIDs`，安排同一事件循环批次重建 |
 | full reset | 清空 cache，从活动 revision 的全部 Edge 重新采样并同步重建批次 |
 
-当前 `CacheEdgePoints` 用 `RoadGeometryDisplaySampler` 从 `GraphEdge.GeometrySegments` 生成缓存点列；拆除高亮复用同一点列，`RoadBuilder` 对有效原生草稿也使用相同采样入口。`AppendRoadRibbon` 为每个点生成共享左右边界并把全部 Edge 合成一个抗锯齿 `ArrayMesh`，端点/交叉口写入一个圆形 shader `MultiMesh`。普通 `GraphChanged` 通过 `ScheduleStaticBatchRebuild` 合并；full reset 同步全量重建。显示点列不写回图或存档。虽然 `GraphEdge` 已携带 `RoadType`，当前 renderer 仍统一使用 `RoadConfig.RoadWidth` / `RoadColor`；分级样式、closed ribbon、surface token 与 junction patch 仍由 Phase 7 跟踪。
+当前 `CacheEdgePoints` 用 `RoadGeometryDisplaySampler` 从 `GraphEdge.GeometrySegments` 生成缓存点列；拆除高亮复用同一点列，`RoadBuilder` 对有效原生草稿也使用相同采样入口。`AppendRoadRibbon` 为开放 Edge 生成共享左右边界；对 self-loop 则移除重复 seam 顶点，用循环相邻方向计算首点 miter，并以末段索引回连首段，从而生成无端帽的 closed ribbon。全部 Edge 合成一个抗锯齿 `ArrayMesh`，纯 loop seam 不写节点 marker，其他 endpoint/junction 写入一个圆形 shader `MultiMesh`。普通 `GraphChanged` 通过 `ScheduleStaticBatchRebuild` 合并；full reset 同步全量重建。显示点列不写回图或存档。虽然 `GraphEdge` 已携带 `RoadType` 且 `RoadConfig` 已有严格四类样式映射，当前 renderer 仍统一使用 `RoadConfig.RoadWidth` / `RoadColor`；per-edge 样式消费、surface token 与 junction patch 仍由 Phase 7 跟踪。
 
 ### RoadSystem
 
