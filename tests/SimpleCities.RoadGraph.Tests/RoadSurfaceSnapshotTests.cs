@@ -146,6 +146,45 @@ public sealed class RoadSurfaceSnapshotTests
         Assert.Equal(new RoadLocation(7, 1, 0f), hit.Location);
     }
 
+    [Fact]
+    public void PointQueryUsesSpatialIndexToBoundExactTriangleTests()
+    {
+        RoadSurfaceTriangle[] triangles = Enumerable.Range(0, 1_024)
+            .SelectMany(index => Quad(index, y: index * 100f, halfWidth: 2f))
+            .ToArray();
+        var snapshot = new RoadSurfaceSnapshot(Token(), triangles);
+
+        RoadSurfaceHit hit = Assert.IsType<RoadSurfaceHit>(snapshot.FindClosest(
+            new Vector2(5f, 0f),
+            maxSurfaceDistance: 0f,
+            out RoadSurfaceQueryMetrics metrics));
+
+        Assert.Equal(0, hit.EdgeID);
+        Assert.InRange(metrics.IndexNodeVisitCount, 1, 64);
+        Assert.InRange(metrics.PrimitiveCandidateCount, 2, 8);
+        Assert.Equal(2, metrics.ExactPrimitiveTestCount);
+        Assert.True(metrics.PrimitiveCandidateCount < snapshot.PrimitiveCount);
+    }
+
+    [Fact]
+    public void RectangleQueryUsesSpatialIndexToBoundExactTriangleTests()
+    {
+        RoadSurfaceTriangle[] triangles = Enumerable.Range(0, 1_024)
+            .SelectMany(index => Quad(index, y: index * 100f, halfWidth: 2f))
+            .ToArray();
+        var snapshot = new RoadSurfaceSnapshot(Token(), triangles);
+
+        int[] edgeIDs = snapshot.FindEdgeIDsIntersecting(
+            new Rect2(4f, -1f, 2f, 2f),
+            out RoadSurfaceQueryMetrics metrics);
+
+        Assert.Equal([0], edgeIDs);
+        Assert.InRange(metrics.IndexNodeVisitCount, 1, 64);
+        Assert.InRange(metrics.PrimitiveCandidateCount, 2, 8);
+        Assert.Equal(2, metrics.ExactPrimitiveTestCount);
+        Assert.True(metrics.PrimitiveCandidateCount < snapshot.PrimitiveCount);
+    }
+
     [Theory]
     [InlineData(float.NaN, 0f, 1f)]
     [InlineData(float.PositiveInfinity, 0f, 1f)]

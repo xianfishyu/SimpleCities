@@ -211,9 +211,21 @@ internal readonly record struct RoadSurfaceHit(
     float CenterlineDistance,
     RoadLocation? Location);
 
+internal readonly record struct RoadSurfaceQueryMetrics(
+    int IndexNodeVisitCount,
+    int PrimitiveCandidateCount,
+    int ExactPrimitiveTestCount);
+
 internal sealed class RoadSurfaceSnapshot
 {
+    private const int SpatialLeafCapacity = 8;
+    private const int MaximumSpatialTraversalDepth = 64;
+
     private readonly RoadSurfaceTriangle[] _primitives;
+    private readonly RoadSurfaceBounds[] _primitiveBounds;
+    private readonly RoadSurfaceSpatialNode[] _spatialNodes;
+    private readonly int[] _spatialPrimitiveIndices;
+    private readonly int _spatialRootIndex;
 
     internal RoadSurfaceSnapshot(
         RoadRenderToken renderToken,
@@ -222,6 +234,11 @@ internal sealed class RoadSurfaceSnapshot
         ArgumentNullException.ThrowIfNull(primitives);
         RenderToken = renderToken;
         _primitives = primitives.ToArray();
+        RoadSurfaceSpatialIndex spatialIndex = BuildSpatialIndex(_primitives);
+        _primitiveBounds = spatialIndex.PrimitiveBounds;
+        _spatialNodes = spatialIndex.Nodes;
+        _spatialPrimitiveIndices = spatialIndex.PrimitiveIndices;
+        _spatialRootIndex = spatialIndex.RootIndex;
     }
 
     internal RoadRenderToken RenderToken { get; }
@@ -231,7 +248,13 @@ internal sealed class RoadSurfaceSnapshot
 
     internal RoadSurfaceHit? FindClosest(
         Vector2 position,
-        float maxSurfaceDistance)
+        float maxSurfaceDistance) =>
+        FindClosest(position, maxSurfaceDistance, out _);
+
+    internal RoadSurfaceHit? FindClosest(
+        Vector2 position,
+        float maxSurfaceDistance,
+        out RoadSurfaceQueryMetrics metrics)
     {
         if (!position.IsFinite())
             throw new ArgumentException("Road surface query position must be finite.", nameof(position));
@@ -244,27 +267,69 @@ internal sealed class RoadSurfaceSnapshot
 
         double maximumDistanceSquared = (double)maxSurfaceDistance * maxSurfaceDistance;
         SurfaceCandidate? best = null;
-        for (int index = 0; index < _primitives.Length; index++)
+        int nodeVisitCount = 0;
+        int primitiveCandidateCount = 0;
+        int exactPrimitiveTestCount = 0;
+        Span<int> nodeStack = stackalloc int[MaximumSpatialTraversalDepth];
+        int stackCount = 0;
+        if (_spatialRootIndex >= 0)
+            nodeStack[stackCount++] = _spatialRootIndex;
+
+        while (stackCount > 0)
         {
-            RoadSurfaceTriangle triangle = _primitives[index];
-            double surfaceDistanceSquared = DistanceSquaredToTriangle(position, triangle);
-            if (surfaceDistanceSquared > maximumDistanceSquared)
+            int nodeIndex = nodeStack[--stackCount];
+            nodeVisitCount++;
+            RoadSurfaceSpatialNode node = _spatialNodes[nodeIndex];
+            double distanceLimitSquared = best?.SurfaceDistanceSquared ?? maximumDistanceSquared;
+            if (node.Bounds.DistanceSquared(position) > distanceLimitSquared)
                 continue;
 
-            (double centerlineDistanceSquared, float parameter) =
-                DistanceSquaredToSegment(
-                    position,
-                    triangle.CenterlineStart,
-                    triangle.CenterlineEnd);
-            var candidate = new SurfaceCandidate(
-                triangle,
-                index,
-                surfaceDistanceSquared,
-                centerlineDistanceSquared,
-                triangle.InterpolateLocation(parameter));
-            if (best is null || Compare(candidate, best.Value) < 0)
-                best = candidate;
+            if (!node.IsLeaf)
+            {
+                if (stackCount > nodeStack.Length - 2)
+                {
+                    throw new InvalidOperationException(
+                        "Road surface spatial index exceeded its balanced traversal bound.");
+                }
+                nodeStack[stackCount++] = node.RightChildIndex;
+                nodeStack[stackCount++] = node.LeftChildIndex;
+                continue;
+            }
+
+            for (int offset = 0; offset < node.PrimitiveCount; offset++)
+            {
+                primitiveCandidateCount++;
+                int index = _spatialPrimitiveIndices[node.PrimitiveStart + offset];
+                distanceLimitSquared = best?.SurfaceDistanceSquared ?? maximumDistanceSquared;
+                if (_primitiveBounds[index].DistanceSquared(position) > distanceLimitSquared)
+                    continue;
+
+                exactPrimitiveTestCount++;
+                RoadSurfaceTriangle triangle = _primitives[index];
+                double surfaceDistanceSquared = DistanceSquaredToTriangle(position, triangle);
+                if (surfaceDistanceSquared > maximumDistanceSquared)
+                    continue;
+
+                (double centerlineDistanceSquared, float parameter) =
+                    DistanceSquaredToSegment(
+                        position,
+                        triangle.CenterlineStart,
+                        triangle.CenterlineEnd);
+                var candidate = new SurfaceCandidate(
+                    triangle,
+                    index,
+                    surfaceDistanceSquared,
+                    centerlineDistanceSquared,
+                    triangle.InterpolateLocation(parameter));
+                if (best is null || Compare(candidate, best.Value) < 0)
+                    best = candidate;
+            }
         }
+
+        metrics = new RoadSurfaceQueryMetrics(
+            nodeVisitCount,
+            primitiveCandidateCount,
+            exactPrimitiveTestCount);
 
         if (best is not SurfaceCandidate selected)
             return null;
@@ -281,7 +346,12 @@ internal sealed class RoadSurfaceSnapshot
             selected.Location);
     }
 
-    internal int[] FindEdgeIDsIntersecting(Rect2 bounds)
+    internal int[] FindEdgeIDsIntersecting(Rect2 bounds) =>
+        FindEdgeIDsIntersecting(bounds, out _);
+
+    internal int[] FindEdgeIDsIntersecting(
+        Rect2 bounds,
+        out RoadSurfaceQueryMetrics metrics)
     {
         if (!bounds.Position.IsFinite() || !bounds.Size.IsFinite())
             throw new ArgumentException("Road surface query bounds must be finite.", nameof(bounds));
@@ -289,12 +359,196 @@ internal sealed class RoadSurfaceSnapshot
             throw new ArgumentOutOfRangeException(nameof(bounds), "Road surface query size cannot be negative.");
 
         var edgeIDs = new HashSet<int>();
-        foreach (RoadSurfaceTriangle triangle in _primitives)
+        int nodeVisitCount = 0;
+        int primitiveCandidateCount = 0;
+        int exactPrimitiveTestCount = 0;
+        Span<int> nodeStack = stackalloc int[MaximumSpatialTraversalDepth];
+        int stackCount = 0;
+        if (_spatialRootIndex >= 0)
+            nodeStack[stackCount++] = _spatialRootIndex;
+
+        while (stackCount > 0)
         {
-            if (TriangleIntersectsRect(triangle, bounds))
-                edgeIDs.Add(triangle.Owner.EdgeID);
+            int nodeIndex = nodeStack[--stackCount];
+            nodeVisitCount++;
+            RoadSurfaceSpatialNode node = _spatialNodes[nodeIndex];
+            if (!node.Bounds.Intersects(bounds))
+                continue;
+
+            if (!node.IsLeaf)
+            {
+                if (stackCount > nodeStack.Length - 2)
+                {
+                    throw new InvalidOperationException(
+                        "Road surface spatial index exceeded its balanced traversal bound.");
+                }
+                nodeStack[stackCount++] = node.RightChildIndex;
+                nodeStack[stackCount++] = node.LeftChildIndex;
+                continue;
+            }
+
+            for (int offset = 0; offset < node.PrimitiveCount; offset++)
+            {
+                primitiveCandidateCount++;
+                int primitiveIndex = _spatialPrimitiveIndices[node.PrimitiveStart + offset];
+                if (!_primitiveBounds[primitiveIndex].Intersects(bounds))
+                    continue;
+
+                exactPrimitiveTestCount++;
+                RoadSurfaceTriangle triangle = _primitives[primitiveIndex];
+                if (TriangleIntersectsRect(triangle, bounds))
+                    edgeIDs.Add(triangle.Owner.EdgeID);
+            }
         }
+
+        metrics = new RoadSurfaceQueryMetrics(
+            nodeVisitCount,
+            primitiveCandidateCount,
+            exactPrimitiveTestCount);
         return edgeIDs.Order().ToArray();
+    }
+
+    private static RoadSurfaceSpatialIndex BuildSpatialIndex(
+        IReadOnlyList<RoadSurfaceTriangle> primitives)
+    {
+        int primitiveCount = primitives.Count;
+        if (primitiveCount == 0)
+        {
+            return new RoadSurfaceSpatialIndex(
+                [],
+                [],
+                [],
+                RootIndex: -1);
+        }
+
+        var primitiveBounds = new RoadSurfaceBounds[primitiveCount];
+        var primitiveIndices = new int[primitiveCount];
+        for (int index = 0; index < primitiveCount; index++)
+        {
+            primitiveBounds[index] = RoadSurfaceBounds.FromTriangle(primitives[index]);
+            primitiveIndices[index] = index;
+        }
+
+        var partitionBuffer = new int[primitiveCount];
+        var nodes = new List<RoadSurfaceSpatialNode>(
+            Math.Max(1, primitiveCount / SpatialLeafCapacity * 2));
+        int rootIndex = BuildSpatialNode(
+            primitiveBounds,
+            primitiveIndices,
+            partitionBuffer,
+            nodes,
+            start: 0,
+            primitiveCount);
+        return new RoadSurfaceSpatialIndex(
+            primitiveBounds,
+            nodes.ToArray(),
+            primitiveIndices,
+            rootIndex);
+    }
+
+    private static int BuildSpatialNode(
+        IReadOnlyList<RoadSurfaceBounds> primitiveBounds,
+        int[] primitiveIndices,
+        int[] partitionBuffer,
+        List<RoadSurfaceSpatialNode> nodes,
+        int start,
+        int count)
+    {
+        int nodeIndex = nodes.Count;
+        nodes.Add(default);
+
+        RoadSurfaceBounds bounds = primitiveBounds[primitiveIndices[start]];
+        double minimumCenterX = bounds.CenterX;
+        double maximumCenterX = bounds.CenterX;
+        double minimumCenterY = bounds.CenterY;
+        double maximumCenterY = bounds.CenterY;
+        for (int offset = 1; offset < count; offset++)
+        {
+            RoadSurfaceBounds current = primitiveBounds[primitiveIndices[start + offset]];
+            bounds = RoadSurfaceBounds.Combine(bounds, current);
+            minimumCenterX = Math.Min(minimumCenterX, current.CenterX);
+            maximumCenterX = Math.Max(maximumCenterX, current.CenterX);
+            minimumCenterY = Math.Min(minimumCenterY, current.CenterY);
+            maximumCenterY = Math.Max(maximumCenterY, current.CenterY);
+        }
+
+        if (count <= SpatialLeafCapacity)
+        {
+            nodes[nodeIndex] = RoadSurfaceSpatialNode.Leaf(bounds, start, count);
+            return nodeIndex;
+        }
+
+        bool splitAlongX = maximumCenterX - minimumCenterX >=
+                           maximumCenterY - minimumCenterY;
+        double minimumCenter = splitAlongX ? minimumCenterX : minimumCenterY;
+        double maximumCenter = splitAlongX ? maximumCenterX : maximumCenterY;
+        int leftCount;
+        if (minimumCenter == maximumCenter)
+        {
+            leftCount = count / 2;
+        }
+        else
+        {
+            double split = (minimumCenter + maximumCenter) * 0.5d;
+            leftCount = 0;
+            for (int offset = 0; offset < count; offset++)
+            {
+                RoadSurfaceBounds current = primitiveBounds[primitiveIndices[start + offset]];
+                double center = splitAlongX ? current.CenterX : current.CenterY;
+                if (center < split)
+                    leftCount++;
+            }
+
+            int minimumBalancedCount = count / 3;
+            if (leftCount < minimumBalancedCount ||
+                leftCount > count - minimumBalancedCount)
+            {
+                Array.Sort(
+                    primitiveIndices,
+                    start,
+                    count,
+                    new RoadSurfacePrimitiveIndexComparer(
+                        primitiveBounds,
+                        splitAlongX));
+                leftCount = count / 2;
+            }
+            else
+            {
+                int leftWrite = start;
+                int rightWrite = start + leftCount;
+                for (int offset = 0; offset < count; offset++)
+                {
+                    int primitiveIndex = primitiveIndices[start + offset];
+                    RoadSurfaceBounds current = primitiveBounds[primitiveIndex];
+                    double center = splitAlongX ? current.CenterX : current.CenterY;
+                    partitionBuffer[center < split ? leftWrite++ : rightWrite++] = primitiveIndex;
+                }
+                Array.Copy(partitionBuffer, start, primitiveIndices, start, count);
+            }
+        }
+
+        if (leftCount <= 0 || leftCount >= count)
+            throw new InvalidOperationException("Road surface spatial partition did not make progress.");
+
+        int leftChildIndex = BuildSpatialNode(
+            primitiveBounds,
+            primitiveIndices,
+            partitionBuffer,
+            nodes,
+            start,
+            leftCount);
+        int rightChildIndex = BuildSpatialNode(
+            primitiveBounds,
+            primitiveIndices,
+            partitionBuffer,
+            nodes,
+            start + leftCount,
+            count - leftCount);
+        nodes[nodeIndex] = RoadSurfaceSpatialNode.Branch(
+            bounds,
+            leftChildIndex,
+            rightChildIndex);
+        return nodeIndex;
     }
 
     private static int Compare(SurfaceCandidate left, SurfaceCandidate right)
@@ -455,6 +709,108 @@ internal sealed class RoadSurfaceSnapshot
 
     private static double Cross(Vector2 first, Vector2 second) =>
         (double)first.X * second.Y - (double)first.Y * second.X;
+
+    private readonly record struct RoadSurfaceSpatialIndex(
+        RoadSurfaceBounds[] PrimitiveBounds,
+        RoadSurfaceSpatialNode[] Nodes,
+        int[] PrimitiveIndices,
+        int RootIndex);
+
+    private readonly record struct RoadSurfaceSpatialNode(
+        RoadSurfaceBounds Bounds,
+        int LeftChildIndex,
+        int RightChildIndex,
+        int PrimitiveStart,
+        int PrimitiveCount)
+    {
+        internal bool IsLeaf => PrimitiveCount > 0;
+
+        internal static RoadSurfaceSpatialNode Leaf(
+            RoadSurfaceBounds bounds,
+            int primitiveStart,
+            int primitiveCount) => new(
+            bounds,
+            LeftChildIndex: -1,
+            RightChildIndex: -1,
+            primitiveStart,
+            primitiveCount);
+
+        internal static RoadSurfaceSpatialNode Branch(
+            RoadSurfaceBounds bounds,
+            int leftChildIndex,
+            int rightChildIndex) => new(
+            bounds,
+            leftChildIndex,
+            rightChildIndex,
+            PrimitiveStart: 0,
+            PrimitiveCount: 0);
+    }
+
+    private readonly record struct RoadSurfaceBounds(
+        float MinimumX,
+        float MaximumX,
+        float MinimumY,
+        float MaximumY)
+    {
+        internal double CenterX => ((double)MinimumX + MaximumX) * 0.5d;
+        internal double CenterY => ((double)MinimumY + MaximumY) * 0.5d;
+
+        internal static RoadSurfaceBounds FromTriangle(RoadSurfaceTriangle triangle) => new(
+            MathF.Min(triangle.A.X, MathF.Min(triangle.B.X, triangle.C.X)),
+            MathF.Max(triangle.A.X, MathF.Max(triangle.B.X, triangle.C.X)),
+            MathF.Min(triangle.A.Y, MathF.Min(triangle.B.Y, triangle.C.Y)),
+            MathF.Max(triangle.A.Y, MathF.Max(triangle.B.Y, triangle.C.Y)));
+
+        internal static RoadSurfaceBounds Combine(
+            RoadSurfaceBounds first,
+            RoadSurfaceBounds second) => new(
+            MathF.Min(first.MinimumX, second.MinimumX),
+            MathF.Max(first.MaximumX, second.MaximumX),
+            MathF.Min(first.MinimumY, second.MinimumY),
+            MathF.Max(first.MaximumY, second.MaximumY));
+
+        internal double DistanceSquared(Vector2 point)
+        {
+            double offsetX = point.X < MinimumX
+                ? (double)MinimumX - point.X
+                : point.X > MaximumX
+                    ? (double)point.X - MaximumX
+                    : 0d;
+            double offsetY = point.Y < MinimumY
+                ? (double)MinimumY - point.Y
+                : point.Y > MaximumY
+                    ? (double)point.Y - MaximumY
+                    : 0d;
+            return offsetX * offsetX + offsetY * offsetY;
+        }
+
+        internal bool Intersects(Rect2 bounds)
+        {
+            double queryMaximumX = (double)bounds.Position.X + bounds.Size.X;
+            double queryMaximumY = (double)bounds.Position.Y + bounds.Size.Y;
+            return MaximumX >= bounds.Position.X &&
+                   MinimumX <= queryMaximumX &&
+                   MaximumY >= bounds.Position.Y &&
+                   MinimumY <= queryMaximumY;
+        }
+    }
+
+    private sealed class RoadSurfacePrimitiveIndexComparer(
+        IReadOnlyList<RoadSurfaceBounds> primitiveBounds,
+        bool compareX) : IComparer<int>
+    {
+        public int Compare(int left, int right)
+        {
+            double leftCenter = compareX
+                ? primitiveBounds[left].CenterX
+                : primitiveBounds[left].CenterY;
+            double rightCenter = compareX
+                ? primitiveBounds[right].CenterX
+                : primitiveBounds[right].CenterY;
+            int comparison = leftCenter.CompareTo(rightCenter);
+            return comparison != 0 ? comparison : left.CompareTo(right);
+        }
+    }
 
     private readonly record struct SurfaceCandidate(
         RoadSurfaceTriangle Triangle,
