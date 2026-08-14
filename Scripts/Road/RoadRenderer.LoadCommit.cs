@@ -17,7 +17,7 @@ public partial class RoadRenderer
         }
         if (_staticBatchRebuildScheduled)
             FlushScheduledStaticBatchRebuild();
-        if (!_presentationTokens.IsPresentationCurrent)
+        if (!IsPresentationReady())
             throw new InvalidOperationException("RoadRenderer presentation is not current.");
 
         _loadAdmissionGeneration = NextLoadGeneration(_loadAdmissionGeneration);
@@ -66,6 +66,9 @@ public partial class RoadRenderer
         RoadRenderToken renderToken = _presentationTokens.CreateReservedLoadToken(
             admission.RenderReservation,
             targetToken.ChangeSequence);
+        var surfaceSnapshot = new RoadSurfaceSnapshot(
+            renderToken,
+            prepared.RoadSurfaceTriangles);
         return new RoadRendererLoadCommitPlan(
             this,
             admission,
@@ -73,7 +76,8 @@ public partial class RoadRenderer
             roadMesh,
             nodeBatch,
             targetToken,
-            renderToken);
+            renderToken,
+            surfaceSnapshot);
     }
 
     private bool IsLoadAdmissionCurrent(RoadRendererLoadAdmission admission) =>
@@ -159,6 +163,7 @@ public partial class RoadRenderer
             var roadUvs = new List<Vector2>();
             var roadColors = new List<Color>();
             var roadIndices = new List<int>();
+            var surfaceTriangles = new List<RoadSurfaceTriangle>();
             foreach (GraphEdge edge in revision.Edges.Values.OrderBy(edge => edge.ID))
             {
                 Vector2[] points = RoadGeometryDisplaySampler.SampleSegments(
@@ -167,6 +172,7 @@ public partial class RoadRenderer
                 edgePoints.Add(edge.ID, points);
                 RoadTypeStyleDefinition style = _settings.RoadTypeStyles.Resolve(edge.RoadType);
                 AppendRoadRibbon(
+                    edge.ID,
                     points,
                     edge.NodeA == edge.NodeB,
                     style.Width * 0.5f,
@@ -174,7 +180,8 @@ public partial class RoadRenderer
                     roadVertices,
                     roadUvs,
                     roadColors,
-                    roadIndices);
+                    roadIndices,
+                    surfaceTriangles);
             }
 
             RoadRendererNodeMarker[] nodeMarkers = revision.Nodes.Values
@@ -189,6 +196,7 @@ public partial class RoadRenderer
                 roadUvs.ToArray(),
                 roadColors.ToArray(),
                 roadIndices.ToArray(),
+                surfaceTriangles.ToArray(),
                 nodeMarkers);
         }
     }
@@ -202,6 +210,7 @@ public partial class RoadRenderer
         private readonly MultiMesh _nodeBatch;
         private readonly GraphStateToken _targetGraphToken;
         private readonly RoadRenderToken _targetRenderToken;
+        private readonly RoadSurfaceSnapshot _targetSurfaceSnapshot;
         private bool _committed;
         private bool _completed;
 
@@ -212,7 +221,8 @@ public partial class RoadRenderer
             ArrayMesh? roadMesh,
             MultiMesh nodeBatch,
             GraphStateToken targetGraphToken,
-            RoadRenderToken targetRenderToken)
+            RoadRenderToken targetRenderToken,
+            RoadSurfaceSnapshot targetSurfaceSnapshot)
         {
             _owner = owner;
             _admission = admission;
@@ -221,6 +231,7 @@ public partial class RoadRenderer
             _nodeBatch = nodeBatch;
             _targetGraphToken = targetGraphToken;
             _targetRenderToken = targetRenderToken;
+            _targetSurfaceSnapshot = targetSurfaceSnapshot;
         }
 
         public string ParticipantID => "road-presentation";
@@ -238,6 +249,7 @@ public partial class RoadRenderer
             _owner._removalPreviewEdgeIDs = [];
             _owner.RemovalSelectionBounds = null;
             _owner.HoveredEdgeID = null;
+            _owner._presentedSurface = _targetSurfaceSnapshot;
             _owner._presentationTokens.CommitReservedLoad(
                 _admission.RenderReservation,
                 _targetRenderToken);
@@ -344,6 +356,7 @@ internal sealed record RoadRendererPreparedLoad(
     Vector2[] RoadUvs,
     Color[] RoadColors,
     int[] RoadIndices,
+    RoadSurfaceTriangle[] RoadSurfaceTriangles,
     RoadRendererNodeMarker[] NodeMarkers);
 
 internal readonly record struct RoadRendererNodeMarker(

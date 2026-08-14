@@ -54,11 +54,15 @@ func run() -> void:
 	var mutated := presentation_token(renderer, "Normal mutation")
 	if mutated.is_empty() or not require_ordinary_change(initial, mutated):
 		return
+	if not require_surface_hit(renderer, Vector2(50.0, 0.0), mutated, "Normal mutation"):
+		return
 
 	if not require(renderer.RefreshRoadStyles(), "Explicit road style refresh did not present"):
 		return
 	var styled := presentation_token(renderer, "Style refresh")
 	if styled.is_empty() or not require_style_change(mutated, styled):
+		return
+	if not require_surface_hit(renderer, Vector2(50.0, 0.0), styled, "Style refresh"):
 		return
 
 	if not require(
@@ -77,6 +81,8 @@ func run() -> void:
 	await process_frame
 	var loaded := presentation_token(renderer, "Aggregate Load")
 	if loaded.is_empty() or not require_load_change(styled, loaded):
+		return
+	if not require_surface_hit(renderer, Vector2(0.0, 100.0), loaded, "Aggregate Load"):
 		return
 
 	if not require(
@@ -163,6 +169,29 @@ func require_load_change(before: Dictionary, after: Dictionary) -> bool:
 		require(
 			int(after.renderRequestID) == int(before.renderRequestID) + 1,
 			"Aggregate Load did not reserve exactly one render request"))
+
+func require_surface_hit(
+	renderer: Node,
+	position: Vector2,
+	expected_token: Dictionary,
+	source: String) -> bool:
+	var state: Dictionary = renderer.GetPresentationState()
+	if not require(
+		int(state.get("surfacePrimitiveCount", 0)) > 0,
+		"%s did not publish road surface primitives" % source):
+		return false
+	var hit: Dictionary = renderer.FindRoadSurfaceHit(position, 0.0)
+	return (
+		require(not hit.is_empty(), "%s did not return a visible surface hit" % source) and
+		require(
+			hit.get("ownerKind", "") == "EdgeRibbon",
+			"%s returned a non-ribbon owner for the basic surface" % source) and
+		require(
+			float(hit.get("surfaceDistance", -1.0)) == 0.0,
+			"%s returned a non-zero distance inside the visible surface" % source) and
+		require(
+			hit.get("renderToken", {}) == expected_token,
+			"%s surface hit token did not match the presented token" % source))
 
 func require_same(
 	before: Dictionary,

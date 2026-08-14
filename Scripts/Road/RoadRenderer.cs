@@ -21,6 +21,7 @@ public partial class RoadRenderer : Node2D
     private long _loadAdmissionGeneration;
     private GraphStateToken? _committedLoadGraphToken;
     private readonly RoadPresentationTokenTracker _presentationTokens = new();
+    private RoadSurfaceSnapshot? _presentedSurface;
 
     internal event Action<RoadRenderToken>? PresentationReady;
 
@@ -61,10 +62,53 @@ public partial class RoadRenderer : Node2D
 
     public Godot.Collections.Dictionary GetPresentationState() => new()
     {
-        ["isReady"] = _presentationTokens.IsPresentationCurrent,
+        ["isReady"] = IsPresentationReady(),
         ["desired"] = ToTokenDictionary(_presentationTokens.DesiredToken),
         ["presented"] = ToTokenDictionary(_presentationTokens.PresentedToken),
+        ["surfacePrimitiveCount"] = IsPresentationReady()
+            ? _presentedSurface!.PrimitiveCount
+            : 0,
     };
+
+    public Godot.Collections.Dictionary FindRoadSurfaceHit(
+        Vector2 position,
+        float maxSurfaceDistance)
+    {
+        RoadSurfaceHit? nullableHit = FindPresentedRoadSurfaceHit(
+            position,
+            maxSurfaceDistance);
+        if (nullableHit is not RoadSurfaceHit hit)
+            return new Godot.Collections.Dictionary();
+
+        var result = new Godot.Collections.Dictionary
+        {
+            ["renderToken"] = ToTokenDictionary(hit.RenderToken),
+            ["ownerKind"] = hit.OwnerKind.ToString(),
+            ["edgeID"] = hit.EdgeID ?? -1,
+            ["nodeID"] = hit.NodeID ?? -1,
+            ["endpoint"] = hit.Endpoint?.ToString() ?? string.Empty,
+            ["surfaceDistance"] = hit.SurfaceDistance,
+            ["centerlineDistance"] = hit.CenterlineDistance,
+        };
+        if (hit.Location is RoadLocation location)
+        {
+            result["location"] = new Godot.Collections.Dictionary
+            {
+                ["edgeID"] = location.EdgeID,
+                ["geometryIndex"] = location.GeometryIndex,
+                ["parameter"] = location.Parameter,
+            };
+        }
+        return result;
+    }
+
+    public int[] FindRoadSurfaceEdgeIDs(Rect2 bounds) =>
+        GetPresentedRoadSurface()?.FindEdgeIDsIntersecting(bounds) ?? [];
+
+    internal RoadSurfaceHit? FindPresentedRoadSurfaceHit(
+        Vector2 position,
+        float maxSurfaceDistance) =>
+        GetPresentedRoadSurface()?.FindClosest(position, maxSurfaceDistance);
 
     public bool RefreshRoadStyles()
     {
@@ -76,7 +120,7 @@ public partial class RoadRenderer : Node2D
             _network.CurrentStateToken.ChangeSequence);
         if (PresentationResourcesAreReady())
             RebuildStaticBatches();
-        return _presentationTokens.PresentedToken == requested;
+        return IsPresentationReady() && _presentationTokens.PresentedToken == requested;
     }
 
     internal void ConfigureSceneGeneration(long sceneGeneration)
@@ -276,6 +320,7 @@ public partial class RoadRenderer : Node2D
         var roadUvs = new List<Vector2>();
         var roadColors = new List<Color>();
         var roadIndices = new List<int>();
+        var surfaceTriangles = new List<RoadSurfaceTriangle>();
         RoadTypeStyleSnapshot roadTypeStyles = Config.CaptureRoadTypeStyleSnapshot();
         foreach ((int edgeID, Vector2[] points) in _edgePoints.OrderBy(pair => pair.Key))
         {
@@ -284,6 +329,7 @@ public partial class RoadRenderer : Node2D
                 continue;
             RoadTypeStyleDefinition style = roadTypeStyles.Resolve(edge.RoadType);
             AppendRoadRibbon(
+                edge.ID,
                 points,
                 edge.NodeA == edge.NodeB,
                 style.Width * 0.5f,
@@ -291,7 +337,8 @@ public partial class RoadRenderer : Node2D
                 roadVertices,
                 roadUvs,
                 roadColors,
-                roadIndices);
+                roadIndices,
+                surfaceTriangles);
         }
 
         ArrayMesh? roadMesh = CreateRoadMesh(
@@ -318,6 +365,7 @@ public partial class RoadRenderer : Node2D
             .Where(marker => marker.Diameter > 0f)
             .ToArray();
         MultiMesh nodeBatch = CreateNodeBatch(nodeMarkers);
+        var surfaceSnapshot = new RoadSurfaceSnapshot(targetToken, surfaceTriangles);
 
         if (_presentationTokens.DesiredToken != targetToken)
             return;
@@ -325,6 +373,7 @@ public partial class RoadRenderer : Node2D
         _roadMeshVertexCount = roadVertices.Count;
         _roadBatchLayer.Mesh = roadMesh;
         _nodeBatchLayer.Multimesh = nodeBatch;
+        _presentedSurface = surfaceSnapshot;
         _presentationTokens.CommitDesired(targetToken);
     }
 
@@ -332,6 +381,16 @@ public partial class RoadRenderer : Node2D
         IsInsideTree() &&
         GodotObject.IsInstanceValid(_roadBatchLayer) &&
         GodotObject.IsInstanceValid(_nodeBatchLayer);
+
+    private bool IsPresentationReady() =>
+        PresentationResourcesAreReady() &&
+        _presentationTokens.IsPresentationCurrent &&
+        _presentationTokens.PresentedToken is RoadRenderToken presented &&
+        _presentedSurface is RoadSurfaceSnapshot surface &&
+        surface.RenderToken == presented;
+
+    private RoadSurfaceSnapshot? GetPresentedRoadSurface() =>
+        IsPresentationReady() ? _presentedSurface : null;
 
     private static Godot.Collections.Dictionary ToTokenDictionary(
         RoadRenderToken? nullableToken)
@@ -351,6 +410,7 @@ public partial class RoadRenderer : Node2D
     }
 
     private static void AppendRoadRibbon(
+        int edgeID,
         IReadOnlyList<Vector2> points,
         bool isClosed,
         float halfWidth,
@@ -358,8 +418,12 @@ public partial class RoadRenderer : Node2D
         List<Vector2> vertices,
         List<Vector2> uvs,
         List<Color> colors,
-        List<int> indices)
+        List<int> indices,
+        List<RoadSurfaceTriangle> surfaceTriangles)
     {
+        if (edgeID < 0)
+            throw new ArgumentOutOfRangeException(nameof(edgeID));
+        ArgumentNullException.ThrowIfNull(surfaceTriangles);
         int pointCount = points.Count;
         if (isClosed)
         {
@@ -393,6 +457,28 @@ public partial class RoadRenderer : Node2D
             indices.Add(current);
             indices.Add(previous + 1);
             indices.Add(current + 1);
+
+            RoadSurfaceOwner owner = RoadSurfaceOwner.EdgeRibbon(edgeID);
+            Vector2 centerlineStart = points[index];
+            Vector2 centerlineEnd = points[(index + 1) % pointCount];
+            surfaceTriangles.Add(new RoadSurfaceTriangle(
+                owner,
+                vertices[previous],
+                vertices[previous + 1],
+                vertices[current],
+                centerlineStart,
+                centerlineEnd,
+                locationStart: null,
+                locationEnd: null));
+            surfaceTriangles.Add(new RoadSurfaceTriangle(
+                owner,
+                vertices[current],
+                vertices[previous + 1],
+                vertices[current + 1],
+                centerlineStart,
+                centerlineEnd,
+                locationStart: null,
+                locationEnd: null));
         }
     }
 

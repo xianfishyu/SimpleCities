@@ -53,11 +53,13 @@ public sealed class RoadRendererLoadPrepareTests
         Assert.Equal(first.RoadUvs, second.RoadUvs);
         Assert.Equal(first.RoadColors, second.RoadColors);
         Assert.Equal(first.RoadIndices, second.RoadIndices);
+        Assert.Equal(first.RoadSurfaceTriangles, second.RoadSurfaceTriangles);
         Assert.Equal(first.NodeMarkers, second.NodeMarkers);
         Assert.Equal(
             first.EdgePoints.OrderBy(pair => pair.Key).Select(pair => (pair.Key, pair.Value)),
             second.EdgePoints.OrderBy(pair => pair.Key).Select(pair => (pair.Key, pair.Value)));
         Assert.NotEmpty(first.RoadVertices);
+        Assert.Equal(first.RoadIndices.Length / 3, first.RoadSurfaceTriangles.Length);
         Assert.Contains(first.NodeMarkers, marker => marker.Diameter == Settings.JunctionRadius * 2f);
     }
 
@@ -100,6 +102,33 @@ public sealed class RoadRendererLoadPrepareTests
             vertexOffset += vertexCount;
         }
         Assert.Equal(prepared.RoadVertices.Length, vertexOffset);
+    }
+
+    [Fact]
+    public void PurePreparer_SurfaceTrianglesExactlyMatchMeshIndicesAndStableOwners()
+    {
+        var graph = new RoadGraph();
+        Assert.True(graph.SubmitPolyline(
+            RoadType.Street,
+            [Vector2.Zero, new Vector2(10f, 0f), new Vector2(10f, 10f)]).Success);
+        Assert.True(graph.SubmitPolyline(
+            RoadType.Highway,
+            [new Vector2(20f, 0f), new Vector2(30f, 0f)]).Success);
+        var preparer = new RoadRenderer.RoadRendererLoadPreparer(Settings);
+
+        RoadRendererPreparedLoad prepared = preparer.Prepare(graph.CaptureRevision());
+
+        Assert.Equal(prepared.RoadIndices.Length / 3, prepared.RoadSurfaceTriangles.Length);
+        for (int index = 0; index < prepared.RoadSurfaceTriangles.Length; index++)
+        {
+            RoadSurfaceTriangle triangle = prepared.RoadSurfaceTriangles[index];
+            int meshIndex = index * 3;
+            Assert.Equal(prepared.RoadVertices[prepared.RoadIndices[meshIndex]], triangle.A);
+            Assert.Equal(prepared.RoadVertices[prepared.RoadIndices[meshIndex + 1]], triangle.B);
+            Assert.Equal(prepared.RoadVertices[prepared.RoadIndices[meshIndex + 2]], triangle.C);
+            Assert.Equal(RoadSurfaceOwnerKind.EdgeRibbon, triangle.Owner.Kind);
+            Assert.Contains(graph.GetAllEdges(), edge => edge.ID == triangle.Owner.EdgeID);
+        }
     }
 
     [Fact]
