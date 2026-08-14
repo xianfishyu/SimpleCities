@@ -68,7 +68,7 @@ public partial class RoadRenderer
             targetToken.ChangeSequence);
         var surfaceSnapshot = new RoadSurfaceSnapshot(
             renderToken,
-            prepared.RoadSurfaceTriangles);
+            prepared.RoadSurface);
         return new RoadRendererLoadCommitPlan(
             this,
             admission,
@@ -194,6 +194,8 @@ public partial class RoadRenderer
                 .Where(marker => marker.HasValue)
                 .Select(marker => marker!.Value)
                 .ToArray();
+            RoadSurfaceSnapshot.PreparedData roadSurface =
+                RoadSurfaceSnapshot.Prepare(surfaceTriangles);
             return new RoadRendererPreparedLoad(
                 edgePoints,
                 edgeDisplaySpans,
@@ -201,7 +203,7 @@ public partial class RoadRenderer
                 roadUvs.ToArray(),
                 roadColors.ToArray(),
                 roadIndices.ToArray(),
-                surfaceTriangles.ToArray(),
+                roadSurface,
                 nodeMarkers);
         }
     }
@@ -363,7 +365,7 @@ internal sealed record RoadRendererPreparedLoad(
     Vector2[] RoadUvs,
     Color[] RoadColors,
     int[] RoadIndices,
-    RoadSurfaceTriangle[] RoadSurfaceTriangles,
+    RoadSurfaceSnapshot.PreparedData RoadSurface,
     RoadRendererNodeMarker[] NodeMarkers);
 
 internal readonly record struct RoadRendererNodeMarker(

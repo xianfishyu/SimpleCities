@@ -221,30 +221,32 @@ internal sealed class RoadSurfaceSnapshot
     private const int SpatialLeafCapacity = 8;
     private const int MaximumSpatialTraversalDepth = 64;
 
-    private readonly RoadSurfaceTriangle[] _primitives;
-    private readonly RoadSurfaceBounds[] _primitiveBounds;
-    private readonly RoadSurfaceSpatialNode[] _spatialNodes;
-    private readonly int[] _spatialPrimitiveIndices;
-    private readonly int _spatialRootIndex;
+    private readonly PreparedData _prepared;
 
     internal RoadSurfaceSnapshot(
         RoadRenderToken renderToken,
-        IReadOnlyCollection<RoadSurfaceTriangle> primitives)
+        IReadOnlyCollection<RoadSurfaceTriangle> primitives) :
+        this(renderToken, Prepare(primitives))
     {
-        ArgumentNullException.ThrowIfNull(primitives);
+    }
+
+    internal RoadSurfaceSnapshot(
+        RoadRenderToken renderToken,
+        PreparedData prepared)
+    {
+        ArgumentNullException.ThrowIfNull(prepared);
         RenderToken = renderToken;
-        _primitives = primitives.ToArray();
-        RoadSurfaceSpatialIndex spatialIndex = BuildSpatialIndex(_primitives);
-        _primitiveBounds = spatialIndex.PrimitiveBounds;
-        _spatialNodes = spatialIndex.Nodes;
-        _spatialPrimitiveIndices = spatialIndex.PrimitiveIndices;
-        _spatialRootIndex = spatialIndex.RootIndex;
+        _prepared = prepared;
     }
 
     internal RoadRenderToken RenderToken { get; }
-    internal int PrimitiveCount => _primitives.Length;
+    internal int PrimitiveCount => _prepared.PrimitiveCount;
 
-    internal RoadSurfaceTriangle GetPrimitive(int index) => _primitives[index];
+    internal RoadSurfaceTriangle GetPrimitive(int index) => _prepared.GetPrimitive(index);
+
+    internal static PreparedData Prepare(
+        IReadOnlyCollection<RoadSurfaceTriangle> primitives) =>
+        PreparedData.Create(primitives);
 
     internal RoadSurfaceHit? FindClosest(
         Vector2 position,
@@ -272,14 +274,14 @@ internal sealed class RoadSurfaceSnapshot
         int exactPrimitiveTestCount = 0;
         Span<int> nodeStack = stackalloc int[MaximumSpatialTraversalDepth];
         int stackCount = 0;
-        if (_spatialRootIndex >= 0)
-            nodeStack[stackCount++] = _spatialRootIndex;
+        if (_prepared.SpatialRootIndex >= 0)
+            nodeStack[stackCount++] = _prepared.SpatialRootIndex;
 
         while (stackCount > 0)
         {
             int nodeIndex = nodeStack[--stackCount];
             nodeVisitCount++;
-            RoadSurfaceSpatialNode node = _spatialNodes[nodeIndex];
+            RoadSurfaceSpatialNode node = _prepared.GetSpatialNode(nodeIndex);
             double distanceLimitSquared = best?.SurfaceDistanceSquared ?? maximumDistanceSquared;
             if (node.Bounds.DistanceSquared(position) > distanceLimitSquared)
                 continue;
@@ -299,13 +301,13 @@ internal sealed class RoadSurfaceSnapshot
             for (int offset = 0; offset < node.PrimitiveCount; offset++)
             {
                 primitiveCandidateCount++;
-                int index = _spatialPrimitiveIndices[node.PrimitiveStart + offset];
+                int index = _prepared.GetSpatialPrimitiveIndex(node.PrimitiveStart + offset);
                 distanceLimitSquared = best?.SurfaceDistanceSquared ?? maximumDistanceSquared;
-                if (_primitiveBounds[index].DistanceSquared(position) > distanceLimitSquared)
+                if (_prepared.GetPrimitiveBounds(index).DistanceSquared(position) > distanceLimitSquared)
                     continue;
 
                 exactPrimitiveTestCount++;
-                RoadSurfaceTriangle triangle = _primitives[index];
+                RoadSurfaceTriangle triangle = _prepared.GetPrimitive(index);
                 double surfaceDistanceSquared = DistanceSquaredToTriangle(position, triangle);
                 if (surfaceDistanceSquared > maximumDistanceSquared)
                     continue;
@@ -364,14 +366,14 @@ internal sealed class RoadSurfaceSnapshot
         int exactPrimitiveTestCount = 0;
         Span<int> nodeStack = stackalloc int[MaximumSpatialTraversalDepth];
         int stackCount = 0;
-        if (_spatialRootIndex >= 0)
-            nodeStack[stackCount++] = _spatialRootIndex;
+        if (_prepared.SpatialRootIndex >= 0)
+            nodeStack[stackCount++] = _prepared.SpatialRootIndex;
 
         while (stackCount > 0)
         {
             int nodeIndex = nodeStack[--stackCount];
             nodeVisitCount++;
-            RoadSurfaceSpatialNode node = _spatialNodes[nodeIndex];
+            RoadSurfaceSpatialNode node = _prepared.GetSpatialNode(nodeIndex);
             if (!node.Bounds.Intersects(bounds))
                 continue;
 
@@ -390,12 +392,12 @@ internal sealed class RoadSurfaceSnapshot
             for (int offset = 0; offset < node.PrimitiveCount; offset++)
             {
                 primitiveCandidateCount++;
-                int primitiveIndex = _spatialPrimitiveIndices[node.PrimitiveStart + offset];
-                if (!_primitiveBounds[primitiveIndex].Intersects(bounds))
+                int primitiveIndex = _prepared.GetSpatialPrimitiveIndex(node.PrimitiveStart + offset);
+                if (!_prepared.GetPrimitiveBounds(primitiveIndex).Intersects(bounds))
                     continue;
 
                 exactPrimitiveTestCount++;
-                RoadSurfaceTriangle triangle = _primitives[primitiveIndex];
+                RoadSurfaceTriangle triangle = _prepared.GetPrimitive(primitiveIndex);
                 if (TriangleIntersectsRect(triangle, bounds))
                     edgeIDs.Add(triangle.Owner.EdgeID);
             }
@@ -710,13 +712,64 @@ internal sealed class RoadSurfaceSnapshot
     private static double Cross(Vector2 first, Vector2 second) =>
         (double)first.X * second.Y - (double)first.Y * second.X;
 
+    internal sealed class PreparedData
+    {
+        private readonly RoadSurfaceTriangle[] _primitives;
+        private readonly RoadSurfaceBounds[] _primitiveBounds;
+        private readonly RoadSurfaceSpatialNode[] _spatialNodes;
+        private readonly int[] _spatialPrimitiveIndices;
+        private readonly int _spatialRootIndex;
+
+        private PreparedData(
+            RoadSurfaceTriangle[] primitives,
+            RoadSurfaceBounds[] primitiveBounds,
+            RoadSurfaceSpatialNode[] spatialNodes,
+            int[] spatialPrimitiveIndices,
+            int spatialRootIndex)
+        {
+            _primitives = primitives;
+            _primitiveBounds = primitiveBounds;
+            _spatialNodes = spatialNodes;
+            _spatialPrimitiveIndices = spatialPrimitiveIndices;
+            _spatialRootIndex = spatialRootIndex;
+        }
+
+        internal static PreparedData Create(
+            IReadOnlyCollection<RoadSurfaceTriangle> primitives)
+        {
+            ArgumentNullException.ThrowIfNull(primitives);
+            RoadSurfaceTriangle[] primitiveCopy = primitives.ToArray();
+            RoadSurfaceSpatialIndex spatialIndex = BuildSpatialIndex(primitiveCopy);
+            return new PreparedData(
+                primitiveCopy,
+                spatialIndex.PrimitiveBounds,
+                spatialIndex.Nodes,
+                spatialIndex.PrimitiveIndices,
+                spatialIndex.RootIndex);
+        }
+
+        internal int PrimitiveCount => _primitives.Length;
+        internal int SpatialRootIndex => _spatialRootIndex;
+
+        internal RoadSurfaceTriangle GetPrimitive(int index) => _primitives[index];
+
+        internal RoadSurfaceBounds GetPrimitiveBounds(int index) =>
+            _primitiveBounds[index];
+
+        internal RoadSurfaceSpatialNode GetSpatialNode(int index) =>
+            _spatialNodes[index];
+
+        internal int GetSpatialPrimitiveIndex(int index) =>
+            _spatialPrimitiveIndices[index];
+    }
+
     private readonly record struct RoadSurfaceSpatialIndex(
         RoadSurfaceBounds[] PrimitiveBounds,
         RoadSurfaceSpatialNode[] Nodes,
         int[] PrimitiveIndices,
         int RootIndex);
 
-    private readonly record struct RoadSurfaceSpatialNode(
+    internal readonly record struct RoadSurfaceSpatialNode(
         RoadSurfaceBounds Bounds,
         int LeftChildIndex,
         int RightChildIndex,
@@ -746,7 +799,7 @@ internal sealed class RoadSurfaceSnapshot
             PrimitiveCount: 0);
     }
 
-    private readonly record struct RoadSurfaceBounds(
+    internal readonly record struct RoadSurfaceBounds(
         float MinimumX,
         float MaximumX,
         float MinimumY,

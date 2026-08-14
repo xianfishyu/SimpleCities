@@ -53,7 +53,13 @@ public sealed class RoadRendererLoadPrepareTests
         Assert.Equal(first.RoadUvs, second.RoadUvs);
         Assert.Equal(first.RoadColors, second.RoadColors);
         Assert.Equal(first.RoadIndices, second.RoadIndices);
-        Assert.Equal(first.RoadSurfaceTriangles, second.RoadSurfaceTriangles);
+        Assert.Equal(first.RoadSurface.PrimitiveCount, second.RoadSurface.PrimitiveCount);
+        for (int index = 0; index < first.RoadSurface.PrimitiveCount; index++)
+        {
+            Assert.Equal(
+                first.RoadSurface.GetPrimitive(index),
+                second.RoadSurface.GetPrimitive(index));
+        }
         Assert.Equal(first.NodeMarkers, second.NodeMarkers);
         Assert.Equal(
             first.EdgePoints.OrderBy(pair => pair.Key).Select(pair => (pair.Key, pair.Value)),
@@ -62,8 +68,35 @@ public sealed class RoadRendererLoadPrepareTests
             first.EdgeDisplaySpans.OrderBy(pair => pair.Key).Select(pair => (pair.Key, pair.Value)),
             second.EdgeDisplaySpans.OrderBy(pair => pair.Key).Select(pair => (pair.Key, pair.Value)));
         Assert.NotEmpty(first.RoadVertices);
-        Assert.Equal(first.RoadIndices.Length / 3, first.RoadSurfaceTriangles.Length);
+        Assert.Equal(first.RoadIndices.Length / 3, first.RoadSurface.PrimitiveCount);
         Assert.Contains(first.NodeMarkers, marker => marker.Diameter == Settings.JunctionRadius * 2f);
+    }
+
+    [Fact]
+    public async Task PurePreparer_PreparesQueryableSurfaceIndexBeforeTokenBinding()
+    {
+        var graph = new RoadGraph();
+        for (int index = 0; index < 128; index++)
+        {
+            float y = index * 100f;
+            Assert.True(graph.SubmitPolyline(
+                RoadType.Street,
+                [new Vector2(0f, y), new Vector2(10f, y)]).Success);
+        }
+        var preparer = new RoadRenderer.RoadRendererLoadPreparer(Settings);
+
+        RoadRendererPreparedLoad prepared = await Task.Run(() =>
+            preparer.Prepare(graph.CaptureRevision()));
+        var snapshot = new RoadSurfaceSnapshot(Token(), prepared.RoadSurface);
+
+        RoadSurfaceHit hit = Assert.IsType<RoadSurfaceHit>(snapshot.FindClosest(
+            new Vector2(5f, 0f),
+            maxSurfaceDistance: 0f,
+            out RoadSurfaceQueryMetrics metrics));
+        Assert.Equal(graph.GetAllEdges().Min(edge => edge.ID), hit.EdgeID);
+        Assert.InRange(metrics.PrimitiveCandidateCount, 2, 8);
+        Assert.Equal(2, metrics.ExactPrimitiveTestCount);
+        Assert.True(metrics.PrimitiveCandidateCount < snapshot.PrimitiveCount);
     }
 
     [Fact]
@@ -121,10 +154,10 @@ public sealed class RoadRendererLoadPrepareTests
 
         RoadRendererPreparedLoad prepared = preparer.Prepare(graph.CaptureRevision());
 
-        Assert.Equal(prepared.RoadIndices.Length / 3, prepared.RoadSurfaceTriangles.Length);
-        for (int index = 0; index < prepared.RoadSurfaceTriangles.Length; index++)
+        Assert.Equal(prepared.RoadIndices.Length / 3, prepared.RoadSurface.PrimitiveCount);
+        for (int index = 0; index < prepared.RoadSurface.PrimitiveCount; index++)
         {
-            RoadSurfaceTriangle triangle = prepared.RoadSurfaceTriangles[index];
+            RoadSurfaceTriangle triangle = prepared.RoadSurface.GetPrimitive(index);
             int meshIndex = index * 3;
             Assert.Equal(prepared.RoadVertices[prepared.RoadIndices[meshIndex]], triangle.A);
             Assert.Equal(prepared.RoadVertices[prepared.RoadIndices[meshIndex + 1]], triangle.B);
@@ -157,7 +190,7 @@ public sealed class RoadRendererLoadPrepareTests
         var preparer = new RoadRenderer.RoadRendererLoadPreparer(Settings);
 
         RoadRendererPreparedLoad prepared = preparer.Prepare(graph.CaptureRevision());
-        var snapshot = new RoadSurfaceSnapshot(Token(), prepared.RoadSurfaceTriangles);
+        var snapshot = new RoadSurfaceSnapshot(Token(), prepared.RoadSurface);
 
         RoadSurfaceHit join = Assert.IsType<RoadSurfaceHit>(
             snapshot.FindClosest(new Vector2(10f, 0f), maxSurfaceDistance: 0f));
@@ -182,7 +215,7 @@ public sealed class RoadRendererLoadPrepareTests
         var preparer = new RoadRenderer.RoadRendererLoadPreparer(Settings);
 
         RoadRendererPreparedLoad prepared = preparer.Prepare(graph.CaptureRevision());
-        var snapshot = new RoadSurfaceSnapshot(Token(), prepared.RoadSurfaceTriangles);
+        var snapshot = new RoadSurfaceSnapshot(Token(), prepared.RoadSurface);
 
         RoadSurfaceHit seam = Assert.IsType<RoadSurfaceHit>(
             snapshot.FindClosest(edge.GeometrySegments[0].Start, maxSurfaceDistance: 0f));

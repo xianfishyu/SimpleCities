@@ -115,3 +115,36 @@
 - `dotnet test SimpleCities.sln --no-restore`：492/492 通过；`dotnet build SimpleCities.sln --no-restore`：0 警告、0 错误。Roslyn CodeLens 为 0 error、0 warning，Godot editor 错误日志为 0。
 - `road_rendering_performance_contract.gd` 在 10k/100k Edge 数据集上约三分钟没有完成输出，随后被终止；性能门未验证通过，不能由上述功能契约替代。
 - headless Godot 的 Windows root certificate store 读取失败和独立场景中 `ConstructionDock` 缺少 `ToolManager.Instance` 属于环境/夹具输出；相关契约均以明确 `PASS` 结束。
+
+---
+
+<a id="road-rendering-bug-6"></a>
+## BUG-6：Load Preflight 在主线程重复构建道路 surface 空间索引
+
+> 修复日期：2026-08-14
+> 影响文件：`Scripts/Road/RoadSurfaceSnapshot.cs`、`Scripts/Road/RoadRenderer.LoadCommit.cs`、`tests/SimpleCities.RoadGraph.Tests/RoadRendererLoadPrepareTests.cs`
+> 关联事项：`v3-grid-rendering:2.2`、`v3-save-system:2.3`
+
+### 症状
+
+`RoadSurfaceSnapshot` 接入不可变 AABB 层级后，普通查询已不再逐 triangle 线性扫描，但 aggregate Load 的后台 `RoadRendererLoadPreparer.Prepare()` 仍只返回原始 `RoadSurfaceTriangle[]`。主线程 `PreflightPreparedLoad()` 随后调用 snapshot 构造函数，在创建 Godot mesh 和 node batch 的同一阶段再次复制全部 triangle 并构建空间索引。surface 越大，这段本可预先完成的派生工作越会延长主线程 Preflight 窗口，并违反“Load 在后台 Prepare 预建 surface/hit index”的契约。
+
+### 根因分析
+
+空间索引最初封装在 `RoadSurfaceSnapshot` 的 token 构造函数中，索引数据和 `RoadRenderToken` 没有分离。普通 mutation 从 triangle 直接构造 snapshot 时这一路径成立，但 Load 需要先在 worker 生成无 Godot 对象的派生数据，之后才在主线程创建保留 token 和 RID。`RoadRendererPreparedLoad` 暴露 triangle 数组而不是已准备的 surface 数据，使 Preflight 只能重新进入带复制和建树副作用的构造函数。
+
+### 修复方案
+
+`RoadSurfaceSnapshot.PreparedData` 现在私有持有 defensive-copy triangle、primitive bounds、稳定空间节点和 primitive index 数组；`RoadSurfaceSnapshot.Prepare()` 一次完成复制和建树。`RoadRendererLoadPreparer.Prepare()` 在 worker 阶段生成该不透明载荷，`RoadRendererPreparedLoad` 只携带它，`PreflightPreparedLoad()` 则用 reserved `RoadRenderToken` 直接绑定 prepared 数据，不再复制 triangle 或构建索引。普通 mutation 的原构造入口继续委托 `Prepare()`，因此 defensive-copy、精确 triangle 判定、canonical `RoadLocation` 和确定性破同值语义不变。
+
+### 影响范围
+
+影响 aggregate Load 的 renderer Prepare/Preflight 分工和 prepared payload 形状。普通 mutation 仍在其既有表现重建路径建立 snapshot；mesh 顶点/索引、node marker、surface owner、查询结果、存档格式和 commit/notification 顺序均不变。
+
+## BUG-6 验证状态
+
+- 新测试契约在旧实现上准确 RED，均为 `RoadRendererPreparedLoad` 缺少 `RoadSurface`；实现后 `RoadRendererLoadPrepareTests` 与 `RoadSurfaceSnapshotTests` 合计 27/27，通过 worker prepared 数据直接绑定 token，并在 128 条远隔道路中把点查询候选限制为 2～8 个、精确测试限制为 2 个。
+- `dotnet test tests/SimpleCities.RoadGraph.Tests/SimpleCities.RoadGraph.Tests.csproj -c Debug --no-build --no-restore`：782/782 通过；Debug 与 `ExportRelease` build 均为 0 警告、0 错误；Roslyn compiler/analyzer 为 0 diagnostics。
+- 隔离 `APPDATA` 的 `road_render_token_runtime_contract.gd` 输出 `PASS road render token runtime contract`。Godot MCP 在真实 `MapTest` 中验证普通 mutation、样式刷新与 aggregate Load 后 desired/presented/hit token 完全匹配；Load 命中为 `Edge 2 / geometry 0 / parameter 0.5`，`surfacePrimitiveCount=2`，旧 surface 已失效。
+- GDScript workspace scan 为 0 diagnostics；Godot editor 没有新增错误，DAP `stderr` 为空。测试槽、动态探针、隔离用户目录和临时日志均已清理。headless 输出的 Windows root certificate store 错误与独立夹具缺少 `ToolManager.Instance` warning 为既有环境/夹具信息。
+- 本修复验证了线程分工、查询局部性和 Load 行为，没有重跑 10k/100k Vulkan 性能契约，因此不更新既有规模数据，也不据此关闭仍缺完整 owner/工具/UI/故障矩阵的协作事项。
