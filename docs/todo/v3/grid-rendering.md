@@ -1,7 +1,7 @@
 # 第三代网格渲染系统待办清单
 
 > 系统 key：`v3-grid-rendering`
-> 整理日期：2026-08-14
+> 整理日期：2026-08-15
 > 证据：当前工作区 `Scripts/Road/RoadGeometryDisplaySampler.cs`、`RoadRenderer.cs`、`RoadBuilder.cs`、`RoadConfig.cs`，V2 显示与性能契约，`docs/performance/road-rendering-v2-baseline.md`、`docs/manuals/road-system-v2-gen.md` 附录 D 及 `docs/manuals/road-system-v3-gen.md`。
 > 主导原则：负责第三代 canonical Edge、self-loop、平行 Edge 和 RoadType 的确定性可视化，生成与实际 mesh 同源的道路表面命中，并为普通 mutation 与 Load 提供各自正确的表现接管协议；视觉样式和派生表面不是 RoadGraph 的事实来源。
 
@@ -11,7 +11,7 @@
 |---|---|---|---|
 | 2.0 | V2 renderer 不理解 self-loop incidence 与固定 loop seam | 开放（部分实现） | closed ribbon、复杂环路与 seam 重定位已验证；继续覆盖缩放/重建和独立平行 Edge 命中/高亮 |
 | 2.1 | `RoadConfig` 没有完整且可验证的四类 RoadType 样式 | 已完成 | 四类 `RoadTypeStyle`、唯一覆盖、严格查询和运行时校验已验证 |
-| 2.2 | 单一全局样式的开放 ribbon 不能形成可命中的混合宽度完整路面 | 开放（部分实现） | 分级批次、六分量 token、同代 `EdgeRibbon` + `TerminalCap` + `SemanticJoin` surface、canonical `RoadLocation` 与基础空间索引已建立；继续实现 junction patch 与 stalled/retry |
+| 2.2 | 单一全局样式的开放 ribbon 不能形成可命中的混合宽度完整路面 | 开放（部分实现） | 分级批次、六分量 token、同代四类 surface、canonical `RoadLocation`、基础空间索引与 Junction Patch 已建立；继续实现普通 mutation stalled/retry 与 provider/tool 接管 |
 | 2.3 | 混合类型、full reset 和批量改造没有 V3 性能与视觉门禁 | 开放 | 建立 10k 硬门槛、离散延迟指标、token 接管验证和 100k 压测 |
 
 ### 设计覆盖矩阵
@@ -19,8 +19,8 @@
 | 设计范围 | 当前事实 | 关联待办 |
 |---|---|---|
 | canonical Edge、self-loop 与平行 Edge | 普通与 Load mesh 已按 `NodeA == NodeB` 生成 closed ribbon，并以 A/B incidence 隐藏纯 loop seam；两路口环、八字形和支路删除后 seam 重定位已有回归，缩放/重建视觉矩阵及基于 surface owner 的平行 Edge 独立命中仍未完成 | 2.0、`v3-road-graph:8.1`～`8.3` |
-| RoadType 与完整道路表面 | 普通 rebuild 与 Load preparer 已从同一不可变 `RoadTypeStyleSnapshot` 为每条 Edge 写入宽度和 vertex color，并从真实 mesh triangle 同步生成 `EdgeRibbon`；degree-1 Node 另生成同样式解析 `TerminalCap` disc，混合宽度 degree-2 semantic boundary 则生成同源 `SemanticJoin` triangle。三类 primitive 共用不可变 AABB 索引并返回 canonical `RoadLocation`，degree≥3 junction patch 仍未实现 | 2.1～2.2、`v3-road-graph:8.4`～`8.5` |
-| 表现事务与 Load 原子接管 | 普通 mutation 已在完整 mesh/node batch/`EdgeRibbon` + `TerminalCap` + `SemanticJoin` surface/index 交换后推进 matching presented token；Load worker 预建 `RoadSurfaceSnapshot.PreparedData`，Preflight 创建 `ArrayMesh`/`MultiMesh` 并只绑定 reserved token，aggregate commit 再交换 snapshot 与 matching token。普通 mutation 尚无 stalled/retry | 2.2、`v3-save-system:2.3`、`v3-tool-input:2.4` |
+| RoadType 与完整道路表面 | 普通 rebuild 与 Load preparer 已从同一不可变 `RoadTypeStyleSnapshot` 为每条 Edge 写入宽度和 vertex color，并生成同源 `EdgeRibbon`、degree-1 `TerminalCap`、degree-2 `SemanticJoin` 与 degree≥3 `JunctionPatch`。四类 primitive 共用不可变 AABB 索引并返回 canonical `RoadLocation`；Junction Patch 使用固定量化、确定 incidence sector 与 Clipper2 union/triangulation | 2.1～2.2、`v3-road-graph:8.4`～`8.5` |
+| 表现事务与 Load 原子接管 | 普通 mutation 已在完整 mesh/node batch/四类 surface/index 交换后推进 matching presented token；Load worker 预建 `RoadSurfaceSnapshot.PreparedData`，Preflight 创建 `ArrayMesh`/`MultiMesh` 并只绑定 reserved token，aggregate commit 再交换 snapshot 与 matching token。普通 mutation 尚无 stalled/retry，工具也尚未消费 provider | 2.2、`v3-save-system:2.3`、`v3-tool-input:2.4` |
 | V2 显示与规模基线 | 六类原生几何已有统一只读显示采样；统一样式的 10k Edge 已通过 60 FPS 门槛并记录 100k 压测 | `grid-rendering:1.1`～`1.2`（V2 已完成）、2.3 |
 
 ## 执行顺序
@@ -37,7 +37,7 @@
   - 验证：非共线多段 Edge、简单环、全圆原生弧、棒棒糖、两路口环、八字形、支路删除后的 seam 重定位、平行 Edge 独立高亮，以及缩放/重建截图。
   - 验收：闭环首尾无裂缝、端帽或伪节点；junction/endpoint 数与 incidence 拓扑一致；同端点平行 Edge 均可见且可独立命中。
   - 阶段进展（2026-08-14）：`AppendRoadRibbon` 现在显式消费 Edge 的闭合拓扑，保留首尾重复的显示点列供中心线/高亮使用，但 mesh 只为唯一逻辑点生成顶点；首点用循环前后方向计算 miter，最后一段索引回连首点。普通 mutation 与 `RoadRendererLoadPreparer` 共用该实现；只有同一 self-loop Edge 的 A/B 两个 incidence 才视为纯 seam 并隐藏，self-loop 加支路仍是 junction。
-  - 当前证据（2026-08-14）：`RoadRendererLoadPrepareTests` 覆盖方形 rooted loop、`+Tau` 全圆弧、棒棒糖、两路口环、八字形、删除支路后的 seam 重定位、开放 ribbon 布局和 worker/direct 确定性；`RoadGraphClosedPathV3Tests.RemoveEdge_TwoJunctionLoopRelocatesSeamToRemainingJunction` 直接锁定领域 seam 重定位。本轮相关聚焦组合为 33/33，完整自动化为 727/727。真实 `MapTest` 的普通提交和 aggregate Load 都得到 `1 Edge / 8 mesh vertices / 0 node markers`；aggregate Load 后的两路口环在删除 seam 侧支路前为 `4 Edge / 20 mesh vertices / 4 node markers`，删除后为 `2 Edge / 12 mesh vertices / 2 node markers`。`road_input_strategy_runtime_contract.gd` 与 `road_closed_ribbon_runtime_contract.gd` 均输出 PASS，Godot MCP 冻结截图显示原 seam 无伪标记，剩余 junction 与 endpoint 标记正确。
+  - 当前证据（2026-08-15）：`RoadRendererLoadPrepareTests` 继续覆盖方形 rooted loop、`+Tau` 全圆弧、棒棒糖、两路口环、八字形、删除支路后的 seam 重定位、开放 ribbon 布局和 worker/direct 确定性；`RoadGraphClosedPathV3Tests.RemoveEdge_TwoJunctionLoopRelocatesSeamToRemainingJunction` 直接锁定领域 seam 重定位。完整自动化为 813/813。真实 `MapTest` 的普通提交和 aggregate Load 都得到 `1 Edge / 8 mesh vertices / 0 node markers`；两路口环在普通与 Load 中均为 `4 Edge / 38 vertices / 2 markers / 20 surface primitives`，删除 seam 侧支路后为 `2 Edge / 21 vertices / 1 marker / 14 surface primitives`。`road_input_strategy_runtime_contract.gd` 与 `road_closed_ribbon_runtime_contract.gd` 均输出 PASS；截图显示原 seam 无伪标记，degree≥3 结点由 patch 覆盖而不再绘制圆形 marker。
   - 仍缺（保持开放）：缩放/重建视觉矩阵，以及依赖 2.2 `RoadSurfaceHit` 的平行 Edge 独立命中/选择尚未验证。
 
 <a id="v3-grid-rendering2.1"></a>
@@ -55,7 +55,7 @@
 <a id="v3-grid-rendering2.2"></a>
 
 - [ ] **2.2 在单道路批次中渲染并原子刷新差异化表面**
-  - 当前问题：`RoadRenderer` 的普通 rebuild 与 Load participant 已按 Edge 消费四类宽度/颜色，并以六分量 desired/presented token 区分 scene、facade、full reset、graph change、样式和 render request；当前会从每个真实 ribbon mesh triangle 同步生成 `EdgeRibbon` owner，为每个 degree-1 Node 生成与相邻样式一致的解析 `TerminalCap` disc，并为两条不同 Edge、不同 RoadType 的 degree-2 Node 生成同源 `SemanticJoin` triangle。三类 primitive 均返回 canonical `RoadLocation`，点/矩形查询也已使用构造期不可变 AABB 层级限制局部候选；但 surface 尚无 junction patch owner。既有 degree≥3 junction 圆形 marker 仍无法填满混合宽度 T/X/锐角或 self-loop 加支路，容易出现洞、叠层和无限 miter。现有工具尚未消费该 provider。普通 mutation 也尚无可观测 stalled/retry 与道路交互门禁。
+  - 当前问题：`RoadRenderer` 的普通 rebuild 与 Load participant 已按 Edge 消费四类宽度/颜色，并以六分量 desired/presented token 区分 scene、facade、full reset、graph change、样式和 render request；当前会生成同源 `EdgeRibbon`、degree-1 `TerminalCap`、degree-2 `SemanticJoin` 与 degree≥3 `JunctionPatch`，四类 primitive 均返回 canonical `RoadLocation`，点/矩形查询也已使用构造期不可变 AABB 层级限制局部候选。degree≥3 静态圆形 marker 已移除，混合宽度 T/X/锐角、self-loop 加支路和平行 Edge 使用同一确定 patch 输入。现有工具尚未消费该 provider，普通 mutation 也尚无可观测 stalled/retry 与道路交互门禁，因此本项仍保持开放。
   - 修改：保持一个道路 mesh，按 Edge 样式生成顶点位置和 vertex color；缓存点列仍只来自权威几何。Edge ribbon 在 Node incidence 的切线/half-width 截面以 butt cut 终止；degree 1 用稳定端帽，degree 2 semantic boundary 生成无洞宽度/颜色过渡，degree 大于等于 3 构造 junction patch。incidence 以 outward direction 的 exact half-plane/cross comparator 排序，self-loop A/B 都参与；在 `RoadNumericPolicy` 约束的整数坐标上用固定版本的 Clipper2（或经同等审计的成熟库）完成 offset/union，并用固定 triangulator 处理 canonical ring，固定量化误差、miter limit、bevel/round fallback、RoadType sector 优先级和 Edge ID 最终同值规则，不能依赖存储反向或字典遍历。mesh 构建同步产出不可变 `RoadSurfaceSnapshot`，覆盖 ribbon、cap、semantic join、junction patch 的稳定 owner，统一提供带完整 token、owner kind、Node/Edge/Endpoint、surface/centerline distance 和 canonical location 的 `RoadSurfaceHit` provider。
   - 接管协议：消费一次 `GraphChanged`：created/updated 重读几何与样式，removed 清缓存，full reset 从不可变 render snapshot 重建。`RoadRenderToken` 至少含 `SceneGeneration + GraphFacadeID + GraphFacadeGeneration + ChangeSequence + RoadStyleRevision + RenderRequestID`；后台结果只有完全等于 `DesiredToken` 才能在主线程一次交换 mesh、surface index 和 `PresentedRenderToken`。普通 mutation 可异步构建；desired/presented 不同时进入 `RoadPresentationStalled` 门禁并由 provider 拒绝 hit，失败保留上一份完整表现且允许诊断和重试。Load participant 必须在 Preflight 预建隐藏 Mesh/RID、surface snapshot、hit index 和不可抛交换 plan；任何关键创建或 generation 失败只在 commit 前返回。成功时由 aggregate non-yield commit 将 graph、empty tool/overlay root、Mesh/RID、surface/hit index、desired/presented token 与 `CurrentSlotID` 一次联合交换，提交后只允许普通 observer 产生 warning，不存在关键表现失败、表现重试或 `CommittedPresentationFailed` 分支。2.2 只负责 provider/participant，不把真实 RoadUpgrade 或四工具接线当作本项完成条件；纯类型更新不得反向改写几何。
   - 依赖：`v3-grid-rendering:2.0`～`2.1`、`v3-road-graph:8.4`～`8.5`、`v3-save-system:2.3`。
@@ -78,7 +78,9 @@
   - Terminal cap 证据（2026-08-14）：`RoadSurfaceSnapshotTests` 与 `RoadRendererLoadPrepareTests` 聚焦组合 34/34，覆盖精确圆内外距离、矩形圆相交、非法半径/bounds、ribbon 同值优先、样式直径/颜色、A/B canonical location、普通/Load primitive 一致与 defensive copy；完整自动化 786/786。Debug/`ExportRelease` 0 警告、0 错误，Roslyn/GDScript 0 diagnostics。隔离运行时契约覆盖 mutation/style/Load；Godot MCP 验证单路 `surfacePrimitiveCount=4`、A/B `TerminalCap` 参数 `0/1` 及 matching hit/desired/presented token，editor 无新增错误且 DAP `stderr` 为空。1k Vulkan camera/preview/highlight P95 为 0.393/0.378/0.339 ms、renderer rebuild 135.918 ms、静态节点为 2，并输出 PASS；本轮未重跑 10k/100k。
   - Semantic join 进展（2026-08-14）：两条不同 Edge、不同 RoadType 的 degree-2 Node 现在读取实际显示 ribbon 的端点截面。非共线方向按 exact orientation 排序，并把外侧 bevel 缺口沿外边中点切成两个纯色三角形；同向方向按固定 RoadType 顺序和最大半宽生成三角 fallback；精确对向方向由 butt 截面直接闭合，不写零面积 primitive。每个 `SemanticJoin` triangle 携带稳定 Edge/Node/Endpoint、sector order 和固定 canonical endpoint `RoadLocation`，degree-2 marker 被移除。普通 rebuild 与 Load worker 共用 helper，mesh/surface triangle、颜色、索引、AABB 索引和 token 同代。
   - Semantic join 证据（2026-08-14）：`RoadSurfaceSnapshotTests` 与 `RoadRendererLoadPrepareTests` 聚焦组合 41/41，覆盖固定 location 与区间互斥、两侧 owner/矩形命中、Edge ID 重命名视觉不变、同向 fallback、精确对向无额外 primitive、普通/Load 结构一致及 degree-2 marker 移除；完整自动化 793/793。Debug/`ExportRelease` 0 警告、0 错误，Roslyn/GDScript 0 diagnostics。隔离 `road_render_token_runtime_contract.gd` 的混合边界 Load 发布 `4 ribbon + 2 cap + 2 SemanticJoin = 8` 个 primitive，只保留两个远端 cap marker，并验证 join hit 的 matching token、稳定 owner 和 canonical endpoint location。Godot MCP 的单路普通 mutation 保持 `surfacePrimitiveCount=4` 且 ribbon/cap 命中正常，editor 无新增错误且 DAP `stderr` 为空。本轮未重跑 10k/100k。
-  - 仍缺（保持开放）：尚无 junction patch、平行 Edge 工具接线，以及普通 mutation stalled/retry 与道路交互门禁。
+  - Junction Patch 进展（2026-08-15）：新增固定版本 Clipper2 2.0.0 的 `RoadJunctionTessellator`。合法坐标在固定 `1024` 比例上量化，单坐标误差上限为 `0.5 / 1024`；显示宽度严格限制在 `4 / 1024` 到 `1_000_000`。incidence 以 exact half-plane/orientation 排序，self-loop A/B 分别参与；同向 incidence 以 RoadType 降序、Edge ID 最终破同值。轮廓先以 Clipper2 integer union 规范化再三角化，miter 最长为最大 half-width 的 4 倍，锐角超限时使用有界 fallback。owner sector 由相邻边界弧长中点划分，每个 patch triangle 携带稳定 Node/Edge/Endpoint、sector 与 canonical A/B endpoint location；centerline 从量化后的 NodePosition 指向所属 incidence。普通 rebuild 与 Load worker 共用 `AppendJunctionPatch`，mesh、颜色、surface owner、AABB index 与 token 同代发布，并移除 degree≥3 静态圆形 marker。
+  - Junction Patch 证据（2026-08-15）：`RoadJunctionTessellatorTests`、`RoadRendererLoadPrepareTests` 与生命周期契约覆盖 T/X、锐角、同向、self-loop、平行 Edge、反向存储、ID 重命名、量化边界、miter fallback、owner/location 和普通/Load 一致性；完整自动化 813/813，Debug/`ExportRelease` build 0 警告、0 错误，solution 与 9 个变更文件的 Roslyn compiler/analyzer、GDScript workspace scan 均为 0 diagnostics。隔离的两个运行时契约均 PASS；混合锐角 Load 发布 `10 ribbon + 2 SemanticJoin + 4 JunctionPatch + 5 cap = 21` 个 primitive、`38 vertices / 5 markers`，patch hit 的 token/owner/location 正确。Godot MCP 的普通 T junction 为 `3 Edge / 21 vertices / 3 markers / 12 primitives` 且 desired/presented 相等；截图无洞、尖刺或旧圆形 junction marker，最终 editor 与 DAP 错误通道为空。
+  - 仍缺（保持开放）：平行 Edge 与完整四工具仍未接入 surface provider；普通 mutation 也没有 stalled/retry、持续道路交互门禁及对应故障矩阵。
 
 <a id="v3-grid-rendering2.3"></a>
 
@@ -92,7 +94,7 @@
   - 当前基线（2026-08-14）：统一样式 Vulkan 完整运行中，10k camera/preview/highlight P95 为 0.657/0.779/0.672 ms，Load 与 renderer rebuild 为 608.025 ms；首轮 100k 为 13.517/0.722/0.699 ms、重建 4108.956 ms，独立 100k 复跑为 0.616/0.661/0.637 ms、重建 4492.629 ms，两轮均输出 PASS，静态 renderer 节点为 2。首轮 100k camera 的 13.517 ms 尾延迟与复跑值同时保留，不能只报告热复跑。
   - 分级 ribbon 基线（2026-08-14）：加入 per-edge vertex color 后，独立真实 Vulkan 10k camera/preview/highlight P95 为 0.564/0.827/0.833 ms、Load 与 renderer rebuild 为 665.452 ms；随后独立 100k 为 8.674/0.977/0.737 ms、重建 4719.153 ms。两档均输出 PASS，draw call 为 4/5/4，静态 renderer 节点为 2；100k 仍只记录压力结果，不取代 10k 硬门槛。
   - Terminal cap 增量基线（2026-08-14）：本轮只执行 1k Vulkan，camera/preview/highlight P95 为 0.393/0.378/0.339 ms、renderer rebuild 135.918 ms、静态 renderer 节点为 2，并输出 PASS。该结果不刷新既有 10k/100k 基线，也不满足 2.3 的规模门禁。
-  - 仍缺（保持开放）：当前数据尚无 junction patch、普通 mutation stalled/retry 或离散类型改造时延；六分量 token 已进入有空间索引的 ribbon/cap/degree-2 join surface provider 和 Load hidden snapshot Preflight，但该索引尚未进入 10k/100k 完整 owner 性能/扰动矩阵。SemanticJoin 的聚焦功能证据、四条分级直线截图、ribbon hit 和历史 1k cap PASS 不满足本项的混合 junction、完整接管与性能门禁。
+  - 仍缺（保持开放）：Junction Patch 已通过聚焦功能、Load 和普通 T junction 视觉验证，但普通 mutation stalled/retry、离散类型改造时延，以及包含四类 owner 的 10k/100k 性能/扰动矩阵仍未完成。现有聚焦证据、四条分级直线截图、ribbon hit、历史 1k cap PASS 和 patch 小图验证都不能替代完整接管与规模门禁。
 
 ## 暂不执行
 
@@ -110,9 +112,10 @@
 
 ## 已解决基线
 
-- [x] **基础 surface 查询已使用不可变空间索引。** 普通 snapshot 与 Load worker prepared payload 共用同一 AABB 层级；局部点/矩形查询不会随远隔 primitive 总数线性执行精确 triangle/disc 测试，Preflight 不重复复制或建树。junction patch 和性能矩阵仍由开放的 2.2～2.3 负责。
-- [x] **Degree-1 `TerminalCap` 已与道路样式及 surface 同源。** 普通与 Load 路径按相邻 `RoadTypeStyle` 生成同宽同色 marker 和解析 disc；A/B cap 携带稳定 Edge/Node/Endpoint 与 canonical 参数 `0/1`，并与 ribbon 共用同代 token 和 AABB 查询。junction patch、工具消费和性能矩阵仍由开放的 2.2～2.3 负责。
-- [x] **Degree-2 `SemanticJoin` 已与 ribbon mesh 及 surface 同源。** 不同 Edge/类型的非共线、同向和精确对向边界已有确定性分支；实际 join triangle 携带稳定 owner sector 与固定 canonical endpoint location，普通/Load 同代且不再绘制 degree-2 marker。junction patch、工具消费和性能矩阵仍由开放的 2.2～2.3 负责。
+- [x] **基础 surface 查询已使用不可变空间索引。** 普通 snapshot 与 Load worker prepared payload 共用同一 AABB 层级；局部点/矩形查询不会随远隔 primitive 总数线性执行精确 triangle/disc 测试，Preflight 不重复复制或建树。Junction Patch 已进入同一索引，完整性能矩阵仍由开放的 2.3 负责。
+- [x] **Degree-1 `TerminalCap` 已与道路样式及 surface 同源。** 普通与 Load 路径按相邻 `RoadTypeStyle` 生成同宽同色 marker 和解析 disc；A/B cap 携带稳定 Edge/Node/Endpoint 与 canonical 参数 `0/1`，并与 ribbon 共用同代 token 和 AABB 查询。工具消费和性能矩阵仍由开放的 2.2～2.3 负责。
+- [x] **Degree-2 `SemanticJoin` 已与 ribbon mesh 及 surface 同源。** 不同 Edge/类型的非共线、同向和精确对向边界已有确定性分支；实际 join triangle 携带稳定 owner sector 与固定 canonical endpoint location，普通/Load 同代且不再绘制 degree-2 marker。工具消费和性能矩阵仍由开放的 2.2～2.3 负责。
+- [x] **Degree≥3 `JunctionPatch` 已与 ribbon mesh 及 surface 同源。** 固定量化与 Clipper2 union/triangulation 为 T/X/锐角、self-loop 加支路和平行 Edge 生成有界 patch；确定 owner sector 携带稳定 Node/Edge/Endpoint 与 canonical location，普通/Load 同代且不再绘制 degree≥3 圆形 marker。普通 mutation stalled/retry、工具消费和性能矩阵仍由开放的 2.2～2.3 负责。
 - [x] **V2 六类原生几何共享只读显示采样。** `grid-rendering:1.1` 已验证 Edge、有效建造预览和拆除高亮复用 `RoadGeometryDisplaySampler`，显示容差不会反向修改权威控制参数。
 - [x] **V2 大规模静态道路保持常数级渲染节点。** `grid-rendering:1.2` 已用道路 `ArrayMesh` 与节点 `MultiMesh` 把 10k/100k 的 `RoadRenderer` 静态子节点固定为 2。
 - [x] **V2 规模性能证据已经记录。** `docs/performance/road-rendering-v2-baseline.md` 记录统一样式下 10k 三类交互满足 16.67 ms，以及 10k/100k 重建、draw calls、objects 和压测结果；V3 以同机同口径对照，不把这些结果当作分级表现已经完成。

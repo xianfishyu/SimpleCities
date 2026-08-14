@@ -1,7 +1,7 @@
 # 第三代存档系统待办清单
 
 > 系统 key：`v3-save-system`
-> 整理日期：2026-08-14
+> 整理日期：2026-08-15
 > 证据：当前工作区 `SaveManager`、`SaveSlotStore`、RoadGraph 持久化源码与存档自动化，V2 历史路线图 `docs/todo/save-system.md`，以及 `docs/manuals/road-system-v3-gen.md` 第 10 节。
 > 主导原则：V3 建立唯一的新运行时存档契约、独立保存根和 `simple-cities-v3` format v1；不读取、迁移、转换、覆盖或删除 V2 存档，也不保留旧 DTO/接口适配器。严格版本、容量、原子发布、崩溃恢复和 aggregate Load 是 V3 自身的正确性边界。
 
@@ -13,7 +13,7 @@
 |---|---|---|---|
 | 2.1 | V2 schema、保存根和 DTO 无法表达 V3 canonical Edge | 已完成 | 已建立隔离的 V3 format v1，并直接拒绝所有非 V3 格式 |
 | 2.2 | 流式快照、严格 manifest、PNG 展示资产与目录事务需要统一的预算和恢复边界 | 已完成 | 有界 token reader、descriptor/digest 恢复、删除 tombstone、OS 根锁与故障矩阵均已验证 |
-| 2.3 | 同步入口和顺序 prepared commit 曾缺少并发及原子会话协议 | 开放（部分实现） | async coordinator、等待取消防护、四参与者 aggregate 与 worker-prepared ribbon/cap/join surface/index/token 已落地；补齐 junction patch 和故障矩阵 |
+| 2.3 | 同步入口和顺序 prepared commit 曾缺少并发及原子会话协议 | 开放（部分实现） | async coordinator、等待取消防护、四参与者 aggregate 与 worker-prepared 四类 surface/index/token 已落地；补齐工具接管、第二 saveable 和故障矩阵 |
 
 ### 设计覆盖矩阵
 
@@ -22,7 +22,7 @@
 | V3 格式与根隔离 | 生产运行已统一使用 `user://saves-v3`；manifest/payload 均为严格 `simple-cities-v3` format v1，RoadGraph reader/writer 可表达 canonical self-loop、parallel Edge、四类 `roadType` 和完整原生几何锚；V2/未知目录在 V3 根只分类为 `Foreign` | `v3-save-system:2.1`、`v3-road-graph:8.0`～`8.5` |
 | 长连续 Edge | `IStreamingSaveable` 以 O(1) 捕获 immutable root；writer 直接输出无缩进 UTF-8，`V3JsonStreamReader` 在固定 buffer 上执行 byte/token/depth/lexeme 与 RoadGraph 容量预算，同一 payload 句柄完成长度/SHA-256/EOF 终检 | `v3-save-system:2.2`、`v3-road-graph:8.0`、`v3-road-graph:8.5` |
 | 发布、恢复与删除 | operation-specific publish/delete descriptor 绑定 digest 与固定路径；五类 occupant、quarantine、删除 tombstone、跨进程 OS 根锁及 cleanup-pending/typed recovery-blocked 路径均已实现 | `v3-save-system:2.2` |
-| Load 生命周期 | `SaveManager` 已把 RoadGraph root、空工具/history、基础 `ArrayMesh`/`MultiMesh`、带 canonical `RoadLocation` 和不可变 AABB 索引的同源 `EdgeRibbon` + `TerminalCap` + `SemanticJoin` `RoadSurfaceSnapshot`、matching 六分量 `RoadRenderToken` 与 `CurrentSlotID` 纳入一次 `PreparedAggregateLoad` 引用交换；surface triangle/disc 复制与建树在 worker Prepare 完成，junction patch 仍未实现 | `v3-save-system:2.3`、`v3-road-graph:8.5`、`v3-grid-rendering:2.2`、`v3-tool-input:2.4`、`v3-ui:1.4` |
+| Load 生命周期 | `SaveManager` 已把 RoadGraph root、空工具/history、基础 `ArrayMesh`/`MultiMesh`、带 canonical `RoadLocation` 和不可变 AABB 索引的同源 `EdgeRibbon` + `TerminalCap` + `SemanticJoin` + `JunctionPatch` `RoadSurfaceSnapshot`、matching 六分量 `RoadRenderToken` 与 `CurrentSlotID` 纳入一次 `PreparedAggregateLoad` 引用交换；surface triangle/disc 复制、Junction Patch 细分与建树在 worker Prepare 完成 | `v3-save-system:2.3`、`v3-road-graph:8.5`、`v3-grid-rendering:2.2`、`v3-tool-input:2.4`、`v3-ui:1.4` |
 | 操作权限 | `SaveManager` 已只公开 `StartSave/StartSaveAs/StartLoad/StartDeleteSlot/StartAutosave` token 入口，并发布结构化 phase/result；coordinator 实现进程内 gate、手动优先、pending autosave 合并、取消与退出收敛 | `v3-save-system:2.3`、`v3-ui:1.4` |
 
 ## 执行顺序
@@ -65,9 +65,9 @@
   - 验收：同一 V3 根跨进程最多一个目录事务；主线程不执行长 JSON/hash/I/O；Prepare/Preflight 失败逐值保留活动状态，non-yield commit 全有或全无且只通知一次；Load 只有成功、observer warning 或提交前失败/取消；autosave busy 有界；任何操作都不调用 V2 API 或触碰 V2 根。
   - 阶段进展（2026-08-14）：`SaveOperationCoordinator` 已实现进程内根 gate、结构化 token/state/result、手动请求优先、单 pending autosave、取消点和 shutdown；公开同步 bool 入口已删除。Save/Load/Delete 的长磁盘与 prepared 工作在 `Task.Run` 中执行，主线程 capture 只取得 immutable root。`SaveManager` 用 scene generation 跟踪任务，返回主菜单先 drain，窗口/菜单/主菜单退出统一等待未越界取消或已越界事务收敛；新请求在关闭期得到 typed rejection。
   - 等待取消修复（2026-08-14）：手动请求从 `_rootGate.WaitAsync()` 返回后、创建 `SaveOperationLease` 前，会在 coordinator 锁内重新检查外部 cancellation token；若取消与 gate 释放竞争，则立即释放已取得的 gate 并返回 Admission 阶段 `Canceled`。被取消的 waiter 不再成为无人终结的活动 lease，也不会让 scene drain 或 coordinator dispose 无限等待；见 `save-system:BUG-13`。
-  - Aggregate 进展（2026-08-14）：Load 已按 Admission/Prepare/Preflight/Commit 运行，`PreparedAggregateLoad` 在同一 commit lease 中交换 RoadGraph 新 lineage、RoadBuilder 空 placement/removal 与新 history、RoadRenderer 预建的基础 `ArrayMesh`/`MultiMesh`、从 prepared ribbon/join triangle 和 degree-1 terminal disc 构造的 `EdgeRibbon` + `TerminalCap` + `SemanticJoin` `RoadSurfaceSnapshot`、matching desired/presented `RoadRenderToken`，以及 `CurrentSlotID`；`SaveManager` 在 scene registration 时把 `SceneGeneration` 注入 renderer。render request/facade generation 在 admission 预留，generation 失配会在 commit 前拒绝；observer 逐个隔离为 warning。`RoadRendererLoadPreparer.Prepare()` 在 worker 中生成不透明 `RoadSurfaceSnapshot.PreparedData`，以分离 defensive array 保存 triangle/disc 并一次完成统一 primitive bounds 与 AABB 层级；Preflight 只用 reserved token 绑定该数据，不重复复制或建树。
-  - 仍缺（保持开放）：当前 renderer participant 已覆盖分级 open/closed ribbon、degree-1 terminal cap、degree-2 semantic join、节点批次、带 canonical `RoadLocation` 和基础空间索引的同代 surface 与 matching 六分量 token，但没有 junction patch owner 或工具消费。因此还需协同 `v3-grid-rendering:2.2`、`v3-tool-input:2.4` 完整状态及第二 saveable/关键资源逐点故障矩阵，不能把当前 aggregate 切片视为 `2.3` 完成。
-  - 当前证据（2026-08-14）：完整 `dotnet test tests/SimpleCities.RoadGraph.Tests/SimpleCities.RoadGraph.Tests.csproj --no-build --no-restore -c Debug` 为 793/793；`RoadSurfaceSnapshotTests` 与 `RoadRendererLoadPrepareTests` 合计 41/41，直接证明 worker prepared triangle/disc 可绑定 token，并保持 ribbon/cap/join 的确定查询。Debug 与 `ExportRelease` build 为 0 警告、0 错误，Roslyn compiler/analyzer 与 GDScript workspace scan 为 0 diagnostics。`SceneStyleDrain_DiscardsPendingCancelsWaitersAndRemainsReusable` 覆盖 gate 释放与外部取消竞争；既有 pause menu、renderer lifecycle、closed ribbon 与 V3 综合运行时契约继续覆盖提交前失败和基础 aggregate。隔离用户目录的 `road_render_token_runtime_contract.gd` 在普通 mutation、显式样式刷新与 aggregate Load 三条路径均输出 PASS；混合边界 Load 一次发布 `4 ribbon + 2 cap + 2 SemanticJoin = 8` 个 primitive，只保留两个远端 cap marker，并验证 join hit 的 matching token、稳定 owner 与 canonical endpoint location。Godot MCP 另验证单路普通 mutation 的六分量 desired/presented/surface hit token 完全匹配、`surfacePrimitiveCount=4` 与 A/B `TerminalCap` 参数 `0/1`。测试槽、动态探针、临时用户目录和日志均已清理，editor 无新增错误且 DAP `stderr` 为空。本轮未重跑 10k/100k；此前 1k TerminalCap 结果只保留为历史增量证据。
+  - Aggregate 进展（2026-08-15）：Load 已按 Admission/Prepare/Preflight/Commit 运行，`PreparedAggregateLoad` 在同一 commit lease 中交换 RoadGraph 新 lineage、RoadBuilder 空 placement/removal 与新 history、RoadRenderer 预建的基础 `ArrayMesh`/`MultiMesh`、含 `EdgeRibbon` + `TerminalCap` + `SemanticJoin` + `JunctionPatch` 的 `RoadSurfaceSnapshot`、matching desired/presented `RoadRenderToken`，以及 `CurrentSlotID`；`SaveManager` 在 scene registration 时把 `SceneGeneration` 注入 renderer。render request/facade generation 在 admission 预留，generation 失配会在 commit 前拒绝；observer 逐个隔离为 warning。`RoadRendererLoadPreparer.Prepare()` 在 worker 中完成 ribbon/join/patch triangle、terminal disc、Junction Patch 的固定量化 Clipper2 细分、defensive copy 与统一 AABB 层级；Preflight 只用 reserved token 绑定 prepared 数据，不重复细分、复制或建树。
+  - 仍缺（保持开放）：当前 renderer participant 已覆盖分级 open/closed ribbon、degree-1 terminal cap、degree-2 semantic join、degree≥3 junction patch、节点批次、带 canonical `RoadLocation` 和基础空间索引的同代 surface 与 matching 六分量 token，但工具仍未消费 provider。还需协同 `v3-grid-rendering:2.2`、`v3-tool-input:2.4` 完成工具接管、第二 saveable 和关键资源逐点故障矩阵，不能把当前 aggregate 切片视为 `2.3` 完成。
+  - 当前证据（2026-08-15）：完整 `dotnet test SimpleCities.sln` 为 813/813；Debug 与 `ExportRelease` build 为 0 警告、0 错误，solution 与 9 个变更文件的 Roslyn compiler/analyzer、GDScript workspace scan 均为 0 diagnostics。`RoadJunctionTessellatorTests`、`RoadRendererLoadPrepareTests` 和生命周期契约证明 worker prepared Junction Patch 可与 ribbon/cap/join 一起绑定 matching token；既有 coordinator、pause menu、renderer lifecycle、closed ribbon 与 V3 综合运行时契约继续覆盖提交前失败和 aggregate。隔离用户目录的 `road_render_token_runtime_contract.gd` 输出 PASS；混合锐角 Load 一次发布 `10 ribbon + 2 SemanticJoin + 4 JunctionPatch + 5 cap = 21` 个 primitive、`38 vertices / 5 markers`，patch hit 的 token、owner 与 canonical endpoint location 保持同代。两路口环在普通与 Load 中均为 `4 Edge / 38 vertices / 2 markers / 20 primitives`，删除一支路后为 `2 Edge / 21 vertices / 1 marker / 14 primitives`。测试槽、动态探针、临时用户目录和日志均已清理，editor 与 DAP 错误通道为空；本轮未重跑 10k/100k。
 
 ## 暂不执行
 
