@@ -24,6 +24,7 @@ public partial class RoadBuilder : Node2D
     public bool IsPlacing => _placementSession != null;
     public int FixedCornerCount => _placementSession?.FixedCornerCount ?? 0;
     public RoadPathDraft? CurrentDraft => _placementSession?.CurrentDraft;
+    public RoadType SelectedRoadType { get; private set; } = RoadType.Street;
     public bool IsRemoving => _removalSession != null;
     public bool CanUndo => _editHistory?.CanUndo == true;
     public bool CanRedo => _editHistory?.CanRedo == true;
@@ -31,6 +32,20 @@ public partial class RoadBuilder : Node2D
     public bool HasActivePlaceSession() => IsPlacing;
 
     public int GetFixedCornerCount() => FixedCornerCount;
+
+    public RoadType GetSelectedRoadType() => SelectedRoadType;
+
+    public bool SetSelectedRoadType(RoadType roadType)
+    {
+        if (_loadAdmission is not null || !RoadTypeContract.IsDefined(roadType))
+            return false;
+        if (SelectedRoadType == roadType)
+            return true;
+
+        CancelPlaceSession();
+        SelectedRoadType = roadType;
+        return true;
+    }
 
     public bool HasActiveRemoveSession() => IsRemoving;
 
@@ -185,7 +200,10 @@ public partial class RoadBuilder : Node2D
             }
         }
 
-        _placementSession = new RoadPlacementSession(_inputStrategy, startPosition);
+        _placementSession = new RoadPlacementSession(
+            _inputStrategy,
+            startPosition,
+            SelectedRoadType);
         ApplyPreview(_placementSession.CurrentDraft);
         return true;
     }
@@ -226,8 +244,9 @@ public partial class RoadBuilder : Node2D
         if (_loadAdmission is not null || _placementSession == null || _graph == null)
             return false;
 
+        RoadPlacementSession session = _placementSession;
         _lastPlacePointerPosition = pointerPosition;
-        RoadPathDraft draft = _placementSession.Update(pointerPosition);
+        RoadPathDraft draft = session.Update(pointerPosition);
         ApplyPreview(draft);
         if (draft.Path == null)
             return false;
@@ -235,7 +254,7 @@ public partial class RoadBuilder : Node2D
         RoadPathSubmissionResult? result = null;
         bool submitted = ExecuteRoadEdit(() =>
         {
-            result = _graph.SubmitPath(new RoadBuildRequest(draft.Path, RoadType.Street));
+            result = _graph.SubmitPath(new RoadBuildRequest(draft.Path, session.RoadType));
             return result.Success;
         });
         if (!submitted)

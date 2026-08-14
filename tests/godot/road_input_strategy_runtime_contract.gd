@@ -330,6 +330,13 @@ func run() -> void:
 		return
 	if not assert_saved_counts(roads_path, 0, 0, "Redo"):
 		return
+	if not await verify_typed_placement_and_load(
+		road_builder,
+		road_renderer,
+		save_manager,
+		slot_id,
+		roads_path):
+		return
 	if not assert_true(await V3_SAVE_FIXTURE.delete_slot(save_manager, slot_id), "Strategy path test slot cleanup failed"):
 		return
 
@@ -343,6 +350,94 @@ func run() -> void:
 
 	print("PASS road input strategy runtime contract")
 	quit(0)
+
+func verify_typed_placement_and_load(
+	road_builder: Node,
+	road_renderer: Node,
+	save_manager: Node,
+	slot_id: String,
+	roads_path: String) -> bool:
+	if not assert_true(
+		road_builder.GetSelectedRoadType() == 1,
+		"RoadBuilder did not start with Street selected"):
+		return false
+	if not assert_true(
+		road_builder.BeginPlace(Vector2(-1000, -1200)),
+		"Typed placement cancellation scenario did not begin"):
+		return false
+	road_builder.UpdatePlace(Vector2(-900, -1200))
+	if not assert_true(
+		road_builder.SetSelectedRoadType(1) and road_builder.HasActivePlaceSession(),
+		"Selecting the already active RoadType interrupted the placement session"):
+		return false
+	if not assert_true(
+		not road_builder.SetSelectedRoadType(99) and
+		road_builder.GetSelectedRoadType() == 1 and
+		road_builder.HasActivePlaceSession(),
+		"An undefined RoadType changed or interrupted the placement session"):
+		return false
+	if not assert_true(
+		road_builder.SetSelectedRoadType(0) and
+		road_builder.GetSelectedRoadType() == 0 and
+		not road_builder.HasActivePlaceSession() and
+		road_renderer.GetPreviewPointCount() == 0,
+		"Changing RoadType did not cancel the uncommitted placement and preview"):
+		return false
+
+	var cases: Array[Dictionary] = [
+		{"road_type": 0, "from": Vector2(-1000, -1000), "to": Vector2(-900, -1000)},
+		{"road_type": 1, "from": Vector2(-1000, -800), "to": Vector2(-900, -800)},
+		{"road_type": 2, "from": Vector2(-1000, -600), "to": Vector2(-900, -600)},
+		{"road_type": 3, "from": Vector2(-1000, -400), "to": Vector2(-900, -400)},
+	]
+	for typed_case: Dictionary in cases:
+		var road_type: int = typed_case["road_type"]
+		var from: Vector2 = typed_case["from"]
+		var to: Vector2 = typed_case["to"]
+		if not assert_true(
+			road_builder.SetSelectedRoadType(road_type),
+			"RoadBuilder rejected a defined RoadType: %d" % road_type):
+			return false
+		if not assert_true(
+			road_builder.BeginPlace(from),
+			"Typed placement did not begin for RoadType %d" % road_type):
+			return false
+		road_builder.UpdatePlace(to)
+		if not assert_true(
+			road_builder.ConfirmPlace(to),
+			"Typed placement did not commit for RoadType %d" % road_type):
+			return false
+		await process_frame
+
+	if not assert_true(
+		await V3_SAVE_FIXTURE.save(save_manager, slot_id),
+		"Typed placements save failed"):
+		return false
+	if not assert_saved_typed_roads(roads_path):
+		return false
+	if not assert_true(
+		road_renderer.GetRenderedEdgeCount() == 4,
+		"Typed placements did not publish four rendered Edges"):
+		return false
+
+	if not assert_true(
+		road_builder.BeginPlace(Vector2(-1000, -200)),
+		"Pre-load typed placement did not begin"):
+		return false
+	road_builder.UpdatePlace(Vector2(-900, -200))
+	if not assert_true(
+		await V3_SAVE_FIXTURE.load_slot(save_manager, slot_id),
+		"Typed placements full-reset Load failed"):
+		return false
+	await process_frame
+	return assert_true(
+		road_builder.GetSelectedRoadType() == 3 and
+		not road_builder.HasActivePlaceSession() and
+		road_builder.GetUndoEditCount() == 0 and
+		road_builder.GetRedoEditCount() == 0 and
+		road_renderer.GetPreviewPointCount() == 0 and
+		road_renderer.GetRenderedEdgeCount() == 4,
+		"Full-reset Load did not preserve RoadType selection while clearing transient tool state")
 
 func verify_invalid_config_falls_back_to_renderable_values(
 	packed_map: PackedScene,
@@ -487,6 +582,27 @@ func assert_saved_counts(
 	if not assert_true(graph_data.get("edges", []).size() == expected_edges, "%s edge count is wrong" % label):
 		return false
 	return true
+
+func assert_saved_typed_roads(roads_path: String) -> bool:
+	var payload: Variant = JSON.parse_string(FileAccess.get_file_as_string(roads_path))
+	if not assert_true(payload is Dictionary, "Typed RoadGraph payload is not an object"):
+		return false
+	var graph_data: Dictionary = payload
+	if not assert_true(
+		graph_data.get("formatFamily", "") == "simple-cities-v3" and
+		graph_data.get("payloadType", "") == "road-network" and
+		graph_data.get("schemaVersion", -1) == 1,
+		"Typed RoadGraph V3 admission fields are wrong"):
+		return false
+	var road_types: Array[String] = []
+	for edge: Variant in graph_data.get("edges", []):
+		if not assert_true(edge is Dictionary, "Typed RoadGraph edge is not an object"):
+			return false
+		road_types.append(str(edge.get("roadType", "")))
+	road_types.sort()
+	return assert_true(
+		road_types == ["arterial", "dirt", "highway", "street"],
+		"Typed placements did not persist exactly one Edge of each RoadType: %s" % [road_types])
 
 func assert_street_road_payload(graph_data: Dictionary, label: String) -> bool:
 	if not assert_true(

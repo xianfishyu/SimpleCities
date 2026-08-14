@@ -104,6 +104,36 @@ public sealed class RoadPlacementSessionTests
         graph.AssertInvariants();
     }
 
+    [Theory]
+    [InlineData(RoadType.Dirt)]
+    [InlineData(RoadType.Street)]
+    [InlineData(RoadType.Arterial)]
+    [InlineData(RoadType.Highway)]
+    public void SessionFreezesSelectedRoadTypeForExplicitSubmission(RoadType roadType)
+    {
+        var graph = new RoadGraph();
+        var session = CreateSession(roadType);
+        RoadPathDraft draft = session.Update(new Vector2(130f, 10f));
+        RoadPath path = Assert.IsType<RoadPath>(draft.Path);
+
+        RoadPathSubmissionResult result = graph.SubmitPath(
+            new RoadBuildRequest(path, session.RoadType));
+
+        Assert.True(result.Success);
+        Assert.Equal(roadType, session.RoadType);
+        Assert.All(graph.GetAllEdges(), edge => Assert.Equal(roadType, edge.RoadType));
+        graph.AssertInvariants();
+    }
+
+    [Fact]
+    public void SessionRejectsUndefinedRoadTypeBeforeProducingADraft()
+    {
+        var strategy = new SquareEightRoadInputStrategy(CellSize);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new RoadPlacementSession(strategy, Vector2.Zero, (RoadType)999));
+    }
+
     [Fact]
     public void ClosingCompleteDraftCreatesOneRootedLoop()
     {
@@ -196,11 +226,11 @@ public sealed class RoadPlacementSessionTests
         graph.AssertInvariants();
     }
 
-    private static RoadPlacementSession CreateSession() =>
-        new(new SquareEightRoadInputStrategy(CellSize), Vector2.Zero);
+    private static RoadPlacementSession CreateSession(RoadType roadType = RoadType.Street) =>
+        new(new SquareEightRoadInputStrategy(CellSize), Vector2.Zero, roadType);
 
     private static RoadPlacementSession CreateDirectSession() =>
-        new(new DirectRoadInputStrategy(32f), Vector2.Zero);
+        new(new DirectRoadInputStrategy(32f), Vector2.Zero, RoadType.Street);
 
     private static void AssertGeometryMatchesPreview(RoadPathDraft draft)
     {

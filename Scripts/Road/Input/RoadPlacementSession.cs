@@ -10,20 +10,32 @@ public sealed class RoadPlacementSession
     private readonly List<RoadPathDraft> _fixedDrafts = [];
 
     public Vector2 StartPosition { get; }
+    public RoadType RoadType { get; }
     public int FixedCornerCount => _fixedDrafts.Count;
     public Vector2 CurrentAnchor => FixedCornerCount == 0
         ? StartPosition
         : _fixedDrafts[^1].PreviewTo;
     public RoadPathDraft CurrentDraft { get; private set; }
 
-    public RoadPlacementSession(IRoadInputStrategy strategy, Vector2 startPosition)
+    public RoadPlacementSession(
+        IRoadInputStrategy strategy,
+        Vector2 startPosition,
+        RoadType roadType)
     {
         ArgumentNullException.ThrowIfNull(strategy);
         if (!startPosition.IsFinite())
             throw new ArgumentException("A placement session needs a finite start position.", nameof(startPosition));
+        if (!RoadTypeContract.IsDefined(roadType))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(roadType),
+                roadType,
+                "RoadType is not defined.");
+        }
 
         _strategy = strategy;
         StartPosition = startPosition;
+        RoadType = roadType;
         CurrentDraft = RoadPathDraft.Empty(startPosition);
     }
 

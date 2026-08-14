@@ -145,7 +145,7 @@ public sealed class AlternativeRoadInputStrategyTests
 
         foreach ((IRoadInputStrategy strategy, Vector2[] fixedCorners) in cases)
         {
-            var session = new RoadPlacementSession(strategy, Vector2.Zero);
+            var session = new RoadPlacementSession(strategy, Vector2.Zero, RoadType.Street);
             foreach (Vector2 corner in fixedCorners)
                 Assert.True(session.TryAddPoint(corner), strategy.GetType().Name);
 

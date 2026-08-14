@@ -109,7 +109,31 @@ public sealed class RoadInputStrategyTests
         Assert.DoesNotContain("GridSystem", source, StringComparison.Ordinal);
         Assert.DoesNotContain("CellSize", source, StringComparison.Ordinal);
         Assert.Contains("SetInputStrategy", source, StringComparison.Ordinal);
-        Assert.Contains("new RoadBuildRequest(draft.Path, RoadType.Street)", source, StringComparison.Ordinal);
+        Assert.Contains("public RoadType SelectedRoadType", source, StringComparison.Ordinal);
+        Assert.Contains("SetSelectedRoadType", source, StringComparison.Ordinal);
+        Assert.Contains(
+            "SelectedRoadType);",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "new RoadBuildRequest(draft.Path, session.RoadType)",
+            source,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "new RoadBuildRequest(draft.Path, RoadType.Street)",
+            source,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void InputStrategyAndPathDraftRemainGeometryOnly()
+    {
+        string inputDirectory = Path.Combine(ProjectRoot, "Scripts", "Road", "Input");
+        string strategy = File.ReadAllText(Path.Combine(inputDirectory, "IRoadInputStrategy.cs"));
+        string draft = File.ReadAllText(Path.Combine(inputDirectory, "RoadPathDraft.cs"));
+
+        Assert.DoesNotContain("RoadType", strategy, StringComparison.Ordinal);
+        Assert.DoesNotContain("RoadType", draft, StringComparison.Ordinal);
     }
 
     [Fact]
