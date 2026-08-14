@@ -56,6 +56,49 @@ public sealed class RoadGeometryDisplaySamplerTests
         Assert.Equal(1, fine.Count(point => point == first.End));
     }
 
+    [Fact]
+    public void SamplePathCarriesSourceGeometryAndParameterForEveryVisibleSpan()
+    {
+        RoadGeometrySegment[] geometries =
+        [
+            new LineRoadGeometrySegment(Vector2.Zero, new Vector2(10f, 0f)),
+            new CubicBezierRoadGeometrySegment(
+                new Vector2(10f, 0f),
+                new Vector2(15f, 10f),
+                new Vector2(25f, 10f),
+                new Vector2(30f, 0f)),
+        ];
+
+        RoadGeometryDisplayPath path = RoadGeometryDisplaySampler.SamplePath(
+            geometries,
+            tolerance: 0.1f);
+
+        Assert.Equal(path.Points.Length - 1, path.Spans.Length);
+        Assert.Equal([0, 1], path.Spans.Select(span => span.GeometryIndex).Distinct());
+        for (int index = 0; index < path.Spans.Length; index++)
+        {
+            RoadGeometryDisplaySpan span = path.Spans[index];
+            Assert.InRange(span.ParameterStart, 0f, 1f);
+            Assert.InRange(span.ParameterEnd, 0f, 1f);
+            Assert.True(span.ParameterStart < span.ParameterEnd);
+            Assert.True(
+                path.Points[index].DistanceTo(
+                    geometries[span.GeometryIndex].GetPosition(span.ParameterStart)) <= 1e-4f);
+            Assert.True(
+                path.Points[index + 1].DistanceTo(
+                    geometries[span.GeometryIndex].GetPosition(span.ParameterEnd)) <= 1e-4f);
+        }
+
+        RoadGeometryDisplaySpan first = path.Spans[0];
+        RoadGeometryDisplaySpan beforeJoin = path.Spans.Last(span => span.GeometryIndex == 0);
+        RoadGeometryDisplaySpan afterJoin = path.Spans.First(span => span.GeometryIndex == 1);
+        RoadGeometryDisplaySpan last = path.Spans[^1];
+        Assert.Equal(0f, first.ParameterStart);
+        Assert.Equal(1f, beforeJoin.ParameterEnd);
+        Assert.Equal(0f, afterJoin.ParameterStart);
+        Assert.Equal(1f, last.ParameterEnd);
+    }
+
     [Theory]
     [InlineData(0f)]
     [InlineData(-1f)]
@@ -76,10 +119,11 @@ public sealed class RoadGeometryDisplaySamplerTests
         string renderer = File.ReadAllText(Path.Combine(projectRoot, "Scripts", "Road", "RoadRenderer.cs"));
         string builder = File.ReadAllText(Path.Combine(projectRoot, "Scripts", "Road", "RoadBuilder.cs"));
 
-        Assert.Contains("RoadGeometryDisplaySampler.SampleSegments(", renderer, StringComparison.Ordinal);
+        Assert.Contains("RoadGeometryDisplaySampler.SamplePath(", renderer, StringComparison.Ordinal);
         Assert.Contains("edge.GeometrySegments", renderer, StringComparison.Ordinal);
         Assert.Contains("RoadGeometryDisplaySampler.SampleSegments(draft.Path.Segments", builder, StringComparison.Ordinal);
         Assert.Contains("_edgePoints.TryGetValue", renderer, StringComparison.Ordinal);
+        Assert.Contains("_edgeDisplaySpans.TryGetValue", renderer, StringComparison.Ordinal);
         Assert.Contains("AppendRoadRibbon", renderer, StringComparison.Ordinal);
         Assert.Contains("Mesh.PrimitiveType.Triangles", renderer, StringComparison.Ordinal);
         Assert.Contains("ScheduleStaticBatchRebuild()", renderer, StringComparison.Ordinal);

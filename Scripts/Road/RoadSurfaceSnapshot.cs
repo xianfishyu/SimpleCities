@@ -106,6 +106,7 @@ internal readonly record struct RoadSurfaceTriangle
     internal Vector2 CenterlineEnd { get; }
     internal RoadLocation? LocationStart { get; }
     internal RoadLocation? LocationEnd { get; }
+    internal bool OwnsLocationEnd { get; }
 
     internal RoadSurfaceTriangle(
         RoadSurfaceOwner owner,
@@ -115,7 +116,8 @@ internal readonly record struct RoadSurfaceTriangle
         Vector2 centerlineStart,
         Vector2 centerlineEnd,
         RoadLocation? locationStart,
-        RoadLocation? locationEnd)
+        RoadLocation? locationEnd,
+        bool ownsLocationEnd = true)
     {
         ValidatePoint(a, nameof(a));
         ValidatePoint(b, nameof(b));
@@ -140,6 +142,11 @@ internal readonly record struct RoadSurfaceTriangle
                 throw new ArgumentException(
                     "A road surface triangle cannot interpolate across geometry identities.");
             }
+            if (start.Parameter >= end.Parameter)
+            {
+                throw new ArgumentException(
+                    "A road surface triangle location interval must be increasing.");
+            }
         }
 
         Owner = owner;
@@ -150,6 +157,7 @@ internal readonly record struct RoadSurfaceTriangle
         CenterlineEnd = centerlineEnd;
         LocationStart = locationStart;
         LocationEnd = locationEnd;
+        OwnsLocationEnd = ownsLocationEnd;
     }
 
     internal RoadLocation? InterpolateLocation(float parameter)
@@ -159,6 +167,8 @@ internal readonly record struct RoadSurfaceTriangle
         {
             return null;
         }
+        if (!OwnsLocationEnd && parameter >= 1f)
+            return null;
 
         return new RoadLocation(
             start.EdgeID,
@@ -251,7 +261,7 @@ internal sealed class RoadSurfaceSnapshot
                 index,
                 surfaceDistanceSquared,
                 centerlineDistanceSquared,
-                parameter);
+                triangle.InterpolateLocation(parameter));
             if (best is null || Compare(candidate, best.Value) < 0)
                 best = candidate;
         }
@@ -268,7 +278,7 @@ internal sealed class RoadSurfaceSnapshot
             owner.Endpoint,
             (float)Math.Sqrt(selected.SurfaceDistanceSquared),
             (float)Math.Sqrt(selected.CenterlineDistanceSquared),
-            selected.Triangle.InterpolateLocation(selected.CenterlineParameter));
+            selected.Location);
     }
 
     internal int[] FindEdgeIDsIntersecting(Rect2 bounds)
@@ -305,7 +315,11 @@ internal sealed class RoadSurfaceSnapshot
         if (comparison != 0)
             return comparison;
         comparison = Nullable.Compare(left.Triangle.Owner.NodeID, right.Triangle.Owner.NodeID);
-        return comparison != 0 ? comparison : left.PrimitiveIndex.CompareTo(right.PrimitiveIndex);
+        if (comparison != 0)
+            return comparison;
+        if (left.Location.HasValue != right.Location.HasValue)
+            return left.Location.HasValue ? -1 : 1;
+        return left.PrimitiveIndex.CompareTo(right.PrimitiveIndex);
     }
 
     private static double DistanceSquaredToTriangle(
@@ -447,5 +461,5 @@ internal sealed class RoadSurfaceSnapshot
         int PrimitiveIndex,
         double SurfaceDistanceSquared,
         double CenterlineDistanceSquared,
-        float CenterlineParameter);
+        RoadLocation? Location);
 }

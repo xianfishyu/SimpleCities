@@ -159,6 +159,7 @@ public partial class RoadRenderer
         {
             ArgumentNullException.ThrowIfNull(revision);
             var edgePoints = new Dictionary<int, Vector2[]>(revision.Edges.Count);
+            var edgeDisplaySpans = new Dictionary<int, RoadGeometryDisplaySpan[]>(revision.Edges.Count);
             var roadVertices = new List<Vector2>();
             var roadUvs = new List<Vector2>();
             var roadColors = new List<Color>();
@@ -166,14 +167,17 @@ public partial class RoadRenderer
             var surfaceTriangles = new List<RoadSurfaceTriangle>();
             foreach (GraphEdge edge in revision.Edges.Values.OrderBy(edge => edge.ID))
             {
-                Vector2[] points = RoadGeometryDisplaySampler.SampleSegments(
+                RoadGeometryDisplayPath displayPath = RoadGeometryDisplaySampler.SamplePath(
                     edge.GeometrySegments,
                     _settings.CurveDisplayTolerance);
-                edgePoints.Add(edge.ID, points);
+                Vector2[] points = displayPath.Points;
+                edgePoints.Add(edge.ID, displayPath.Points);
+                edgeDisplaySpans.Add(edge.ID, displayPath.Spans);
                 RoadTypeStyleDefinition style = _settings.RoadTypeStyles.Resolve(edge.RoadType);
                 AppendRoadRibbon(
                     edge.ID,
                     points,
+                    displayPath.Spans,
                     edge.NodeA == edge.NodeB,
                     style.Width * 0.5f,
                     style.Color,
@@ -192,6 +196,7 @@ public partial class RoadRenderer
                 .ToArray();
             return new RoadRendererPreparedLoad(
                 edgePoints,
+                edgeDisplaySpans,
                 roadVertices.ToArray(),
                 roadUvs.ToArray(),
                 roadColors.ToArray(),
@@ -242,6 +247,7 @@ public partial class RoadRenderer
         {
             _owner._staticBatchRebuildScheduled = false;
             _owner._edgePoints = _prepared.EdgePoints;
+            _owner._edgeDisplaySpans = _prepared.EdgeDisplaySpans;
             _owner._roadMeshVertexCount = _prepared.RoadVertices.Length;
             _owner._roadBatchLayer.Mesh = _roadMesh;
             _owner._nodeBatchLayer.Multimesh = _nodeBatch;
@@ -352,6 +358,7 @@ public partial class RoadRenderer
 
 internal sealed record RoadRendererPreparedLoad(
     Dictionary<int, Vector2[]> EdgePoints,
+    Dictionary<int, RoadGeometryDisplaySpan[]> EdgeDisplaySpans,
     Vector2[] RoadVertices,
     Vector2[] RoadUvs,
     Color[] RoadColors,

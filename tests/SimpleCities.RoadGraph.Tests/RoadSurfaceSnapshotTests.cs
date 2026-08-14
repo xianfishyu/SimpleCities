@@ -100,6 +100,52 @@ public sealed class RoadSurfaceSnapshotTests
         Assert.Equal(2, snapshot.PrimitiveCount);
     }
 
+    [Fact]
+    public void PointQueryInterpolatesCanonicalRoadLocation()
+    {
+        RoadSurfaceTriangle[] triangles = QuadWithLocations(
+            edgeID: 7,
+            geometryIndex: 3,
+            startX: 0f,
+            endX: 10f,
+            parameterStart: 0.25f,
+            parameterEnd: 0.75f,
+            ownsLocationEnd: true);
+        var snapshot = new RoadSurfaceSnapshot(Token(), triangles);
+
+        RoadSurfaceHit hit = Assert.IsType<RoadSurfaceHit>(
+            snapshot.FindClosest(new Vector2(5f, 0f), maxSurfaceDistance: 0f));
+
+        Assert.Equal(new RoadLocation(7, 3, 0.5f), hit.Location);
+    }
+
+    [Fact]
+    public void PointQueryUsesHalfOpenLocationOwnershipAtGeometryJoin()
+    {
+        RoadSurfaceTriangle[] before = QuadWithLocations(
+            edgeID: 7,
+            geometryIndex: 0,
+            startX: 0f,
+            endX: 10f,
+            parameterStart: 0f,
+            parameterEnd: 1f,
+            ownsLocationEnd: false);
+        RoadSurfaceTriangle[] after = QuadWithLocations(
+            edgeID: 7,
+            geometryIndex: 1,
+            startX: 10f,
+            endX: 20f,
+            parameterStart: 0f,
+            parameterEnd: 1f,
+            ownsLocationEnd: true);
+        var snapshot = new RoadSurfaceSnapshot(Token(), [.. before, .. after]);
+
+        RoadSurfaceHit hit = Assert.IsType<RoadSurfaceHit>(
+            snapshot.FindClosest(new Vector2(10f, 0f), maxSurfaceDistance: 0f));
+
+        Assert.Equal(new RoadLocation(7, 1, 0f), hit.Location);
+    }
+
     [Theory]
     [InlineData(float.NaN, 0f, 1f)]
     [InlineData(float.PositiveInfinity, 0f, 1f)]
@@ -164,4 +210,47 @@ public sealed class RoadSurfaceSnapshotTests
             centerlineEnd,
             locationStart: null,
             locationEnd: null);
+
+    private static RoadSurfaceTriangle[] QuadWithLocations(
+        int edgeID,
+        int geometryIndex,
+        float startX,
+        float endX,
+        float parameterStart,
+        float parameterEnd,
+        bool ownsLocationEnd)
+    {
+        Vector2 startLeft = new(startX, -2f);
+        Vector2 startRight = new(startX, 2f);
+        Vector2 endLeft = new(endX, -2f);
+        Vector2 endRight = new(endX, 2f);
+        Vector2 centerlineStart = new(startX, 0f);
+        Vector2 centerlineEnd = new(endX, 0f);
+        RoadSurfaceOwner owner = RoadSurfaceOwner.EdgeRibbon(edgeID);
+        var locationStart = new RoadLocation(edgeID, geometryIndex, parameterStart);
+        var locationEnd = new RoadLocation(edgeID, geometryIndex, parameterEnd);
+        return
+        [
+            new RoadSurfaceTriangle(
+                owner,
+                startLeft,
+                startRight,
+                endLeft,
+                centerlineStart,
+                centerlineEnd,
+                locationStart,
+                locationEnd,
+                ownsLocationEnd),
+            new RoadSurfaceTriangle(
+                owner,
+                endLeft,
+                startRight,
+                endRight,
+                centerlineStart,
+                centerlineEnd,
+                locationStart,
+                locationEnd,
+                ownsLocationEnd),
+        ];
+    }
 }

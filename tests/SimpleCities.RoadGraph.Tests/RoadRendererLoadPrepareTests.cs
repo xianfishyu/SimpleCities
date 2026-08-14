@@ -58,6 +58,9 @@ public sealed class RoadRendererLoadPrepareTests
         Assert.Equal(
             first.EdgePoints.OrderBy(pair => pair.Key).Select(pair => (pair.Key, pair.Value)),
             second.EdgePoints.OrderBy(pair => pair.Key).Select(pair => (pair.Key, pair.Value)));
+        Assert.Equal(
+            first.EdgeDisplaySpans.OrderBy(pair => pair.Key).Select(pair => (pair.Key, pair.Value)),
+            second.EdgeDisplaySpans.OrderBy(pair => pair.Key).Select(pair => (pair.Key, pair.Value)));
         Assert.NotEmpty(first.RoadVertices);
         Assert.Equal(first.RoadIndices.Length / 3, first.RoadSurfaceTriangles.Length);
         Assert.Contains(first.NodeMarkers, marker => marker.Diameter == Settings.JunctionRadius * 2f);
@@ -128,7 +131,62 @@ public sealed class RoadRendererLoadPrepareTests
             Assert.Equal(prepared.RoadVertices[prepared.RoadIndices[meshIndex + 2]], triangle.C);
             Assert.Equal(RoadSurfaceOwnerKind.EdgeRibbon, triangle.Owner.Kind);
             Assert.Contains(graph.GetAllEdges(), edge => edge.ID == triangle.Owner.EdgeID);
+            RoadLocation start = Assert.IsType<RoadLocation>(triangle.LocationStart);
+            RoadLocation end = Assert.IsType<RoadLocation>(triangle.LocationEnd);
+            GraphEdge edge = Assert.Single(
+                graph.GetAllEdges(),
+                candidate => candidate.ID == triangle.Owner.EdgeID);
+            Assert.Equal(edge.ID, start.EdgeID);
+            Assert.Equal(edge.ID, end.EdgeID);
+            Assert.InRange(start.GeometryIndex, 0, edge.GeometrySegments.Count - 1);
+            Assert.Equal(start.GeometryIndex, end.GeometryIndex);
+            Assert.True(start.Parameter < end.Parameter);
         }
+    }
+
+    [Fact]
+    public void PurePreparer_SurfaceLocationsOwnGeometryJoinsAndOpenEdgeEndCanonically()
+    {
+        var graph = new RoadGraph();
+        Assert.True(graph.SubmitPath(new RoadBuildRequest(new RoadPath([
+            new LineRoadGeometrySegment(Vector2.Zero, new Vector2(10f, 0f)),
+            new LineRoadGeometrySegment(new Vector2(10f, 0f), new Vector2(10f, 10f)),
+        ]), RoadType.Street)).Success);
+        GraphEdge edge = Assert.Single(graph.GetAllEdges());
+        Assert.Equal(2, edge.GeometrySegments.Count);
+        var preparer = new RoadRenderer.RoadRendererLoadPreparer(Settings);
+
+        RoadRendererPreparedLoad prepared = preparer.Prepare(graph.CaptureRevision());
+        var snapshot = new RoadSurfaceSnapshot(Token(), prepared.RoadSurfaceTriangles);
+
+        RoadSurfaceHit join = Assert.IsType<RoadSurfaceHit>(
+            snapshot.FindClosest(new Vector2(10f, 0f), maxSurfaceDistance: 0f));
+        RoadSurfaceHit end = Assert.IsType<RoadSurfaceHit>(
+            snapshot.FindClosest(new Vector2(10f, 10f), maxSurfaceDistance: 0f));
+        Assert.Equal(new RoadLocation(edge.ID, 1, 0f), join.Location);
+        Assert.Equal(new RoadLocation(edge.ID, 1, 1f), end.Location);
+    }
+
+    [Fact]
+    public void PurePreparer_SelfLoopSeamBelongsToFirstGeometryStart()
+    {
+        var graph = new RoadGraph();
+        Assert.True(graph.SubmitPath(new RoadBuildRequest(new RoadPath([
+            new LineRoadGeometrySegment(Vector2.Zero, new Vector2(10f, 0f)),
+            new LineRoadGeometrySegment(new Vector2(10f, 0f), new Vector2(10f, 10f)),
+            new LineRoadGeometrySegment(new Vector2(10f, 10f), new Vector2(0f, 10f)),
+            new LineRoadGeometrySegment(new Vector2(0f, 10f), Vector2.Zero),
+        ]), RoadType.Street)).Success);
+        GraphEdge edge = Assert.Single(graph.GetAllEdges());
+        Assert.Equal(edge.NodeA, edge.NodeB);
+        var preparer = new RoadRenderer.RoadRendererLoadPreparer(Settings);
+
+        RoadRendererPreparedLoad prepared = preparer.Prepare(graph.CaptureRevision());
+        var snapshot = new RoadSurfaceSnapshot(Token(), prepared.RoadSurfaceTriangles);
+
+        RoadSurfaceHit seam = Assert.IsType<RoadSurfaceHit>(
+            snapshot.FindClosest(edge.GeometrySegments[0].Start, maxSurfaceDistance: 0f));
+        Assert.Equal(new RoadLocation(edge.ID, 0, 0f), seam.Location);
     }
 
     [Fact]
@@ -409,4 +467,12 @@ public sealed class RoadRendererLoadPrepareTests
         string color,
         float width) =>
         new(roadType, displayName, new Color(color), width);
+
+    private static RoadRenderToken Token() => new(
+        SceneGeneration: 1,
+        GraphFacadeID: 2,
+        GraphFacadeGeneration: 3,
+        ChangeSequence: 4,
+        RoadStyleRevision: 5,
+        RenderRequestID: 6);
 }

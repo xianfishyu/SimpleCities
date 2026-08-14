@@ -181,6 +181,7 @@ func require_surface_hit(
 		"%s did not publish road surface primitives" % source):
 		return false
 	var hit: Dictionary = renderer.FindRoadSurfaceHit(position, 0.0)
+	var location: Dictionary = hit.get("location", {})
 	return (
 		require(not hit.is_empty(), "%s did not return a visible surface hit" % source) and
 		require(
@@ -191,7 +192,18 @@ func require_surface_hit(
 			"%s returned a non-zero distance inside the visible surface" % source) and
 		require(
 			hit.get("renderToken", {}) == expected_token,
-			"%s surface hit token did not match the presented token" % source))
+			"%s surface hit token did not match the presented token" % source) and
+		require(not location.is_empty(), "%s surface hit did not return a canonical location" % source) and
+		require(
+			int(location.get("edgeID", -1)) == int(hit.get("edgeID", -2)),
+			"%s surface location did not preserve its owner Edge" % source) and
+		require(
+			int(location.get("geometryIndex", -1)) >= 0,
+			"%s surface location returned an invalid geometry index" % source) and
+		require(
+			float(location.get("parameter", -1.0)) >= 0.0 and
+			float(location.get("parameter", 2.0)) <= 1.0,
+			"%s surface location returned an invalid parameter" % source))
 
 func require_same(
 	before: Dictionary,

@@ -11,6 +11,7 @@ public partial class RoadRenderer : Node2D
 
     // Edge.ID → 确定显示点列；静态道路和动态高亮共用。
     private Dictionary<int, Vector2[]> _edgePoints = new();
+    private Dictionary<int, RoadGeometryDisplaySpan[]> _edgeDisplaySpans = new();
 
     private MeshInstance2D _roadBatchLayer = null!;
     private MultiMeshInstance2D _nodeBatchLayer = null!;
@@ -200,6 +201,7 @@ public partial class RoadRenderer : Node2D
         _committedLoadGraphToken = null;
         _staticBatchRebuildScheduled = false;
         _edgePoints.Clear();
+        _edgeDisplaySpans.Clear();
         foreach (GraphEdge edge in _network.GetAllEdges())
             CacheEdgePoints(edge);
         if (facadeChanged)
@@ -253,6 +255,7 @@ public partial class RoadRenderer : Node2D
             }
             _staticBatchRebuildScheduled = false;
             _edgePoints.Clear();
+            _edgeDisplaySpans.Clear();
             foreach (GraphEdge edge in _network.GetAllEdges())
                 CacheEdgePoints(edge);
             _presentationTokens.RequestGraphChange(
@@ -263,9 +266,15 @@ public partial class RoadRenderer : Node2D
         }
 
         foreach (int edgeID in change.Changes.RemovedEdgeIDs)
+        {
             _edgePoints.Remove(edgeID);
+            _edgeDisplaySpans.Remove(edgeID);
+        }
         foreach (int edgeID in change.Changes.UpdatedEdgeIDs)
+        {
             _edgePoints.Remove(edgeID);
+            _edgeDisplaySpans.Remove(edgeID);
+        }
         foreach (int edgeID in change.Changes.CreatedEdgeIDs
                      .Concat(change.Changes.UpdatedEdgeIDs))
         {
@@ -282,9 +291,11 @@ public partial class RoadRenderer : Node2D
     {
         if (_network == null) return;
 
-        _edgePoints[edge.ID] = RoadGeometryDisplaySampler.SampleSegments(
+        RoadGeometryDisplayPath displayPath = RoadGeometryDisplaySampler.SamplePath(
             edge.GeometrySegments,
             Config.CurveDisplayTolerance);
+        _edgePoints[edge.ID] = displayPath.Points;
+        _edgeDisplaySpans[edge.ID] = displayPath.Spans;
     }
 
     // ── 静态道路和节点批处理 ──
@@ -327,10 +338,18 @@ public partial class RoadRenderer : Node2D
             GraphEdge? edge = _network.GetEdge(edgeID);
             if (edge is null)
                 continue;
+            if (!_edgeDisplaySpans.TryGetValue(
+                    edgeID,
+                    out RoadGeometryDisplaySpan[]? displaySpans))
+            {
+                throw new InvalidOperationException(
+                    $"RoadRenderer display provenance is missing for Edge {edgeID}.");
+            }
             RoadTypeStyleDefinition style = roadTypeStyles.Resolve(edge.RoadType);
             AppendRoadRibbon(
                 edge.ID,
                 points,
+                displaySpans,
                 edge.NodeA == edge.NodeB,
                 style.Width * 0.5f,
                 style.Color,
@@ -412,6 +431,7 @@ public partial class RoadRenderer : Node2D
     private static void AppendRoadRibbon(
         int edgeID,
         IReadOnlyList<Vector2> points,
+        IReadOnlyList<RoadGeometryDisplaySpan> displaySpans,
         bool isClosed,
         float halfWidth,
         Color color,
@@ -423,7 +443,14 @@ public partial class RoadRenderer : Node2D
     {
         if (edgeID < 0)
             throw new ArgumentOutOfRangeException(nameof(edgeID));
+        ArgumentNullException.ThrowIfNull(displaySpans);
         ArgumentNullException.ThrowIfNull(surfaceTriangles);
+        if (displaySpans.Count != Math.Max(0, points.Count - 1))
+        {
+            throw new ArgumentException(
+                "Road ribbon display spans must match every visible point interval.",
+                nameof(displaySpans));
+        }
         int pointCount = points.Count;
         if (isClosed)
         {
@@ -459,8 +486,18 @@ public partial class RoadRenderer : Node2D
             indices.Add(current + 1);
 
             RoadSurfaceOwner owner = RoadSurfaceOwner.EdgeRibbon(edgeID);
+            RoadGeometryDisplaySpan displaySpan = displaySpans[index];
             Vector2 centerlineStart = points[index];
             Vector2 centerlineEnd = points[(index + 1) % pointCount];
+            var locationStart = new RoadLocation(
+                edgeID,
+                displaySpan.GeometryIndex,
+                displaySpan.ParameterStart);
+            var locationEnd = new RoadLocation(
+                edgeID,
+                displaySpan.GeometryIndex,
+                displaySpan.ParameterEnd);
+            bool ownsLocationEnd = !isClosed && index == segmentCount - 1;
             surfaceTriangles.Add(new RoadSurfaceTriangle(
                 owner,
                 vertices[previous],
@@ -468,8 +505,9 @@ public partial class RoadRenderer : Node2D
                 vertices[current],
                 centerlineStart,
                 centerlineEnd,
-                locationStart: null,
-                locationEnd: null));
+                locationStart,
+                locationEnd,
+                ownsLocationEnd));
             surfaceTriangles.Add(new RoadSurfaceTriangle(
                 owner,
                 vertices[current],
@@ -477,8 +515,9 @@ public partial class RoadRenderer : Node2D
                 vertices[current + 1],
                 centerlineStart,
                 centerlineEnd,
-                locationStart: null,
-                locationEnd: null));
+                locationStart,
+                locationEnd,
+                ownsLocationEnd));
         }
     }
 
