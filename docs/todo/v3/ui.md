@@ -12,7 +12,7 @@
 | 1.1 | 道路上下文没有 RoadType 选择控件 | 开放 | 四段式名称与颜色 swatch 选择器写入共享 tool state |
 | 1.2 | ConstructionDock 没有道路改造工具呈现 | 开放 | 资源化 RoadUpgrade 工具、选中态和上下文联动 |
 | 1.3 | DebugPanel 仍把 RoadGroup 数量作为路网指标 | 开放 | 移除 Group 指标，展示 canonical Node/Edge/geometry/self-loop 结构量 |
-| 1.4 | 暂停菜单没有异步 Save/Load/Delete 的独占状态机 | 开放（部分实现） | operation/render token、generation、busy、Escape、退出收敛与 indexed ribbon/cap surface 已接入；补齐 semantic join、junction patch 与结果矩阵 |
+| 1.4 | 暂停菜单没有异步 Save/Load/Delete 的独占状态机 | 开放（部分实现） | operation/render token、generation、busy、Escape、退出收敛与 indexed ribbon/cap/join surface 已接入；补齐 junction patch 与结果矩阵 |
 
 ### 设计覆盖矩阵
 
@@ -22,7 +22,7 @@
 | V3 类型建造 | 当前道路分类只有一个 `city-road` 工具，ToolContextPanel 只显示只读文本和 CellSize | 1.1、`v3-tool-input:2.1` |
 | V3 既有道路改造 | `ToolType` 和 catalog 没有 RoadUpgrade，ConstructionDock 只渲染 Road 工具定义 | 1.2、`v3-tool-input:2.2` |
 | V3 规范存储诊断 | DebugPanel 仍读取 `GetAllGroups()`，无法观察 Edge 压缩、原生几何数量或 self-loop | 1.3、`v3-road-graph:8.2`～`8.5` |
-| V3 异步存档体验 | PauseMenu 已消费结构化 operation state/result，按 token、menu/scene generation 过滤 continuation，busy 时禁用冲突入口并让 Escape 只请求一次取消；退出流程会 drain/shutdown。Load 已联合发布基础 mesh、带 canonical `RoadLocation` 和不可变空间索引的 `EdgeRibbon` + `TerminalCap` surface 与 matching `RoadRenderToken` acknowledgment，但 semantic join 与 junction patch 尚未存在 | 1.4、`v3-save-system:2.3`、`v3-tool-input:2.4`、`v3-grid-rendering:2.2` |
+| V3 异步存档体验 | PauseMenu 已消费结构化 operation state/result，按 token、menu/scene generation 过滤 continuation，busy 时禁用冲突入口并让 Escape 只请求一次取消；退出流程会 drain/shutdown。Load 已联合发布基础 mesh、带 canonical `RoadLocation` 和不可变空间索引的 `EdgeRibbon` + `TerminalCap` + `SemanticJoin` surface 与 matching `RoadRenderToken` acknowledgment，但 junction patch 尚未存在 | 1.4、`v3-save-system:2.3`、`v3-tool-input:2.4`、`v3-grid-rendering:2.2` |
 
 ## 执行顺序
 
@@ -69,8 +69,8 @@
   - 验收：每次命令只对应一个 operation token；旧 generation/continuation 无法改变当前菜单或磁盘；冲突按钮、Enter 和 Escape 不重复发起或提前恢复游戏。Publish、Load、Delete 结果不混淆，Load 不改盘；失败/取消不关闭菜单或误切 `CurrentSlotID`，observer/cleanup warning 不误报失败；成功 Load 只在所有根和 matching presentation token 一次交换后恢复游戏，V2 槽从不出现在 V3 UI，autosave busy 不产生错误噪音。
   - 阶段进展（2026-08-14）：PauseMenu 已改用 `StartSave/StartSaveAs/StartLoad/StartDeleteSlot`，订阅不可变 state/result，并以 `OperationToken + MenuOpenGeneration + SceneGeneration` 拒绝旧 continuation。操作期间保存控件、确认入口和视图切换被禁用；Escape 在 commit 前只发送一次取消，越界后只消费输入。Load 只有 matching 成功结果才关闭菜单，失败/取消保留原菜单；Delete 继续绑定 UI generation、occupant digest 与确认 token。`AutosaveController` 独立统计 success/failure/canceled/skipped-busy。
   - 退出与焦点进展（2026-08-14）：返回主菜单先进入 exit-convergence 状态、等待当前 scene operation drain，再切换场景；窗口关闭、暂停菜单和 MainMenu 退出统一由 `SaveManager` shutdown。所有 deferred focus 通过执行时有效性门禁，旧菜单离树后不会操作失效控件。对应已验证修复记录见 `save-system:BUG-12` 与 `ui:BUG-16`。
-  - 当前证据（2026-08-14）：`PauseMenuContractTests`、`AutosaveContractTests`、`SaveOperationCoordinatorTests`、`RoadGeometryDisplaySamplerTests`、`RoadSurfaceSnapshotTests` 与完整 786/786 自动化通过；其中 scene-style drain 回归覆盖等待 gate 的请求与外部取消竞争，不再遗留会阻塞退出的 lease。surface/load 聚焦组合 34/34 证明 worker prepared triangle/disc 可直接绑定 token。`pause_menu_runtime_contract.gd`、`autosave_runtime_contract.gd` 和隔离用户目录的 `road_render_token_runtime_contract.gd` 输出 PASS；Godot MCP 又验证 aggregate Load 联合发布基础 mesh、matching 六分量 `RoadRenderToken` 与同 token 的 indexed `EdgeRibbon` + `TerminalCap` surface，单路 `surfacePrimitiveCount=4`，A/B cap 命中参数为 `0/1`，且 Load 前新增道路的 surface 不再可命中。Debug/`ExportRelease` build 与 Roslyn/GDScript diagnostics 均为 0，editor 无新增错误且 DAP `stderr` 为空；测试槽和临时产物已清理。
-  - 仍缺（保持开放）：renderer 尚无 semantic join 或 junction patch，UI 也尚未消费已有 ribbon/cap provider，因此仍不能展示最终的 graph/tool/mesh/surface 一次接管语义。observer/cleanup 每类 warning、所有阶段重复激活与真实关键资源故障矩阵也尚未全部验收。
+  - 当前证据（2026-08-14）：`PauseMenuContractTests`、`AutosaveContractTests`、`SaveOperationCoordinatorTests`、`RoadGeometryDisplaySamplerTests`、`RoadSurfaceSnapshotTests` 与完整 793/793 自动化通过；其中 scene-style drain 回归覆盖等待 gate 的请求与外部取消竞争，不再遗留会阻塞退出的 lease。surface/load 聚焦组合 41/41 证明 worker prepared triangle/disc 可直接绑定 token，并保持 ribbon/cap/join owner 与 location。`pause_menu_runtime_contract.gd`、`autosave_runtime_contract.gd` 和隔离用户目录的 `road_render_token_runtime_contract.gd` 输出 PASS；混合边界 Load 联合发布基础 mesh、matching 六分量 `RoadRenderToken` 与同 token 的 indexed `EdgeRibbon` + `TerminalCap` + `SemanticJoin` surface，共 `8` 个 primitive，只保留两个远端 cap marker，并验证 join hit 的稳定 owner、canonical endpoint location 与 matching token。Godot MCP 另验证普通 mutation 的单路 `surfacePrimitiveCount=4`、A/B cap 参数 `0/1`，且 Load 前新增道路的 surface 不再可命中。Debug/`ExportRelease` build 与 Roslyn/GDScript diagnostics 均为 0，editor 无新增错误且 DAP `stderr` 为空；测试槽和临时产物已清理，本轮未重跑 10k/100k。
+  - 仍缺（保持开放）：renderer 尚无 junction patch，UI 也尚未消费已有 ribbon/cap/join provider，因此仍不能展示最终的 graph/tool/mesh/surface 一次接管语义。observer/cleanup 每类 warning、所有阶段重复激活与真实关键资源故障矩阵也尚未全部验收。
 
 ## 暂不执行
 
