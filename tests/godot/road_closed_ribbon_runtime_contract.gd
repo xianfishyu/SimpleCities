@@ -67,8 +67,10 @@ func run() -> void:
 			"Could not create the branch at the opposite loop junction")
 		await process_frame
 		require(renderer.GetRenderedEdgeCount() == 4, "Two-junction loop did not publish four Edges")
-		require(renderer.GetRoadMeshVertexCount() == 20, "Two-junction loop published the wrong mesh size")
-		require(renderer.GetNodeMarkerCount() == 4, "Two-junction loop published the wrong markers")
+		require_junction_patch_presentation(renderer, 38, 2, 20, "Normal junction mutation")
+		require(
+			await V3_SAVE_FIXTURE.save(save_manager, slot_id),
+			"Could not overwrite the slot with the two-junction graph")
 
 		var removed_branch_end := Vector2(-100.0, 0.0)
 		require(builder.BeginRemove(removed_branch_end, false), "Could not begin seam-side branch removal")
@@ -82,11 +84,23 @@ func run() -> void:
 			relocated_edge_count == 2,
 			"Seam relocation left %d Edges instead of one loop and one branch" % relocated_edge_count)
 		require(
-			relocated_vertex_count == 12,
-			"Seam relocation published %d mesh vertices instead of 12" % relocated_vertex_count)
+			relocated_vertex_count == 21,
+			"Seam relocation published %d mesh vertices instead of 21" % relocated_vertex_count)
 		require(
-			relocated_marker_count == 2,
-			"Seam relocation published %d markers instead of 2" % relocated_marker_count)
+			relocated_marker_count == 1,
+			"Seam relocation published %d markers instead of 1" % relocated_marker_count)
+		require_junction_patch_presentation(renderer, 21, 1, 14, "Seam relocation")
+
+		require(
+			await V3_SAVE_FIXTURE.load_slot(save_manager, slot_id),
+			"Could not reload the saved two-junction graph")
+		await process_frame
+		await process_frame
+		require(renderer.GetRenderedEdgeCount() == 4, "Junction Load did not restore four Edges")
+		require_junction_patch_presentation(renderer, 38, 2, 20, "Aggregate junction Load")
+		require(
+			builder.GetUndoEditCount() == 0 and builder.GetRedoEditCount() == 0,
+			"Aggregate junction Load did not reset edit history")
 
 	await finish()
 
@@ -108,6 +122,39 @@ func require_closed_ribbon(renderer: Node, source: String) -> void:
 	require(renderer.GetRenderedEdgeCount() == 1, "%s did not publish one self-loop Edge" % source)
 	require(renderer.GetRoadMeshVertexCount() == 8, "%s retained a duplicate seam vertex pair" % source)
 	require(renderer.GetNodeMarkerCount() == 0, "%s published a false seam marker" % source)
+
+func require_junction_patch_presentation(
+	renderer: Node,
+	expected_vertices: int,
+	expected_markers: int,
+	expected_primitives: int,
+	source: String) -> void:
+	var state: Dictionary = renderer.GetPresentationState()
+	require(
+		renderer.GetRoadMeshVertexCount() == expected_vertices,
+		"%s published %d mesh vertices instead of %d" % [
+			source,
+			renderer.GetRoadMeshVertexCount(),
+			expected_vertices,
+		])
+	require(
+		renderer.GetNodeMarkerCount() == expected_markers,
+		"%s published %d endpoint markers instead of %d" % [
+			source,
+			renderer.GetNodeMarkerCount(),
+			expected_markers,
+		])
+	require(bool(state.get("isReady", false)), "%s is not presentation-ready" % source)
+	require(
+		state.get("desired", {}) == state.get("presented", {}),
+		"%s published mismatched desired/presented tokens" % source)
+	require(
+		int(state.get("surfacePrimitiveCount", -1)) == expected_primitives,
+		"%s published %d surface primitives instead of %d" % [
+			source,
+			int(state.get("surfacePrimitiveCount", -1)),
+			expected_primitives,
+		])
 
 func cleanup() -> void:
 	if save_manager != null and not slot_id.is_empty():

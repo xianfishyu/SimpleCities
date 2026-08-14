@@ -14,9 +14,7 @@ public sealed class RoadRendererLoadPrepareTests
 
     private static readonly RoadRendererLoadSettings Settings = new(
         CurveDisplayTolerance: 0.25f,
-        RoadTypeStyles,
-        JunctionRadius: 10f,
-        JunctionColor: new Color("#FFC107"));
+        RoadTypeStyles);
 
     [Fact]
     public async Task PurePreparer_CanRunOnWorkerWithoutRendererAndIsDeterministic()
@@ -34,6 +32,9 @@ public sealed class RoadRendererLoadPrepareTests
             new LineRoadGeometrySegment(new Vector2(28f, 28f), new Vector2(20f, 28f)),
             new LineRoadGeometrySegment(new Vector2(20f, 28f), new Vector2(20f, 20f)),
         ]), RoadType.Dirt)).Success);
+        GraphNode junction = Assert.Single(
+            graph.GetAllNodes(),
+            node => node.IncidenceCount >= 3);
         RoadGraphRevision revision = graph.CaptureRevision();
         var preparer = new RoadRenderer.RoadRendererLoadPreparer(Settings);
         int callerThread = System.Environment.CurrentManagedThreadId;
@@ -68,7 +69,101 @@ public sealed class RoadRendererLoadPrepareTests
         Assert.NotEmpty(first.RoadVertices);
         Assert.Equal(first.RoadIndices.Length / 3, first.RoadSurface.TriangleCount);
         Assert.True(first.RoadSurface.DiscCount > 0);
-        Assert.Contains(first.NodeMarkers, marker => marker.Diameter == Settings.JunctionRadius * 2f);
+        Assert.DoesNotContain(first.NodeMarkers, marker => marker.Position == junction.Position);
+        Assert.Contains(
+            SurfaceTriangles(first, RoadSurfaceOwnerKind.JunctionPatch),
+            triangle => triangle.Owner.NodeID == junction.ID);
+    }
+
+    [Fact]
+    public void PurePreparer_JunctionPatchMeshSurfaceAndOwnershipStayInLockstep()
+    {
+        RoadGraph graph = CreateAcuteJunction(reverseEdges: false);
+        var preparer = new RoadRenderer.RoadRendererLoadPreparer(Settings);
+
+        RoadRendererPreparedLoad prepared = preparer.Prepare(graph.CaptureRevision());
+        var snapshot = new RoadSurfaceSnapshot(Token(), prepared.RoadSurface);
+        (int Index, RoadSurfaceTriangle Triangle)[] patch = Enumerable
+            .Range(0, prepared.RoadSurface.TriangleCount)
+            .Select(index => (
+                Index: index,
+                Triangle: prepared.RoadSurface.GetPrimitive(index).Triangle))
+            .Where(item => item.Triangle.Owner.Kind == RoadSurfaceOwnerKind.JunctionPatch)
+            .ToArray();
+
+        Assert.Equal(4, patch.Length);
+        Assert.Equal(13, prepared.RoadSurface.PrimitiveCount);
+        Assert.Equal(
+            new[] { 10, 11, 12 },
+            patch.Select(item => item.Triangle.Owner.EdgeID).Distinct().Order());
+        Assert.Equal(3, prepared.NodeMarkers.Length);
+        Assert.DoesNotContain(prepared.NodeMarkers, marker => marker.Position == Vector2.Zero);
+        Assert.All(patch, item =>
+        {
+            RoadSurfaceTriangle triangle = item.Triangle;
+            GraphEdge edge = Assert.IsType<GraphEdge>(graph.GetEdge(triangle.Owner.EdgeID));
+            Assert.Equal(0, triangle.Owner.NodeID);
+            Assert.Equal(EdgeEndpoint.A, triangle.Owner.Endpoint);
+            Assert.Equal(
+                new RoadLocation(edge.ID, 0, RoadGeometrySegment.ParameterStart),
+                triangle.FixedLocation);
+            Assert.Equal(Vector2.Zero, triangle.CenterlineStart);
+            Assert.NotEqual(triangle.CenterlineStart, triangle.CenterlineEnd);
+
+            int meshIndex = item.Index * 3;
+            int[] meshTriangleIndices = prepared.RoadIndices[meshIndex..(meshIndex + 3)];
+            Assert.Equal(
+                [triangle.A, triangle.B, triangle.C],
+                meshTriangleIndices.Select(index => prepared.RoadVertices[index]));
+            Color expectedColor = RoadTypeStyles.Resolve(edge.RoadType).Color;
+            Assert.All(
+                meshTriangleIndices,
+                index => Assert.Equal(expectedColor, prepared.RoadColors[index]));
+        });
+        Assert.Contains(patch, item =>
+        {
+            Vector2 centroid =
+                (item.Triangle.A + item.Triangle.B + item.Triangle.C) / 3f;
+            RoadSurfaceHit? hit = snapshot.FindClosest(centroid, maxSurfaceDistance: 0f);
+            return hit is RoadSurfaceHit
+            {
+                OwnerKind: RoadSurfaceOwnerKind.JunctionPatch,
+                NodeID: 0,
+                Endpoint: EdgeEndpoint.A,
+                Location: not null,
+            };
+        });
+    }
+
+    [Fact]
+    public void PurePreparer_JunctionPatchVisualDoesNotDependOnStoredEdgeDirection()
+    {
+        var preparer = new RoadRenderer.RoadRendererLoadPreparer(Settings);
+
+        RoadRendererPreparedLoad forward = preparer.Prepare(
+            CreateAcuteJunction(reverseEdges: false).CaptureRevision());
+        RoadRendererPreparedLoad reversed = preparer.Prepare(
+            CreateAcuteJunction(reverseEdges: true).CaptureRevision());
+
+        Assert.Equal(
+            ExtractJunctionPatchVisual(forward),
+            ExtractJunctionPatchVisual(reversed));
+        Assert.All(
+            SurfaceTriangles(forward, RoadSurfaceOwnerKind.JunctionPatch),
+            triangle =>
+            {
+                Assert.Equal(EdgeEndpoint.A, triangle.Owner.Endpoint);
+                RoadLocation location = Assert.IsType<RoadLocation>(triangle.FixedLocation);
+                Assert.Equal(RoadGeometrySegment.ParameterStart, location.Parameter);
+            });
+        Assert.All(
+            SurfaceTriangles(reversed, RoadSurfaceOwnerKind.JunctionPatch),
+            triangle =>
+            {
+                Assert.Equal(EdgeEndpoint.B, triangle.Owner.Endpoint);
+                RoadLocation location = Assert.IsType<RoadLocation>(triangle.FixedLocation);
+                Assert.Equal(RoadGeometrySegment.ParameterEnd, location.Parameter);
+            });
     }
 
     [Fact]
@@ -380,7 +475,7 @@ public sealed class RoadRendererLoadPrepareTests
     }
 
     [Fact]
-    public void PurePreparer_SelfLoopWithBranchKeepsJunctionAndEndpointMarkers()
+    public void PurePreparer_SelfLoopWithBranchUsesPatchAndKeepsEndpointMarker()
     {
         Vector2 seam = new(5f, 0f);
         var graph = RoadGraph.FromPreparedTopology(new PreparedRoadGraphTopology(
@@ -407,16 +502,25 @@ public sealed class RoadRendererLoadPrepareTests
 
         RoadRendererPreparedLoad prepared = preparer.Prepare(graph.CaptureRevision());
 
-        Assert.Collection(
-            prepared.NodeMarkers.OrderBy(marker => marker.Diameter),
-            marker => Assert.Equal(
-                Settings.RoadTypeStyles.Resolve(RoadType.Street).Width,
-                marker.Diameter),
-            marker =>
-            {
-                Assert.Equal(seam, marker.Position);
-                Assert.Equal(Settings.JunctionRadius * 2f, marker.Diameter);
-            });
+        RoadRendererNodeMarker endpoint = Assert.Single(prepared.NodeMarkers);
+        Assert.Equal(new Vector2(12f, 0f), endpoint.Position);
+        Assert.Equal(
+            Settings.RoadTypeStyles.Resolve(RoadType.Street).Width,
+            endpoint.Diameter);
+        RoadSurfaceTriangle[] patch = SurfaceTriangles(
+            prepared,
+            RoadSurfaceOwnerKind.JunctionPatch);
+        Assert.NotEmpty(patch);
+        Assert.All(patch, triangle => Assert.Equal(0, triangle.Owner.NodeID));
+        Assert.Contains(
+            patch,
+            triangle => triangle.Owner is
+                { EdgeID: 1, Endpoint: EdgeEndpoint.A });
+        Assert.Contains(
+            patch,
+            triangle => triangle.Owner is
+                { EdgeID: 1, Endpoint: EdgeEndpoint.B });
+        Assert.Contains(patch, triangle => triangle.Owner.EdgeID == 4);
     }
 
     [Fact]
@@ -439,7 +543,7 @@ public sealed class RoadRendererLoadPrepareTests
     }
 
     [Fact]
-    public void PurePreparer_FigureEightClosesBothLoopsAndKeepsSharedJunction()
+    public void PurePreparer_FigureEightClosesBothLoopsAndPatchesSharedJunction()
     {
         var graph = new RoadGraph();
         Assert.True(graph.SubmitPolyline(RoadType.Street, [
@@ -462,11 +566,14 @@ public sealed class RoadRendererLoadPrepareTests
         Assert.Equal(2, prepared.EdgePoints.Count);
         Assert.All(prepared.EdgePoints.Values, points => Assert.Equal(points[0], points[^1]));
         int uniquePointCount = prepared.EdgePoints.Values.Sum(points => points.Length - 1);
-        Assert.Equal(uniquePointCount * 2, prepared.RoadVertices.Length);
-        Assert.Equal(uniquePointCount * 6, prepared.RoadIndices.Length);
-        RoadRendererNodeMarker marker = Assert.Single(prepared.NodeMarkers);
-        Assert.Equal(junction.Position, marker.Position);
-        Assert.Equal(Settings.JunctionRadius * 2f, marker.Diameter);
+        RoadSurfaceTriangle[] patch = SurfaceTriangles(
+            prepared,
+            RoadSurfaceOwnerKind.JunctionPatch);
+        Assert.NotEmpty(patch);
+        Assert.All(patch, triangle => Assert.Equal(junction.ID, triangle.Owner.NodeID));
+        Assert.Equal(uniquePointCount * 2 + patch.Length * 3, prepared.RoadVertices.Length);
+        Assert.Equal(uniquePointCount * 6 + patch.Length * 3, prepared.RoadIndices.Length);
+        Assert.Empty(prepared.NodeMarkers);
     }
 
     [Fact]
@@ -508,11 +615,23 @@ public sealed class RoadRendererLoadPrepareTests
 
         RoadRendererPreparedLoad beforeRemoval = preparer.Prepare(graph.CaptureRevision());
 
-        Assert.Equal(4, beforeRemoval.NodeMarkers.Length);
+        Assert.Equal(2, beforeRemoval.NodeMarkers.Length);
+        Assert.All(
+            beforeRemoval.NodeMarkers,
+            marker => Assert.Equal(
+                Settings.RoadTypeStyles.Resolve(RoadType.Street).Width,
+                marker.Diameter));
+        RoadSurfaceTriangle[] beforePatches = SurfaceTriangles(
+            beforeRemoval,
+            RoadSurfaceOwnerKind.JunctionPatch);
+        Assert.Equal(6, beforePatches.Length);
+        Assert.Equal(20, beforeRemoval.RoadSurface.PrimitiveCount);
         Assert.Equal(
-            2,
-            beforeRemoval.NodeMarkers.Count(marker =>
-                marker.Diameter == Settings.JunctionRadius * 2f));
+            new[] { originalSeam.ID, remainingJunction.ID }.Order(),
+            beforePatches
+                .Select(triangle => triangle.Owner.NodeID!.Value)
+                .Distinct()
+                .Order());
 
         Assert.True(graph.RemoveEdge(removedBranch.ID));
 
@@ -541,18 +660,25 @@ public sealed class RoadRendererLoadPrepareTests
             Vector2[] points = afterRemoval.EdgePoints[edge.ID];
             return (edge.NodeA == edge.NodeB ? points.Length - 1 : points.Length - 1) * 6;
         });
-        Assert.Equal(expectedVertexCount, afterRemoval.RoadVertices.Length);
-        Assert.Equal(expectedIndexCount, afterRemoval.RoadIndices.Length);
-        Assert.Collection(
-            afterRemoval.NodeMarkers.OrderBy(marker => marker.Diameter),
-            marker => Assert.Equal(
-                Settings.RoadTypeStyles.Resolve(RoadType.Street).Width,
-                marker.Diameter),
-            marker =>
-            {
-                Assert.Equal(relocatedSeam.Position, marker.Position);
-                Assert.Equal(Settings.JunctionRadius * 2f, marker.Diameter);
-            });
+        RoadSurfaceTriangle[] afterPatches = SurfaceTriangles(
+            afterRemoval,
+            RoadSurfaceOwnerKind.JunctionPatch);
+        Assert.Equal(3, afterPatches.Length);
+        Assert.Equal(14, afterRemoval.RoadSurface.PrimitiveCount);
+        Assert.All(
+            afterPatches,
+            triangle => Assert.Equal(relocatedSeam.ID, triangle.Owner.NodeID));
+        Assert.Equal(
+            expectedVertexCount + afterPatches.Length * 3,
+            afterRemoval.RoadVertices.Length);
+        Assert.Equal(
+            expectedIndexCount + afterPatches.Length * 3,
+            afterRemoval.RoadIndices.Length);
+        RoadRendererNodeMarker remainingEndpoint = Assert.Single(afterRemoval.NodeMarkers);
+        Assert.Equal(remainingBranchEnd, remainingEndpoint.Position);
+        Assert.Equal(
+            Settings.RoadTypeStyles.Resolve(RoadType.Street).Width,
+            remainingEndpoint.Diameter);
     }
 
     [Fact]
@@ -758,6 +884,64 @@ public sealed class RoadRendererLoadPrepareTests
                     [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(0f, 10f))]),
             ]));
 
+    private static RoadGraph CreateAcuteJunction(bool reverseEdges)
+    {
+        Vector2[] endpoints =
+        [
+            new Vector2(20f, 0f),
+            new Vector2(20f, 4f),
+            new Vector2(-20f, 0f),
+        ];
+        RoadType[] roadTypes =
+        [
+            RoadType.Dirt,
+            RoadType.Highway,
+            RoadType.Street,
+        ];
+        int junctionNodeID = reverseEdges ? 3 : 0;
+        int[] endpointNodeIDs = reverseEdges ? [0, 1, 2] : [1, 2, 3];
+        var edges = new PreparedRoadEdge[endpoints.Length];
+        for (int index = 0; index < endpoints.Length; index++)
+        {
+            int endpointNodeID = endpointNodeIDs[index];
+            Vector2 endpoint = endpoints[index];
+            edges[index] = reverseEdges
+                ? new PreparedRoadEdge(
+                    roadTypes[index],
+                    10 + index,
+                    endpointNodeID,
+                    junctionNodeID,
+                    [new LineRoadGeometrySegment(endpoint, Vector2.Zero)])
+                : new PreparedRoadEdge(
+                    roadTypes[index],
+                    10 + index,
+                    junctionNodeID,
+                    endpointNodeID,
+                    [new LineRoadGeometrySegment(Vector2.Zero, endpoint)]);
+        }
+
+        PreparedRoadNode[] nodes = reverseEdges
+            ?
+            [
+                new PreparedRoadNode(0, endpoints[0]),
+                new PreparedRoadNode(1, endpoints[1]),
+                new PreparedRoadNode(2, endpoints[2]),
+                new PreparedRoadNode(3, Vector2.Zero),
+            ]
+            :
+            [
+                new PreparedRoadNode(0, Vector2.Zero),
+                new PreparedRoadNode(1, endpoints[0]),
+                new PreparedRoadNode(2, endpoints[1]),
+                new PreparedRoadNode(3, endpoints[2]),
+            ];
+
+        return RoadGraph.FromPreparedTopology(new PreparedRoadGraphTopology(
+            13,
+            nodes,
+            edges));
+    }
+
     private static (Vector2 A, Vector2 B, Vector2 C, Color Color, int Sector)[]
         ExtractSemanticJoinVisual(RoadRendererPreparedLoad prepared) =>
         Enumerable.Range(0, prepared.RoadSurface.TriangleCount)
@@ -771,6 +955,37 @@ public sealed class RoadRendererLoadPrepareTests
                 item.Triangle.C,
                 prepared.RoadColors[prepared.RoadIndices[item.Index * 3]],
                 item.Triangle.Owner.SectorOrder))
+            .ToArray();
+
+    private static (
+        Vector2 A,
+        Vector2 B,
+        Vector2 C,
+        Vector2 CenterlineStart,
+        Vector2 CenterlineEnd,
+        Color Color,
+        int Sector)[] ExtractJunctionPatchVisual(RoadRendererPreparedLoad prepared) =>
+        Enumerable.Range(0, prepared.RoadSurface.TriangleCount)
+            .Select(index => (
+                Index: index,
+                Triangle: prepared.RoadSurface.GetPrimitive(index).Triangle))
+            .Where(item => item.Triangle.Owner.Kind == RoadSurfaceOwnerKind.JunctionPatch)
+            .Select(item => (
+                item.Triangle.A,
+                item.Triangle.B,
+                item.Triangle.C,
+                item.Triangle.CenterlineStart,
+                item.Triangle.CenterlineEnd,
+                prepared.RoadColors[prepared.RoadIndices[item.Index * 3]],
+                item.Triangle.Owner.SectorOrder))
+            .ToArray();
+
+    private static RoadSurfaceTriangle[] SurfaceTriangles(
+        RoadRendererPreparedLoad prepared,
+        RoadSurfaceOwnerKind ownerKind) =>
+        Enumerable.Range(0, prepared.RoadSurface.TriangleCount)
+            .Select(index => prepared.RoadSurface.GetPrimitive(index).Triangle)
+            .Where(triangle => triangle.Owner.Kind == ownerKind)
             .ToArray();
 
     private static RoadTypeStyleDefinition Style(

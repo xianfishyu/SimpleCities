@@ -374,12 +374,20 @@ public partial class RoadRenderer : Node2D
                 roadColors,
                 roadIndices,
                 surfaceTriangles);
+            AppendJunctionPatch(
+                node,
+                _network.GetEdge,
+                _edgePoints,
+                roadTypeStyles,
+                roadVertices,
+                roadUvs,
+                roadColors,
+                roadIndices,
+                surfaceTriangles);
             RoadRendererNodeSurface? nullableSurface = CreateNodeSurface(
                 _network,
                 node,
-                roadTypeStyles,
-                Config.JunctionRadius,
-                Config.JunctionColor);
+                roadTypeStyles);
             if (nullableSurface is not RoadRendererNodeSurface nodeSurface)
                 continue;
 
@@ -556,19 +564,19 @@ public partial class RoadRenderer : Node2D
             node.Incidences[0].EdgeID == node.Incidences[1].EdgeID)
             return;
 
-        RoadRendererSemanticIncidence first = CreateSemanticIncidence(
+        RoadJunctionIncidence first = CreateNodeIncidence(
             node,
             node.Incidences[0],
             getEdge,
             edgePoints,
             roadTypeStyles);
-        RoadRendererSemanticIncidence second = CreateSemanticIncidence(
+        RoadJunctionIncidence second = CreateNodeIncidence(
             node,
             node.Incidences[1],
             getEdge,
             edgePoints,
             roadTypeStyles);
-        if (first.Edge.RoadType == second.Edge.RoadType)
+        if (first.Style.RoadType == second.Style.RoadType)
         {
             throw new InvalidOperationException(
                 $"RoadRenderer semantic Node {node.ID} has the same RoadType on both incidences.");
@@ -592,7 +600,7 @@ public partial class RoadRenderer : Node2D
                 throw new InvalidOperationException(
                     $"RoadRenderer semantic Node {node.ID} has an invalid incidence direction pair.");
             }
-            if (first.Edge.RoadType > second.Edge.RoadType)
+            if (first.Style.RoadType > second.Style.RoadType)
                 (first, second) = (second, first);
 
             AppendSameDirectionSemanticJoin(
@@ -618,7 +626,7 @@ public partial class RoadRenderer : Node2D
             surfaceTriangles);
     }
 
-    private static RoadRendererSemanticIncidence CreateSemanticIncidence(
+    private static RoadJunctionIncidence CreateNodeIncidence(
         GraphNode node,
         EdgeIncidence incidence,
         Func<int, GraphEdge?> getEdge,
@@ -627,11 +635,11 @@ public partial class RoadRenderer : Node2D
     {
         GraphEdge edge = getEdge(incidence.EdgeID) ??
             throw new InvalidOperationException(
-                $"RoadRenderer semantic Node {node.ID} references missing Edge {incidence.EdgeID}.");
+                $"RoadRenderer Node {node.ID} references missing Edge {incidence.EdgeID}.");
         if (!edgePoints.TryGetValue(edge.ID, out Vector2[]? points) || points.Length < 2)
         {
             throw new InvalidOperationException(
-                $"RoadRenderer semantic Edge {edge.ID} has no valid display path.");
+                $"RoadRenderer Edge {edge.ID} has no valid display path.");
         }
 
         Vector2 outwardDirection;
@@ -656,17 +664,17 @@ public partial class RoadRenderer : Node2D
                 break;
             default:
                 throw new InvalidOperationException(
-                    $"RoadRenderer semantic Node {node.ID} is not Edge {edge.ID} endpoint {incidence.Endpoint}.");
+                    $"RoadRenderer Node {node.ID} is not Edge {edge.ID} endpoint {incidence.Endpoint}.");
         }
         if (!outwardDirection.IsFinite() || outwardDirection.IsZeroApprox())
         {
             throw new InvalidOperationException(
-                $"RoadRenderer semantic Edge {edge.ID} has no valid visible endpoint direction.");
+                $"RoadRenderer Edge {edge.ID} has no valid visible endpoint direction.");
         }
 
-        return new RoadRendererSemanticIncidence(
+        return new RoadJunctionIncidence(
             node.ID,
-            edge,
+            edge.ID,
             incidence.Endpoint,
             outwardDirection.Normalized(),
             roadTypeStyles.Resolve(edge.RoadType),
@@ -675,8 +683,8 @@ public partial class RoadRenderer : Node2D
 
     private static void AppendBevelSemanticJoin(
         Vector2 nodePosition,
-        RoadRendererSemanticIncidence first,
-        RoadRendererSemanticIncidence second,
+        RoadJunctionIncidence first,
+        RoadJunctionIncidence second,
         List<Vector2> vertices,
         List<Vector2> uvs,
         List<Color> colors,
@@ -714,8 +722,8 @@ public partial class RoadRenderer : Node2D
 
     private static void AppendSameDirectionSemanticJoin(
         Vector2 nodePosition,
-        RoadRendererSemanticIncidence first,
-        RoadRendererSemanticIncidence second,
+        RoadJunctionIncidence first,
+        RoadJunctionIncidence second,
         List<Vector2> vertices,
         List<Vector2> uvs,
         List<Color> colors,
@@ -755,7 +763,7 @@ public partial class RoadRenderer : Node2D
         Vector2 a,
         Vector2 b,
         Vector2 c,
-        RoadRendererSemanticIncidence incidence,
+        RoadJunctionIncidence incidence,
         int sectorOrder,
         List<Vector2> vertices,
         List<Vector2> uvs,
@@ -764,7 +772,7 @@ public partial class RoadRenderer : Node2D
         List<RoadSurfaceTriangle> surfaceTriangles)
     {
         var owner = RoadSurfaceOwner.SemanticJoin(
-            incidence.Edge.ID,
+            incidence.EdgeID,
             incidence.NodeID,
             incidence.Endpoint,
             sectorOrder);
@@ -794,19 +802,96 @@ public partial class RoadRenderer : Node2D
         surfaceTriangles.Add(surface);
     }
 
+    private static void AppendJunctionPatch(
+        GraphNode node,
+        Func<int, GraphEdge?> getEdge,
+        IReadOnlyDictionary<int, Vector2[]> edgePoints,
+        RoadTypeStyleSnapshot roadTypeStyles,
+        List<Vector2> vertices,
+        List<Vector2> uvs,
+        List<Color> colors,
+        List<int> indices,
+        List<RoadSurfaceTriangle> surfaceTriangles)
+    {
+        ArgumentNullException.ThrowIfNull(node);
+        ArgumentNullException.ThrowIfNull(getEdge);
+        ArgumentNullException.ThrowIfNull(edgePoints);
+        ArgumentNullException.ThrowIfNull(vertices);
+        ArgumentNullException.ThrowIfNull(uvs);
+        ArgumentNullException.ThrowIfNull(colors);
+        ArgumentNullException.ThrowIfNull(indices);
+        ArgumentNullException.ThrowIfNull(surfaceTriangles);
+        if (node.IncidenceCount < 3)
+            return;
+
+        var incidences = new RoadJunctionIncidence[node.IncidenceCount];
+        for (int index = 0; index < node.IncidenceCount; index++)
+        {
+            incidences[index] = CreateNodeIncidence(
+                node,
+                node.Incidences[index],
+                getEdge,
+                edgePoints,
+                roadTypeStyles);
+        }
+
+        foreach (RoadJunctionTriangle triangle in
+                 RoadJunctionTessellator.Tessellate(node.Position, incidences))
+        {
+            AppendJunctionPatchTriangle(
+                triangle,
+                vertices,
+                uvs,
+                colors,
+                indices,
+                surfaceTriangles);
+        }
+    }
+
+    private static void AppendJunctionPatchTriangle(
+        RoadJunctionTriangle triangle,
+        List<Vector2> vertices,
+        List<Vector2> uvs,
+        List<Color> colors,
+        List<int> indices,
+        List<RoadSurfaceTriangle> surfaceTriangles)
+    {
+        RoadJunctionIncidence incidence = triangle.Incidence;
+        var owner = RoadSurfaceOwner.JunctionPatch(
+            incidence.EdgeID,
+            incidence.NodeID,
+            incidence.Endpoint,
+            triangle.SectorOrder);
+        var surface = new RoadSurfaceTriangle(
+            owner,
+            triangle.A,
+            triangle.B,
+            triangle.C,
+            centerlineStart: triangle.NodePosition,
+            centerlineEnd:
+                triangle.NodePosition +
+                incidence.OutwardDirection * triangle.CenterlineLength,
+            locationStart: null,
+            locationEnd: null,
+            fixedLocation: incidence.Location);
+        int vertexOffset = vertices.Count;
+        vertices.Add(triangle.A);
+        uvs.Add(new Vector2(0f, 0.5f));
+        colors.Add(incidence.Style.Color);
+        vertices.Add(triangle.B);
+        uvs.Add(Vector2.Zero);
+        colors.Add(incidence.Style.Color);
+        vertices.Add(triangle.C);
+        uvs.Add(Vector2.Zero);
+        colors.Add(incidence.Style.Color);
+        indices.Add(vertexOffset);
+        indices.Add(vertexOffset + 1);
+        indices.Add(vertexOffset + 2);
+        surfaceTriangles.Add(surface);
+    }
+
     private static Vector2 LeftNormal(Vector2 direction) =>
         new(-direction.Y, direction.X);
-
-    private readonly record struct RoadRendererSemanticIncidence(
-        int NodeID,
-        GraphEdge Edge,
-        EdgeEndpoint Endpoint,
-        Vector2 OutwardDirection,
-        RoadTypeStyleDefinition Style,
-        RoadLocation Location)
-    {
-        internal float HalfWidth => Style.Width * 0.5f;
-    }
 
     private static Vector2 CalculateRoadOffset(
         IReadOnlyList<Vector2> points,
@@ -989,9 +1074,7 @@ public partial class RoadRenderer : Node2D
     private static RoadRendererNodeSurface? CreateNodeSurface(
         RoadGraph graph,
         GraphNode node,
-        RoadTypeStyleSnapshot roadTypeStyles,
-        float junctionRadius,
-        Color junctionColor)
+        RoadTypeStyleSnapshot roadTypeStyles)
     {
         if (node.IncidenceCount == 1)
         {
@@ -1014,15 +1097,7 @@ public partial class RoadRenderer : Node2D
                 roadTypeStyles.Resolve(edge.RoadType));
         }
 
-        if (!IsJunctionNode(graph, node) || junctionRadius <= 0f)
-            return null;
-
-        return new RoadRendererNodeSurface(
-            new RoadRendererNodeMarker(
-                node.Position,
-                junctionRadius * 2f,
-                junctionColor),
-            Surface: null);
+        return null;
     }
 
     private static RoadRendererNodeSurface CreateTerminalCapSurface(

@@ -130,7 +130,37 @@ public sealed class RoadRendererLifecycleContractTests
                 graph,
                 boundary,
                 RoadTypeStyles,
-                junctionRadius: 10f));
+            junctionRadius: 10f));
+    }
+
+    [Fact]
+    public void OrdinaryRebuildAndLoadWorkerShareJunctionPatchWithoutStaticJunctionMarkers()
+    {
+        string rendererSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.cs"));
+        string loadSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.LoadCommit.cs"));
+        string ordinaryBuild = ExtractMethod(
+            rendererSource,
+            "private void RebuildStaticBatches",
+            "private bool PresentationResourcesAreReady");
+        string loadBuild = ExtractMethod(
+            loadSource,
+            "internal RoadRendererPreparedLoad Prepare",
+            "private sealed class RoadRendererLoadCommitPlan");
+        string ordinaryNodeSurface = ExtractMethod(
+            rendererSource,
+            "private static RoadRendererNodeSurface? CreateNodeSurface",
+            "private static RoadRendererNodeSurface CreateTerminalCapSurface");
+        string loadNodeSurface = ExtractMethod(
+            loadSource,
+            "private static RoadRendererNodeSurface? CreateNodeSurface",
+            "private static bool TryGetOutgoingDirection");
+
+        Assert.Contains("AppendJunctionPatch(", ordinaryBuild, StringComparison.Ordinal);
+        Assert.Contains("AppendJunctionPatch(", loadBuild, StringComparison.Ordinal);
+        Assert.DoesNotContain("JunctionRadius", ordinaryNodeSurface, StringComparison.Ordinal);
+        Assert.DoesNotContain("JunctionRadius", loadNodeSurface, StringComparison.Ordinal);
     }
 
     private static string ExtractMethod(string source, string startMarker, string endMarker)

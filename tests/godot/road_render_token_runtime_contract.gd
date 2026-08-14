@@ -92,6 +92,8 @@ func run() -> void:
 		return
 	if not require_semantic_join_hit(renderer, Vector2(5.0, 95.0), loaded, "Aggregate Load"):
 		return
+	if not require_junction_patch_hit(renderer, Vector2(300.0, 100.0), loaded, "Aggregate Load"):
+		return
 
 	if not require(
 		await V3_SAVE_FIXTURE.delete_slot(save_manager, slot_id),
@@ -251,11 +253,11 @@ func require_semantic_join_hit(
 	var location: Dictionary = hit.get("location", {})
 	return (
 		require(
-			int(state.get("surfacePrimitiveCount", 0)) == 8,
-			"%s did not publish ribbon, cap, and semantic join primitives together" % source) and
+			int(state.get("surfacePrimitiveCount", 0)) == 21,
+			"%s did not publish ribbon, cap, join, and junction primitives together" % source) and
 		require(
-			renderer.GetNodeMarkerCount() == 2,
-			"%s rendered the degree-two semantic boundary as a node marker" % source) and
+			renderer.GetNodeMarkerCount() == 5,
+			"%s rendered a semantic boundary or junction as a node marker" % source) and
 		require(not hit.is_empty(), "%s did not return a semantic join hit" % source) and
 		require(
 			hit.get("ownerKind", "") == "SemanticJoin",
@@ -272,6 +274,53 @@ func require_semantic_join_hit(
 			int(location.get("geometryIndex", -1)) == 0 and
 			is_zero_approx(float(location.get("parameter", -1.0))),
 			"%s semantic join did not return the canonical Edge endpoint" % source))
+
+func require_junction_patch_hit(
+	renderer: Node,
+	junction_position: Vector2,
+	expected_token: Dictionary,
+	source: String) -> bool:
+	var state: Dictionary = renderer.GetPresentationState()
+	if not require(
+		int(state.get("surfacePrimitiveCount", 0)) == 21,
+		"%s did not publish the complete junction surface" % source):
+		return false
+	if not require(
+		renderer.GetRoadMeshVertexCount() == 38,
+		"%s published the wrong mixed junction mesh size" % source):
+		return false
+	if not require(
+		renderer.GetNodeMarkerCount() == 5,
+		"%s rendered the degree-three junction as a node marker" % source):
+		return false
+
+	for y in range(-40, 41):
+		for x in range(-40, 41):
+			var hit: Dictionary = renderer.FindRoadSurfaceHit(
+				junction_position + Vector2(x, y),
+				0.0)
+			if hit.get("ownerKind", "") != "JunctionPatch" or int(hit.get("nodeID", -1)) != 5:
+				continue
+			var location: Dictionary = hit.get("location", {})
+			return (
+				require(
+					int(hit.get("edgeID", -1)) in [9, 10, 11] and
+					hit.get("endpoint", "") == "A",
+					"%s junction patch did not preserve its primary incidence" % source) and
+				require(
+					float(hit.get("surfaceDistance", -1.0)) == 0.0,
+					"%s returned a non-zero distance inside the junction patch" % source) and
+				require(
+					hit.get("renderToken", {}) == expected_token,
+					"%s junction patch token did not match the presented token" % source) and
+				require(not location.is_empty(), "%s junction patch omitted its location" % source) and
+				require(
+					int(location.get("edgeID", -1)) == int(hit.get("edgeID", -2)) and
+					int(location.get("geometryIndex", -1)) == 0 and
+					is_zero_approx(float(location.get("parameter", -1.0))),
+					"%s junction patch did not return its canonical A endpoint" % source))
+
+	return require(false, "%s did not return a JunctionPatch hit near the junction" % source)
 
 func require_same(
 	before: Dictionary,
@@ -290,11 +339,15 @@ func build_fixture() -> Dictionary:
 		"formatFamily": "simple-cities-v3",
 		"payloadType": "road-network",
 		"schemaVersion": 1,
-		"nextID": 5,
+		"nextID": 12,
 		"nodes": [
 			{"id": 0, "x": -100.0, "y": 100.0},
 			{"id": 1, "x": 0.0, "y": 100.0},
 			{"id": 2, "x": 0.0, "y": 200.0},
+			{"id": 5, "x": 300.0, "y": 100.0},
+			{"id": 6, "x": 400.0, "y": 100.0},
+			{"id": 7, "x": 400.0, "y": 120.0},
+			{"id": 8, "x": 200.0, "y": 100.0},
 		],
 		"edges": [
 			{
@@ -319,6 +372,42 @@ func build_fixture() -> Dictionary:
 					"kind": "line",
 					"start": {"x": 0.0, "y": 100.0},
 					"end": {"x": 0.0, "y": 200.0},
+				}],
+			},
+			{
+				"id": 9,
+				"nodeAID": 5,
+				"nodeBID": 6,
+				"roadType": "dirt",
+				"geometry": [{
+					"version": 1,
+					"kind": "line",
+					"start": {"x": 300.0, "y": 100.0},
+					"end": {"x": 400.0, "y": 100.0},
+				}],
+			},
+			{
+				"id": 10,
+				"nodeAID": 5,
+				"nodeBID": 7,
+				"roadType": "highway",
+				"geometry": [{
+					"version": 1,
+					"kind": "line",
+					"start": {"x": 300.0, "y": 100.0},
+					"end": {"x": 400.0, "y": 120.0},
+				}],
+			},
+			{
+				"id": 11,
+				"nodeAID": 5,
+				"nodeBID": 8,
+				"roadType": "street",
+				"geometry": [{
+					"version": 1,
+					"kind": "line",
+					"start": {"x": 300.0, "y": 100.0},
+					"end": {"x": 200.0, "y": 100.0},
 				}],
 			},
 		],
