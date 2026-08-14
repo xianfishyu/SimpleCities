@@ -1,12 +1,14 @@
 # 第三代道路系统迭代指南
 
-> 文档状态：实施前架构与验收契约
+> 文档状态：实施中；Phase 1～4 与 Phase 6 已完成，Phase 5 的 `v3-save-system:2.1`～`2.2` 已完成、`2.3` 部分实现，Phase 7 的 Load 协作参与者部分接入；当前入口为补齐 `v3-save-system:2.3` 与 Phase 7 的完整 surface/token 联合接管
 >
-> 编写日期：2026-08-13
+> 编写日期：2026-08-14
 >
-> 事实基线：2026-08-13 当前工作树中的 `Scripts/Road/`、`Scripts/Tools/`、`Scripts/UI/`、`Scripts/Core/Save*`、道路与存档自动化、V2 性能基线及 [第二代道路系统迭代设计指南](road-system-v2-gen.md)。
+> 事实基线：2026-08-14 当前工作树中的 `Scripts/Road/`、`Scripts/Tools/`、`Scripts/UI/`、`Scripts/Core/Save*`、道路与存档自动化、Godot MCP 运行时证据、V2 性能基线及 [第二代道路系统迭代设计指南](road-system-v2-gen.md)。
 >
 > 路线图入口：[第三代道路系统路线图](../todo/v3/README.md)；`v3-road-graph:8.0`～`8.6` 负责领域实现和最终集成，跨系统工作分别记录在 `docs/todo/v3/` 的 owning system 文档中。
+
+> 当前实施记录（2026-08-14）：Phase 1～4 已完成 mutation 数值/容量门禁、endpoint-role incidence、self-loop/parallel Edge、六类原生方向与权威锚、最大连续 Edge、半开 query fragment locality、RoadGroup 移除、closed/self-intersection、四类 `RoadType`、原子 `ChangeRoadType`、不可变 `RoadGraphRevision` root、统一 `GraphChanged`/可逆 delta，以及 lineage/domain revision/change sequence 身份。Phase 5 已完成独立 `user://saves-v3` 根、严格 `simple-cities-v3` format v1、有界 streaming reader、同句柄完整性校验、PNG 预算、五类 occupant、publish/delete descriptor、tombstone、OS 根锁和 digest 恢复矩阵；`SaveOperationCoordinator`、结构化 token/state/result、手动优先与单 pending autosave、取消/退出收敛，以及 RoadGraph + 空工具/history + 基础 renderer mesh + 槽目标的首个 aggregate Load 已实现，等待 gate 时外部取消不会再产生占锁 lease。Phase 6 的 delta/token 与 entry/估算字节双预算已完成。Phase 7 已部分实现普通与 Load 共用的 closed ribbon、循环 seam join、纯 self-loop seam marker 隐藏，以及两路口环、八字形和删除支路后的 seam 重定位；`v3-save-system:2.3` 及 Phase 7 协作项仍开放，因为当前 renderer 仍只有统一样式 open/closed ribbon 和 `GraphStateToken`，尚无 `RoadSurfaceSnapshot` / `RoadSurfaceHit`、junction patch、六分量 `RoadRenderToken`、RoadType 样式/UI、RoadUpgrade、缩放/重建视觉矩阵或平行 Edge 表面命中。完整自动化当前为 727/727；Debug 与 `ExportRelease` build 均为 0 警告/0 错误，Roslyn compiler/analyzer 为 0 diagnostics，Godot MCP 主场景 smoke 的 editor error 与 DAP `stderr` 为空。最新完整 Vulkan 运行中，10k camera/preview/highlight P95 为 0.657/0.779/0.672 ms、Load 与 renderer rebuild 为 608.025 ms；首轮 100k 为 13.517/0.722/0.699 ms、重建 4108.956 ms，100k 原样复跑为 0.616/0.661/0.637 ms、重建 4492.629 ms，两轮均 PASS。renderer lifecycle、闭环普通/Load 与 V3 综合运行时契约也均输出 PASS。Windows Desktop QA 导出包继续通过可写与只读 ACL profile。首次冷启动超门和首轮 100k camera 尾延迟证据仍保留在第 11 节；Phase 8 附录 D 继续保持为空。
 
 ---
 
@@ -41,25 +43,28 @@ V2 存档不属于 V3 输入：不扫描、不列出、不迁移、不只读加�
 
 ## 2. 当前源码事实与问题边界
 
-V2 已具备正确的几何基础，但存储仍被提交过程碎片化：
+当前工作树已完成 Phase 3 的道路图与闭合输入垂直切片、Phase 4 的类型化建造与不可变事务、Phase 5 的 format/root/storage 切片、由真实 V3 Load 验证的 Phase 6 delta/history，并部分接入 Phase 5/7 的异步 aggregate Load；剩余边界如下：
 
 | 当前事实                                                 | 证据位置                                                      | 对 V3 的含义                               |
 | -------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------ |
 | `GraphEdge` 已持有多个连续 `RoadGeometrySegment`     | `GraphEdge.GeometrySegments`                                | 不需要发明新的道路几何容器                 |
-| 折线只有共线且同 Group 时才会合并                        | `SubmitPolyline`、`TryMergeAtNode`                        | 非共线转弯仍被错误保存为多个 Edge          |
-| 原生路径按`NativePathPiece` 逐片调用 `AddEdge`       | `SubmitPathCore`、`PlanIncomingPieces`                    | 原生段边界和交点片段都可能变成 Edge 边界   |
-| `GraphNode` 只保存 `EdgeRef(edgeID, neighborNodeID)` | `GraphNode.cs`                                              | 自环的 A/B 两个端接无法区分                |
-| `AddEdge` 与当前 V2 payload 都拒绝相同端点             | `RoadGraph.PathSubmission.cs`、`RoadGraph.Persistence.cs` | 简单闭环无法表示为一条自环 Edge            |
-| `RoadGroup` 是 Edge 的单值所属关系                     | `GraphEdge.GroupID`、`RoadGroup.EdgeIDs`                  | 两次提交形成的一条连续道路无法无损合并     |
-| 删除后的 V2 契约禁止自动合并                             | `RemoveEdgesCore` 及 V2 回归                                | 删除支路后会留下已经失去结构意义的二度节点 |
-| renderer 从`NodeA` 优先推导切线                        | `RoadRenderer.TryGetOutgoingDirection`                      | 自环两个 incidence 会得到同一端方向        |
-| 闭合路径被判作重复点                                     | `ValidatePolyline`、`ValidateNativePath`                  | 环路没有合法公共提交入口                   |
-| 保存先构造完整 DTO 和缩进 JSON 字符串                   | `RoadGraph.CaptureState`、`SaveSlotStore.Save`            | 长几何链会同时占用运行时、DTO 和字符串内存 |
-| 加载先 `ReadAllText`，再完整解析两次                    | `SaveSlotStore.Load`、`RoadGraph.PrepareRestoreState`     | 业务校验前没有文件大小或实体数量门禁       |
-| 撤销项各保存 before/after 两份完整 JSON                 | `RoadEditHistory`                                         | 64 项历史会重复保留最多 128 份全图字符串   |
-| 中断恢复只凭新槽存在 manifest 决定删除 backup           | `SaveSlotStore.RecoverSlotPublication`                    | 原子可见性不等于新槽内容已被完整验证       |
+| 折线、原生路径和跨提交接缝已归一化为最大连续 Edge      | `SubmitPathCore`、`FinalizeMutation`、`TryMergeAtNode`    | Phase 2 已完成；后续类型边界必须进入 merge key |
+| query fragment 保留 geometry/参数身份到精确测试后       | `SpatialIndex.cs`、`RoadGraph.cs`、`RoadGraph.NativePathIntersections.cs` | 长 Edge 的局部查询不扫描远端 geometry |
+| `GraphNode` 已保存 `EdgeIncidence(edgeID, endpoint, neighborNodeID)` | `GraphNode.cs`、`RoadGraph.PreparedTopology.cs` | 8.1 已能区分自环 A/B；后续算法必须继续按 incidence 工作 |
+| 公共提交与 V3 reader 均允许 canonical rooted self-loop、parallel Edge 与离散自交 | `RoadGraph.PreparedTopology.cs`、`RoadGraph.PathSubmission.cs`、`RoadGraph.NativePathIntersections.cs`、`RoadGraph.Persistence*.cs` | Phase 3 与 `v3-save-system:2.1`～`2.2` 已完成；reader 与 mutation 共享容量和规范形门禁 |
+| `RoadGroup`、Group API/事件/结果和 Group 指标已删除     | `GraphEdge.cs`、`RoadGraph.cs`、`RoadPathSubmissionResult.cs` | 生产图不再携带提交来源身份                  |
+| 删除后会按受影响节点恢复最大连续 Edge                   | `RemoveEdgesCore`、`FinalizeMutation`                     | 支路移除不会遗留非结构性二度节点            |
+| renderer 已从 `EdgeEndpoint` 选择首/末端切线            | `RoadRenderer.TryGetOutgoingDirection`                      | self-loop A/B 得到各自的出射方向；Phase 7 已完成基础 closed ribbon，复杂表面矩阵仍开放 |
+| 闭合与自交路径已进入公共提交，连续重叠结构化拒绝           | `ValidateNativePath`、`PlanNativePathIntersections`、`RoadPlacementSession` | Phase 3 已完成；RoadType 与 closed ribbon 分属 Phase 4/7 |
+| Edge 已强制携带合法 `RoadType`，提交、拆分、交叉、批量改造和归一化均传播类型 | `RoadBuildRequest`、`GraphEdge`、`SubmitPathCore`、`ChangeRoadType` | Phase 4 已完成；类型选择与 RoadUpgrade 工具仍属 Phase 7 |
+| 活动图由不可变 root、统一 delta 和完整 state token 表达 | `RoadGraphRevision`、`RoadGraph.Transactions.cs`、`GraphChanged` | Phase 4 已完成；V3 writer 可直接 O(1) 捕获 root，表现层仍需自己的完整 generation token |
+| 保存以 O(1) 捕获不可变 revision，并直接写无缩进 UTF-8 流 | `IStreamingSaveable`、`RoadGraph.CaptureSnapshot`、`WriteSnapshot` | 已消除完整业务 DTO/字符串副本；async coordinator 在后台执行 serialize/hash/I/O |
+| Save/Load/Delete/autosave 只公开 token 入口和结构化 state/result | `SaveOperationCoordinator`、`SaveManager.Start*`、`AutosaveController`、`PauseMenu` | 进程内排他、手动优先、pending autosave、取消与退出收敛已接入；完整表现结果仍属开放的联合项 |
+| Load 以固定 buffer reader 准备 V3 root，并在同一 aggregate 中交换 graph/tool/basic mesh/slot | `V3JsonStreamReader`、`PreparedAggregateLoad`、`RoadGraph.LoadCommit.cs`、`RoadRenderer.LoadCommit.cs`、`ToolManager.LoadCommit.cs` | 基础 participant 已原子接管；surface/hit index 与完整 presentation token 仍缺 |
+| 撤销项只保存可逆 delta、完整 token 和估算字节             | `RoadEditHistory`                                         | Phase 6 已完成；真实 V3 Load 已证明新 lineage 清空旧历史与 token |
+| manifest 绑定 payload 名称、长度和 SHA-256，operation-specific transaction 绑定 publish/delete descriptor | `V3ManifestCodec`、`V3PublicationDescriptorCodec`、`V3DeletionDescriptorCodec`、`SaveSlotStore` | OS 根锁、quarantine/tombstone、digest 恢复矩阵和 cleanup-pending 已由 `v3-save-system:2.2` 完成 |
 
-这些是同一个建模问题，不应分别打补丁。若只允许 `NodeA == NodeB`，邻接、度数、方向、渲染和存档仍会出错；若只放宽合并条件，`GroupID` 又会丢失来源语义。V3 必须一次定义规范形和事务边界。
+Phase 1 已把 `NodeA == NodeB`、邻接、度数、方向、查询和现有 renderer 的图基础作为同一垂直切片完成；Phase 2 已在此基础上完成最大连续 Edge、Group 移除与局部 fragment 索引；Phase 3 已让公共闭合/自交提交和共享 placement 生命周期消费同一契约；Phase 4 已让类型化建造、改造、不可变 root、delta 和事务身份消费相同规范 Edge；Phase 5 已让 V3 reader/writer、独立保存根和 async coordinator 消费 canonical root，并以首个 aggregate 连接 graph/tool/basic renderer/slot；Phase 6 已用真实 V3 Load 验证历史 lineage 边界；Phase 7 已让基础 closed ribbon 在普通 mutation 与 Load 中共享同一 seam 语义，并覆盖两路口环、八字形和删除支路后的 seam 重定位。后续完整 surface aggregate、缩放/重建视觉矩阵和平行 Edge 独立表面命中必须继续保留 seam、typed direction、规范交点坐标、RoadType、root/token 和失败原子性，不能重新引入提交来源身份、默认类型、伪拓扑边界、二次模糊吸附、全图 JSON 历史或整 Edge 局部扫描。
 
 ---
 
@@ -106,7 +111,9 @@ V3 只在以下位置保留节点：
 6. 一条 Edge 的全部几何共享同一个 `RoadType`。
 7. 空间索引按原生几何的参数区间建立无拓扑身份的 query fragment；压缩 Edge 不得让局部精确查询退化为扫描整条 Edge。
 8. geometry 链也是规范化的：可无损合并的相邻同类 primitive 必须合并。这里的“相邻”只指根化数组中的 `(i, i + 1)`；self-loop 的数组尾和数组首隔着 loop seam，是硬边界，禁止跨 seam 合并或旋转数组寻找更短表示。V3 首先要求连续共线同向 line 合并；其他原生曲线只有在能以相同类型和参数精确表示、且不改变方向、长度或求值结果时才允许合并，禁止用采样近似减少段数。
-9. 非自环 Edge 始终令 `NodeAID < NodeBID`；若拓扑操作得到相反方向，必须用原生几何反向契约翻转完整 geometry 链。geometry 的相邻端点在提交态使用同一个规范坐标值，不能只依赖近似相等。
+9. 非自环 Edge 始终令 `NodeAID < NodeBID`；若拓扑操作得到相反方向，必须用原生几何反向契约翻转完整 geometry 链。geometry 的相邻端点在提交态使用同一个规范 binary32 坐标值，不能只依赖近似相等；定向后必须再次验证逐 bit 连续。
+
+圆弧和 clothoid 不能只把可重算参数当作完整权威表示。部分圆弧除 `center/radius/startAngle/sweepAngle` 外，还保存逐 bit `Start` / `End` 锚和权威 `EndAngle`；clothoid 除起点、heading、曲率和弧长外，还保存逐 bit `End` 锚和权威 `ReverseStartHeading`。这些字段是 primitive 已承诺的 binary32 表示，不是 Phase 2/3 的 intersection cluster 重锚：split、reverse 和 codec 只能交换或继承它们，不能用三角函数或数值积分重新推导公共端点。
 
 line primitive 的压缩不使用几何 epsilon。`Line(A, M)` 与 `Line(M, B)` 只有在公共端点逐 bit 相同，并对有限 binary32 坐标满足 overflow-safe 精确谓词 `Orient2D(A, M, B) == 0` 且 `DotSign(M - A, B - M) > 0` 时，才能替换为 `Line(A, B)`。谓词可以使用精确展开、受检整数化或等价的 exact-sign 实现，但不能使用普通 float cross、`IsEqualApprox` 或角度近似；因此偏移 1 ULP 的折点、回头和反向重叠都必须保留。
 
@@ -142,7 +149,7 @@ RoadQueryFragment(
 
 ### 4.1 incidence 是度数的基本单位
 
-现有 `EdgeRef` 需要被替换或扩展为下面的逻辑形状：
+Phase 1 已把现有 `EdgeRef` 替换为下面的逻辑形状：
 
 ```csharp
 public enum EdgeEndpoint
@@ -173,12 +180,14 @@ A incidence -> firstGeometry.GetUnitTangent(0)
 B incidence -> -lastGeometry.GetUnitTangent(1)
 ```
 
-规范化需要把任意 Edge 定向后拼接，因此 `RoadGeometrySegment` 还需要一个保留原生类型的反向契约。六类几何都必须满足：
+规范化需要把任意 Edge 定向后拼接；Phase 1 已为 `RoadGeometrySegment` 建立保留原生类型的反向契约。六类几何均满足：
 
 - 反向后 Start/End 交换，轨迹集合和长度不变；
-- 反向两次得到与原对象等价的控制参数；
+- 反向两次得到与原对象逐值相同的权威控制参数和锚字段；
 - Bézier 交换控制点，Hermite 交换并反向端切线，圆弧反转 sweep，clothoid 正确转换朝向和有符号曲率；
 - 绝不通过显示采样点重建权威几何。
+
+其中圆弧反向交换 `Start` / `End`，以原 `EndAngle` 作为反向起始角并保留可再次交换回去的权威角；clothoid 反向交换 `Start` / `End`，以 `ReverseStartHeading` 作为新起始 heading，同时把原 `StartHeading` 的反向值保留为新的 `ReverseStartHeading`。反向链在段顺序翻转后必须逐 bit 连续；任何“数学上接近”但改变 join bit pattern 的实现都不满足本契约。
 
 ---
 
@@ -207,7 +216,7 @@ B incidence -> -lastGeometry.GetUnitTangent(1)
 3. 新建简单闭环时，第一个已吸附或新建的路径锚点参与相同 ID 规则；从 V3 payload 准备的图必须已经满足同一规范规则，否则拒绝加载。
 4. seam 是存储结构，不是道路端点或路口，renderer 不绘制 endpoint/junction 标记。
 5. self-loop 先从 topology seam 根化为 seam A 到 seam B 的线性 geometry 数组；数组末尾和开头禁止合并，也不得通过循环移位改变 seam。seam 两侧即使是共线同向 line 也保留两个 primitive，只有数组内部的相邻项适用 3.3 的压缩规则。
-6. self-loop 在 seam 固定后仍有正反两个等价方向；只比较“当前原生链”与“反转段顺序并逐段原生反向”的链，选择规范数值 key 较小者作为存储方向。key 是带版本和 primitive kind tag 的 typed numeric token 序列：每段先验证有限值、把 `-0` 规范为 `+0`、把周期角度/heading 规范到约定区间，再按 schema 权威字段顺序写 binary32 token，并按明确的 IEEE total order 比较。key 排除 Node/Edge ID、RoadType、JSON 文本、`Length`、`Bounds`、显示采样和 query fragment；它不试图统一不同 Bézier 参数化或同比例 rational weights。
+6. self-loop 在 seam 固定后仍有正反两个等价方向；只比较“当前原生链”与“反转段顺序并逐段原生反向”的链，选择规范数值 key 较小者作为存储方向。key 是带版本和 primitive kind tag 的 typed numeric token 序列：每段先验证有限值、把 `-0` 规范为 `+0`、把周期角度/heading 规范到约定区间，再按 schema 权威字段顺序写 binary32 token，并按明确的 IEEE total order 比较。圆弧 token 包含逐 bit `Start` / `End`、`startAngle` / `endAngle` 和 sweep，clothoid token 包含逐 bit `Start` / `End`、`startHeading` / `reverseStartHeading`、两端曲率和弧长。key 排除 Node/Edge ID、RoadType、JSON 文本、`Length`、`Bounds`、显示采样和 query fragment；它不试图统一不同 Bézier 参数化或同比例 rational weights。
 
 该规则依赖稳定 ID 和规范原生参数，而不是浮点坐标极值或显示采样，因此保存、加载和同一事务重放能得到相同结果。两个不同编辑历史可能为语义相同的对象分配不同 ID；V3 保留已有身份优先，不会为了制造全图逐字相同而重编号未修改实体。跨提交顺序测试因此比较“按 ID 重命名后的拓扑/几何等价”；相同图、schema 往返和同一 delta 重放才要求 ID 与 payload 字节保持不变。
 
@@ -221,7 +230,7 @@ B incidence -> -lastGeometry.GetUnitTangent(1)
 - 非相邻几何的连续自重叠拒绝为 `SelfOverlap`，不能生成方向或所有权不明确的重复道路。
 - `A -> B -> A` 这类完全回走不是有效闭环；应由重叠检测拒绝且无副作用。
 
-`CircularArc` 的 full-turn 必须是精确的数值格式，而不是“足够接近一圈”：`startAngle` 先规范到 `[0, Tau)`，只有 `abs(sweepAngle)` 与 canonical binary32 `Tau` 逐 bit 相等时才是 full-turn；`BitDecrement(Tau)` 仍是开弧，`BitIncrement(Tau)` 越界拒绝。full-turn 的 `End` 和 `GetPosition(1)` 直接返回同一个 `Start` 值，禁止再次三角计算制造 seam 偏差。反向 full-turn 保留规范 start/seam 并仅翻转 sweep 符号；部分圆弧反向才使用 `Normalize(startAngle + sweepAngle), -sweepAngle`。通用的 `Start ~= End` 退化检查必须给正长度 full-turn 明确例外。
+`CircularArc` 的 full-turn 必须是精确的数值格式，而不是“足够接近一圈”：只有 `abs(sweepAngle)` 与 canonical binary32 `Tau` 逐 bit 相等时才是 full-turn；`BitDecrement(Tau)` 仍是开弧，`BitIncrement(Tau)` 越界拒绝。full-turn 的 `End` 和 `GetPosition(1)` 直接返回同一个权威 `Start` 锚，禁止再次三角计算制造 seam 偏差。反向 full-turn 交换同一个 seam 锚并翻转 sweep 符号；部分圆弧反向使用保存的 `EndAngle` 与交换后的精确锚，而不是重新以 `Normalize(startAngle + sweepAngle)` 猜测新起点。通用的 `Start ~= End` 退化检查必须给正长度 full-turn 明确例外。
 
 ---
 
@@ -277,6 +286,8 @@ B incidence -> -lastGeometry.GetUnitTangent(1)
 ### 6.4 数值规范、交点聚类与容量
 
 `float.IsFinite` 只是第一道门禁。极大但有限的坐标仍会让距离平方、curve bounds、bucket 坐标、长度累计和 `_nextID++` 溢出。V3 建立 mutation 与 format v1 load 共用的 `RoadNumericPolicy` / `RoadGraphCapacity`：
+
+截至 2026-08-14，mutation 一侧的策略、admission、实际容量 invariant、exact-sign predicate、geometry canonicalizer、确定 cluster 规划和六类 typed `ReanchorChain` 已完成；cluster/Node 的共享规范坐标会写入 split geometry 的公共端点，不通过显示采样或无类型平移猜测控制参数。format v1 reader 已通过 `v3-save-system:2.1`～`2.2` 复用同一容量与 prepared-topology 门禁。
 
 - 所有 Node 坐标、原生控制参数、半径、曲率派生 bounds 和查询半径都受命名范围限制；距离与累计长度使用受检的 double 中间值，最终值还必须落回许可范围。
 - 限制单 geometry 长度、单 Edge 权威长度、全图权威长度、Node/Edge/geometry 数、mutation candidate/split 数、query fragment/bucket/ref 数和准备态峰值估算。
@@ -460,9 +471,12 @@ V3 在编辑器和导出中统一使用 `user://saves-v3`，测试只能通过�
         {
           "version": 1,
           "kind": "circularArc",
+          "start": { "x": 10.0, "y": 0.0 },
+          "end": { "x": 10.0, "y": 0.0 },
           "center": { "x": 0.0, "y": 0.0 },
           "radius": 10.0,
           "startAngle": 0.0,
+          "endAngle": 0.0,
           "sweepAngle": 6.2831855
         }
       ]
@@ -471,7 +485,7 @@ V3 在编辑器和导出中统一使用 `user://saves-v3`，测试只能通过�
 }
 ```
 
-format v1 不包含 `groups`、`groupID` 或提交来源字段。`nodeAID == nodeBID` 是合法 self-loop；其 geometry 必须为正长度闭合链。平行 Edge 允许共享同一端点对，但必须具有不同 ID 和不同的非覆盖几何。
+format v1 不包含 `groups`、`groupID` 或提交来源字段。`nodeAID == nodeBID` 是合法 self-loop；其 geometry 必须为正长度闭合链。平行 Edge 允许共享同一端点对，但必须具有不同 ID 和不同的非覆盖几何。所有 geometry 写出方向 key 使用的完整权威字段：圆弧必须同时写 `start`、`end`、`startAngle`、`endAngle` 与 `sweepAngle`，clothoid 必须同时写 `start`、`end`、`startHeading`、`reverseStartHeading`、两端曲率与弧长；V3 reader 不接受缺少整组锚字段的旧推导形状，也不重算端点。
 
 严格校验至少包括：
 
@@ -522,7 +536,7 @@ manifest 和每个 payload 都只从各自一个受限句柄完成 byte budget�
 
 活动 `RoadGraph` 是稳定 facade，权威状态保存在完全不可变的 `RoadGraphRevision` root 中；Entity、geometry、邻接、incidence、query fragment、空间索引和 diagnostics 都不得在发布后原地修改。mutation plan 或 load prepare 构造并验证新 root，再原子替换引用。不可变不等于每次编辑深拷贝全图：普通 mutation 必须使用持久化映射/集合、固定大小页或等价的 copy-on-write 结构，只复制受影响的 Entity、邻接/incidence 项、query fragment、bucket/reference 页和到 root 的索引路径，未触碰的子树、页与 geometry 数组在相邻 revision 间按引用共享；任何可变 builder 只能存在于未发布 plan 内，发布前冻结，不能把可写集合或缓冲区泄漏给旧/新 root。full load/full reset 可以线性建立全新 root，但单点建造、拆除、改造和 delta undo/redo 的时间与分配必须由受影响拓扑及空间覆盖决定，不得随无关远端图总量线性增长。共享对象的回收由仍存活的活动 root、后台 save/render snapshot 和有预算的历史 delta/root 引用共同决定，完成、取消或淘汰后必须释放其所有权，不能用永久 revision 表保留整图。
 
-保存只需在主线程 O(1) 捕获当前 root 引用及其 runtime token，随后直接把 canonical UTF-8 流式写入隐藏 staging；玩家之后的编辑构造新 root，不改变已捕获快照。禁止为了“异步保存”仍在主线程深拷贝大图或物化完整 payload 字符串。加载从受限句柄直接构造完整 prepared aggregate，去掉当前 `ReadAllText -> JsonDocument.Parse -> DTO deserialize` 的重复完整表示。
+保存只需在主线程 O(1) 捕获当前 root 引用及其 runtime token，随后直接把 canonical UTF-8 流式写入隐藏 staging；玩家之后的编辑构造新 root，不改变已捕获快照。禁止为了“异步保存”仍在主线程深拷贝大图或物化完整 payload 字符串。当前 RoadGraph reader 已从受限句柄直接构造完整 prepared root，移除了 `ReadAllText -> JsonDocument.Parse -> DTO deserialize` 的重复完整表示；`v3-save-system:2.3` 仍需把这条能力放入后台 aggregate Prepare，并补齐跨 participant 的 Preflight/commit。
 
 ### 10.5 发布、恢复与完整性边界
 
@@ -585,7 +599,9 @@ V3 根中的 canonical direct child 只分类为 `Absent | CompleteV3 | CorruptV
 
 ### 10.6 快照、并发、取消与加载提交
 
-当前 `Save`、`Load` 和 Timer autosave 都在主线程同步执行，且固定事务路径没有并发所有者。V3 由 `SaveOperationCoordinator`（名称可调整）统一调度 operation token 和保存根排他；它不能混淆 Publish、Load 和 Delete 的权限边界。所有目录状态变更同时持有进程内 gate 和跨进程 lock，Load 在持锁的只读窗口准备输入后释放磁盘资源，再进入场景 preflight。操作结果是带 `OperationToken`、阶段、commit 标志和 warning 集合的结构化值，不能退化为 bool。
+当前生产入口已经删除同步 bool API：`SaveManager.StartSave/StartSaveAs/StartLoad/StartDeleteSlot/StartAutosave` 返回唯一 operation token，`SaveOperationCoordinator` 用进程内 gate 调度不可变 state/result，`SaveSlotStore` 继续在每次目录操作内持有跨进程 `.save-root.lock`。Save 在主线程 O(1) 捕获 immutable root，serialize/hash/I/O 与 Load reader/basic tessellation 在后台执行；Load 回到主线程完成 Preflight 和 non-yield commit。手动请求优先，Timer busy 只合并一个 pending autosave；scene/menu generation、取消边界、退出 drain/shutdown 和 typed rejection 已接入。Publish、Load、Delete 与 Autosave 保持独立 kind、phase、token 和结果，不再压成 bool。
+
+当前 `v3-save-system:2.3` 仍不能关闭：首个 `PreparedAggregateLoad` 只覆盖 RoadGraph、新的空工具/history、统一样式基础 `ArrayMesh`/`MultiMesh` 和 `CurrentSlotID`。它已经证明 generation 门禁、提交前失败逐值保留、一次引用交换和 observer warning 隔离，但 renderer 尚未提供 `RoadSurfaceSnapshot`、hit index、closed/junction 的 surface owner 或六分量 desired/presented token，也未完成第二 saveable 与每个关键资源故障点的联合矩阵。完整设计仍按下述四阶段收口，不能把当前 basic mesh participant 当作最终表现契约。
 
 Save 走 capture/prepare/`PublishV3`；Load 固定为以下四阶段：
 
@@ -596,6 +612,8 @@ Save 走 capture/prepare/`PublishV3`；Load 固定为以下四阶段：
 
 V3 当前业务 payload 只有 RoadGraph，但协议必须从一开始就是 prepared aggregate swap。未来增加 saveable 时，全部系统先 Prepare，再 Preflight，最后只交换已经准备好的不可变引用；禁止顺序调用可能抛异常的 `RestoreState` 把前半系统留在新状态。稳定 `RoadGraph` facade 不因 load 换对象，RoadSystem、RoadBuilder 和查询服务继续持有同一 facade；full reset 通过新 lineage 和 generation 使旧 delta、命中和异步任务失效。
 
+当前 aggregate 已按这一路径交换稳定 RoadGraph facade 的新 lineage、RoadBuilder 的空 placement/removal/history、RoadRenderer 的预建基础 mesh/node batch 和槽目标；移除 renderer 的生命周期回归会在 commit 前失败，并逐值保留活动图、未完成 placement、undo/redo 和 `CurrentSlotID`。这项证据只证明已接入的 participant，不证明尚不存在的 surface/hit/token participant。
+
 并发策略固定如下：
 
 - 手动 save/load/delete 优先于尚未开始的 autosave；Timer 在 busy 时只合并为一个 pending autosave，不排队多个周期。当前场景仍有效且没有更晚成功 autosave 时，gate 释放后执行一次；否则丢弃并记录 `SkippedBusy`，不算 I/O 失败。
@@ -605,7 +623,7 @@ V3 当前业务 payload 只有 RoadGraph，但协议必须从一开始就是 pre
 
 ### 10.7 编辑历史不是存档副本
 
-`RoadEditHistory` 不持久化到槽位，不应继续复用磁盘 JSON 作为内部数据结构。当前 64 个 entry 各持有 before/after 字符串；当图的稳定 JSON 约为 `S` 个 ASCII 字节时，仅字符串字符存储的量级就接近 `128 * 2S = 256S`，还未计算每次捕获的 DTO、临时字符串和 GC 峰值。canonical Edge 只减少 Node/Edge 元数据，不会消除长 geometry 数组，因此这个复杂度不能靠新存档格式自然解决。
+`RoadEditHistory` 不持久化到槽位，也不再复用磁盘 JSON 作为内部数据结构。完成前的 64 个 entry 各持有 before/after 字符串；当图的稳定 JSON 约为 `S` 个 ASCII 字节时，仅字符串字符存储的量级就接近 `128 * 2S = 256S`，还未计算每次捕获的 DTO、临时字符串和 GC 峰值。canonical Edge 只减少 Node/Edge 元数据，不会消除长 geometry 数组，因此这个历史问题不能靠新存档格式自然解决。
 
 V3 使用可逆 `RoadGraphDelta`：
 
@@ -615,7 +633,7 @@ V3 使用可逆 `RoadGraphDelta`：
 4. 外部加载创建新 lineage，并在 full-reset commit 时立即使全部旧 token 和历史失效，不再靠完整序列化比较检测分叉。
 5. 历史同时受 entry 数和估算字节预算约束；提交前确保新 delta 可接纳，再按最旧优先淘汰。单个命令超过单项预算时整次编辑结构化失败，不能成功修改图却悄悄失去撤销能力。
 
-V3 完成态直接使用 delta，不接受完整图 snapshot 兼容阶段。加载 V3 format v1 后清空旧历史；首次编辑以新 lineage 的 canonical 活动状态为 revision 起点。撤销/重做必须恢复相同实体 ID、loop seam、原生几何、类型和空间命中；同一 lineage 内 `nextID` 高于历史值，而外部 load 的新 lineage 精确采用槽内 watermark。结构相同比较不把 allocator watermark、lineage、revision 或 sequence 当成领域内容差异。
+当前实现直接使用 delta，没有完整图 snapshot 兼容阶段。加载 V3 format v1 后清空旧历史；首次编辑以新 lineage 的 canonical 活动状态为 revision 起点。撤销/重做恢复相同实体 ID、loop seam、原生几何、类型和空间命中；同一 lineage 内 `nextID` 高于历史值，而外部 load 的新 lineage 精确采用槽内 watermark。结构相同比较不把 allocator watermark、lineage、revision 或 sequence 当成领域内容差异。
 
 ---
 
@@ -638,6 +656,12 @@ V3 完成态直接使用 delta，不接受完整图 snapshot 兼容阶段。加�
 
 另加简单环、棒棒糖、两路口环、八字形、批量删除后重归一化，以及刚好低于/超过各项资源上限的数据集。先记录基线再优化；不得在没有测量时提前引入 chunk graph、压缩容器或多套 renderer。
 
+2026-08-14 的 100k V3 Load 诊断还固定了一条实现约束：Debug 不变式不能为每个空间引用再次遍历全部 bucket。`AssertInvariants()` 现在先建立 reference identity 到预期 bucket coverage/count 的映射，再由 `UniformGrid.HasExactCoverage(...)` 单次扫描 bucket entries；它仍拒绝缺失、额外、错桶、同桶重复和内部计数不符，但复杂度从约 `reference × bucket` 降为 `reference + bucket entry`。逐级 12k～100k Load/renderer rebuild 为 906.549/1244.115/2563.902/3429.621/4327.669/5069.431 ms，100k 不再 AppHang。
+
+同日 Godot 正式 `--enforce-budget` 默认入口第一次冷启动虽完成 10k 与 100k，但 10k camera/preview/highlight P95 为 20.041/17.278/20.505 ms，三项均超过 16.67 ms，必须保留为失败证据；原样复跑为 16.471/14.702/13.750 ms 并通过，随后 100k 为 18.641/19.901/15.825 ms、重建 4393.478 ms。独立 Release C# 性能入口复跑通过，10k 最坏多交叉 P95 为 7.556 ms，100k 多交叉为 10.797 ms。冷启动抖动因此仍是 Phase 7/8 的性能风险，不能用热复跑覆盖或宣称门槛无条件稳定。
+
+closed-ribbon 复杂环路切片收口复跑（2026-08-14）中，Vulkan 契约再次 PASS：10k camera/preview/highlight P95 为 0.657/0.779/0.672 ms，Load 与 renderer rebuild 为 608.025 ms；首轮 100k 为 13.517/0.722/0.699 ms、重建 4108.956 ms，独立 100k 复跑为 0.616/0.661/0.637 ms、重建 4492.629 ms，静态 renderer 节点始终为 2。两组 100k 都通过压力契约，但首轮 camera 的 13.517 ms 尾延迟必须与复跑值一并保留。普通 `MapTest` 提交与实际 aggregate Load 都把方形自环呈现为 `1 Edge / 8 mesh vertices / 0 node markers`；aggregate Load 后构造的两路口环在删除 seam 侧支路前为 `4 Edge / 20 mesh vertices / 4 node markers`，删除后为 `2 Edge / 12 mesh vertices / 2 node markers`，八字形的两个 closed ribbon 也由 C# renderer 回归覆盖。`road_input_strategy_runtime_contract.gd` 和 `road_closed_ribbon_runtime_contract.gd` 输出 PASS。完整自动化为 727/727，Debug/`ExportRelease` build 与 Roslyn diagnostics 继续为 0。该结果补齐了两路口环、八字形和支路删除后 seam 重定位，但既不抹去前述冷启动失败，也不替代 Phase 7 的缩放/重建视觉矩阵、平行 Edge 独立命中、mixed-width junction/surface/token 门禁。
+
 ---
 
 ## 12. 实施阶段
@@ -654,64 +678,64 @@ V3 在实现分支中按阶段保持可编译，但产品装配始终只有一�
 
 ### Phase 1：incidence 与自环基础
 
-1. 先固化 `RoadNumericPolicy`、`RoadGraphCapacity`、checked ID reservation、`-0`、full-turn 和 exact-sign line predicate；分离 grid snap、NodeSnap 与确定交点 clustering，验证 canonicalizer 幂等。
-2. 引入 `EdgeEndpoint` / `EdgeIncidence`，重写邻接、不变式、detach/rebuild 和切线查询。
-3. 允许 `NodeA == NodeB`，让自环注册和删除 A/B 两条 incidence。
-4. 明确 degree、distinct edge 和 neighbor 查询，允许平行 Edge。
-5. 为六类原生几何增加可逆的反向契约，并以版本化 typed token key 固定非环 Edge 和 self-loop 的存储方向。
+1. **已完成（`v3-road-graph:8.0`，2026-08-13）**：固化 `RoadNumericPolicy`、`RoadGraphCapacity`、checked ID reservation、`-0`、full-turn 识别和 exact-sign line predicate；分离 grid snap、NodeSnap 与确定交点 clustering，验证 canonicalizer 幂等。
+2. **已完成（`v3-road-graph:8.1`，2026-08-13）**：引入 `EdgeEndpoint` / `EdgeIncidence`，重写邻接、不变式、detach/rebuild 和切线查询。
+3. **已完成（`v3-road-graph:8.1`，2026-08-13）**：内部 prepared topology 允许 `NodeA == NodeB`，自环注册和删除 A/B 两条 incidence。
+4. **已完成（`v3-road-graph:8.1`，2026-08-13）**：明确 degree、distinct edge 和 neighbor 查询，允许平行 Edge。
+5. **已完成（`v3-road-graph:8.1`，2026-08-13）**：六类原生几何实现严格可逆反向，以包含 arc/clothoid 权威锚字段的版本化 typed token key 固定非环 Edge 和 self-loop 存储方向。
 
-独立验收：手工构造和 V3 format v1 内存模型能正确表达 self-loop、parallel edge 和普通边；需要保留的非环玩家能力以 V3 测试重新声明，不要求旧 API 或旧事件继续通过。
+独立验收（2026-08-13）：559/559 自动化、0 警告/0 错误 build、0 analyzer diagnostics 与 Godot Tier 3 已证明 prepared topology 可正确表达并查询/渲染 self-loop、parallel Edge 和普通边；临时运行时 bridge 已清理。该检查点当时尚无 V3 format v1 reader；现已由 `v3-save-system:2.1` 接入，不以历史 V2 reader 代替。
 
 ### Phase 2：最大连续 Edge 与 Group 移除
 
-1. 在新的 V3 空间索引上，用带半开命中所有权和 canonical `RoadLocation` 的参数区间 query fragment 取代完整 geometry AABB 占桶和“先按 Edge 去重再扫描整条 Edge”；局部复杂度红灯转绿后才能启用长 canonical Edge。
-2. 建立 mutation plan 和受影响区域 canonicalizer；取消 G1/共线拓扑限制，按 merge key 合并所有可合并二 incidence 节点。
-3. 固定闭环 seam、rooted cyclic chain 硬边界和 split/merge ID 规则；连续共线同向 line pieces 只按 exact-sign 契约合并，其他 primitive 只在精确可表示时合并。
-4. 让提交、交叉拆分和删除后都恢复规范形；验证 Group-free 实体、结构化结果和统一事件。
-5. 直接删除 `RoadGroup` 类型/查询/结果、返回 Group ID 的 `AddRoad()`、旧事件及其消费者；DebugPanel 与 contract 同步改用 V3 指标，不保留旧 DTO 或 fixture。
+1. **已完成（`v3-road-graph:8.2`，2026-08-13）**：参数区间 query fragment 携带 geometry/parameter 身份到精确测试，cut/join/B 端/seam 使用半开唯一所有权；closest/radius/rectangle/intersection 最后才聚合 Edge。
+2. **已完成（`v3-road-graph:8.2`，2026-08-13）**：`FinalizeMutation` 按受影响 Node ID 归一化所有非结构性二 incidence 节点，提交、交叉拆分和删除后均恢复最大连续 Edge。
+3. **已完成（`v3-road-graph:8.2`，2026-08-13）**：拆分保留 A 侧原 ID、合并保留最小 Edge ID；self-loop seam 为硬边界。连续同向 line 只按 exact-sign 合并，其他 primitive 保持无损链，六类 geometry 用 typed reanchor 写入规范端点。
+4. **已完成（`v3-road-graph:8.2`，2026-08-13）**：删除 `RoadGroup` 类型/UID、`GraphEdge.GroupID`、Group 查询/事件、提交结果和所有生产消费者；DebugPanel、fixture 与 contract 改用 Node/Edge/geometry 事实。
 
-检查点验收：N 个同向单位直线得到 2 Node、1 Edge、1 line geometry；折角与复合曲线仍为 1 Edge 和不可约 geometry 链；操作顺序不同得到 ID 重命名后的等价规范图；固定窗口 exact 访问不随远端 geometry 增长；源码中不存在 Group 生产类型和旧提交/事件入口。
+独立验收（2026-08-13）：572/572 自动化、0 警告/0 错误 build、0 Roslyn analyzer diagnostics、6 个 GDScript 零诊断和 `git diff --check` 通过。line 4,096/65,536 与 geometry 64/1,024 的首/中/尾固定窗口均为 1 fragment、1 exact test、1 Edge、0 full scan/visit；两次 Release 复跑的 10k 多交叉 P95 为 8.281～9.118 ms，全部场景低于 16.67 ms，100k 多交叉为 20.152～20.184 ms。Godot Tier 3 的 16 路批量交叉得到 50 Node、49 Edge 和 49 rendered Edge/196 mesh 顶点，两个错误通道为空。生产源码和正常 fixture 无 Group 残余；V3 format v1 当时仍由 Phase 5 / `v3-save-system:2.1` 待实现，现已完成该切片并严格拒绝旧 `groups/groupID`。
 
 ### Phase 3：闭合与自交路径提交
 
-1. 放宽首尾闭合和正长度全圆几何验证。
-2. 统一 incoming/incoming 与 incoming/existing 交点规划。
-3. 离散自交形成 junction，连续自重叠结构化拒绝。
-4. 接入 RoadPlacementSession 的闭合预览、确认与取消。
+1. **已完成（`v3-road-graph:8.3`，2026-08-13）**：放宽正长度首尾逐 bit 闭合和精确 full-turn 验证，保持其他退化段拒绝。
+2. **已完成（`v3-road-graph:8.3`，2026-08-13）**：统一 incoming/incoming、incoming/existing、相切和 overlap 边界的 witness/cluster 规划，并在 mutation 前完成最终 typed reanchor 与歧义门禁。
+3. **已完成（`v3-road-graph:8.3`，2026-08-13）**：离散自交形成 junction，纯二度环形成 rooted seam self-loop，两路口环形成 parallel Edge；连续自重叠结构化返回 `SelfOverlap`。
+4. **已完成（`v3-tool-input:2.0`，2026-08-13）**：`RoadPlacementSession` 为三种输入策略提供首锚闭合 preview、精确确认、单次 history，以及右键、工具切换和暂停取消。
 
-检查点验收：简单环、单 junction 环、两 junction 环、棒棒糖和八字形全部形成第 5 节规范格式；所有调用方使用 V3 闭合路径契约。
+独立验收（2026-08-13）：586/586 自动化、0 警告/0 错误 build、0 Roslyn analyzer diagnostics、6 个 GDScript 零诊断与 `git diff --check` 通过。简单环、full-turn、单 junction 环、两 junction 环、棒棒糖、两种八字形、多交点、既有路交叉、顺序稳定和无关 Node provenance 均达到第 5 节规范格式；重叠与冲突 split parameter 无 Node/Edge/ID/事件副作用。最终 Release 10k 多交叉 P95 为 10.268 ms。真实 `MapTest` 闭环为 1 rendered Edge/10 mesh 顶点/1 history，失败回走保留可编辑会话，右键、工具切换和暂停清空 preview；完整 `road_input_strategy_runtime_contract.gd` 输出 `PASS`，两个错误通道为空，临时槽和运行状态已清理。Phase 3 完成，下一实施入口为 Phase 4。
 
 ### Phase 4：Edge 级 RoadType 与改造事务
 
-1. 新增稳定 `RoadType` 和显式 `RoadBuildRequest`。
-2. 把类型加入 merge key 和 Edge 级严格不变式。
-3. 实现全有或全无的 `ChangeRoadType`，成功后再次 canonicalize。
-4. 用统一 `GraphChanged` 发布 created/removed/updated；拆分 lineage、可逆 content revision 与单调 `ChangeSequence`，用完整 `GraphStateToken` 防止旧 delta，加入 mutation 重入拒绝和订阅者异常隔离。
-5. 固定 `prepare mutation plan -> history admission -> root commit`：单命令 delta 超预算时必须在 root、ID watermark、revision、sequence 和事件变化前拒绝；所有消费者直接使用唯一 V3 事件。
+1. **已完成（`v3-road-graph:8.4`，2026-08-13）**：新增稳定 `RoadType`、严格小写 token 和唯一显式 `RoadBuildRequest` 原生路径提交；新几何使用请求类型，既有拆分继承原类型，完全覆盖不隐式改造。
+2. **已完成（`v3-road-graph:8.4`，2026-08-13）**：把类型加入 merge key、`GraphEdge` / prepared topology 严格不变式和过渡期 schema 3；同类型接续合并，异类型接缝保留 semantic boundary。
+3. **已完成（`v3-road-graph:8.5`，2026-08-14）**：实现全有或全无的 `ChangeRoadType`，成功后再次 canonicalize；空集、重复/失效 ID、NoChanges、四类互转、semantic boundary 合并与 rooted loop 均有回归。
+4. **已完成（`v3-road-graph:8.5`，2026-08-14）**：用唯一 `GraphChanged` 发布 created/removed/updated；拆分 lineage、可逆 content revision 与单调 `ChangeSequence`，用完整 `GraphStateToken` 防止错误方向、旧 sequence、重复 delta 和旧 lineage，加入 mutation 重入拒绝和订阅者异常隔离。
+5. **已完成（`v3-road-graph:8.5` / `v3-tool-input:2.3`，2026-08-14）**：固定 `prepare mutation plan -> history admission -> root commit`；单命令 delta 超预算在 root、ID watermark、revision、sequence 和事件变化前拒绝，历史以 entry/字节双预算保留 delta；真实 V3 Load 已证明 full reset 创建新 lineage 并清空旧 history/token。
 
 检查点验收：类型化建造、覆盖、异类型边界、改造合并和 NoChanges 符合第 8 节；本阶段只验证 plan/admission/commit 和准确摘要，不提前把撤销/重做算作完成。
 
+Phase 4 独立验收（2026-08-14）：633/633 自动化、0 警告/0 错误 Debug build、0 Roslyn compiler/analyzer diagnostics 与 `git diff --check` 通过。Release 远端扩展中 1k/10k/100k 固定局部改造分别分配 12.2/12.8/13.5 KiB，固定复制 2 个 bucket 页，100,000 次 root capture 为 0 bytes，三档旧 root 均释放；10k 全场景 P95 低于 16.67 ms。真实 `MapTest` 的建造/undo/redo 同步得到 renderer/history 的 `1 Edge/4 vertices/1:0 -> 0/0/0:1 -> 1/4/1:0`，两个错误通道为空。Phase 4 完成；该检查点当时的下一入口为 Phase 5 / `v3-save-system:2.1`。
+
 ### Phase 5：V3 独立 format v1
 
-1. 为统一的 `user://saves-v3` 生产根和可注入临时测试根建立隔离及 V3 family/version admission 测试；两个 V2 根必须保持零枚举、零写入。
-2. format v1 codec 只表达 Node/Edge、RoadType、self-loop 和原生几何链；删除 V2 DTO、版本分派和迁移入口。
-3. V3 reader 严格拒绝非 V3 family/version、未知字段和任何非规范图，不在 Load 中修复或转换数据。
-4. 用专用 canonical writer 和同一禁止写/删句柄上的 counting/hash/parse 受限 reader 取代完整缩进字符串与重复解析；严格验证 JSON token 与 number lexeme。
-5. 固化坐标、长度、ID、文件/实体/geometry/索引/深度预算，并让 mutation 与 Load 共用容量契约。
-6. manifest v1 保留列表元数据并写入业务文件 encoded length/SHA-256，thumbnail 独立验证；实现 `Absent | CompleteV3 | CorruptV3 | Foreign | Unsafe` 分类、不可变 publish descriptor、`PublishV3`、首次/覆盖不可取消点及 cleanup-pending/recovery-blocked 结果。无目录元数据证据时只称 crash recoverable。
-7. 建立 streaming saveable adapter、进程内/跨进程保存根排他 coordinator、O(1) immutable-root snapshot、后台纯数据 I/O、publish lease、autosave 合并和取消边界；用 fake aggregate/participants 验证 Load 的 Admission、Prepare、Preflight 和不可抛 commit plan，不接真实 renderer/tool/UI，也不宣称完整成功 Load。
-8. 验证命名槽、自动槽、删除确认、失败保护、V2 根未触碰和 Windows 导出边界。
+1. **已完成（`v3-save-system:2.1`，2026-08-14）**：统一 `user://saves-v3` 生产根与可注入临时测试根；两个 V2 根保持零枚举、零写入。
+2. **已完成（`v3-save-system:2.1`，2026-08-14）**：format v1 codec 只表达 canonical Node/Edge、RoadType、self-loop/parallel Edge 和六类原生几何链；旧 `ISaveable`、V2 DTO/reader、Group 字段、版本分派和迁移入口已删除。
+3. **已完成（`v3-save-system:2.1`，2026-08-14）**：reader 严格拒绝错误 family/version、未知/重复字段、Group/groupID、非法 token 和非规范图，不在 Load 中修复或转换数据。
+4. **已完成（`v3-save-system:2.2`，2026-08-14）**：canonical writer 直接生成无缩进 UTF-8；固定 buffer 的 `V3JsonStreamReader` 在同一 payload 句柄上完成 byte/token/depth/lexeme、初始/声明/消费长度、SHA-256 和 EOF 验证，实体、geometry、索引和字符串预算在进入集合及提交前执行。manifest 与可选 PNG thumbnail 也分别执行编码/解码预算和严格结构校验。
+5. **已完成（`v3-save-system:2.2`，2026-08-14）**：manifest v1 绑定文件名、encoded length/SHA-256；`Absent | CompleteV3 | CorruptV3 | Foreign | Unsafe` 分类、operation-specific publish/delete descriptor、new/old digest 恢复矩阵、quarantine、tombstone、跨进程 OS 根锁、cleanup-pending 与 typed recovery-blocked 路径均已实现并完成故障注入。
+6. **部分完成（`v3-save-system:2.3` 开放）**：`SaveOperationCoordinator` 已实现进程内根 gate、结构化 token/state/result、手动优先、pending autosave、取消与退出收敛；公开同步 bool API 已删除。Save/Load/Delete 的长工作移到后台，首个 `PreparedAggregateLoad` 已一次交换 graph、空工具/history、基础 renderer mesh 和 slot target。尚缺 surface/hit index、完整 `RoadRenderToken`、第二 saveable 与关键资源全矩阵，不能勾选完成。
+7. **已验证边界（2026-08-14）**：命名槽、autosave、暂停菜单、V3 Save/Load/Delete、损坏/外来槽拒绝和 V2 根 canary 通过；Windows Desktop QA 导出包证明非 editor 进程使用 V3 根并正确校验 manifest family/schema/长度/hash 后删除槽，可写 profile 完成 Save As/删除，只读 ACL profile 在失败后保持 `CurrentSlotID` 且不发布内容。QA 导出过滤只保留 exported-save 契约与 fixture，并由源码回归测试锁定。
 
-检查点验收：V3 writer 只生成 family/version 精确的 format v1；复制进 V3 根的 V2/未知格式只被拒绝且无副作用；非法/超限输入在事件和大额分配前失败；五类 occupant 与 publish descriptor 按固定矩阵恢复；首次/覆盖发布和 cleanup 结果准确。fake aggregate 证明 Prepare/Preflight 失败逐值保留状态、commit plan 可在无异常交换中执行；真实 full-reset Load 留到 Phase 7/8。
+Phase 5 当前仍为部分完成。`v3-save-system:2.1`～`2.2` 已由存档聚焦组、双配置构建、真实 `MapTest` 和 Windows Desktop QA 导出证明；`2.3` 的 coordinator、结构化状态、后台工作、退出收敛及首个 aggregate 已由完整 727/727 自动化、`pause_menu_runtime_contract.gd`、`road_renderer_lifecycle_runtime_contract.gd` 和当前 V3 综合运行时契约证明。等待 gate 的手动请求会在创建 lease 前重新检查外部取消并释放 gate，场景 drain 不再因取消竞争遗留活动 lease。下一入口不再是“创建 coordinator”，而是与 `v3-grid-rendering:2.2`、`v3-tool-input:2.4`、`v3-ui:1.4` 一起把 basic mesh aggregate 扩展为完整 surface/hit/token 联合接管并完成全部故障矩阵。
 
 ### Phase 6：可逆 delta 历史
 
-1. 让 mutation plan 生成含实体前后值和 content revision 的可逆 delta；以完整 token 验证方向和 lineage，revision ID allocator、allocator watermark 与 `ChangeSequence` 不回退或复用。
-2. 将建造、交叉拆分、删除、改造和 canonicalize 纳入同一 history admission/commit 边界。
-3. 用 entry 数与字节双预算替换 before/after JSON，外部 Load 通过新 lineage 立即清空历史。
-4. 验证简单环、八字形、类型合并、大批删除和超预算拒绝的撤销/重做。
+1. **已完成（2026-08-14）**：mutation plan 生成含实体前后值和 content revision 的可逆 delta；完整 token 验证方向和 lineage，revision ID allocator、allocator watermark 与 `ChangeSequence` 不回退或复用。
+2. **已完成（2026-08-14）**：建造、交叉拆分、删除、改造和 canonicalize 已纳入同一 history admission/commit 边界。
+3. **已完成（2026-08-14）**：entry 数与字节双预算已替换 before/after JSON；任意外部 full reset/new lineage 立即清空历史，真实 V3 Load 已验证旧 undo/redo 和 token 失效。
+4. **已完成（2026-08-14）**：简单环、八字形、类型合并、64 Edge 批量删除和超预算拒绝均有直接 `RoadEditHistory` 撤销/重做测试。
 
-独立验收：64 次小编辑不再保留 128 份全图 JSON；每次成功编辑都可逆，超预算命令在提交前失败，undo/redo 只发布一次准确的普通 delta 事件；只有外部存档恢复使用 full reset。
+Phase 6 验收（2026-08-14）：`RoadEditHistoryTests` 为 16/16，检查点完整套件为 637/637。64 次、每次 1,024 geometry 的既有基线中，delta retained 为 12,308.0 KiB，64 edit + 64 undo + 64 redo 共 192 个普通事件、0 full reset；超预算命令在提交前失败。真实 `MapTest` 先验证建造/undo/redo 与 renderer 一致，再执行 V3 Save、继续编辑和 Load，恢复后 history 为 undo/redo `0/0`，Load 前 token 与两栈不能作用于新 lineage。`v3-tool-input:2.3` 因此完成；后来完成的 `v3-save-system:2.2` 磁盘 token reader/恢复预算不重新打开 Phase 6。
 
 ### Phase 7：渲染、类型 UI 与规模门禁
 
@@ -721,6 +745,8 @@ V3 在实现分支中按阶段保持可编译，但产品装配始终只有一�
 4. 接入 full-reset tool participant 与 PauseMenu；Load 在 Prepare/Preflight 完成 graph、empty tool root、隐藏 mesh/RID、surface/hit index 后一次 non-yield 交换并通知，关键表现失败只发生在 commit 前。
 5. 完成唯一 V3 应用装配：只注册新的 graph/renderer/tool/save/UI 实现和必填 `RoadBuildRequest`；完整构建与源码契约证明旧 Group/API/事件/DTO/writer 已删除，没有适配器、双消费、双写或运行时版本选择。
 6. 执行 junction-dense、geometry-dense、环路、四工具表面命中和混合类型视觉/性能契约。
+
+Phase 7 当前已有两个可验证切片。其一，普通 mutation 与 `RoadRendererLoadPreparer` 共用 closed ribbon：显示点列仍保留首尾 seam，mesh 只生成唯一逻辑点的顶点，以循环相邻方向计算 seam miter 并补上末段回首段索引；纯 self-loop 的 A/B incidence 不绘制 marker，self-loop 加支路仍是 junction。方形环、`+Tau` 全圆弧、棒棒糖、两路口环、八字形、支路删除后 seam 重定位、开放 ribbon 和 worker/direct 确定性已有自动化；真实 `MapTest` 的普通提交与 aggregate Load 均为 `1 Edge / 8 vertices / 0 markers`，aggregate Load 后的两路口环从删除前 `4 Edge / 20 vertices / 4 markers` 收敛为删除后 `2 Edge / 12 vertices / 2 markers`。其二，基础 Load participant 已在 Preflight 创建未发布 open/closed ribbon mesh/node batch，`ToolManager`/`RoadBuilder` 已准备空 placement/removal/history，PauseMenu 已接入 token/generation/busy/Escape 与退出收敛；`road_renderer_lifecycle_runtime_contract.gd` 证明 renderer 缺失时 Load 在 commit 前失败且旧图/历史/会话/槽不变。`v3-grid-rendering:2.0` 仍缺缩放/重建视觉矩阵和依赖 surface 的平行 Edge 独立命中；四类 `RoadTypeStyle`、junction patch、`RoadSurfaceSnapshot`/`RoadSurfaceHit`、六分量 token、RoadUpgrade 与最终 UI 也尚不存在，因此 `v3-grid-rendering:2.0`、`2.2`、`v3-tool-input:2.4`、`v3-ui:1.4` 和 `v3-save-system:2.3` 均保持开放，现有 100k PASS 不能替代本阶段门禁。
 
 ### Phase 8：最终组合验收
 
@@ -897,4 +923,4 @@ V3 在实现分支中按阶段保持可编译，但产品装配始终只有一�
 
 ## 附录 D：最终验收记录
 
-> 实施开始前保持为空。只有 `docs/todo/v3/` 中各 V3 系统工作项的声明门禁实际通过后，才能记录命令、测试数量、性能数据、截图和运行时结果；不得用设计完成代替实现完成。
+> Phase 8 前保持为空。各中间切片的证据记录在对应 `docs/todo/v3/` 工作项及本文顶部“当前实施记录”；只有全部 V3 系统工作项的声明门禁实际通过后，才能在本附录记录最终命令、测试数量、性能数据、截图和运行时结果，不得用单个基础切片或设计完成代替最终实现完成。

@@ -1,7 +1,7 @@
 # 第三代存档系统待办清单
 
 > 系统 key：`v3-save-system`
-> 整理日期：2026-08-13
+> 整理日期：2026-08-14
 > 证据：当前工作区 `SaveManager`、`SaveSlotStore`、RoadGraph 持久化源码与存档自动化，V2 历史路线图 `docs/todo/save-system.md`，以及 `docs/manuals/road-system-v3-gen.md` 第 10 节。
 > 主导原则：V3 建立唯一的新运行时存档契约、独立保存根和 `simple-cities-v3` format v1；不读取、迁移、转换、覆盖或删除 V2 存档，也不保留旧 DTO/接口适配器。严格版本、容量、原子发布、崩溃恢复和 aggregate Load 是 V3 自身的正确性边界。
 
@@ -11,19 +11,19 @@
 
 | ID | 发现 | 当前状态 | 处置方式 |
 |---|---|---|---|
-| 2.1 | 当前 V2 schema、保存根和 DTO 无法表达 V3 canonical Edge | 开放 | 建立隔离的 V3 format v1，并直接拒绝所有非 V3 格式 |
-| 2.2 | 完整 DTO/字符串、无容量上限和弱恢复判据不能可靠承载长 geometry | 开放 | 建立确定流式容器、同句柄校验、publish descriptor 与恢复矩阵 |
-| 2.3 | 同步 save/load/delete/autosave 和顺序 Restore 缺少并发及原子会话协议 | 开放 | 建立保存根 coordinator、prepared aggregate 与一次 non-yield Load commit |
+| 2.1 | V2 schema、保存根和 DTO 无法表达 V3 canonical Edge | 已完成 | 已建立隔离的 V3 format v1，并直接拒绝所有非 V3 格式 |
+| 2.2 | 流式快照、严格 manifest、PNG 展示资产与目录事务需要统一的预算和恢复边界 | 已完成 | 有界 token reader、descriptor/digest 恢复、删除 tombstone、OS 根锁与故障矩阵均已验证 |
+| 2.3 | 同步入口和顺序 prepared commit 曾缺少并发及原子会话协议 | 开放（部分实现） | async coordinator、等待取消防护与首个四参与者 aggregate 已落地；补齐完整表现 participant 和故障矩阵 |
 
 ### 设计覆盖矩阵
 
 | 设计范围 | 当前事实 | 关联待办 |
 |---|---|---|
-| V3 格式与根隔离 | 当前编辑器写 `res://saves`、导出写 `user://saves`，payload 是 V2 Node/Edge/Group | `v3-save-system:2.1`、`v3-road-graph:8.0`～`8.5` |
-| 长连续 Edge | 当前 capture、缩进 UTF-16 字符串和重复完整解析放大峰值；读取前没有分层预算 | `v3-save-system:2.2`、`v3-road-graph:8.0`、`v3-road-graph:8.5` |
-| 发布、恢复与删除 | manifest 只列文件名；slot/backup 并存时不能证明候选完整，删除也没有独立恢复边界 | `v3-save-system:2.2` |
-| Load 生命周期 | 当前逐个 restore 不能保证 graph、tool、mesh、surface、hit index 和当前槽全有或全无 | `v3-save-system:2.3`、`v3-road-graph:8.5`、`v3-grid-rendering:2.2`、`v3-tool-input:2.4`、`v3-ui:1.4` |
-| 操作权限 | Publish、Load 与 Delete 若共享 bool 结果或 continuation，会混淆磁盘和活动会话是否已提交 | `v3-save-system:2.2`～`2.3`、`v3-ui:1.4` |
+| V3 格式与根隔离 | 生产运行已统一使用 `user://saves-v3`；manifest/payload 均为严格 `simple-cities-v3` format v1，RoadGraph reader/writer 可表达 canonical self-loop、parallel Edge、四类 `roadType` 和完整原生几何锚；V2/未知目录在 V3 根只分类为 `Foreign` | `v3-save-system:2.1`、`v3-road-graph:8.0`～`8.5` |
+| 长连续 Edge | `IStreamingSaveable` 以 O(1) 捕获 immutable root；writer 直接输出无缩进 UTF-8，`V3JsonStreamReader` 在固定 buffer 上执行 byte/token/depth/lexeme 与 RoadGraph 容量预算，同一 payload 句柄完成长度/SHA-256/EOF 终检 | `v3-save-system:2.2`、`v3-road-graph:8.0`、`v3-road-graph:8.5` |
+| 发布、恢复与删除 | operation-specific publish/delete descriptor 绑定 digest 与固定路径；五类 occupant、quarantine、删除 tombstone、跨进程 OS 根锁及 cleanup-pending/typed recovery-blocked 路径均已实现 | `v3-save-system:2.2` |
+| Load 生命周期 | `SaveManager` 已把 RoadGraph root、空工具/history、基础 `ArrayMesh`/`MultiMesh` 与 `CurrentSlotID` 纳入一次 `PreparedAggregateLoad` 引用交换；renderer 尚无 `RoadSurfaceSnapshot`、hit index 和完整 `RoadRenderToken`，因此仍不是设计完成态 | `v3-save-system:2.3`、`v3-road-graph:8.5`、`v3-grid-rendering:2.2`、`v3-tool-input:2.4`、`v3-ui:1.4` |
+| 操作权限 | `SaveManager` 已只公开 `StartSave/StartSaveAs/StartLoad/StartDeleteSlot/StartAutosave` token 入口，并发布结构化 phase/result；coordinator 实现进程内 gate、手动优先、pending autosave 合并、取消与退出收敛 | `v3-save-system:2.3`、`v3-ui:1.4` |
 
 ## 执行顺序
 
@@ -31,31 +31,31 @@
 
 <a id="v3-save-system2.1"></a>
 
-- [ ] **2.1 建立隔离的 V3 format v1 并删除旧格式入口**
-  - 当前问题：`RoadGraph.Persistence.cs` 只接受 V2 `schemaVersion = 1`，保存 Node/Edge/Group、拒绝 self-loop 且 Edge 没有 RoadType；`SaveManager` 在编辑器与导出中使用不同 V2 根。延续版本号或复用根会迫使新实现保留格式探测和迁移分派。
-  - 修改：生产环境在编辑器和导出中统一使用 `user://saves-v3`，自动化通过构造参数注入临时根，禁止再以 `res://` 作为 V3 写入位置。manifest 与每个业务 payload 都必填 `formatFamily: "simple-cities-v3"` 和各自 `schemaVersion: 1`，道路 payload 另有 `payloadType: "road-network"`；只保存 canonical Node/Edge、Edge 级 `roadType` 和原生 geometry，允许正长度 self-loop 及非覆盖 parallel Edge。prepared `RoadGraphRevision` 精确保留合法 `nextID`，Load 创建新 runtime lineage。删除 V2 DTO、codec 分派、迁移/导入/只读加载入口和旧 `ISaveable` 恢复适配器；reader 对错误 family/version、Group/groupID、未知字段、非规范二度节点、非法 seam/full-turn、内部交叉、重复覆盖和非法 RoadType 直接拒绝，不在 Load 中 canonicalize 或补默认值。
+- [x] **2.1 建立隔离的 V3 format v1 并删除旧格式入口**
+  - 完成前问题：过渡期 `schemaVersion = 3` 没有 format family、独立根和 self-loop reader；编辑器/导出根分叉，旧 `ISaveable`/DTO/恢复入口仍可能形成兼容路径。
+  - 已实现：生产环境统一使用 `user://saves-v3`，自动化可注入隔离根；manifest 与 RoadGraph payload 都严格写入 `formatFamily: "simple-cities-v3"` 和整数 `schemaVersion: 1`，payload 另要求 `payloadType: "road-network"`。`IStreamingSaveable` 从不可变 `RoadGraphRevision` 写无缩进 UTF-8；reader 只接受 canonical Node/Edge、四类 `roadType`、六类原生 geometry、正长度 self-loop、非覆盖 parallel Edge 和合法 `nextID`，成功 Load 创建新 runtime lineage。旧 `ISaveable`、旧 RoadGraph DTO/reader、Group 字段及兼容恢复入口均已删除。
   - 隔离边界：V3 的 List/Save/Save As/Load/Delete/autosave/恢复/启动清理只能从已验证的 V3 root capability 派生路径；不得枚举、打开、哈希、移动、转换、覆盖或删除 `res://saves`、`user://saves`。V2 槽不出现在 V3 UI；把 V2/未知目录手工复制到 V3 根只得到 `Foreign` 分类。
   - 依赖：`v3-road-graph:8.0`～`8.5`；V2 `save-system:0.4`、`0.5`、`5.3` 只作为历史事实，不是代码或格式依赖。
   - 集成负责人：`v3-save-system`；最终端到端判定由 `v3-road-graph:8.6` 负责。
-  - 验证：开放 Edge、rooted self-loop、parallel Edge、精确 full-turn、四种 RoadType、极值 `nextID` 和确定 JSON 往返；family/version 缺失、大小写、旧/未来版本、Group/groupID、未知/重复字段、错误 token、非规范图和损坏引用拒绝。分别在两个 V2 根放置 canary，执行全部 V3 操作及崩溃恢复，比较 direct-child 集合、文件字节和时间戳均未变化；自动化确认源码没有 V2 DTO/reader/import API。
-  - 验收：只有精确 V3 format v1 能进入 prepared aggregate；合法图逐值保留 incidence、rooted seam、parallel Edge、原生 geometry、RoadType 和 watermark；非法或非 V3 输入在大额分配、图事件和活动状态变化前失败；生产运行只写 `user://saves-v3`，V2 根零访问。
+  - 验证证据（2026-08-14）：V3 persistence 聚焦组、slot/manifest 契约及完整 solution 自动化最终为 637/637；开放 Edge、rooted self-loop、parallel Edge、full-turn、四种 RoadType、六类 geometry、watermark、确定往返和新 lineage 均通过。family/version/schema token、Group/groupID、未知/重复字段、非规范拓扑、内部交叉、损坏引用、长度/hash 不符均在提交前拒绝；V2 根 canary 和源码扫描证明 V3 操作不读取、改写或删除 V2 数据。
+  - 运行证据（2026-08-14）：真实 `MapTest` 完成 V3 Save、修改、Load 恢复，Load 后 history 为 undo/redo `0/0`；命名槽、autosave、暂停菜单、曲线和最终组合契约均使用 V3 payload 并清理测试槽。该切片最初只有 Windows Debug QA 包的非 editor V3 根、manifest family/schema/长度/hash 和删除证据；同日后续 `v3-save-system:2.2` 已补齐 Windows Desktop QA 导出包的可写与只读 ACL 契约，原 Release 导出缺口不再开放。
+  - 验收结果：只有精确 V3 format v1 能进入 prepared state；合法图逐值保留 incidence、rooted seam、parallel Edge、原生 geometry、RoadType 和 watermark，非法输入不改变活动图。生产运行只写独立 V3 根，V2/未知目录复制到该根只得到 `Foreign`，不触发迁移或兼容加载。
 
 <a id="v3-save-system2.2"></a>
 
-- [ ] **2.2 为长连续 Edge 建立确定、有界且可恢复的存储管线**
-  - 当前问题：当前保存先物化完整 DTO，再生成缩进 UTF-16 字符串；加载经过 `ReadAllText -> JsonDocument.Parse -> DTO deserialize`。文件、实体、geometry 和索引没有预分配门禁，manifest 不能证明 payload 完整，固定 staging/backup 也无法可靠归属一次操作。
-  - 修改：format v1 使用 geometry 内联 Edge 的无 BOM、无缩进 canonical UTF-8 JSON，不引入拓扑 chunk。新增 streaming saveable contract；writer 从不可变 `RoadGraphRevision` 直接写 operation-specific staging。duplicate-aware token reader 从同一个禁止共享写/删的句柄完成属性原始字节、number lexeme、initial/declared/consumed length、EOF 与 SHA-256 校验，并在元素进入集合前执行文件、槽、实体、geometry、坐标、长度、ID、fragment/index ref、深度和字符串预算。manifest v1 严格约束槽摘要及按名称排序的 payload metadata；thumbnail 独立校验，缺失或损坏只产生占位 warning。
-  - 发布与恢复：保存根使用进程内 async gate、跨进程 `.save-root.lock` 和 `.save-transactions/<slot>/<operation-id>/`。完整 staging 复核后先持久发布不可变 `publish.json`，绑定 slot、新旧 aggregate digest、staging/backup 固定路径和 token，再允许 canonical move。occupant 只分类为 `Absent | CompleteV3 | CorruptV3 | Foreign | Unsafe`；恢复只按 descriptor 的 new/old digest 矩阵完成发布、恢复旧槽、清理或返回 `PublicationRecoveryBlocked`，绝不按时间戳猜测。无 descriptor 的 partial transaction 只能隔离，不能提升为槽。首次/覆盖不可取消点分别是 `staging -> slot` 与 `slot -> backup`；最终路径完整复核后 cleanup 失败返回 `PublishedWithCleanupPending`，不回滚新槽。
-  - 删除：`DeleteV3` 只接受明确目标、有效 UI generation 和 operation token；在锁内完整恢复该槽后，将 canonical 目录原子移动到 operation-specific deletion tombstone 作为不可取消点，再递归清理。越界后槽在逻辑上已删除；清理失败返回 `DeletedWithCleanupPending` 并由恢复继续，不把槽移回。`Foreign` / `Unsafe` 不允许 API 删除，`CorruptV3` 仅在 UI 显示精确目标并二次确认后可删除。
+- [x] **2.2 为长连续 Edge 建立确定、有界且可恢复的存储管线**
+  - 已实现：format v1 继续使用 geometry 内联 Edge 的无 BOM、无缩进 canonical UTF-8 JSON，不引入拓扑 chunk。writer 从不可变 `RoadGraphRevision` 直接写 operation-specific staging；duplicate-aware `V3JsonStreamReader` 从同一个受保护句柄执行属性原始字节、number lexeme、initial/declared/consumed length、EOF 与 SHA-256 校验，并在集合分配和图提交前执行 manifest、payload、整槽、token、深度、字符串、实体、geometry、坐标、长度、ID 与索引容量预算。thumbnail 作为独立 PNG 展示资产校验 signature、chunk/CRC、尺寸、解码扫描线和资源预算，缺失或损坏只产生占位 warning。
+  - 发布与恢复：`SaveSlotStore` 在整个同步存储操作期间持有跨进程 `.save-root.lock`，并为每个请求使用 `.save-transactions/<slot>/<operation-id>/`。完整 staging 复核后先持久发布不可变 `publish.json`，绑定 slot、新旧 aggregate digest、固定 staging/backup 路径和 operation token，再允许 canonical move。五类 occupant、无 descriptor quarantine、new/old digest 恢复矩阵、typed `SavePublicationRecoveryException` 阻塞、`PublishedWithCleanupPending` 和旧槽回退均已实现；没有按时间戳猜测赢家。进程内 async gate、publish lease 和公开 operation state 仍严格属于 `v3-save-system:2.3`。
+  - 删除：删除授权绑定明确目标、UI generation、operation token、occupant kind/digest 和确认摘要；`delete.json` 在 `slot -> tombstone` 前发布。越界后槽在逻辑上已删除，清理失败返回 `DeletedWithCleanupPending` 且恢复继续删除；canonical/tombstone 歧义通过 typed `SaveDeletionRecoveryException` 保留现场。`Foreign` / `Unsafe` 不能取得删除授权，`CorruptV3` 只能经当前列表 generation 的明确确认删除。
   - 依赖：`v3-road-graph:8.0`、`v3-road-graph:8.5`、`v3-save-system:2.1`；预算使用 Phase 0 的 junction-dense/geometry-dense 数据，V2 性能记录只作同机比较。
   - 集成负责人：`v3-save-system`；编辑历史内存属于 `v3-tool-input:2.3`，最终完成判定由 `v3-road-graph:8.6` 负责。
-  - 验证：确定输出；manifest null/range/lexeme、重复字段、UTF-8 与文件集合；同句柄替换/删除、length/hash/EOF；1/N/上下限 geometry、自环、parallel Edge、O(1) capture 和峰值分配；五类 occupant、首次/覆盖 descriptor 全中断点、descriptor/digest 歧义、无 descriptor staging、ENOSPC/ACL/路径冲突、cleanup pending、删除 tombstone、双进程和 Windows 导出。所有场景同时验证 V2 canary 未触碰；绕过锁写入者只记录为非协作威胁边界。
-  - 验收：合法长 Edge 保持一个 Edge ID 并在预算内往返，同向连续 line 只写一个 primitive；超限输入在大额分配和图提交前拒绝；恢复只处理可证明属于 descriptor 的路径，歧义现场完整保留；已复核发布或已越界删除不因 cleanup 失败被误报或反向恢复。没有目录元数据耐久证据时只称 crash recoverable，事务 backup 不冒充长期备份。
+  - 验证证据（2026-08-14）：保存/manifest/PNG/persistence/export 聚焦组 118/118，`SaveManagerSlotContractTests` 45/45，完整 solution 698/698；Debug 与 `ExportRelease` build 均为 0 警告、0 错误。故障矩阵覆盖首次/覆盖 publish 的未越界、旧槽已移至 backup、canonical 已发布、cleanup pending 与 digest 歧义，delete descriptor 前后、tombstone cleanup 与后来替换槽冲突，无 descriptor staging、部分写入后 `ERROR_DISK_FULL`/ENOSPC、`.save-transactions` 文件占位、同进程/独立进程根锁、Windows 只读 ACL 和 V2 根逐字节/时间戳 canary。Windows QA 导出包在显示驱动下通过可写与只读 profile 契约，包内测试资源只保留 exported-save 契约及其 fixture。
+  - 验收结果：合法长 Edge 保持一个 Edge ID 并在预算内往返，同向连续 line 只写一个 primitive；超限输入在大额业务分配和图提交前拒绝；恢复只处理 descriptor 明确拥有且 digest 可证明的路径，歧义现场完整保留；已复核发布或已越界删除不因 cleanup 失败被误报或反向恢复。当前只声明进程失败原子且 crash recoverable，不声明目录元数据 sudden-power-loss durable，事务 backup 也不冒充长期备份。
 
 <a id="v3-save-system2.3"></a>
 
 - [ ] **2.3 建立非阻塞、排他的保存、加载与删除协议**
-  - 当前问题：`SaveManager.Save/Load/SaveAutosave/DeleteSlot` 和 Timer autosave 同步执行；长图阻塞主线程，同一保存根的请求争用固定事务路径。当前 Load 顺序 restore，缺少 scene/saveable/participant generation、取消边界和一次不可失败的 aggregate commit。
+  - 完成前问题：`SaveManager.Save/Load/SaveAutosave/ConfirmDeleteSlot` 和 Timer autosave 是同步 bool API；长图的 JSON/hash/I/O 及 prepared graph 构建发生在调用线程，且场景/应用退出没有收敛边界。底层 operation-specific 事务和跨进程 OS 根锁已经由 `2.2` 完成，但当时没有进程内 async coordinator、scene/participant generation、取消边界、publish lease、公开结构化 operation state 或 aggregate commit。
   - 修改：以新接口实现保存根级 `SaveOperationCoordinator`、不可变 operation state/result、进程内 async gate 和跨进程 lock；不保留同步 bool API 适配器。Save admission 在主线程 O(1) 捕获 immutable root 与 generation，后台 serialize/hash/I/O，再由 `PublishV3` token 取得一次性 publish lease。Load 和 Delete 各有独立 token、取消点与结果；Timer busy 时至多合并一个 pending autosave，手动操作优先；场景退出停止 admission、取消未越界 worker并等待已越界事务收敛。
   - Load 协议：每次 Load 固定经过 Admission、Prepare、Preflight、Non-yield commit/notification。Admission 冻结新道路命令但逐值保留 graph、草稿、选择、hover、overlay、历史和 `CurrentSlotID`；Prepare 从受保护句柄构造完整 immutable aggregate，预建 graph root、empty tool root、纯 CLR tessellation、surface snapshot 与 hit-index 数据；Preflight 重新验证全部 generation/capacity/token 并创建隐藏 Mesh/RID 和不可抛 commit plan。任何关键失败都发生在 Preflight，活动状态逐值不变。
   - Commit 边界：不可 yield 临界区只交换已验证的 graph root/lineage、empty tool/overlay root、hidden Mesh/RID、surface snapshot、hit index、presentation token、diagnostics 和 `CurrentSlotID`，随后发布一次 matching full reset 与 `PresentationReady`。普通 observer 异常逐个隔离，结果提升为 `SucceededWithObserverWarnings`；不存在提交后关键 participant 失败或恢复页。Publish、Load、Delete 的 token、取消边界、结果和 UI 阶段不得合并。
@@ -63,6 +63,11 @@
   - 集成负责人：`v3-save-system`；真实场景端到端完成判定由 `v3-road-graph:8.6` 负责。
   - 验证：O(1) capture、后台 Godot Object 零访问、save I/O 中继续编辑；进程内/双进程 gate/lock、Timer 合并、手动优先和退出收敛；Publish/Load/Delete 分别产生唯一 token/result；fake graph/tool/presentation/第二 saveable aggregate、generation 失配、每个关键 Preflight 失败、commit 不抛、普通 observer 抛错、删除越界前后取消和 `CurrentSlotID` 结果。联合测试由协作系统覆盖真实隐藏资源及一次交换。
   - 验收：同一 V3 根跨进程最多一个目录事务；主线程不执行长 JSON/hash/I/O；Prepare/Preflight 失败逐值保留活动状态，non-yield commit 全有或全无且只通知一次；Load 只有成功、observer warning 或提交前失败/取消；autosave busy 有界；任何操作都不调用 V2 API 或触碰 V2 根。
+  - 阶段进展（2026-08-14）：`SaveOperationCoordinator` 已实现进程内根 gate、结构化 token/state/result、手动请求优先、单 pending autosave、取消点和 shutdown；公开同步 bool 入口已删除。Save/Load/Delete 的长磁盘与 prepared 工作在 `Task.Run` 中执行，主线程 capture 只取得 immutable root。`SaveManager` 用 scene generation 跟踪任务，返回主菜单先 drain，窗口/菜单/主菜单退出统一等待未越界取消或已越界事务收敛；新请求在关闭期得到 typed rejection。
+  - 等待取消修复（2026-08-14）：手动请求从 `_rootGate.WaitAsync()` 返回后、创建 `SaveOperationLease` 前，会在 coordinator 锁内重新检查外部 cancellation token；若取消与 gate 释放竞争，则立即释放已取得的 gate 并返回 Admission 阶段 `Canceled`。被取消的 waiter 不再成为无人终结的活动 lease，也不会让 scene drain 或 coordinator dispose 无限等待；见 `save-system:BUG-13`。
+  - Aggregate 进展（2026-08-14）：Load 已按 Admission/Prepare/Preflight/Commit 运行，`PreparedAggregateLoad` 在同一 commit lease 中交换 RoadGraph 新 lineage、RoadBuilder 空 placement/removal 与新 history、RoadRenderer 预建的基础 `ArrayMesh`/`MultiMesh`、以及 `CurrentSlotID`；observer 逐个隔离为 warning。`PreparedAggregateLoadTests`、`RoadRendererLoadPrepareTests`、coordinator/slot/UI 契约和 renderer lifecycle 运行时覆盖成功、取消、generation 失配、observer warning，以及 renderer 缺失导致提交前失败且旧图/历史/会话/槽逐值不变。
+  - 仍缺（保持开放）：当前 renderer participant 已覆盖统一样式的 open/closed ribbon 与节点批次，但 token 仍是 `GraphStateToken`；尚无 `RoadSurfaceSnapshot`、surface hit index、六分量 `RoadRenderToken`、junction patch 或 matching desired/presented token。因此还需协同 `v3-grid-rendering:2.2`、`v3-tool-input:2.4` 完整状态及第二 saveable/关键资源逐点故障矩阵，不能把当前 aggregate 切片视为 `2.3` 完成。
+  - 当前证据（2026-08-14）：完整 `dotnet test SimpleCities.sln --no-restore` 为 727/727；Debug 与 `ExportRelease` build 为 0 警告、0 错误，Roslyn compiler/analyzer 为 0 diagnostics。`SceneStyleDrain_DiscardsPendingCancelsWaitersAndRemainsReusable` 覆盖 gate 释放与外部取消竞争，完整套件不再停在 coordinator dispose。`pause_menu_runtime_contract.gd`、`road_renderer_lifecycle_runtime_contract.gd`、`road_closed_ribbon_runtime_contract.gd` 和当前 V3 综合运行时契约均输出 PASS；闭环契约证明 graph/tool/basic mesh/slot 成功联合交换后为 `1 Edge / 8 vertices / 0 markers`，并在同一已加载图中把两路口环从 `4 Edge / 20 vertices / 4 markers` 收敛为支路删除后的 `2 Edge / 12 vertices / 2 markers`。最新两轮 100k Load/renderer rebuild 为 4108.956 ms 与 4492.629 ms。
 
 ## 暂不执行
 
@@ -90,7 +95,9 @@
 - [x] **V2 RoadGraph 已先完整准备再提交。** `save-system:0.5` 与 `save-system:0.11` 的失败保护是行为基线；V3 以新接口扩展为 graph/tool/renderer/slot-target prepared aggregate。
 - [x] **V2 已验证命名槽、自动槽和 staging/backup 的用户语义。** V3 重新实现这些能力，并用 descriptor、独立根和跨进程协调替代旧内部架构。
 - [x] **V2 保存范围已限定为 RoadGraph。** `save-system:1.4` 是历史产品边界；V3 的 fake aggregate 不代表第二个业务 payload 已进入存档。
-- [x] **V2 payload 与保存根只作历史证据。** Node/Edge/Group、V2 `schemaVersion = 1`、`res://saves` 和 `user://saves` 均不是 V3 输入或实现依赖。
+- [x] **V2/过渡期 payload 与保存根只作历史证据。** 历史 Node/Edge/Group、当前 Group-free 且含 `roadType` 的严格 `schemaVersion = 3`、`res://saves` 和 `user://saves` 均不是 V3 format v1 输入或实现依赖。
+- [x] **V3 format v1 与独立根已成为唯一生产存档入口。** `IStreamingSaveable`、严格 manifest/payload family、`user://saves-v3`、canonical RoadGraph reader/writer、新 lineage Load 和 V2 根隔离均已有自动化、真实 `MapTest` 与 Debug 导出运行证据；后续 2.2/2.3 只能扩展有界 I/O、恢复与并发协议，不能恢复旧格式或同步兼容接口。
+- [x] **V3 同步存储原语已经确定、有界且可恢复。** `V3JsonStreamReader`、同句柄 length/hash/EOF、PNG 展示资产预算、operation-specific publish/delete descriptor、五类 occupant、OS 根锁、quarantine/tombstone 与 digest 恢复矩阵已有自动化和 Windows 导出/ACL 证据；`2.3` 只能在其上增加异步 coordinator、publish lease 和 aggregate Load，不能绕过这些磁盘不变量。
 
 ## 完成标准
 

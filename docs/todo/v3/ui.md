@@ -1,7 +1,7 @@
 # 第三代 UI 系统待办清单
 
 > 系统 key：`v3-ui`
-> 整理日期：2026-08-13
+> 整理日期：2026-08-14
 > 证据：`Scripts/UI/ConstructionDock.cs`、`Scripts/UI/ToolContextPanel.cs`、`Scripts/UI/GameHUD.cs`、`Scenes/UI/`、现有 UI 自动化、`tests/godot/command_center_runtime_contract.gd` 与 `docs/manuals/road-system-v3-gen.md`。
 > 主导原则：UI 只呈现和编辑工具/操作状态，不直接修改 RoadGraph 或磁盘；桌面、窄屏、键盘焦点和场景重复进入必须共享同一行为契约。
 
@@ -12,7 +12,7 @@
 | 1.1 | 道路上下文没有 RoadType 选择控件 | 开放 | 四段式名称与颜色 swatch 选择器写入共享 tool state |
 | 1.2 | ConstructionDock 没有道路改造工具呈现 | 开放 | 资源化 RoadUpgrade 工具、选中态和上下文联动 |
 | 1.3 | DebugPanel 仍把 RoadGroup 数量作为路网指标 | 开放 | 移除 Group 指标，展示 canonical Node/Edge/geometry/self-loop 结构量 |
-| 1.4 | 暂停菜单没有异步 Save/Load/Delete 的独占状态机 | 开放 | generation/token 防护、Escape 独占及三类操作的明确提交边界 |
+| 1.4 | 暂停菜单没有异步 Save/Load/Delete 的独占状态机 | 开放（部分实现） | token/generation/busy/Escape/退出收敛已接入；补齐完整 presentation 阶段与结果矩阵 |
 
 ### 设计覆盖矩阵
 
@@ -22,7 +22,7 @@
 | V3 类型建造 | 当前道路分类只有一个 `city-road` 工具，ToolContextPanel 只显示只读文本和 CellSize | 1.1、`v3-tool-input:2.1` |
 | V3 既有道路改造 | `ToolType` 和 catalog 没有 RoadUpgrade，ConstructionDock 只渲染 Road 工具定义 | 1.2、`v3-tool-input:2.2` |
 | V3 规范存储诊断 | DebugPanel 仍读取 `GetAllGroups()`，无法观察 Edge 压缩、原生几何数量或 self-loop | 1.3、`v3-road-graph:8.2`～`8.5` |
-| V3 异步存档体验 | PauseMenu 调用同步 bool API；没有 busy 目标、并发禁用、取消边界、autosave skipped 与 scene generation 失效呈现 | 1.4、`v3-save-system:2.3`、`v3-tool-input:2.4` |
+| V3 异步存档体验 | PauseMenu 已消费结构化 operation state/result，按 token、menu/scene generation 过滤 continuation，busy 时禁用冲突入口并让 Escape 只请求一次取消；退出流程会 drain/shutdown。完整 surface presentation acknowledgment 尚未存在 | 1.4、`v3-save-system:2.3`、`v3-tool-input:2.4`、`v3-grid-rendering:2.2` |
 
 ## 执行顺序
 
@@ -61,12 +61,16 @@
 <a id="v3-ui1.4"></a>
 
 - [ ] **1.4 呈现并约束异步保存、加载与删除操作**
-  - 当前问题：PauseMenu 以同步 bool 结果驱动槽列表和关闭行为；异步后，重复按钮、Enter、Escape 或旧 continuation 可能产生重复请求、错误覆盖/删除提示或提前关闭菜单。V3 还必须只展示独立根中的 `CompleteV3` / `CorruptV3` 槽，不能让 V2/`Foreign` 内容进入普通操作。
+  - 完成前问题：PauseMenu 以同步 bool 结果驱动槽列表和关闭行为；重复按钮、Enter、Escape 或旧 continuation 可能产生重复请求、错误覆盖/删除提示或提前关闭菜单。V3 还必须只展示独立根中的 `CompleteV3` / `CorruptV3` 槽，不能让 V2/`Foreign` 内容进入普通操作。
   - 修改：消费 coordinator 的不可变 operation state/result，显示操作类型、目标存档名及 Save 的 Capture/Prepare/Publish、Load 的 Admission/Prepare/Preflight/Commit、Delete 的 Recover/Commit/Cleanup 阶段；busy 时禁用冲突按钮并防止重复提交。每个 continuation 同时校验 `SceneGeneration + MenuOpenGeneration + OperationToken`。手动 Load 从 admission 到 commit 始终保持菜单打开和场景暂停：Admission/Prepare/Preflight 期间 Escape 只发送一次取消请求并继续消费输入；进入短 non-yield commit 后只消费 Escape，不能关闭菜单、恢复游戏或再取消。Load 的关键 graph/tool/mesh/surface 失败必须在 Preflight，成功 commit 同时发布 matching `PresentationReady`；提交后只有普通 observer warning，可显示 `SucceededWithObserverWarnings`，不存在表现重试页。覆盖与删除二次确认必须显示精确 display name、slot ID 和 occupant 状态；`CorruptV3` 只允许确认删除，`Foreign` / `Unsafe` 不显示为可操作槽。删除越过 tombstone move 后即显示逻辑删除，cleanup pending 作为 warning，不把槽重新加入列表。autosave `SkippedBusy` 只更新诊断，不弹错误。
   - 依赖：`v3-save-system:2.2`～`2.3`、`v3-tool-input:2.4`、`v3-grid-rendering:2.2`。
   - 集成负责人：`v3-ui`；端到端完成判定由 `v3-road-graph:8.6` 负责。
   - 验证：保存/另存/覆盖/加载/删除各阶段，鼠标/键盘重复激活；Admission/Prepare/Preflight 连按 Escape、commit 按 Escape；成功、observer warning、cleanup pending、提交前失败/取消；scene/menu generation 和旧 continuation；五类 occupant 的列表/按钮策略、精确确认、默认焦点、V2/Foreign 不可见；pending autosave 合并/跳过，菜单关闭重开、场景退出重入，以及三档视口。
   - 验收：每次命令只对应一个 operation token；旧 generation/continuation 无法改变当前菜单或磁盘；冲突按钮、Enter 和 Escape 不重复发起或提前恢复游戏。Publish、Load、Delete 结果不混淆，Load 不改盘；失败/取消不关闭菜单或误切 `CurrentSlotID`，observer/cleanup warning 不误报失败；成功 Load 只在所有根和 matching presentation token 一次交换后恢复游戏，V2 槽从不出现在 V3 UI，autosave busy 不产生错误噪音。
+  - 阶段进展（2026-08-14）：PauseMenu 已改用 `StartSave/StartSaveAs/StartLoad/StartDeleteSlot`，订阅不可变 state/result，并以 `OperationToken + MenuOpenGeneration + SceneGeneration` 拒绝旧 continuation。操作期间保存控件、确认入口和视图切换被禁用；Escape 在 commit 前只发送一次取消，越界后只消费输入。Load 只有 matching 成功结果才关闭菜单，失败/取消保留原菜单；Delete 继续绑定 UI generation、occupant digest 与确认 token。`AutosaveController` 独立统计 success/failure/canceled/skipped-busy。
+  - 退出与焦点进展（2026-08-14）：返回主菜单先进入 exit-convergence 状态、等待当前 scene operation drain，再切换场景；窗口关闭、暂停菜单和 MainMenu 退出统一由 `SaveManager` shutdown。所有 deferred focus 通过执行时有效性门禁，旧菜单离树后不会操作失效控件。对应已验证修复记录见 `save-system:BUG-12` 与 `ui:BUG-16`。
+  - 当前证据（2026-08-14）：`PauseMenuContractTests`、`AutosaveContractTests`、`SaveOperationCoordinatorTests` 与完整 727/727 自动化通过；其中 scene-style drain 回归覆盖等待 gate 的请求与外部取消竞争，不再遗留会阻塞退出的 lease。`pause_menu_runtime_contract.gd`、`autosave_runtime_contract.gd` 和当前 V3 综合运行时契约输出 PASS。Debug/`ExportRelease` build 与 Roslyn diagnostics 均为 0。
+  - 仍缺（保持开放）：renderer 尚未提供完整 `RoadRenderToken`、`RoadSurfaceSnapshot`/hit index 和 matching presentation acknowledgment，所以 UI 还不能展示最终的 graph/tool/mesh/surface 一次接管语义；observer/cleanup 每类 warning、所有阶段重复激活与真实关键资源故障矩阵也尚未全部验收。
 
 ## 暂不执行
 

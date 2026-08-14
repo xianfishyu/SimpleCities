@@ -1,8 +1,8 @@
 # SimpleCities 类与 API 参考
 
-> 最后更新：2026-08-13 | Godot 4.7 | Godot.NET.Sdk 4.7.0 | .NET 10.0 | C# 14.0 | Nullable enabled
+> 最后更新：2026-08-14 | Godot 4.7 | Godot.NET.Sdk 4.7.0 | .NET 10.0 | C# 14.0 | Nullable enabled
 
-本文档聚焦项目自有 API；当前事实源包括 `Scripts/` 下 60 个 C# 文件和 `Shaders/MapTerrain.gdshader`。`addons/` 为第三方插件，不纳入本参考。
+本文档聚焦项目自有 API；当前事实源包括 `Scripts/` 下 81 个 C# 文件和 `Shaders/MapTerrain.gdshader`。`addons/` 为第三方插件，不纳入本参考。
 
 ---
 
@@ -18,7 +18,7 @@
 - [8. Tools 工具模块](#8-tools-工具模块)
 - [9. UI 模块](#9-ui-模块)
 - [10. 数据流、事件流与存档流](#10-数据流事件流与存档流)
-- [11. 兼容性 DTO 词汇说明](#11-兼容性-dto-词汇说明)
+- [11. 道路存档词汇说明](#11-道路存档词汇说明)
 
 ---
 
@@ -35,14 +35,14 @@
 | 主场景 | `uid://baxamkfym8atd` | `project.godot` |
 | Autoload | `ImGuiRoot`, `SaveManager`, `MCPGameBridge` | `project.godot` |
 
-当前道路运行时模型已经从旧术语迁移到新术语：`RoadGraph` 是纯数据核心，`GraphNode` 是拓扑节点，`GraphEdge` 是原生几何边，`RoadGroup` 是一次铺路操作形成的边集合。旧 `RoadNetwork` / `Road` / `Segment` / `Junction` 不再是运行时类，只在未被当前 RoadGraph 使用的 legacy 公开 DTO 中保留；当前私有 v2 payload 使用 `nodes` / `edges` / `groups`。
+当前道路运行时采用 V3 领域模型：`RoadGraph` 是稳定 facade 与不可变 revision root 的事务核心，`GraphNode` 以 endpoint-role incidence 表达邻接，`GraphEdge` 保存最大连续原生几何链及 Edge 级 `RoadType`。`RoadGroup`、Group API、逐 Edge 事件、V2 RoadGraph DTO 和兼容 reader 均已删除；V3 payload 只保存 canonical `nodes` / `edges`。
 
 | 模块 | 文件 | 职责 |
 |---|---|---|
-| Core | `ISaveable.cs`, `SaveManager.cs`, `SaveSlotStore.cs`, `SaveJson.cs`, `SaveData.cs` | Godot 存档适配、纯文件存储、manifest、DTO |
-| Camera | `MainCamera.cs` | 2D 相机移动、缩放和可扩展状态捕获；V2 槽不选择相机 |
+| Core | `IStreamingSaveable.cs`, `SaveManager.cs`, `SaveSlotStore.cs`, `V3Json*.cs`, `V3*Codec.cs`, `V3PngValidator.cs`, `V3VerifiedReadStream.cs`, `SaveData.cs` | V3 流式参与者、独立保存根、有界 reader、严格 manifest/descriptor、PNG 展示资产与槽位事务 |
+| Camera | `MainCamera.cs` | 2D 相机移动与缩放；不参与当前 V3 存档 |
 | Grid | `GridSystem.cs`, `MapBackground.cs`, `MapTerrain.gdshader` | 网格数学、背景 CanvasLayer、Shader 网格绘制 |
-| Road data | `Direction.cs`, `GraphNode.cs`, `GraphEdge.cs`, `RoadGroup.cs`, `RoadPath.cs`, `SpatialIndex.cs`, `RoadGraph*.cs`, `Geometry/*.cs` | 输入方向、拓扑、原生几何、空间索引、提交与持久化 |
+| Road data | `Direction.cs`, `GraphNode.cs`, `GraphEdge.cs`, `RoadType.cs`, `RoadPath.cs`, `SpatialIndex.cs`, `RoadGraph*.cs`, `Geometry/*.cs` | incidence 拓扑、原生几何、空间索引、类型化事务、delta 与 V3 持久化 |
 | Road scene | `RoadBuilder.cs`, `Input/*.cs`, `RoadConfig.cs`, `RoadRenderer.cs`, `RoadSystem.cs` | 输入生命周期、可替换投影策略、共享配置、事件驱动渲染、依赖注入 |
 | Tools | `ToolManager.cs`, `ToolType.cs` | 工具切换和输入转发 |
 | UI | `GameHUD.cs`, `ConstructionDock.cs`, `ToolContextPanel.cs`, `DebugPanel.cs`, `PauseMenu.cs`, `UIManager.cs` | 命令中心 HUD、建造坞、上下文、诊断、暂停菜单和面板管理 |
@@ -53,7 +53,7 @@
 
 | 单例 | 类型 | 创建位置 | 主要消费者 |
 |---|---|---|---|
-| `SaveManager.Instance` | `SaveManager` | Autoload `_Ready()` | `MainCamera`, `RoadSystem`, `GameHUD` |
+| `SaveManager.Instance` | `SaveManager` | Autoload `_Ready()` | `RoadSystem`, `GameHUD`, `AutosaveController` |
 | `MainCamera.Instance` | `MainCamera` | `MainCamera._Ready()` | `MapBackground`, `GameHUD` |
 | `RoadSystem.Instance` | `RoadSystem` | `RoadSystem._Ready()` | `GameHUD` |
 | `ToolManager.Instance` | `ToolManager` | `ToolManager._Ready()` | `GameHUD` |
@@ -63,7 +63,7 @@
 | 初始化阶段 | 关键调用 | 结果 |
 |---|---|---|
 | Core autoload | `SaveManager._Ready()` | 建立全局持久化入口 |
-| 相机 | `MainCamera._Ready()` / `_ExitTree()` | 设置 `Instance`、记录初始位置并注册到 `SaveManager`；退出时注销并清理单例 |
+| 相机 | `MainCamera._Ready()` / `_ExitTree()` | 规范化缩放配置、设置或清理 `Instance`；不注册存档参与者 |
 | 道路系统 | `RoadSystem._Ready()` / `_ExitTree()` | 创建并注册 `RoadGraph`，注入 renderer/builder；退出时注销并清理单例 |
 | HUD | `GameHUD._Ready()` | 获取 `ToolManager` 和 `RoadSystem.Graph`，解析控件，绑定工具和存档按钮 |
 
@@ -71,20 +71,20 @@
 
 ## 3. Core 持久化模块
 
-### ISaveable
+### IStreamingSaveable
 
-**文件**：`Scripts/Core/ISaveable.cs`
-**类型**：`public interface ISaveable`
+**文件**：`Scripts/Core/IStreamingSaveable.cs`
+**类型**：`public interface IStreamingSaveable`
 
 | 成员 | 签名 | 说明 |
 |---|---|---|
-| `SaveFileName` | `string SaveFileName { get; }` | 存档文件名，不含 `.json` |
-| `CaptureState` | `object CaptureState()` | 捕获纯 DTO 状态 |
-| `RestoreState` | `void RestoreState(string json)` | 从 raw JSON 恢复状态 |
+| `SaveFileName` | `string SaveFileName { get; }` | 业务文件名，不含 `.json` |
+| `CaptureSnapshot` | `ISaveSnapshot CaptureSnapshot()` | O(1) 捕获不可变参与者快照 |
+| `WriteSnapshot` | `void WriteSnapshot(Stream destination, ISaveSnapshot snapshot)` | 直接向目标字节流写 canonical payload |
+| `PrepareLoad` | `IPreparedSaveState PrepareLoad(Stream source)` | 从字节流完整解析、校验并返回未提交状态 |
+| `CommitPreparedLoad` | `void CommitPreparedLoad(IPreparedSaveState preparedState)` | 把已准备状态提交到活动参与者 |
 
-`IPreparedSaveable : ISaveable` 额外提供 `PrepareRestoreState(string)` 与 `RestorePreparedState(object)`。`SaveSlotStore.Load` 先读取并解析整槽 JSON，再准备全部实现，最后才提交；`RoadGraph` 和 `MainCamera` 均实现该两阶段契约。
-
-当前注册实现：`RoadGraph.SaveFileName == "road_network"`，`MainCamera.SaveFileName == "camera"`。
+`ISaveSnapshot` 与 `IPreparedSaveState` 是标记接口。当前唯一生产参与者是 `RoadGraph`，其 `RoadGraphRevision` 同时实现二者；`MainCamera` 不再参与存档。旧 `ISaveable` / `IPreparedSaveable`、字符串 `CaptureState` / `RestoreState` 兼容入口已删除。
 
 ### SaveManager
 
@@ -100,30 +100,32 @@
 | `AutosaveDisplayName` | `public const string AutosaveDisplayName = "自动存档"` | 保留自动槽的玩家可见名称 |
 | `CurrentSlotID` | `public string CurrentSlotID { get; private set; } = AutosaveSlotID` | 当前槽位内部 ID |
 | `RegisteredSaveableCount` | `public int RegisteredSaveableCount` | 当前活动注册数量 |
-| V2 持久化配置 | `V2SaveFileNames = ["road_network"]` | 第二代只选择 RoadGraph；相机保持注册但不进入 V2 槽 |
 | `_Ready` | `public override void _Ready()` | 设置 `Instance` |
-| `Register` | `public bool Register(ISaveable saveable)` | 同一对象幂等；拒绝另一活动对象使用相同 `SaveFileName` |
-| `Unregister` | `public bool Unregister(ISaveable saveable)` | 移除离开场景树的可存档对象 |
+| `Register` | `public bool Register(IStreamingSaveable saveable)` | 同一对象幂等；拒绝另一活动对象使用大小写等价的 `SaveFileName` |
+| `Unregister` | `public bool Unregister(IStreamingSaveable saveable)` | 移除离开场景树的存档参与者 |
 | `Save` | `public bool Save(string slotID = AutosaveSlotID)` | 按内部 ID 覆盖已存在槽位；首次只允许保留的 autosave |
 | `SaveAutosave` | `public bool SaveAutosave()` | 覆盖保留自动槽，不改变玩家当前选中的手动槽 |
 | `SaveAs` | `public bool SaveAs(string displayName)` | 以玩家可见名称创建具有独立安全 ID 的手动槽位 |
 | `Load` | `public bool Load(string slotID = AutosaveSlotID)` | 按内部 ID 完成 manifest、全部文件和临时模型预检后提交恢复 |
 | `SaveSlotExists` | `public bool SaveSlotExists(string slotID)` | 按内部 ID 检查 manifest 是否存在 |
 | `ListSlots` | `public IReadOnlyList<SaveSlotSummary> ListSlots()` | 无需加载业务 JSON 即可列举有效及损坏槽摘要 |
-| `DeleteSlot` | `public bool DeleteSlot(string slotID)` | 按内部 ID 递归删除非空槽位；当前槽被删时回到 `autosave` |
+| `RequestDeleteSlot` | `public string RequestDeleteSlot(string slotID)` | 从当前列表 generation 为有效或损坏 V3 occupant 生成一次性删除 operation token；失败返回空字符串 |
+| `ConfirmDeleteSlot` | `public bool ConfirmDeleteSlot(string slotID, string operationToken)` | 仅接受与待确认目标、generation、kind 和 digest 匹配的 token；成功 tombstone 删除当前槽后回到 `autosave` |
 
 | 存档规则 | 当前实现 |
 |---|---|
-| 基础目录 | 编辑器使用全局化的 `res://saves/<slotID>/`；导出版本使用 Godot 可写用户目录 `user://saves/<slotID>/` |
-| 命名边界 | 目录只使用受限内部 ID；玩家显示名只进入 manifest，最大 128 个 UTF-16 字符 |
+| 基础目录 | 编辑器和导出统一使用 `user://saves-v3/<slotID>/`；测试可向 `SaveSlotStore` 注入隔离根 |
+| 命名边界 | 目录只使用受限内部 ID；玩家显示名只进入 manifest，并受 Unicode scalar 与 UTF-8 字节预算约束 |
 | 单系统文件 | `<SaveFileName>.json` |
-| 写入策略 | 捕获与序列化全部完成后写同级 `.staging` 目录；旧槽移到 `.backup` 后切换完整目录，失败恢复旧槽，读写入口自动恢复崩溃残留 |
-| Manifest | `manifest.json`，字段来自 `ManifestData` |
-| V2 业务范围 | 新槽有且只要求 `road_network.json`；未来配置可增加独立系统 JSON，无需修改 RoadGraph DTO |
-| 加载策略 | manifest、必需文件、JSON 语法及 `IPreparedSaveable` 临时模型全部成功后才进入提交阶段 |
+| 写入策略 | 捕获不可变 snapshot 后写 `.save-transactions/<slot>/<operation>/staging`；payload 关闭前计算实际长度/SHA-256，manifest 最后写入；`publish.json` 绑定新旧 aggregate digest 后再以 slot/backup 目录切换发布 |
+| Manifest | 严格 `simple-cities-v3` format v1；每个业务文件记录 `name`、`encodedLength` 与 `sha256` |
+| V3 业务范围 | 当前有且只要求 `road_network.json`；外来、损坏或 unsafe occupant 不允许被普通 Save 覆盖 |
+| 加载策略 | 先分类完整槽，逐 payload 通过有界 `V3JsonStreamReader` 在同一读取句柄校验 byte/token/depth/lexeme、长度/hash/EOF 并完成全部 `PrepareLoad`，最后提交已准备状态 |
+| 根与恢复 | 每个同步操作持有 `.save-root.lock` 的 OS 独占句柄；恢复只按 publish/delete descriptor 与 digest 矩阵完成、隔离、清理或 typed 阻塞 |
+| 缩略图 | 可选 `thumbnail.png` 不属于业务 aggregate；严格校验 PNG chunk/CRC、尺寸、像素和解码扫描线，缺失或损坏只产生 warning |
 | 错误处理 | 捕获异常，`GD.PushError(...)`，返回 `false` |
 
-`SaveSlotStore` 是不依赖 Godot Node 的内部文件存储边界，负责生成 `manual-<GUID>` ID、约束路径、整槽 staging/backup 发布、事务残留恢复、读写 manifest、存在性检查和递归删除；事务目录使用保留名称且不会进入 `ListSlots`。`SaveManager` 负责注册生命周期、Godot 日志和 `CurrentSlotID`。隔离目录 xUnit 直接验证 `SaveSlotStore`，Godot 运行时契约验证适配层。
+`SaveSlotStore` 是不依赖 Godot Node 的内部同步文件存储边界，负责生成 `manual-<GUID>` ID、约束路径、`Absent | CompleteV3 | CorruptV3 | Foreign | Unsafe` 分类、operation-specific publish/delete descriptor、aggregate digest、quarantine/tombstone、跨进程 OS 根锁、严格 manifest、存在性检查和删除。发布与删除分别返回含 operation token 的 `SavePublishResult` / `SaveDeleteResult`，cleanup 失败不会反向回滚已经越界的操作；无法证明的恢复组合通过专用 exception 保留现场。尚未实现的是 `v3-save-system:2.3` 的进程内 async coordinator、publish lease、公开结构化 operation state 与不可失败 aggregate Load commit。`SaveManager` 负责注册生命周期、Godot 日志、删除确认 generation 和 `CurrentSlotID`。
 
 ### AutosaveController
 
@@ -159,56 +161,52 @@
 
 配置写入 `user://input_bindings.cfg`。载入配置存在非法键或重复值时，整套保留默认绑定，不应用部分配置。
 
-### SaveJson
+### SaveJson 与 V3 codec 边界
 
 **文件**：`Scripts/Core/SaveJson.cs`
 **类型**：`public static class SaveJson`
 
 | 成员 | 签名 | 说明 |
 |---|---|---|
-| `Serialize` | `public static string Serialize(object data)` | 使用统一 `JsonSerializerOptions` 序列化 |
-| `Deserialize` | `public static T Deserialize<T>(string json)` | 使用统一 `JsonSerializerOptions` 反序列化 |
+| `Serialize` | `public static string Serialize(object data)` | 供几何辅助比较/序列化使用旧统一选项 |
+| `Deserialize` | `public static T Deserialize<T>(string json)` | 供几何辅助入口反序列化；不用于 V3 slot reader |
 
 | 选项 | 值 |
 |---|---|
 | `WriteIndented` | `true` |
 | `PropertyNameCaseInsensitive` | `true` |
 
-### SaveData DTO
+`SaveJson` 不再是 V3 存档 codec。V3 manifest 由 `V3ManifestCodec` 以严格字段、token 与 family/version 契约读写；RoadGraph payload 由 `RoadGraph.WriteSnapshot` / `PrepareLoad` 直接处理 UTF-8 stream。
+
+### SaveData 与 manifest 模型
 
 **文件**：`Scripts/Core/SaveData.cs`
-**类型**：公开 DTO 类，均为纯数据对象
+**类型**：内部 immutable manifest records 与公开 `SaveSlotSummary`
 
 活动 schema、验证状态和未来迁移边界见 [存档系统当前参考](save-system-plan.md)。本节只列当前 DTO 形状。
 
 | DTO | 公开属性签名 | JSON 字段 | 默认值/说明 |
 |---|---|---|---|
-| `ManifestData` | `public int? SchemaVersion { get; set; }` | `schemaVersion` | 反序列化无默认值；保存入口显式写入 `1` |
-| `ManifestData` | `public string SlotID { get; set; }` | `slotId` | 内部目录标识 |
-| `ManifestData` | `public string DisplayName { get; set; }` | `displayName` | 玩家可见名称，不参与路径计算 |
-| `ManifestData` | `public string Timestamp { get; set; }` | `timestamp` | `""` |
-| `ManifestData` | `public string CityName { get; set; }` | `cityName` | `"Unknown City"` 占位值 |
-| `ManifestData` | `public long? Population { get; set; }` | `population` | `null` 表示暂无数据源 |
-| `ManifestData` | `public decimal? Funds { get; set; }` | `funds` | `null` 表示暂无数据源 |
-| `ManifestData` | `public string? ThumbnailFile { get; set; }` | `thumbnailFile` | `null` 表示使用 UI 占位图 |
-| `ManifestData` | `public List<string> Files { get; set; }` | `files` | 文件名列表 |
-| `SaveSlotSummary` | `SlotID`、`DisplayName`、`SavedAtUtc`、城市元数据、`ThumbnailPath`、`Files`、`IsValid`、`Error`、`IsAutosave` | 非 JSON 摘要 | `IsAutosave` 只按保留内部 ID 判定；有效槽按 UTC 时间倒序并以 ID 稳定排序，损坏槽排在末尾 |
-| `CameraData` | `public float PositionX { get; set; }` | `positionX` | 相机 X |
-| `CameraData` | `public float PositionY { get; set; }` | `positionY` | 相机 Y |
-| `CameraData` | `public float Zoom { get; set; }` | `zoom` | 相机缩放目标 |
+| `V3Manifest` | `SlotID`、`DisplayName`、`Timestamp`、城市元数据、`ThumbnailFile`、`Files` | manifest 根字段 | family/schema 由 codec 固定为 `simple-cities-v3` / `1` |
+| `V3ManifestFile` | `Name`、`EncodedLength`、`Sha256` | `files[]` | 绑定业务 payload 名称、实际编码长度和小写 SHA-256 |
+| `SaveSlotOccupantKind` | `Absent`、`CompleteV3`、`CorruptV3`、`Foreign`、`Unsafe` | 非 JSON 分类 | 决定 list/load/save/delete 的允许边界 |
+| `SavePublishResult` | `Kind`、`SlotID`、`OperationToken`、`SavedFileCount`、`Warning` | 非 JSON 结果 | `PublishedWithCleanupPending` 仍表示新槽已经发布 |
+| `SaveDeleteResult` | `Kind`、`SlotID`、`OperationToken`、`Warning` | 非 JSON 结果 | `DeletedWithCleanupPending` 仍表示槽已经逻辑删除 |
+| `SaveDeletionAuthorization` | `SlotID`、`UIGeneration`、`OperationToken`、`OccupantKind`、`OccupantDigest`、`ConfirmationSummary` | `delete.json` 的输入 | 把当前 UI 列表目标与待删 occupant 精确绑定 |
+| `SaveSlotSummary` | `SlotID`、`DisplayName`、`SavedAtUtc`、城市元数据、`ThumbnailPath`、`Files`、`IsValid`、`Error`、`Warning`、`IsAutosave` | 非 JSON 摘要 | `IsAutosave` 只按保留内部 ID 判定；有效槽按 UTC 时间倒序并以 ID 稳定排序，损坏槽排在末尾 |
 
-道路 V2 的 Node/Edge/Group 与原生几何 DTO 是 `RoadGraph.Persistence.cs` 的私有存档边界；旧 `RoadNetworkData`、`JunctionData`、`SegmentData`、`RoadData` 和 `Vector2Data` 已删除，不再构成公开兼容 schema。
+RoadGraph V3 payload 不经过这些 manifest records；`RoadGraph.Persistence.cs` 直接读写 `formatFamily`、`payloadType`、`schemaVersion`、`nextID`、`nodes` 和 `edges`，并严格拒绝 V2 Group 形状。
 
 ---
 
 ## 4. MainCamera
 
 **文件**：`Scripts/MainCamera.cs`
-**继承**：`public partial class MainCamera : Camera2D, IPreparedSaveable`
+**继承**：`public partial class MainCamera : Camera2D`
 
 | 导出成员 | 签名 | 默认值 | 说明 |
 |---|---|---|---|
-| `defaultScale` | `[Export] private float defaultScale = 1f` | `1f` | 目标缩放，可由相机自身捕获；V2 槽不选择相机状态 |
+| `defaultScale` | `[Export] private float defaultScale = 1f` | `1f` | 相机目标缩放；当前不持久化 |
 | `scaleFactor` | `[Export] public float scaleFactor = 0.125f` | `0.125f` | 鼠标滚轮缩放因子 |
 | `minScale` | `[Export] public float minScale = 0.125f` | `0.125f` | 最小目标缩放；支持六位小数精度 |
 | `maxScale` | `[Export] public float maxScale = 4f` | `4f` | 最大目标缩放 |
@@ -222,15 +220,10 @@
 | 公开成员 | 签名 | 说明 |
 |---|---|---|
 | `Instance` | `public static MainCamera Instance { get; private set; }` | 单例引用 |
-| `_Ready` | `public override void _Ready()` | 规范化缩放配置、设置单例并注册到 `SaveManager` |
-| `_ExitTree` | `public override void _ExitTree()` | 从 `SaveManager` 注销并清理当前单例 |
+| `_Ready` | `public override void _Ready()` | 规范化缩放配置并设置单例 |
+| `_ExitTree` | `public override void _ExitTree()` | 清理当前单例 |
 | `_Process` | `public override void _Process(double delta)` | 更新缩放、键盘移动和中键拖拽 |
 | `_UnhandledInput` | `public override void _UnhandledInput(InputEvent @event)` | 处理未被 UI 消费的 WASD、滚轮和中键输入 |
-| `SaveFileName` | `public string SaveFileName => "camera"` | 相机扩展文件名；当前 V2 配置不选择 |
-| `CaptureState` | `public object CaptureState()` | 返回 `CameraData` |
-| `PrepareRestoreState` | `public object PrepareRestoreState(string json)` | 解析并校验有限坐标与正缩放，不修改相机 |
-| `RestorePreparedState` | `public void RestorePreparedState(object preparedState)` | 提交已准备的 `CameraData`，同步 `Position` 和缩放目标，并清空移动速度与缩放锚点 |
-| `RestoreState` | `public void RestoreState(string json)` | 兼容入口，依次调用准备与提交 |
 
 | 输入动作 | 来源 | 作用 |
 |---|---|---|
@@ -329,23 +322,23 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `Length` | `public static float Length(Direction d, float cellSize)` | 正交为 `cellSize`，对角为 `cellSize * sqrt(2)` |
 | `All` | `public static Direction[] All { get; }` | 顺序：`N, NE, E, SE, S, SW, W, NW` |
 
-### GraphNode 与 EdgeRef
+### GraphNode 与 EdgeIncidence
 
 **文件**：`Scripts/Road/GraphNode.cs`
 
 | 类型 | 公开成员 | 签名 | 说明 |
 |---|---|---|---|
-| `EdgeRef` | `EdgeID` | `public int EdgeID { get; }` | 邻接边 ID |
-| `EdgeRef` | `NeighborNodeID` | `public int NeighborNodeID { get; }` | 邻接节点 ID |
-| `EdgeRef` | 构造函数 | `public EdgeRef(int edgeID, int neighborNodeID)` | 创建邻接引用 |
+| `EdgeEndpoint` | 枚举值 | `A`, `B` | incidence 在 Edge 上的端接角色 |
+| `EdgeIncidence` | record struct | `EdgeID`, `Endpoint`, `NeighborNodeID` | 可区分 self-loop A/B 的邻接引用 |
 | `GraphNode` | `ID` | `public int ID { get; }` | 节点 ID |
 | `GraphNode` | `Position` | `public Vector2 Position { get; }` | 世界坐标 |
-| `GraphNode` | `Edges` | `public IReadOnlyList<EdgeRef> Edges` | 由 `ReadOnlyCollection` 提供的实时只读视图 |
-| `GraphNode` | `EdgeCount` | `public int EdgeCount => _edges.Count` | 邻接边数 |
+| `GraphNode` | `Incidences` | `public IReadOnlyList<EdgeIncidence> Incidences` | 按 Edge ID 和 endpoint 排序的 immutable incidence |
+| `GraphNode` | `IncidenceCount` / `Degree` | 只读 `int` | 按端接计数；self-loop 贡献 2 |
+| `GraphNode` | `IncidentEdgeCount` | `public int IncidentEdgeCount` | 去重后的 Edge 数；self-loop 为 1 |
 | `GraphNode` | 构造函数 | `public GraphNode(int id, Vector2 position)` | 创建节点 |
 | `GraphNode` | `GetNeighborIDs` | `public IEnumerable<int> GetNeighborIDs()` | 去重后的邻居节点 ID |
 
-`GraphNode.AddEdge(...)` 和 `GraphNode.RemoveEdge(...)` 是 `internal`，由 `RoadGraph` 维护，不是外部公开 API。
+`WithAddedIncidence(...)`、`WithRemovedIncidence(...)` 和 `WithoutIncidences()` 是 `internal` copy-on-write helper；发布后的 `GraphNode` 不原地修改。self-loop 在同一 Node 上精确保存 A/B 两条 incidence。
 
 ### GraphEdge
 
@@ -354,32 +347,29 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | 成员 | 签名 | 说明 |
 |---|---|---|
 | `ID` | `public int ID { get; }` | 边 ID |
-| `NodeA` | `public int NodeA { get; internal set; }` | 起点节点 ID |
-| `NodeB` | `public int NodeB { get; internal set; }` | 终点节点 ID |
+| `NodeA` | `public int NodeA { get; }` | 规范方向起点 Node ID；非环总小于 `NodeB` |
+| `NodeB` | `public int NodeB { get; }` | 规范方向终点 Node ID；可与 `NodeA` 相同表示 self-loop |
+| `RoadType` | `public RoadType RoadType { get; }` | Edge 级道路类型，也是 merge key 的一部分 |
 | `GeometrySegments` | `public IReadOnlyList<RoadGeometrySegment> GeometrySegments` | 保留类型与控制参数的权威原生几何，只读包装 |
-| `Points` | `public Vector2[] Points { get; }` | 原生段边界的防御性兼容副本，不含端点 |
-| `GroupID` | `public int GroupID { get; internal set; }` | 所属 `RoadGroup` |
+| `Points` | `public Vector2[] Points { get; }` | 原生段边界的防御性副本，不含端点 |
 | `Length` | `public float Length { get; }` | 几何长度 |
-| 构造函数 | `public GraphEdge(int id, int nodeA, int nodeB, IReadOnlyList<RoadGeometrySegment> geometrySegments, int groupID)` | 创建至少包含一个连续原生几何段的边 |
+| 构造函数 | `public GraphEdge(RoadType roadType, int id, int nodeA, int nodeB, IReadOnlyList<RoadGeometrySegment> geometrySegments)` | canonicalize 几何并建立 immutable Edge |
 | `GetFullPath` | `public Vector2[] GetFullPath(Func<int, GraphNode?> getNode)` | 返回 `[NodeA.Position, ...Points, NodeB.Position]`；端点缺失时抛出 `InvalidOperationException` |
 
-### RoadGroup
+构造函数要求非空、逐 bit 连续的正长度 geometry chain，并执行 geometry canonicalization。非 self-loop 会按 Node ID 升序定向并用原生反向契约翻转几何；self-loop 要求精确闭合并从正反链中选择较小 typed canonical key。对象发布后端点、类型和几何都不可变。
 
-**文件**：`Scripts/Road/RoadGroup.cs`
+### RoadType
 
-| 成员 | 签名 | 说明 |
+**文件**：`Scripts/Road/RoadType.cs`
+
+| 枚举值 | 存档 token | 说明 |
 |---|---|---|
-| `ID` | `public int ID { get; }` | 组 ID |
-| `EdgeIDs` | `public IReadOnlyCollection<int> EdgeIDs` | 组内边 ID 的防御性快照 |
-| `EdgeCount` | `public int EdgeCount => _edgeIDs.Count` | 边数量 |
-| `IsEmpty` | `public bool IsEmpty => _edgeIDs.Count == 0` | 是否为空 |
-| 构造函数 | `public RoadGroup(int id)` | 创建空分组 |
+| `Dirt` | `"dirt"` | 土路 |
+| `Street` | `"street"` | 街道；当前 RoadBuilder 固定建造类型 |
+| `Arterial` | `"arterial"` | 主干道 |
+| `Highway` | `"highway"` | 高速道路 |
 
-`AddEdge(int)` 和 `RemoveEdge(int)` 是 `internal`，只由 `RoadGraph` 更新。
-
-### RoadType 边界
-
-第二代运行时、公共提交 API 和 `RoadGraph` v2 存档 schema 均不包含 `RoadType`，仓库中不存在 `Scripts/Road/RoadType.cs`。道路分级、差异化样式、类型选择和升级工具属于第三代；届时必须使用新契约和新 schema 版本引入，不得把旧字段静默映射为默认类型。
+`RoadTypeContract` 严格校验这四个值并执行大小写敏感 token 映射。不同类型相邻 Edge 保留 semantic-boundary Node；`ChangeRoadType` 可能让边界消失并触发 canonical merge。当前领域/存档已支持四类，类型选择 UI 与 RoadUpgrade 工具仍属 Phase 7。
 
 ### SpatialIndex
 
@@ -390,10 +380,10 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `ISpatialRef` | `Position` | `Vector2 Position { get; }` | 空间位置 |
 | `ISpatialRef` | `Kind` | `SpatialRefKind Kind { get; }` | 引用类别 |
 | `ISpatialRef` | `IntersectsCircle` | `bool IntersectsCircle(Vector2 center, float radius)` | 权威圆形命中过滤 |
-| `SpatialRefKind` | 枚举值 | `Node`, `EdgePoint`, `EdgeSegment`, `EdgeGeometry` | 节点、兼容点、直线段或原生几何 |
+| `SpatialRefKind` | 枚举值 | `Node`, `EdgePoint`, `EdgeSegment`, `EdgeGeometry` | 节点、旧辅助点/线段或当前 query fragment |
 | `NodeSpatialRef` | `NodeID` | `public int NodeID { get; }` | 节点 ID |
 | `NodeSpatialRef` | `Position` | `public Vector2 Position { get; }` | 节点位置 |
-| `EdgeGeometryRef` | `EdgeID` / `Geometry` / `Bounds` | 原生几何引用及其保守包围盒 | 当前 RoadGraph 的 Edge 索引引用 |
+| `EdgeGeometryRef` | Edge/geometry/fragment ID、参数区间、`Geometry`、`Bounds`、end ownership | 原生 query fragment | 保留到 source geometry 的参数映射和半开端点所有权 |
 | `UniformGrid` | 构造函数 | `public UniformGrid(float bucketSize)` | bucket 下限为 `1f` |
 | `UniformGrid` | `Insert` | `public void Insert(ISpatialRef entity)` | 插入引用 |
 | `UniformGrid` | `Remove` | `public void Remove(ISpatialRef entity)` | 按对象引用移除 |
@@ -402,75 +392,67 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `UniformGrid` | `QueryBounds` | `public IEnumerable<ISpatialRef> QueryBounds(Rect2 bounds)` | 返回覆盖桶内去重引用，调用方再做权威几何过滤 |
 | `UniformGrid` | `Clear` | `public void Clear()` | 清空索引 |
 
-空间索引是查询加速结构，不是权威数据源。`RoadGraph` 同步维护 `_nodes`、`_edges`、`_groups`、`_nodeRefs`、`_edgeRefs` 和 `_spatialIndex`。成本取决于查询或几何 Bounds 覆盖的桶数以及这些桶内的引用数；跨桶引用会在查询时去重，移除会扫描每个覆盖桶内的 `List<ISpatialRef>`，因此不宣称无条件 `O(1)` 删除或 `O(1 + k)` 查询。
+空间索引是不可持久化的派生查询结构，不是权威数据源。`RoadGraphRevision` 保存 immutable Node/Edge、Node ref、Edge fragment ref 和 `UniformGridSnapshot`；mutation builder 只复制受影响条目与 bucket 页。`UniformGrid.HasExactCoverage(...)` 以引用 identity 预计算预期 bucket coverage/count，再单次扫描全部 bucket entry，严格拒绝缺失、额外、错桶、同桶重复和计数不符，复杂度随引用与实际索引条目线性增长。
 
 ### RoadGraph
 
 **文件**：`Scripts/Road/RoadGraph.cs`
-**类型**：`public partial class RoadGraph : IPreparedSaveable`
+**类型**：`public partial class RoadGraph : IStreamingSaveable`
 
 | 常量/内部结构 | 当前值/职责 |
 |---|---|
 | `SnapRadius` | `0.5f`，节点复用半径 |
 | `GeometryEpsilon` | `1e-4f`，几何容差 |
 | `IndexBucketSize` | `64f`，默认空间索引桶尺寸 |
-| `_nodes` | `Dictionary<int, GraphNode>`，权威节点表 |
-| `_edges` | `Dictionary<int, GraphEdge>`，权威边表 |
-| `_groups` | `Dictionary<int, RoadGroup>`，权威道路组表 |
-| `_nodeRefs` / `_edgeRefs` | 记录插入到 `UniformGrid` 的原引用，保证删除精确 |
+| `_revision` | 当前 immutable `RoadGraphRevision` root；含 lineage/revision/sequence、watermark、实体和派生索引 |
+| `_nodes` / `_edges` | 当前 mutation 使用的 immutable dictionary builder；发布后冻结进 revision |
+| `_nodeRefs` / `_edgeRefs` / `_spatialIndex` | query fragment 派生索引 builder；与当前 root 一起提交 |
 
 | 公开成员 | 签名 | 说明 |
 |---|---|---|
 | `SaveFileName` | `public string SaveFileName => "road_network"` | 路网存档文件名 |
-| `EdgeAdded` | `public event Action<GraphEdge>? EdgeAdded` | 新边所在变更提交完成后触发 |
-| `EdgeRemoved` | `public event Action<GraphEdge>? EdgeRemoved` | 删边所在变更提交完成后触发 |
-| `GraphCleared` | `public event Action? GraphCleared` | 加载并重建后触发 |
+| `GraphChanged` | `public event Action<RoadGraphChangedEvent>? GraphChanged` | 唯一事务事件；携带 delta、summary 与完整 state token |
 | 构造函数 | `public RoadGraph()` | 使用默认 `IndexBucketSize` |
 | 构造函数 | `public RoadGraph(float bucketSize)` | 指定空间索引 bucket |
-| `AddRoad` | `public int AddRoad(Vector2 start, Vector2 end, Vector2[] waypoints)` | 折线兼容入口，返回 group ID，失败或完全覆盖返回 `-1` |
-| `SubmitPolyline` | `public RoadPathSubmissionResult SubmitPolyline(IReadOnlyList<Vector2>? points)` | 无网格参数的结构化折线提交入口 |
-| `SubmitPath` | `public RoadPathSubmissionResult SubmitPath(RoadPath? path)` | 提交连续原生几何路径并返回完整变更摘要 |
-| `RemoveEdge` | `public bool RemoveEdge(int edgeID)` | 删除单边，一次清理孤立节点与空 Group，不触发合并 |
-| `RemoveEdges` | `public bool RemoveEdges(IEnumerable<int>? edgeIDs)` | 对 ID 去重排序，跳过失效目标并在一次事务中删除全部有效 Edge |
-| `RemoveRoadGroup` | `public bool RemoveRoadGroup(int groupID)` | 按 Edge ID 稳定顺序批量 detach，一次清理后发布事件，不触发合并 |
+| `SubmitPolyline` | `public RoadPathSubmissionResult SubmitPolyline(RoadType roadType, IReadOnlyList<Vector2>? points)` | 以显式类型提交折线并返回结构化结果 |
+| `SubmitPath` | `public RoadPathSubmissionResult SubmitPath(RoadBuildRequest? request)` | 提交原生 `RoadPath` 与 `RoadType` 的不可缺省请求 |
+| `RemoveEdge` | `public bool RemoveEdge(int edgeID)` | 删除单 Edge，并在同一事务恢复 canonical form |
+| `RemoveEdges` | `public bool RemoveEdges(IEnumerable<int>? edgeIDs)` | 对 ID 去重排序，跳过失效目标并一次提交全部有效删除 |
+| `ChangeRoadType` | `public RoadTypeChangeResult ChangeRoadType(IEnumerable<int>? edgeIDs, RoadType targetType)` | 原子批量改造，随后消除可合并 semantic boundary |
 | `GetEdge` | `public GraphEdge? GetEdge(int edgeID)` | 取边 |
 | `GetNode` | `public GraphNode? GetNode(int nodeID)` | 取节点 |
-| `GetGroup` | `public RoadGroup? GetGroup(int groupID)` | 取组 |
 | `FindClosestEdge` | `public GraphEdge? FindClosestEdge(Vector2 position, float maxRadius)` | 从原生几何空间候选中计算权威最近点；等距时选较小 Edge ID |
 | `FindEdgeIDsNear` | `public IReadOnlyList<int> FindEdgeIDsNear(Vector2 position, float radius)` | 返回与圆形命中范围相交的原生几何 Edge ID 稳定序列 |
 | `FindEdgeIDsIntersecting` | `public IReadOnlyList<int> FindEdgeIDsIntersecting(Rect2 bounds)` | 以空间候选和原生几何/矩形边界精确过滤返回稳定 Edge ID 序列 |
 | `FindClosestNode` | `public GraphNode? FindClosestNode(Vector2 position, float maxRadius)` | 基于空间索引查最近节点 |
 | `GetAllEdges` | `public IEnumerable<GraphEdge> GetAllEdges()` | 返回调用时的边稳定快照 |
 | `GetAllNodes` | `public IEnumerable<GraphNode> GetAllNodes()` | 返回调用时的节点稳定快照 |
-| `GetAllGroups` | `public IEnumerable<RoadGroup> GetAllGroups()` | 返回调用时的道路组稳定快照 |
-| `CaptureState` | `public object CaptureState()` | 返回私有 `RoadGraphSaveData`，写入 `schemaVersion = 1`、`nextID`、`nodes`、`edges`、`groups` |
-| `PrepareRestoreState` | `public object PrepareRestoreState(string json)` | 构造并全量校验私有临时图，不修改活动图 |
-| `RestorePreparedState` | `public void RestorePreparedState(object preparedState)` | 提交临时图、重建邻接与索引并触发 `GraphCleared` |
-| `RestoreState` | `public void RestoreState(string json)` | 兼容入口，依次调用准备与提交 |
+| `CaptureRevision` | `public RoadGraphRevision CaptureRevision()` | O(1) 返回当前 immutable root |
+| `CurrentStateToken` | `public GraphStateToken CurrentStateToken` | 当前 `(LineageID, DomainRevisionID, ChangeSequence)` |
+| `ApplyDelta` | `public RoadGraphDeltaApplyResult ApplyDelta(...)` | 校验完整 token 后正向或反向应用可逆 delta |
+| `CaptureSnapshot` | `public ISaveSnapshot CaptureSnapshot()` | 以当前 revision 作为存档快照 |
+| `WriteSnapshot` | `public void WriteSnapshot(Stream destination, ISaveSnapshot snapshot)` | 写确定、无缩进的 V3 UTF-8 payload |
+| `PrepareLoad` | `public IPreparedSaveState PrepareLoad(Stream source)` | 严格解析并构建完整 canonical revision，不改活动图 |
+| `CommitPreparedLoad` | `public void CommitPreparedLoad(IPreparedSaveState preparedState)` | full reset 到已准备 root、创建新 lineage 并发布一次 `GraphChanged` |
 
-| 折线提交关键阶段 | 行为 |
+| mutation 关键阶段 | 行为 |
 |---|---|
-| 1 | 起终点相同直接返回 `-1` |
-| 2 | 组装 `start + waypoints + end` |
-| 3 | 在任何拆分前执行完整覆盖检查，完整重复路径无副作用返回 `-1` |
-| 4 | `ResolveIntersections` 查交点并拆分既有边 |
-| 5 | `SplitEdgesAtPathAnchors` 处理新路径锚点落在既有边内部或 waypoint 的情况 |
-| 6 | `InsertExistingNodeAnchors` 把既有节点插入路径 |
-| 7 | 再次完整覆盖检查 |
-| 8 | 创建 `RoadGroup`，逐段跳过已覆盖区间并添加边 |
-| 9 | 没有实际新增边时清理空组并返回 `-1` |
-| 10 | 对触及节点执行共线合并，清理可能变空的组 |
+| 1 | 入口校验数值、容量、RoadType、路径连续性和重入状态，建立未发布 plan/builder |
+| 2 | 规划 incoming self-intersection、与既有 Edge 的原生交点/重叠、确定 cluster 和 split |
+| 3 | 应用 Node/Edge 变化，按 incidence、RoadType 与 exact geometry 规则恢复最大连续 Edge |
+| 4 | Debug `AssertInvariants()` 校验 topology、canonical form、容量和空间索引精确覆盖 |
+| 5 | 生成 `RoadGraphDelta`；若 history admission 拒绝则恢复旧 root，且 watermark/token/event 不变 |
+| 6 | 一次替换 immutable root、递增 sequence，并同步发布一次 `GraphChanged` |
 
-`SubmitPath` 对六类原生几何执行类型、有限值、连续性、节点身份、交叉、相切、重叠与覆盖校验。成功结果的 `RoadGraphChangeSummary` 按 ID 排序列出创建/删除的 Node、Edge、Group；拒绝结果不修改图且返回结构化 `RoadPathSubmissionError`。
-
-单删、任意 Edge 集合、整组删、原生拆分和共线合并都在完整 detach/替代 Edge 创建后调用一次提交清理。批量入口忽略重复和已经失效的 ID；Debug 构建在事件发布前执行 `AssertInvariants`，复合操作先发布全部移除事件，再发布全部新增事件，事件处理器观察到的是最终一致图。
+`RoadGraphRevision` 保存完整不可变 root；`RoadGraphDelta` 只保存 changed Node/Edge 的 before/after 值、content revision 和估算保留字节。`RoadGraphChangeSummary` 按 ID 排序列出 created/removed/updated Node/Edge，full reset 另有明确标志。事件发布期间拒绝 mutation 重入，单个 observer 异常不会回滚已提交 root 或阻止其他订阅者。
 
 | 存档恢复阶段 | 行为 |
 |---|---|
-| `ParseAndValidateState` | 严格要求 `schemaVersion = 1`，拒绝未知字段、重复/冲突 ID、缺失引用、孤立节点、空 Group、Group 双向不一致、非法原生几何和无效 `nextID` |
-| 提交恢复状态 | 只有全量预检成功后才清空活动图并装入临时 Node/Edge/Group；失败保持原图不变 |
-| `RebuildNodeEdges` | 根据 `_edges` 重建 `GraphNode` 邻接表 |
-| `RebuildSpatialIndex` | 清空并重新插入所有节点及每个原生几何段的 `EdgeGeometryRef` |
+| `PrepareLoad` family/schema gate | 只接受 `simple-cities-v3`、`payloadType = "road-network"`、`schemaVersion = 1` |
+| token/资源门禁 | `V3JsonStreamReader` 以固定 buffer 限制 encoded bytes、tokens、depth、property/string/number lexeme，并在元素进入集合前应用 `RoadGraphCapacity` |
+| 业务校验 | 拒绝 unknown/duplicate field、Group/groupID、错误 token、非法 ID/watermark、非规范二度节点、错误 seam/direction、内部交叉、覆盖和损坏引用 |
+| prepared root | 从 payload 重建 incidence、query fragment、空间索引、容量计数并完成 invariant 检查；失败保持活动图和事件不变 |
+| `CommitPreparedLoad` | 采用 payload watermark，创建新 lineage，以一次 full-reset `GraphChanged` 使旧 delta/history/token 失效 |
 
 ---
 
@@ -512,7 +494,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `BeginPlace` | `public bool BeginPlace(Vector2 pointerPosition)` | 通过策略吸附起点并建立空的 `RoadPlacementSession` |
 | `UpdatePlace` | `public void UpdatePlace(Vector2 pointerPosition)` | 移动当前末端并更新完整组合预览 |
 | `AddPlacePoint` / `RemoveLastPlacePoint` | `public bool ...(Vector2 pointerPosition)` | 固定新拐点或回退最后一个固定拐点 |
-| `ConfirmPlace` | `public bool ConfirmPlace(Vector2 pointerPosition)` | 只经一次 `RoadGraph.SubmitPath` 确认完整草稿；拒绝时保留会话 |
+| `ConfirmPlace` | `public bool ConfirmPlace(Vector2 pointerPosition)` | 构造 `RoadBuildRequest(draft.Path, RoadType.Street)` 并一次提交；拒绝时保留会话 |
 | `CommitPlace` | `public bool CommitPlace(Vector2 pointerPosition)` | 兼容既有调用的 `ConfirmPlace` 别名 |
 | `CancelPlaceSession` | `public void CancelPlaceSession()` | 取消完整会话并清空预览，不修改图 |
 | `CancelPlaceDrag` | `public void CancelPlaceDrag()` | 兼容既有调用的取消别名 |
@@ -531,7 +513,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | 半格起点 | `SquareEightRoadInputStrategy` 对偏移起点只允许对角延伸，并反向定位整格 anchor |
 | 组合与提交 | `RoadPlacementSession` 保留每段策略草稿的原生几何；`ConfirmPlace()` 把完整 `RoadPath` 一次性交给 `_graph.SubmitPath(...)` |
 | 失败行为 | 无有效段时不提交；RoadGraph 拒绝时图不变且会话/完整预览保留，可继续调整或取消 |
-| 道路类型 | 第二代输入与数据层不包含 RoadType |
+| 道路类型 | 领域请求显式携带 `RoadType`；当前 builder 固定 `Street`，可选择/会话冻结状态仍属 `v3-tool-input:2.1` |
 | 拆除 | 简单点击删除单 Edge；普通左键拖动累积轨迹命中，`Shift+左键` 动态框选，松开后批量提交；右键或切出工具取消 |
 | 编辑历史 | 成功的 `SubmitPath` / `RemoveEdges` 状态变化进入容量 64 的历史；失败或无变化不入栈，新成功编辑清空重做栈 |
 
@@ -561,13 +543,15 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | 成员 | 签名 | 说明 |
 |---|---|---|
 | `DefaultCapacity` | `public const int DefaultCapacity = 64` | 默认最多保留的成功编辑数量 |
+| `DefaultByteCapacity` | `public const long DefaultByteCapacity = 16 MiB` | 默认估算 retained delta 字节预算 |
 | `CanUndo` / `CanRedo` | 只读属性 | 对应历史栈是否非空 |
 | `UndoCount` / `RedoCount` | 只读属性 | 当前两侧事务数 |
-| `Execute` | `public bool Execute(Func<bool> edit)` | 捕获严格 RoadGraph 前后状态；只记录产生状态变化的成功编辑 |
-| `Undo` / `Redo` | `public bool ...()` | 校验当前图仍匹配历史边界，再经 `RoadGraph.RestoreState` 恢复完整状态 |
+| `RetainedByteSize` / `ByteCapacity` | 只读 `long` | 当前 delta 估算保留字节与配置上限 |
+| `Execute` | `public bool Execute(Func<bool> edit)` | 在 graph commit 前安装 delta admission；只记录成功且产生变化的事务 |
+| `Undo` / `Redo` | `public bool ...()` | 校验完整 token 后调用 `RoadGraph.ApplyDelta` 的 reverse/forward 方向 |
 | `Clear` | `public void Clear()` | 清空两侧历史 |
 
-历史快照使用 `SaveJson.Serialize(graph.CaptureState())`，因此恢复会保留 Node/Edge/Group ID、原生几何、Group 成员关系和 `_nextID`，但会重建运行时实体对象。`GraphCleared` 的外部恢复会立即清空历史；其他外部修改在撤销、重做或下一次编辑尝试时被检测并使旧历史失效。编辑抛异常或返回失败却修改图时会先恢复事务前状态；失败编辑本身不进入历史。
+历史不保存全图 JSON。每项保留 `RoadGraphDelta` 与下一次合法方向所需 `GraphStateToken`；entry 数和估算字节双预算按最旧项淘汰，单项超过字节上限时在 graph commit 前拒绝。外部普通 mutation 或 full reset 的 `GraphChanged` 会立即清空两栈；V3 Load 创建新 lineage，因此旧 token 无法作用于新图。失败编辑若已产生 pending delta，会先反向应用该 delta；失败本身不进入历史。
 
 ### RoadGeometryDisplaySampler
 
@@ -602,16 +586,15 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `GetRoadMeshVertexCount` | `public int GetRoadMeshVertexCount()` | Godot 契约读取连续道路 ribbon 顶点数 |
 | `HoveredEdgeID` | `public int? HoveredEdgeID { get; set; }` | 拆除工具悬停边 |
 | `_Ready` | `public override void _Ready()` | 校验 `Config`，创建道路 `MeshInstance2D` 与节点 `MultiMeshInstance2D` |
-| `SetGraph` | `public void SetGraph(RoadGraph graph)` | 订阅 `EdgeAdded`、`EdgeRemoved`、`GraphCleared` |
+| `SetGraph` | `public void SetGraph(RoadGraph graph)` | 订阅唯一 `GraphChanged`，并从当前 revision 重建初始 cache |
 | `_Draw` | `public override void _Draw()` | 绘制拆除 hover/稳定选择/矩形框线和完整多段施工虚线预览 |
 
-| 事件响应 | 行为 |
+| `GraphChanged` 响应 | 行为 |
 |---|---|
-| `EdgeAdded` | 缓存 Edge 的确定显示点列，安排同一事件循环合并的静态批次重建 |
-| `EdgeRemoved` | 删除对应缓存点列，安排同一事件循环合并的静态批次重建 |
-| `GraphCleared` | 清空缓存，用 `GetAllEdges()` 重新采样并全量重建批次 |
+| 普通 delta | 删除 `RemovedEdgeIDs` cache，重新采样 `UpdatedEdgeIDs` 和 `CreatedEdgeIDs`，安排同一事件循环批次重建 |
+| full reset | 清空 cache，从活动 revision 的全部 Edge 重新采样并同步重建批次 |
 
-当前 `CacheEdgePoints` 用 `RoadGeometryDisplaySampler` 从 `GraphEdge.GeometrySegments` 生成缓存点列；拆除高亮复用同一点列，`RoadBuilder` 对有效原生草稿也使用相同采样入口。`AppendRoadRibbon` 为每个点生成共享左右边界并把全部 Edge 合成一个抗锯齿 `ArrayMesh`，端点/交叉口写入一个圆形 shader `MultiMesh`。Edge 增删事件通过 `ScheduleStaticBatchRebuild` 在同一事件循环中合并，`GraphCleared` 仍同步完成全量重建。显示点列不写回图或存档，缩放与重建不会改变控制参数。道路仍统一使用 `RoadConfig.RoadWidth` 和 `RoadConfig.RoadColor`；按 `RoadType` 分批绘制宽度、颜色或材质属于第三代，当前 `GraphEdge` 不包含类型字段。
+当前 `CacheEdgePoints` 用 `RoadGeometryDisplaySampler` 从 `GraphEdge.GeometrySegments` 生成缓存点列；拆除高亮复用同一点列，`RoadBuilder` 对有效原生草稿也使用相同采样入口。`AppendRoadRibbon` 为每个点生成共享左右边界并把全部 Edge 合成一个抗锯齿 `ArrayMesh`，端点/交叉口写入一个圆形 shader `MultiMesh`。普通 `GraphChanged` 通过 `ScheduleStaticBatchRebuild` 合并；full reset 同步全量重建。显示点列不写回图或存档。虽然 `GraphEdge` 已携带 `RoadType`，当前 renderer 仍统一使用 `RoadConfig.RoadWidth` / `RoadColor`；分级样式、closed ribbon、surface token 与 junction patch 仍由 Phase 7 跟踪。
 
 ### RoadSystem
 
@@ -695,7 +678,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | FPS | `DebugPanel` 读取 `Engine.GetFramesPerSecond()` |
 | 鼠标格点 | `DebugPanel` 读取 `MainCamera.Instance.GetGlobalMousePosition()` + `GridSystem.SnapToGrid(...)` |
 | 是否有节点 | `DebugPanel` 读取 `RoadGraph.FindClosestNode(snapped, Config.CellSize * 0.1f)` |
-| Group/Edge/Node 数量 | `DebugPanel` 读取 `RoadSystem.Instance.Graph.GetAllGroups/Edges/Nodes().Count()` |
+| Edge/Node 数量 | `DebugPanel` 一次 `CaptureRevision()` 后读取 immutable `Edges.Count` / `Nodes.Count` |
 
 ### Command Center UI Components
 
@@ -705,7 +688,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 |---|---|
 | `ConstructionDock` | 底部全宽五分类 CategoryBar 和 ToolTray；折叠高度 76px，展开高度 140px，由 64px 资产条加 76px 分类栏组成；Roads catalog 创建一个 `城市道路` 按钮；重复当前分类折叠/重开，不同分类切换内容并保持打开；没有当前工具标签或桌面宽度上限 |
 | `ToolContextPanel` | 右侧只读上下文，Road 读取 catalog；Select / RoadRemove 使用内建玩家文案但不要求 submenu/catalog 资源 |
-| `DebugPanel` | 默认折叠，拥有 FPS、鼠标格点、RoadGroup、GraphEdge、GraphNode 指标显示 |
+| `DebugPanel` | 默认折叠，拥有 FPS、鼠标格点、GraphEdge 与 GraphNode 指标显示 |
 | `PauseMenu` | 当前暂停动作打开的全屏模态菜单；可列举有效及损坏存档、另存为独立命名槽，并经目标摘要确认覆盖、加载或删除；损坏槽禁用覆盖/加载。另可继续游戏、调整会话音频、持久化键位，或经确认返回主菜单/退出桌面 |
 
 ### UIManager
@@ -739,10 +722,10 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | 1 | `ToolManager._Input()` | 当前工具为 `Road` 时转发输入 |
 | 2 | `RoadBuilder.HandlePlaceInput()` | 左键按下/释放转发到公开铺路生命周期 |
 | 3 | `RoadBuilder.BeginPlace()` / `UpdatePlace()` | 当前策略吸附起点并生成不可变 `RoadPathDraft` 预览 |
-| 4 | `RoadBuilder.CommitPlace()` | 刷新最终草稿并通过 `RoadEditHistory.Execute(...)` 提交其中的 `RoadPath`，不向数据层传递网格或 RoadType |
-| 5 | `RoadGraph.SubmitPath(...)` | 校验原生几何，创建/复用节点，拆分交点，跳过覆盖段，创建 group/edge；成功状态变化进入撤销栈 |
-| 6 | `RoadGraph.EdgeAdded` | 通知渲染器缓存显示点列并安排合并静态批次重建 |
-| 7 | `GameHUD._Process()` -> `DebugPanel.UpdateMetrics()` | 调试组件轮询并显示 Group/Edge/Node 数量 |
+| 4 | `RoadBuilder.CommitPlace()` | 刷新最终草稿并通过 `RoadEditHistory.Execute(...)` 提交 `RoadBuildRequest(path, Street)`；输入网格不进入领域请求 |
+| 5 | `RoadGraph.SubmitPath(...)` | 校验原生几何/类型，规划交点、覆盖和 canonical merge，一次提交 immutable root 与 delta |
+| 6 | `RoadGraph.GraphChanged` | 渲染器按 created/removed/updated Edge 更新 cache；一次成功命令只发布一次事务事件 |
+| 7 | `GameHUD._Process()` -> `DebugPanel.UpdateMetrics()` | 调试组件读取单个 revision 的 Edge/Node 数量 |
 
 ### 拆路数据流
 
@@ -754,36 +737,34 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | 4 | `RoadBuilder.HandleRemoveInput()` | 左键拖动累积轨迹命中，`Shift+左键` 从当前矩形生成选择；预览阶段不写图 |
 | 5 | `RoadBuilder.ConfirmRemove()` | 松开左键后通过 `RoadEditHistory.Execute(...)` 将排序去重的 Edge ID 集一次性交给 `RoadGraph.RemoveEdges(...)` |
 | 6 | `RoadGraph.RemoveEdges(...)` | 跳过失效目标，批量 detach 后只执行一次清理和不变式验证；成功状态变化进入撤销栈 |
-| 7 | `RoadGraph.EdgeRemoved` | 按稳定 ID 顺序通知渲染器移除缓存点列并安排合并静态批次重建 |
+| 7 | `RoadGraph.GraphChanged` | 以一个排序 summary 通知 renderer 删除/更新/新增 owner，并安排批次重建 |
 
 ### 道路编辑历史流
 
 | 阶段 | 调用 | 内容 |
 |---|---|---|
-| 记录 | `RoadEditHistory.Execute(...)` | 捕获成功道路编辑前后的严格 RoadGraph JSON；容量超过 64 时淘汰最旧事务 |
+| 记录 | `RoadEditHistory.Execute(...)` | 在 graph commit 前检查 delta 字节预算；成功后保留可逆 delta/token，并按 entry/字节双预算淘汰 |
 | 撤销/重做入口 | `GameHUD` -> `ToolManager` -> `RoadBuilder` | 当前 `edit_undo` / `edit_redo` 绑定触发；先取消尚未提交的铺路/拆路会话 |
-| 恢复 | `RoadEditHistory.Undo/Redo()` -> `RoadGraph.RestoreState(...)` | 恢复完整拓扑、原生几何、Group、ID 和 `_nextID`；实体对象引用重建 |
-| 渲染同步 | `RoadGraph.GraphCleared` -> `RoadRenderer.OnGraphCleared()` | 清空旧缓存并按恢复后的全部 Edge 重建道路 mesh 与节点 MultiMesh |
-| 历史失效 | 外部 `GraphCleared` 或状态不匹配 | 清空旧撤销/重做栈，避免把外部图变化覆盖掉 |
+| 恢复 | `RoadEditHistory.Undo/Redo()` -> `RoadGraph.ApplyDelta(...)` | 按 reverse/forward 应用 changed entities，恢复 content revision 并分配新 sequence |
+| 渲染同步 | `RoadGraph.GraphChanged` -> `RoadRenderer.OnGraphChanged()` | 普通 delta 增量更新 cache；full reset 清空并按新 root 全量重建 |
+| 历史失效 | history scope 外的 `GraphChanged` | 立即清空旧两栈；V3 Load 的新 lineage 也让旧 token 返回 `StaleGraphState` |
 
 ### 存档流
 
 | 阶段 | 调用 | 内容 |
 |---|---|---|
-| 注册 | `MainCamera._Ready()` | `SaveManager.Instance.Register(this)` |
 | 注册 | `RoadSystem._Ready()` | `SaveManager.Instance.Register(Graph)` |
-| 注销 | `MainCamera._ExitTree()` | `SaveManager.Instance.Unregister(this)` |
 | 注销 | `RoadSystem._ExitTree()` | `SaveManager.Instance.Unregister(Graph)` |
 | 周期入口 | `AutosaveController` 的场景内 `Timer` | 默认每 300 秒调用 `SaveManager.SaveAutosave()`；场景暂停时不计时 |
 | 自动保存 | `SaveManager.SaveAutosave()` | 覆盖保留 `autosave` 槽，不切换当前手动槽；事务失败保留上一份有效自动存档 |
 | 列举入口 | `PauseMenu` 打开存档管理视图 | `SaveManager.ListSlots()` 返回有效及损坏槽摘要，不加载业务 JSON |
 | 新建入口 | `PauseMenu` 提交新显示名 | `SaveManager.SaveAs(displayName)` 生成独立 `manual-<GUID>` 槽 |
 | 覆盖入口 | `PauseMenu` 确认目标摘要 | `SaveManager.Save(slotID)` 覆盖已存在槽；取消不写文件 |
-| 保存文件 | `SaveManager.Save/SaveAs/SaveAutosave()` | V2 槽写 `road_network.json` 与 `manifest.json`，不写相机状态 |
+| 保存文件 | `SaveManager.Save/SaveAs/SaveAutosave()` | 在 `user://saves-v3` 写 canonical `road_network.json` 与严格 V3 `manifest.json`；不写相机状态 |
 | 加载入口 | `PauseMenu` 确认目标摘要 | `SaveManager.Load(slotID)`；取消不改变当前槽位或活动道路 |
-| 删除入口 | `PauseMenu` 确认目标摘要 | `SaveManager.DeleteSlot(slotID)` 递归删除非空有效或损坏槽 |
-| RoadGraph 恢复 | `SaveSlotStore.Load()` -> `RoadGraph.PrepareRestoreState/RestorePreparedState` | 整槽预检后一次提交，重建邻接与空间索引并触发 `GraphCleared` |
-| 渲染恢复 | `RoadRenderer.OnGraphCleared()` | 清空并全量重建连续道路 mesh 与节点 MultiMesh |
+| 删除入口 | `PauseMenu` 请求并确认目标摘要 | `RequestDeleteSlot(slotID)` 绑定当前 UI generation/kind/digest，`ConfirmDeleteSlot(slotID, token)` 发布 delete descriptor 后 tombstone 删除 |
+| RoadGraph 恢复 | `SaveSlotStore.Load()` -> `RoadGraph.PrepareLoad/CommitPreparedLoad` | 同句柄有界 token/长度/hash/EOF 与严格 payload 预检后 full reset，采用 payload watermark并创建新 lineage |
+| 渲染恢复 | `RoadRenderer.OnGraphChanged(IsFullReset)` | 清空并按新活动 root 全量重建连续道路 mesh 与节点 MultiMesh |
 
 ---
 
@@ -791,9 +772,12 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 
 | 词汇 | 当前含义 | 状态 |
 |---|---|---|
-| `RoadGraphSaveData` | `RoadGraph.Persistence.cs` 的私有 V2 存档根对象 | 使用 `schemaVersion = 1` 严格校验 |
-| JSON 字段 `nodes` / `edges` / `groups` | `GraphNode` / `GraphEdge` / `RoadGroup` 存档集合 | 当前活动字段，保存六类原生几何参数 |
-| JSON 字段 `junctions` / `segments` / `roads` | 已移除的旧格式词汇 | 当前版本明确拒绝，不提供迁移或默认回退 |
-| `RoadType` / `type` | 第三代以后才可能重新设计的道路分级语义 | 第二代运行时和存档均不存在 |
+| `formatFamily` | manifest 与 RoadGraph payload 的必填字符串 | 只接受大小写精确的 `simple-cities-v3` |
+| `schemaVersion` | manifest 与 payload 的独立必填整数 | 当前都只接受规范整数 token `1` |
+| `payloadType` | RoadGraph payload 的必填 discriminator | 只接受 `road-network` |
+| JSON 字段 `nodes` / `edges` | canonical `GraphNode` / `GraphEdge` 集合 | 当前活动字段；Edge 内联 `roadType` 与六类原生 geometry |
+| `nextID` | RoadGraph ID watermark | 大于所有实体 ID；Load 后由新 lineage 精确采用 |
+| `groups` / `groupID` | V2 提交来源字段 | V3 严格拒绝，不迁移、不忽略、不补默认值 |
+| manifest `files[]` | 业务 payload 描述 | 每项绑定大小写精确名称、encoded length 与 SHA-256 |
 
-文档中不再保留旧运行时 `RoadNetwork`、`Road`、`Segment`、`Junction` 的类章节。第三代若引入道路分级，必须同时定义新的提交 API、运行时字段、渲染规则、存档 schema 版本和迁移/拒绝策略，不能向第二代契约静默补回 `RoadType`。
+V3 不扫描、读取、迁移、覆盖或删除 V2 保存根。V2/未知目录被复制到 V3 根后只分类为 `Foreign`；声明 V3 family 但损坏的槽分类为 `CorruptV3`。manifest/length/hash、有界 token reader、operation-specific publish/delete descriptor、跨进程 OS 根锁、quarantine/tombstone 和 digest 恢复矩阵均已由 `v3-save-system:2.2` 完成；进程内 async coordinator、publish lease 与 aggregate Load 继续由 `v3-save-system:2.3` 跟踪。
