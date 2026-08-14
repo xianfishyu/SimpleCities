@@ -488,10 +488,10 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `RoadWidth` | `[Export] public float RoadWidth { get; set; } = 12f` | `12f` | 统一道路线宽 |
 | `RoadTypeStyles` | `[Export] public Array<RoadTypeStyle>? RoadTypeStyles { get; set; }` | 四类内置样式 | `Dirt`、`Street`、`Arterial`、`Highway` 的唯一展示映射 |
 | `CurveDisplayTolerance` | `[Export] public float CurveDisplayTolerance { get; set; } = 0.25f` | `0.25f` | 原生曲线生成显示折线时允许的最大世界空间误差 |
-| `JunctionRadius` | `[Export] public float JunctionRadius { get; set; } = 10f` | `10f` | 节点圆半径，当前 `EdgeCount >= 2` 绘制 |
+| `JunctionRadius` | `[Export] public float JunctionRadius { get; set; } = 10f` | `10f` | `RoadRenderer.IsJunctionNode` 判定为 junction 时的 marker 半径 |
 | `JunctionColor` | `[Export] public Color JunctionColor { get; set; } = new("#FFC107")` | `#FFC107` | 节点圆颜色 |
-| `EndpointRadius` | `[Export] public float EndpointRadius { get; set; } = 6f` | `6f` | 端点圆半径，`0` 可隐藏 |
-| `EndpointColor` | `[Export] public Color EndpointColor { get; set; } = new("#90A4AE")` | `#90A4AE` | 端点圆颜色 |
+| `EndpointRadius` | `[Export] public float EndpointRadius { get; set; } = 6f` | `6f` | 保留的旧导出属性；当前 V3 terminal marker/cap 不读取该值 |
+| `EndpointColor` | `[Export] public Color EndpointColor { get; set; } = new("#90A4AE")` | `#90A4AE` | 保留的旧导出属性；当前 V3 terminal marker/cap 使用相邻 `RoadTypeStyle.Color` |
 | `HoverHighlightColor` | `[Export] public Color HoverHighlightColor { get; set; } = new(1f, 0.8f, 0.2f, 0.6f)` | 半透明黄 | 拆除悬停高亮 |
 | `HoverHighlightWidth` | `[Export] public float HoverHighlightWidth { get; set; } = 18f` | `18f` | 拆除悬停高亮宽度 |
 
@@ -501,7 +501,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `GetRoadTypeStylesValidationResult` | `public Godot.Collections.Dictionary GetRoadTypeStylesValidationResult()` | 为 GDScript/运行时契约公开 `valid` 与 `error` |
 | `GetRoadTypeStyle` | `public RoadTypeStyle GetRoadTypeStyle(RoadType roadType)` | 在完整映射中返回目标样式；映射无效或类型非法时抛错，不 fallback |
 
-生产 `Scenes/road_config.tres` 使用 `Dirt / 土路 / #8A6652 / 14`、`Street / 街道 / #60727C / 20`、`Arterial / 主干道 / #D7A928 / 26`、`Highway / 高速道路 / #C84B3A / 32`。`RoadRenderer` 在主线程校验并捕获不可变 `RoadTypeStyleSnapshot`；普通 rebuild 与 Load worker 都只消费该值快照，不把 Resource 传入后台。
+生产 `Scenes/road_config.tres` 使用 `Dirt / 土路 / #8A6652 / 14`、`Street / 街道 / #60727C / 20`、`Arterial / 主干道 / #D7A928 / 26`、`Highway / 高速道路 / #C84B3A / 32`。`RoadRenderer` 在主线程校验并捕获不可变 `RoadTypeStyleSnapshot`；普通 rebuild 与 Load worker 都只消费该值快照，不把 Resource 传入后台。当前 ribbon、degree-1 terminal marker、解析 `TerminalCap` 和端点高亮均从该快照解析宽度，terminal marker/cap 还使用相同类型颜色；junction marker 继续使用独立的 `JunctionRadius` / `JunctionColor`。
 
 ### RoadBuilder
 
@@ -618,15 +618,16 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | 内部成员 | 说明 |
 |---|---|
 | `RenderToken` | 该快照对应的完整六分量 `RoadRenderToken` |
-| `PrimitiveCount` / `GetPrimitive` | 读取防御性复制后保存的稳定 surface triangle |
-| `Prepare(IReadOnlyCollection<RoadSurfaceTriangle>)` | 防御性复制 triangle，并预建 bounds、AABB 节点与 primitive index 的不透明 `PreparedData` |
+| `PrimitiveCount` / `TriangleCount` / `DiscCount` | 读取总 primitive、mesh triangle 和解析 disc 数量 |
+| `GetPrimitive` | 按稳定顺序返回区分 `Triangle` / `Disc` 的 `RoadSurfacePrimitive` |
+| `Prepare(triangles, discs)` | 分别防御性复制 triangle/disc，并为统一 primitive 顺序预建 bounds、AABB 节点与 index 的不透明 `PreparedData` |
 | `FindClosest(Vector2, float)` | 在非负最大 surface distance 内返回稳定 `RoadSurfaceHit?` |
 | `FindEdgeIDsIntersecting(Rect2)` | 返回与矩形接触的排序去重 Edge ID |
-| 查询 metrics overload | 额外返回 node visit、primitive candidate 与 exact triangle test 数 |
+| 查询 metrics overload | 额外返回 node visit、primitive candidate 与 exact primitive test 数 |
 
-`RoadSurfaceOwnerKind` 预留 `EdgeRibbon`、`TerminalCap`、`SemanticJoin` 与 `JunctionPatch`；owner 始终携带可执行的 Edge ID，Node surface 另携带 Node/Endpoint/sector。`RoadSurfaceTriangle` 保存实际 mesh triangle、对应中心线区间和可选 canonical `RoadLocation` 端点；构造拒绝非有限坐标、退化 triangle/centerline 以及不一致 location。`RoadSurfaceHit` 携带 snapshot token、owner、surface/centerline distance 与可选 location。
+`RoadSurfaceOwnerKind` 定义 `EdgeRibbon`、`TerminalCap`、`SemanticJoin` 与 `JunctionPatch`；当前已实现前两类。owner 始终携带可执行的 Edge ID，Node surface 另携带 Node/Endpoint/sector。`RoadSurfaceTriangle` 保存实际 mesh triangle、对应中心线区间和可选 canonical `RoadLocation` 端点；`RoadSurfaceDisc` 保存解析圆心/半径、用于稳定破同值的中心线和可选 canonical endpoint location。构造拒绝非有限坐标、非正或溢出 bounds 的半径、退化 centerline 以及不一致 location。`RoadSurfaceHit` 携带 snapshot token、owner、surface/centerline distance 与可选 location。
 
-当前实现只从真实 ribbon mesh index 同步生成 `EdgeRibbon` triangle。显示 span provenance 让 ribbon primitive 保留 canonical `RoadLocation` 区间；geometry join、开放 B 端和 self-loop seam 使用半开所有权，命中可返回准确 location。构造期不可变 AABB 层级先裁剪 node 和 primitive bounds，点查询再按 surface distance、centerline distance、sector、Edge ID、owner kind、Node ID 和 primitive 顺序稳定破同值，矩形查询则对局部候选执行实际 triangle 测试并排序去重。查询使用有界栈且不分配候选数组；terminal cap、semantic join 和 junction patch owner 仍属于 V3 Phase 7 的开放范围。
+当前实现从真实 ribbon mesh index 同步生成 `EdgeRibbon` triangle，并为每个 degree-1 Node 生成一个解析 `TerminalCap` disc。显示 span provenance 让 ribbon primitive 保留 canonical `RoadLocation` 区间；geometry join、开放 B 端和 self-loop seam 使用半开所有权。Terminal cap owner 携带 Edge/Node/Endpoint，A/B 分别返回 geometry `0 / t=0` 与最后 geometry `/ t=1`。构造期不可变 AABB 层级统一裁剪 triangle/disc bounds，点查询再执行对应的 triangle 或精确圆距离并按 surface distance、centerline distance、sector、Edge ID、owner kind、Node ID、Endpoint、location presence 和 primitive 顺序稳定破同值；矩形查询对局部候选执行真实 triangle/circle 接触测试并排序去重。查询使用有界栈且不分配候选数组；semantic join 和 junction patch owner 仍属于 V3 Phase 7 的开放范围。
 
 ### RoadRenderer
 
@@ -648,7 +649,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `GetNodeMarkerCount` | `public int GetNodeMarkerCount()` | Godot 契约读取当前节点批次实例数 |
 | `GetPresentationState` | `public Godot.Collections.Dictionary GetPresentationState()` | 返回 `isReady`、六分量 desired/presented token 及 current 时的 `surfacePrimitiveCount` |
 | `FindRoadSurfaceHit` | `public Godot.Collections.Dictionary FindRoadSurfaceHit(Vector2 position, float maxSurfaceDistance)` | 仅在 mesh/snapshot/presented token 同代时返回 surface hit 字典，否则返回空字典 |
-| `FindRoadSurfaceEdgeIDs` | `public int[] FindRoadSurfaceEdgeIDs(Rect2 bounds)` | 仅在 presentation current 时返回与实际 surface triangle 接触的排序去重 Edge ID |
+| `FindRoadSurfaceEdgeIDs` | `public int[] FindRoadSurfaceEdgeIDs(Rect2 bounds)` | 仅在 presentation current 时返回与实际 surface primitive 接触的排序去重 Edge ID |
 | `RefreshRoadStyles` | `public bool RefreshRoadStyles()` | 严格捕获样式快照，推进 `RoadStyleRevision` 与 request，并在完整批次交换成功时返回 `true` |
 | `HoveredEdgeID` | `public int? HoveredEdgeID { get; set; }` | 拆除工具悬停边 |
 | `_Ready` | `public override void _Ready()` | 校验基础 `Config` 与四类 `RoadTypeStyles`，创建道路 `MeshInstance2D` 与节点 `MultiMeshInstance2D` |
@@ -660,9 +661,9 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | 普通 delta | 删除 `RemovedEdgeIDs` cache，重新采样 `UpdatedEdgeIDs` 和 `CreatedEdgeIDs`，推进 desired token 并安排同一事件循环批次重建 |
 | full reset | 清空 cache，从活动 revision 的全部 Edge 重新采样，推进 facade generation/desired token 并同步重建；aggregate Load 已提交的同一次 reset 以 graph token 消重 |
 
-当前 `CacheEdgePoints` 用 `RoadGeometryDisplaySampler` 从 `GraphEdge.GeometrySegments` 生成缓存点列；拆除高亮复用同一点列，`RoadBuilder` 对有效原生草稿也使用相同采样入口。`AppendRoadRibbon` 为开放 Edge 生成共享左右边界；对 self-loop 则移除重复 seam 顶点，用循环相邻方向计算首点 miter，并以末段索引回连首段，从而生成无端帽的 closed ribbon。普通 rebuild 与 `RoadRendererLoadPreparer` 都按 `GraphEdge.RoadType` 从同一不可变样式快照读取宽度和颜色，把全部 Edge 的顶点、UV、vertex color 与索引合成一个抗锯齿 `ArrayMesh`；每写入一个 mesh triangle 也同步写入同顶点、同顺序的 `EdgeRibbon` surface triangle。道路层使用白色 modulate，Load prepared payload 同步携带 `RoadColors` 与已建索引的 `RoadSurfaceSnapshot.PreparedData`。纯 loop seam 不写节点 marker，其他 endpoint/junction 仍写入一个圆形 shader `MultiMesh`。
+当前 `CacheEdgePoints` 用 `RoadGeometryDisplaySampler` 从 `GraphEdge.GeometrySegments` 生成缓存点列；拆除高亮复用同一点列，`RoadBuilder` 对有效原生草稿也使用相同采样入口。`AppendRoadRibbon` 为开放 Edge 生成共享左右边界；对 self-loop 则移除重复 seam 顶点，用循环相邻方向计算首点 miter，并以末段索引回连首段，从而生成无端帽的 closed ribbon。普通 rebuild 与 `RoadRendererLoadPreparer` 都按 `GraphEdge.RoadType` 从同一不可变样式快照读取宽度和颜色，把全部 Edge 的顶点、UV、vertex color 与索引合成一个抗锯齿 `ArrayMesh`；每写入一个 mesh triangle 也同步写入同顶点、同顺序的 `EdgeRibbon` surface triangle。degree-1 Node 按相邻样式宽度生成同直径/颜色 marker 和半径为 `Width / 2` 的解析 `TerminalCap` disc，A/B 分别绑定 canonical 起点/终点；端点高亮使用相同半宽。纯 loop seam 不写节点 marker，junction marker 的旧判定、半径和颜色保持不变。道路层使用白色 modulate，Load prepared payload 同步携带 `RoadColors` 与已建统一索引的 `RoadSurfaceSnapshot.PreparedData`。
 
-普通 `GraphChanged` 通过 `ScheduleStaticBatchRebuild` 合并；完整 mesh/node batch/`RoadSurfaceSnapshot` 交换后才把 matching desired token 提升为 presented。Load admission 预留 request，worker `RoadRendererLoadPreparer.Prepare()` 先完成 triangle defensive copy 与索引建树；主线程 Preflight 创建隐藏 mesh/node batch，并把目标 token 绑定到 prepared surface，aggregate commit 再同时交换基础批次、snapshot 与 matching desired/presented token。`IsPresentationReady` 还要求 snapshot token 等于 presented，因此 desired/presented 未收敛、资源离树或 snapshot 不匹配时 surface provider 会关闭。显示点列、样式、surface 和 token 都不写回图或存档。当前尚无 junction patch、semantic join/terminal cap 或普通 mutation stalled/retry，这些仍由 Phase 7 跟踪。
+普通 `GraphChanged` 通过 `ScheduleStaticBatchRebuild` 合并；完整 mesh/node batch/`RoadSurfaceSnapshot` 交换后才把 matching desired token 提升为 presented。Load admission 预留 request，worker `RoadRendererLoadPreparer.Prepare()` 先完成 triangle/disc defensive copy 与统一索引建树；主线程 Preflight 创建隐藏 mesh/node batch，并把目标 token 绑定到 prepared surface，aggregate commit 再同时交换基础批次、snapshot 与 matching desired/presented token。`IsPresentationReady` 还要求 snapshot token 等于 presented，因此 desired/presented 未收敛、资源离树或 snapshot 不匹配时 surface provider 会关闭。显示点列、样式、surface 和 token 都不写回图或存档。当前尚无 semantic join、junction patch 或普通 mutation stalled/retry，这些仍由 Phase 7 跟踪。
 
 ### RoadSystem
 
