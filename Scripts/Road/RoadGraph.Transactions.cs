@@ -7,6 +7,7 @@ using System.Threading;
 
 public partial class RoadGraph
 {
+    private static long s_nextFacadeID;
     private static long s_nextLineageID;
     private readonly HashSet<int> _touchedNodeIDs = [];
     private readonly HashSet<int> _touchedEdgeIDs = [];
@@ -16,16 +17,23 @@ public partial class RoadGraph
 
     public GraphStateToken CurrentStateToken => _revision.StateToken;
 
+    private static long AllocateFacadeID() => AllocateProcessIdentity(
+        ref s_nextFacadeID,
+        "RoadGraph facade");
+
     private static GraphLineageID AllocateLineageID()
+        => new(AllocateProcessIdentity(ref s_nextLineageID, "RoadGraph lineage"));
+
+    private static long AllocateProcessIdentity(ref long allocator, string name)
     {
         while (true)
         {
-            long current = Volatile.Read(ref s_nextLineageID);
+            long current = Volatile.Read(ref allocator);
             if (current == long.MaxValue)
-                throw new InvalidOperationException("RoadGraph lineage space is exhausted.");
+                throw new InvalidOperationException($"{name} space is exhausted.");
             long next = current + 1;
-            if (Interlocked.CompareExchange(ref s_nextLineageID, next, current) == current)
-                return new GraphLineageID(next);
+            if (Interlocked.CompareExchange(ref allocator, next, current) == current)
+                return next;
         }
     }
 

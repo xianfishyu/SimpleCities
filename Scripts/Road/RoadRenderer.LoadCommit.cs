@@ -15,6 +15,10 @@ public partial class RoadRenderer
         {
             throw new InvalidOperationException("RoadRenderer presentation resources are not ready.");
         }
+        if (_staticBatchRebuildScheduled)
+            FlushScheduledStaticBatchRebuild();
+        if (!_presentationTokens.IsPresentationCurrent)
+            throw new InvalidOperationException("RoadRenderer presentation is not current.");
 
         _loadAdmissionGeneration = NextLoadGeneration(_loadAdmissionGeneration);
         RoadTypeStyleSnapshot roadTypeStyles = Config.CaptureRoadTypeStyleSnapshot();
@@ -26,10 +30,12 @@ public partial class RoadRenderer
             Config.EndpointColor,
             Config.JunctionColor);
         settings.Validate();
+        RoadRenderLoadReservation renderReservation = _presentationTokens.ReserveLoad();
         var admission = new RoadRendererLoadAdmission(
             this,
             _loadAdmissionGeneration,
             _network,
+            renderReservation,
             new RoadRendererLoadPreparer(settings));
         _loadAdmission = admission;
         return admission;
@@ -57,19 +63,24 @@ public partial class RoadRenderer
             prepared.RoadColors,
             prepared.RoadIndices);
         MultiMesh nodeBatch = CreateNodeBatch(prepared.NodeMarkers);
+        RoadRenderToken renderToken = _presentationTokens.CreateReservedLoadToken(
+            admission.RenderReservation,
+            targetToken.ChangeSequence);
         return new RoadRendererLoadCommitPlan(
             this,
             admission,
             prepared,
             roadMesh,
             nodeBatch,
-            targetToken);
+            targetToken,
+            renderToken);
     }
 
     private bool IsLoadAdmissionCurrent(RoadRendererLoadAdmission admission) =>
         ReferenceEquals(_loadAdmission, admission) &&
         admission.Generation == _loadAdmissionGeneration &&
-        ReferenceEquals(_network, admission.Graph);
+        ReferenceEquals(_network, admission.Graph) &&
+        _presentationTokens.IsReservationCurrent(admission.RenderReservation);
 
     private void AbandonLoadAdmission(RoadRendererLoadAdmission admission)
     {
@@ -108,16 +119,19 @@ public partial class RoadRenderer
             RoadRenderer owner,
             long generation,
             RoadGraph graph,
+            RoadRenderLoadReservation renderReservation,
             RoadRendererLoadPreparer preparer)
         {
             _owner = owner;
             Generation = generation;
             Graph = graph;
+            RenderReservation = renderReservation;
             Preparer = preparer;
         }
 
         internal long Generation { get; }
         internal RoadGraph Graph { get; }
+        internal RoadRenderLoadReservation RenderReservation { get; }
         internal RoadRendererLoadPreparer Preparer { get; }
 
         public void Dispose()
@@ -186,7 +200,8 @@ public partial class RoadRenderer
         private readonly RoadRendererPreparedLoad _prepared;
         private readonly ArrayMesh? _roadMesh;
         private readonly MultiMesh _nodeBatch;
-        private readonly GraphStateToken _targetToken;
+        private readonly GraphStateToken _targetGraphToken;
+        private readonly RoadRenderToken _targetRenderToken;
         private bool _committed;
         private bool _completed;
 
@@ -196,14 +211,16 @@ public partial class RoadRenderer
             RoadRendererPreparedLoad prepared,
             ArrayMesh? roadMesh,
             MultiMesh nodeBatch,
-            GraphStateToken targetToken)
+            GraphStateToken targetGraphToken,
+            RoadRenderToken targetRenderToken)
         {
             _owner = owner;
             _admission = admission;
             _prepared = prepared;
             _roadMesh = roadMesh;
             _nodeBatch = nodeBatch;
-            _targetToken = targetToken;
+            _targetGraphToken = targetGraphToken;
+            _targetRenderToken = targetRenderToken;
         }
 
         public string ParticipantID => "road-presentation";
@@ -221,23 +238,26 @@ public partial class RoadRenderer
             _owner._removalPreviewEdgeIDs = [];
             _owner.RemovalSelectionBounds = null;
             _owner.HoveredEdgeID = null;
-            _owner._committedLoadToken = _targetToken;
+            _owner._presentationTokens.CommitReservedLoad(
+                _admission.RenderReservation,
+                _targetRenderToken);
+            _owner._committedLoadGraphToken = _targetGraphToken;
             _committed = true;
         }
 
         public IReadOnlyList<string> PublishNotifications()
         {
             var warnings = new List<string>();
-            Action<GraphStateToken>? handlers = _owner.PresentationReady;
+            Action<RoadRenderToken>? handlers = _owner.PresentationReady;
             if (handlers is null)
                 return warnings;
-            foreach (Action<GraphStateToken> handler in handlers
+            foreach (Action<RoadRenderToken> handler in handlers
                          .GetInvocationList()
-                         .Cast<Action<GraphStateToken>>())
+                         .Cast<Action<RoadRenderToken>>())
             {
                 try
                 {
-                    handler(_targetToken);
+                    handler(_targetRenderToken);
                 }
                 catch (Exception exception)
                 {

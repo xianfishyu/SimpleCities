@@ -19,9 +19,10 @@ public partial class RoadRenderer : Node2D
     private bool _graphEventsSubscribed;
     private RoadRendererLoadAdmission? _loadAdmission;
     private long _loadAdmissionGeneration;
-    private GraphStateToken? _committedLoadToken;
+    private GraphStateToken? _committedLoadGraphToken;
+    private readonly RoadPresentationTokenTracker _presentationTokens = new();
 
-    internal event Action<GraphStateToken>? PresentationReady;
+    internal event Action<RoadRenderToken>? PresentationReady;
 
     // 施工预览
     private Vector2[] _previewPoints = [];
@@ -58,6 +59,45 @@ public partial class RoadRenderer : Node2D
 
     public int GetNodeMarkerCount() => _nodeBatchLayer.Multimesh.InstanceCount;
 
+    public Godot.Collections.Dictionary GetPresentationState() => new()
+    {
+        ["isReady"] = _presentationTokens.IsPresentationCurrent,
+        ["desired"] = ToTokenDictionary(_presentationTokens.DesiredToken),
+        ["presented"] = ToTokenDictionary(_presentationTokens.PresentedToken),
+    };
+
+    public bool RefreshRoadStyles()
+    {
+        if (_loadAdmission is not null || _network is null || Config is null)
+            return false;
+
+        _ = Config.CaptureRoadTypeStyleSnapshot();
+        RoadRenderToken requested = _presentationTokens.RequestStyleRefresh(
+            _network.CurrentStateToken.ChangeSequence);
+        if (PresentationResourcesAreReady())
+            RebuildStaticBatches();
+        return _presentationTokens.PresentedToken == requested;
+    }
+
+    internal void ConfigureSceneGeneration(long sceneGeneration)
+    {
+        if (_loadAdmission is not null)
+            throw new InvalidOperationException(
+                "RoadRenderer scene generation cannot change during load admission.");
+
+        long changeSequence = _network?.CurrentStateToken.ChangeSequence ?? 0;
+        if (!_presentationTokens.SetSceneGeneration(
+                sceneGeneration,
+                changeSequence,
+                out _))
+        {
+            return;
+        }
+
+        if (PresentationResourcesAreReady())
+            RebuildStaticBatches();
+    }
+
     /// <summary>拆除工具悬停的 Edge ID（null = 未悬停在任何 Edge 上）</summary>
     public int? HoveredEdgeID { get; set; }
 
@@ -88,6 +128,9 @@ public partial class RoadRenderer : Node2D
         _nodeBatchLayer = CreateBatchLayer(useColors: true, zIndex: 1);
         _nodeBatchLayer.Material = CreateCircleMaterial();
         AddChild(_nodeBatchLayer);
+
+        if (_network is not null && _presentationTokens.DesiredToken.HasValue)
+            RebuildStaticBatches();
     }
 
     public override void _EnterTree()
@@ -107,20 +150,28 @@ public partial class RoadRenderer : Node2D
         ArgumentNullException.ThrowIfNull(graph);
         if (_loadAdmission is not null)
             throw new InvalidOperationException("RoadRenderer graph cannot change during load admission.");
+        bool facadeChanged = !ReferenceEquals(_network, graph);
         UnsubscribeGraphEvents();
         _network = graph;
+        _committedLoadGraphToken = null;
         _staticBatchRebuildScheduled = false;
         _edgePoints.Clear();
         foreach (GraphEdge edge in _network.GetAllEdges())
             CacheEdgePoints(edge);
+        if (facadeChanged)
+        {
+            _presentationTokens.BindGraph(
+                graph.FacadeID,
+                graph.CurrentStateToken.ChangeSequence);
+        }
+        else
+        {
+            _presentationTokens.RequestRebuild(graph.CurrentStateToken.ChangeSequence);
+        }
         SubscribeGraphEvents();
 
-        if (IsInsideTree() &&
-            GodotObject.IsInstanceValid(_roadBatchLayer) &&
-            GodotObject.IsInstanceValid(_nodeBatchLayer))
-        {
+        if (PresentationResourcesAreReady())
             RebuildStaticBatches();
-        }
     }
 
     private void SubscribeGraphEvents()
@@ -149,10 +200,10 @@ public partial class RoadRenderer : Node2D
             return;
         if (change.Changes.IsFullReset)
         {
-            if (_committedLoadToken is GraphStateToken committed &&
+            if (_committedLoadGraphToken is GraphStateToken committed &&
                 committed == change.StateToken)
             {
-                _committedLoadToken = null;
+                _committedLoadGraphToken = null;
                 QueueRedraw();
                 return;
             }
@@ -160,6 +211,9 @@ public partial class RoadRenderer : Node2D
             _edgePoints.Clear();
             foreach (GraphEdge edge in _network.GetAllEdges())
                 CacheEdgePoints(edge);
+            _presentationTokens.RequestGraphChange(
+                change.StateToken.ChangeSequence,
+                isFullReset: true);
             RebuildStaticBatches();
             return;
         }
@@ -174,6 +228,9 @@ public partial class RoadRenderer : Node2D
             if (_network.GetEdge(edgeID) is GraphEdge edge)
                 CacheEdgePoints(edge);
         }
+        _presentationTokens.RequestGraphChange(
+            change.StateToken.ChangeSequence,
+            isFullReset: false);
         ScheduleStaticBatchRebuild();
     }
 
@@ -209,7 +266,11 @@ public partial class RoadRenderer : Node2D
 
     private void RebuildStaticBatches()
     {
-        if (_network == null) return;
+        if (_network == null ||
+            _presentationTokens.DesiredToken is not RoadRenderToken targetToken)
+        {
+            return;
+        }
 
         var roadVertices = new List<Vector2>();
         var roadUvs = new List<Vector2>();
@@ -233,37 +294,60 @@ public partial class RoadRenderer : Node2D
                 roadIndices);
         }
 
-        _roadMeshVertexCount = roadVertices.Count;
-        _roadBatchLayer.Mesh = CreateRoadMesh(
+        ArrayMesh? roadMesh = CreateRoadMesh(
             roadVertices,
             roadUvs,
             roadColors,
             roadIndices);
 
-        GraphNode[] nodes = _network.GetAllNodes()
-            .Where(node => GetNodeMarkerRadius(
-                _network,
-                node,
-                Config.EndpointRadius,
-                Config.JunctionRadius) > 0f)
+        RoadRendererNodeMarker[] nodeMarkers = _network.GetAllNodes()
             .OrderBy(node => node.ID)
+            .Select(node =>
+            {
+                bool junction = IsJunctionNode(_network, node);
+                float radius = GetNodeMarkerRadius(
+                    _network,
+                    node,
+                    Config.EndpointRadius,
+                    Config.JunctionRadius);
+                return new RoadRendererNodeMarker(
+                    node.Position,
+                    radius * 2f,
+                    junction ? Config.JunctionColor : Config.EndpointColor);
+            })
+            .Where(marker => marker.Diameter > 0f)
             .ToArray();
-        MultiMesh nodeBatch = _nodeBatchLayer.Multimesh;
-        nodeBatch.InstanceCount = nodes.Length;
-        for (int index = 0; index < nodes.Length; index++)
+        MultiMesh nodeBatch = CreateNodeBatch(nodeMarkers);
+
+        if (_presentationTokens.DesiredToken != targetToken)
+            return;
+
+        _roadMeshVertexCount = roadVertices.Count;
+        _roadBatchLayer.Mesh = roadMesh;
+        _nodeBatchLayer.Multimesh = nodeBatch;
+        _presentationTokens.CommitDesired(targetToken);
+    }
+
+    private bool PresentationResourcesAreReady() =>
+        IsInsideTree() &&
+        GodotObject.IsInstanceValid(_roadBatchLayer) &&
+        GodotObject.IsInstanceValid(_nodeBatchLayer);
+
+    private static Godot.Collections.Dictionary ToTokenDictionary(
+        RoadRenderToken? nullableToken)
+    {
+        if (nullableToken is not RoadRenderToken token)
+            return new Godot.Collections.Dictionary();
+
+        return new Godot.Collections.Dictionary
         {
-            GraphNode node = nodes[index];
-            bool junction = IsJunctionNode(_network, node);
-            float diameter = GetNodeMarkerRadius(
-                _network,
-                node,
-                Config.EndpointRadius,
-                Config.JunctionRadius) * 2f;
-            var transform = new Transform2D(0f, node.Position)
-                .ScaledLocal(new Vector2(diameter, diameter));
-            nodeBatch.SetInstanceTransform2D(index, transform);
-            nodeBatch.SetInstanceColor(index, junction ? Config.JunctionColor : Config.EndpointColor);
-        }
+            ["sceneGeneration"] = token.SceneGeneration,
+            ["graphFacadeID"] = token.GraphFacadeID,
+            ["graphFacadeGeneration"] = token.GraphFacadeGeneration,
+            ["changeSequence"] = token.ChangeSequence,
+            ["roadStyleRevision"] = token.RoadStyleRevision,
+            ["renderRequestID"] = token.RenderRequestID,
+        };
     }
 
     private static void AppendRoadRibbon(

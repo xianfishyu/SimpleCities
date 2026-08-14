@@ -410,6 +410,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 
 | 公开成员 | 签名 | 说明 |
 |---|---|---|
+| `FacadeID` | `public long FacadeID { get; }` | 进程内稳定且唯一的 facade 实例身份；分配空间耗尽时失败而不回绕 |
 | `SaveFileName` | `public string SaveFileName => "road_network"` | 路网存档文件名 |
 | `GraphChanged` | `public event Action<RoadGraphChangedEvent>? GraphChanged` | 唯一事务事件；携带 delta、summary 与完整 state token |
 | 构造函数 | `public RoadGraph()` | 使用默认 `IndexBucketSize` |
@@ -593,6 +594,22 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 
 采样器只调用原生几何的 `GetPosition()` 和 `Split()`，使用四分之一、中点、四分之三点到端点弦的距离以及弧长/弦长差判断平坦度。每个源段最终以权威 `End` 封口，避免解析拆分的微小端点残差进入显示点列；输入几何和控制参数始终保持不变。
 
+### RoadRenderToken
+
+**文件**：`Scripts/Road/RoadRenderToken.cs`
+**类型**：`public readonly record struct RoadRenderToken`
+
+| 分量 | 说明 |
+|---|---|
+| `SceneGeneration` | 当前场景注册代际，由 `SaveManager` 注入 renderer |
+| `GraphFacadeID` | 稳定 `RoadGraph` facade 实例身份 |
+| `GraphFacadeGeneration` | renderer 改绑 facade 或外部 full reset 时推进的表现代际 |
+| `ChangeSequence` | 当前成功 graph commit 序号 |
+| `RoadStyleRevision` | 显式样式刷新代际 |
+| `RenderRequestID` | 每个表现请求单调推进且不回绕的身份 |
+
+构造会拒绝非正 identity 与负 `ChangeSequence`。内部 `RoadPresentationTokenTracker` 分别保存 `DesiredToken` / `PresentedToken`：普通 rebuild 只允许提交当前 desired；Load admission 只在表现 current 时预留 request，Preflight 生成 matching token，aggregate commit 再同时推进 desired/presented。预留后出现 scene/facade/style/request 变化会使 Load generation 失效。
+
 ### RoadRenderer
 
 **文件**：`Scripts/Road/RoadRenderer.cs`
@@ -610,6 +627,9 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `GetRenderedPointCount` / `GetRenderedPoint` | 运行时查询方法 | Godot 契约读取指定 Edge 的确定显示点列 |
 | `GetStaticRenderNodeCount` | `public int GetStaticRenderNodeCount()` | 返回固定的道路 mesh 与节点 MultiMesh 子节点数 2 |
 | `GetRoadMeshVertexCount` | `public int GetRoadMeshVertexCount()` | Godot 契约读取连续道路 ribbon 顶点数 |
+| `GetNodeMarkerCount` | `public int GetNodeMarkerCount()` | Godot 契约读取当前节点批次实例数 |
+| `GetPresentationState` | `public Godot.Collections.Dictionary GetPresentationState()` | 返回 `isReady` 及六分量 desired/presented token 的运行时诊断快照 |
+| `RefreshRoadStyles` | `public bool RefreshRoadStyles()` | 严格捕获样式快照，推进 `RoadStyleRevision` 与 request，并在完整批次交换成功时返回 `true` |
 | `HoveredEdgeID` | `public int? HoveredEdgeID { get; set; }` | 拆除工具悬停边 |
 | `_Ready` | `public override void _Ready()` | 校验基础 `Config` 与四类 `RoadTypeStyles`，创建道路 `MeshInstance2D` 与节点 `MultiMeshInstance2D` |
 | `SetGraph` | `public void SetGraph(RoadGraph graph)` | 订阅唯一 `GraphChanged`，并从当前 revision 重建初始 cache |
@@ -617,10 +637,10 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 
 | `GraphChanged` 响应 | 行为 |
 |---|---|
-| 普通 delta | 删除 `RemovedEdgeIDs` cache，重新采样 `UpdatedEdgeIDs` 和 `CreatedEdgeIDs`，安排同一事件循环批次重建 |
-| full reset | 清空 cache，从活动 revision 的全部 Edge 重新采样并同步重建批次 |
+| 普通 delta | 删除 `RemovedEdgeIDs` cache，重新采样 `UpdatedEdgeIDs` 和 `CreatedEdgeIDs`，推进 desired token 并安排同一事件循环批次重建 |
+| full reset | 清空 cache，从活动 revision 的全部 Edge 重新采样，推进 facade generation/desired token 并同步重建；aggregate Load 已提交的同一次 reset 以 graph token 消重 |
 
-当前 `CacheEdgePoints` 用 `RoadGeometryDisplaySampler` 从 `GraphEdge.GeometrySegments` 生成缓存点列；拆除高亮复用同一点列，`RoadBuilder` 对有效原生草稿也使用相同采样入口。`AppendRoadRibbon` 为开放 Edge 生成共享左右边界；对 self-loop 则移除重复 seam 顶点，用循环相邻方向计算首点 miter，并以末段索引回连首段，从而生成无端帽的 closed ribbon。普通 rebuild 与 `RoadRendererLoadPreparer` 都按 `GraphEdge.RoadType` 从同一不可变样式快照读取宽度和颜色，把全部 Edge 的顶点、UV、vertex color 与索引合成一个抗锯齿 `ArrayMesh`；道路层使用白色 modulate，Load prepared payload 同步携带 `RoadColors`。纯 loop seam 不写节点 marker，其他 endpoint/junction 仍写入一个圆形 shader `MultiMesh`。普通 `GraphChanged` 通过 `ScheduleStaticBatchRebuild` 合并；full reset 同步全量重建。显示点列和样式都不写回图或存档。当前尚无样式 revision/属性刷新、junction patch、semantic join/terminal cap、surface snapshot/hit index 或完整 render token，这些仍由 Phase 7 跟踪。
+当前 `CacheEdgePoints` 用 `RoadGeometryDisplaySampler` 从 `GraphEdge.GeometrySegments` 生成缓存点列；拆除高亮复用同一点列，`RoadBuilder` 对有效原生草稿也使用相同采样入口。`AppendRoadRibbon` 为开放 Edge 生成共享左右边界；对 self-loop 则移除重复 seam 顶点，用循环相邻方向计算首点 miter，并以末段索引回连首段，从而生成无端帽的 closed ribbon。普通 rebuild 与 `RoadRendererLoadPreparer` 都按 `GraphEdge.RoadType` 从同一不可变样式快照读取宽度和颜色，把全部 Edge 的顶点、UV、vertex color 与索引合成一个抗锯齿 `ArrayMesh`；道路层使用白色 modulate，Load prepared payload 同步携带 `RoadColors`。纯 loop seam 不写节点 marker，其他 endpoint/junction 仍写入一个圆形 shader `MultiMesh`。普通 `GraphChanged` 通过 `ScheduleStaticBatchRebuild` 合并；完整 mesh/node batch 交换后才把 matching desired token 提升为 presented。Load 在 Preflight 前预留 request，并于 aggregate commit 同时交换基础批次与 matching desired/presented token。显示点列、样式和 token 都不写回图或存档。当前尚无 junction patch、semantic join/terminal cap、surface snapshot/hit index 或普通 mutation stalled/retry，这些仍由 Phase 7 跟踪。
 
 ### RoadSystem
 

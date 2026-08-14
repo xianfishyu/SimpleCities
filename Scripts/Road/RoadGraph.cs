@@ -28,6 +28,7 @@ public partial class RoadGraph : IStreamingSaveable
     private long _queryFragmentCount;
     private double _totalGeometryLength;
 
+    public long FacadeID { get; }
     public string SaveFileName => "road_network";
 
     public IStreamingLoadReader CaptureLoadReader() => new RoadGraphLoadReader(
@@ -50,6 +51,7 @@ public partial class RoadGraph : IStreamingSaveable
             throw new ArgumentOutOfRangeException(nameof(initialNextID));
 
         _capacity = capacity;
+        FacadeID = AllocateFacadeID();
         _nextID = initialNextID;
         _nodes = ImmutableDictionary.CreateBuilder<int, GraphNode>();
         _edges = ImmutableDictionary.CreateBuilder<int, GraphEdge>();

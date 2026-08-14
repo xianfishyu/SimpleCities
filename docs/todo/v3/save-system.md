@@ -13,7 +13,7 @@
 |---|---|---|---|
 | 2.1 | V2 schema、保存根和 DTO 无法表达 V3 canonical Edge | 已完成 | 已建立隔离的 V3 format v1，并直接拒绝所有非 V3 格式 |
 | 2.2 | 流式快照、严格 manifest、PNG 展示资产与目录事务需要统一的预算和恢复边界 | 已完成 | 有界 token reader、descriptor/digest 恢复、删除 tombstone、OS 根锁与故障矩阵均已验证 |
-| 2.3 | 同步入口和顺序 prepared commit 曾缺少并发及原子会话协议 | 开放（部分实现） | async coordinator、等待取消防护与首个四参与者 aggregate 已落地；补齐完整表现 participant 和故障矩阵 |
+| 2.3 | 同步入口和顺序 prepared commit 曾缺少并发及原子会话协议 | 开放（部分实现） | async coordinator、等待取消防护、四参与者 aggregate 与 matching render token 已落地；补齐 surface participant 和故障矩阵 |
 
 ### 设计覆盖矩阵
 
@@ -22,7 +22,7 @@
 | V3 格式与根隔离 | 生产运行已统一使用 `user://saves-v3`；manifest/payload 均为严格 `simple-cities-v3` format v1，RoadGraph reader/writer 可表达 canonical self-loop、parallel Edge、四类 `roadType` 和完整原生几何锚；V2/未知目录在 V3 根只分类为 `Foreign` | `v3-save-system:2.1`、`v3-road-graph:8.0`～`8.5` |
 | 长连续 Edge | `IStreamingSaveable` 以 O(1) 捕获 immutable root；writer 直接输出无缩进 UTF-8，`V3JsonStreamReader` 在固定 buffer 上执行 byte/token/depth/lexeme 与 RoadGraph 容量预算，同一 payload 句柄完成长度/SHA-256/EOF 终检 | `v3-save-system:2.2`、`v3-road-graph:8.0`、`v3-road-graph:8.5` |
 | 发布、恢复与删除 | operation-specific publish/delete descriptor 绑定 digest 与固定路径；五类 occupant、quarantine、删除 tombstone、跨进程 OS 根锁及 cleanup-pending/typed recovery-blocked 路径均已实现 | `v3-save-system:2.2` |
-| Load 生命周期 | `SaveManager` 已把 RoadGraph root、空工具/history、基础 `ArrayMesh`/`MultiMesh` 与 `CurrentSlotID` 纳入一次 `PreparedAggregateLoad` 引用交换；renderer 尚无 `RoadSurfaceSnapshot`、hit index 和完整 `RoadRenderToken`，因此仍不是设计完成态 | `v3-save-system:2.3`、`v3-road-graph:8.5`、`v3-grid-rendering:2.2`、`v3-tool-input:2.4`、`v3-ui:1.4` |
+| Load 生命周期 | `SaveManager` 已把 RoadGraph root、空工具/history、基础 `ArrayMesh`/`MultiMesh`、matching 六分量 `RoadRenderToken` 与 `CurrentSlotID` 纳入一次 `PreparedAggregateLoad` 引用交换；renderer 尚无 `RoadSurfaceSnapshot` 和 hit index，因此仍不是设计完成态 | `v3-save-system:2.3`、`v3-road-graph:8.5`、`v3-grid-rendering:2.2`、`v3-tool-input:2.4`、`v3-ui:1.4` |
 | 操作权限 | `SaveManager` 已只公开 `StartSave/StartSaveAs/StartLoad/StartDeleteSlot/StartAutosave` token 入口，并发布结构化 phase/result；coordinator 实现进程内 gate、手动优先、pending autosave 合并、取消与退出收敛 | `v3-save-system:2.3`、`v3-ui:1.4` |
 
 ## 执行顺序
@@ -65,9 +65,9 @@
   - 验收：同一 V3 根跨进程最多一个目录事务；主线程不执行长 JSON/hash/I/O；Prepare/Preflight 失败逐值保留活动状态，non-yield commit 全有或全无且只通知一次；Load 只有成功、observer warning 或提交前失败/取消；autosave busy 有界；任何操作都不调用 V2 API 或触碰 V2 根。
   - 阶段进展（2026-08-14）：`SaveOperationCoordinator` 已实现进程内根 gate、结构化 token/state/result、手动请求优先、单 pending autosave、取消点和 shutdown；公开同步 bool 入口已删除。Save/Load/Delete 的长磁盘与 prepared 工作在 `Task.Run` 中执行，主线程 capture 只取得 immutable root。`SaveManager` 用 scene generation 跟踪任务，返回主菜单先 drain，窗口/菜单/主菜单退出统一等待未越界取消或已越界事务收敛；新请求在关闭期得到 typed rejection。
   - 等待取消修复（2026-08-14）：手动请求从 `_rootGate.WaitAsync()` 返回后、创建 `SaveOperationLease` 前，会在 coordinator 锁内重新检查外部 cancellation token；若取消与 gate 释放竞争，则立即释放已取得的 gate 并返回 Admission 阶段 `Canceled`。被取消的 waiter 不再成为无人终结的活动 lease，也不会让 scene drain 或 coordinator dispose 无限等待；见 `save-system:BUG-13`。
-  - Aggregate 进展（2026-08-14）：Load 已按 Admission/Prepare/Preflight/Commit 运行，`PreparedAggregateLoad` 在同一 commit lease 中交换 RoadGraph 新 lineage、RoadBuilder 空 placement/removal 与新 history、RoadRenderer 预建的基础 `ArrayMesh`/`MultiMesh`、以及 `CurrentSlotID`；observer 逐个隔离为 warning。`PreparedAggregateLoadTests`、`RoadRendererLoadPrepareTests`、coordinator/slot/UI 契约和 renderer lifecycle 运行时覆盖成功、取消、generation 失配、observer warning，以及 renderer 缺失导致提交前失败且旧图/历史/会话/槽逐值不变。
-  - 仍缺（保持开放）：当前 renderer participant 已覆盖统一样式的 open/closed ribbon 与节点批次，但 token 仍是 `GraphStateToken`；尚无 `RoadSurfaceSnapshot`、surface hit index、六分量 `RoadRenderToken`、junction patch 或 matching desired/presented token。因此还需协同 `v3-grid-rendering:2.2`、`v3-tool-input:2.4` 完整状态及第二 saveable/关键资源逐点故障矩阵，不能把当前 aggregate 切片视为 `2.3` 完成。
-  - 当前证据（2026-08-14）：完整 `dotnet test SimpleCities.sln --no-restore` 为 727/727；Debug 与 `ExportRelease` build 为 0 警告、0 错误，Roslyn compiler/analyzer 为 0 diagnostics。`SceneStyleDrain_DiscardsPendingCancelsWaitersAndRemainsReusable` 覆盖 gate 释放与外部取消竞争，完整套件不再停在 coordinator dispose。`pause_menu_runtime_contract.gd`、`road_renderer_lifecycle_runtime_contract.gd`、`road_closed_ribbon_runtime_contract.gd` 和当前 V3 综合运行时契约均输出 PASS；闭环契约证明 graph/tool/basic mesh/slot 成功联合交换后为 `1 Edge / 8 vertices / 0 markers`，并在同一已加载图中把两路口环从 `4 Edge / 20 vertices / 4 markers` 收敛为支路删除后的 `2 Edge / 12 vertices / 2 markers`。最新两轮 100k Load/renderer rebuild 为 4108.956 ms 与 4492.629 ms。
+  - Aggregate 进展（2026-08-14）：Load 已按 Admission/Prepare/Preflight/Commit 运行，`PreparedAggregateLoad` 在同一 commit lease 中交换 RoadGraph 新 lineage、RoadBuilder 空 placement/removal 与新 history、RoadRenderer 预建的基础 `ArrayMesh`/`MultiMesh`、matching desired/presented `RoadRenderToken`，以及 `CurrentSlotID`；`SaveManager` 在 scene registration 时把 `SceneGeneration` 注入 renderer。render request/facade generation 在 admission 预留，generation 失配会在 commit 前拒绝；observer 逐个隔离为 warning。
+  - 仍缺（保持开放）：当前 renderer participant 已覆盖分级 open/closed ribbon、节点批次与 matching 六分量 token，但尚无 `RoadSurfaceSnapshot`、surface hit index、junction patch 或 surface owner。因此还需协同 `v3-grid-rendering:2.2`、`v3-tool-input:2.4` 完整状态及第二 saveable/关键资源逐点故障矩阵，不能把当前 aggregate 切片视为 `2.3` 完成。
+  - 当前证据（2026-08-14）：完整 `dotnet test SimpleCities.sln -c Debug --no-restore` 为 763/763；Debug 与 `ExportRelease` build 为 0 警告、0 错误，Roslyn compiler/analyzer 与新增 GDScript 契约为 0 diagnostics。`SceneStyleDrain_DiscardsPendingCancelsWaitersAndRemainsReusable` 覆盖 gate 释放与外部取消竞争；既有 pause menu、renderer lifecycle、closed ribbon 与 V3 综合运行时契约继续覆盖提交前失败和基础 aggregate。Godot MCP 又逐步验证初始、普通 mutation、显式样式刷新与 aggregate Load 后的六分量 desired/presented token 完全匹配，Load 将 facade generation 与 change sequence 各推进一次；Save、Load、删除测试槽与场景清理成功。独立 token GDScript runner 未执行，DAP 读取因客户端上限受阻。最新两轮 100k Load/renderer rebuild 仍为 4108.956 ms 与 4492.629 ms。
 
 ## 暂不执行
 

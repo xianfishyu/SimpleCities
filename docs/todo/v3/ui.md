@@ -12,7 +12,7 @@
 | 1.1 | 道路上下文没有 RoadType 选择控件 | 开放 | 四段式名称与颜色 swatch 选择器写入共享 tool state |
 | 1.2 | ConstructionDock 没有道路改造工具呈现 | 开放 | 资源化 RoadUpgrade 工具、选中态和上下文联动 |
 | 1.3 | DebugPanel 仍把 RoadGroup 数量作为路网指标 | 开放 | 移除 Group 指标，展示 canonical Node/Edge/geometry/self-loop 结构量 |
-| 1.4 | 暂停菜单没有异步 Save/Load/Delete 的独占状态机 | 开放（部分实现） | token/generation/busy/Escape/退出收敛已接入；补齐完整 presentation 阶段与结果矩阵 |
+| 1.4 | 暂停菜单没有异步 Save/Load/Delete 的独占状态机 | 开放（部分实现） | operation/render token、generation、busy、Escape 与退出收敛已接入；补齐 surface presentation 与结果矩阵 |
 
 ### 设计覆盖矩阵
 
@@ -22,7 +22,7 @@
 | V3 类型建造 | 当前道路分类只有一个 `city-road` 工具，ToolContextPanel 只显示只读文本和 CellSize | 1.1、`v3-tool-input:2.1` |
 | V3 既有道路改造 | `ToolType` 和 catalog 没有 RoadUpgrade，ConstructionDock 只渲染 Road 工具定义 | 1.2、`v3-tool-input:2.2` |
 | V3 规范存储诊断 | DebugPanel 仍读取 `GetAllGroups()`，无法观察 Edge 压缩、原生几何数量或 self-loop | 1.3、`v3-road-graph:8.2`～`8.5` |
-| V3 异步存档体验 | PauseMenu 已消费结构化 operation state/result，按 token、menu/scene generation 过滤 continuation，busy 时禁用冲突入口并让 Escape 只请求一次取消；退出流程会 drain/shutdown。完整 surface presentation acknowledgment 尚未存在 | 1.4、`v3-save-system:2.3`、`v3-tool-input:2.4`、`v3-grid-rendering:2.2` |
+| V3 异步存档体验 | PauseMenu 已消费结构化 operation state/result，按 token、menu/scene generation 过滤 continuation，busy 时禁用冲突入口并让 Escape 只请求一次取消；退出流程会 drain/shutdown。Load 已发布 matching `RoadRenderToken` acknowledgment，但完整 surface presentation 尚未存在 | 1.4、`v3-save-system:2.3`、`v3-tool-input:2.4`、`v3-grid-rendering:2.2` |
 
 ## 执行顺序
 
@@ -69,8 +69,8 @@
   - 验收：每次命令只对应一个 operation token；旧 generation/continuation 无法改变当前菜单或磁盘；冲突按钮、Enter 和 Escape 不重复发起或提前恢复游戏。Publish、Load、Delete 结果不混淆，Load 不改盘；失败/取消不关闭菜单或误切 `CurrentSlotID`，observer/cleanup warning 不误报失败；成功 Load 只在所有根和 matching presentation token 一次交换后恢复游戏，V2 槽从不出现在 V3 UI，autosave busy 不产生错误噪音。
   - 阶段进展（2026-08-14）：PauseMenu 已改用 `StartSave/StartSaveAs/StartLoad/StartDeleteSlot`，订阅不可变 state/result，并以 `OperationToken + MenuOpenGeneration + SceneGeneration` 拒绝旧 continuation。操作期间保存控件、确认入口和视图切换被禁用；Escape 在 commit 前只发送一次取消，越界后只消费输入。Load 只有 matching 成功结果才关闭菜单，失败/取消保留原菜单；Delete 继续绑定 UI generation、occupant digest 与确认 token。`AutosaveController` 独立统计 success/failure/canceled/skipped-busy。
   - 退出与焦点进展（2026-08-14）：返回主菜单先进入 exit-convergence 状态、等待当前 scene operation drain，再切换场景；窗口关闭、暂停菜单和 MainMenu 退出统一由 `SaveManager` shutdown。所有 deferred focus 通过执行时有效性门禁，旧菜单离树后不会操作失效控件。对应已验证修复记录见 `save-system:BUG-12` 与 `ui:BUG-16`。
-  - 当前证据（2026-08-14）：`PauseMenuContractTests`、`AutosaveContractTests`、`SaveOperationCoordinatorTests` 与完整 727/727 自动化通过；其中 scene-style drain 回归覆盖等待 gate 的请求与外部取消竞争，不再遗留会阻塞退出的 lease。`pause_menu_runtime_contract.gd`、`autosave_runtime_contract.gd` 和当前 V3 综合运行时契约输出 PASS。Debug/`ExportRelease` build 与 Roslyn diagnostics 均为 0。
-  - 仍缺（保持开放）：renderer 尚未提供完整 `RoadRenderToken`、`RoadSurfaceSnapshot`/hit index 和 matching presentation acknowledgment，所以 UI 还不能展示最终的 graph/tool/mesh/surface 一次接管语义；observer/cleanup 每类 warning、所有阶段重复激活与真实关键资源故障矩阵也尚未全部验收。
+  - 当前证据（2026-08-14）：`PauseMenuContractTests`、`AutosaveContractTests`、`SaveOperationCoordinatorTests` 与完整 763/763 自动化通过；其中 scene-style drain 回归覆盖等待 gate 的请求与外部取消竞争，不再遗留会阻塞退出的 lease。`pause_menu_runtime_contract.gd`、`autosave_runtime_contract.gd` 和当前 V3 综合运行时契约输出 PASS；Godot MCP 又验证 aggregate Load 发布 matching 六分量 `RoadRenderToken`。Debug/`ExportRelease` build 与 Roslyn diagnostics 均为 0。
+  - 仍缺（保持开放）：renderer 尚未提供 `RoadSurfaceSnapshot`/hit index，UI 因而还不能展示最终的 graph/tool/mesh/surface 一次接管语义；observer/cleanup 每类 warning、所有阶段重复激活与真实关键资源故障矩阵也尚未全部验收。
 
 ## 暂不执行
 

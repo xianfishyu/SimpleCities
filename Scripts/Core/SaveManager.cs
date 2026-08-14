@@ -171,6 +171,7 @@ public partial class SaveManager : Node
         _sceneCancellation = new CancellationTokenSource();
         _sceneGeneration = NextGeneration(_sceneGeneration);
         _sceneClosing = false;
+        renderer.ConfigureSceneGeneration(_sceneGeneration);
         _sceneContext = new SceneLoadContext(
             _sceneGeneration,
             graph,
