@@ -80,7 +80,7 @@ public partial class RoadRenderer : Node2D
         _roadBatchLayer = new MeshInstance2D
         {
             ZIndex = 0,
-            Modulate = Config.RoadColor,
+            Modulate = Colors.White,
             Material = CreateRoadMaterial(),
         };
         AddChild(_roadBatchLayer);
@@ -213,21 +213,32 @@ public partial class RoadRenderer : Node2D
 
         var roadVertices = new List<Vector2>();
         var roadUvs = new List<Vector2>();
+        var roadColors = new List<Color>();
         var roadIndices = new List<int>();
+        RoadTypeStyleSnapshot roadTypeStyles = Config.CaptureRoadTypeStyleSnapshot();
         foreach ((int edgeID, Vector2[] points) in _edgePoints.OrderBy(pair => pair.Key))
         {
             GraphEdge? edge = _network.GetEdge(edgeID);
+            if (edge is null)
+                continue;
+            RoadTypeStyleDefinition style = roadTypeStyles.Resolve(edge.RoadType);
             AppendRoadRibbon(
                 points,
-                edge is not null && edge.NodeA == edge.NodeB,
-                Config.RoadWidth * 0.5f,
+                edge.NodeA == edge.NodeB,
+                style.Width * 0.5f,
+                style.Color,
                 roadVertices,
                 roadUvs,
+                roadColors,
                 roadIndices);
         }
 
         _roadMeshVertexCount = roadVertices.Count;
-        _roadBatchLayer.Mesh = CreateRoadMesh(roadVertices, roadUvs, roadIndices);
+        _roadBatchLayer.Mesh = CreateRoadMesh(
+            roadVertices,
+            roadUvs,
+            roadColors,
+            roadIndices);
 
         GraphNode[] nodes = _network.GetAllNodes()
             .Where(node => GetNodeMarkerRadius(
@@ -259,8 +270,10 @@ public partial class RoadRenderer : Node2D
         IReadOnlyList<Vector2> points,
         bool isClosed,
         float halfWidth,
+        Color color,
         List<Vector2> vertices,
         List<Vector2> uvs,
+        List<Color> colors,
         List<int> indices)
     {
         int pointCount = points.Count;
@@ -279,8 +292,10 @@ public partial class RoadRenderer : Node2D
             Vector2 offset = CalculateRoadOffset(points, pointCount, index, isClosed, halfWidth);
             vertices.Add(points[index] - offset);
             uvs.Add(Vector2.Zero);
+            colors.Add(color);
             vertices.Add(points[index] + offset);
             uvs.Add(Vector2.Down);
+            colors.Add(color);
         }
 
         int segmentCount = isClosed ? pointCount : pointCount - 1;
@@ -337,15 +352,22 @@ public partial class RoadRenderer : Node2D
     private static ArrayMesh? CreateRoadMesh(
         IReadOnlyCollection<Vector2> vertices,
         IReadOnlyCollection<Vector2> uvs,
+        IReadOnlyCollection<Color> colors,
         IReadOnlyCollection<int> indices)
     {
         if (vertices.Count == 0)
             return null;
+        if (uvs.Count != vertices.Count || colors.Count != vertices.Count)
+        {
+            throw new InvalidOperationException(
+                "Road mesh vertex, UV, and color arrays must have the same length.");
+        }
 
         var arrays = new Godot.Collections.Array();
         arrays.Resize((int)Mesh.ArrayType.Max);
         arrays[(int)Mesh.ArrayType.Vertex] = vertices.ToArray();
         arrays[(int)Mesh.ArrayType.TexUV] = uvs.ToArray();
+        arrays[(int)Mesh.ArrayType.Color] = colors.ToArray();
         arrays[(int)Mesh.ArrayType.Index] = indices.ToArray();
         var mesh = new ArrayMesh();
         mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);

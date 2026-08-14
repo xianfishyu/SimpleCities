@@ -17,9 +17,10 @@ public partial class RoadRenderer
         }
 
         _loadAdmissionGeneration = NextLoadGeneration(_loadAdmissionGeneration);
+        RoadTypeStyleSnapshot roadTypeStyles = Config.CaptureRoadTypeStyleSnapshot();
         var settings = new RoadRendererLoadSettings(
             Config.CurveDisplayTolerance,
-            Config.RoadWidth,
+            roadTypeStyles,
             Config.EndpointRadius,
             Config.JunctionRadius,
             Config.EndpointColor,
@@ -53,6 +54,7 @@ public partial class RoadRenderer
         ArrayMesh? roadMesh = CreateRoadMesh(
             prepared.RoadVertices,
             prepared.RoadUvs,
+            prepared.RoadColors,
             prepared.RoadIndices);
         MultiMesh nodeBatch = CreateNodeBatch(prepared.NodeMarkers);
         return new RoadRendererLoadCommitPlan(
@@ -141,6 +143,7 @@ public partial class RoadRenderer
             var edgePoints = new Dictionary<int, Vector2[]>(revision.Edges.Count);
             var roadVertices = new List<Vector2>();
             var roadUvs = new List<Vector2>();
+            var roadColors = new List<Color>();
             var roadIndices = new List<int>();
             foreach (GraphEdge edge in revision.Edges.Values.OrderBy(edge => edge.ID))
             {
@@ -148,12 +151,15 @@ public partial class RoadRenderer
                     edge.GeometrySegments,
                     _settings.CurveDisplayTolerance);
                 edgePoints.Add(edge.ID, points);
+                RoadTypeStyleDefinition style = _settings.RoadTypeStyles.Resolve(edge.RoadType);
                 AppendRoadRibbon(
                     points,
                     edge.NodeA == edge.NodeB,
-                    _settings.RoadWidth * 0.5f,
+                    style.Width * 0.5f,
+                    style.Color,
                     roadVertices,
                     roadUvs,
+                    roadColors,
                     roadIndices);
             }
 
@@ -167,6 +173,7 @@ public partial class RoadRenderer
                 edgePoints,
                 roadVertices.ToArray(),
                 roadUvs.ToArray(),
+                roadColors.ToArray(),
                 roadIndices.ToArray(),
                 nodeMarkers);
         }
@@ -315,6 +322,7 @@ internal sealed record RoadRendererPreparedLoad(
     Dictionary<int, Vector2[]> EdgePoints,
     Vector2[] RoadVertices,
     Vector2[] RoadUvs,
+    Color[] RoadColors,
     int[] RoadIndices,
     RoadRendererNodeMarker[] NodeMarkers);
 
@@ -325,7 +333,7 @@ internal readonly record struct RoadRendererNodeMarker(
 
 internal readonly record struct RoadRendererLoadSettings(
     float CurveDisplayTolerance,
-    float RoadWidth,
+    RoadTypeStyleSnapshot RoadTypeStyles,
     float EndpointRadius,
     float JunctionRadius,
     Color EndpointColor,
@@ -335,8 +343,7 @@ internal readonly record struct RoadRendererLoadSettings(
     {
         if (!float.IsFinite(CurveDisplayTolerance) || CurveDisplayTolerance <= 0f)
             throw new InvalidOperationException("RoadRenderer curve tolerance is invalid.");
-        if (!float.IsFinite(RoadWidth) || RoadWidth <= 0f)
-            throw new InvalidOperationException("RoadRenderer width is invalid.");
+        RoadTypeStyles.Validate();
         if (!float.IsFinite(EndpointRadius) || EndpointRadius < 0f ||
             !float.IsFinite(JunctionRadius) || JunctionRadius < 0f)
         {

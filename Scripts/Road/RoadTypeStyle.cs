@@ -1,4 +1,6 @@
 using Godot;
+using System;
+using System.Collections.Generic;
 
 /// <summary>
 /// Display-only style mapped to one stable <see cref="RoadType"/> value.
@@ -80,3 +82,56 @@ internal readonly record struct RoadTypeStyleDefinition(
     string DisplayName,
     Color Color,
     float Width);
+
+internal readonly record struct RoadTypeStyleSnapshot(
+    RoadTypeStyleDefinition Dirt,
+    RoadTypeStyleDefinition Street,
+    RoadTypeStyleDefinition Arterial,
+    RoadTypeStyleDefinition Highway)
+{
+    internal static RoadTypeStyleSnapshot Create(
+        IReadOnlyList<RoadTypeStyleDefinition>? styles)
+    {
+        if (!RoadConfig.TryValidateRoadTypeStyles(styles, out string error))
+            throw new InvalidOperationException($"RoadConfig RoadTypeStyles are invalid: {error}");
+
+        return new RoadTypeStyleSnapshot(
+            Find(styles!, RoadType.Dirt),
+            Find(styles!, RoadType.Street),
+            Find(styles!, RoadType.Arterial),
+            Find(styles!, RoadType.Highway));
+    }
+
+    internal RoadTypeStyleDefinition Resolve(RoadType roadType) => roadType switch
+    {
+        RoadType.Dirt => Dirt,
+        RoadType.Street => Street,
+        RoadType.Arterial => Arterial,
+        RoadType.Highway => Highway,
+        _ => throw new ArgumentOutOfRangeException(
+            nameof(roadType),
+            roadType,
+            "RoadType is not defined."),
+    };
+
+    internal void Validate()
+    {
+        RoadTypeStyleSnapshot validated = Create([Dirt, Street, Arterial, Highway]);
+        if (validated != this)
+            throw new InvalidOperationException("RoadTypeStyle snapshot changed during validation.");
+    }
+
+    private static RoadTypeStyleDefinition Find(
+        IReadOnlyList<RoadTypeStyleDefinition> styles,
+        RoadType roadType)
+    {
+        foreach (RoadTypeStyleDefinition style in styles)
+        {
+            if (style.RoadType == roadType)
+                return style;
+        }
+
+        throw new InvalidOperationException(
+            $"RoadConfig does not contain RoadTypeStyle '{roadType}'.");
+    }
+}

@@ -500,7 +500,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `GetRoadTypeStylesValidationResult` | `public Godot.Collections.Dictionary GetRoadTypeStylesValidationResult()` | 为 GDScript/运行时契约公开 `valid` 与 `error` |
 | `GetRoadTypeStyle` | `public RoadTypeStyle GetRoadTypeStyle(RoadType roadType)` | 在完整映射中返回目标样式；映射无效或类型非法时抛错，不 fallback |
 
-生产 `Scenes/road_config.tres` 使用 `Dirt / 土路 / #8A6652 / 14`、`Street / 街道 / #60727C / 20`、`Arterial / 主干道 / #D7A928 / 26`、`Highway / 高速道路 / #C84B3A / 32`。当前 `RoadRenderer` 只在启动时校验这组资源，per-edge 消费由 `v3-grid-rendering:2.2` 跟踪。
+生产 `Scenes/road_config.tres` 使用 `Dirt / 土路 / #8A6652 / 14`、`Street / 街道 / #60727C / 20`、`Arterial / 主干道 / #D7A928 / 26`、`Highway / 高速道路 / #C84B3A / 32`。`RoadRenderer` 在主线程校验并捕获不可变 `RoadTypeStyleSnapshot`；普通 rebuild 与 Load worker 都只消费该值快照，不把 Resource 传入后台。
 
 ### RoadBuilder
 
@@ -620,7 +620,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | 普通 delta | 删除 `RemovedEdgeIDs` cache，重新采样 `UpdatedEdgeIDs` 和 `CreatedEdgeIDs`，安排同一事件循环批次重建 |
 | full reset | 清空 cache，从活动 revision 的全部 Edge 重新采样并同步重建批次 |
 
-当前 `CacheEdgePoints` 用 `RoadGeometryDisplaySampler` 从 `GraphEdge.GeometrySegments` 生成缓存点列；拆除高亮复用同一点列，`RoadBuilder` 对有效原生草稿也使用相同采样入口。`AppendRoadRibbon` 为开放 Edge 生成共享左右边界；对 self-loop 则移除重复 seam 顶点，用循环相邻方向计算首点 miter，并以末段索引回连首段，从而生成无端帽的 closed ribbon。全部 Edge 合成一个抗锯齿 `ArrayMesh`，纯 loop seam 不写节点 marker，其他 endpoint/junction 写入一个圆形 shader `MultiMesh`。普通 `GraphChanged` 通过 `ScheduleStaticBatchRebuild` 合并；full reset 同步全量重建。显示点列不写回图或存档。虽然 `GraphEdge` 已携带 `RoadType` 且 `RoadConfig` 已有严格四类样式映射，当前 renderer 仍统一使用 `RoadConfig.RoadWidth` / `RoadColor`；per-edge 样式消费、surface token 与 junction patch 仍由 Phase 7 跟踪。
+当前 `CacheEdgePoints` 用 `RoadGeometryDisplaySampler` 从 `GraphEdge.GeometrySegments` 生成缓存点列；拆除高亮复用同一点列，`RoadBuilder` 对有效原生草稿也使用相同采样入口。`AppendRoadRibbon` 为开放 Edge 生成共享左右边界；对 self-loop 则移除重复 seam 顶点，用循环相邻方向计算首点 miter，并以末段索引回连首段，从而生成无端帽的 closed ribbon。普通 rebuild 与 `RoadRendererLoadPreparer` 都按 `GraphEdge.RoadType` 从同一不可变样式快照读取宽度和颜色，把全部 Edge 的顶点、UV、vertex color 与索引合成一个抗锯齿 `ArrayMesh`；道路层使用白色 modulate，Load prepared payload 同步携带 `RoadColors`。纯 loop seam 不写节点 marker，其他 endpoint/junction 仍写入一个圆形 shader `MultiMesh`。普通 `GraphChanged` 通过 `ScheduleStaticBatchRebuild` 合并；full reset 同步全量重建。显示点列和样式都不写回图或存档。当前尚无样式 revision/属性刷新、junction patch、semantic join/terminal cap、surface snapshot/hit index 或完整 render token，这些仍由 Phase 7 跟踪。
 
 ### RoadSystem
 

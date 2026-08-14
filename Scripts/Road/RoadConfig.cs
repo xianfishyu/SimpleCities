@@ -110,6 +110,18 @@ public partial class RoadConfig : Resource
         throw new InvalidOperationException($"RoadConfig does not contain RoadTypeStyle '{roadType}'.");
     }
 
+    internal RoadTypeStyleSnapshot CaptureRoadTypeStyleSnapshot()
+    {
+        if (!TryCreateRoadTypeStyleDefinitions(
+                out List<RoadTypeStyleDefinition> styles,
+                out string error))
+        {
+            throw new InvalidOperationException($"RoadConfig RoadTypeStyles are invalid: {error}");
+        }
+
+        return RoadTypeStyleSnapshot.Create(styles);
+    }
+
     internal static bool TryValidateRoadTypeStyles(
         IReadOnlyList<RoadTypeStyleDefinition>? styles,
         out string error)

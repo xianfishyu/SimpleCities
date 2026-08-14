@@ -4,9 +4,17 @@ namespace SimpleCities.Tests;
 
 public sealed class RoadRendererLoadPrepareTests
 {
+    private static readonly RoadTypeStyleSnapshot RoadTypeStyles =
+        RoadTypeStyleSnapshot.Create([
+            Style(RoadType.Dirt, "Dirt", "#8A6652", 4f),
+            Style(RoadType.Street, "Street", "#60727C", 6f),
+            Style(RoadType.Arterial, "Arterial", "#D7A928", 8f),
+            Style(RoadType.Highway, "Highway", "#C84B3A", 10f),
+        ]);
+
     private static readonly RoadRendererLoadSettings Settings = new(
         CurveDisplayTolerance: 0.25f,
-        RoadWidth: 12f,
+        RoadTypeStyles,
         EndpointRadius: 6f,
         JunctionRadius: 10f,
         EndpointColor: new Color("#90A4AE"),
@@ -43,6 +51,7 @@ public sealed class RoadRendererLoadPrepareTests
         Assert.NotEqual(callerThread, workerThread);
         Assert.Equal(first.RoadVertices, second.RoadVertices);
         Assert.Equal(first.RoadUvs, second.RoadUvs);
+        Assert.Equal(first.RoadColors, second.RoadColors);
         Assert.Equal(first.RoadIndices, second.RoadIndices);
         Assert.Equal(first.NodeMarkers, second.NodeMarkers);
         Assert.Equal(
@@ -50,6 +59,47 @@ public sealed class RoadRendererLoadPrepareTests
             second.EdgePoints.OrderBy(pair => pair.Key).Select(pair => (pair.Key, pair.Value)));
         Assert.NotEmpty(first.RoadVertices);
         Assert.Contains(first.NodeMarkers, marker => marker.Diameter == Settings.JunctionRadius * 2f);
+    }
+
+    [Fact]
+    public void PurePreparer_UsesPerEdgeWidthAndVertexColorInOneBatch()
+    {
+        var graph = new RoadGraph();
+        RoadType[] roadTypes =
+        [
+            RoadType.Dirt,
+            RoadType.Street,
+            RoadType.Arterial,
+            RoadType.Highway,
+        ];
+        for (int index = 0; index < roadTypes.Length; index++)
+        {
+            float y = index * 20f;
+            Assert.True(graph.SubmitPolyline(
+                roadTypes[index],
+                [new Vector2(0f, y), new Vector2(40f, y)]).Success);
+        }
+        var preparer = new RoadRenderer.RoadRendererLoadPreparer(Settings);
+
+        RoadRendererPreparedLoad prepared = preparer.Prepare(graph.CaptureRevision());
+
+        Assert.Equal(prepared.RoadVertices.Length, prepared.RoadUvs.Length);
+        Assert.Equal(prepared.RoadVertices.Length, prepared.RoadColors.Length);
+        int vertexOffset = 0;
+        foreach (GraphEdge edge in graph.GetAllEdges().OrderBy(edge => edge.ID))
+        {
+            Vector2[] points = prepared.EdgePoints[edge.ID];
+            int vertexCount = points.Length * 2;
+            RoadTypeStyleDefinition style = RoadTypeStyles.Resolve(edge.RoadType);
+            float renderedWidth = prepared.RoadVertices[vertexOffset]
+                .DistanceTo(prepared.RoadVertices[vertexOffset + 1]);
+            Assert.InRange(Mathf.Abs(renderedWidth - style.Width), 0f, 0.0001f);
+            Assert.All(
+                prepared.RoadColors[vertexOffset..(vertexOffset + vertexCount)],
+                color => Assert.Equal(style.Color, color));
+            vertexOffset += vertexCount;
+        }
+        Assert.Equal(prepared.RoadVertices.Length, vertexOffset);
     }
 
     [Fact]
@@ -103,6 +153,7 @@ public sealed class RoadRendererLoadPrepareTests
         int uniquePointCount = points.Length - 1;
         Assert.Equal(uniquePointCount * 2, prepared.RoadVertices.Length);
         Assert.Equal(prepared.RoadVertices.Length, prepared.RoadUvs.Length);
+        Assert.Equal(prepared.RoadVertices.Length, prepared.RoadColors.Length);
         Assert.Equal(uniquePointCount * 6, prepared.RoadIndices.Length);
         Assert.Equal(
             [
@@ -118,7 +169,8 @@ public sealed class RoadRendererLoadPrepareTests
             prepared.RoadIndices,
             index => Assert.InRange(index, 0, prepared.RoadVertices.Length - 1));
         Assert.True(
-            prepared.RoadVertices[0].DistanceTo(points[0]) > Settings.RoadWidth * 0.5f,
+            prepared.RoadVertices[0].DistanceTo(points[0]) >
+            Settings.RoadTypeStyles.Resolve(RoadType.Street).Width * 0.5f,
             "The loop seam must use both wrapped neighbors rather than an open endpoint normal.");
         Assert.Empty(prepared.NodeMarkers);
     }
@@ -202,6 +254,7 @@ public sealed class RoadRendererLoadPrepareTests
 
         Assert.Equal(6, prepared.RoadVertices.Length);
         Assert.Equal(6, prepared.RoadUvs.Length);
+        Assert.Equal(6, prepared.RoadColors.Length);
         Assert.Equal([0, 1, 2, 2, 1, 3, 2, 3, 4, 4, 3, 5], prepared.RoadIndices);
         Assert.Equal(2, prepared.NodeMarkers.Length);
     }
@@ -320,4 +373,11 @@ public sealed class RoadRendererLoadPrepareTests
                 Assert.Equal(Settings.JunctionRadius * 2f, marker.Diameter);
             });
     }
+
+    private static RoadTypeStyleDefinition Style(
+        RoadType roadType,
+        string displayName,
+        string color,
+        float width) =>
+        new(roadType, displayName, new Color(color), width);
 }
