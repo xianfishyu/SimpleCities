@@ -12,25 +12,30 @@ public enum RoadRemovalSelectionMode
 /// <summary>在提交前以稳定 Edge ID 集合描述一次连续或矩形拆除选择。</summary>
 public sealed class RoadRemovalSession
 {
-    private readonly RoadGraph _graph;
+    private readonly IRoadSurfaceSelectionProvider _surfaceProvider;
     private readonly float _interactionRadius;
     private readonly SortedSet<int> _selectedEdgeIDs = [];
+    private bool _invalidated;
 
     public RoadRemovalSelectionMode Mode { get; }
+    public RoadRenderToken RenderToken { get; }
     public Vector2 StartPosition { get; }
     public Vector2 CurrentPosition { get; private set; }
-    public int[] SelectedEdgeIDs => _selectedEdgeIDs.ToArray();
-    public Rect2? SelectionBounds => Mode == RoadRemovalSelectionMode.Rectangle
+    public bool IsCurrent => EnsureCurrent();
+    public int[] SelectedEdgeIDs => EnsureCurrent() ? _selectedEdgeIDs.ToArray() : [];
+    public Rect2? SelectionBounds =>
+        EnsureCurrent() && Mode == RoadRemovalSelectionMode.Rectangle
         ? CreateBounds(StartPosition, CurrentPosition)
         : null;
 
-    public RoadRemovalSession(
-        RoadGraph graph,
+    internal RoadRemovalSession(
+        IRoadSurfaceSelectionProvider surfaceProvider,
+        RoadRenderToken renderToken,
         RoadRemovalSelectionMode mode,
         Vector2 startPosition,
         float interactionRadius)
     {
-        ArgumentNullException.ThrowIfNull(graph);
+        ArgumentNullException.ThrowIfNull(surfaceProvider);
         if (!startPosition.IsFinite())
             throw new ArgumentException("A removal session needs a finite start position.", nameof(startPosition));
         if (!float.IsFinite(interactionRadius) || interactionRadius <= 0f)
@@ -39,41 +44,82 @@ public sealed class RoadRemovalSession
                 interactionRadius,
                 "Interaction radius must be positive and finite.");
 
-        _graph = graph;
+        _surfaceProvider = surfaceProvider;
         _interactionRadius = interactionRadius;
+        RenderToken = renderToken;
         Mode = mode;
         StartPosition = startPosition;
         CurrentPosition = startPosition;
         Update(startPosition);
     }
 
-    public void Update(Vector2 pointerPosition)
+    public bool Update(Vector2 pointerPosition)
     {
         if (!pointerPosition.IsFinite())
             throw new ArgumentException("Pointer position must contain finite coordinates.", nameof(pointerPosition));
+        if (!EnsureCurrent())
+            return false;
 
         if (Mode == RoadRemovalSelectionMode.Rectangle)
         {
             CurrentPosition = pointerPosition;
+            if (!_surfaceProvider.TryFindEdgeIDsIntersecting(
+                    RenderToken,
+                    CreateBounds(StartPosition, CurrentPosition),
+                    out int[] edgeIDs))
+            {
+                Invalidate();
+                return false;
+            }
+
             _selectedEdgeIDs.Clear();
-            _selectedEdgeIDs.UnionWith(_graph.FindEdgeIDsIntersecting(
-                CreateBounds(StartPosition, CurrentPosition)));
-            return;
+            _selectedEdgeIDs.UnionWith(edgeIDs);
+            return true;
         }
 
-        AddContinuousSelection(CurrentPosition, pointerPosition);
+        if (!AddContinuousSelection(CurrentPosition, pointerPosition))
+        {
+            Invalidate();
+            return false;
+        }
         CurrentPosition = pointerPosition;
+        return true;
     }
 
-    private void AddContinuousSelection(Vector2 from, Vector2 to)
+    private bool AddContinuousSelection(Vector2 from, Vector2 to)
     {
         float distance = from.DistanceTo(to);
         int stepCount = Math.Max(1, Mathf.CeilToInt(distance / (_interactionRadius * 0.5f)));
         for (int step = 0; step <= stepCount; step++)
         {
             Vector2 sample = from.Lerp(to, (float)step / stepCount);
-            _selectedEdgeIDs.UnionWith(_graph.FindEdgeIDsNear(sample, _interactionRadius));
+            if (!_surfaceProvider.TryFindClosest(
+                    RenderToken,
+                    sample,
+                    _interactionRadius,
+                    out RoadSurfaceHit? nullableHit))
+            {
+                return false;
+            }
+            if (nullableHit is RoadSurfaceHit hit && hit.EdgeID is int edgeID)
+                _selectedEdgeIDs.Add(edgeID);
         }
+        return true;
+    }
+
+    private bool EnsureCurrent()
+    {
+        if (!_invalidated && _surfaceProvider.IsCurrent(RenderToken))
+            return true;
+
+        Invalidate();
+        return false;
+    }
+
+    private void Invalidate()
+    {
+        _invalidated = true;
+        _selectedEdgeIDs.Clear();
     }
 
     private static Rect2 CreateBounds(Vector2 from, Vector2 to)

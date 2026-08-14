@@ -85,8 +85,10 @@ public sealed class RoadEditHistoryTests
         var graph = CreateThreeParallelRoads();
         string initialState = Capture(graph);
         using var history = new RoadEditHistory(graph);
+        RoadRenderToken continuousToken = RoadRemovalSurfaceFixture.Token(graph);
         var continuous = new RoadRemovalSession(
-            graph,
+            CreateRemovalProvider(graph, continuousToken),
+            continuousToken,
             RoadRemovalSelectionMode.Continuous,
             new Vector2(-10f, 0f),
             6f);
@@ -97,8 +99,12 @@ public sealed class RoadEditHistoryTests
         Assert.True(history.Undo());
         AssertSameGraphContent(initialState, graph);
 
-        var rectangle = new RoadRemovalSession(
+        RoadRenderToken rectangleToken = RoadRemovalSurfaceFixture.Token(
             graph,
+            renderRequestID: 2);
+        var rectangle = new RoadRemovalSession(
+            CreateRemovalProvider(graph, rectangleToken),
+            rectangleToken,
             RoadRemovalSelectionMode.Rectangle,
             new Vector2(-5f, -25f),
             6f);
@@ -393,6 +399,24 @@ public sealed class RoadEditHistoryTests
         Assert.True(graph.SubmitPolyline(RoadType.Street, [new Vector2(100f, -20f), new Vector2(100f, 20f)]).Success);
         Assert.True(graph.SubmitPolyline(RoadType.Street, [new Vector2(200f, -20f), new Vector2(200f, 20f)]).Success);
         return graph;
+    }
+
+    private static TestRoadSurfaceSelectionProvider CreateRemovalProvider(
+        RoadGraph graph,
+        RoadRenderToken renderToken)
+    {
+        RoadSurfaceTriangle[] triangles = graph.GetAllEdges()
+            .OrderBy(edge => edge.ID)
+            .SelectMany(edge =>
+            {
+                RoadGeometrySegment geometry = Assert.Single(edge.GeometrySegments);
+                return RoadRemovalSurfaceFixture.Ribbon(
+                    edge.ID,
+                    geometry.Start,
+                    geometry.End);
+            })
+            .ToArray();
+        return new TestRoadSurfaceSelectionProvider(renderToken, triangles);
     }
 
     private static bool AddRoadAtY(RoadGraph graph, float y) => graph.SubmitPolyline(RoadType.Street, [

@@ -226,7 +226,11 @@ func run() -> void:
 		road_builder.GetRemovalSelectionCount() == 1 and road_renderer.GetRemovalPreviewEdgeCount() == 1,
 		"Continuous removal did not select the crossed maximal Edge exactly once"):
 		return
+	var presentation_before_continuous_remove: Dictionary = road_renderer.GetPresentationState()
+	var rendered_edges_before_continuous_remove: int = road_renderer.GetRenderedEdgeCount()
 	var mesh_vertices_before_continuous_remove: int = road_renderer.GetRoadMeshVertexCount()
+	var surface_primitives_before_continuous_remove := int(
+		presentation_before_continuous_remove.get("surfacePrimitiveCount", 0))
 	road_builder.HandleRemoveInput(mouse_button_event(
 		MOUSE_BUTTON_LEFT,
 		false,
@@ -235,15 +239,29 @@ func run() -> void:
 		not road_builder.HasActiveRemoveSession() and road_renderer.GetRemovalPreviewEdgeCount() == 0,
 		"Continuous removal did not commit and clear its preview"):
 		return
+	var pending_continuous_remove: Dictionary = road_renderer.GetPresentationState()
 	if not assert_true(
-		road_renderer.GetRenderedEdgeCount() == 2 and
+		pending_continuous_remove.get("phase", "") == "pending" and
+		not bool(pending_continuous_remove.get("isReady", true)) and
+		int(pending_continuous_remove.get("surfacePrimitiveCount", -1)) == 0 and
+		int(pending_continuous_remove.get("retainedSurfacePrimitiveCount", -1)) ==
+			surface_primitives_before_continuous_remove and
+		road_renderer.GetRenderedEdgeCount() == rendered_edges_before_continuous_remove and
 		road_renderer.GetRoadMeshVertexCount() == mesh_vertices_before_continuous_remove,
-		"Continuous removal did not defer its merged static batch rebuild"):
+		"Continuous removal did not retain its previous complete presentation " +
+		"(edges=%d, vertices=%d, before=%d, undo=%d)" % [
+			road_renderer.GetRenderedEdgeCount(),
+			road_renderer.GetRoadMeshVertexCount(),
+			mesh_vertices_before_continuous_remove,
+			road_builder.GetUndoEditCount(),
+		]):
 		return
 	await process_frame
 	if not assert_true(
+		road_renderer.GetPresentationState().get("phase", "") == "ready" and
+		road_renderer.GetRenderedEdgeCount() == 2 and
 		road_renderer.GetRoadMeshVertexCount() == 12,
-		"Continuous removal did not publish the merged static batch on the next frame"):
+		"Continuous removal did not atomically publish the merged presentation on the next frame"):
 		return
 	if not assert_true(await V3_SAVE_FIXTURE.save(save_manager, slot_id), "Continuous removal save failed"):
 		return

@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-public partial class RoadRenderer : Node2D
+public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
 {
     [Export] public RoadConfig Config { get; set; } = null!;
 
@@ -126,6 +126,56 @@ public partial class RoadRenderer : Node2D
         float maxSurfaceDistance) =>
         GetPresentedRoadSurface()?.FindClosest(position, maxSurfaceDistance);
 
+    bool IRoadSurfaceSelectionProvider.TryCaptureCurrentToken(
+        out RoadRenderToken renderToken)
+    {
+        if (IsPresentationReady() &&
+            _presentationTokens.PresentedToken is RoadRenderToken presented)
+        {
+            renderToken = presented;
+            return true;
+        }
+
+        renderToken = default;
+        return false;
+    }
+
+    bool IRoadSurfaceSelectionProvider.IsCurrent(RoadRenderToken expectedToken) =>
+        GetPresentedRoadSurface(expectedToken) is not null;
+
+    bool IRoadSurfaceSelectionProvider.TryFindClosest(
+        RoadRenderToken expectedToken,
+        Vector2 position,
+        float maxSurfaceDistance,
+        out RoadSurfaceHit? hit)
+    {
+        RoadSurfaceSnapshot? surface = GetPresentedRoadSurface(expectedToken);
+        if (surface is null)
+        {
+            hit = null;
+            return false;
+        }
+
+        hit = surface.FindClosest(position, maxSurfaceDistance);
+        return true;
+    }
+
+    bool IRoadSurfaceSelectionProvider.TryFindEdgeIDsIntersecting(
+        RoadRenderToken expectedToken,
+        Rect2 bounds,
+        out int[] edgeIDs)
+    {
+        RoadSurfaceSnapshot? surface = GetPresentedRoadSurface(expectedToken);
+        if (surface is null)
+        {
+            edgeIDs = [];
+            return false;
+        }
+
+        edgeIDs = surface.FindEdgeIDsIntersecting(bounds);
+        return true;
+    }
+
     public bool RetryRoadPresentation()
     {
         if (_loadAdmission is not null ||
@@ -148,6 +198,7 @@ public partial class RoadRenderer : Node2D
         _ = Config.CaptureRoadTypeStyleSnapshot();
         RoadRenderToken requested = _presentationTokens.RequestStyleRefresh(
             _network.CurrentStateToken.ChangeSequence);
+        QueueRedraw();
         if (PresentationResourcesAreReady())
             _ = TryRebuildStaticBatches();
         return IsPresentationReady() && _presentationTokens.PresentedToken == requested;
@@ -168,6 +219,7 @@ public partial class RoadRenderer : Node2D
             return;
         }
 
+        QueueRedraw();
         if (PresentationResourcesAreReady())
             RebuildStaticBatches();
     }
@@ -241,6 +293,7 @@ public partial class RoadRenderer : Node2D
         {
             _presentationTokens.RequestRebuild(graph.CurrentStateToken.ChangeSequence);
         }
+        QueueRedraw();
         SubscribeGraphEvents();
 
         if (PresentationResourcesAreReady())
@@ -286,6 +339,7 @@ public partial class RoadRenderer : Node2D
             _presentationTokens.RequestGraphChange(
                 change.StateToken.ChangeSequence,
                 isFullReset: true);
+            QueueRedraw();
             RebuildStaticBatches();
             return;
         }
@@ -298,6 +352,7 @@ public partial class RoadRenderer : Node2D
         _presentationTokens.RequestGraphChange(
             change.StateToken.ChangeSequence,
             isFullReset: false);
+        QueueRedraw();
         ScheduleStaticBatchRebuild();
     }
 
@@ -426,6 +481,15 @@ public partial class RoadRenderer : Node2D
 
     private RoadSurfaceSnapshot? GetPresentedRoadSurface() =>
         IsPresentationReady() ? _presentedSurface : null;
+
+    private RoadSurfaceSnapshot? GetPresentedRoadSurface(
+        RoadRenderToken expectedToken) =>
+        IsPresentationReady() &&
+        _presentationTokens.DesiredToken == expectedToken &&
+        _presentationTokens.PresentedToken == expectedToken &&
+        _presentedSurface?.RenderToken == expectedToken
+            ? _presentedSurface
+            : null;
 
     private string GetPresentationPhase(bool isReady)
     {
@@ -1016,19 +1080,28 @@ public partial class RoadRenderer : Node2D
 
     public override void _Draw()
     {
+        bool canDrawRoadInteraction = IsPresentationReady();
         bool hasEdgeHighlight =
-            _removalPreviewEdgeIDs.Length > 0 || HoveredEdgeID.HasValue;
+            canDrawRoadInteraction &&
+            (_removalPreviewEdgeIDs.Length > 0 || HoveredEdgeID.HasValue);
         RoadTypeStyleSnapshot highlightStyles = hasEdgeHighlight
                 ? Config.CaptureRoadTypeStyleSnapshot()
                 : default;
-        foreach (int edgeID in _removalPreviewEdgeIDs)
-            DrawEdgeHighlight(edgeID, highlightStyles);
+        if (canDrawRoadInteraction)
+        {
+            foreach (int edgeID in _removalPreviewEdgeIDs)
+                DrawEdgeHighlight(edgeID, highlightStyles);
 
-        if (RemovalSelectionBounds is { } bounds && bounds.Size.X > 0f && bounds.Size.Y > 0f)
-            DrawRect(bounds, Config.HoverHighlightColor, false, 2f);
+            if (RemovalSelectionBounds is { } bounds &&
+                bounds.Size.X > 0f &&
+                bounds.Size.Y > 0f)
+            {
+                DrawRect(bounds, Config.HoverHighlightColor, false, 2f);
+            }
 
-        if (HoveredEdgeID.HasValue && _network != null)
-            DrawEdgeHighlight(HoveredEdgeID.Value, highlightStyles);
+            if (HoveredEdgeID.HasValue && _network != null)
+                DrawEdgeHighlight(HoveredEdgeID.Value, highlightStyles);
+        }
 
         for (int index = 1; index < _previewPoints.Length; index++)
         {

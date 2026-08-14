@@ -157,6 +157,8 @@ public partial class RoadBuilder : Node2D
         if (_graph == null || _renderer == null || _loadAdmission is not null)
             return;
 
+        if (_removalSession is not null && !_removalSession.IsCurrent)
+            EndRemoveSession();
         if (_isRemoveHoverActive && !IsRemoving)
             UpdateRemoveHover();
     }
@@ -282,16 +284,29 @@ public partial class RoadBuilder : Node2D
 
     public bool BeginRemove(Vector2 pointerPosition, bool rectangleSelection = false)
     {
-        if (_loadAdmission is not null || _graph == null || _inputStrategy == null || IsRemoving)
+        if (_loadAdmission is not null ||
+            _graph == null ||
+            _renderer is not IRoadSurfaceSelectionProvider surfaceProvider ||
+            _inputStrategy == null ||
+            IsRemoving ||
+            !TryCaptureCurrentRoadSurfaceToken(surfaceProvider, out RoadRenderToken renderToken))
+        {
             return false;
+        }
 
         _removalSession = new RoadRemovalSession(
-            _graph,
+            surfaceProvider,
+            renderToken,
             rectangleSelection
                 ? RoadRemovalSelectionMode.Rectangle
                 : RoadRemovalSelectionMode.Continuous,
             pointerPosition,
             _inputStrategy.InteractionRadius);
+        if (!_removalSession.IsCurrent)
+        {
+            _removalSession = null;
+            return false;
+        }
         ClearRemoveHover();
         ApplyRemovePreview();
         return true;
@@ -302,7 +317,11 @@ public partial class RoadBuilder : Node2D
         if (_loadAdmission is not null || _removalSession == null)
             return;
 
-        _removalSession.Update(pointerPosition);
+        if (!_removalSession.Update(pointerPosition))
+        {
+            EndRemoveSession();
+            return;
+        }
         ApplyRemovePreview();
     }
 
@@ -311,9 +330,17 @@ public partial class RoadBuilder : Node2D
         if (_loadAdmission is not null || _removalSession == null || _graph == null)
             return false;
 
-        _removalSession.Update(pointerPosition);
+        if (!_removalSession.Update(pointerPosition) ||
+            !IsRemovalCommandAdmitted(_removalSession))
+        {
+            EndRemoveSession();
+            return false;
+        }
+
         int[] selectedEdgeIDs = _removalSession.SelectedEdgeIDs;
         EndRemoveSession();
+        if (selectedEdgeIDs.Length == 0)
+            return false;
         return ExecuteRoadEdit(() => _graph.RemoveEdges(selectedEdgeIDs));
     }
 
@@ -427,7 +454,19 @@ public partial class RoadBuilder : Node2D
 
     private void UpdateRemoveHover()
     {
-        int? edgeID = FindEdgeForRemoval(GetGlobalMousePosition())?.ID;
+        int? edgeID = null;
+        if (_renderer is IRoadSurfaceSelectionProvider surfaceProvider &&
+            _inputStrategy is not null &&
+            TryCaptureCurrentRoadSurfaceToken(surfaceProvider, out RoadRenderToken renderToken) &&
+            surfaceProvider.TryFindClosest(
+                renderToken,
+                GetGlobalMousePosition(),
+                _inputStrategy.InteractionRadius,
+                out RoadSurfaceHit? nullableHit) &&
+            nullableHit is RoadSurfaceHit hit)
+        {
+            edgeID = hit.EdgeID;
+        }
         int hoveredEdgeID = edgeID ?? -1;
         if (hoveredEdgeID == _lastHoveredEdgeID)
             return;
@@ -437,15 +476,35 @@ public partial class RoadBuilder : Node2D
         _renderer.QueueRedraw();
     }
 
-    private GraphEdge? FindEdgeForRemoval(Vector2 pointerPosition)
+    private bool TryCaptureCurrentRoadSurfaceToken(
+        IRoadSurfaceSelectionProvider surfaceProvider,
+        out RoadRenderToken renderToken)
     {
-        if (_graph == null || _inputStrategy == null)
-            return null;
+        renderToken = default;
+        if (_graph is not RoadGraph graph ||
+            !surfaceProvider.TryCaptureCurrentToken(out RoadRenderToken captured))
+        {
+            return false;
+        }
 
-        float interactionRadius = _inputStrategy.InteractionRadius;
-        Vector2 snappedPosition = _inputStrategy.SnapPointer(pointerPosition);
-        return _graph.FindClosestEdge(snappedPosition, interactionRadius)
-            ?? _graph.FindClosestEdge(pointerPosition, interactionRadius);
+        if (captured.GraphFacadeID != graph.FacadeID ||
+            captured.ChangeSequence != graph.CurrentStateToken.ChangeSequence)
+        {
+            return false;
+        }
+
+        renderToken = captured;
+        return true;
+    }
+
+    private bool IsRemovalCommandAdmitted(RoadRemovalSession session)
+    {
+        if (_graph is not RoadGraph graph || !session.IsCurrent)
+            return false;
+
+        RoadRenderToken renderToken = session.RenderToken;
+        return renderToken.GraphFacadeID == graph.FacadeID &&
+               renderToken.ChangeSequence == graph.CurrentStateToken.ChangeSequence;
     }
 
     private void ClearRemoveHover()

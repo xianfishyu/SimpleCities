@@ -64,10 +64,25 @@ func run() -> void:
 	if recovered.is_empty():
 		return
 
+	var removal_edge_count: int = renderer.GetRenderedEdgeCount()
+	var removal_history_count: int = builder.GetUndoEditCount()
+	if not require(
+		builder.BeginRemove(Vector2(50.0, 0.0), false) and
+		builder.GetRemovalSelectionCount() == 1,
+		"Current surface did not admit a removal selection"):
+		return
 	if not require(renderer.RefreshRoadStyles(), "Explicit road style refresh did not present"):
 		return
 	var styled := presentation_token(renderer, "Style refresh")
 	if styled.is_empty() or not require_style_change(recovered, styled):
+		return
+	if not require(
+		not builder.ConfirmRemove(Vector2(50.0, 0.0)) and
+		not builder.HasActiveRemoveSession() and
+		renderer.GetRemovalPreviewEdgeCount() == 0 and
+		renderer.GetRenderedEdgeCount() == removal_edge_count and
+		builder.GetUndoEditCount() == removal_history_count,
+		"A removal selection captured from the previous render token mutated the graph"):
 		return
 	if not require_surface_hit(renderer, Vector2(50.0, 0.0), styled, "Style refresh"):
 		return
@@ -198,6 +213,11 @@ func require_stalled_retry(
 	if not require(
 		renderer.FindRoadSurfaceHit(Vector2(50.0, 0.0), 0.0).is_empty(),
 		"Stalled presentation still returned a road surface hit"):
+		return {}
+	if not require(
+		not builder.BeginRemove(Vector2(50.0, 0.0), false) and
+		not builder.HasActiveRemoveSession(),
+		"Stalled presentation admitted a removal session"):
 		return {}
 
 	if not require(
