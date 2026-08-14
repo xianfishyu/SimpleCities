@@ -56,6 +56,8 @@ func run() -> void:
 		return
 	if not require_surface_hit(renderer, Vector2(50.0, 0.0), mutated, "Normal mutation"):
 		return
+	if not require_terminal_cap_hit(renderer, Vector2(-5.0, 0.0), mutated, "Normal mutation"):
+		return
 
 	if not require(renderer.RefreshRoadStyles(), "Explicit road style refresh did not present"):
 		return
@@ -63,6 +65,8 @@ func run() -> void:
 	if styled.is_empty() or not require_style_change(mutated, styled):
 		return
 	if not require_surface_hit(renderer, Vector2(50.0, 0.0), styled, "Style refresh"):
+		return
+	if not require_terminal_cap_hit(renderer, Vector2(-5.0, 0.0), styled, "Style refresh"):
 		return
 
 	if not require(
@@ -83,6 +87,8 @@ func run() -> void:
 	if loaded.is_empty() or not require_load_change(styled, loaded):
 		return
 	if not require_surface_hit(renderer, Vector2(0.0, 100.0), loaded, "Aggregate Load"):
+		return
+	if not require_terminal_cap_hit(renderer, Vector2(-108.0, 100.0), loaded, "Aggregate Load"):
 		return
 
 	if not require(
@@ -204,6 +210,34 @@ func require_surface_hit(
 			float(location.get("parameter", -1.0)) >= 0.0 and
 			float(location.get("parameter", 2.0)) <= 1.0,
 			"%s surface location returned an invalid parameter" % source))
+
+func require_terminal_cap_hit(
+	renderer: Node,
+	position: Vector2,
+	expected_token: Dictionary,
+	source: String) -> bool:
+	var hit: Dictionary = renderer.FindRoadSurfaceHit(position, 0.0)
+	var location: Dictionary = hit.get("location", {})
+	return (
+		require(not hit.is_empty(), "%s did not return a terminal cap hit" % source) and
+		require(
+			hit.get("ownerKind", "") == "TerminalCap",
+			"%s returned the wrong terminal cap owner kind" % source) and
+		require(
+			hit.get("endpoint", "") == "A" and int(hit.get("nodeID", -1)) >= 0,
+			"%s terminal cap did not preserve its Node incidence" % source) and
+		require(
+			float(hit.get("surfaceDistance", -1.0)) == 0.0,
+			"%s returned a non-zero distance inside the terminal cap" % source) and
+		require(
+			hit.get("renderToken", {}) == expected_token,
+			"%s terminal cap token did not match the presented token" % source) and
+		require(not location.is_empty(), "%s terminal cap omitted its canonical location" % source) and
+		require(
+			int(location.get("edgeID", -1)) == int(hit.get("edgeID", -2)) and
+			int(location.get("geometryIndex", -1)) == 0 and
+			is_zero_approx(float(location.get("parameter", -1.0))),
+			"%s terminal cap did not return the canonical Edge start" % source))
 
 func require_same(
 	before: Dictionary,

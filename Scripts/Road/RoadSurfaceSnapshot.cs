@@ -176,7 +176,7 @@ internal readonly record struct RoadSurfaceTriangle
             Mathf.Lerp(start.Parameter, end.Parameter, parameter));
     }
 
-    private static void ValidateLocation(
+    internal static void ValidateLocation(
         RoadSurfaceOwner owner,
         RoadLocation location,
         string parameterName)
@@ -191,7 +191,7 @@ internal readonly record struct RoadSurfaceTriangle
         }
     }
 
-    private static void ValidatePoint(Vector2 point, string parameterName)
+    internal static void ValidatePoint(Vector2 point, string parameterName)
     {
         if (!point.IsFinite())
             throw new ArgumentException("Road surface coordinates must be finite.", parameterName);
@@ -199,6 +199,132 @@ internal readonly record struct RoadSurfaceTriangle
 
     private static double Cross(Vector2 first, Vector2 second) =>
         (double)first.X * second.Y - (double)first.Y * second.X;
+}
+
+internal readonly record struct RoadSurfaceDisc
+{
+    internal RoadSurfaceOwner Owner { get; }
+    internal Vector2 Center { get; }
+    internal float Radius { get; }
+    internal Vector2 CenterlineStart { get; }
+    internal Vector2 CenterlineEnd { get; }
+    internal RoadLocation? Location { get; }
+
+    internal RoadSurfaceDisc(
+        RoadSurfaceOwner owner,
+        Vector2 center,
+        float radius,
+        Vector2 centerlineStart,
+        Vector2 centerlineEnd,
+        RoadLocation? location)
+    {
+        if (owner.Kind != RoadSurfaceOwnerKind.TerminalCap)
+        {
+            throw new ArgumentException(
+                "A road surface disc currently represents a terminal cap.",
+                nameof(owner));
+        }
+        RoadSurfaceTriangle.ValidatePoint(center, nameof(center));
+        RoadSurfaceTriangle.ValidatePoint(centerlineStart, nameof(centerlineStart));
+        RoadSurfaceTriangle.ValidatePoint(centerlineEnd, nameof(centerlineEnd));
+        if (!float.IsFinite(radius) || radius <= 0f)
+            throw new ArgumentOutOfRangeException(nameof(radius));
+        if (!float.IsFinite(center.X - radius) ||
+            !float.IsFinite(center.X + radius) ||
+            !float.IsFinite(center.Y - radius) ||
+            !float.IsFinite(center.Y + radius))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(radius),
+                "A road surface disc must have finite bounds.");
+        }
+        if (centerlineStart == centerlineEnd)
+            throw new ArgumentException("A road surface disc must have a non-degenerate centerline.");
+        if (location is RoadLocation canonicalLocation)
+        {
+            RoadSurfaceTriangle.ValidateLocation(
+                owner,
+                canonicalLocation,
+                nameof(location));
+        }
+
+        Owner = owner;
+        Center = center;
+        Radius = radius;
+        CenterlineStart = centerlineStart;
+        CenterlineEnd = centerlineEnd;
+        Location = location;
+    }
+}
+
+internal enum RoadSurfacePrimitiveKind
+{
+    Triangle,
+    Disc,
+}
+
+internal readonly record struct RoadSurfacePrimitive
+{
+    private readonly RoadSurfaceTriangle _triangle;
+    private readonly RoadSurfaceDisc _disc;
+
+    private RoadSurfacePrimitive(RoadSurfaceTriangle triangle)
+    {
+        Kind = RoadSurfacePrimitiveKind.Triangle;
+        _triangle = triangle;
+        _disc = default;
+    }
+
+    private RoadSurfacePrimitive(RoadSurfaceDisc disc)
+    {
+        Kind = RoadSurfacePrimitiveKind.Disc;
+        _triangle = default;
+        _disc = disc;
+    }
+
+    internal RoadSurfacePrimitiveKind Kind { get; }
+
+    internal RoadSurfaceTriangle Triangle => Kind == RoadSurfacePrimitiveKind.Triangle
+        ? _triangle
+        : throw new InvalidOperationException("The road surface primitive is not a triangle.");
+
+    internal RoadSurfaceDisc Disc => Kind == RoadSurfacePrimitiveKind.Disc
+        ? _disc
+        : throw new InvalidOperationException("The road surface primitive is not a disc.");
+
+    internal RoadSurfaceOwner Owner => Kind switch
+    {
+        RoadSurfacePrimitiveKind.Triangle => _triangle.Owner,
+        RoadSurfacePrimitiveKind.Disc => _disc.Owner,
+        _ => throw new InvalidOperationException("The road surface primitive kind is invalid."),
+    };
+
+    internal Vector2 CenterlineStart => Kind switch
+    {
+        RoadSurfacePrimitiveKind.Triangle => _triangle.CenterlineStart,
+        RoadSurfacePrimitiveKind.Disc => _disc.CenterlineStart,
+        _ => throw new InvalidOperationException("The road surface primitive kind is invalid."),
+    };
+
+    internal Vector2 CenterlineEnd => Kind switch
+    {
+        RoadSurfacePrimitiveKind.Triangle => _triangle.CenterlineEnd,
+        RoadSurfacePrimitiveKind.Disc => _disc.CenterlineEnd,
+        _ => throw new InvalidOperationException("The road surface primitive kind is invalid."),
+    };
+
+    internal RoadLocation? InterpolateLocation(float parameter) => Kind switch
+    {
+        RoadSurfacePrimitiveKind.Triangle => _triangle.InterpolateLocation(parameter),
+        RoadSurfacePrimitiveKind.Disc => _disc.Location,
+        _ => throw new InvalidOperationException("The road surface primitive kind is invalid."),
+    };
+
+    internal static RoadSurfacePrimitive FromTriangle(RoadSurfaceTriangle triangle) =>
+        new(triangle);
+
+    internal static RoadSurfacePrimitive FromDisc(RoadSurfaceDisc disc) =>
+        new(disc);
 }
 
 internal readonly record struct RoadSurfaceHit(
@@ -232,6 +358,14 @@ internal sealed class RoadSurfaceSnapshot
 
     internal RoadSurfaceSnapshot(
         RoadRenderToken renderToken,
+        IReadOnlyCollection<RoadSurfaceTriangle> triangles,
+        IReadOnlyCollection<RoadSurfaceDisc> discs) :
+        this(renderToken, Prepare(triangles, discs))
+    {
+    }
+
+    internal RoadSurfaceSnapshot(
+        RoadRenderToken renderToken,
         PreparedData prepared)
     {
         ArgumentNullException.ThrowIfNull(prepared);
@@ -241,12 +375,19 @@ internal sealed class RoadSurfaceSnapshot
 
     internal RoadRenderToken RenderToken { get; }
     internal int PrimitiveCount => _prepared.PrimitiveCount;
+    internal int TriangleCount => _prepared.TriangleCount;
+    internal int DiscCount => _prepared.DiscCount;
 
-    internal RoadSurfaceTriangle GetPrimitive(int index) => _prepared.GetPrimitive(index);
+    internal RoadSurfacePrimitive GetPrimitive(int index) => _prepared.GetPrimitive(index);
 
     internal static PreparedData Prepare(
         IReadOnlyCollection<RoadSurfaceTriangle> primitives) =>
         PreparedData.Create(primitives);
+
+    internal static PreparedData Prepare(
+        IReadOnlyCollection<RoadSurfaceTriangle> triangles,
+        IReadOnlyCollection<RoadSurfaceDisc> discs) =>
+        PreparedData.Create(triangles, discs);
 
     internal RoadSurfaceHit? FindClosest(
         Vector2 position,
@@ -307,22 +448,22 @@ internal sealed class RoadSurfaceSnapshot
                     continue;
 
                 exactPrimitiveTestCount++;
-                RoadSurfaceTriangle triangle = _prepared.GetPrimitive(index);
-                double surfaceDistanceSquared = DistanceSquaredToTriangle(position, triangle);
+                RoadSurfacePrimitive primitive = _prepared.GetPrimitive(index);
+                double surfaceDistanceSquared = DistanceSquaredToPrimitive(position, primitive);
                 if (surfaceDistanceSquared > maximumDistanceSquared)
                     continue;
 
                 (double centerlineDistanceSquared, float parameter) =
                     DistanceSquaredToSegment(
                         position,
-                        triangle.CenterlineStart,
-                        triangle.CenterlineEnd);
+                        primitive.CenterlineStart,
+                        primitive.CenterlineEnd);
                 var candidate = new SurfaceCandidate(
-                    triangle,
+                    primitive,
                     index,
                     surfaceDistanceSquared,
                     centerlineDistanceSquared,
-                    triangle.InterpolateLocation(parameter));
+                    primitive.InterpolateLocation(parameter));
                 if (best is null || Compare(candidate, best.Value) < 0)
                     best = candidate;
             }
@@ -336,7 +477,7 @@ internal sealed class RoadSurfaceSnapshot
         if (best is not SurfaceCandidate selected)
             return null;
 
-        RoadSurfaceOwner owner = selected.Triangle.Owner;
+        RoadSurfaceOwner owner = selected.Primitive.Owner;
         return new RoadSurfaceHit(
             RenderToken,
             owner.Kind,
@@ -397,9 +538,9 @@ internal sealed class RoadSurfaceSnapshot
                     continue;
 
                 exactPrimitiveTestCount++;
-                RoadSurfaceTriangle triangle = _prepared.GetPrimitive(primitiveIndex);
-                if (TriangleIntersectsRect(triangle, bounds))
-                    edgeIDs.Add(triangle.Owner.EdgeID);
+                RoadSurfacePrimitive primitive = _prepared.GetPrimitive(primitiveIndex);
+                if (PrimitiveIntersectsRect(primitive, bounds))
+                    edgeIDs.Add(primitive.Owner.EdgeID);
             }
         }
 
@@ -411,25 +552,21 @@ internal sealed class RoadSurfaceSnapshot
     }
 
     private static RoadSurfaceSpatialIndex BuildSpatialIndex(
-        IReadOnlyList<RoadSurfaceTriangle> primitives)
+        RoadSurfaceBounds[] primitiveBounds)
     {
-        int primitiveCount = primitives.Count;
+        int primitiveCount = primitiveBounds.Length;
         if (primitiveCount == 0)
         {
             return new RoadSurfaceSpatialIndex(
-                [],
+                primitiveBounds,
                 [],
                 [],
                 RootIndex: -1);
         }
 
-        var primitiveBounds = new RoadSurfaceBounds[primitiveCount];
         var primitiveIndices = new int[primitiveCount];
         for (int index = 0; index < primitiveCount; index++)
-        {
-            primitiveBounds[index] = RoadSurfaceBounds.FromTriangle(primitives[index]);
             primitiveIndices[index] = index;
-        }
 
         var partitionBuffer = new int[primitiveCount];
         var nodes = new List<RoadSurfaceSpatialNode>(
@@ -561,21 +698,45 @@ internal sealed class RoadSurfaceSnapshot
         comparison = left.CenterlineDistanceSquared.CompareTo(right.CenterlineDistanceSquared);
         if (comparison != 0)
             return comparison;
-        comparison = left.Triangle.Owner.SectorOrder.CompareTo(right.Triangle.Owner.SectorOrder);
+        comparison = left.Primitive.Owner.SectorOrder.CompareTo(right.Primitive.Owner.SectorOrder);
         if (comparison != 0)
             return comparison;
-        comparison = left.Triangle.Owner.EdgeID.CompareTo(right.Triangle.Owner.EdgeID);
+        comparison = left.Primitive.Owner.EdgeID.CompareTo(right.Primitive.Owner.EdgeID);
         if (comparison != 0)
             return comparison;
-        comparison = left.Triangle.Owner.Kind.CompareTo(right.Triangle.Owner.Kind);
+        comparison = left.Primitive.Owner.Kind.CompareTo(right.Primitive.Owner.Kind);
         if (comparison != 0)
             return comparison;
-        comparison = Nullable.Compare(left.Triangle.Owner.NodeID, right.Triangle.Owner.NodeID);
+        comparison = Nullable.Compare(left.Primitive.Owner.NodeID, right.Primitive.Owner.NodeID);
+        if (comparison != 0)
+            return comparison;
+        comparison = Nullable.Compare(left.Primitive.Owner.Endpoint, right.Primitive.Owner.Endpoint);
         if (comparison != 0)
             return comparison;
         if (left.Location.HasValue != right.Location.HasValue)
             return left.Location.HasValue ? -1 : 1;
         return left.PrimitiveIndex.CompareTo(right.PrimitiveIndex);
+    }
+
+    private static double DistanceSquaredToPrimitive(
+        Vector2 point,
+        RoadSurfacePrimitive primitive) => primitive.Kind switch
+    {
+        RoadSurfacePrimitiveKind.Triangle =>
+            DistanceSquaredToTriangle(point, primitive.Triangle),
+        RoadSurfacePrimitiveKind.Disc =>
+            DistanceSquaredToDisc(point, primitive.Disc),
+        _ => throw new InvalidOperationException("The road surface primitive kind is invalid."),
+    };
+
+    private static double DistanceSquaredToDisc(
+        Vector2 point,
+        RoadSurfaceDisc disc)
+    {
+        double centerDistance = Math.Sqrt(
+            RoadNumericPolicy.DistanceSquared(point, disc.Center));
+        double surfaceDistance = Math.Max(0d, centerDistance - disc.Radius);
+        return surfaceDistance * surfaceDistance;
     }
 
     private static double DistanceSquaredToTriangle(
@@ -657,6 +818,36 @@ internal sealed class RoadSurfaceSnapshot
                TriangleEdgeIntersectsRect(triangle.C, triangle.A, topLeft, topRight, bottomRight, bottomLeft);
     }
 
+    private static bool PrimitiveIntersectsRect(
+        RoadSurfacePrimitive primitive,
+        Rect2 bounds) => primitive.Kind switch
+    {
+        RoadSurfacePrimitiveKind.Triangle =>
+            TriangleIntersectsRect(primitive.Triangle, bounds),
+        RoadSurfacePrimitiveKind.Disc =>
+            DiscIntersectsRect(primitive.Disc, bounds),
+        _ => throw new InvalidOperationException("The road surface primitive kind is invalid."),
+    };
+
+    private static bool DiscIntersectsRect(
+        RoadSurfaceDisc disc,
+        Rect2 bounds)
+    {
+        Vector2 end = bounds.End;
+        double nearestX = Math.Clamp(
+            (double)disc.Center.X,
+            bounds.Position.X,
+            end.X);
+        double nearestY = Math.Clamp(
+            (double)disc.Center.Y,
+            bounds.Position.Y,
+            end.Y);
+        double offsetX = disc.Center.X - nearestX;
+        double offsetY = disc.Center.Y - nearestY;
+        return offsetX * offsetX + offsetY * offsetY <=
+               (double)disc.Radius * disc.Radius;
+    }
+
     private static bool TriangleEdgeIntersectsRect(
         Vector2 start,
         Vector2 end,
@@ -714,20 +905,23 @@ internal sealed class RoadSurfaceSnapshot
 
     internal sealed class PreparedData
     {
-        private readonly RoadSurfaceTriangle[] _primitives;
+        private readonly RoadSurfaceTriangle[] _triangles;
+        private readonly RoadSurfaceDisc[] _discs;
         private readonly RoadSurfaceBounds[] _primitiveBounds;
         private readonly RoadSurfaceSpatialNode[] _spatialNodes;
         private readonly int[] _spatialPrimitiveIndices;
         private readonly int _spatialRootIndex;
 
         private PreparedData(
-            RoadSurfaceTriangle[] primitives,
+            RoadSurfaceTriangle[] triangles,
+            RoadSurfaceDisc[] discs,
             RoadSurfaceBounds[] primitiveBounds,
             RoadSurfaceSpatialNode[] spatialNodes,
             int[] spatialPrimitiveIndices,
             int spatialRootIndex)
         {
-            _primitives = primitives;
+            _triangles = triangles;
+            _discs = discs;
             _primitiveBounds = primitiveBounds;
             _spatialNodes = spatialNodes;
             _spatialPrimitiveIndices = spatialPrimitiveIndices;
@@ -736,22 +930,55 @@ internal sealed class RoadSurfaceSnapshot
 
         internal static PreparedData Create(
             IReadOnlyCollection<RoadSurfaceTriangle> primitives)
+            => Create(primitives, Array.Empty<RoadSurfaceDisc>());
+
+        internal static PreparedData Create(
+            IReadOnlyCollection<RoadSurfaceTriangle> triangles,
+            IReadOnlyCollection<RoadSurfaceDisc> discs)
         {
-            ArgumentNullException.ThrowIfNull(primitives);
-            RoadSurfaceTriangle[] primitiveCopy = primitives.ToArray();
-            RoadSurfaceSpatialIndex spatialIndex = BuildSpatialIndex(primitiveCopy);
+            ArgumentNullException.ThrowIfNull(triangles);
+            ArgumentNullException.ThrowIfNull(discs);
+            RoadSurfaceTriangle[] triangleCopy = triangles.ToArray();
+            RoadSurfaceDisc[] discCopy = discs.ToArray();
+            var primitiveBounds = new RoadSurfaceBounds[
+                triangleCopy.Length + discCopy.Length];
+            for (int index = 0; index < triangleCopy.Length; index++)
+            {
+                primitiveBounds[index] = RoadSurfaceBounds.FromTriangle(
+                    triangleCopy[index]);
+            }
+            for (int index = 0; index < discCopy.Length; index++)
+            {
+                primitiveBounds[triangleCopy.Length + index] =
+                    RoadSurfaceBounds.FromDisc(discCopy[index]);
+            }
+
+            RoadSurfaceSpatialIndex spatialIndex = BuildSpatialIndex(primitiveBounds);
             return new PreparedData(
-                primitiveCopy,
+                triangleCopy,
+                discCopy,
                 spatialIndex.PrimitiveBounds,
                 spatialIndex.Nodes,
                 spatialIndex.PrimitiveIndices,
                 spatialIndex.RootIndex);
         }
 
-        internal int PrimitiveCount => _primitives.Length;
+        internal int PrimitiveCount => _triangles.Length + _discs.Length;
+        internal int TriangleCount => _triangles.Length;
+        internal int DiscCount => _discs.Length;
         internal int SpatialRootIndex => _spatialRootIndex;
 
-        internal RoadSurfaceTriangle GetPrimitive(int index) => _primitives[index];
+        internal RoadSurfacePrimitive GetPrimitive(int index)
+        {
+            if ((uint)index < (uint)_triangles.Length)
+                return RoadSurfacePrimitive.FromTriangle(_triangles[index]);
+
+            int discIndex = index - _triangles.Length;
+            if ((uint)discIndex < (uint)_discs.Length)
+                return RoadSurfacePrimitive.FromDisc(_discs[discIndex]);
+
+            throw new ArgumentOutOfRangeException(nameof(index));
+        }
 
         internal RoadSurfaceBounds GetPrimitiveBounds(int index) =>
             _primitiveBounds[index];
@@ -814,6 +1041,12 @@ internal sealed class RoadSurfaceSnapshot
             MathF.Min(triangle.A.Y, MathF.Min(triangle.B.Y, triangle.C.Y)),
             MathF.Max(triangle.A.Y, MathF.Max(triangle.B.Y, triangle.C.Y)));
 
+        internal static RoadSurfaceBounds FromDisc(RoadSurfaceDisc disc) => new(
+            disc.Center.X - disc.Radius,
+            disc.Center.X + disc.Radius,
+            disc.Center.Y - disc.Radius,
+            disc.Center.Y + disc.Radius);
+
         internal static RoadSurfaceBounds Combine(
             RoadSurfaceBounds first,
             RoadSurfaceBounds second) => new(
@@ -866,7 +1099,7 @@ internal sealed class RoadSurfaceSnapshot
     }
 
     private readonly record struct SurfaceCandidate(
-        RoadSurfaceTriangle Triangle,
+        RoadSurfacePrimitive Primitive,
         int PrimitiveIndex,
         double SurfaceDistanceSquared,
         double CenterlineDistanceSquared,

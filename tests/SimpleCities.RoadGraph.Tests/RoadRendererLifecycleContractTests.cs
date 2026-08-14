@@ -4,6 +4,14 @@ using Godot;
 
 public sealed class RoadRendererLifecycleContractTests
 {
+    private static readonly RoadTypeStyleSnapshot RoadTypeStyles =
+        RoadTypeStyleSnapshot.Create([
+            new RoadTypeStyleDefinition(RoadType.Dirt, "Dirt", Colors.White, 4f),
+            new RoadTypeStyleDefinition(RoadType.Street, "Street", Colors.White, 6f),
+            new RoadTypeStyleDefinition(RoadType.Arterial, "Arterial", Colors.White, 8f),
+            new RoadTypeStyleDefinition(RoadType.Highway, "Highway", Colors.White, 10f),
+        ]);
+
     private static readonly string ProjectRoot = Path.GetFullPath(
         Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
 
@@ -49,7 +57,13 @@ public sealed class RoadRendererLifecycleContractTests
             node => node.Position == Vector2.Zero);
 
         Assert.DoesNotContain(straightGraph.GetAllNodes(), node => node.Position == new Vector2(5f, 0f));
-        Assert.Equal(3f, RoadRenderer.GetNodeMarkerRadius(straightGraph, endpoint, 3f, 10f));
+        Assert.Equal(
+            3f,
+            RoadRenderer.GetNodeMarkerRadius(
+                straightGraph,
+                endpoint,
+                RoadTypeStyles,
+                junctionRadius: 10f));
 
         var turnGraph = new RoadGraph();
         Assert.True(turnGraph.SubmitPath(new RoadBuildRequest(new RoadPath([
@@ -74,7 +88,13 @@ public sealed class RoadRendererLifecycleContractTests
             node => node.Position == new Vector2(5f, 0f));
 
         Assert.True(RoadRenderer.IsJunctionNode(branchGraph, junction));
-        Assert.Equal(10f, RoadRenderer.GetNodeMarkerRadius(branchGraph, junction, 3f, 10f));
+        Assert.Equal(
+            10f,
+            RoadRenderer.GetNodeMarkerRadius(
+                branchGraph,
+                junction,
+                RoadTypeStyles,
+                junctionRadius: 10f));
     }
 
     private static string ExtractMethod(string source, string startMarker, string endMarker)

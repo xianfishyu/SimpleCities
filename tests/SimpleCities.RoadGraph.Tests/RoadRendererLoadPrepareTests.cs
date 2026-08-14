@@ -15,9 +15,7 @@ public sealed class RoadRendererLoadPrepareTests
     private static readonly RoadRendererLoadSettings Settings = new(
         CurveDisplayTolerance: 0.25f,
         RoadTypeStyles,
-        EndpointRadius: 6f,
         JunctionRadius: 10f,
-        EndpointColor: new Color("#90A4AE"),
         JunctionColor: new Color("#FFC107"));
 
     [Fact]
@@ -68,7 +66,8 @@ public sealed class RoadRendererLoadPrepareTests
             first.EdgeDisplaySpans.OrderBy(pair => pair.Key).Select(pair => (pair.Key, pair.Value)),
             second.EdgeDisplaySpans.OrderBy(pair => pair.Key).Select(pair => (pair.Key, pair.Value)));
         Assert.NotEmpty(first.RoadVertices);
-        Assert.Equal(first.RoadIndices.Length / 3, first.RoadSurface.PrimitiveCount);
+        Assert.Equal(first.RoadIndices.Length / 3, first.RoadSurface.TriangleCount);
+        Assert.True(first.RoadSurface.DiscCount > 0);
         Assert.Contains(first.NodeMarkers, marker => marker.Diameter == Settings.JunctionRadius * 2f);
     }
 
@@ -154,10 +153,12 @@ public sealed class RoadRendererLoadPrepareTests
 
         RoadRendererPreparedLoad prepared = preparer.Prepare(graph.CaptureRevision());
 
-        Assert.Equal(prepared.RoadIndices.Length / 3, prepared.RoadSurface.PrimitiveCount);
-        for (int index = 0; index < prepared.RoadSurface.PrimitiveCount; index++)
+        Assert.Equal(prepared.RoadIndices.Length / 3, prepared.RoadSurface.TriangleCount);
+        for (int index = 0; index < prepared.RoadSurface.TriangleCount; index++)
         {
-            RoadSurfaceTriangle triangle = prepared.RoadSurface.GetPrimitive(index);
+            RoadSurfacePrimitive primitive = prepared.RoadSurface.GetPrimitive(index);
+            Assert.Equal(RoadSurfacePrimitiveKind.Triangle, primitive.Kind);
+            RoadSurfaceTriangle triangle = primitive.Triangle;
             int meshIndex = index * 3;
             Assert.Equal(prepared.RoadVertices[prepared.RoadIndices[meshIndex]], triangle.A);
             Assert.Equal(prepared.RoadVertices[prepared.RoadIndices[meshIndex + 1]], triangle.B);
@@ -175,6 +176,62 @@ public sealed class RoadRendererLoadPrepareTests
             Assert.Equal(start.GeometryIndex, end.GeometryIndex);
             Assert.True(start.Parameter < end.Parameter);
         }
+        int terminalNodeCount = graph.GetAllNodes().Count(node => node.IncidenceCount == 1);
+        Assert.Equal(terminalNodeCount, prepared.RoadSurface.DiscCount);
+        for (int index = prepared.RoadSurface.TriangleCount;
+             index < prepared.RoadSurface.PrimitiveCount;
+             index++)
+        {
+            RoadSurfacePrimitive primitive = prepared.RoadSurface.GetPrimitive(index);
+            Assert.Equal(RoadSurfacePrimitiveKind.Disc, primitive.Kind);
+            Assert.Equal(RoadSurfaceOwnerKind.TerminalCap, primitive.Disc.Owner.Kind);
+        }
+    }
+
+    [Fact]
+    public void PurePreparer_TerminalCapsMatchRoadStyleAndOwnCanonicalEndpoints()
+    {
+        var graph = new RoadGraph();
+        Assert.True(graph.SubmitPolyline(
+            RoadType.Highway,
+            [Vector2.Zero, new Vector2(10f, 0f)]).Success);
+        GraphEdge edge = Assert.Single(graph.GetAllEdges());
+        GraphNode nodeA = Assert.IsType<GraphNode>(graph.GetNode(edge.NodeA));
+        GraphNode nodeB = Assert.IsType<GraphNode>(graph.GetNode(edge.NodeB));
+        RoadTypeStyleDefinition style = RoadTypeStyles.Resolve(edge.RoadType);
+        float radius = style.Width * 0.5f;
+        var preparer = new RoadRenderer.RoadRendererLoadPreparer(Settings);
+
+        RoadRendererPreparedLoad prepared = preparer.Prepare(graph.CaptureRevision());
+        var snapshot = new RoadSurfaceSnapshot(Token(), prepared.RoadSurface);
+
+        Assert.Equal(2, prepared.RoadSurface.TriangleCount);
+        Assert.Equal(2, prepared.RoadSurface.DiscCount);
+        Assert.All(prepared.NodeMarkers, marker =>
+        {
+            Assert.Equal(style.Width, marker.Diameter);
+            Assert.Equal(style.Color, marker.Color);
+        });
+
+        RoadSurfaceHit start = Assert.IsType<RoadSurfaceHit>(
+            snapshot.FindClosest(new Vector2(-radius * 0.5f, 0f), maxSurfaceDistance: 0f));
+        Assert.Equal(RoadSurfaceOwnerKind.TerminalCap, start.OwnerKind);
+        Assert.Equal(edge.ID, start.EdgeID);
+        Assert.Equal(nodeA.ID, start.NodeID);
+        Assert.Equal(EdgeEndpoint.A, start.Endpoint);
+        Assert.Equal(new RoadLocation(edge.ID, 0, 0f), start.Location);
+
+        RoadSurfaceHit end = Assert.IsType<RoadSurfaceHit>(
+            snapshot.FindClosest(new Vector2(10f + radius * 0.5f, 0f), maxSurfaceDistance: 0f));
+        Assert.Equal(RoadSurfaceOwnerKind.TerminalCap, end.OwnerKind);
+        Assert.Equal(edge.ID, end.EdgeID);
+        Assert.Equal(nodeB.ID, end.NodeID);
+        Assert.Equal(EdgeEndpoint.B, end.Endpoint);
+        Assert.Equal(new RoadLocation(edge.ID, 0, 1f), end.Location);
+
+        Assert.Equal(
+            [edge.ID],
+            snapshot.FindEdgeIDsIntersecting(new Rect2(-radius, -1f, radius * 0.5f, 2f)));
     }
 
     [Fact]
@@ -352,7 +409,9 @@ public sealed class RoadRendererLoadPrepareTests
 
         Assert.Collection(
             prepared.NodeMarkers.OrderBy(marker => marker.Diameter),
-            marker => Assert.Equal(Settings.EndpointRadius * 2f, marker.Diameter),
+            marker => Assert.Equal(
+                Settings.RoadTypeStyles.Resolve(RoadType.Street).Width,
+                marker.Diameter),
             marker =>
             {
                 Assert.Equal(seam, marker.Position);
@@ -486,7 +545,9 @@ public sealed class RoadRendererLoadPrepareTests
         Assert.Equal(expectedIndexCount, afterRemoval.RoadIndices.Length);
         Assert.Collection(
             afterRemoval.NodeMarkers.OrderBy(marker => marker.Diameter),
-            marker => Assert.Equal(Settings.EndpointRadius * 2f, marker.Diameter),
+            marker => Assert.Equal(
+                Settings.RoadTypeStyles.Resolve(RoadType.Street).Width,
+                marker.Diameter),
             marker =>
             {
                 Assert.Equal(relocatedSeam.Position, marker.Position);

@@ -39,6 +39,80 @@ public sealed class RoadSurfaceSnapshotTests
     }
 
     [Fact]
+    public void TerminalCapDiscUsesExactCircleSurfaceAndCarriesEndpointLocation()
+    {
+        RoadSurfaceDisc disc = TerminalCapDisc(
+            edgeID: 7,
+            nodeID: 3,
+            endpoint: EdgeEndpoint.A,
+            center: Vector2.Zero,
+            radius: 2f,
+            outwardDirection: Vector2.Left,
+            location: new RoadLocation(7, 0, 0f));
+        var snapshot = new RoadSurfaceSnapshot(
+            Token(),
+            Array.Empty<RoadSurfaceTriangle>(),
+            [disc]);
+
+        RoadSurfaceHit hit = Assert.IsType<RoadSurfaceHit>(
+            snapshot.FindClosest(new Vector2(-1.5f, 1f), maxSurfaceDistance: 0f));
+
+        Assert.Equal(RoadSurfaceOwnerKind.TerminalCap, hit.OwnerKind);
+        Assert.Equal(7, hit.EdgeID);
+        Assert.Equal(3, hit.NodeID);
+        Assert.Equal(EdgeEndpoint.A, hit.Endpoint);
+        Assert.Equal(new RoadLocation(7, 0, 0f), hit.Location);
+        Assert.Equal(0f, hit.SurfaceDistance);
+        Assert.Null(snapshot.FindClosest(new Vector2(-2f, 2f), maxSurfaceDistance: 0f));
+        Assert.Empty(snapshot.FindEdgeIDsIntersecting(new Rect2(1.9f, 1.9f, 0.05f, 0.05f)));
+        Assert.Equal([7], snapshot.FindEdgeIDsIntersecting(new Rect2(-2f, -0.1f, 0.2f, 0.2f)));
+    }
+
+    [Fact]
+    public void RibbonWinsStableTieInsideOverlappingTerminalCap()
+    {
+        RoadSurfaceTriangle[] ribbon = Quad(edgeID: 7, y: 0f, halfWidth: 2f);
+        RoadSurfaceDisc disc = TerminalCapDisc(
+            edgeID: 7,
+            nodeID: 3,
+            endpoint: EdgeEndpoint.A,
+            center: Vector2.Zero,
+            radius: 2f,
+            outwardDirection: Vector2.Left,
+            location: new RoadLocation(7, 0, 0f));
+        var snapshot = new RoadSurfaceSnapshot(Token(), ribbon, [disc]);
+
+        RoadSurfaceHit hit = Assert.IsType<RoadSurfaceHit>(
+            snapshot.FindClosest(Vector2.Zero, maxSurfaceDistance: 0f));
+
+        Assert.Equal(RoadSurfaceOwnerKind.EdgeRibbon, hit.OwnerKind);
+    }
+
+    [Fact]
+    public void TerminalCapDiscRejectsInvalidRadiusAndBounds()
+    {
+        RoadSurfaceOwner owner = RoadSurfaceOwner.TerminalCap(
+            edgeID: 7,
+            nodeID: 3,
+            endpoint: EdgeEndpoint.A);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => new RoadSurfaceDisc(
+            owner: owner,
+            center: Vector2.Zero,
+            radius: 0f,
+            centerlineStart: Vector2.Zero,
+            centerlineEnd: Vector2.Left,
+            location: new RoadLocation(7, 0, 0f)));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new RoadSurfaceDisc(
+            owner: owner,
+            center: new Vector2(float.MaxValue, 0f),
+            radius: float.MaxValue,
+            centerlineStart: Vector2.Zero,
+            centerlineEnd: Vector2.Left,
+            location: new RoadLocation(7, 0, 0f)));
+    }
+
+    [Fact]
     public void PointQueryBreaksVisualTiesByCenterlineThenStableOwner()
     {
         RoadSurfaceTriangle fartherCenterline = Triangle(
@@ -292,4 +366,19 @@ public sealed class RoadSurfaceSnapshotTests
                 ownsLocationEnd),
         ];
     }
+
+    private static RoadSurfaceDisc TerminalCapDisc(
+        int edgeID,
+        int nodeID,
+        EdgeEndpoint endpoint,
+        Vector2 center,
+        float radius,
+        Vector2 outwardDirection,
+        RoadLocation location) => new(
+        RoadSurfaceOwner.TerminalCap(edgeID, nodeID, endpoint),
+        center,
+        radius,
+        center,
+        center + outwardDirection * radius,
+        location);
 }

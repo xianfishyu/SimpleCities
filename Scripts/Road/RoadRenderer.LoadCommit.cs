@@ -25,9 +25,7 @@ public partial class RoadRenderer
         var settings = new RoadRendererLoadSettings(
             Config.CurveDisplayTolerance,
             roadTypeStyles,
-            Config.EndpointRadius,
             Config.JunctionRadius,
-            Config.EndpointColor,
             Config.JunctionColor);
         settings.Validate();
         RoadRenderLoadReservation renderReservation = _presentationTokens.ReserveLoad();
@@ -165,6 +163,7 @@ public partial class RoadRenderer
             var roadColors = new List<Color>();
             var roadIndices = new List<int>();
             var surfaceTriangles = new List<RoadSurfaceTriangle>();
+            var surfaceDiscs = new List<RoadSurfaceDisc>();
             foreach (GraphEdge edge in revision.Edges.Values.OrderBy(edge => edge.ID))
             {
                 RoadGeometryDisplayPath displayPath = RoadGeometryDisplaySampler.SamplePath(
@@ -188,14 +187,22 @@ public partial class RoadRenderer
                     surfaceTriangles);
             }
 
-            RoadRendererNodeMarker[] nodeMarkers = revision.Nodes.Values
-                .OrderBy(node => node.ID)
-                .Select(node => CreateNodeMarker(revision, node, _settings))
-                .Where(marker => marker.HasValue)
-                .Select(marker => marker!.Value)
-                .ToArray();
+            var nodeMarkers = new List<RoadRendererNodeMarker>();
+            foreach (GraphNode node in revision.Nodes.Values.OrderBy(node => node.ID))
+            {
+                RoadRendererNodeSurface? nullableSurface = CreateNodeSurface(
+                    revision,
+                    node,
+                    _settings);
+                if (nullableSurface is not RoadRendererNodeSurface nodeSurface)
+                    continue;
+
+                nodeMarkers.Add(nodeSurface.Marker);
+                if (nodeSurface.Surface is RoadSurfaceDisc surfaceDisc)
+                    surfaceDiscs.Add(surfaceDisc);
+            }
             RoadSurfaceSnapshot.PreparedData roadSurface =
-                RoadSurfaceSnapshot.Prepare(surfaceTriangles);
+                RoadSurfaceSnapshot.Prepare(surfaceTriangles, surfaceDiscs);
             return new RoadRendererPreparedLoad(
                 edgePoints,
                 edgeDisplaySpans,
@@ -204,7 +211,7 @@ public partial class RoadRenderer
                 roadColors.ToArray(),
                 roadIndices.ToArray(),
                 roadSurface,
-                nodeMarkers);
+                nodeMarkers.ToArray());
         }
     }
 
@@ -303,21 +310,43 @@ public partial class RoadRenderer
         }
     }
 
-    private static RoadRendererNodeMarker? CreateNodeMarker(
+    private static RoadRendererNodeSurface? CreateNodeSurface(
         RoadGraphRevision revision,
         GraphNode node,
         RoadRendererLoadSettings settings)
     {
+        if (node.IncidenceCount == 1)
+        {
+            EdgeIncidence incidence = node.Incidences[0];
+            if (!revision.Edges.TryGetValue(incidence.EdgeID, out GraphEdge? edge))
+            {
+                throw new InvalidOperationException(
+                    $"RoadRenderer terminal Node {node.ID} references missing Edge {incidence.EdgeID}.");
+            }
+            if (!TryGetOutgoingDirection(revision, node, incidence, out Vector2 inwardDirection))
+            {
+                throw new InvalidOperationException(
+                    $"RoadRenderer terminal Node {node.ID} has no valid incidence direction.");
+            }
+
+            return CreateTerminalCapSurface(
+                edge,
+                node.ID,
+                node.Position,
+                incidence.Endpoint,
+                inwardDirection,
+                settings.RoadTypeStyles.Resolve(edge.RoadType));
+        }
+
         bool junction = IsJunctionNode(revision, node);
-        float radius = node.IncidenceCount == 1
-            ? settings.EndpointRadius
-            : junction ? settings.JunctionRadius : 0f;
-        if (radius <= 0f)
+        if (!junction || settings.JunctionRadius <= 0f)
             return null;
-        return new RoadRendererNodeMarker(
-            node.Position,
-            radius * 2f,
-            junction ? settings.JunctionColor : settings.EndpointColor);
+        return new RoadRendererNodeSurface(
+            new RoadRendererNodeMarker(
+                node.Position,
+                settings.JunctionRadius * 2f,
+                settings.JunctionColor),
+            Surface: null);
     }
 
     private static bool IsJunctionNode(RoadGraphRevision revision, GraphNode node)
@@ -373,12 +402,14 @@ internal readonly record struct RoadRendererNodeMarker(
     float Diameter,
     Color Color);
 
+internal readonly record struct RoadRendererNodeSurface(
+    RoadRendererNodeMarker Marker,
+    RoadSurfaceDisc? Surface);
+
 internal readonly record struct RoadRendererLoadSettings(
     float CurveDisplayTolerance,
     RoadTypeStyleSnapshot RoadTypeStyles,
-    float EndpointRadius,
     float JunctionRadius,
-    Color EndpointColor,
     Color JunctionColor)
 {
     internal void Validate()
@@ -386,12 +417,11 @@ internal readonly record struct RoadRendererLoadSettings(
         if (!float.IsFinite(CurveDisplayTolerance) || CurveDisplayTolerance <= 0f)
             throw new InvalidOperationException("RoadRenderer curve tolerance is invalid.");
         RoadTypeStyles.Validate();
-        if (!float.IsFinite(EndpointRadius) || EndpointRadius < 0f ||
-            !float.IsFinite(JunctionRadius) || JunctionRadius < 0f)
+        if (!float.IsFinite(JunctionRadius) || JunctionRadius < 0f)
         {
             throw new InvalidOperationException("RoadRenderer node marker radius is invalid.");
         }
-        if (!IsFinite(EndpointColor) || !IsFinite(JunctionColor))
+        if (!IsFinite(JunctionColor))
             throw new InvalidOperationException("RoadRenderer node marker color is invalid.");
     }
 

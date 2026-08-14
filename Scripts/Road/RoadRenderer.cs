@@ -332,6 +332,7 @@ public partial class RoadRenderer : Node2D
         var roadColors = new List<Color>();
         var roadIndices = new List<int>();
         var surfaceTriangles = new List<RoadSurfaceTriangle>();
+        var surfaceDiscs = new List<RoadSurfaceDisc>();
         RoadTypeStyleSnapshot roadTypeStyles = Config.CaptureRoadTypeStyleSnapshot();
         foreach ((int edgeID, Vector2[] points) in _edgePoints.OrderBy(pair => pair.Key))
         {
@@ -366,25 +367,27 @@ public partial class RoadRenderer : Node2D
             roadColors,
             roadIndices);
 
-        RoadRendererNodeMarker[] nodeMarkers = _network.GetAllNodes()
-            .OrderBy(node => node.ID)
-            .Select(node =>
-            {
-                bool junction = IsJunctionNode(_network, node);
-                float radius = GetNodeMarkerRadius(
-                    _network,
-                    node,
-                    Config.EndpointRadius,
-                    Config.JunctionRadius);
-                return new RoadRendererNodeMarker(
-                    node.Position,
-                    radius * 2f,
-                    junction ? Config.JunctionColor : Config.EndpointColor);
-            })
-            .Where(marker => marker.Diameter > 0f)
-            .ToArray();
+        var nodeMarkers = new List<RoadRendererNodeMarker>();
+        foreach (GraphNode node in _network.GetAllNodes().OrderBy(node => node.ID))
+        {
+            RoadRendererNodeSurface? nullableSurface = CreateNodeSurface(
+                _network,
+                node,
+                roadTypeStyles,
+                Config.JunctionRadius,
+                Config.JunctionColor);
+            if (nullableSurface is not RoadRendererNodeSurface nodeSurface)
+                continue;
+
+            nodeMarkers.Add(nodeSurface.Marker);
+            if (nodeSurface.Surface is RoadSurfaceDisc surfaceDisc)
+                surfaceDiscs.Add(surfaceDisc);
+        }
         MultiMesh nodeBatch = CreateNodeBatch(nodeMarkers);
-        var surfaceSnapshot = new RoadSurfaceSnapshot(targetToken, surfaceTriangles);
+        var surfaceSnapshot = new RoadSurfaceSnapshot(
+            targetToken,
+            surfaceTriangles,
+            surfaceDiscs);
 
         if (_presentationTokens.DesiredToken != targetToken)
             return;
@@ -639,14 +642,19 @@ public partial class RoadRenderer : Node2D
 
     public override void _Draw()
     {
+        bool hasEdgeHighlight =
+            _removalPreviewEdgeIDs.Length > 0 || HoveredEdgeID.HasValue;
+        RoadTypeStyleSnapshot highlightStyles = hasEdgeHighlight
+                ? Config.CaptureRoadTypeStyleSnapshot()
+                : default;
         foreach (int edgeID in _removalPreviewEdgeIDs)
-            DrawEdgeHighlight(edgeID);
+            DrawEdgeHighlight(edgeID, highlightStyles);
 
         if (RemovalSelectionBounds is { } bounds && bounds.Size.X > 0f && bounds.Size.Y > 0f)
             DrawRect(bounds, Config.HoverHighlightColor, false, 2f);
 
         if (HoveredEdgeID.HasValue && _network != null)
-            DrawEdgeHighlight(HoveredEdgeID.Value);
+            DrawEdgeHighlight(HoveredEdgeID.Value, highlightStyles);
 
         for (int index = 1; index < _previewPoints.Length; index++)
         {
@@ -657,7 +665,9 @@ public partial class RoadRenderer : Node2D
         }
     }
 
-    private void DrawEdgeHighlight(int edgeID)
+    private void DrawEdgeHighlight(
+        int edgeID,
+        RoadTypeStyleSnapshot roadTypeStyles)
     {
         GraphEdge? edge = _network?.GetEdge(edgeID);
         if (edge == null || _network == null)
@@ -672,11 +682,13 @@ public partial class RoadRenderer : Node2D
             return;
 
         DrawPolyline(points, Config.HoverHighlightColor, Config.HoverHighlightWidth);
-        DrawNodeHighlight(nodeA);
-        DrawNodeHighlight(nodeB);
+        DrawNodeHighlight(nodeA, roadTypeStyles);
+        DrawNodeHighlight(nodeB, roadTypeStyles);
     }
 
-    private void DrawNodeHighlight(GraphNode node)
+    private void DrawNodeHighlight(
+        GraphNode node,
+        RoadTypeStyleSnapshot roadTypeStyles)
     {
         if (_network == null)
             return;
@@ -684,20 +696,102 @@ public partial class RoadRenderer : Node2D
         float radius = GetNodeMarkerRadius(
             _network,
             node,
-            Config.EndpointRadius,
+            roadTypeStyles,
             Config.JunctionRadius);
         if (radius > 0f)
             DrawCircle(node.Position, radius * 1.3f, Config.HoverHighlightColor);
     }
 
+    private static RoadRendererNodeSurface? CreateNodeSurface(
+        RoadGraph graph,
+        GraphNode node,
+        RoadTypeStyleSnapshot roadTypeStyles,
+        float junctionRadius,
+        Color junctionColor)
+    {
+        if (node.IncidenceCount == 1)
+        {
+            EdgeIncidence incidence = node.Incidences[0];
+            GraphEdge edge = graph.GetEdge(incidence.EdgeID) ??
+                throw new InvalidOperationException(
+                    $"RoadRenderer terminal Node {node.ID} references missing Edge {incidence.EdgeID}.");
+            if (!TryGetOutgoingDirection(graph, node, incidence, out Vector2 inwardDirection))
+            {
+                throw new InvalidOperationException(
+                    $"RoadRenderer terminal Node {node.ID} has no valid incidence direction.");
+            }
+
+            return CreateTerminalCapSurface(
+                edge,
+                node.ID,
+                node.Position,
+                incidence.Endpoint,
+                inwardDirection,
+                roadTypeStyles.Resolve(edge.RoadType));
+        }
+
+        if (!IsJunctionNode(graph, node) || junctionRadius <= 0f)
+            return null;
+
+        return new RoadRendererNodeSurface(
+            new RoadRendererNodeMarker(
+                node.Position,
+                junctionRadius * 2f,
+                junctionColor),
+            Surface: null);
+    }
+
+    private static RoadRendererNodeSurface CreateTerminalCapSurface(
+        GraphEdge edge,
+        int nodeID,
+        Vector2 position,
+        EdgeEndpoint endpoint,
+        Vector2 inwardDirection,
+        RoadTypeStyleDefinition style)
+    {
+        if (!inwardDirection.IsFinite() || inwardDirection.IsZeroApprox())
+            throw new ArgumentException("A terminal cap requires a finite incidence direction.");
+
+        float radius = style.Width * 0.5f;
+        Vector2 unitInward = inwardDirection.Normalized();
+        RoadLocation location = endpoint switch
+        {
+            EdgeEndpoint.A when edge.NodeA == nodeID =>
+                new RoadLocation(edge.ID, 0, RoadGeometrySegment.ParameterStart),
+            EdgeEndpoint.B when edge.NodeB == nodeID =>
+                new RoadLocation(
+                    edge.ID,
+                    edge.GeometrySegments.Count - 1,
+                    RoadGeometrySegment.ParameterEnd),
+            _ => throw new InvalidOperationException(
+                $"RoadRenderer terminal Node {nodeID} is not Edge {edge.ID} endpoint {endpoint}."),
+        };
+        var owner = RoadSurfaceOwner.TerminalCap(edge.ID, nodeID, endpoint);
+        var surface = new RoadSurfaceDisc(
+            owner,
+            position,
+            radius,
+            position,
+            position - unitInward * radius,
+            location);
+        return new RoadRendererNodeSurface(
+            new RoadRendererNodeMarker(position, style.Width, style.Color),
+            surface);
+    }
+
     internal static float GetNodeMarkerRadius(
         RoadGraph graph,
         GraphNode node,
-        float endpointRadius,
+        RoadTypeStyleSnapshot roadTypeStyles,
         float junctionRadius)
     {
         if (node.IncidenceCount == 1)
-            return endpointRadius;
+        {
+            GraphEdge edge = graph.GetEdge(node.Incidences[0].EdgeID) ??
+                throw new InvalidOperationException(
+                    $"RoadRenderer terminal Node {node.ID} references a missing Edge.");
+            return roadTypeStyles.Resolve(edge.RoadType).Width * 0.5f;
+        }
         return IsJunctionNode(graph, node) ? junctionRadius : 0f;
     }
 
