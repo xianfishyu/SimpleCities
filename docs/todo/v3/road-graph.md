@@ -124,6 +124,12 @@
 - 新增 6 个 xUnit 用例；完整测试套件 606/606 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：将历史接入真实 mutation、undo/redo token 校验与 full-reset 清空。
 
+### 2026-08-13：8.2 query fragment 与边界所有权（部分）
+
+- 新增 `Scripts/Road/V3/RoadQueryFragment.cs`：`RoadLocation` / `RoadQueryFragment` 与 `RoadQueryOwnership.NormalizeBoundary`；实现 primitive join 映射、self-loop seam 映射、非环末 fragment 拥有 `t=1`。
+- 新增 6 个 xUnit 用例；完整测试套件 612/612 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：将 fragment 接入空间索引、容量门禁与局部查询基准。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成
