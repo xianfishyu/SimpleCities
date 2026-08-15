@@ -75,4 +75,22 @@ public static class V3RoadLoadPipeline
 
         return new V3RoadLoadPipelineResult(true, controller, protocol.Phase, null);
     }
+
+    public static bool TryLoadIntoController(
+        string slotId,
+        string root,
+        RoadGraphCapacity capacity,
+        V3PayloadBudget budget,
+        RoadGraphV3Controller controller,
+        long newLineageID = 1)
+    {
+        ArgumentNullException.ThrowIfNull(controller);
+
+        V3RoadLoadPipelineResult result = Load(slotId, root, capacity, budget, newLineageID);
+        if (!result.Success || result.Controller is null)
+            return false;
+
+        controller.ReplaceWithFullReset(result.Controller.Facade.Revision, newLineageID);
+        return true;
+    }
 }

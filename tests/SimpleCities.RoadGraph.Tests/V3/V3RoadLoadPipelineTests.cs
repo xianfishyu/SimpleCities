@@ -57,6 +57,41 @@ public sealed class V3RoadLoadPipelineTests
         }
     }
 
+    [Fact]
+    public void TryLoadIntoController_ReplacesRevisionAndClearsHistory()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            RoadGraphV3Revision revision = CreateRevision();
+            Assert.True(V3RoadSavePipeline.Save("city-001", root, revision, "n", "n", "2026-08-12T08:00:00.0000000Z", null, null, null));
+
+            var controller = new RoadGraphV3Controller(
+                new RoadGraphV3Facade(RoadGraphV3Revision.Empty(RoadGraphCapacity.Default), 1),
+                new RoadEditHistoryV3(100, 100000));
+            Assert.True(controller.TryAddNode(Vector2.Zero, out _));
+            Assert.Equal(1, controller.History.UndoCount);
+
+            bool result = V3RoadLoadPipeline.TryLoadIntoController(
+                "city-001",
+                root,
+                RoadGraphCapacity.Default,
+                V3PayloadBudget.Default,
+                controller,
+                newLineageID: 7);
+
+            Assert.True(result);
+            Assert.Equal(revision.Nodes.Count, controller.Facade.Revision.Nodes.Count);
+            Assert.Equal(revision.Edges.Count, controller.Facade.Revision.Edges.Count);
+            Assert.Equal(0, controller.History.UndoCount);
+            Assert.Equal(7, controller.Facade.LineageID);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
     private static string GetTempRoot() =>
         Path.Combine(Path.GetTempPath(), $"v3-loadpipe-{Guid.NewGuid():N}");
 
