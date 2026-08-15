@@ -50,6 +50,47 @@ public sealed class RoadGraphV3ApplicationTests
     }
 
     [Fact]
+    public void Delete_RemovesSlot()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            app.Controller.ReplaceWithFullReset(CreateRevision(), 1);
+            Assert.True(app.Save("city-001", "n", "n", "2026-08-12T08:00:00.0000000Z", null, null, null));
+
+            Assert.True(app.Delete("city-001"));
+            Assert.Empty(app.List());
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
+    public void List_ReturnsSavedSlots()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            app.Controller.ReplaceWithFullReset(CreateRevision(), 1);
+            Assert.True(app.Save("city-001", "n", "n", "2026-08-12T08:00:00.0000000Z", null, null, null));
+            Assert.True(app.Save("city-002", "n", "n", "2026-08-12T08:00:00.0000000Z", null, null, null));
+
+            IReadOnlyList<V3SlotSummary> list = app.List();
+
+            Assert.Equal(2, list.Count);
+            Assert.All(list, summary => Assert.True(summary.IsUsable));
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void NewCity_ResetsControllerAndSlot()
     {
         string root = GetTempRoot();

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using SimpleCities.Road.V3;
 
 namespace SimpleCities.Core.V3;
@@ -68,6 +69,10 @@ public sealed class RoadGraphV3Application
         CurrentSlotID = slotId;
         return true;
     }
+
+    public bool Delete(string slotId) => V3SlotDeleteService.Delete(slotId, _root);
+
+    public IReadOnlyList<V3SlotSummary> List() => new V3FileSlotStore(_root).List();
 
     public void NewCity(long lineageID = 1)
     {

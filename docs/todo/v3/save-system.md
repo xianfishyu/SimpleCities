@@ -519,8 +519,8 @@
 
 ### 2026-08-13：2.3 道路应用门面（部分）
 
-- 新增 `Scripts/Core/V3/RoadGraphV3Application.cs`：持有当前 controller、保存根与 `V3RoadSaveLoadCoordinator`，提供 `Save`/`Load`/`NewCity` 同步入口，为真实 Godot RoadSystem/RoadBuilder 装配提供纯 C# 门面。
-- 新增 3 个 xUnit 用例；完整测试套件 932/932 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 新增 `Scripts/Core/V3/RoadGraphV3Application.cs`：持有当前 controller、保存根与 `V3RoadSaveLoadCoordinator`，提供 `Save`/`Load`/`Delete`/`List`/`NewCity` 同步入口，为真实 Godot RoadSystem/RoadBuilder 装配提供纯 C# 门面。
+- 新增 5 个 xUnit 用例；完整测试套件 934/934 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实 Godot 场景装配与端到端 Load commit。
 
 ## 执行顺序
