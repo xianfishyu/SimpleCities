@@ -25,6 +25,13 @@ public partial class RoadGraphV3System : Node2D
         out RoadGraphV3ChangeSummary summary) =>
         Application.TryBuildFromPolyline(points, roadType, out summary);
 
+    public bool TryBuildFromPolyline(
+        System.Collections.Generic.IReadOnlyList<Vector2> points,
+        RoadType roadType,
+        float snapRadius,
+        out RoadGraphV3ChangeSummary summary) =>
+        Application.TryBuildFromPolyline(points, roadType, snapRadius, out summary);
+
     public bool TryBuild(RoadPlacementSessionV3 session, out RoadGraphV3ChangeSummary summary) =>
         Application.TryBuild(session, out summary);
 
