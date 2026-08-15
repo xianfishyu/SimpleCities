@@ -38,6 +38,14 @@ public partial class RoadGraphV3System : Node2D
     public bool TryAddNode(Vector2 position, out RoadGraphV3ChangeSummary summary) =>
         Application.TryAddNode(position, out summary);
 
+    public bool TryAddEdge(
+        int nodeAID,
+        int nodeBID,
+        System.Collections.Generic.IReadOnlyList<RoadGeometrySegment> geometry,
+        RoadType roadType,
+        out RoadGraphV3ChangeSummary summary) =>
+        Application.TryAddEdge(nodeAID, nodeBID, geometry, roadType, out summary);
+
     public bool TryUndo(out RoadGraphV3ChangeSummary summary) =>
         Application.TryUndo(out summary);
 
