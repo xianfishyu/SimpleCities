@@ -56,6 +56,12 @@
 - 新增 4 个 xUnit 用例；完整测试套件 959/959 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：hit provider、mesh 生成与完整接管协议。
 
+### 2026-08-13：2.2 RoadSurfaceHitProvider 命中提供器（部分）
+
+- 新增 `Scripts/Road/V3/RoadSurfaceHitProvider.cs`：仅接受与已呈现 snapshot 同 token 且 owner 仍存在的命中，stalled 或过期 owner 被拒绝。
+- 新增 4 个 xUnit 用例；完整测试套件 963/963 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：mesh 生成与完整接管协议。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁
