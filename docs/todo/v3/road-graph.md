@@ -100,6 +100,12 @@
 - 新增 7 个 xUnit 用例；完整测试套件 586/586 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：将请求接入 mutation plan、改造后重归一化与统一 `GraphChanged` 摘要。
 
+### 2026-08-13：8.5/Phase 5 V3 format v1 minimal codec（部分）
+
+- 新增 `Scripts/Road/V3/RoadGraphV3Codec.cs`：`RoadGraphV3Data` / `NodeData` / `EdgeData` 与 `RoadGraphV3CodecResult`；序列化 `RoadCanonicalGraph` 为 `simple-cities-v3` / `road-network` / schemaVersion 1 JSON，反序列化执行 family/version、ID 唯一、端点存在、RoadType、geometry 与 `nextID` 基础校验。
+- 新增 7 个 xUnit 用例；完整测试套件 593/593 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：严格 token/lexeme reader、有界 I/O、manifest v1、独立保存根与真实 RoadGraph 接入（属 `v3-save-system`）。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成
