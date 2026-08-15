@@ -30,7 +30,13 @@
 - 新增 `Scripts/Road/V3/RoadTypeStyle.cs`：纯 C# 样式数据类，包含稳定 `RoadType`、展示名称、颜色与正有限宽度，并校验非法枚举、空名称、非有限颜色与非正宽度。
 - 新增 `Scripts/Road/V3/RoadTypeStyleCatalog.cs`：校验样式集合恰好覆盖 `Dirt`/`Street`/`Arterial`/`Highway` 且无重复，返回可查询目录，并提供 `CreateDefault()` 默认四类样式。
 - 新增 8 个 xUnit 用例；完整测试套件 943/943 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
-- 尚未完成：Godot `Resource`/`.tres` 封装、`RoadConfig` 接入与真实渲染使用。
+- 尚未完成：`RoadConfig` 接入与真实渲染使用。
+
+### 2026-08-13：2.1 RoadTypeStyleResource 封装（部分）
+
+- 新增 `Scripts/Road/V3/RoadTypeStyleResource.cs`：Godot `Resource` 子类，导出 RoadType/DisplayName/Color/Width，并提供 `ToData`/`FromData`/`Validate`，支持 `.tres` 序列化。
+- 完整测试套件 1030/1030 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：`RoadConfig` 接入、默认 `.tres` 资源与真实渲染使用。
 
 ### 2026-08-13：2.2 RoadSurfaceHit 数据模型（部分）
 
