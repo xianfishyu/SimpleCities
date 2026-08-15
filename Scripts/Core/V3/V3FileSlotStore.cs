@@ -76,28 +76,46 @@ public sealed class V3FileSlotStore
 
     public IReadOnlyList<V3SlotSummary> List()
     {
-        var children = new Dictionary<string, V3SlotOccupant>(StringComparer.Ordinal);
+        var summaries = new List<V3SlotSummary>();
         foreach (string directory in Directory.EnumerateDirectories(_root))
         {
             string name = Path.GetFileName(directory);
             if (!V3SlotId.IsValid(name))
             {
-                children[name] = V3SlotOccupant.Unsafe;
+                summaries.Add(new V3SlotSummary(name, name, V3SlotOccupant.Unsafe, null));
                 continue;
             }
 
-            if (!File.Exists(Path.Combine(directory, V3SlotReader.ManifestFileName)))
+            string manifestPath = Path.Combine(directory, V3SlotReader.ManifestFileName);
+            if (!File.Exists(manifestPath))
             {
-                children[name] = V3SlotOccupant.Foreign;
+                summaries.Add(new V3SlotSummary(name, name, V3SlotOccupant.Foreign, null));
                 continue;
             }
 
-            children[name] = V3SlotIntegrity.Verify(directory).Success
-                ? V3SlotOccupant.CompleteV3
-                : V3SlotOccupant.CorruptV3;
+            if (!V3SlotIntegrity.Verify(directory).Success)
+            {
+                summaries.Add(new V3SlotSummary(name, name, V3SlotOccupant.CorruptV3, null));
+                continue;
+            }
+
+            V3ManifestCodecResult manifestResult = V3ManifestStrictFileReader.Read(manifestPath);
+            if (!manifestResult.Success || manifestResult.Manifest is null)
+            {
+                summaries.Add(new V3SlotSummary(name, name, V3SlotOccupant.CorruptV3, null));
+                continue;
+            }
+
+            summaries.Add(new V3SlotSummary(
+                name,
+                manifestResult.Manifest.DisplayName,
+                V3SlotOccupant.CompleteV3,
+                manifestResult.Manifest.Timestamp));
         }
 
-        return V3SlotLister.List(children);
+        return summaries
+            .OrderBy(summary => summary.SlotId, StringComparer.Ordinal)
+            .ToList();
     }
 
     private string GetLockPath() => Path.Combine(_root, ".save-root.lock");

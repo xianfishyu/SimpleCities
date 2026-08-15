@@ -64,6 +64,8 @@ public sealed class V3FileSlotStoreTests
 
             Assert.Equal(2, list.Count);
             Assert.All(list, summary => Assert.True(summary.IsUsable));
+            Assert.All(list, summary => Assert.Equal(summary.SlotId, summary.DisplayName));
+            Assert.All(list, summary => Assert.Equal("2026-08-12T08:00:00.0000000Z", summary.Timestamp));
         }
         finally
         {
