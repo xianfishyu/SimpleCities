@@ -2,6 +2,7 @@ using Godot;
 using SimpleCities.Core.V3;
 using SimpleCities.Road.V3;
 using System.IO;
+using System.Linq;
 
 namespace SimpleCities.Tests.V3;
 
@@ -286,6 +287,25 @@ public sealed class RoadGraphV3ApplicationTests
 
             Assert.True(app.TryUndo(token, out _));
             Assert.Empty(app.Controller.Facade.Revision.Nodes);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
+    public void SaveAs_SetsCurrentSlot()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            app.Controller.ReplaceWithFullReset(CreateRevision(), 1);
+
+            Assert.True(app.SaveAs("city-010", "n", "n", "2026-08-12T08:00:00.0000000Z", null, null, null));
+            Assert.Equal("city-010", app.CurrentSlotID);
+            Assert.Contains(app.List(), summary => summary.SlotId == "city-010");
         }
         finally
         {

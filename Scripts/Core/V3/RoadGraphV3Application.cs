@@ -126,6 +126,16 @@ public sealed class RoadGraphV3Application
         return Save(CurrentSlotID, displayName, cityName, timestamp, population, funds, thumbnailFile);
     }
 
+    public bool SaveAs(
+        string slotId,
+        string displayName,
+        string cityName,
+        string timestamp,
+        long? population,
+        decimal? funds,
+        string? thumbnailFile) =>
+        Save(slotId, displayName, cityName, timestamp, population, funds, thumbnailFile);
+
     public bool Load(string slotId, long lineageID = 1)
     {
         RoadGraphV3Controller? loaded = _coordinator.Load(slotId, _root, _capacity, _budget, lineageID);
