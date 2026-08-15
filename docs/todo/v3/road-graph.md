@@ -106,6 +106,12 @@
 - 新增 7 个 xUnit 用例；完整测试套件 593/593 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：严格 token/lexeme reader、有界 I/O、manifest v1、独立保存根与真实 RoadGraph 接入（属 `v3-save-system`）。
 
+### 2026-08-13：8.5 事务摘要与状态 token（部分）
+
+- 新增 `Scripts/Road/V3/RoadGraphTransaction.cs`：`RoadGraphV3ChangeSummary`（created/removed/updated + IsFullReset + ChangeSequence）、`GraphStateToken`（LineageID / DomainRevisionID / ChangeSequence）与 `RoadGraphV3ChangeSummaryFactory`（排序去重增量摘要）。
+- 新增 3 个 xUnit 用例；完整测试套件 596/596 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：将摘要/token 接入真实 mutation、undo/redo 与 full-reset load。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成
