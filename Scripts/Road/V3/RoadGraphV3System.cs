@@ -15,6 +15,7 @@ public partial class RoadGraphV3System : Node2D
     public RoadGraphV3Revision Revision => Application.Revision;
     public bool CanUndo => Application.CanUndo;
     public bool CanRedo => Application.CanRedo;
+    public void ClearHistory() => Application.ClearHistory();
     public string CurrentSlotID => Application.CurrentSlotID;
     public SimpleCities.Core.V3.V3SlotSummary? CurrentSlotSummary => Application.CurrentSlotSummary;
     public RoadToolState ToolState => Application.ToolState;
