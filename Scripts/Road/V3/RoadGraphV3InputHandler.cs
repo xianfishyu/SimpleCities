@@ -98,6 +98,12 @@ public partial class RoadGraphV3InputHandler : Node2D
                 case Key.Key4:
                     system.ToolState.TrySelectRoadType(RoadType.Highway);
                     break;
+                case Key.Z when keyEvent.CtrlPressed:
+                    system.TryUndo(out _);
+                    break;
+                case Key.Y when keyEvent.CtrlPressed:
+                    system.TryRedo(out _);
+                    break;
                 case Key.Escape:
                     _session = null;
                     break;
