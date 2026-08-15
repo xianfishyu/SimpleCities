@@ -110,7 +110,10 @@ public sealed class RoadGraphV3Application
         Controller.TryRedo(expectedToken, out summary);
 
     public bool TryBuild(RoadPlacementSessionV3 session, out RoadGraphV3ChangeSummary summary) =>
-        new RoadToolCommandExecutor(Controller).TryBuild(session, out summary);
+        TryBuild(session, 0f, out summary);
+
+    public bool TryBuild(RoadPlacementSessionV3 session, float snapRadius, out RoadGraphV3ChangeSummary summary) =>
+        new RoadToolCommandExecutor(Controller).TryBuild(session, snapRadius, out summary);
 
     public RoadSurfaceSnapshotBuildResult BuildSurfaceSnapshot(RoadStyleProvider styles) =>
         RoadSurfaceSnapshotBuilder.Build(

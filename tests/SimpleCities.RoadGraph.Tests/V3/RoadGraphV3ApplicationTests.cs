@@ -125,6 +125,26 @@ public sealed class RoadGraphV3ApplicationTests
     }
 
     [Fact]
+    public void TryBuild_WithSnapRadius_ReusesNode()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            Assert.True(app.Controller.TryAddNode(Vector2.Zero, out _));
+            var session = new RoadPlacementSessionV3(RoadType.Street, new Vector2(0.01f, 0f));
+            session.TryAddPoint(new Vector2(1f, 0f));
+
+            Assert.True(app.TryBuild(session, snapRadius: 0.1f, out _));
+            Assert.Equal(2, app.Controller.Facade.Revision.Nodes.Count);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void TryBuild_CommitsSessionThroughApplication()
     {
         string root = GetTempRoot();
