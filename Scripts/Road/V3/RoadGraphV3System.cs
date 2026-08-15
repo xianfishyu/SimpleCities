@@ -82,6 +82,9 @@ public partial class RoadGraphV3System : Node2D
     public SimpleCities.Core.V3.V3Manifest? GetManifest(string slotId) =>
         Application.GetManifest(slotId);
 
+    public byte[]? GetPayload(string slotId, string fileName) =>
+        Application.GetPayload(slotId, fileName);
+
     public override void _Ready()
     {
         Instance = this;
