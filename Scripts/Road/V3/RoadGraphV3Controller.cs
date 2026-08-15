@@ -217,18 +217,44 @@ public sealed class RoadGraphV3Controller
         return true;
     }
 
-    public bool TryBuild(RoadBuildRequest request, out RoadGraphV3ChangeSummary summary)
+    public bool TryBuild(RoadBuildRequest request, out RoadGraphV3ChangeSummary summary) =>
+        TryBuild(request, 0f, out summary);
+
+    public bool TryBuild(RoadBuildRequest request, float snapRadius, out RoadGraphV3ChangeSummary summary)
     {
         ArgumentNullException.ThrowIfNull(request);
         request.Validate();
+        if (!float.IsFinite(snapRadius) || snapRadius < 0f)
+            throw new ArgumentOutOfRangeException(nameof(snapRadius), snapRadius, "Snap radius must be finite and non-negative.");
 
         RoadGeometrySegment first = request.Path.Segments[0]!;
         RoadGeometrySegment last = request.Path.Segments[^1]!;
 
-        if (!_facade.TryAddNode(first.Start, out summary, out int nodeAID))
-            return false;
-        if (!_facade.TryAddNode(last.End, out summary, out int nodeBID))
-            return false;
+        Vector2[] anchors = [first.Start, last.End];
+        var nodePositions = _facade.Revision.Nodes.ToDictionary(pair => pair.Key, pair => pair.Value.Position);
+        IReadOnlyList<RoadSnappedAnchor> snaps = RoadNodeSnap.SnapAll(anchors, nodePositions, snapRadius);
+
+        int nodeAID;
+        if (snaps[0].NodeID is int snappedA)
+        {
+            nodeAID = snappedA;
+        }
+        else
+        {
+            if (!_facade.TryAddNode(first.Start, out summary, out nodeAID))
+                return false;
+        }
+
+        int nodeBID;
+        if (snaps[1].NodeID is int snappedB)
+        {
+            nodeBID = snappedB;
+        }
+        else
+        {
+            if (!_facade.TryAddNode(last.End, out summary, out nodeBID))
+                return false;
+        }
 
         var geometry = request.Path.Segments.Select(segment => segment!).ToList();
         return TryAddEdge(nodeAID, nodeBID, geometry, request.RoadType, out summary);

@@ -177,6 +177,32 @@ public sealed class RoadGraphV3ControllerTests
     }
 
     [Fact]
+    public void TryBuild_ReusesExistingNodeWithinSnapRadius()
+    {
+        var controller = CreateController();
+        controller.TryAddNode(Vector2.Zero, out _);
+        RoadPath path = RoadPathDraft.FromPolyline(
+            [new Vector2(0.01f, 0f), new Vector2(1f, 0f)]).Path!;
+        var request = new RoadBuildRequest(path, RoadType.Street);
+
+        Assert.True(controller.TryBuild(request, snapRadius: 0.1f, out _));
+
+        Assert.Equal(2, controller.Facade.Revision.Nodes.Count);
+    }
+
+    [Fact]
+    public void TryBuild_NegativeSnapRadius_Throws()
+    {
+        var controller = CreateController();
+        RoadPath path = RoadPathDraft.FromPolyline(
+            [Vector2.Zero, new Vector2(1f, 0f)]).Path!;
+        var request = new RoadBuildRequest(path, RoadType.Street);
+
+        Assert.Throws<System.ArgumentOutOfRangeException>(
+            () => controller.TryBuild(request, snapRadius: -1f, out _));
+    }
+
+    [Fact]
     public void TryBuild_CreatesEdgeWithPolylineGeometry()
     {
         var controller = CreateController();

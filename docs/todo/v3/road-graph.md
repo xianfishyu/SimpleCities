@@ -247,8 +247,8 @@
 
 ### 2026-08-13：8.5 控制器类型化建造入口（部分）
 
-- `RoadGraphV3Controller` 增加 `TryBuild(RoadBuildRequest)`：从 `RoadPath` 的首末端创建节点并以整条 geometry 提交类型化 Edge，供 V3 铺路会话直接消费。
-- 新增 1 个 xUnit 用例；完整测试套件 984/984 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- `RoadGraphV3Controller` 增加 `TryBuild(RoadBuildRequest, float snapRadius)`：从 `RoadPath` 的首末端经 `RoadNodeSnap` 复用近邻节点或创建节点，并以整条 geometry 提交类型化 Edge，供 V3 铺路会话直接消费。
+- 新增 3 个 xUnit 用例；完整测试套件 1025/1025 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实应用装配与严格 format v1 接入。
 
 ### 2026-08-13：8.5 批量类型改造入口（部分）
