@@ -263,6 +263,12 @@
 - 新增 3 个 xUnit 用例；完整测试套件 827/827 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：完整严格 token reader、完整 Load commit 协议与跨进程 coordinator 集成。
 
+### 2026-08-13：2.3 文件协调器（部分）
+
+- 新增 `Scripts/Core/V3/V3FileCoordinator.cs`：组合进程内 gate 与跨进程文件锁，两者都获取后才算持有。
+- 新增 3 个 xUnit 用例；完整测试套件 830/830 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：完整严格 token reader、完整 Load commit 协议与真实应用装配。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
