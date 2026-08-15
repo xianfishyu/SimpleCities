@@ -101,6 +101,12 @@
 - 新增 4 个 xUnit 用例；完整测试套件 732/732 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：publish descriptor 内容/恢复矩阵、同句柄校验与 coordinator。
 
+### 2026-08-13：2.2 publish descriptor（部分）
+
+- 新增 `Scripts/Core/V3/V3PublishDescriptor.cs`：不可变 descriptor 记录（operation/slot/new/old digest/staging/backup）与基础校验。
+- 新增 3 个 xUnit 用例；完整测试套件 735/735 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：恢复矩阵、descriptor JSON 编解码、同句柄校验与 coordinator。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
