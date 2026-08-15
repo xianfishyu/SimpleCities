@@ -93,6 +93,13 @@
 - 新增 3 个 xUnit 用例；完整测试套件 1021/1021 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实 mesh 生成与完整接管协议。
 
+### 2026-08-13：2.0/2.1 RoadGraphV3Renderer 最小渲染器（部分）
+
+- 新增 `Scripts/Road/V3/RoadGraphV3Renderer.cs`：从 `RoadGraphV3System` 读取权威几何，按 `RoadTypeStyle` 以 `DrawPolyline` 绘制折线预览。
+- 已将 `RoadGraphV3Renderer` 作为 `RoadGraphV3System` 子节点加入 `Scenes/MapTest.tscn`；编辑器加载与冻结运行无 stderr 错误。
+- 完整测试套件 1038/1038 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实 mesh/ribbon、junction patch、surface hit 与完整接管协议。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁
