@@ -23,6 +23,14 @@
 | V3 操作历史存储 | 当前每次 Execute 前后捕获完整严格 JSON，64 项最多持有 128 份全图字符串 | 2.3、`v3-road-graph:8.5`、`v3-save-system:2.2` |
 | V3 加载生命周期 | 外部 Load 可直接 full restore；工具只在 undo/redo 主动取消部分会话，没有统一旧图失效边界 | 2.4、`v3-save-system:2.3`、`v3-road-graph:8.5` |
 
+## V3 实施记录
+
+### 2026-08-13：2.0/2.1 类型化铺路会话基础（部分）
+
+- 新增 `Scripts/Road/V3/RoadPlacementSessionV3.cs`：固定拐点 + 当前末端草稿，提交时生成带目标 `RoadType` 的 `RoadBuildRequest`；零长度拐点拒绝，非法类型构造时抛错。
+- 新增 7 个 xUnit 用例；完整测试套件 973/973 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：首锚点闭合吸附、自交拒绝、`RoadBuilder` 真实接线与完整工具生命周期。
+
 ## 执行顺序
 
 ### 阶段 3：第三代闭环、类型化建造与道路改造
