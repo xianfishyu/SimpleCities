@@ -167,6 +167,12 @@
 - 新增 3 个 xUnit 用例；完整测试套件 771/771 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：跨进程 lock 实现、取消边界、真实 coordinator 与完整 Load commit 协议。
 
+### 2026-08-13：2.1 槽列表摘要（部分）
+
+- 新增 `Scripts/Core/V3/V3SlotSummary.cs`：槽列表项摘要（slot/display/occupant/timestamp），`IsUsable` 仅对 `CompleteV3` 为 true。
+- 新增 3 个 xUnit 用例；完整测试套件 774/774 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实目录枚举、跨进程 lock 实现、真实 coordinator 与完整 Load commit 协议。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
