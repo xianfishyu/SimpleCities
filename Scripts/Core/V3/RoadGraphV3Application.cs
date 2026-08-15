@@ -16,6 +16,7 @@ public sealed class RoadGraphV3Application
     private readonly V3CoordinatorGate _gate;
     private readonly V3RoadSaveLoadCoordinator _coordinator;
     private readonly V3SlotAutosaveCoordinator _autosave;
+    private readonly V3SlotTransactionCoordinator _transactionCoordinator;
 
     public RoadGraphV3Controller Controller { get; private set; }
     public string CurrentSlotID { get; private set; } = string.Empty;
@@ -33,6 +34,7 @@ public sealed class RoadGraphV3Application
         _gate = new V3CoordinatorGate();
         _coordinator = new V3RoadSaveLoadCoordinator(_gate);
         _autosave = new V3SlotAutosaveCoordinator(_gate, new V3SlotAutosaveService());
+        _transactionCoordinator = new V3SlotTransactionCoordinator(_gate);
         Controller = new RoadGraphV3Controller(
             new RoadGraphV3Facade(RoadGraphV3Revision.Empty(capacity), 1),
             new RoadEditHistoryV3(100, 100000));
@@ -101,9 +103,9 @@ public sealed class RoadGraphV3Application
         out bool saved) =>
         _autosave.TryAutosave(slotId, _root, revision, hasNewerSuccess, out saved);
 
-    public bool Delete(string slotId) => V3SlotDeleteService.Delete(slotId, _root);
+    public bool Delete(string slotId) => _transactionCoordinator.Delete(slotId, _root).Success;
 
-    public IReadOnlyList<V3SlotSummary> List() => new V3FileSlotStore(_root).List();
+    public IReadOnlyList<V3SlotSummary> List() => _transactionCoordinator.List(_root);
 
     public void NewCity(long lineageID = 1)
     {
