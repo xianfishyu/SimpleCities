@@ -44,6 +44,8 @@ public sealed class RoadGraphV3Application
     }
 
     public string CurrentSlotID { get; private set; } = string.Empty;
+    public V3SlotSummary? CurrentSlotSummary =>
+        string.IsNullOrEmpty(CurrentSlotID) ? null : GetStatus(CurrentSlotID);
 
     public RoadGraphV3Application(
         string root,
