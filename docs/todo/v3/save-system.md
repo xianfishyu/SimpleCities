@@ -487,6 +487,12 @@
 - 新增 2 个 xUnit 用例；完整测试套件 918/918 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实应用装配与端到端 Load commit。
 
+### 2026-08-13：2.3 道路保存/加载协调器（部分）
+
+- 新增 `Scripts/Core/V3/V3RoadSaveLoadCoordinator.cs`：在进程内 gate 持有期间统一执行道路槽 Save/Load，为真实应用装配提供同步入口。
+- 新增 3 个 xUnit 用例；完整测试套件 921/921 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实应用装配与端到端 Load commit。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
