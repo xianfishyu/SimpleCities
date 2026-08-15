@@ -221,6 +221,12 @@
 - 新增 3 个 xUnit 用例；完整测试套件 799/799 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实文件句柄读取/计数/hash/EOF、严格 format v1 reader 与真实 coordinator。
 
+### 2026-08-13：2.2/2.3 publish lease（部分）
+
+- 新增 `Scripts/Core/V3/V3PublishLease.cs`：一次性 publish lease（operation/slot/签发时间）与基础校验。
+- 新增 3 个 xUnit 用例；完整测试套件 802/802 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实文件句柄读取/计数/hash/EOF、严格 format v1 reader 与真实 coordinator。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
