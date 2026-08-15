@@ -1,4 +1,5 @@
 using System;
+using System.Text.Json;
 
 namespace SimpleCities.Core.V3;
 
@@ -11,8 +12,15 @@ public static class V3RoadPayloadStrictReader
     {
         ArgumentNullException.ThrowIfNull(json);
 
-        if (V3JsonDuplicateDetector.TryDetectDuplicateKey(json, out string? duplicateKey))
-            return V3StrictRoadPayloadResult.Failure($"DuplicateKey:{duplicateKey}");
+        try
+        {
+            if (V3JsonDuplicateDetector.TryDetectDuplicateKey(json, out string? duplicateKey))
+                return V3StrictRoadPayloadResult.Failure($"DuplicateKey:{duplicateKey}");
+        }
+        catch (JsonException)
+        {
+            return V3StrictRoadPayloadResult.Failure("MalformedJson");
+        }
 
         return V3StrictRoadPayloadReader.Read(json, budget);
     }

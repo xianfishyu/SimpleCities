@@ -1,4 +1,5 @@
 using System;
+using System.Text.Json;
 
 namespace SimpleCities.Core.V3;
 
@@ -11,8 +12,15 @@ public static class V3ManifestStrictReader
     {
         ArgumentNullException.ThrowIfNull(json);
 
-        if (V3JsonDuplicateDetector.TryDetectDuplicateKey(json, out string? duplicateKey))
-            return V3ManifestCodecResult.Failure($"DuplicateKey:{duplicateKey}");
+        try
+        {
+            if (V3JsonDuplicateDetector.TryDetectDuplicateKey(json, out string? duplicateKey))
+                return V3ManifestCodecResult.Failure($"DuplicateKey:{duplicateKey}");
+        }
+        catch (JsonException)
+        {
+            return V3ManifestCodecResult.Failure("MalformedJson");
+        }
 
         return V3ManifestCodec.Deserialize(json);
     }

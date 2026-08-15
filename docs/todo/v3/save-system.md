@@ -299,6 +299,12 @@
 - 新增 3 个 xUnit 用例；完整测试套件 845/845 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：完整严格 token reader、真实应用装配与端到端 Load commit。
 
+### 2026-08-13：2.3 槽加载服务（部分）
+
+- 新增 `Scripts/Core/V3/V3SlotLoadService.cs`：从文件槽读取、严格解析 road payload、重建 `RoadGraphV3Revision`。
+- 新增 3 个 xUnit 用例；完整测试套件 848/848 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：完整严格 token reader、真实应用装配与端到端 Load commit。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
