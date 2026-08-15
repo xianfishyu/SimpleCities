@@ -119,6 +119,12 @@
 - 新增 4 个 xUnit 用例；完整测试套件 744/744 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：同句柄校验、严格 format v1 reader 与 coordinator。
 
+### 2026-08-13：2.2 文件集合校验（部分）
+
+- 新增 `Scripts/Core/V3/V3FileSetValidator.cs`：比较 manifest 声明 payload 与实际文件集合，缺失或未声明文件均失败。
+- 新增 3 个 xUnit 用例；完整测试套件 747/747 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：同句柄 length/hash/EOF、严格 format v1 reader 与 coordinator。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
