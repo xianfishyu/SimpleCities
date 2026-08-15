@@ -77,6 +77,12 @@
 - 新增 4 个 xUnit 用例；完整测试套件 701/701 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：coordinator、gate/lock、取消边界与 prepared aggregate 协议。
 
+### 2026-08-13：2.2 JSON lexeme 基础校验（部分）
+
+- 新增 `Scripts/Core/V3/V3JsonLexeme.cs`：canonical integer token（无正号/前导零/小数点/指数/`-0`）与有限 binary32 float token 校验。
+- 新增 20 个 xUnit 用例；完整测试套件 721/721 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：duplicate-aware token reader、同句柄 length/hash/EOF、严格 format v1 reader。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
