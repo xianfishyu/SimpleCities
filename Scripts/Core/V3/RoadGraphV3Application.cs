@@ -119,6 +119,18 @@ public sealed class RoadGraphV3Application
 
     public bool Delete(string slotId) => _transactionCoordinator.Delete(slotId, _root).Success;
 
+    public bool DeleteCurrentSlot()
+    {
+        if (string.IsNullOrEmpty(CurrentSlotID))
+            return false;
+
+        if (!Delete(CurrentSlotID))
+            return false;
+
+        CurrentSlotID = string.Empty;
+        return true;
+    }
+
     public IReadOnlyList<V3SlotSummary> List() => _transactionCoordinator.List(_root);
 
     public void NewCity(long lineageID = 1)

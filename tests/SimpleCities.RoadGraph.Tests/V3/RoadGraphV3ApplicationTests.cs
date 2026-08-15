@@ -163,6 +163,26 @@ public sealed class RoadGraphV3ApplicationTests
     }
 
     [Fact]
+    public void DeleteCurrentSlot_RemovesAndClearsSlot()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            app.Controller.ReplaceWithFullReset(CreateRevision(), 1);
+            Assert.True(app.Save("city-001", "n", "n", "2026-08-12T08:00:00.0000000Z", null, null, null));
+
+            Assert.True(app.DeleteCurrentSlot());
+            Assert.Equal(string.Empty, app.CurrentSlotID);
+            Assert.Empty(app.List());
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void Delete_RemovesSlot()
     {
         string root = GetTempRoot();

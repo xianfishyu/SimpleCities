@@ -519,8 +519,8 @@
 
 ### 2026-08-13：2.3 道路应用门面（部分）
 
-- 新增 `Scripts/Core/V3/RoadGraphV3Application.cs`：持有当前 controller、保存根与共享 gate 的 `V3RoadSaveLoadCoordinator` / `V3SlotAutosaveCoordinator` / `V3SlotTransactionCoordinator`，提供 `Save`/`Load`/`LoadIntoCurrent`/`Delete`/`List`/`TryAutosave`/`NewCity`/`TryUndo`/`TryRedo`/`TryBuild`/`TryUpgrade`/`TryRemove`/`BuildSurfaceSnapshot` 同步入口，为真实 Godot RoadSystem/RoadBuilder 装配提供纯 C# 门面。
-- 新增 10 个 xUnit 用例；完整测试套件 1013/1013 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 新增 `Scripts/Core/V3/RoadGraphV3Application.cs`：持有当前 controller、保存根与共享 gate 的 `V3RoadSaveLoadCoordinator` / `V3SlotAutosaveCoordinator` / `V3SlotTransactionCoordinator`，提供 `Save`/`Load`/`LoadIntoCurrent`/`Delete`/`DeleteCurrentSlot`/`List`/`TryAutosave`/`NewCity`/`TryUndo`/`TryRedo`/`TryBuild`/`TryUpgrade`/`TryRemove`/`BuildSurfaceSnapshot` 同步入口，为真实 Godot RoadSystem/RoadBuilder 装配提供纯 C# 门面。
+- 新增 11 个 xUnit 用例；完整测试套件 1016/1016 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实 Godot 场景装配与端到端 Load commit。
 
 ### 2026-08-13：2.1 槽状态返回 manifest 摘要（更新）
