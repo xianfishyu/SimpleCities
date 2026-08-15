@@ -209,6 +209,12 @@
 - 新增 1 个 xUnit 用例；完整测试套件 805/805 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：mutation 后自动调用与规范化 delta 历史记录。
 
+### 2026-08-13：8.5 delta builder（部分）
+
+- 新增 `Scripts/Road/V3/RoadGraphV3DeltaBuilder.cs`：从前后不可变 root 构建可逆 delta，支持规范化/批量变更历史记录。
+- 新增 2 个 xUnit 用例；完整测试套件 807/807 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：将 delta builder 接入 controller 自动规范化与历史记录。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成
