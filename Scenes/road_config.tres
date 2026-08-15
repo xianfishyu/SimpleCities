@@ -1,7 +1,7 @@
-[gd_resource type="Resource" script_class="RoadConfig" load_steps=6 format=3 uid="uid://ebbitynntrvx"]
+[gd_resource type="Resource" script_class="RoadConfig" format=3 uid="uid://ebbitynntrvx"]
 
 [ext_resource type="Script" uid="uid://mo4q7fauurvd" path="res://Scripts/Road/RoadConfig.cs" id="1_roadconfig"]
-[ext_resource type="Script" path="res://Scripts/Road/RoadTypeStyle.cs" id="2_style"]
+[ext_resource type="Script" uid="uid://bexqg7yf6fllb" path="res://Scripts/Road/RoadTypeStyle.cs" id="2_style"]
 
 [sub_resource type="Resource" id="RoadTypeStyle_dirt"]
 script = ExtResource("2_style")
@@ -12,7 +12,6 @@ Width = 14.0
 
 [sub_resource type="Resource" id="RoadTypeStyle_street"]
 script = ExtResource("2_style")
-RoadType = 1
 DisplayName = "街道"
 Color = Color(0.376471, 0.447059, 0.486275, 1)
 Width = 20.0
