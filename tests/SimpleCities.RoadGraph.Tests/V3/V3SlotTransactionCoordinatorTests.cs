@@ -89,6 +89,49 @@ public sealed class V3SlotTransactionCoordinatorTests
     }
 
     [Fact]
+    public void GetStatus_ReturnsCompleteAfterPublish()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            Directory.CreateDirectory(root);
+            var coordinator = new V3SlotTransactionCoordinator();
+            byte[] data = "road-network"u8.ToArray();
+            V3Manifest manifest = CreateManifest("city-001", data);
+            var payloads = new Dictionary<string, byte[]> { ["road_network.json"] = data };
+            Assert.True(coordinator.Publish("city-001", root, manifest, payloads).Success);
+
+            V3SlotSummary summary = coordinator.GetStatus("city-001", root);
+
+            Assert.Equal(V3SlotOccupant.CompleteV3, summary.Occupant);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
+    public void GetStatus_WhenGateIsHeld_ReturnsUnsafe()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var gate = new V3CoordinatorGate();
+            Assert.True(gate.TryAcquire(out _));
+            var coordinator = new V3SlotTransactionCoordinator(gate);
+
+            V3SlotSummary summary = coordinator.GetStatus("city-001", root);
+
+            Assert.Equal(V3SlotOccupant.Unsafe, summary.Occupant);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void List_WhenGateIsHeld_ReturnsEmpty()
     {
         string root = GetTempRoot();

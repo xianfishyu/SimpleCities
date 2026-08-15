@@ -69,6 +69,21 @@ public sealed class V3SlotTransactionCoordinator
         }
     }
 
+    public V3SlotSummary GetStatus(string slotId, string root)
+    {
+        if (!_gate.TryAcquire(out Guid operationId))
+            return new V3SlotSummary(slotId, slotId, V3SlotOccupant.Unsafe, null);
+
+        try
+        {
+            return V3SlotStatusService.GetStatus(slotId, root);
+        }
+        finally
+        {
+            _gate.Release(operationId);
+        }
+    }
+
     public bool Recover(string slotId, string root, string backupRoot)
     {
         if (!_gate.TryAcquire(out Guid operationId))

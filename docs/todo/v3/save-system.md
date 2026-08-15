@@ -439,8 +439,8 @@
 
 ### 2026-08-13：2.2/2.3 槽事务协调器（部分）
 
-- 新增 `Scripts/Core/V3/V3SlotTransactionCoordinator.cs`：在进程内 `V3CoordinatorGate` 持有期间统一执行 Publish/Delete/Recover/List；文件槽存储各自使用根锁保证跨进程排他。
-- 新增 5 个 xUnit 用例；完整测试套件 1012/1012 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 新增 `Scripts/Core/V3/V3SlotTransactionCoordinator.cs`：在进程内 `V3CoordinatorGate` 持有期间统一执行 Publish/Delete/Recover/List/GetStatus；文件槽存储各自使用根锁保证跨进程排他。
+- 新增 7 个 xUnit 用例；完整测试套件 1015/1015 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：完整严格 token reader、真实应用装配与端到端 Load commit。
 
 ### 2026-08-13：2.2 严格 token reader（部分）
