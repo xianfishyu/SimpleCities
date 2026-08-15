@@ -251,6 +251,12 @@
 - 新增 3 个 xUnit 用例；完整测试套件 821/821 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：完整严格 token reader、真实 coordinator 与完整 Load commit 协议。
 
+### 2026-08-13：2.3 文件保存协调器（部分）
+
+- 新增 `Scripts/Core/V3/V3FileSaveCoordinator.cs`：基于文件槽存储与进程内 gate 的 Save/Load/Delete 排他协调器。
+- 新增 3 个 xUnit 用例；完整测试套件 824/824 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：完整严格 token reader、完整 Load commit 协议与跨进程 coordinator 集成。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
