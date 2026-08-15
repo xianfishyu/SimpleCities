@@ -60,7 +60,13 @@
 
 - 新增 `Scripts/Road/V3/RoadGeometryCanonicalizer.cs`：对相邻 `LineRoadGeometrySegment` 按 exact-sign 契约无损合并，输出规范 `-0`；非 line 曲线保留原样，不采样降级；单次扫描可级联合并，重复执行幂等。
 - 新增 8 个 xUnit 用例；完整测试套件 559/559 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
-- 尚未完成（仍属 8.0/8.2）：graph 层 canonicalizer、全 primitive 精确合并契约、self-loop seam 硬边界接入。
+- 尚未完成（仍属 8.0/8.2）：graph 层 canonicalizer、全 primitive 精确合并契约、graph 层 self-loop seam 接入。
+
+### 2026-08-13：8.2/8.3 self-loop rooted chain（部分）
+
+- 新增 `Scripts/Road/V3/RoadSelfLoopChain.cs`：以 seam 为数组首尾公共点做 rooted chain 规范化；数组内部可合并，禁止跨 seam 合并或循环移位；最后用 typed direction key 选择规范存储方向。
+- 新增 6 个 xUnit 用例；完整测试套件 565/565 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：将 self-loop chain 接入图级规范化、环路提交与 format v1 往返。
 
 ### 2026-08-13：8.1 incidence 与原生几何反向基础（部分）
 
@@ -73,7 +79,7 @@
 
 - 新增 `Scripts/Road/V3/RoadDirectionKey.cs`：版本化 typed binary32 token key，规范 `-0` 与周期角度，使用 IEEE total order 比较；`SelectCanonicalDirection` 在正向/反向链中选择 key 较小者。
 - 新增 7 个 xUnit 用例；完整测试套件 533/533 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
-- 尚未完成：将 direction key 接入 self-loop 图级规范化与 format v1 往返。
+- 尚未完成：将 self-loop chain 接入图级规范化与 format v1 往返。
 
 ## 执行顺序
 
