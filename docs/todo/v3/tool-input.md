@@ -27,9 +27,9 @@
 
 ### 2026-08-13：2.0/2.1 类型化铺路会话基础（部分）
 
-- 新增 `Scripts/Road/V3/RoadPlacementSessionV3.cs`：固定拐点 + 当前末端草稿，提交时生成带目标 `RoadType` 的 `RoadBuildRequest`；零长度拐点拒绝，非法类型构造时抛错；新增 `TryClose()` 显式闭合到首锚点。
-- 新增 10 个 xUnit 用例；完整测试套件 991/991 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
-- 尚未完成：首锚点身份半径吸附、自交拒绝、`RoadBuilder` 真实接线与完整工具生命周期。
+- 新增 `Scripts/Road/V3/RoadPlacementSessionV3.cs`：固定拐点 + 当前末端草稿，提交时生成带目标 `RoadType` 的 `RoadBuildRequest`；零长度拐点拒绝，非法类型构造时抛错；新增 `TryClose()` 显式闭合到首锚点与 `HasSelfIntersection` 检测。
+- 新增 12 个 xUnit 用例；完整测试套件 1052/1052 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：首锚点身份半径吸附、`RoadBuilder` 真实接线与完整工具生命周期。
 
 ### 2026-08-13：2.1/2.2 工具状态基础（部分）
 

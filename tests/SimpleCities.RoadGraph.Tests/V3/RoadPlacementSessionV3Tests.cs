@@ -50,6 +50,28 @@ public sealed class RoadPlacementSessionV3Tests
     }
 
     [Fact]
+    public void HasSelfIntersection_StraightPath_ReturnsFalse()
+    {
+        var session = new RoadPlacementSessionV3(RoadType.Street, Vector2.Zero);
+        session.TryAddPoint(new Vector2(1f, 0f));
+        session.TryAddPoint(new Vector2(2f, 0f));
+
+        Assert.False(session.HasSelfIntersection);
+    }
+
+    [Fact]
+    public void HasSelfIntersection_CrossingPath_ReturnsTrue()
+    {
+        var session = new RoadPlacementSessionV3(RoadType.Street, Vector2.Zero);
+        session.TryAddPoint(new Vector2(2f, 2f));
+        session.TryAddPoint(new Vector2(0f, 2f));
+        session.TryAddPoint(new Vector2(2f, 0f));
+        // Last segment from (0,2) to (2,0) crosses first segment (0,0)-(2,2).
+
+        Assert.True(session.HasSelfIntersection);
+    }
+
+    [Fact]
     public void TryClose_ClosesPath()
     {
         var session = new RoadPlacementSessionV3(RoadType.Street, Vector2.Zero);
