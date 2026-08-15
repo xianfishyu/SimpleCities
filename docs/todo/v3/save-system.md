@@ -25,6 +25,16 @@
 | Load 生命周期 | 当前逐个 restore 不能保证 graph、tool、mesh、surface、hit index 和当前槽全有或全无 | `v3-save-system:2.3`、`v3-road-graph:8.5`、`v3-grid-rendering:2.2`、`v3-tool-input:2.4`、`v3-ui:1.4` |
 | 操作权限 | Publish、Load 与 Delete 若共享 bool 结果或 continuation，会混淆磁盘和活动会话是否已提交 | `v3-save-system:2.2`～`2.3`、`v3-ui:1.4` |
 
+## V3 实施记录
+
+> 本段记录已落地且经过验证的 V3 存档模块；完整工作项仍以「状态总览」和「执行顺序」为准。
+
+### 2026-08-13：2.1 V3 槽 ID 校验（部分）
+
+- 新增 `Scripts/Core/V3/V3SlotId.cs`：校验 1～128 个 `[A-Za-z0-9_-]` ASCII 字符，作为 V3 槽 ID 与目录名校验基础。
+- 新增 10 个 xUnit 用例；完整测试套件 668/668 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：V3 保存根常量/隔离、manifest v1、format v1 严格 reader 与保存根 coordinator。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
