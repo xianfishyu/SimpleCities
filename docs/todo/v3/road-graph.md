@@ -154,6 +154,12 @@
 - 新增 6 个 xUnit 用例；完整测试套件 635/635 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：结构共享、O(1) snapshot capture、delta 历史接入与真实应用装配。
 
+### 2026-08-13：8.5 快照捕获（部分）
+
+- 新增 `Scripts/Road/V3/RoadGraphV3Snapshot.cs`，并在 `RoadGraphV3Facade` 增加 `CaptureSnapshot()`：保存 root 引用与当前 token，后续编辑不影响旧快照。
+- 新增 2 个 xUnit 用例；完整测试套件 637/637 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：结构共享优化、delta 历史接入与真实应用装配。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成

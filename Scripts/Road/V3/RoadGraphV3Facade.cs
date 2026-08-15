@@ -18,6 +18,8 @@ public sealed class RoadGraphV3Facade
     public RoadGraphV3Revision Revision => _revision;
     public GraphStateToken CurrentToken => new(LineageID, _domainRevisionID, _changeSequence);
 
+    public RoadGraphV3Snapshot CaptureSnapshot() => new(_revision, CurrentToken);
+
     public RoadGraphV3Facade(RoadGraphV3Revision initialRevision, long lineageID = 1)
     {
         ArgumentNullException.ThrowIfNull(initialRevision);
