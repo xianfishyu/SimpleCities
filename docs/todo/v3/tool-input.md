@@ -37,6 +37,12 @@
 - 新增 4 个 xUnit 用例；完整测试套件 977/977 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：`RoadBuilder` 真实接线、改造选择生命周期与完整工具路由。
 
+### 2026-08-13：2.2 道路改造选择会话（部分）
+
+- 新增 `Scripts/Road/V3/RoadUpgradeSessionV3.cs`：维护目标 RoadType 与已选 canonical Edge ID 集合，支持选择/取消/清空/一次性提交。
+- 新增 6 个 xUnit 用例；完整测试套件 983/983 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：`RoadBuilder` 真实接线、surface hit 选择与批量改造提交。
+
 ## 执行顺序
 
 ### 阶段 3：第三代闭环、类型化建造与道路改造
