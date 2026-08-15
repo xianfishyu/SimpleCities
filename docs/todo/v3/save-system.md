@@ -281,6 +281,12 @@
 - 新增 2 个 xUnit 用例；完整测试套件 835/835 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：完整严格 token reader、真实应用装配与端到端 Load commit。
 
+### 2026-08-13：2.2 JSON 重复键检测（部分）
+
+- 新增 `Scripts/Core/V3/V3JsonDuplicateDetector.cs`：使用 Utf8JsonReader 检测任意深度 JSON 对象中的重复属性名。
+- 新增 4 个 xUnit 用例；完整测试套件 839/839 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：完整严格 token reader、真实应用装配与端到端 Load commit。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
