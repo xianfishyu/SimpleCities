@@ -82,6 +82,12 @@ public sealed class RoadGraphV3Application
     public bool TryBuild(RoadPlacementSessionV3 session, out RoadGraphV3ChangeSummary summary) =>
         new RoadToolCommandExecutor(Controller).TryBuild(session, out summary);
 
+    public RoadSurfaceSnapshotBuildResult BuildSurfaceSnapshot(RoadStyleProvider styles) =>
+        RoadSurfaceSnapshotBuilder.Build(
+            Controller.Facade.Revision,
+            Controller.Facade.CurrentToken,
+            styles);
+
     public bool TryUpgrade(RoadUpgradeSessionV3 session, out IReadOnlyList<int> changedEdgeIDs) =>
         new RoadToolCommandExecutor(Controller).TryUpgrade(session, out changedEdgeIDs);
 
