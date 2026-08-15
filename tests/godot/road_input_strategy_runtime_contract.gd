@@ -333,6 +333,9 @@ func run() -> void:
 	if not await verify_typed_placement_and_load(
 		road_builder,
 		road_renderer,
+		tool_manager,
+		hud,
+		pause_menu,
 		save_manager,
 		slot_id,
 		roads_path):
@@ -354,6 +357,9 @@ func run() -> void:
 func verify_typed_placement_and_load(
 	road_builder: Node,
 	road_renderer: Node,
+	tool_manager: Node,
+	hud: CanvasLayer,
+	pause_menu: Control,
 	save_manager: Node,
 	slot_id: String,
 	roads_path: String) -> bool:
@@ -430,14 +436,354 @@ func verify_typed_placement_and_load(
 		"Typed placements full-reset Load failed"):
 		return false
 	await process_frame
-	return assert_true(
+	if not assert_true(
 		road_builder.GetSelectedRoadType() == 3 and
 		not road_builder.HasActivePlaceSession() and
 		road_builder.GetUndoEditCount() == 0 and
 		road_builder.GetRedoEditCount() == 0 and
 		road_renderer.GetPreviewPointCount() == 0 and
 		road_renderer.GetRenderedEdgeCount() == 4,
-		"Full-reset Load did not preserve RoadType selection while clearing transient tool state")
+		"Full-reset Load did not preserve RoadType selection while clearing transient tool state"):
+		return false
+	return await verify_road_upgrade(
+		road_builder,
+		road_renderer,
+		tool_manager,
+		hud,
+		pause_menu,
+		save_manager,
+		slot_id,
+		roads_path)
+
+func verify_road_upgrade(
+	road_builder: Node,
+	road_renderer: Node,
+	tool_manager: Node,
+	hud: CanvasLayer,
+	pause_menu: Control,
+	save_manager: Node,
+	slot_id: String,
+	roads_path: String) -> bool:
+	tool_manager.set("CurrentTool", 3)
+	if not assert_true(
+		road_builder.SetSelectedRoadType(3) and
+		road_builder.BeginUpgrade(Vector2(-950, -1000), false) and
+		road_builder.GetUpgradeTargetRoadType() == 3 and
+		road_builder.GetUpgradeSelectionCount() == 1 and
+		road_renderer.GetUpgradePreviewEdgeCount() == 1,
+		"RoadUpgrade did not freeze its target type and current surface selection"):
+		return false
+	if not assert_true(
+		road_builder.SetSelectedRoadType(2) and
+		road_builder.GetSelectedRoadType() == 2 and
+		not road_builder.HasActiveUpgradeSession() and
+		road_renderer.GetUpgradePreviewEdgeCount() == 0,
+		"Changing RoadType did not cancel the active RoadUpgrade session"):
+		return false
+
+	if not assert_true(
+		road_builder.SetSelectedRoadType(3) and
+		road_builder.BeginUpgrade(Vector2(-950, -800), false),
+		"RoadUpgrade right-click cancellation scenario did not begin"):
+		return false
+	road_builder.HandleUpgradeInput(mouse_button_event(
+		MOUSE_BUTTON_RIGHT,
+		true,
+		road_builder.get_canvas_transform() * Vector2(-950, -800)))
+	if not assert_true(
+		not road_builder.HasActiveUpgradeSession() and
+		road_renderer.GetUpgradePreviewEdgeCount() == 0,
+		"Right click did not cancel RoadUpgrade and clear its preview"):
+		return false
+
+	if not assert_true(
+		road_builder.BeginUpgrade(Vector2(-950, -600), false),
+		"RoadUpgrade tool-switch cancellation scenario did not begin"):
+		return false
+	tool_manager.set("CurrentTool", 0)
+	if not assert_true(
+		not road_builder.HasActiveUpgradeSession() and
+		road_renderer.GetUpgradePreviewEdgeCount() == 0,
+		"Switching away from RoadUpgrade did not clear its session and preview"):
+		return false
+	tool_manager.set("CurrentTool", 3)
+
+	if not assert_true(
+		road_builder.BeginUpgrade(Vector2(-950, -400), false),
+		"RoadUpgrade pause cancellation scenario did not begin"):
+		return false
+	hud._Input(action_event("pause_menu"))
+	if not assert_true(
+		pause_menu.visible and paused and
+		not road_builder.HasActiveUpgradeSession() and
+		road_renderer.GetUpgradePreviewEdgeCount() == 0,
+		"Pausing did not clear the RoadUpgrade session and preview"):
+		return false
+	pause_menu._Input(key_event(KEY_ESCAPE))
+	await process_frame
+	if not assert_true(
+		not pause_menu.visible and not paused and
+		road_builder.GetUndoEditCount() == 0 and
+		road_builder.GetRedoEditCount() == 0,
+		"Cancelled RoadUpgrade scenarios changed history or left the game paused"):
+		return false
+
+	var before_continuous: Dictionary = road_renderer.GetPresentationState().get("presented", {})
+	if not assert_true(
+		road_builder.BeginUpgrade(Vector2(-990, -1000), false) and
+		road_builder.GetUpgradeTargetRoadType() == 3,
+		"Continuous RoadUpgrade did not begin with the frozen Highway target"):
+		return false
+	road_builder.UpdateUpgrade(Vector2(-910, -1000))
+	if not assert_true(
+		road_builder.GetUpgradeSelectionCount() == 1 and
+		road_renderer.GetUpgradePreviewEdgeCount() == 1,
+		"Continuous RoadUpgrade did not select the crossed Edge exactly once"):
+		return false
+	if not assert_true(
+		road_builder.ConfirmUpgrade(Vector2(-910, -1000)) and
+		not road_builder.HasActiveUpgradeSession() and
+		road_renderer.GetUpgradePreviewEdgeCount() == 0,
+		"Continuous RoadUpgrade did not commit once and clear its preview"):
+		return false
+	await process_frame
+	var after_continuous: Dictionary = road_renderer.GetPresentationState().get("presented", {})
+	if not assert_true(
+		int(after_continuous.get("changeSequence", -1)) ==
+			int(before_continuous.get("changeSequence", -1)) + 1 and
+		road_builder.GetUndoEditCount() == 1 and
+		road_builder.GetRedoEditCount() == 0 and
+		road_renderer.GetRenderedEdgeCount() == 4,
+		"Continuous RoadUpgrade did not publish exactly one graph change/history entry"):
+		return false
+	if not assert_true(
+		await V3_SAVE_FIXTURE.save(save_manager, slot_id),
+		"Continuous RoadUpgrade save failed"):
+		return false
+	if not assert_saved_road_types(
+		roads_path,
+		["arterial", "highway", "highway", "street"],
+		"Continuous RoadUpgrade"):
+		return false
+
+	var roads_before_no_changes := FileAccess.get_file_as_string(roads_path)
+	var before_no_changes: Dictionary = road_renderer.GetPresentationState().get("presented", {})
+	if not assert_true(
+		road_builder.BeginUpgrade(Vector2(-950, -400), false) and
+		road_builder.GetUpgradeSelectionCount() == 1,
+		"NoChanges RoadUpgrade did not select the existing Highway"):
+		return false
+	if not assert_true(
+		not road_builder.ConfirmUpgrade(Vector2(-950, -400)) and
+		not road_builder.HasActiveUpgradeSession() and
+		road_renderer.GetUpgradePreviewEdgeCount() == 0 and
+		road_builder.GetUndoEditCount() == 1 and
+		road_renderer.GetPresentationState().get("presented", {}) == before_no_changes,
+		"NoChanges RoadUpgrade changed graph identity, history, or preview"):
+		return false
+	if not assert_true(
+		await V3_SAVE_FIXTURE.save(save_manager, slot_id) and
+		FileAccess.get_file_as_string(roads_path) == roads_before_no_changes,
+		"NoChanges RoadUpgrade changed the persisted RoadGraph"):
+		return false
+
+	if not assert_true(
+		road_builder.BeginUpgrade(Vector2(-950, -800), false) and
+		road_builder.GetUpgradeSelectionCount() == 1,
+		"Stale-token RoadUpgrade did not begin"):
+		return false
+	var before_style_refresh: Dictionary = road_renderer.GetPresentationState().get("presented", {})
+	if not assert_true(
+		road_renderer.RefreshRoadStyles(),
+		"RoadUpgrade stale-token scenario could not refresh the presented styles"):
+		return false
+	var after_style_refresh: Dictionary = road_renderer.GetPresentationState().get("presented", {})
+	if not assert_true(
+		int(after_style_refresh.get("changeSequence", -1)) ==
+			int(before_style_refresh.get("changeSequence", -2)) and
+		int(after_style_refresh.get("renderRequestID", -1)) ==
+			int(before_style_refresh.get("renderRequestID", -1)) + 1 and
+		not road_builder.ConfirmUpgrade(Vector2(-950, -800)) and
+		not road_builder.HasActiveUpgradeSession() and
+		road_renderer.GetUpgradePreviewEdgeCount() == 0 and
+		road_builder.GetUndoEditCount() == 1 and
+		road_renderer.GetRenderedEdgeCount() == 4,
+		"RoadUpgrade admitted a selection captured from the previous render token"):
+		return false
+
+	if not assert_true(
+		road_builder.SetSelectedRoadType(1) and
+		road_builder.BeginUpgrade(Vector2(-1010, -1010), true),
+		"Rectangle RoadUpgrade did not begin with the Street target"):
+		return false
+	road_builder.UpdateUpgrade(Vector2(-890, -590))
+	if not assert_true(
+		road_builder.GetUpgradeTargetRoadType() == 1 and
+		road_builder.GetUpgradeSelectionCount() == 3 and
+		road_renderer.GetUpgradePreviewEdgeCount() == 3,
+		"Rectangle RoadUpgrade did not select the three visible road surfaces"):
+		return false
+	var before_rectangle: Dictionary = road_renderer.GetPresentationState().get("presented", {})
+	if not assert_true(
+		road_builder.ConfirmUpgrade(Vector2(-890, -590)),
+		"Rectangle RoadUpgrade did not commit"):
+		return false
+	await process_frame
+	var after_rectangle: Dictionary = road_renderer.GetPresentationState().get("presented", {})
+	if not assert_true(
+		int(after_rectangle.get("changeSequence", -1)) ==
+			int(before_rectangle.get("changeSequence", -1)) + 1 and
+		road_builder.GetUndoEditCount() == 2 and
+		road_builder.GetRedoEditCount() == 0 and
+		road_renderer.GetUpgradePreviewEdgeCount() == 0,
+		"Rectangle RoadUpgrade did not produce one graph change/history entry"):
+		return false
+	if not assert_true(await V3_SAVE_FIXTURE.save(save_manager, slot_id), "Rectangle RoadUpgrade save failed"):
+		return false
+	if not assert_saved_road_types(
+		roads_path,
+		["highway", "street", "street", "street"],
+		"Rectangle RoadUpgrade"):
+		return false
+
+	if not assert_true(road_builder.UndoLastEdit(), "Rectangle RoadUpgrade undo failed"):
+		return false
+	await process_frame
+	if not assert_true(
+		road_builder.GetUndoEditCount() == 1 and
+		road_builder.GetRedoEditCount() == 1 and
+		road_renderer.GetRenderedEdgeCount() == 4,
+		"Rectangle RoadUpgrade undo changed the wrong history boundary"):
+		return false
+	if not assert_true(await V3_SAVE_FIXTURE.save(save_manager, slot_id), "Rectangle RoadUpgrade undo save failed"):
+		return false
+	if not assert_saved_road_types(
+		roads_path,
+		["arterial", "highway", "highway", "street"],
+		"Rectangle RoadUpgrade undo"):
+		return false
+	if not assert_true(road_builder.RedoLastEdit(), "Rectangle RoadUpgrade redo failed"):
+		return false
+	await process_frame
+	if not assert_true(
+		road_builder.GetUndoEditCount() == 2 and
+		road_builder.GetRedoEditCount() == 0 and
+		road_renderer.GetRenderedEdgeCount() == 4,
+		"Rectangle RoadUpgrade redo changed the wrong history boundary"):
+		return false
+
+	tool_manager.set("CurrentTool", 1)
+	if not assert_true(
+		road_builder.SetSelectedRoadType(1) and
+		road_builder.BeginPlace(Vector2(-600, -200)),
+		"Semantic-boundary Street placement did not begin"):
+		return false
+	road_builder.UpdatePlace(Vector2(-500, -200))
+	if not assert_true(
+		road_builder.ConfirmPlace(Vector2(-500, -200)),
+		"Semantic-boundary Street placement did not commit"):
+		return false
+	await process_frame
+	if not assert_true(
+		road_builder.SetSelectedRoadType(2) and
+		road_builder.BeginPlace(Vector2(-500, -200)),
+		"Semantic-boundary Arterial placement did not begin"):
+		return false
+	road_builder.UpdatePlace(Vector2(-400, -200))
+	if not assert_true(
+		road_builder.ConfirmPlace(Vector2(-400, -200)),
+		"Semantic-boundary Arterial placement did not commit"):
+		return false
+	await process_frame
+	if not assert_true(
+		road_renderer.GetRenderedEdgeCount() == 6 and
+		road_builder.GetUndoEditCount() == 4,
+		"Mixed-type continuation did not preserve its semantic boundary"):
+		return false
+
+	tool_manager.set("CurrentTool", 3)
+	if not assert_true(
+		road_builder.SetSelectedRoadType(1) and
+		road_builder.BeginUpgrade(Vector2(-450, -200), false) and
+		road_builder.GetUpgradeSelectionCount() == 1,
+		"Semantic-boundary RoadUpgrade did not select the Arterial side"):
+		return false
+	var before_merge: Dictionary = road_renderer.GetPresentationState().get("presented", {})
+	if not assert_true(
+		road_builder.ConfirmUpgrade(Vector2(-450, -200)),
+		"Semantic-boundary RoadUpgrade did not commit"):
+		return false
+	await process_frame
+	var after_merge: Dictionary = road_renderer.GetPresentationState().get("presented", {})
+	if not assert_true(
+		int(after_merge.get("changeSequence", -1)) ==
+			int(before_merge.get("changeSequence", -1)) + 1 and
+		road_renderer.GetRenderedEdgeCount() == 5 and
+		road_builder.GetUndoEditCount() == 5 and
+		road_builder.GetRedoEditCount() == 0,
+		"RoadUpgrade did not merge the eliminated semantic boundary in one history entry"):
+		return false
+	if not assert_true(await V3_SAVE_FIXTURE.save(save_manager, slot_id), "Semantic-boundary merge save failed"):
+		return false
+	if not assert_saved_road_types(
+		roads_path,
+		["highway", "street", "street", "street", "street"],
+		"Semantic-boundary merge"):
+		return false
+
+	if not assert_true(road_builder.UndoLastEdit(), "Semantic-boundary merge undo failed"):
+		return false
+	await process_frame
+	if not assert_true(
+		road_renderer.GetRenderedEdgeCount() == 6 and
+		road_builder.GetUndoEditCount() == 4 and
+		road_builder.GetRedoEditCount() == 1,
+		"Semantic-boundary merge undo did not restore both typed Edges"):
+		return false
+	if not assert_true(await V3_SAVE_FIXTURE.save(save_manager, slot_id), "Semantic-boundary undo save failed"):
+		return false
+	if not assert_saved_road_types(
+		roads_path,
+		["arterial", "highway", "street", "street", "street", "street"],
+		"Semantic-boundary merge undo"):
+		return false
+	if not assert_true(road_builder.RedoLastEdit(), "Semantic-boundary merge redo failed"):
+		return false
+	await process_frame
+	if not assert_true(
+		road_renderer.GetRenderedEdgeCount() == 5 and
+		road_builder.GetUndoEditCount() == 5 and
+		road_builder.GetRedoEditCount() == 0,
+		"Semantic-boundary merge redo did not restore the canonical Edge"):
+		return false
+	if not assert_true(await V3_SAVE_FIXTURE.save(save_manager, slot_id), "RoadUpgrade full-reset fixture save failed"):
+		return false
+
+	if not assert_true(
+		road_builder.SetSelectedRoadType(2) and
+		road_builder.BeginUpgrade(Vector2(-950, -800), false) and
+		road_builder.GetUpgradeSelectionCount() == 1 and
+		road_renderer.GetUpgradePreviewEdgeCount() == 1,
+		"Pre-load RoadUpgrade did not retain a visible selection"):
+		return false
+	if not assert_true(
+		await V3_SAVE_FIXTURE.load_slot(save_manager, slot_id),
+		"RoadUpgrade full-reset Load failed"):
+		return false
+	await process_frame
+	var loaded_presentation: Dictionary = road_renderer.GetPresentationState()
+	return assert_true(
+		tool_manager.get("CurrentTool") == 3 and
+		road_builder.GetSelectedRoadType() == 2 and
+		not road_builder.HasActiveUpgradeSession() and
+		road_builder.GetUpgradeSelectionCount() == 0 and
+		road_renderer.GetUpgradePreviewEdgeCount() == 0 and
+		road_builder.GetUndoEditCount() == 0 and
+		road_builder.GetRedoEditCount() == 0 and
+		road_renderer.GetRenderedEdgeCount() == 5 and
+		bool(loaded_presentation.get("isReady", false)) and
+		loaded_presentation.get("desired", {}) == loaded_presentation.get("presented", {}),
+		"Full-reset Load did not clear RoadUpgrade state while preserving tool and target type")
 
 func verify_invalid_config_falls_back_to_renderable_values(
 	packed_map: PackedScene,
@@ -584,25 +930,34 @@ func assert_saved_counts(
 	return true
 
 func assert_saved_typed_roads(roads_path: String) -> bool:
+	return assert_saved_road_types(
+		roads_path,
+		["arterial", "dirt", "highway", "street"],
+		"Typed placements")
+
+func assert_saved_road_types(
+	roads_path: String,
+	expected_road_types: Array[String],
+	label: String) -> bool:
 	var payload: Variant = JSON.parse_string(FileAccess.get_file_as_string(roads_path))
-	if not assert_true(payload is Dictionary, "Typed RoadGraph payload is not an object"):
+	if not assert_true(payload is Dictionary, "%s RoadGraph payload is not an object" % label):
 		return false
 	var graph_data: Dictionary = payload
 	if not assert_true(
 		graph_data.get("formatFamily", "") == "simple-cities-v3" and
 		graph_data.get("payloadType", "") == "road-network" and
 		graph_data.get("schemaVersion", -1) == 1,
-		"Typed RoadGraph V3 admission fields are wrong"):
+		"%s RoadGraph V3 admission fields are wrong" % label):
 		return false
 	var road_types: Array[String] = []
 	for edge: Variant in graph_data.get("edges", []):
-		if not assert_true(edge is Dictionary, "Typed RoadGraph edge is not an object"):
+		if not assert_true(edge is Dictionary, "%s RoadGraph edge is not an object" % label):
 			return false
 		road_types.append(str(edge.get("roadType", "")))
 	road_types.sort()
 	return assert_true(
-		road_types == ["arterial", "dirt", "highway", "street"],
-		"Typed placements did not persist exactly one Edge of each RoadType: %s" % [road_types])
+		road_types == expected_road_types,
+		"%s persisted the wrong RoadType multiset: %s" % [label, road_types])
 
 func assert_street_road_payload(graph_data: Dictionary, label: String) -> bool:
 	if not assert_true(
