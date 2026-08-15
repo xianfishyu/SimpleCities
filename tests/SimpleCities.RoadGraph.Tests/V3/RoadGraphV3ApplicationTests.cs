@@ -472,6 +472,25 @@ public sealed class RoadGraphV3ApplicationTests
     }
 
     [Fact]
+    public void TryChangeRoadType_ChangesSingleEdge()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            Assert.True(app.TryBuildFromPolyline([Vector2.Zero, new Vector2(1f, 0f)], RoadType.Street, out _));
+            int edgeID = app.Controller.Facade.Revision.Edges.Keys.Single();
+
+            Assert.True(app.TryChangeRoadType(edgeID, RoadType.Highway, out _));
+            Assert.Equal(RoadType.Highway, app.Controller.Facade.Revision.Edges[edgeID].RoadType);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void TryRemoveEdge_RemovesSingleEdge()
     {
         string root = GetTempRoot();

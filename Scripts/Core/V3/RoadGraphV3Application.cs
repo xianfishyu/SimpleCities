@@ -235,6 +235,12 @@ public sealed class RoadGraphV3Application
         out RoadGraphV3ChangeSummary summary) =>
         Controller.TryUpgradeSelection(edgeIDs, targetType, out summary);
 
+    public bool TryChangeRoadType(
+        int edgeID,
+        RoadType targetType,
+        out RoadGraphV3ChangeSummary summary) =>
+        Controller.TryChangeRoadType(edgeID, targetType, out summary);
+
     public bool TryRemove(RoadRemovalSessionV3 session, out IReadOnlyList<int> removedEdgeIDs) =>
         new RoadToolCommandExecutor(Controller).TryRemove(session, out removedEdgeIDs);
 

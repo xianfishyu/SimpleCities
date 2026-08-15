@@ -519,8 +519,8 @@
 
 ### 2026-08-13：2.3 道路应用门面（部分）
 
-- 新增 `Scripts/Core/V3/RoadGraphV3Application.cs`：持有当前 controller、`Revision`、`CanUndo`/`CanRedo`、`RoadToolState`、`DefaultStyles`、`Presentation`、保存根与共享 gate 的 `V3RoadSaveLoadCoordinator` / `V3SlotAutosaveCoordinator` / `V3SlotTransactionCoordinator`，提供 `Save`/`SaveCurrent`/`SaveAs`/`Load`/`LoadIntoCurrent`/`Delete`/`DeleteCurrentSlot`/`List`/`ListUsableSlots`/`GetStatus`/`GetManifest`/`CurrentSlotSummary`/`TryAutosave`/`TryAutosaveCurrent`/`NewCity`/`TryUndo`（含 token）/`TryRedo`（含 token）/`TryBuild`（含 snapRadius）/`TryBuildFromPolyline`/`TryUpgrade`/`TryUpgradeEdges`/`TryRemove`/`TryRemoveEdge`/`TryRemoveEdges`/`BuildSurfaceSnapshot`/`BuildDefaultSurfaceSnapshot`/`TryRequestPresentation`/`CurrentTool`/`SelectedRoadType` 同步入口；构造函数支持注入 `RoadTypeStyleCatalogResult` 或 `RoadConfigV3`。
-- 新增 40 个 xUnit 用例；完整测试套件 1053/1053 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 新增 `Scripts/Core/V3/RoadGraphV3Application.cs`：持有当前 controller、`Revision`、`CanUndo`/`CanRedo`、`RoadToolState`、`DefaultStyles`、`Presentation`、保存根与共享 gate 的 `V3RoadSaveLoadCoordinator` / `V3SlotAutosaveCoordinator` / `V3SlotTransactionCoordinator`，提供 `Save`/`SaveCurrent`/`SaveAs`/`Load`/`LoadIntoCurrent`/`Delete`/`DeleteCurrentSlot`/`List`/`ListUsableSlots`/`GetStatus`/`GetManifest`/`CurrentSlotSummary`/`TryAutosave`/`TryAutosaveCurrent`/`NewCity`/`TryUndo`（含 token）/`TryRedo`（含 token）/`TryBuild`（含 snapRadius）/`TryBuildFromPolyline`/`TryUpgrade`/`TryUpgradeEdges`/`TryChangeRoadType`/`TryRemove`/`TryRemoveEdge`/`TryRemoveEdges`/`BuildSurfaceSnapshot`/`BuildDefaultSurfaceSnapshot`/`TryRequestPresentation`/`CurrentTool`/`SelectedRoadType` 同步入口；构造函数支持注入 `RoadTypeStyleCatalogResult` 或 `RoadConfigV3`。
+- 新增 41 个 xUnit 用例；完整测试套件 1054/1054 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实 Godot 场景装配与端到端 Load commit。
 
 ### 2026-08-13：2.1 槽状态返回 manifest 摘要（更新）
