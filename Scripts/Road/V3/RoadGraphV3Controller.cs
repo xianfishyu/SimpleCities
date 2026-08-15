@@ -68,7 +68,13 @@ public sealed class RoadGraphV3Controller
             return false;
         }
 
-        NormalizeAndRecord(out _);
+        if (!TryNormalizeAndRecord(out _, out _))
+        {
+            _history.TryUndo(out _);
+            _facade.Restore(before);
+            return false;
+        }
+
         return true;
     }
 
@@ -96,7 +102,13 @@ public sealed class RoadGraphV3Controller
             return false;
         }
 
-        NormalizeAndRecord(out _);
+        if (!TryNormalizeAndRecord(out _, out _))
+        {
+            _history.TryUndo(out _);
+            _facade.Restore(snapshotBefore);
+            return false;
+        }
+
         return true;
     }
 
@@ -125,7 +137,13 @@ public sealed class RoadGraphV3Controller
             return false;
         }
 
-        NormalizeAndRecord(out _);
+        if (!TryNormalizeAndRecord(out _, out _))
+        {
+            _history.TryUndo(out _);
+            _facade.Restore(snapshotBefore);
+            return false;
+        }
+
         return true;
     }
 
@@ -138,6 +156,31 @@ public sealed class RoadGraphV3Controller
         if (!_facade.TryNormalize(out summary))
             return false;
 
+        RoadGraphV3Delta delta = RoadGraphV3DeltaBuilder.BuildDelta(
+            before.Revision,
+            _facade.Revision,
+            before.Token.DomainRevisionID,
+            _facade.CurrentToken.DomainRevisionID);
+        if (!_history.TryPush(delta))
+        {
+            _facade.Restore(before);
+            summary = null!;
+            return false;
+        }
+
+        return true;
+    }
+
+    public bool TryNormalizeAndRecord(out RoadGraphV3ChangeSummary summary, out bool changed)
+    {
+        RoadGraphV3Snapshot before = _facade.CaptureSnapshot();
+        if (!_facade.TryNormalize(out summary))
+        {
+            changed = false;
+            return true;
+        }
+
+        changed = true;
         RoadGraphV3Delta delta = RoadGraphV3DeltaBuilder.BuildDelta(
             before.Revision,
             _facade.Revision,

@@ -227,6 +227,12 @@
 - 新增 1 个 xUnit 用例；完整测试套件 809/809 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：规范化失败/历史拒绝时整笔操作回滚语义细化与真实应用装配。
 
+### 2026-08-13：8.5 规范化失败整笔回滚（部分）
+
+- 在 `RoadGraphV3Controller` 引入 `TryNormalizeAndRecord`，mutation 后规范化/历史拒绝时弹出原始 delta 并恢复快照，保证整笔操作原子。
+- 新增 1 个 xUnit 用例；完整测试套件 810/810 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实应用装配与严格 format v1 接入。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成

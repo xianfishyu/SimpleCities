@@ -150,6 +150,23 @@ public sealed class RoadGraphV3ControllerTests
     }
 
     [Fact]
+    public void TryAddEdge_RollsBackWholeOperationWhenNormalizeHistoryRejected()
+    {
+        var facade = new RoadGraphV3Facade(RoadGraphV3Revision.Empty(RoadGraphCapacity.Default));
+        facade.TryAddNode(Vector2.Zero, out _, out int a);
+        facade.TryAddNode(new Vector2(1f, 0f), out _, out int b);
+        facade.TryAddNode(new Vector2(2f, 0f), out _, out int c);
+        var history = new RoadEditHistoryV3(10, 300);
+        var controller = new RoadGraphV3Controller(facade, history);
+
+        Assert.True(controller.TryAddEdge(a, b, [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(1f, 0f))], RoadType.Street, out _));
+        Assert.False(controller.TryAddEdge(b, c, [new LineRoadGeometrySegment(new Vector2(1f, 0f), new Vector2(2f, 0f))], RoadType.Street, out _));
+
+        Assert.Single(controller.Facade.Revision.Edges);
+        Assert.Equal(1, controller.History.UndoCount);
+    }
+
+    [Fact]
     public void TryAddNode_WhenHistoryRejects_RollsBackAndReturnsFalse()
     {
         var facade = new RoadGraphV3Facade(RoadGraphV3Revision.Empty(RoadGraphCapacity.Default));
