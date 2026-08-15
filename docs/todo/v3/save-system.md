@@ -137,6 +137,12 @@
 - 新增 3 个 xUnit 用例；完整测试套件 754/754 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：delete 恢复/清理矩阵、同句柄校验与 coordinator。
 
+### 2026-08-13：2.2 deletion 恢复决策（部分）
+
+- 新增 `Scripts/Core/V3/V3DeletionRecovery.cs`：槽仍存在返回 `NotDeleted`，槽缺失且 tombstone 匹配返回 `ContinueCleanup`，否则 `Blocked`。
+- 新增 3 个 xUnit 用例；完整测试套件 757/757 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：同句柄 length/hash/EOF、严格 format v1 reader 与 coordinator。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
