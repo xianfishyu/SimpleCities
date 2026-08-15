@@ -23,6 +23,21 @@
 |---|---|---|
 | V3 规范存储、环路与道路分级 | 当前非共线 waypoint/原生段会碎片化为 Edge；Group 阻止跨提交合并；self-loop 被拒绝且 EdgeRef 无端接角色；数值/ID/长 Edge 查询没有 V3 容量契约；schema 和 Edge 均无类型 | 8.0～8.6、`v3-save-system:2.1`～`2.3`、`v3-grid-rendering:2.0`～`2.3`、`v3-tool-input:2.0`～`2.4`、`v3-ui:1.1`～`1.4` |
 
+## V3 实施记录
+
+> 本段记录已落地且经过验证的 V3 模块；完整工作项仍以「状态总览」和「执行顺序」为准。
+
+### 2026-08-13：8.0 数值、容量与精确谓词基础（部分）
+
+- 新增 `Scripts/Road/V3/` 基础模块：
+  - `RoadNumericPolicy.cs`：坐标/长度范围、`-0` 规范化、受检 double 距离、full-turn 逐 bit 判定与 start angle 规范化。
+  - `RoadGraphCapacity.cs`：mutation 与 format v1 load 共用的实体、geometry、query fragment、bucket/ref 与 ID 上限。
+  - `RoadIDAllocator.cs`：只前进、不复用、checked 的 ID allocator，支持批量预留。
+  - `ExactLinePredicates.cs`：`BitwiseEquals`、`Orient2D`、同向 dot 与 line 无损合并谓词。
+  - `RoadType.cs`：稳定 `Dirt/Street/Arterial/Highway` 与 wire name 映射。
+- 新增 `tests/SimpleCities.RoadGraph.Tests/V3/` 共 19 个 xUnit 用例，覆盖 `-0`、full-turn 边界、容量校验、ID 耗尽/预留和 1 ULP 折点不合并；完整测试套件 511/511 通过。
+- 尚未完成（仍属 8.0）：`NodeSnap`/交点 cluster 确定性、canonicalizer 幂等、full-turn 接入 `CircularArcRoadGeometrySegment`、mutation/load 容量接线。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成
