@@ -38,6 +38,13 @@
 - 新增 `tests/SimpleCities.RoadGraph.Tests/V3/` 共 19 个 xUnit 用例，覆盖 `-0`、full-turn 边界、容量校验、ID 耗尽/预留和 1 ULP 折点不合并；完整测试套件 511/511 通过。
 - 尚未完成（仍属 8.0）：`NodeSnap`/交点 cluster 确定性、canonicalizer 幂等、full-turn 接入 `CircularArcRoadGeometrySegment`、mutation/load 容量接线。
 
+### 2026-08-13：8.1 incidence 与原生几何反向基础（部分）
+
+- 新增 `Scripts/Road/V3/EdgeIncidence.cs`：`EdgeEndpoint` / `EdgeIncidence`，为 self-loop 在同一节点的 A/B incidence 提供值类型基础。
+- 新增 `Scripts/Road/V3/RoadGeometryReverser.cs`：六类原生几何（Line/Bezier/Hermite/Arc/Clothoid/RationalQuadratic）的权威反向契约；全圆保留 seam，Clothoid 正确转换朝向与有符号曲率。
+- 新增 15 个 xUnit 用例；完整测试套件 526/526 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成（仍属 8.1）：把 incidence 接入 `GraphNode`/`RoadGraph` 的 detach/rebuild、typed direction key、parallel edge 与 self-loop 图级验收。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成
