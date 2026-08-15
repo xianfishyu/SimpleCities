@@ -472,6 +472,31 @@ public sealed class RoadGraphV3ApplicationTests
     }
 
     [Fact]
+    public void TryAddEdge_AddsEdge()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            Assert.True(app.TryAddNode(Vector2.Zero, out _));
+            Assert.True(app.TryAddNode(new Vector2(1f, 0f), out _));
+            var nodes = app.Controller.Facade.Revision.Nodes.Values.ToArray();
+
+            Assert.True(app.TryAddEdge(
+                nodes[0].ID,
+                nodes[1].ID,
+                [new LineRoadGeometrySegment(nodes[0].Position, nodes[1].Position)],
+                RoadType.Street,
+                out _));
+            Assert.Single(app.Controller.Facade.Revision.Edges);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void TryAddNode_AddsNode()
     {
         string root = GetTempRoot();

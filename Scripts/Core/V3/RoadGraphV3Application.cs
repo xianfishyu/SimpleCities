@@ -176,6 +176,14 @@ public sealed class RoadGraphV3Application
     public bool TryAddNode(Vector2 position, out RoadGraphV3ChangeSummary summary) =>
         Controller.TryAddNode(position, out summary);
 
+    public bool TryAddEdge(
+        int nodeAID,
+        int nodeBID,
+        IReadOnlyList<RoadGeometrySegment> geometry,
+        RoadType roadType,
+        out RoadGraphV3ChangeSummary summary) =>
+        Controller.TryAddEdge(nodeAID, nodeBID, geometry, roadType, out summary);
+
     public bool TryBuild(RoadPlacementSessionV3 session, out RoadGraphV3ChangeSummary summary) =>
         TryBuild(session, 0f, out summary);
 
