@@ -6,9 +6,12 @@ using SimpleCities.Road.V3;
 /// </summary>
 public partial class RoadGraphV3InputHandler : Node2D
 {
+    [Export] public float CloseRadius { get; set; } = 20f;
+
     private RoadPlacementSessionV3? _session;
 
     public bool IsPlacing => _session is not null;
+    public bool IsClosed => _session?.IsClosed ?? false;
     public int FixedCornerCount => _session?.FixedCornerCount ?? 0;
 
     public override void _UnhandledInput(InputEvent @event)
@@ -23,9 +26,20 @@ public partial class RoadGraphV3InputHandler : Node2D
             if (mouseButton.ButtonIndex == MouseButton.Left)
             {
                 if (_session is null)
+                {
                     _session = new RoadPlacementSessionV3(system.ToolState.SelectedRoadType, position);
+                }
+                else if (_session.FixedCornerCount > 0 &&
+                         position.DistanceTo(_session.StartPosition) <= CloseRadius)
+                {
+                    _session.TryClose();
+                    system.TryBuild(_session, out _);
+                    _session = null;
+                }
                 else
+                {
                     _session.TryAddPoint(position);
+                }
                 return;
             }
 
