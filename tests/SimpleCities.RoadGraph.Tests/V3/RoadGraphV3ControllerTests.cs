@@ -113,14 +113,12 @@ public sealed class RoadGraphV3ControllerTests
         controller.TryAddEdge(nodes[0].ID, nodes[1].ID, [new LineRoadGeometrySegment(nodes[0].Position, nodes[1].Position)], RoadType.Street, out _);
         controller.TryAddEdge(nodes[1].ID, nodes[2].ID, [new LineRoadGeometrySegment(nodes[1].Position, nodes[2].Position)], RoadType.Street, out _);
 
-        Assert.True(controller.TryNormalize(out _));
-
         Assert.Equal(2, controller.Facade.Revision.Nodes.Count);
         Assert.Single(controller.Facade.Revision.Edges);
     }
 
     [Fact]
-    public void NormalizeAndRecord_RecordsHistoryAndUndoRestoresUnmergedChain()
+    public void TryAddEdge_AutoNormalizesChain()
     {
         var controller = CreateController();
         controller.TryAddNode(Vector2.Zero, out _);
@@ -129,6 +127,20 @@ public sealed class RoadGraphV3ControllerTests
         var nodes = controller.Facade.Revision.Nodes.Values.ToArray();
         controller.TryAddEdge(nodes[0].ID, nodes[1].ID, [new LineRoadGeometrySegment(nodes[0].Position, nodes[1].Position)], RoadType.Street, out _);
         controller.TryAddEdge(nodes[1].ID, nodes[2].ID, [new LineRoadGeometrySegment(nodes[1].Position, nodes[2].Position)], RoadType.Street, out _);
+
+        Assert.Single(controller.Facade.Revision.Edges);
+    }
+
+    [Fact]
+    public void NormalizeAndRecord_RecordsHistoryAndUndoRestoresUnmergedChain()
+    {
+        var facade = new RoadGraphV3Facade(RoadGraphV3Revision.Empty(RoadGraphCapacity.Default));
+        facade.TryAddNode(Vector2.Zero, out _, out int a);
+        facade.TryAddNode(new Vector2(1f, 0f), out _, out int b);
+        facade.TryAddNode(new Vector2(2f, 0f), out _, out int c);
+        facade.TryAddEdge(a, b, [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(1f, 0f))], RoadType.Street, out _, out _);
+        facade.TryAddEdge(b, c, [new LineRoadGeometrySegment(new Vector2(1f, 0f), new Vector2(2f, 0f))], RoadType.Street, out _, out _);
+        var controller = new RoadGraphV3Controller(facade, new RoadEditHistoryV3(100, 100000));
 
         Assert.True(controller.NormalizeAndRecord(out _));
         Assert.Single(controller.Facade.Revision.Edges);

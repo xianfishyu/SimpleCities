@@ -68,6 +68,7 @@ public sealed class RoadGraphV3Controller
             return false;
         }
 
+        NormalizeAndRecord(out _);
         return true;
     }
 
@@ -95,6 +96,7 @@ public sealed class RoadGraphV3Controller
             return false;
         }
 
+        NormalizeAndRecord(out _);
         return true;
     }
 
@@ -123,6 +125,7 @@ public sealed class RoadGraphV3Controller
             return false;
         }
 
+        NormalizeAndRecord(out _);
         return true;
     }
 

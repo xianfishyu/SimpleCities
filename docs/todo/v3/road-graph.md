@@ -221,6 +221,12 @@
 - 新增 1 个 xUnit 用例；完整测试套件 808/808 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：mutation 后自动调用规范化（无需手动调用）。
 
+### 2026-08-13：8.5 mutation 自动规范化（部分）
+
+- 在 `RoadGraphV3Controller` 的 AddEdge/RemoveEdge/ChangeRoadType 成功后自动调用 `NormalizeAndRecord`，使链式编辑在提交后自动达到规范形并记录 delta。
+- 新增 1 个 xUnit 用例；完整测试套件 809/809 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：规范化失败/历史拒绝时整笔操作回滚语义细化与真实应用装配。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成
