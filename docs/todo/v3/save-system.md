@@ -83,6 +83,12 @@
 - 新增 20 个 xUnit 用例；完整测试套件 721/721 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：duplicate-aware token reader、同句柄 length/hash/EOF、严格 format v1 reader。
 
+### 2026-08-13：2.2 payload 分层预算（部分）
+
+- 新增 `Scripts/Core/V3/V3PayloadBudget.cs`：manifest/payload/整槽字节、实体/geometry 数量、JSON 深度与字符串长度预算。
+- 新增 3 个 xUnit 用例；完整测试套件 724/724 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：duplicate-aware token reader、同句柄 length/hash/EOF、严格 format v1 reader。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
