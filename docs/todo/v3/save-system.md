@@ -41,6 +41,12 @@
 - 新增 4 个 xUnit 用例；完整测试套件 672/672 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：根隔离操作、manifest v1、严格 reader 与保存根 coordinator。
 
+### 2026-08-13：2.2 manifest v1 基础校验（部分）
+
+- 新增 `Scripts/Core/V3/V3Manifest.cs`：`V3Manifest` / `V3ManifestFile` / `V3ManifestValidator`，校验 family/version、槽 ID、文本字段、UTC timestamp、population/funds、缩略图与文件 metadata（sha256/长度/名称）。
+- 新增 8 个 xUnit 用例；完整测试套件 680/680 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：manifest JSON 编解码、文件集合与 payload digest 绑定、严格 reader 与保存根 coordinator。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
