@@ -63,6 +63,9 @@ public partial class RoadGraphV3System : Node2D
         out RoadGraphV3ChangeSummary summary) =>
         Application.TryRemoveEdges(edgeIDs, out summary);
 
+    public bool TryRemoveEdge(int edgeID, out RoadGraphV3ChangeSummary summary) =>
+        Application.TryRemoveEdge(edgeID, out summary);
+
     public bool Load(string slotId, long lineageID = 1) =>
         Application.Load(slotId, lineageID);
 
