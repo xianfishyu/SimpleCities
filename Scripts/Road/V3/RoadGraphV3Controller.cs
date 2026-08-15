@@ -126,6 +126,16 @@ public sealed class RoadGraphV3Controller
         return true;
     }
 
+    public RoadGraphV3ChangeSummary ReplaceWithFullReset(
+        RoadGraphV3Revision newRevision,
+        long newLineageID)
+    {
+        ArgumentNullException.ThrowIfNull(newRevision);
+        _facade.ReplaceWithFullReset(newRevision, newLineageID);
+        _history.Clear();
+        return RoadGraphV3ChangeSummary.FullReset(_facade.CurrentToken.ChangeSequence);
+    }
+
     public bool TryUndo(out RoadGraphV3ChangeSummary summary)
     {
         if (!_history.TryUndo(out RoadGraphV3Delta delta))

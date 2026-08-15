@@ -179,6 +179,12 @@
 - 新增 1 个 xUnit 用例；完整测试套件 648/648 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：full-reset 清空历史与真实应用装配。
 
+### 2026-08-13：8.5 full-reset 清空历史（部分）
+
+- 在 `RoadGraphV3Controller` 增加 `ReplaceWithFullReset`：调用 facade full reset、清空 undo/redo，并返回 `IsFullReset` 摘要。
+- 新增 1 个 xUnit 用例；完整测试套件 649/649 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实应用装配与严格 format v1 接入。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成

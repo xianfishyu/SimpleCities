@@ -85,6 +85,24 @@ public sealed class RoadGraphV3ControllerTests
     }
 
     [Fact]
+    public void ReplaceWithFullReset_ClearsHistoryAndChangesLineage()
+    {
+        var controller = CreateController();
+        controller.TryAddNode(Vector2.Zero, out _);
+        controller.TryUndo(out _);
+        Assert.Equal(1, controller.History.RedoCount);
+
+        RoadGraphV3ChangeSummary summary = controller.ReplaceWithFullReset(
+            RoadGraphV3Revision.Empty(RoadGraphCapacity.Default),
+            newLineageID: 99);
+
+        Assert.True(summary.IsFullReset);
+        Assert.Equal(99, controller.Facade.LineageID);
+        Assert.Equal(0, controller.History.UndoCount);
+        Assert.Equal(0, controller.History.RedoCount);
+    }
+
+    [Fact]
     public void TryAddNode_WhenHistoryRejects_RollsBackAndReturnsFalse()
     {
         var facade = new RoadGraphV3Facade(RoadGraphV3Revision.Empty(RoadGraphCapacity.Default));
