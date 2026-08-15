@@ -79,6 +79,15 @@ public sealed class RoadGraphV3Application
     public bool TryRedo(GraphStateToken expectedToken, out RoadGraphV3ChangeSummary summary) =>
         Controller.TryRedo(expectedToken, out summary);
 
+    public bool TryBuild(RoadPlacementSessionV3 session, out RoadGraphV3ChangeSummary summary) =>
+        new RoadToolCommandExecutor(Controller).TryBuild(session, out summary);
+
+    public bool TryUpgrade(RoadUpgradeSessionV3 session, out IReadOnlyList<int> changedEdgeIDs) =>
+        new RoadToolCommandExecutor(Controller).TryUpgrade(session, out changedEdgeIDs);
+
+    public bool TryRemove(RoadRemovalSessionV3 session, out IReadOnlyList<int> removedEdgeIDs) =>
+        new RoadToolCommandExecutor(Controller).TryRemove(session, out removedEdgeIDs);
+
     public V3AutosaveDecision TryAutosave(
         string slotId,
         RoadGraphV3Revision revision,

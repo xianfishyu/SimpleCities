@@ -75,6 +75,25 @@ public sealed class RoadGraphV3ApplicationTests
     }
 
     [Fact]
+    public void TryBuild_CommitsSessionThroughApplication()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            var session = new RoadPlacementSessionV3(RoadType.Highway, Vector2.Zero);
+            session.TryAddPoint(new Vector2(1f, 0f));
+
+            Assert.True(app.TryBuild(session, out _));
+            Assert.Single(app.Controller.Facade.Revision.Edges);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void TryUndo_WithCurrentToken_UndoesNode()
     {
         string root = GetTempRoot();
