@@ -173,6 +173,12 @@
 - 新增 3 个 xUnit 用例；完整测试套件 774/774 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实目录枚举、跨进程 lock 实现、真实 coordinator 与完整 Load commit 协议。
 
+### 2026-08-13：2.2 manifest 构造（部分）
+
+- 新增 `Scripts/Core/V3/V3ManifestBuilder.cs`：从槽元数据与 payload 字节构造 manifest v1，自动计算 encodedLength/SHA-256 并按文件名排序。
+- 新增 3 个 xUnit 用例；完整测试套件 777/777 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实目录枚举、跨进程 lock 实现、真实 coordinator 与完整 Load commit 协议。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
