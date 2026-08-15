@@ -24,7 +24,8 @@ public sealed class RoadGraphV3Controller
 
     public bool TryAddNode(Vector2 position, out RoadGraphV3ChangeSummary summary)
     {
-        long beforeRevision = _facade.CurrentToken.DomainRevisionID;
+        RoadGraphV3Snapshot before = _facade.CaptureSnapshot();
+        long beforeRevision = before.Token.DomainRevisionID;
         if (!_facade.TryAddNode(position, out summary, out int nodeID))
             return false;
 
@@ -34,7 +35,12 @@ public sealed class RoadGraphV3Controller
             _facade.CurrentToken.DomainRevisionID,
             [new RoadGraphV3EntityChange<RoadGraphV3Node>(null, after)],
             []);
-        _history.TryPush(delta);
+        if (!_history.TryPush(delta))
+        {
+            _facade.Restore(before);
+            return false;
+        }
+
         return true;
     }
 
@@ -45,7 +51,8 @@ public sealed class RoadGraphV3Controller
         RoadType roadType,
         out RoadGraphV3ChangeSummary summary)
     {
-        long beforeRevision = _facade.CurrentToken.DomainRevisionID;
+        RoadGraphV3Snapshot before = _facade.CaptureSnapshot();
+        long beforeRevision = before.Token.DomainRevisionID;
         if (!_facade.TryAddEdge(nodeAID, nodeBID, geometry, roadType, out summary, out int edgeID))
             return false;
 
@@ -55,7 +62,12 @@ public sealed class RoadGraphV3Controller
             _facade.CurrentToken.DomainRevisionID,
             [],
             [new RoadGraphV3EntityChange<RoadGraphV3Edge>(null, after)]);
-        _history.TryPush(delta);
+        if (!_history.TryPush(delta))
+        {
+            _facade.Restore(before);
+            return false;
+        }
+
         return true;
     }
 
@@ -67,7 +79,8 @@ public sealed class RoadGraphV3Controller
             return false;
         }
 
-        long beforeRevision = _facade.CurrentToken.DomainRevisionID;
+        RoadGraphV3Snapshot snapshotBefore = _facade.CaptureSnapshot();
+        long beforeRevision = snapshotBefore.Token.DomainRevisionID;
         if (!_facade.TryRemoveEdge(edgeID, out summary))
             return false;
 
@@ -76,7 +89,12 @@ public sealed class RoadGraphV3Controller
             _facade.CurrentToken.DomainRevisionID,
             [],
             [new RoadGraphV3EntityChange<RoadGraphV3Edge>(before, null)]);
-        _history.TryPush(delta);
+        if (!_history.TryPush(delta))
+        {
+            _facade.Restore(snapshotBefore);
+            return false;
+        }
+
         return true;
     }
 
@@ -88,7 +106,8 @@ public sealed class RoadGraphV3Controller
             return false;
         }
 
-        long beforeRevision = _facade.CurrentToken.DomainRevisionID;
+        RoadGraphV3Snapshot snapshotBefore = _facade.CaptureSnapshot();
+        long beforeRevision = snapshotBefore.Token.DomainRevisionID;
         if (!_facade.TryChangeRoadType(edgeID, roadType, out summary))
             return false;
 
@@ -98,7 +117,12 @@ public sealed class RoadGraphV3Controller
             _facade.CurrentToken.DomainRevisionID,
             [],
             [new RoadGraphV3EntityChange<RoadGraphV3Edge>(before, after)]);
-        _history.TryPush(delta);
+        if (!_history.TryPush(delta))
+        {
+            _facade.Restore(snapshotBefore);
+            return false;
+        }
+
         return true;
     }
 

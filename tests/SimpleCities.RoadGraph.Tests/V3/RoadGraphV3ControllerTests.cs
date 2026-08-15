@@ -84,6 +84,20 @@ public sealed class RoadGraphV3ControllerTests
         Assert.False(controller.TryUndo(out _));
     }
 
+    [Fact]
+    public void TryAddNode_WhenHistoryRejects_RollsBackAndReturnsFalse()
+    {
+        var facade = new RoadGraphV3Facade(RoadGraphV3Revision.Empty(RoadGraphCapacity.Default));
+        var history = new RoadEditHistoryV3(10, 100);
+        var controller = new RoadGraphV3Controller(facade, history);
+        GraphStateToken before = facade.CurrentToken;
+
+        Assert.False(controller.TryAddNode(Vector2.Zero, out _));
+
+        Assert.Empty(facade.Revision.Nodes);
+        Assert.Equal(before, facade.CurrentToken);
+    }
+
     private static RoadGraphV3Controller CreateController()
     {
         var facade = new RoadGraphV3Facade(RoadGraphV3Revision.Empty(RoadGraphCapacity.Default));

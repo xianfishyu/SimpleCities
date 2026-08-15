@@ -20,6 +20,15 @@ public sealed class RoadGraphV3Facade
 
     public RoadGraphV3Snapshot CaptureSnapshot() => new(_revision, CurrentToken);
 
+    public void Restore(RoadGraphV3Snapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        _revision = snapshot.Revision;
+        LineageID = snapshot.Token.LineageID;
+        _domainRevisionID = snapshot.Token.DomainRevisionID;
+        _changeSequence = snapshot.Token.ChangeSequence;
+    }
+
     public RoadGraphV3Facade(RoadGraphV3Revision initialRevision, long lineageID = 1)
     {
         ArgumentNullException.ThrowIfNull(initialRevision);

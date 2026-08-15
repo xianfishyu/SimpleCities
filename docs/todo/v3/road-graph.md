@@ -173,6 +173,12 @@
 - 新增 5 个 xUnit 用例；完整测试套件 647/647 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：历史 admission 前校验/回滚、full-reset 清空历史与真实应用装配。
 
+### 2026-08-13：8.5/10.7 历史拒绝回滚（部分）
+
+- 在 `RoadGraphV3Facade` 增加 `Restore(RoadGraphV3Snapshot)`；`RoadGraphV3Controller` 在 mutation 后若历史预算拒绝，通过快照精确回滚 facade 并返回失败。
+- 新增 1 个 xUnit 用例；完整测试套件 648/648 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：full-reset 清空历史与真实应用装配。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成
