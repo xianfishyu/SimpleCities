@@ -18,6 +18,8 @@ public sealed class V3SlotRenameServiceTests
             Assert.True(V3SlotRenameService.Rename("city-001", "city-002", root));
             Assert.False(store.Load("city-001").Success);
             Assert.True(store.Load("city-002").Success);
+            Assert.Equal("city-002", store.Load("city-002").Manifest!.SlotId);
+            Assert.True(V3SlotIntegrity.Verify(Path.Combine(root, "city-002")).Success);
         }
         finally
         {

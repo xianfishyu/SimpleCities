@@ -22,7 +22,16 @@ public static class V3SlotRenameService
         if (!Directory.Exists(oldPath) || Directory.Exists(newPath))
             return false;
 
+        V3ManifestCodecResult manifestResult = V3ManifestStrictFileReader.Read(
+            Path.Combine(oldPath, V3SlotReader.ManifestFileName));
+        if (!manifestResult.Success || manifestResult.Manifest is null)
+            return false;
+
         Directory.Move(oldPath, newPath);
+        V3Manifest updated = manifestResult.Manifest with { SlotId = newSlotId };
+        File.WriteAllText(
+            Path.Combine(newPath, V3SlotReader.ManifestFileName),
+            V3ManifestCodec.Serialize(updated));
         return true;
     }
 }

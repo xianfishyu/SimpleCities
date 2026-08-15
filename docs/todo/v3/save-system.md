@@ -480,6 +480,13 @@
 - 新增 1 个 xUnit 用例；完整测试套件 917/917 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实应用装配与端到端 Load commit。
 
+### 2026-08-13：2.1/2.2 槽 ID 一致性与重命名更新 manifest（部分）
+
+- `V3SlotIntegrity` 校验目录名与 manifest `SlotId` 一致，目录与内部声明不符的槽分类为 `CorruptV3`。
+- `V3SlotRenameService` 在目录移动后重写 manifest 的 `SlotId`，避免重命名产生内部声明不一致的槽。
+- 新增 2 个 xUnit 用例；完整测试套件 918/918 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实应用装配与端到端 Load commit。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议

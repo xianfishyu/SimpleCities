@@ -11,16 +11,17 @@ public sealed class V3SlotIntegrityTests
         string root = GetTempRoot();
         try
         {
-            Directory.CreateDirectory(root);
+            string slotDirectory = Path.Combine(root, "city-001");
+            Directory.CreateDirectory(slotDirectory);
             byte[] data = "road-network"u8.ToArray();
             V3Manifest manifest = CreateManifest(data);
             IReadOnlyDictionary<string, byte[]> files = V3SlotWriter.BuildFiles(
                 manifest,
                 new Dictionary<string, byte[]> { [manifest.Files[0].Name] = data });
             foreach (KeyValuePair<string, byte[]> file in files)
-                File.WriteAllBytes(Path.Combine(root, file.Key), file.Value);
+                File.WriteAllBytes(Path.Combine(slotDirectory, file.Key), file.Value);
 
-            V3SlotIntegrityResult result = V3SlotIntegrity.Verify(root);
+            V3SlotIntegrityResult result = V3SlotIntegrity.Verify(slotDirectory);
 
             Assert.True(result.Success, result.Error);
         }
@@ -36,17 +37,18 @@ public sealed class V3SlotIntegrityTests
         string root = GetTempRoot();
         try
         {
-            Directory.CreateDirectory(root);
+            string slotDirectory = Path.Combine(root, "city-001");
+            Directory.CreateDirectory(slotDirectory);
             byte[] data = "road-network"u8.ToArray();
             V3Manifest manifest = CreateManifest(data);
             IReadOnlyDictionary<string, byte[]> files = V3SlotWriter.BuildFiles(
                 manifest,
                 new Dictionary<string, byte[]> { [manifest.Files[0].Name] = data });
             foreach (KeyValuePair<string, byte[]> file in files)
-                File.WriteAllBytes(Path.Combine(root, file.Key), file.Value);
-            File.WriteAllBytes(Path.Combine(root, manifest.Files[0].Name), "other"u8.ToArray());
+                File.WriteAllBytes(Path.Combine(slotDirectory, file.Key), file.Value);
+            File.WriteAllBytes(Path.Combine(slotDirectory, manifest.Files[0].Name), "other"u8.ToArray());
 
-            V3SlotIntegrityResult result = V3SlotIntegrity.Verify(root);
+            V3SlotIntegrityResult result = V3SlotIntegrity.Verify(slotDirectory);
 
             Assert.False(result.Success);
             Assert.StartsWith("InvalidPayload:", result.Error);
@@ -97,6 +99,32 @@ public sealed class V3SlotIntegrityTests
         }
     }
 
+    [Fact]
+    public void Verify_SlotIdMismatch_Fails()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(root, "city-001"));
+            byte[] data = "road-network"u8.ToArray();
+            V3Manifest manifest = CreateManifest("city-002", data);
+            IReadOnlyDictionary<string, byte[]> files = V3SlotWriter.BuildFiles(
+                manifest,
+                new Dictionary<string, byte[]> { [manifest.Files[0].Name] = data });
+            foreach (KeyValuePair<string, byte[]> file in files)
+                File.WriteAllBytes(Path.Combine(root, "city-001", file.Key), file.Value);
+
+            V3SlotIntegrityResult result = V3SlotIntegrity.Verify(Path.Combine(root, "city-001"));
+
+            Assert.False(result.Success);
+            Assert.Equal("SlotIdMismatch", result.Error);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
     private static string GetTempRoot() =>
         Path.Combine(Path.GetTempPath(), $"v3-integrity-{Guid.NewGuid():N}");
 
@@ -114,10 +142,13 @@ public sealed class V3SlotIntegrityTests
     }
 
     private static V3Manifest CreateManifest(byte[] data) =>
+        CreateManifest("city-001", data);
+
+    private static V3Manifest CreateManifest(string slotId, byte[] data) =>
         new(
             V3SaveRoot.FormatFamily,
             V3SaveRoot.SchemaVersion,
-            "city-001",
+            slotId,
             "河湾城",
             "2026-08-12T08:00:00.0000000Z",
             "河湾城",

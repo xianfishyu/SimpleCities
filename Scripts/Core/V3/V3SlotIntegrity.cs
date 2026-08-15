@@ -26,6 +26,11 @@ public static class V3SlotIntegrity
         if (!manifestResult.Success || manifestResult.Manifest is null)
             return V3SlotIntegrityResult.Failure(manifestResult.Error ?? "InvalidManifest");
 
+        string directoryName = Path.GetFileName(
+            slotDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        if (!string.Equals(directoryName, manifestResult.Manifest.SlotId, StringComparison.Ordinal))
+            return V3SlotIntegrityResult.Failure("SlotIdMismatch");
+
         foreach (V3ManifestFile file in manifestResult.Manifest.Files)
         {
             V3SameHandleVerificationResult payloadResult = V3FilePayloadVerifier.Verify(
