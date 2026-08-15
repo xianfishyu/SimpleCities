@@ -371,6 +371,12 @@
 - 新增 3 个 xUnit 用例；完整测试套件 877/877 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：完整严格 token reader、真实应用装配与端到端 Load commit。
 
+### 2026-08-13：2.1/2.2 槽完整性扫描（部分）
+
+- 新增 `Scripts/Core/V3/V3SlotIntegrityScanner.cs`：扫描 V3 根，使用槽完整性校验将 direct child 分类为 CompleteV3/CorruptV3/Foreign/Unsafe。
+- 新增 3 个 xUnit 用例；完整测试套件 880/880 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：完整严格 token reader、真实应用装配与端到端 Load commit。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
