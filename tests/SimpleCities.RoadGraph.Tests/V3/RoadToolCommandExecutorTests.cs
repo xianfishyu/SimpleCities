@@ -23,6 +23,19 @@ public sealed class RoadToolCommandExecutorTests
     }
 
     [Fact]
+    public void TryBuild_WithSnapRadius_ReusesNode()
+    {
+        var controller = CreateController();
+        controller.TryAddNode(Vector2.Zero, out _);
+        var executor = new RoadToolCommandExecutor(controller);
+        var session = new RoadPlacementSessionV3(RoadType.Street, new Vector2(0.01f, 0f));
+        session.TryAddPoint(new Vector2(1f, 0f));
+
+        Assert.True(executor.TryBuild(session, snapRadius: 0.1f, out _));
+        Assert.Equal(2, controller.Facade.Revision.Nodes.Count);
+    }
+
+    [Fact]
     public void TryBuild_EmptySession_Fails()
     {
         var controller = CreateController();

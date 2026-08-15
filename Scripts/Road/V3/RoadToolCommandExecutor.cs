@@ -15,14 +15,17 @@ public sealed class RoadToolCommandExecutor
         _controller = controller ?? throw new ArgumentNullException(nameof(controller));
     }
 
-    public bool TryBuild(RoadPlacementSessionV3 session, out RoadGraphV3ChangeSummary summary)
+    public bool TryBuild(RoadPlacementSessionV3 session, out RoadGraphV3ChangeSummary summary) =>
+        TryBuild(session, 0f, out summary);
+
+    public bool TryBuild(RoadPlacementSessionV3 session, float snapRadius, out RoadGraphV3ChangeSummary summary)
     {
         ArgumentNullException.ThrowIfNull(session);
 
         summary = null!;
         if (!session.TryCommit(out RoadBuildRequest? request))
             return false;
-        return _controller.TryBuild(request, out summary);
+        return _controller.TryBuild(request, snapRadius, out summary);
     }
 
     public bool TryRemove(RoadRemovalSessionV3 session, out IReadOnlyList<int> removedEdgeIDs)
