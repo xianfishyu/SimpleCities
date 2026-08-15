@@ -83,6 +83,22 @@ public sealed class RoadGraphV3Facade
         return true;
     }
 
+    public bool TryApplyDelta(RoadGraphV3Delta delta, out RoadGraphV3ChangeSummary summary)
+    {
+        ArgumentNullException.ThrowIfNull(delta);
+        if (!RoadGraphV3DeltaApplier.TryApply(_revision, delta, out RoadGraphV3Revision next))
+        {
+            summary = null!;
+            return false;
+        }
+
+        _revision = next;
+        _domainRevisionID = delta.AfterRevisionID;
+        _changeSequence++;
+        summary = RoadGraphV3ChangeSummaryFactory.FromDelta(delta, _changeSequence, isFullReset: false);
+        return true;
+    }
+
     public void ReplaceWithFullReset(RoadGraphV3Revision newRevision, long newLineageID)
     {
         ArgumentNullException.ThrowIfNull(newRevision);

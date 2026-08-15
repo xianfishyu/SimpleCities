@@ -166,6 +166,13 @@
 - 新增 5 个 xUnit 用例；完整测试套件 642/642 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：将 applier 接入 facade undo/redo 与历史 token 校验。
 
+### 2026-08-13：8.5/10.7 facade+delta 控制器（部分）
+
+- 新增 `Scripts/Road/V3/RoadGraphV3Controller.cs`：组合 facade 与有界 delta 历史；普通 mutation 记录 delta，`TryUndo` 应用逆 delta，`TryRedo` 应用正 delta，均递增 ChangeSequence。
+- 在 `RoadGraphV3Facade` 增加 `TryApplyDelta`，在 `RoadGraphV3ChangeSummaryFactory` 增加 `FromDelta`。
+- 新增 5 个 xUnit 用例；完整测试套件 647/647 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：历史 admission 前校验/回滚、full-reset 清空历史与真实应用装配。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成

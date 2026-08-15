@@ -65,4 +65,22 @@ public static class RoadGraphV3ChangeSummaryFactory
             false,
             changeSequence);
     }
+
+    public static RoadGraphV3ChangeSummary FromDelta(
+        RoadGraphV3Delta delta,
+        long changeSequence,
+        bool isFullReset)
+    {
+        ArgumentNullException.ThrowIfNull(delta);
+
+        return new RoadGraphV3ChangeSummary(
+            delta.NodeChanges.Where(change => change.IsCreated).Select(change => change.After!.ID).ToArray(),
+            delta.NodeChanges.Where(change => change.IsRemoved).Select(change => change.Before!.ID).ToArray(),
+            delta.NodeChanges.Where(change => change.IsUpdated).Select(change => change.Before!.ID).ToArray(),
+            delta.EdgeChanges.Where(change => change.IsCreated).Select(change => change.After!.ID).ToArray(),
+            delta.EdgeChanges.Where(change => change.IsRemoved).Select(change => change.Before!.ID).ToArray(),
+            delta.EdgeChanges.Where(change => change.IsUpdated).Select(change => change.Before!.ID).ToArray(),
+            isFullReset,
+            changeSequence);
+    }
 }
