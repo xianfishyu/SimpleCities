@@ -12,10 +12,12 @@ public static class V3RoadPayloadStrictFileReader
     {
         ArgumentNullException.ThrowIfNull(filePath);
 
-        if (!File.Exists(filePath))
-            return V3StrictRoadPayloadResult.Failure("FileMissing");
+        V3StrictTokenResult token = V3StrictTokenReader.ReadFile(filePath);
+        if (!token.Success)
+            return V3StrictRoadPayloadResult.Failure(token.Error ?? "TokenReadFailed");
+        if (token.Json is null)
+            return V3StrictRoadPayloadResult.Failure("EmptyPayload");
 
-        string json = File.ReadAllText(filePath);
-        return V3RoadPayloadStrictReader.Read(json, budget);
+        return V3RoadPayloadStrictReader.Read(token.Json, budget);
     }
 }

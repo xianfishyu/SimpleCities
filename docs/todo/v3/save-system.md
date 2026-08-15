@@ -443,6 +443,13 @@
 - 新增 3 个 xUnit 用例；完整测试套件 904/904 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：完整严格 token reader、真实应用装配与端到端 Load commit。
 
+### 2026-08-13：2.2 严格 token reader（部分）
+
+- 新增 `Scripts/Core/V3/V3StrictTokenReader.cs`：从禁止共享写/删的同一句柄读取完整字节，校验无 BOM、严格 UTF-8、重复属性名、canonical number lexeme、初始/已消费长度、EOF 与 SHA-256。
+- `V3ManifestStrictFileReader` 与 `V3RoadPayloadStrictFileReader` 改用该 reader 后再进入 codec/validator 与预算读取。
+- 新增 7 个 xUnit 用例；完整测试套件 911/911 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实应用装配与端到端 Load commit。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议

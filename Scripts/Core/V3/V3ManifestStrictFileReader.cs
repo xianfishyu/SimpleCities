@@ -12,10 +12,12 @@ public static class V3ManifestStrictFileReader
     {
         ArgumentNullException.ThrowIfNull(manifestPath);
 
-        if (!File.Exists(manifestPath))
-            return V3ManifestCodecResult.Failure("FileMissing");
+        V3StrictTokenResult token = V3StrictTokenReader.ReadFile(manifestPath);
+        if (!token.Success)
+            return V3ManifestCodecResult.Failure(token.Error ?? "TokenReadFailed");
+        if (token.Json is null)
+            return V3ManifestCodecResult.Failure("EmptyPayload");
 
-        string json = File.ReadAllText(manifestPath);
-        return V3ManifestStrictReader.Read(json);
+        return V3ManifestStrictReader.Read(token.Json);
     }
 }
