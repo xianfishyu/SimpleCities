@@ -107,6 +107,12 @@
 - 新增 3 个 xUnit 用例；完整测试套件 735/735 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：恢复矩阵、descriptor JSON 编解码、同句柄校验与 coordinator。
 
+### 2026-08-13：2.2 publication 恢复矩阵（部分）
+
+- 新增 `Scripts/Core/V3/V3PublicationRecovery.cs`：按 slot/backup/staging digest 匹配返回 `PublishComplete`、`PreserveOldIsolateStaging`、`CompleteStagingToSlot`、`RestoreOldFromBackup` 或 `Blocked`。
+- 新增 5 个 xUnit 用例；完整测试套件 740/740 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：descriptor JSON 编解码、同句柄校验与 coordinator。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
