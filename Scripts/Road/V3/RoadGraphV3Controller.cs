@@ -129,6 +129,27 @@ public sealed class RoadGraphV3Controller
     public bool TryNormalize(out RoadGraphV3ChangeSummary summary) =>
         _facade.TryNormalize(out summary);
 
+    public bool NormalizeAndRecord(out RoadGraphV3ChangeSummary summary)
+    {
+        RoadGraphV3Snapshot before = _facade.CaptureSnapshot();
+        if (!_facade.TryNormalize(out summary))
+            return false;
+
+        RoadGraphV3Delta delta = RoadGraphV3DeltaBuilder.BuildDelta(
+            before.Revision,
+            _facade.Revision,
+            before.Token.DomainRevisionID,
+            _facade.CurrentToken.DomainRevisionID);
+        if (!_history.TryPush(delta))
+        {
+            _facade.Restore(before);
+            summary = null!;
+            return false;
+        }
+
+        return true;
+    }
+
     public RoadGraphV3ChangeSummary ReplaceWithFullReset(
         RoadGraphV3Revision newRevision,
         long newLineageID)
