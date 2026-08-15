@@ -427,6 +427,27 @@ public sealed class RoadGraphV3ApplicationTests
     }
 
     [Fact]
+    public void Revision_ReturnsCurrentControllerRevision()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            Assert.True(app.TryBuildFromPolyline(
+                [Vector2.Zero, new Vector2(1f, 0f)],
+                RoadType.Street,
+                out _));
+
+            Assert.Same(app.Controller.Facade.Revision, app.Revision);
+            Assert.Single(app.Revision.Edges);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void ListUsableSlots_FiltersCorrupt()
     {
         string root = GetTempRoot();

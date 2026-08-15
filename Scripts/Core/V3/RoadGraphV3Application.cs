@@ -21,6 +21,7 @@ public sealed class RoadGraphV3Application
     private readonly V3SlotTransactionCoordinator _transactionCoordinator;
 
     public RoadGraphV3Controller Controller { get; private set; }
+    public RoadGraphV3Revision Revision => Controller.Facade.Revision;
     public RoadToolState ToolState { get; } = new();
     public RoadStyleProvider DefaultStyles { get; }
     public RoadPresentationController Presentation { get; }
