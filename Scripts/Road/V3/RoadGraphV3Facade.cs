@@ -93,6 +93,41 @@ public sealed class RoadGraphV3Facade
         return true;
     }
 
+    public bool TryRemoveEdges(
+        IReadOnlyList<int> edgeIDs,
+        out RoadGraphV3ChangeSummary summary)
+    {
+        ArgumentNullException.ThrowIfNull(edgeIDs);
+
+        RoadGraphV3Revision current = _revision;
+        foreach (int edgeID in edgeIDs.Distinct().Order())
+        {
+            if (!current.TryRemoveEdge(edgeID, out RoadGraphV3Revision next))
+            {
+                summary = null!;
+                return false;
+            }
+            current = next;
+        }
+
+        RoadGraphV3Delta delta = RoadGraphV3DeltaBuilder.BuildDelta(
+            _revision,
+            current,
+            _domainRevisionID,
+            _domainRevisionID + 1);
+        if (delta.IsEmpty)
+        {
+            summary = null!;
+            return false;
+        }
+
+        _revision = current;
+        _domainRevisionID++;
+        _changeSequence++;
+        summary = RoadGraphV3ChangeSummaryFactory.FromDelta(delta, _changeSequence, false);
+        return true;
+    }
+
     public bool TryChangeRoadTypes(
         IReadOnlyList<int> edgeIDs,
         RoadType roadType,

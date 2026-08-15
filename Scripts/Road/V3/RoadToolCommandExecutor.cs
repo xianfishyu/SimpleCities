@@ -39,15 +39,10 @@ public sealed class RoadToolCommandExecutor
                 return false;
         }
 
-        var removed = new List<int>();
-        foreach (int edgeID in edgeIDs)
-        {
-            if (!_controller.TryRemoveEdge(edgeID, out _))
-                return false;
-            removed.Add(edgeID);
-        }
+        if (!_controller.TryRemoveSelection(edgeIDs, out _))
+            return false;
 
-        removedEdgeIDs = removed;
+        removedEdgeIDs = edgeIDs;
         return true;
     }
 
