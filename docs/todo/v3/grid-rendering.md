@@ -50,6 +50,12 @@
 - 新增 4 个 xUnit 用例；完整测试套件 955/955 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：hit provider、mesh 生成与表现接管协议。
 
+### 2026-08-13：2.2 RoadPresentationState 表现接管状态（部分）
+
+- 新增 `Scripts/Road/V3/RoadPresentationState.cs`：维护 desired/presented token 与已呈现快照，只允许与 desired 完全匹配的后台结果发布，并暴露 `IsStalled`。
+- 新增 4 个 xUnit 用例；完整测试套件 959/959 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：hit provider、mesh 生成与完整接管协议。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁
