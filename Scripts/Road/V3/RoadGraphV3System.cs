@@ -38,6 +38,16 @@ public partial class RoadGraphV3System : Node2D
         string? thumbnailFile) =>
         Application.SaveCurrent(displayName, cityName, timestamp, population, funds, thumbnailFile);
 
+    public bool SaveAs(
+        string slotId,
+        string displayName,
+        string cityName,
+        string timestamp,
+        long? population,
+        decimal? funds,
+        string? thumbnailFile) =>
+        Application.SaveAs(slotId, displayName, cityName, timestamp, population, funds, thumbnailFile);
+
     public bool TryUpgradeEdges(
         System.Collections.Generic.IReadOnlyList<int> edgeIDs,
         RoadType targetType,
