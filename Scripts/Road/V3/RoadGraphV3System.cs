@@ -35,6 +35,9 @@ public partial class RoadGraphV3System : Node2D
     public bool TryBuild(RoadPlacementSessionV3 session, out RoadGraphV3ChangeSummary summary) =>
         Application.TryBuild(session, out summary);
 
+    public bool TryAddNode(Vector2 position, out RoadGraphV3ChangeSummary summary) =>
+        Application.TryAddNode(position, out summary);
+
     public bool TryUndo(out RoadGraphV3ChangeSummary summary) =>
         Application.TryUndo(out summary);
 
