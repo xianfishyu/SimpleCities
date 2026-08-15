@@ -79,7 +79,13 @@
 - 新增 `Scripts/Road/V3/EdgeIncidence.cs`：`EdgeEndpoint` / `EdgeIncidence`，为 self-loop 在同一节点的 A/B incidence 提供值类型基础。
 - 新增 `Scripts/Road/V3/RoadGeometryReverser.cs`：六类原生几何（Line/Bezier/Hermite/Arc/Clothoid/RationalQuadratic）的权威反向契约；全圆保留 seam，Clothoid 正确转换朝向与有符号曲率。
 - 新增 15 个 xUnit 用例；完整测试套件 526/526 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
-- 尚未完成（仍属 8.1）：把 incidence 接入 `GraphNode`/`RoadGraph` 的 detach/rebuild、parallel edge 与 self-loop 图级验收。
+- 尚未完成（仍属 8.1）：把 V3 incidence 图骨架接入真实 `RoadGraph`/不可变 root、detach/rebuild 与切线查询。
+
+### 2026-08-13：8.1 V3 incidence 图骨架（部分）
+
+- 新增 `Scripts/Road/V3/RoadGraphV3.cs`：`RoadGraphV3Node` / `RoadGraphV3Edge` / `RoadGraphV3` 最小 incidence 图运行时；支持 self-loop A/B incidence、平行 Edge、degree/distinct-edge/neighbor 查询、删除时一次移除全部 incidence，并使用 `RoadIDAllocator` 分配 ID。
+- 新增 7 个 xUnit 用例；完整测试套件 579/579 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：将骨架升级为不可变 root、事务摘要、detach/rebuild 与切线查询。
 
 ### 2026-08-13：8.1 typed direction key（部分）
 
