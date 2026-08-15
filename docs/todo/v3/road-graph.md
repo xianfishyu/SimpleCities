@@ -239,6 +239,12 @@
 - 新增 1 个 xUnit 用例；完整测试套件 929/929 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实应用装配与严格 format v1 接入。
 
+### 2026-08-13：8.5 规范化差异改用 delta 检测（更新）
+
+- `RoadGraphV3Facade.TryNormalize` 改为通过 `RoadGraphV3DeltaBuilder.BuildDelta` 判断规范化前后是否实际变化，并直接用 delta 生成摘要，避免只比较数量/键时漏掉节点位置或 Edge 几何变化。
+- 完整测试套件 929/929 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实应用装配与严格 format v1 接入。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成
