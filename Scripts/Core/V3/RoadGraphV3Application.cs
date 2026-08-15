@@ -246,6 +246,8 @@ public sealed class RoadGraphV3Application
 
     public V3SlotSummary GetStatus(string slotId) => _transactionCoordinator.GetStatus(slotId, _root);
 
+    public V3Manifest? GetManifest(string slotId) => V3SlotManifestService.GetManifest(slotId, _root);
+
     public bool Delete(string slotId) => _transactionCoordinator.Delete(slotId, _root).Success;
 
     public bool DeleteCurrentSlot()

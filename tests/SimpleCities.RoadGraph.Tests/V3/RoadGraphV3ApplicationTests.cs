@@ -520,6 +520,27 @@ public sealed class RoadGraphV3ApplicationTests
     }
 
     [Fact]
+    public void GetManifest_ReturnsSavedManifest()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            app.Controller.ReplaceWithFullReset(CreateRevision(), 1);
+            Assert.True(app.Save("city-001", "n", "n", "2026-08-12T08:00:00.0000000Z", null, null, null));
+
+            V3Manifest? manifest = app.GetManifest("city-001");
+
+            Assert.NotNull(manifest);
+            Assert.Equal("city-001", manifest!.SlotId);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void GetStatus_ReturnsCompleteAfterSave()
     {
         string root = GetTempRoot();
