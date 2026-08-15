@@ -267,6 +267,27 @@ public sealed class RoadGraphV3ApplicationTests
     }
 
     [Fact]
+    public void ToolState_DefaultsToPlaceAndStreet()
+    {
+        var app = new RoadGraphV3Application(GetTempRoot(), RoadGraphCapacity.Default, V3PayloadBudget.Default);
+
+        Assert.Equal(RoadToolType.Place, app.ToolState.CurrentTool);
+        Assert.Equal(RoadType.Street, app.ToolState.SelectedRoadType);
+    }
+
+    [Fact]
+    public void ToolState_CanSwitchAndSelectType()
+    {
+        var app = new RoadGraphV3Application(GetTempRoot(), RoadGraphCapacity.Default, V3PayloadBudget.Default);
+
+        app.ToolState.SwitchTo(RoadToolType.Upgrade);
+        Assert.True(app.ToolState.TrySelectRoadType(RoadType.Highway));
+
+        Assert.Equal(RoadToolType.Upgrade, app.ToolState.CurrentTool);
+        Assert.Equal(RoadType.Highway, app.ToolState.SelectedRoadType);
+    }
+
+    [Fact]
     public void GetStatus_ReturnsCompleteAfterSave()
     {
         string root = GetTempRoot();

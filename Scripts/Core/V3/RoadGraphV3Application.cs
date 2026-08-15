@@ -19,6 +19,7 @@ public sealed class RoadGraphV3Application
     private readonly V3SlotTransactionCoordinator _transactionCoordinator;
 
     public RoadGraphV3Controller Controller { get; private set; }
+    public RoadToolState ToolState { get; } = new();
     public string CurrentSlotID { get; private set; } = string.Empty;
 
     public RoadGraphV3Application(
