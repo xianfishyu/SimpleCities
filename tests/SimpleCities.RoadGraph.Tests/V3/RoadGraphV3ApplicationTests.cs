@@ -163,6 +163,44 @@ public sealed class RoadGraphV3ApplicationTests
     }
 
     [Fact]
+    public void SaveCurrent_WhenCurrentSlotSet_Saves()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            app.Controller.ReplaceWithFullReset(CreateRevision(), 1);
+            Assert.True(app.Save("city-001", "n", "n", "2026-08-12T08:00:00.0000000Z", null, null, null));
+
+            Assert.True(app.SaveCurrent("新名称", "新城市", "2026-08-12T09:00:00.0000000Z", null, null, null));
+            Assert.Equal("city-001", app.CurrentSlotID);
+            V3Manifest? manifest = V3SlotManifestService.GetManifest("city-001", root);
+            Assert.NotNull(manifest);
+            Assert.Equal("新名称", manifest!.DisplayName);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
+    public void SaveCurrent_WhenNoCurrentSlot_Fails()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+
+            Assert.False(app.SaveCurrent("n", "n", "2026-08-12T08:00:00.0000000Z", null, null, null));
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void DeleteCurrentSlot_RemovesAndClearsSlot()
     {
         string root = GetTempRoot();

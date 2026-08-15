@@ -64,6 +64,20 @@ public sealed class RoadGraphV3Application
         return success;
     }
 
+    public bool SaveCurrent(
+        string displayName,
+        string cityName,
+        string timestamp,
+        long? population,
+        decimal? funds,
+        string? thumbnailFile)
+    {
+        if (string.IsNullOrEmpty(CurrentSlotID))
+            return false;
+
+        return Save(CurrentSlotID, displayName, cityName, timestamp, population, funds, thumbnailFile);
+    }
+
     public bool Load(string slotId, long lineageID = 1)
     {
         RoadGraphV3Controller? loaded = _coordinator.Load(slotId, _root, _capacity, _budget, lineageID);
