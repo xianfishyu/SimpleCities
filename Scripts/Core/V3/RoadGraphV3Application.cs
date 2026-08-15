@@ -20,6 +20,22 @@ public sealed class RoadGraphV3Application
 
     public RoadGraphV3Controller Controller { get; private set; }
     public RoadToolState ToolState { get; } = new();
+    public RoadToolType CurrentTool
+    {
+        get => ToolState.CurrentTool;
+        set => ToolState.SwitchTo(value);
+    }
+
+    public RoadType SelectedRoadType
+    {
+        get => ToolState.SelectedRoadType;
+        set
+        {
+            if (!ToolState.TrySelectRoadType(value))
+                throw new ArgumentOutOfRangeException(nameof(value), value, "Unknown road type.");
+        }
+    }
+
     public string CurrentSlotID { get; private set; } = string.Empty;
 
     public RoadGraphV3Application(
