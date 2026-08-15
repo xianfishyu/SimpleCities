@@ -389,6 +389,12 @@
 - 新增 1 个 xUnit 用例；完整测试套件 883/883 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：完整严格 token reader、真实应用装配与端到端 Load commit。
 
+### 2026-08-13：2.1 单槽状态服务（部分）
+
+- 新增 `Scripts/Core/V3/V3SlotStatusService.cs`：返回指定槽的 occupant 摘要（CompleteV3/CorruptV3/Absent/Unsafe）。
+- 新增 4 个 xUnit 用例；完整测试套件 887/887 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：完整严格 token reader、真实应用装配与端到端 Load commit。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
