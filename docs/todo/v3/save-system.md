@@ -149,6 +149,12 @@
 - 新增 4 个 xUnit 用例；完整测试套件 761/761 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：跨进程 lock、取消边界、prepared aggregate 与真实 coordinator。
 
+### 2026-08-13：2.3 prepared aggregate 摘要（部分）
+
+- 新增 `Scripts/Core/V3/V3PreparedAggregate.cs`：记录 required/prepared participants 与 warnings，`AllPrepared`/`CanCommit` 决定是否可进入 non-yield commit。
+- 新增 3 个 xUnit 用例；完整测试套件 764/764 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：跨进程 lock、取消边界、真实 coordinator 与完整 Load commit 协议。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
