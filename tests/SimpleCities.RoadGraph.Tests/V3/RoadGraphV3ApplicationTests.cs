@@ -75,6 +75,28 @@ public sealed class RoadGraphV3ApplicationTests
     }
 
     [Fact]
+    public void TryRequestPresentation_ThenPublish_Succeeds()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            var session = new RoadPlacementSessionV3(RoadType.Street, Vector2.Zero);
+            session.TryAddPoint(new Vector2(1f, 0f));
+            Assert.True(app.TryBuild(session, out _));
+            RoadRenderToken desired = new(1, 1, 1, 1, 1, 3);
+
+            Assert.True(app.TryRequestPresentation(desired));
+            Assert.True(app.Presentation.TryPublish(desired));
+            Assert.False(app.Presentation.IsStalled);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void Presentation_CanRequestAndPublish()
     {
         string root = GetTempRoot();

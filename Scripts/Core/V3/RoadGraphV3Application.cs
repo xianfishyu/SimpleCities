@@ -147,6 +147,12 @@ public sealed class RoadGraphV3Application
     public RoadSurfaceSnapshotBuildResult BuildDefaultSurfaceSnapshot() =>
         BuildSurfaceSnapshot(DefaultStyles);
 
+    public bool TryRequestPresentation(RoadRenderToken desiredToken) =>
+        Presentation.TryRequest(
+            Controller.Facade.Revision,
+            Controller.Facade.CurrentToken,
+            desiredToken);
+
     public bool TryUpgrade(RoadUpgradeSessionV3 session, out IReadOnlyList<int> changedEdgeIDs) =>
         new RoadToolCommandExecutor(Controller).TryUpgrade(session, out changedEdgeIDs);
 
