@@ -383,6 +383,12 @@
 - 新增 2 个 xUnit 用例；完整测试套件 882/882 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：完整严格 token reader、真实应用装配与端到端 Load commit。
 
+### 2026-08-13：2.1 槽健康检查（部分）
+
+- 新增 `Scripts/Core/V3/V3SlotHealthCheck.cs`：统计 V3 根中各 occupant 分类数量。
+- 新增 1 个 xUnit 用例；完整测试套件 883/883 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：完整严格 token reader、真实应用装配与端到端 Load commit。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
