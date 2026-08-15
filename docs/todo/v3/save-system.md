@@ -547,6 +547,12 @@
 - 完整测试套件 935/935 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实 Godot 场景装配与端到端 Load commit。
 
+### 2026-08-13：2.1 槽 payload 服务直接校验读取（更新）
+
+- `V3SlotPayloadService.GetPayload` 改为直接读取目标 payload，并在返回前校验 manifest 声明的 length/hash；未声明、缺失或摘要不符的文件返回 null。
+- 完整测试套件 935/935 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实 Godot 场景装配与端到端 Load commit。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议

@@ -1,9 +1,11 @@
 using System;
+using System.IO;
+using System.Linq;
 
 namespace SimpleCities.Core.V3;
 
 /// <summary>
-/// 槽 payload 服务：从文件槽读取指定 payload 字节。
+/// 槽 payload 服务：从文件槽直接读取指定 payload，并在返回前校验 manifest 声明的 length/hash。
 /// </summary>
 public static class V3SlotPayloadService
 {
@@ -12,10 +14,30 @@ public static class V3SlotPayloadService
         ArgumentNullException.ThrowIfNull(root);
         ArgumentNullException.ThrowIfNull(fileName);
 
-        V3SlotReadResult result = new V3FileSlotStore(root).Load(slotId);
-        if (!result.Success || result.Payloads is null)
+        if (!V3SlotId.IsValid(slotId) ||
+            string.IsNullOrWhiteSpace(fileName) ||
+            fileName.IndexOfAny(['/', '\\']) >= 0)
             return null;
 
-        return result.Payloads.TryGetValue(fileName, out byte[]? data) ? data : null;
+        string slotDirectory = Path.Combine(root, slotId);
+        string manifestPath = Path.Combine(slotDirectory, V3SlotReader.ManifestFileName);
+        if (!File.Exists(manifestPath))
+            return null;
+
+        V3ManifestCodecResult manifestResult = V3ManifestStrictFileReader.Read(manifestPath);
+        if (!manifestResult.Success || manifestResult.Manifest is null)
+            return null;
+
+        V3ManifestFile? file = manifestResult.Manifest.Files
+            .FirstOrDefault(candidate => string.Equals(candidate.Name, fileName, StringComparison.Ordinal));
+        if (file is null)
+            return null;
+
+        string payloadPath = Path.Combine(slotDirectory, fileName);
+        if (!File.Exists(payloadPath))
+            return null;
+
+        byte[] data = File.ReadAllBytes(payloadPath);
+        return V3PayloadDigest.Matches(file, data) ? data : null;
     }
 }
