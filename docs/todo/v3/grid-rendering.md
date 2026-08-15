@@ -36,7 +36,13 @@
 
 - 新增 `Scripts/Road/V3/RoadTypeStyleResource.cs`：Godot `Resource` 子类，导出 RoadType/DisplayName/Color/Width，并提供 `ToData`/`FromData`/`Validate`，支持 `.tres` 序列化。
 - 完整测试套件 1030/1030 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
-- 尚未完成：`RoadConfig` 接入、默认 `.tres` 资源与真实渲染使用。
+- 尚未完成：默认 `.tres` 资源与真实渲染使用。
+
+### 2026-08-13：2.1 RoadConfigV3 配置资源（部分）
+
+- 新增 `Scripts/Road/V3/RoadConfigV3.cs`：Godot `Resource` 子类，持有 `RoadTypeStyleResource[]` 并提供 `CreateCatalog()` 校验目录。
+- 完整测试套件 1033/1033 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：默认 `.tres` 资源、场景装配与真实渲染使用。
 
 ### 2026-08-13：2.2 RoadSurfaceHit 数据模型（部分）
 
