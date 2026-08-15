@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="RoadConfigV3" format=3 uid="uid://v3roadcfg0001"]
+[gd_resource type="Resource" script_class="RoadConfigV3" format=3 uid="uid://crqcb2p5m0m77"]
 
 [ext_resource type="Script" uid="uid://dudv8ggxajjah" path="res://Scripts/Road/V3/RoadConfigV3.cs" id="1_config"]
 [ext_resource type="Script" uid="uid://ggtn52fkqm4v" path="res://Scripts/Road/V3/RoadTypeStyleResource.cs" id="2_style"]
