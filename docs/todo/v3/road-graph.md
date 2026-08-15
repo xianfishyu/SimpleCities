@@ -136,6 +136,12 @@
 - 新增 6 个 xUnit 用例；完整测试套件 618/618 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：长 Edge 参数区间 fragment 切分、局部查询基准与真实 RoadGraph 接线。
 
+### 2026-08-13：8.2 line fragment 切分（部分）
+
+- 新增 `Scripts/Road/V3/RoadQueryFragmentBuilder.cs`：按 uniform grid bucket 边界切分 line primitive，生成严格递增、无空洞覆盖 `[0,1]` 的参数区间 fragment 与保守 bounds，避免整条斜线 AABB 污染无关 bucket。
+- 新增 6 个 xUnit 用例；完整测试套件 624/624 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：曲线 fragment 策略、局部查询基准与真实 RoadGraph 接线。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成
