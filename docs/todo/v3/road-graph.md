@@ -271,7 +271,7 @@
 
 ### 2026-08-13：8.6 真实场景根节点（部分）
 
-- 新增 `Scripts/Road/V3/RoadGraphV3System.cs`：Godot `Node2D` 根节点，`_Ready` 时用 `user://saves-v3` 与可选 `RoadConfigV3` 构造 `RoadGraphV3Application`，维护静态 `Instance`，并暴露 `Controller` / `Revision` / `CanUndo` / `CanRedo` / `CurrentSlotSummary` / `ToolState` / `TryBuild` / `TryBuildFromPolyline` / `TryUpgradeEdges` / `TryChangeRoadType` / `TryRemoveEdge` / `TryRemoveEdges` / `TryUndo` / `TryRedo` / `SaveCurrent` / `SaveAs` / `Load` / `DeleteCurrentSlot` / `GetManifest` 便捷属性。
+- 新增 `Scripts/Road/V3/RoadGraphV3System.cs`：Godot `Node2D` 根节点，`_Ready` 时用 `user://saves-v3` 与可选 `RoadConfigV3` 构造 `RoadGraphV3Application`，维护静态 `Instance`，并暴露 `Controller` / `Revision` / `CanUndo` / `CanRedo` / `CurrentSlotID` / `CurrentSlotSummary` / `ToolState` / `TryBuild` / `TryBuildFromPolyline` / `TryUpgradeEdges` / `TryChangeRoadType` / `TryRemoveEdge` / `TryRemoveEdges` / `TryUndo` / `TryRedo` / `SaveCurrent` / `SaveAs` / `Load` / `DeleteCurrentSlot` / `GetManifest` 便捷属性。
 - 已将 `RoadGraphV3System` 节点加入 `Scenes/MapTest.tscn`，并挂载默认 `Scenes/road_config_v3.tres`、`RoadGraphV3Renderer` 与 `RoadGraphV3InputHandler` 子节点；Godot 编辑器中场景加载成功，冻结运行无 stderr 错误。
 - 完整测试套件 1038/1038 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：替换 V2 RoadSystem 与端到端验收。
