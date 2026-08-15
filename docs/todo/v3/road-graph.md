@@ -269,6 +269,12 @@
 - 新增 2 个 xUnit 用例；完整测试套件 1004/1004 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实应用装配与严格 format v1 接入。
 
+### 2026-08-13：8.6 真实场景根节点（部分）
+
+- 新增 `Scripts/Road/V3/RoadGraphV3System.cs`：Godot `Node2D` 根节点，`_Ready` 时用 `user://saves-v3` 与可选 `RoadConfigV3` 构造 `RoadGraphV3Application`。
+- 完整测试套件 1038/1038 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：将节点接入 `MapTest`、替换 V2 RoadSystem 与端到端验收。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成
