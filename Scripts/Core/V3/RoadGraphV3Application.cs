@@ -73,6 +73,12 @@ public sealed class RoadGraphV3Application
         return true;
     }
 
+    public bool TryUndo(GraphStateToken expectedToken, out RoadGraphV3ChangeSummary summary) =>
+        Controller.TryUndo(expectedToken, out summary);
+
+    public bool TryRedo(GraphStateToken expectedToken, out RoadGraphV3ChangeSummary summary) =>
+        Controller.TryRedo(expectedToken, out summary);
+
     public V3AutosaveDecision TryAutosave(
         string slotId,
         RoadGraphV3Revision revision,

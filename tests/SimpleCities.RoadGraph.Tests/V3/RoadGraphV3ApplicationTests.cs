@@ -75,6 +75,25 @@ public sealed class RoadGraphV3ApplicationTests
     }
 
     [Fact]
+    public void TryUndo_WithCurrentToken_UndoesNode()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            Assert.True(app.Controller.TryAddNode(Vector2.Zero, out _));
+            GraphStateToken token = app.Controller.Facade.CurrentToken;
+
+            Assert.True(app.TryUndo(token, out _));
+            Assert.Empty(app.Controller.Facade.Revision.Nodes);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void Delete_RemovesSlot()
     {
         string root = GetTempRoot();
