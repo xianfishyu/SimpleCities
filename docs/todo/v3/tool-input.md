@@ -57,9 +57,9 @@
 
 ### 2026-08-13：2.0 场景最小连续铺路输入处理器（部分）
 
-- 新增 `Scripts/Road/V3/RoadGraphV3InputHandler.cs`：左键添加拐点，回到首锚点 `CloseRadius` 内自动闭合并提交，右键移除最后拐点，Enter 提交当前连续铺路会话；自交路径不提交；`_Draw` 绘制当前会话预览。
+- 新增 `Scripts/Road/V3/RoadGraphV3InputHandler.cs`：左键添加拐点，回到首锚点 `CloseRadius` 内自动闭合并提交，右键移除最后拐点，Enter 提交当前连续铺路会话，Esc 取消，数字键 1-4 切换 RoadType；自交路径不提交；`_Draw` 绘制当前会话预览。
 - 已将 `RoadGraphV3InputHandler` 作为 `RoadGraphV3System` 子节点加入 `Scenes/MapTest.tscn`；编辑器加载与冻结运行无 stderr 错误。
-- 完整测试套件 1052/1052 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 完整测试套件 1054/1054 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：结构化闭合预览与 surface hit 选择。
 
 ## 执行顺序

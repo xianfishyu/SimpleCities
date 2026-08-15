@@ -78,14 +78,36 @@ public partial class RoadGraphV3InputHandler : Node2D
 
         if (@event is InputEventKey keyEvent &&
             keyEvent.Pressed &&
-            !keyEvent.Echo &&
-            keyEvent.Keycode is Key.Enter or Key.KpEnter &&
-            _session is not null)
+            !keyEvent.Echo)
         {
             RoadGraphV3System? system = RoadGraphV3System.Instance;
-            if (system is not null && !_session.HasSelfIntersection)
-                system.TryBuild(_session, out _);
-            _session = null;
+            if (system is null)
+                return;
+
+            switch (keyEvent.Keycode)
+            {
+                case Key.Key1:
+                    system.ToolState.TrySelectRoadType(RoadType.Dirt);
+                    break;
+                case Key.Key2:
+                    system.ToolState.TrySelectRoadType(RoadType.Street);
+                    break;
+                case Key.Key3:
+                    system.ToolState.TrySelectRoadType(RoadType.Arterial);
+                    break;
+                case Key.Key4:
+                    system.ToolState.TrySelectRoadType(RoadType.Highway);
+                    break;
+                case Key.Escape:
+                    _session = null;
+                    break;
+                case Key.Enter:
+                case Key.KpEnter:
+                    if (_session is not null && !_session.HasSelfIntersection)
+                        system.TryBuild(_session, out _);
+                    _session = null;
+                    break;
+            }
         }
     }
 }
