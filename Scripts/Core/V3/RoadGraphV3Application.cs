@@ -44,9 +44,20 @@ public sealed class RoadGraphV3Application
     public RoadGraphV3Application(
         string root,
         RoadGraphCapacity capacity,
-        V3PayloadBudget budget)
+        V3PayloadBudget budget) : this(root, capacity, budget, RoadTypeStyleCatalog.CreateDefault())
+    {
+    }
+
+    public RoadGraphV3Application(
+        string root,
+        RoadGraphCapacity capacity,
+        V3PayloadBudget budget,
+        RoadTypeStyleCatalogResult catalogResult)
     {
         ArgumentNullException.ThrowIfNull(root);
+        ArgumentNullException.ThrowIfNull(catalogResult);
+        if (!catalogResult.Success || catalogResult.Styles is null)
+            throw new ArgumentException("Catalog must be successful.", nameof(catalogResult));
 
         _root = root;
         _capacity = capacity;
@@ -55,13 +66,22 @@ public sealed class RoadGraphV3Application
         _coordinator = new V3RoadSaveLoadCoordinator(_gate);
         _autosave = new V3SlotAutosaveCoordinator(_gate, new V3SlotAutosaveService());
         _transactionCoordinator = new V3SlotTransactionCoordinator(_gate);
-        DefaultStyles = new RoadStyleProvider(RoadTypeStyleCatalog.CreateDefault());
+        DefaultStyles = new RoadStyleProvider(catalogResult);
         Presentation = new RoadPresentationController(
             new RoadPresentationState(new RoadRenderToken(0, 0, 0, 0, 0, 0)),
             DefaultStyles);
         Controller = new RoadGraphV3Controller(
             new RoadGraphV3Facade(RoadGraphV3Revision.Empty(capacity), 1),
             new RoadEditHistoryV3(100, 100000));
+    }
+
+    public RoadGraphV3Application(
+        string root,
+        RoadGraphCapacity capacity,
+        V3PayloadBudget budget,
+        RoadConfigV3 config) : this(root, capacity, budget, config.CreateCatalog())
+    {
+        ArgumentNullException.ThrowIfNull(config);
     }
 
     public bool Save(
