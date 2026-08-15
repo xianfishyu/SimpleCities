@@ -185,6 +185,12 @@
 - 新增 1 个 xUnit 用例；完整测试套件 649/649 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实应用装配与严格 format v1 接入。
 
+### 2026-08-13：8.5/Phase 5 persistence 桥接（部分）
+
+- 新增 `Scripts/Road/V3/RoadGraphV3Persistence.cs`：将 `RoadGraphV3Revision` 序列化为 format v1 JSON，并从 codec 结果重建 revision；保留加载的 `nextID` 作为 allocator watermark。
+- 新增 4 个 xUnit 用例；完整测试套件 653/653 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：严格有界 I/O、manifest v1、独立保存根与真实应用装配（属 `v3-save-system`）。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成
