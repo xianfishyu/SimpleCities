@@ -19,6 +19,8 @@ public sealed class V3SlotIntegrityScannerTests
 
             V3SlotSummary summary = Assert.Single(list);
             Assert.Equal(V3SlotOccupant.CompleteV3, summary.Occupant);
+            Assert.Equal("city-001", summary.DisplayName);
+            Assert.Equal("2026-08-12T08:00:00.0000000Z", summary.Timestamp);
         }
         finally
         {

@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace SimpleCities.Core.V3;
 
 /// <summary>
-/// 扫描 V3 根，使用槽完整性校验对 direct child 分类。
+/// 扫描 V3 根，使用槽完整性校验对 direct child 分类并附带 manifest 摘要。
 /// </summary>
 public static class V3SlotIntegrityScanner
 {
@@ -13,26 +14,45 @@ public static class V3SlotIntegrityScanner
     {
         ArgumentNullException.ThrowIfNull(root);
 
-        var children = new Dictionary<string, V3SlotOccupant>(StringComparer.Ordinal);
+        var summaries = new List<V3SlotSummary>();
         foreach (string directory in Directory.EnumerateDirectories(root))
         {
             string name = Path.GetFileName(directory);
             if (!V3SlotId.IsValid(name))
             {
-                children[name] = V3SlotOccupant.Unsafe;
+                summaries.Add(new V3SlotSummary(name, name, V3SlotOccupant.Unsafe, null));
                 continue;
             }
 
-            if (!File.Exists(Path.Combine(directory, V3SlotReader.ManifestFileName)))
+            string manifestPath = Path.Combine(directory, V3SlotReader.ManifestFileName);
+            if (!File.Exists(manifestPath))
             {
-                children[name] = V3SlotOccupant.Foreign;
+                summaries.Add(new V3SlotSummary(name, name, V3SlotOccupant.Foreign, null));
                 continue;
             }
 
-            V3SlotIntegrityResult integrity = V3SlotIntegrity.Verify(directory);
-            children[name] = integrity.Success ? V3SlotOccupant.CompleteV3 : V3SlotOccupant.CorruptV3;
+            if (!V3SlotIntegrity.Verify(directory).Success)
+            {
+                summaries.Add(new V3SlotSummary(name, name, V3SlotOccupant.CorruptV3, null));
+                continue;
+            }
+
+            V3ManifestCodecResult manifestResult = V3ManifestStrictFileReader.Read(manifestPath);
+            if (!manifestResult.Success || manifestResult.Manifest is null)
+            {
+                summaries.Add(new V3SlotSummary(name, name, V3SlotOccupant.CorruptV3, null));
+                continue;
+            }
+
+            summaries.Add(new V3SlotSummary(
+                name,
+                manifestResult.Manifest.DisplayName,
+                V3SlotOccupant.CompleteV3,
+                manifestResult.Manifest.Timestamp));
         }
 
-        return V3SlotLister.List(children);
+        return summaries
+            .OrderBy(summary => summary.SlotId, StringComparer.Ordinal)
+            .ToList();
     }
 }
