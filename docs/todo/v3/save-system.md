@@ -125,6 +125,12 @@
 - 新增 3 个 xUnit 用例；完整测试套件 747/747 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：同句柄 length/hash/EOF、严格 format v1 reader 与 coordinator。
 
+### 2026-08-13：2.2 槽聚合验证（部分）
+
+- 新增 `Scripts/Core/V3/V3SlotVerifier.cs`：manifest 校验 + 文件集合匹配 + 每个 payload length/hash 校验的聚合验证。
+- 新增 4 个 xUnit 用例；完整测试套件 751/751 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：同句柄读取/计数/hash/EOF、严格 format v1 reader 与 coordinator。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
