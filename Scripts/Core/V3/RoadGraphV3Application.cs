@@ -131,6 +131,18 @@ public sealed class RoadGraphV3Application
         out bool saved) =>
         _autosave.TryAutosave(slotId, _root, revision, hasNewerSuccess, out saved);
 
+    public V3AutosaveDecision TryAutosaveCurrent(
+        RoadGraphV3Revision revision,
+        bool hasNewerSuccess,
+        out bool saved)
+    {
+        saved = false;
+        if (string.IsNullOrEmpty(CurrentSlotID))
+            return V3AutosaveDecision.SkipBusy;
+
+        return TryAutosave(CurrentSlotID, revision, hasNewerSuccess, out saved);
+    }
+
     public bool Delete(string slotId) => _transactionCoordinator.Delete(slotId, _root).Success;
 
     public bool DeleteCurrentSlot()

@@ -201,6 +201,52 @@ public sealed class RoadGraphV3ApplicationTests
     }
 
     [Fact]
+    public void TryAutosaveCurrent_WhenCurrentSlotSet_Saves()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            app.Controller.ReplaceWithFullReset(CreateRevision(), 1);
+            Assert.True(app.Save("city-001", "n", "n", "2026-08-12T08:00:00.0000000Z", null, null, null));
+
+            V3AutosaveDecision decision = app.TryAutosaveCurrent(
+                app.Controller.Facade.Revision,
+                hasNewerSuccess: false,
+                out bool saved);
+
+            Assert.Equal(V3AutosaveDecision.RunNow, decision);
+            Assert.True(saved);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
+    public void TryAutosaveCurrent_WhenNoCurrentSlot_Skips()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+
+            V3AutosaveDecision decision = app.TryAutosaveCurrent(
+                CreateRevision(),
+                hasNewerSuccess: false,
+                out bool saved);
+
+            Assert.Equal(V3AutosaveDecision.SkipBusy, decision);
+            Assert.False(saved);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void DeleteCurrentSlot_RemovesAndClearsSlot()
     {
         string root = GetTempRoot();
