@@ -239,6 +239,12 @@
 - 新增 3 个 xUnit 用例；完整测试套件 815/815 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：同句柄 length/hash/EOF、严格 format v1 reader 与完整 coordinator。
 
+### 2026-08-13：2.2 严格道路 payload reader（部分）
+
+- 新增 `Scripts/Core/V3/V3StrictRoadPayloadReader.cs`：结合 format v1 codec 与分层预算读取道路 payload，字节/实体超限拒绝。
+- 新增 3 个 xUnit 用例；完整测试套件 818/818 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：同句柄 length/hash/EOF、完整严格 token reader 与真实 coordinator。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
