@@ -300,6 +300,17 @@ public sealed class RoadGraphV3Controller
         _history.Clear();
     }
 
+    public bool TryUndo(GraphStateToken expectedToken, out RoadGraphV3ChangeSummary summary)
+    {
+        if (!_facade.CurrentToken.Matches(expectedToken))
+        {
+            summary = null!;
+            return false;
+        }
+
+        return TryUndo(out summary);
+    }
+
     public bool TryUndo(out RoadGraphV3ChangeSummary summary)
     {
         if (!_history.TryUndo(out RoadGraphV3Delta delta))
@@ -309,6 +320,17 @@ public sealed class RoadGraphV3Controller
         }
 
         return _facade.TryApplyDelta(delta.Invert(), out summary);
+    }
+
+    public bool TryRedo(GraphStateToken expectedToken, out RoadGraphV3ChangeSummary summary)
+    {
+        if (!_facade.CurrentToken.Matches(expectedToken))
+        {
+            summary = null!;
+            return false;
+        }
+
+        return TryRedo(out summary);
     }
 
     public bool TryRedo(out RoadGraphV3ChangeSummary summary)

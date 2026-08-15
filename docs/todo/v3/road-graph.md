@@ -263,6 +263,12 @@
 - 新增 2 个 xUnit 用例；完整测试套件 1002/1002 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实应用装配与严格 format v1 接入。
 
+### 2026-08-13：8.5 token 校验 undo/redo（部分）
+
+- `RoadGraphV3Controller` 增加 `TryUndo(GraphStateToken, ...)` / `TryRedo(GraphStateToken, ...)` 重载，仅在调用方 token 与当前状态完全匹配时执行，过期 token 无副作用失败。
+- 新增 2 个 xUnit 用例；完整测试套件 1004/1004 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实应用装配与严格 format v1 接入。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成

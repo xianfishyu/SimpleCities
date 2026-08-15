@@ -21,6 +21,29 @@ public sealed class RoadGraphV3ControllerTests
     }
 
     [Fact]
+    public void TryUndo_WithCurrentToken_Succeeds()
+    {
+        var controller = CreateController();
+        controller.TryAddNode(Vector2.Zero, out _);
+        GraphStateToken beforeUndo = controller.Facade.CurrentToken;
+
+        Assert.True(controller.TryUndo(beforeUndo, out _));
+        Assert.Empty(controller.Facade.Revision.Nodes);
+    }
+
+    [Fact]
+    public void TryUndo_WithStaleToken_FailsWithoutChanges()
+    {
+        var controller = CreateController();
+        controller.TryAddNode(Vector2.Zero, out _);
+        GraphStateToken stale = new(99, 99, 99);
+        int nodeCount = controller.Facade.Revision.Nodes.Count;
+
+        Assert.False(controller.TryUndo(stale, out _));
+        Assert.Equal(nodeCount, controller.Facade.Revision.Nodes.Count);
+    }
+
+    [Fact]
     public void RemoveEdge_Undo_RestoresEdge()
     {
         var controller = CreateController();
