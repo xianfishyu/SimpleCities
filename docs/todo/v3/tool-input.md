@@ -55,6 +55,13 @@
 - 新增 6 个 xUnit 用例；完整测试套件 1026/1026 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：`RoadBuilder` 真实接线与 surface hit 选择。
 
+### 2026-08-13：2.0 场景最小输入处理器（部分）
+
+- 新增 `Scripts/Road/V3/RoadGraphV3InputHandler.cs`：左键点击时在鼠标位置建造一小段当前类型道路，用于场景内验证 V3 建造管线。
+- 已将 `RoadGraphV3InputHandler` 作为 `RoadGraphV3System` 子节点加入 `Scenes/MapTest.tscn`；编辑器加载与冻结运行无 stderr 错误。
+- 完整测试套件 1042/1042 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实连续铺路会话、闭环手势与 surface hit 选择。
+
 ## 执行顺序
 
 ### 阶段 3：第三代闭环、类型化建造与道路改造

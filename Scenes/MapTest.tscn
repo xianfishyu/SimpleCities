@@ -13,6 +13,7 @@
 [ext_resource type="Script" uid="uid://cvay56qknqh8a" path="res://Scripts/Road/V3/RoadGraphV3System.cs" id="10_v3sys"]
 [ext_resource type="Resource" uid="uid://crqcb2p5m0m77" path="res://Scenes/road_config_v3.tres" id="11_v3cfg"]
 [ext_resource type="Script" uid="uid://by1b1p4ct0di5" path="res://Scripts/Road/V3/RoadGraphV3Renderer.cs" id="12_v3renderer"]
+[ext_resource type="Script" uid="uid://dc5tm72h4y70d" path="res://Scripts/Road/V3/RoadGraphV3InputHandler.cs" id="13_v3input"]
 
 [node name="MapTest" type="Node2D" unique_id=1358314178]
 
@@ -49,6 +50,9 @@ Config = ExtResource("11_v3cfg")
 
 [node name="RoadGraphV3Renderer" type="Node2D" parent="RoadGraphV3System" unique_id=1234567891]
 script = ExtResource("12_v3renderer")
+
+[node name="RoadGraphV3InputHandler" type="Node2D" parent="RoadGraphV3System" unique_id=1234567892]
+script = ExtResource("13_v3input")
 
 [node name="GameHUD" parent="." unique_id=1361946814 instance=ExtResource("9_hudscene")]
 Config = ExtResource("8_roadcfg")
