@@ -505,6 +505,12 @@
 - 新增 1 个 xUnit 用例；完整测试套件 923/923 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实应用装配与端到端 Load commit。
 
+### 2026-08-13：2.3 autosave 协调器（部分）
+
+- 新增 `Scripts/Core/V3/V3SlotAutosaveCoordinator.cs`：根据进程内 gate 是否可获取推导 `isBusy`，并在 gate 持有期间保持 autosave 合并策略。
+- 新增 4 个 xUnit 用例；完整测试套件 927/927 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实应用装配与端到端 Load commit。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
