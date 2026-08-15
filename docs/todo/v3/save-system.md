@@ -541,6 +541,12 @@
 - 更新 1 个 xUnit 用例断言；完整测试套件 935/935 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实 Godot 场景装配与端到端 Load commit。
 
+### 2026-08-13：2.1 槽 manifest 服务直接严格读取（更新）
+
+- `V3SlotManifestService.GetManifest` 改为直接读取 `manifest.json` 并执行严格 reader，不再加载整个槽的 payload。
+- 完整测试套件 935/935 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实 Godot 场景装配与端到端 Load commit。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
