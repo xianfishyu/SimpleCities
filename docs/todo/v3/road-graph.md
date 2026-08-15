@@ -118,6 +118,12 @@
 - 新增 4 个 xUnit 用例；完整测试套件 600/600 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：将 delta 接入 mutation plan、有界历史与 undo/redo token 校验。
 
+### 2026-08-13：8.5/10.7 有界 delta 历史（部分）
+
+- 新增 `Scripts/Road/V3/RoadEditHistoryV3.cs`：`RoadGraphV3DeltaSizeEstimator` 与 `RoadEditHistoryV3`；按 entry 数与估算字节双预算淘汰最旧 undo，单条超预算拒绝入历史，push 清空 redo。
+- 新增 6 个 xUnit 用例；完整测试套件 606/606 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：将历史接入真实 mutation、undo/redo token 校验与 full-reset 清空。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成
