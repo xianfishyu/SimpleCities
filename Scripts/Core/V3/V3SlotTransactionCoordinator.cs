@@ -54,6 +54,21 @@ public sealed class V3SlotTransactionCoordinator
         }
     }
 
+    public IReadOnlyList<V3SlotSummary> List(string root)
+    {
+        if (!_gate.TryAcquire(out Guid operationId))
+            return [];
+
+        try
+        {
+            return V3SlotListService.List(root);
+        }
+        finally
+        {
+            _gate.Release(operationId);
+        }
+    }
+
     public bool Recover(string slotId, string root, string backupRoot)
     {
         if (!_gate.TryAcquire(out Guid operationId))
