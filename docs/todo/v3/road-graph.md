@@ -130,6 +130,12 @@
 - 新增 6 个 xUnit 用例；完整测试套件 612/612 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：将 fragment 接入空间索引、容量门禁与局部查询基准。
 
+### 2026-08-13：8.2 uniform grid 空间索引骨架（部分）
+
+- 新增 `Scripts/Road/V3/RoadSpatialIndexV3.cs`：按 query fragment 保守 bounds 放入 uniform grid bucket，支持 radius/rect 查询、容量门禁（fragment/bucket/ref）与查询候选计数；后续再接长 geometry 参数区间切分。
+- 新增 6 个 xUnit 用例；完整测试套件 618/618 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：长 Edge 参数区间 fragment 切分、局部查询基准与真实 RoadGraph 接线。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成
