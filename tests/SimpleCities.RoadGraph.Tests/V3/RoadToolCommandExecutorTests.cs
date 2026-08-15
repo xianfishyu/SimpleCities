@@ -53,6 +53,23 @@ public sealed class RoadToolCommandExecutorTests
         Assert.Equal(RoadType.Arterial, controller.Facade.Revision.Edges[edgeIDs[1]].RoadType);
     }
 
+    [Fact]
+    public void TryUpgrade_MissingEdge_FailsWithoutChanges()
+    {
+        var controller = CreateController();
+        controller.TryAddNode(Vector2.Zero, out _);
+        controller.TryAddNode(new Vector2(1f, 0f), out _);
+        var nodes = controller.Facade.Revision.Nodes.Values.ToArray();
+        controller.TryAddEdge(nodes[0].ID, nodes[1].ID, [new LineRoadGeometrySegment(nodes[0].Position, nodes[1].Position)], RoadType.Street, out _);
+        int edgeID = controller.Facade.Revision.Edges.Keys.Single();
+        var session = new RoadUpgradeSessionV3(RoadType.Highway);
+        session.TrySelectEdge(999);
+        var executor = new RoadToolCommandExecutor(controller);
+
+        Assert.False(executor.TryUpgrade(session, out _));
+        Assert.Equal(RoadType.Street, controller.Facade.Revision.Edges[edgeID].RoadType);
+    }
+
     private static RoadGraphV3Controller CreateController() =>
         new(
             new RoadGraphV3Facade(RoadGraphV3Revision.Empty(RoadGraphCapacity.Default)),

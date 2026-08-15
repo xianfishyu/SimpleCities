@@ -33,6 +33,12 @@ public sealed class RoadToolCommandExecutor
         if (!session.TryCommit(out IReadOnlyList<int> edgeIDs) || edgeIDs.Count == 0)
             return false;
 
+        foreach (int edgeID in edgeIDs)
+        {
+            if (!_controller.Facade.Revision.Edges.ContainsKey(edgeID))
+                return false;
+        }
+
         var changed = new List<int>();
         foreach (int edgeID in edgeIDs)
         {
