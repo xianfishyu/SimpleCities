@@ -58,6 +58,12 @@ public partial class RoadGraphV3System : Node2D
         out RoadGraphV3ChangeSummary summary) =>
         Application.TryUpgradeEdges(edgeIDs, targetType, out summary);
 
+    public bool TryChangeRoadType(
+        int edgeID,
+        RoadType targetType,
+        out RoadGraphV3ChangeSummary summary) =>
+        Application.TryChangeRoadType(edgeID, targetType, out summary);
+
     public bool TryRemoveEdges(
         System.Collections.Generic.IReadOnlyList<int> edgeIDs,
         out RoadGraphV3ChangeSummary summary) =>
