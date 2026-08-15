@@ -33,8 +33,11 @@ public partial class RoadGraphV3InputHandler : Node2D
                          position.DistanceTo(_session.StartPosition) <= CloseRadius)
                 {
                     _session.TryClose();
-                    system.TryBuild(_session, out _);
-                    _session = null;
+                    if (!_session.HasSelfIntersection)
+                    {
+                        system.TryBuild(_session, out _);
+                        _session = null;
+                    }
                 }
                 else
                 {
@@ -59,7 +62,7 @@ public partial class RoadGraphV3InputHandler : Node2D
             _session is not null)
         {
             RoadGraphV3System? system = RoadGraphV3System.Instance;
-            if (system is not null)
+            if (system is not null && !_session.HasSelfIntersection)
                 system.TryBuild(_session, out _);
             _session = null;
         }
