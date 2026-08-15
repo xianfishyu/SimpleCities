@@ -131,6 +131,12 @@
 - 新增 4 个 xUnit 用例；完整测试套件 751/751 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：同句柄读取/计数/hash/EOF、严格 format v1 reader 与 coordinator。
 
+### 2026-08-13：2.2 delete descriptor（部分）
+
+- 新增 `Scripts/Core/V3/V3DeleteDescriptor.cs`：不可变删除 descriptor（operation/slot/digest/tombstone/confirmation）与基础校验。
+- 新增 3 个 xUnit 用例；完整测试套件 754/754 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：delete 恢复/清理矩阵、同句柄校验与 coordinator。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
