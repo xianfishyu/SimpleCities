@@ -95,6 +95,12 @@
 - 新增 4 个 xUnit 用例；完整测试套件 728/728 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：coordinator/gate/lock、取消边界与 prepared aggregate 协议。
 
+### 2026-08-13：2.2 事务路径派生（部分）
+
+- 新增 `Scripts/Core/V3/V3TransactionPath.cs`：从已验证 root 派生 operation-specific transaction 目录及 staging/backup/publish.json 路径，拒绝非法 slot/operation。
+- 新增 4 个 xUnit 用例；完整测试套件 732/732 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：publish descriptor 内容/恢复矩阵、同句柄校验与 coordinator。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
