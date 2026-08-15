@@ -245,6 +245,12 @@
 - 新增 3 个 xUnit 用例；完整测试套件 818/818 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：同句柄 length/hash/EOF、完整严格 token reader 与真实 coordinator。
 
+### 2026-08-13：2.2 文件 payload 同句柄校验（部分）
+
+- 新增 `Scripts/Core/V3/V3FilePayloadVerifier.cs`：从文件路径读取字节并执行同句柄 length/hash/EOF 校验。
+- 新增 3 个 xUnit 用例；完整测试套件 821/821 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：完整严格 token reader、真实 coordinator 与完整 Load commit 协议。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
