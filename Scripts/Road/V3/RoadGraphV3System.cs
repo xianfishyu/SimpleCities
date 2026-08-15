@@ -13,6 +13,12 @@ public partial class RoadGraphV3System : Node2D
     public RoadGraphV3Controller Controller => Application.Controller;
     public RoadToolState ToolState => Application.ToolState;
 
+    public bool TryBuildFromPolyline(
+        System.Collections.Generic.IReadOnlyList<Vector2> points,
+        RoadType roadType,
+        out RoadGraphV3ChangeSummary summary) =>
+        Application.TryBuildFromPolyline(points, roadType, out summary);
+
     public override void _Ready()
     {
         string root = ProjectSettings.GlobalizePath(V3SaveRoot.EditorRoot);
