@@ -161,6 +161,12 @@
 - 新增 4 个 xUnit 用例；完整测试套件 768/768 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：跨进程 lock、取消边界、真实 coordinator 与完整 Load commit 协议。
 
+### 2026-08-13：2.3 根锁路径（部分）
+
+- 新增 `Scripts/Core/V3/V3SaveRootLock.cs`：返回 `<root>/.save-root.lock` 路径，供跨进程排他目录事务使用。
+- 新增 3 个 xUnit 用例；完整测试套件 771/771 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：跨进程 lock 实现、取消边界、真实 coordinator 与完整 Load commit 协议。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
