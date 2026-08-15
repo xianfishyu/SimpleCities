@@ -9,6 +9,7 @@ public partial class RoadGraphV3System : Node2D
 {
     [Export] public RoadConfigV3 Config { get; set; } = null!;
 
+    public static RoadGraphV3System Instance { get; private set; } = null!;
     public RoadGraphV3Application Application { get; private set; } = null!;
     public RoadGraphV3Controller Controller => Application.Controller;
     public RoadToolState ToolState => Application.ToolState;
@@ -21,9 +22,16 @@ public partial class RoadGraphV3System : Node2D
 
     public override void _Ready()
     {
+        Instance = this;
         string root = ProjectSettings.GlobalizePath(V3SaveRoot.EditorRoot);
         Application = Config is not null
             ? new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default, Config)
             : new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+    }
+
+    public override void _ExitTree()
+    {
+        if (ReferenceEquals(Instance, this))
+            Instance = null!;
     }
 }
