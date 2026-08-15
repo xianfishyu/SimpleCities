@@ -472,6 +472,23 @@ public sealed class RoadGraphV3ApplicationTests
     }
 
     [Fact]
+    public void TryAddNode_AddsNode()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+
+            Assert.True(app.TryAddNode(Vector2.Zero, out _));
+            Assert.Single(app.Controller.Facade.Revision.Nodes);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void TryChangeRoadType_ChangesSingleEdge()
     {
         string root = GetTempRoot();

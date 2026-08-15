@@ -173,6 +173,9 @@ public sealed class RoadGraphV3Application
 
     public bool TryRedo(out RoadGraphV3ChangeSummary summary) => Controller.TryRedo(out summary);
 
+    public bool TryAddNode(Vector2 position, out RoadGraphV3ChangeSummary summary) =>
+        Controller.TryAddNode(position, out summary);
+
     public bool TryBuild(RoadPlacementSessionV3 session, out RoadGraphV3ChangeSummary summary) =>
         TryBuild(session, 0f, out summary);
 
