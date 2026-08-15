@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace SimpleCities.Road.V3;
 
@@ -89,6 +90,40 @@ public sealed class RoadGraphV3Facade
         }
 
         Commit(next, out summary, updatedEdgeIDs: [edgeID]);
+        return true;
+    }
+
+    public bool TryNormalize(out RoadGraphV3ChangeSummary summary)
+    {
+        RoadGraphV3Revision next = RoadGraphV3Canonicalizer.Canonicalize(_revision);
+        if (next.Nodes.Count == _revision.Nodes.Count &&
+            next.Edges.Count == _revision.Edges.Count &&
+            next.Edges.Keys.Order().SequenceEqual(_revision.Edges.Keys.Order()))
+        {
+            summary = null!;
+            return false;
+        }
+
+        int[] removedNodeIDs = _revision.Nodes.Keys.Except(next.Nodes.Keys).ToArray();
+        int[] createdNodeIDs = next.Nodes.Keys.Except(_revision.Nodes.Keys).ToArray();
+        int[] removedEdgeIDs = _revision.Edges.Keys.Except(next.Edges.Keys).ToArray();
+        int[] createdEdgeIDs = next.Edges.Keys.Except(_revision.Edges.Keys).ToArray();
+        int[] updatedEdgeIDs = _revision.Edges.Keys
+            .Intersect(next.Edges.Keys)
+            .Where(id => _revision.Edges[id].RoadType != next.Edges[id].RoadType)
+            .ToArray();
+
+        _revision = next;
+        _domainRevisionID++;
+        _changeSequence++;
+        summary = RoadGraphV3ChangeSummaryFactory.Incremental(
+            createdNodeIDs,
+            removedNodeIDs,
+            [],
+            createdEdgeIDs,
+            removedEdgeIDs,
+            updatedEdgeIDs,
+            _changeSequence);
         return true;
     }
 

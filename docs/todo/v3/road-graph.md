@@ -197,6 +197,12 @@
 - 新增 5 个 xUnit 用例；完整测试套件 658/658 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：将 canonicalizer 接入 facade mutation 后的自动规范化与 delta 摘要。
 
+### 2026-08-13：8.5 facade 自动规范化（部分）
+
+- 在 `RoadGraphV3Facade` 增加 `TryNormalize()`：应用 `RoadGraphV3Canonicalizer`，有变化时递增 DomainRevisionID/ChangeSequence 并生成增量摘要。
+- 新增 2 个 xUnit 用例；完整测试套件 804/804 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：将自动规范化接入 controller mutation 后自动调用与完整 delta 历史记录。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成
