@@ -243,6 +243,9 @@ public sealed class RoadGraphV3Application
         out RoadGraphV3ChangeSummary summary) =>
         Controller.TryRemoveSelection(edgeIDs, out summary);
 
+    public bool TryRemoveEdge(int edgeID, out RoadGraphV3ChangeSummary summary) =>
+        Controller.TryRemoveEdge(edgeID, out summary);
+
     public V3AutosaveDecision TryAutosave(
         string slotId,
         RoadGraphV3Revision revision,
