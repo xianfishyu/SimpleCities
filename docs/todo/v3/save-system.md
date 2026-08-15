@@ -71,6 +71,12 @@
 - 新增 4 个 xUnit 用例；完整测试套件 697/697 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：同句柄读取/计数/hash/EOF、严格 reader 与保存根 coordinator。
 
+### 2026-08-13：2.3 operation token/result 类型（部分）
+
+- 新增 `Scripts/Core/V3/V3SaveOperation.cs`：`V3SaveOperationKind` / `Phase` / `Token` / `Result`，区分 Publish/Load/Delete，提供成功、提交前失败、observer warning 结果。
+- 新增 4 个 xUnit 用例；完整测试套件 701/701 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：coordinator、gate/lock、取消边界与 prepared aggregate 协议。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
