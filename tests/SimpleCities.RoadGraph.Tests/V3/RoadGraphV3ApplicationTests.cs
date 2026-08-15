@@ -427,6 +427,53 @@ public sealed class RoadGraphV3ApplicationTests
     }
 
     [Fact]
+    public void TryUpgradeEdges_ChangesEdges()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            app.Controller.TryAddNode(Vector2.Zero, out _);
+            app.Controller.TryAddNode(new Vector2(1f, 0f), out _);
+            app.Controller.TryAddNode(new Vector2(1f, 1f), out _);
+            var nodes = app.Controller.Facade.Revision.Nodes.Values.ToArray();
+            app.Controller.TryAddEdge(nodes[0].ID, nodes[1].ID, [new LineRoadGeometrySegment(nodes[0].Position, nodes[1].Position)], RoadType.Street, out _);
+            app.Controller.TryAddEdge(nodes[1].ID, nodes[2].ID, [new LineRoadGeometrySegment(nodes[1].Position, nodes[2].Position)], RoadType.Arterial, out _);
+            int[] edgeIDs = app.Controller.Facade.Revision.Edges.Keys.Order().ToArray();
+            app.Controller.History.Clear();
+
+            Assert.True(app.TryUpgradeEdges(edgeIDs, RoadType.Highway, out _));
+            Assert.All(app.Controller.Facade.Revision.Edges.Values, edge => Assert.Equal(RoadType.Highway, edge.RoadType));
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
+    public void TryRemoveEdges_RemovesEdges()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            Assert.True(app.TryBuildFromPolyline(
+                [Vector2.Zero, new Vector2(1f, 0f)],
+                RoadType.Street,
+                out _));
+            int edgeID = app.Controller.Facade.Revision.Edges.Keys.Single();
+
+            Assert.True(app.TryRemoveEdges([edgeID], out _));
+            Assert.Empty(app.Controller.Facade.Revision.Edges);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void Revision_ReturnsCurrentControllerRevision()
     {
         string root = GetTempRoot();

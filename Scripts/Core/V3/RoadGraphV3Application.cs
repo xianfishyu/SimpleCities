@@ -211,8 +211,19 @@ public sealed class RoadGraphV3Application
     public bool TryUpgrade(RoadUpgradeSessionV3 session, out IReadOnlyList<int> changedEdgeIDs) =>
         new RoadToolCommandExecutor(Controller).TryUpgrade(session, out changedEdgeIDs);
 
+    public bool TryUpgradeEdges(
+        IReadOnlyList<int> edgeIDs,
+        RoadType targetType,
+        out RoadGraphV3ChangeSummary summary) =>
+        Controller.TryUpgradeSelection(edgeIDs, targetType, out summary);
+
     public bool TryRemove(RoadRemovalSessionV3 session, out IReadOnlyList<int> removedEdgeIDs) =>
         new RoadToolCommandExecutor(Controller).TryRemove(session, out removedEdgeIDs);
+
+    public bool TryRemoveEdges(
+        IReadOnlyList<int> edgeIDs,
+        out RoadGraphV3ChangeSummary summary) =>
+        Controller.TryRemoveSelection(edgeIDs, out summary);
 
     public V3AutosaveDecision TryAutosave(
         string slotId,
