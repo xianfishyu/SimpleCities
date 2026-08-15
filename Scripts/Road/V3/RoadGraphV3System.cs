@@ -12,6 +12,7 @@ public partial class RoadGraphV3System : Node2D
     public static RoadGraphV3System Instance { get; private set; } = null!;
     public RoadGraphV3Application Application { get; private set; } = null!;
     public RoadGraphV3Controller Controller => Application.Controller;
+    public RoadGraphV3Revision Revision => Application.Revision;
     public RoadToolState ToolState => Application.ToolState;
 
     public bool TryBuildFromPolyline(
