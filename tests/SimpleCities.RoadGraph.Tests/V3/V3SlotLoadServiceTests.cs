@@ -70,6 +70,33 @@ public sealed class V3SlotLoadServiceTests
         }
     }
 
+    [Fact]
+    public void Load_PayloadDigestMismatch_Fails()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            RoadGraphV3Revision revision = CreateRevision();
+            V3RoadSlotBundle bundle = V3RoadSlotFactory.Create("city-001", "n", "n", "2026-08-12T08:00:00.0000000Z", null, null, null, revision);
+            var store = new V3FileSlotStore(root);
+            store.Save("city-001", bundle.Manifest, bundle.Payloads);
+
+            RoadGraphV3Revision modified = CreateRevisionWithExtraNode();
+            File.WriteAllText(
+                Path.Combine(root, "city-001", V3RoadSlotFactory.RoadNetworkFileName),
+                RoadGraphV3Persistence.Serialize(modified));
+
+            V3SlotLoadServiceResult result = V3SlotLoadService.Load("city-001", root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+
+            Assert.False(result.Success);
+            Assert.Equal("PayloadDigestMismatch:road_network.json", result.Error);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
     private static string GetTempRoot() =>
         Path.Combine(Path.GetTempPath(), $"v3-loadsvc-{Guid.NewGuid():N}");
 
@@ -92,6 +119,13 @@ public sealed class V3SlotLoadServiceTests
         revision.TryAddNode(Vector2.Zero, out revision, out int a);
         revision.TryAddNode(new Vector2(1f, 0f), out revision, out int b);
         revision.TryAddEdge(a, b, [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(1f, 0f))], RoadType.Street, out revision, out _);
+        return revision;
+    }
+
+    private static RoadGraphV3Revision CreateRevisionWithExtraNode()
+    {
+        RoadGraphV3Revision revision = CreateRevision();
+        revision.TryAddNode(new Vector2(2f, 0f), out revision, out _);
         return revision;
     }
 }

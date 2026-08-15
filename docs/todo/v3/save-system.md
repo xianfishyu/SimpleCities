@@ -450,6 +450,12 @@
 - 新增 7 个 xUnit 用例；完整测试套件 911/911 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实应用装配与端到端 Load commit。
 
+### 2026-08-13：2.2 槽加载 payload 摘要校验（部分）
+
+- `V3SlotLoadService` 在解析 road payload 前先按 manifest `Files` 校验每个 payload 的存在性与 SHA-256/长度，防止未列文件缺失或摘要不符仍进入图解析。
+- 新增 1 个 xUnit 用例；完整测试套件 912/912 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实应用装配与端到端 Load commit。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议

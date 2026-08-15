@@ -26,8 +26,16 @@ public static class V3SlotLoadService
         ArgumentNullException.ThrowIfNull(root);
 
         V3SlotReadResult read = new V3FileSlotStore(root).Load(slotId);
-        if (!read.Success || read.Payloads is null)
+        if (!read.Success || read.Manifest is null || read.Payloads is null)
             return V3SlotLoadServiceResult.Failure(read.Error ?? "LoadFailed");
+
+        foreach (V3ManifestFile file in read.Manifest.Files)
+        {
+            if (!read.Payloads.TryGetValue(file.Name, out byte[]? fileBytes))
+                return V3SlotLoadServiceResult.Failure($"MissingPayload:{file.Name}");
+            if (!V3PayloadDigest.Matches(file, fileBytes))
+                return V3SlotLoadServiceResult.Failure($"PayloadDigestMismatch:{file.Name}");
+        }
 
         if (!read.Payloads.TryGetValue(V3RoadSlotFactory.RoadNetworkFileName, out byte[]? payloadBytes))
             return V3SlotLoadServiceResult.Failure("MissingRoadPayload");
