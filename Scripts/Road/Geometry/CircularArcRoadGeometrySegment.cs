@@ -11,9 +11,12 @@ public sealed class CircularArcRoadGeometrySegment : RoadGeometrySegment
     public float StartAngle { get; }
     public float SweepAngle { get; }
     public override Vector2 Start => PositionAtAngle(StartAngle);
-    public override Vector2 End => PositionAtAngle(StartAngle + SweepAngle);
+    public override Vector2 End => IsFullTurn ? Start : PositionAtAngle(StartAngle + SweepAngle);
     public override float Length => Radius * Mathf.Abs(SweepAngle);
     public override Rect2 Bounds { get; }
+
+    /// <summary>只有 sweep 绝对值与 canonical binary32 Tau 逐 bit 相等时才是 full-turn。</summary>
+    public bool IsFullTurn => IsExactFullTurn(SweepAngle);
 
     public CircularArcRoadGeometrySegment(
         Vector2 center,
@@ -40,12 +43,16 @@ public sealed class CircularArcRoadGeometrySegment : RoadGeometrySegment
     public override Vector2 GetPosition(float parameter)
     {
         EnsureParameterInDomain(parameter);
+        if (IsFullTurn && parameter == ParameterEnd)
+            return Start;
         return PositionAtAngle(StartAngle + SweepAngle * parameter);
     }
 
     public override Vector2 GetUnitTangent(float parameter)
     {
         EnsureParameterInDomain(parameter);
+        if (IsFullTurn && parameter == ParameterEnd)
+            return GetUnitTangent(ParameterStart);
         float angle = StartAngle + SweepAngle * parameter;
         float direction = Mathf.Sign(SweepAngle);
         return direction * new Vector2(-Mathf.Sin(angle), Mathf.Cos(angle));
@@ -114,4 +121,8 @@ public sealed class CircularArcRoadGeometrySegment : RoadGeometrySegment
 
     private Vector2 PositionAtAngle(float angle) =>
         Center + Radius * new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
+
+    private static bool IsExactFullTurn(float sweepAngle) =>
+        float.IsFinite(sweepAngle) &&
+        BitConverter.SingleToInt32Bits(MathF.Abs(sweepAngle)) == BitConverter.SingleToInt32Bits(Mathf.Tau);
 }

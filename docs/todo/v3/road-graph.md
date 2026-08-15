@@ -36,13 +36,19 @@
   - `ExactLinePredicates.cs`：`BitwiseEquals`、`Orient2D`、同向 dot 与 line 无损合并谓词。
   - `RoadType.cs`：稳定 `Dirt/Street/Arterial/Highway` 与 wire name 映射。
 - 新增 `tests/SimpleCities.RoadGraph.Tests/V3/` 共 19 个 xUnit 用例，覆盖 `-0`、full-turn 边界、容量校验、ID 耗尽/预留和 1 ULP 折点不合并；完整测试套件 511/511 通过。
-- 尚未完成（仍属 8.0）：交点 cluster 确定性、canonicalizer 幂等、full-turn 接入 `CircularArcRoadGeometrySegment`、mutation/load 容量接线。
+- 尚未完成（仍属 8.0）：交点 cluster 确定性、canonicalizer 幂等、mutation/load 容量接线。
 
 ### 2026-08-13：8.0 NodeSnap（部分）
 
 - 新增 `Scripts/Road/V3/RoadNodeSnap.cs`：一次解析全部 request anchor，只读不写图；使用受检 double 距离，等距时选择最小 Node ID，`NodeSnapRadius` 与 cluster epsilon 分离。
 - 新增 6 个 xUnit 用例；完整测试套件 539/539 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
-- 尚未完成（仍属 8.0）：交点 cluster 确定性、canonicalizer 幂等、full-turn 接入圆弧、mutation/load 容量接线。
+- 尚未完成（仍属 8.0）：交点 cluster 确定性、canonicalizer 幂等、mutation/load 容量接线。
+
+### 2026-08-13：8.0 full-turn 接入 CircularArc（部分）
+
+- 更新 `Scripts/Road/Geometry/CircularArcRoadGeometrySegment.cs`：`IsFullTurn` 按逐 bit canonical binary32 `+/-Tau` 判定；`End` / `GetPosition(1)` 直接复用 `Start`，`GetUnitTangent(1)` 与起点一致；`BitDecrement(Tau)` 不是 full-turn，`BitIncrement(Tau)` 仍被拒绝。
+- 新增 5 个 xUnit 用例；完整测试套件 544/544 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成（仍属 8.0）：交点 cluster 确定性、canonicalizer 幂等、mutation/load 容量接线。
 
 ### 2026-08-13：8.1 incidence 与原生几何反向基础（部分）
 
