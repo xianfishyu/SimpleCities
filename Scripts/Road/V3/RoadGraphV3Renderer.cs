@@ -9,8 +9,19 @@ public partial class RoadGraphV3Renderer : Node2D
 {
     [Export] public float DisplayTolerance { get; set; } = RoadGeometryDisplaySampler.DefaultTolerance;
 
+    private GraphStateToken? _lastToken;
+
     public override void _Process(double delta)
     {
+        RoadGraphV3System? system = RoadGraphV3System.Instance;
+        if (system is null)
+            return;
+
+        GraphStateToken current = system.Controller.Facade.CurrentToken;
+        if (_lastToken == current)
+            return;
+
+        _lastToken = current;
         QueueRedraw();
     }
 
