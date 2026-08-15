@@ -47,6 +47,9 @@ public partial class RoadGraphV3System : Node2D
     public bool DeleteCurrentSlot() =>
         Application.DeleteCurrentSlot();
 
+    public SimpleCities.Core.V3.V3Manifest? GetManifest(string slotId) =>
+        Application.GetManifest(slotId);
+
     public override void _Ready()
     {
         Instance = this;
