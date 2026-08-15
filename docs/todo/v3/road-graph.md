@@ -160,6 +160,12 @@
 - 新增 2 个 xUnit 用例；完整测试套件 637/637 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：结构共享优化、delta 历史接入与真实应用装配。
 
+### 2026-08-13：8.5/10.7 delta applier（部分）
+
+- 新增 `Scripts/Road/V3/RoadGraphV3DeltaApplier.cs`：将可逆 delta 应用到不可变 root，支持 created/removed/updated，allocator watermark 只前进不回退；失败时返回原 revision。
+- 新增 5 个 xUnit 用例；完整测试套件 642/642 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：将 applier 接入 facade undo/redo 与历史 token 校验。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成

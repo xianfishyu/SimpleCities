@@ -17,10 +17,11 @@ public sealed class RoadGraphV3Revision
 
     public IReadOnlyDictionary<int, RoadGraphV3Node> Nodes => _nodes;
     public IReadOnlyDictionary<int, RoadGraphV3Edge> Edges => _edges;
+    public RoadGraphCapacity Capacity => _capacity;
     public int NextNodeID { get; }
     public int NextEdgeID { get; }
 
-    private RoadGraphV3Revision(
+    internal RoadGraphV3Revision(
         RoadGraphCapacity capacity,
         IReadOnlyDictionary<int, RoadGraphV3Node> nodes,
         IReadOnlyDictionary<int, RoadGraphV3Edge> edges,
