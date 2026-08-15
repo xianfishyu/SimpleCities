@@ -197,6 +197,45 @@ public sealed class RoadGraphV3ApplicationTests
     }
 
     [Fact]
+    public void TryBuildFromPolyline_CreatesEdge()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+
+            Assert.True(app.TryBuildFromPolyline(
+                [Vector2.Zero, new Vector2(1f, 0f), new Vector2(2f, 0f)],
+                RoadType.Highway,
+                out _));
+
+            var edge = Assert.Single(app.Controller.Facade.Revision.Edges.Values);
+            Assert.Equal(2, edge.Geometry.Count);
+            Assert.Equal(RoadType.Highway, edge.RoadType);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
+    public void TryBuildFromPolyline_TooFewPoints_Fails()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+
+            Assert.False(app.TryBuildFromPolyline([Vector2.Zero], RoadType.Street, out _));
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void TryBuild_WithSnapRadius_ReusesNode()
     {
         string root = GetTempRoot();

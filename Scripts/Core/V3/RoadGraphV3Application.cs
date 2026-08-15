@@ -1,3 +1,4 @@
+using Godot;
 using System;
 using System.Collections.Generic;
 using SimpleCities.Road.V3;
@@ -134,6 +135,38 @@ public sealed class RoadGraphV3Application
 
     public bool TryBuild(RoadPlacementSessionV3 session, out RoadGraphV3ChangeSummary summary) =>
         TryBuild(session, 0f, out summary);
+
+    public bool TryBuildFromPolyline(
+        IReadOnlyList<Vector2> points,
+        RoadType roadType,
+        out RoadGraphV3ChangeSummary summary) =>
+        TryBuildFromPolyline(points, roadType, 0f, out summary);
+
+    public bool TryBuildFromPolyline(
+        IReadOnlyList<Vector2> points,
+        RoadType roadType,
+        float snapRadius,
+        out RoadGraphV3ChangeSummary summary)
+    {
+        ArgumentNullException.ThrowIfNull(points);
+        if (points.Count < 2)
+        {
+            summary = null!;
+            return false;
+        }
+
+        var session = new RoadPlacementSessionV3(roadType, points[0]);
+        for (int index = 1; index < points.Count; index++)
+        {
+            if (!session.TryAddPoint(points[index]))
+            {
+                summary = null!;
+                return false;
+            }
+        }
+
+        return TryBuild(session, snapRadius, out summary);
+    }
 
     public bool TryBuild(RoadPlacementSessionV3 session, float snapRadius, out RoadGraphV3ChangeSummary summary) =>
         new RoadToolCommandExecutor(Controller).TryBuild(session, snapRadius, out summary);
