@@ -28,8 +28,8 @@
 ### 2026-08-13：2.1 RoadTypeStyle 数据与目录校验（部分）
 
 - 新增 `Scripts/Road/V3/RoadTypeStyle.cs`：纯 C# 样式数据类，包含稳定 `RoadType`、展示名称、颜色与正有限宽度，并校验非法枚举、空名称、非有限颜色与非正宽度。
-- 新增 `Scripts/Road/V3/RoadTypeStyleCatalog.cs`：校验样式集合恰好覆盖 `Dirt`/`Street`/`Arterial`/`Highway` 且无重复，返回可查询目录。
-- 新增 7 个 xUnit 用例；完整测试套件 942/942 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 新增 `Scripts/Road/V3/RoadTypeStyleCatalog.cs`：校验样式集合恰好覆盖 `Dirt`/`Street`/`Arterial`/`Highway` 且无重复，返回可查询目录，并提供 `CreateDefault()` 默认四类样式。
+- 新增 8 个 xUnit 用例；完整测试套件 943/943 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：Godot `Resource`/`.tres` 封装、`RoadConfig` 接入与真实渲染使用。
 
 ## 执行顺序

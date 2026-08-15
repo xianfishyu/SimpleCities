@@ -1,5 +1,6 @@
 using Godot;
 using SimpleCities.Road.V3;
+using System;
 
 namespace SimpleCities.Tests.V3;
 
@@ -39,6 +40,17 @@ public sealed class RoadTypeStyleTests
         Assert.True(result.Success, result.Error);
         Assert.NotNull(result.Styles);
         Assert.Equal(4, result.Styles!.Count);
+    }
+
+    [Fact]
+    public void Catalog_CreateDefault_Succeeds()
+    {
+        RoadTypeStyleCatalogResult result = RoadTypeStyleCatalog.CreateDefault();
+
+        Assert.True(result.Success, result.Error);
+        Assert.NotNull(result.Styles);
+        Assert.Equal(4, result.Styles!.Count);
+        Assert.All(Enum.GetValues<RoadType>(), type => Assert.Contains(type, result.Styles!.Keys));
     }
 
     [Fact]
