@@ -191,6 +191,12 @@
 - 新增 4 个 xUnit 用例；完整测试套件 653/653 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：严格有界 I/O、manifest v1、独立保存根与真实应用装配（属 `v3-save-system`）。
 
+### 2026-08-13：8.2/8.5 revision canonicalizer（部分）
+
+- 新增 `Scripts/Road/V3/RoadGraphV3Canonicalizer.cs`：将不可变 root 转为 canonical graph，执行 graph canonicalizer，再重建为新 root；链式合并、语义边界保留、self-loop seam 保留。
+- 新增 5 个 xUnit 用例；完整测试套件 658/658 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：将 canonicalizer 接入 facade mutation 后的自动规范化与 delta 摘要。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成
