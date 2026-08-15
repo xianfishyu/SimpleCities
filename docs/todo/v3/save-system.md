@@ -257,6 +257,12 @@
 - 新增 3 个 xUnit 用例；完整测试套件 824/824 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：完整严格 token reader、完整 Load commit 协议与跨进程 coordinator 集成。
 
+### 2026-08-13：2.2 槽完整性校验（部分）
+
+- 新增 `Scripts/Core/V3/V3SlotIntegrity.cs`：验证槽目录的 manifest 与每个 payload 文件同句柄校验。
+- 新增 3 个 xUnit 用例；完整测试套件 827/827 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：完整严格 token reader、完整 Load commit 协议与跨进程 coordinator 集成。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
