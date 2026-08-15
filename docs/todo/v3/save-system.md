@@ -35,6 +35,12 @@
 - 新增 10 个 xUnit 用例；完整测试套件 668/668 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：V3 保存根常量/隔离、manifest v1、format v1 严格 reader 与保存根 coordinator。
 
+### 2026-08-13：2.1 V3 保存根常量（部分）
+
+- 新增 `Scripts/Core/V3/V3SaveRoot.cs`：编辑器/导出统一 `user://saves-v3`，声明 `simple-cities-v3` / schemaVersion 1，并提供 V2 根识别。
+- 新增 4 个 xUnit 用例；完整测试套件 672/672 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：根隔离操作、manifest v1、严格 reader 与保存根 coordinator。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
