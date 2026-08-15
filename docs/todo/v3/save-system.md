@@ -89,6 +89,12 @@
 - 新增 3 个 xUnit 用例；完整测试套件 724/724 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：duplicate-aware token reader、同句柄 length/hash/EOF、严格 format v1 reader。
 
+### 2026-08-13：2.3 autosave 合并策略（部分）
+
+- 新增 `Scripts/Core/V3/V3AutosavePolicy.cs`：忙时至多一个 pending，手动/更晚成功后可丢弃，返回 RunNow/QueuePending/SkipBusy。
+- 新增 4 个 xUnit 用例；完整测试套件 728/728 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：coordinator/gate/lock、取消边界与 prepared aggregate 协议。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
