@@ -32,6 +32,12 @@
 - 新增 8 个 xUnit 用例；完整测试套件 943/943 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：Godot `Resource`/`.tres` 封装、`RoadConfig` 接入与真实渲染使用。
 
+### 2026-08-13：2.2 RoadSurfaceHit 数据模型（部分）
+
+- 新增 `Scripts/Road/V3/RoadSurfaceHit.cs`：定义 `RoadSurfaceOwnerKind` 与带完整 `GraphStateToken`、owner、Node/Edge/Endpoint、`RoadLocation` 和距离的命中记录，并提供基本有效性校验。
+- 新增 4 个 xUnit 用例；完整测试套件 947/947 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：surface snapshot、hit provider、mesh 生成与表现接管协议。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁
