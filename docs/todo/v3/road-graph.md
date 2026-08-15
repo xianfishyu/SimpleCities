@@ -142,6 +142,12 @@
 - 新增 6 个 xUnit 用例；完整测试套件 624/624 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：曲线 fragment 策略、局部查询基准与真实 RoadGraph 接线。
 
+### 2026-08-13：8.5 不可变 root 骨架（部分）
+
+- 新增 `Scripts/Road/V3/RoadGraphV3Revision.cs`：不可变 root 骨架，AddNode/AddEdge/RemoveEdge/ChangeRoadType 均返回新 revision，旧 revision 永不被修改；当前为全量字典复制，后续改为持久化页/copy-on-write 结构共享。
+- 新增 5 个 xUnit 用例；完整测试套件 629/629 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：结构共享、O(1) snapshot capture、事务摘要/delta 与真实 facade 接线。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成
