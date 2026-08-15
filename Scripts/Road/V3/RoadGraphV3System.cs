@@ -10,6 +10,8 @@ public partial class RoadGraphV3System : Node2D
     [Export] public RoadConfigV3 Config { get; set; } = null!;
 
     public RoadGraphV3Application Application { get; private set; } = null!;
+    public RoadGraphV3Controller Controller => Application.Controller;
+    public RoadToolState ToolState => Application.ToolState;
 
     public override void _Ready()
     {
