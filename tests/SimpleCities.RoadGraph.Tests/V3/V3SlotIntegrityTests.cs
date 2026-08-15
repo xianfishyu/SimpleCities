@@ -76,6 +76,27 @@ public sealed class V3SlotIntegrityTests
         }
     }
 
+    [Fact]
+    public void Verify_DuplicateManifestKey_Fails()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            Directory.CreateDirectory(root);
+            const string json = """{"formatFamily":"simple-cities-v3","schemaVersion":1,"slotId":"city-001","slotId":"city-002","displayName":"n","timestamp":"2026-08-12T08:00:00.0000000Z","cityName":"n","population":null,"funds":null,"thumbnailFile":null,"files":[]}""";
+            File.WriteAllText(Path.Combine(root, V3SlotReader.ManifestFileName), json);
+
+            V3SlotIntegrityResult result = V3SlotIntegrity.Verify(root);
+
+            Assert.False(result.Success);
+            Assert.StartsWith("DuplicateKey:", result.Error);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
     private static string GetTempRoot() =>
         Path.Combine(Path.GetTempPath(), $"v3-integrity-{Guid.NewGuid():N}");
 

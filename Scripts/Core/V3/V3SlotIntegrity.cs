@@ -22,8 +22,7 @@ public static class V3SlotIntegrity
         if (!File.Exists(manifestPath))
             return V3SlotIntegrityResult.Failure("MissingManifest");
 
-        string json = File.ReadAllText(manifestPath);
-        V3ManifestCodecResult manifestResult = V3ManifestCodec.Deserialize(json);
+        V3ManifestCodecResult manifestResult = V3ManifestStrictFileReader.Read(manifestPath);
         if (!manifestResult.Success || manifestResult.Manifest is null)
             return V3SlotIntegrityResult.Failure(manifestResult.Error ?? "InvalidManifest");
 
