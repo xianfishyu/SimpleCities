@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 
 namespace SimpleCities.Core.V3;
 
@@ -11,6 +12,10 @@ public static class V3SlotCopyService
     {
         ArgumentNullException.ThrowIfNull(sourceRoot);
         ArgumentNullException.ThrowIfNull(destinationRoot);
+
+        string sourceDirectory = Path.Combine(sourceRoot, slotId);
+        if (!V3SlotIntegrity.Verify(sourceDirectory).Success)
+            return false;
         return V3SlotBackupService.Backup(slotId, sourceRoot, destinationRoot);
     }
 }

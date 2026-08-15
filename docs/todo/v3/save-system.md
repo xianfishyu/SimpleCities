@@ -499,6 +499,12 @@
 - 新增 1 个 xUnit 用例；完整测试套件 922/922 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实应用装配与端到端 Load commit。
 
+### 2026-08-13：2.1 槽复制仅允许完整槽（部分）
+
+- `V3SlotCopyService.Copy` 先执行 `V3SlotIntegrity.Verify`，损坏或 ID 不一致的源槽不会被复制到目标根。
+- 新增 1 个 xUnit 用例；完整测试套件 923/923 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实应用装配与端到端 Load commit。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
