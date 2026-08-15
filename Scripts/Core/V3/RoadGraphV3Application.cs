@@ -157,6 +157,10 @@ public sealed class RoadGraphV3Application
     public bool TryRedo(GraphStateToken expectedToken, out RoadGraphV3ChangeSummary summary) =>
         Controller.TryRedo(expectedToken, out summary);
 
+    public bool TryUndo(out RoadGraphV3ChangeSummary summary) => Controller.TryUndo(out summary);
+
+    public bool TryRedo(out RoadGraphV3ChangeSummary summary) => Controller.TryRedo(out summary);
+
     public bool TryBuild(RoadPlacementSessionV3 session, out RoadGraphV3ChangeSummary summary) =>
         TryBuild(session, 0f, out summary);
 

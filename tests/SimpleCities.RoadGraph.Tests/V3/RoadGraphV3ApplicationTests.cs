@@ -474,6 +474,43 @@ public sealed class RoadGraphV3ApplicationTests
     }
 
     [Fact]
+    public void TryUndo_WithoutToken_Undoes()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            Assert.True(app.TryBuildFromPolyline([Vector2.Zero, new Vector2(1f, 0f)], RoadType.Street, out _));
+
+            Assert.True(app.TryUndo(out _));
+            Assert.Empty(app.Controller.Facade.Revision.Edges);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
+    public void TryRedo_WithoutToken_Redoes()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            Assert.True(app.TryBuildFromPolyline([Vector2.Zero, new Vector2(1f, 0f)], RoadType.Street, out _));
+            Assert.True(app.TryUndo(out _));
+
+            Assert.True(app.TryRedo(out _));
+            Assert.Single(app.Controller.Facade.Revision.Edges);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void CanUndo_AfterEdit_IsTrue()
     {
         string root = GetTempRoot();
