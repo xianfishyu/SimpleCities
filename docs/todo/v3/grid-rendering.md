@@ -62,6 +62,12 @@
 - 新增 4 个 xUnit 用例；完整测试套件 963/963 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：mesh 生成与完整接管协议。
 
+### 2026-08-13：2.1 RoadStyleProvider 样式查询（部分）
+
+- 新增 `Scripts/Road/V3/RoadStyleProvider.cs`：从成功目录按 `RoadType` 提供只读样式查询，未知类型返回 `TryGet` false 或抛出 `KeyNotFoundException`。
+- 新增 3 个 xUnit 用例；完整测试套件 966/966 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：Godot `Resource`/`.tres` 封装与 `RoadConfig` 接入。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁
