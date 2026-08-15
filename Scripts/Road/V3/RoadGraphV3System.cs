@@ -24,6 +24,9 @@ public partial class RoadGraphV3System : Node2D
         out RoadGraphV3ChangeSummary summary) =>
         Application.TryBuildFromPolyline(points, roadType, out summary);
 
+    public bool TryBuild(RoadPlacementSessionV3 session, out RoadGraphV3ChangeSummary summary) =>
+        Application.TryBuild(session, out summary);
+
     public bool TryUndo(out RoadGraphV3ChangeSummary summary) =>
         Application.TryUndo(out summary);
 

@@ -2,27 +2,52 @@ using Godot;
 using SimpleCities.Road.V3;
 
 /// <summary>
-/// V3 最小输入处理器：左键点击时在鼠标位置建造一小段当前类型道路，用于场景内验证 V3 管线。
+/// V3 最小连续铺路输入处理器：左键添加拐点，右键移除最后拐点，Enter 提交当前会话。
 /// </summary>
 public partial class RoadGraphV3InputHandler : Node2D
 {
-    [Export] public float SegmentLength { get; set; } = 100f;
+    private RoadPlacementSessionV3? _session;
+
+    public bool IsPlacing => _session is not null;
+    public int FixedCornerCount => _session?.FixedCornerCount ?? 0;
 
     public override void _UnhandledInput(InputEvent @event)
     {
-        if (@event is not InputEventMouseButton mouseButton ||
-            !mouseButton.Pressed ||
-            mouseButton.ButtonIndex != MouseButton.Left)
-            return;
+        if (@event is InputEventMouseButton mouseButton && mouseButton.Pressed)
+        {
+            RoadGraphV3System? system = RoadGraphV3System.Instance;
+            if (system is null)
+                return;
 
-        RoadGraphV3System? system = RoadGraphV3System.Instance;
-        if (system is null)
-            return;
+            Vector2 position = GetGlobalMousePosition();
+            if (mouseButton.ButtonIndex == MouseButton.Left)
+            {
+                if (_session is null)
+                    _session = new RoadPlacementSessionV3(system.ToolState.SelectedRoadType, position);
+                else
+                    _session.TryAddPoint(position);
+                return;
+            }
 
-        Vector2 start = GetGlobalMousePosition();
-        system.TryBuildFromPolyline(
-            [start, start + new Vector2(SegmentLength, 0f)],
-            system.ToolState.SelectedRoadType,
-            out _);
+            if (mouseButton.ButtonIndex == MouseButton.Right && _session is not null)
+            {
+                _session.TryRemoveLastPoint();
+                if (_session.FixedCornerCount == 0)
+                    _session = null;
+            }
+            return;
+        }
+
+        if (@event is InputEventKey keyEvent &&
+            keyEvent.Pressed &&
+            !keyEvent.Echo &&
+            keyEvent.Keycode is Key.Enter or Key.KpEnter &&
+            _session is not null)
+        {
+            RoadGraphV3System? system = RoadGraphV3System.Instance;
+            if (system is not null)
+                system.TryBuild(_session, out _);
+            _session = null;
+        }
     }
 }
