@@ -15,6 +15,7 @@ public partial class RoadGraphV3System : Node2D
     public RoadGraphV3Revision Revision => Application.Revision;
     public bool CanUndo => Application.CanUndo;
     public bool CanRedo => Application.CanRedo;
+    public SimpleCities.Core.V3.V3SlotSummary? CurrentSlotSummary => Application.CurrentSlotSummary;
     public RoadToolState ToolState => Application.ToolState;
 
     public bool TryBuildFromPolyline(
