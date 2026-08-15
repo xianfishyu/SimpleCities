@@ -93,6 +93,13 @@
 - 新增 7 个 xUnit 用例；完整测试套件 533/533 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：将 graph canonicalizer 接入真实 RoadGraph/format v1。
 
+### 2026-08-13：8.4 RoadType 提交与改造结果类型（部分）
+
+- 新增 `Scripts/Road/V3/RoadBuildRequest.cs`：类型化建造请求 `RoadBuildRequest(Path, RoadType)`，拒绝空几何、null 段和非法枚举。
+- 新增 `Scripts/Road/V3/RoadTypeChange.cs`：`RoadTypeChangeResult`（Success/NoChanges/Changed/Removed/Created）与 `RoadTypeChangeValidator`（枚举校验、选择排序去重）。
+- 新增 7 个 xUnit 用例；完整测试套件 586/586 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：将请求接入 mutation plan、改造后重归一化与统一 `GraphChanged` 摘要。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成
