@@ -1,0 +1,36 @@
+[gd_resource type="Resource" script_class="RoadConfigV3" format=3 uid="uid://v3roadcfg0001"]
+
+[ext_resource type="Script" uid="uid://dudv8ggxajjah" path="res://Scripts/Road/V3/RoadConfigV3.cs" id="1_config"]
+[ext_resource type="Script" uid="uid://ggtn52fkqm4v" path="res://Scripts/Road/V3/RoadTypeStyleResource.cs" id="2_style"]
+
+[sub_resource type="Resource" id="Resource_dirt"]
+script = ExtResource("2_style")
+RoadType = 0
+DisplayName = "土路"
+Color = Color(0.36, 0.25, 0.2, 1)
+Width = 1.0
+
+[sub_resource type="Resource" id="Resource_street"]
+script = ExtResource("2_style")
+RoadType = 1
+DisplayName = "街道"
+Color = Color(1, 1, 1, 1)
+Width = 1.0
+
+[sub_resource type="Resource" id="Resource_arterial"]
+script = ExtResource("2_style")
+RoadType = 2
+DisplayName = "主干道"
+Color = Color(1, 1, 0, 1)
+Width = 1.5
+
+[sub_resource type="Resource" id="Resource_highway"]
+script = ExtResource("2_style")
+RoadType = 3
+DisplayName = "高速"
+Color = Color(1, 0, 0, 1)
+Width = 2.0
+
+[resource]
+script = ExtResource("1_config")
+Styles = Array[Resource]([SubResource("Resource_dirt"), SubResource("Resource_street"), SubResource("Resource_arterial"), SubResource("Resource_highway")])

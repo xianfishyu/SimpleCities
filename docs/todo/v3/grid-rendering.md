@@ -41,8 +41,9 @@
 ### 2026-08-13：2.1 RoadConfigV3 配置资源（部分）
 
 - 新增 `Scripts/Road/V3/RoadConfigV3.cs`：Godot `Resource` 子类，持有 `RoadTypeStyleResource[]` 并提供 `CreateCatalog()` 校验目录。
+- 新增 `Scenes/road_config_v3.tres`：默认四类 RoadTypeStyle 的 V3 配置资源，已通过 Godot 资源加载验证。
 - 完整测试套件 1033/1033 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
-- 尚未完成：默认 `.tres` 资源、场景装配与真实渲染使用。
+- 尚未完成：场景装配与真实渲染使用。
 
 ### 2026-08-13：2.2 RoadSurfaceHit 数据模型（部分）
 
