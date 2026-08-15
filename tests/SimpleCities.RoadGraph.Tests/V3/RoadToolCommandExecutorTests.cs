@@ -54,6 +54,27 @@ public sealed class RoadToolCommandExecutorTests
     }
 
     [Fact]
+    public void TryRemove_RemovesSelectedEdges()
+    {
+        var controller = CreateController();
+        controller.TryAddNode(Vector2.Zero, out _);
+        controller.TryAddNode(new Vector2(1f, 0f), out _);
+        controller.TryAddNode(new Vector2(1f, 1f), out _);
+        var nodes = controller.Facade.Revision.Nodes.Values.ToArray();
+        controller.TryAddEdge(nodes[0].ID, nodes[1].ID, [new LineRoadGeometrySegment(nodes[0].Position, nodes[1].Position)], RoadType.Street, out _);
+        controller.TryAddEdge(nodes[1].ID, nodes[2].ID, [new LineRoadGeometrySegment(nodes[1].Position, nodes[2].Position)], RoadType.Arterial, out _);
+        int[] edgeIDs = controller.Facade.Revision.Edges.Keys.Order().ToArray();
+        var session = new RoadRemovalSessionV3();
+        session.TrySelectEdge(edgeIDs[0]);
+        var executor = new RoadToolCommandExecutor(controller);
+
+        Assert.True(executor.TryRemove(session, out IReadOnlyList<int> removed));
+        Assert.Equal([edgeIDs[0]], removed);
+        Assert.False(controller.Facade.Revision.Edges.ContainsKey(edgeIDs[0]));
+        Assert.True(controller.Facade.Revision.Edges.ContainsKey(edgeIDs[1]));
+    }
+
+    [Fact]
     public void TryUpgrade_MissingEdge_FailsWithoutChanges()
     {
         var controller = CreateController();

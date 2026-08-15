@@ -43,10 +43,16 @@
 - 新增 6 个 xUnit 用例；完整测试套件 983/983 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：`RoadBuilder` 真实接线、surface hit 选择与批量改造提交。
 
+### 2026-08-13：2.0/2.2 道路拆除选择会话（部分）
+
+- 新增 `Scripts/Road/V3/RoadRemovalSessionV3.cs`：维护已选 canonical Edge ID 集合，支持选择/取消/清空/一次性提交。
+- 新增 6 个 xUnit 用例；完整测试套件 997/997 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：`RoadBuilder` 真实接线与 surface hit 选择。
+
 ### 2026-08-13：2.0～2.2 工具命令执行器（部分）
 
-- 新增 `Scripts/Road/V3/RoadToolCommandExecutor.cs`：把 `RoadPlacementSessionV3` 转换为控制器 `TryBuild`，把 `RoadUpgradeSessionV3` 选择转换为逐 Edge 类型改造；改造前先校验所有 Edge ID 存在，避免部分写入。
-- 新增 4 个 xUnit 用例；完整测试套件 988/988 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 新增 `Scripts/Road/V3/RoadToolCommandExecutor.cs`：把 `RoadPlacementSessionV3` 转换为控制器 `TryBuild`，把 `RoadUpgradeSessionV3` 选择转换为逐 Edge 类型改造，把 `RoadRemovalSessionV3` 选择转换为逐 Edge 删除；操作前先校验所有 Edge ID 存在，避免部分写入。
+- 新增 5 个 xUnit 用例；完整测试套件 998/998 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：批量改造单历史、`RoadBuilder` 真实接线与 surface hit 选择。
 
 ## 执行顺序

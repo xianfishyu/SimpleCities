@@ -25,6 +25,32 @@ public sealed class RoadToolCommandExecutor
         return _controller.TryBuild(request, out summary);
     }
 
+    public bool TryRemove(RoadRemovalSessionV3 session, out IReadOnlyList<int> removedEdgeIDs)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+
+        removedEdgeIDs = [];
+        if (!session.TryCommit(out IReadOnlyList<int> edgeIDs) || edgeIDs.Count == 0)
+            return false;
+
+        foreach (int edgeID in edgeIDs)
+        {
+            if (!_controller.Facade.Revision.Edges.ContainsKey(edgeID))
+                return false;
+        }
+
+        var removed = new List<int>();
+        foreach (int edgeID in edgeIDs)
+        {
+            if (!_controller.TryRemoveEdge(edgeID, out _))
+                return false;
+            removed.Add(edgeID);
+        }
+
+        removedEdgeIDs = removed;
+        return true;
+    }
+
     public bool TryUpgrade(RoadUpgradeSessionV3 session, out IReadOnlyList<int> changedEdgeIDs)
     {
         ArgumentNullException.ThrowIfNull(session);
