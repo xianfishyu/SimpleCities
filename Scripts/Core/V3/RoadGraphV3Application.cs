@@ -146,6 +146,8 @@ public sealed class RoadGraphV3Application
         return TryAutosave(CurrentSlotID, revision, hasNewerSuccess, out saved);
     }
 
+    public V3SlotSummary GetStatus(string slotId) => _transactionCoordinator.GetStatus(slotId, _root);
+
     public bool Delete(string slotId) => _transactionCoordinator.Delete(slotId, _root).Success;
 
     public bool DeleteCurrentSlot()
