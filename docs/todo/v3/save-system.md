@@ -215,6 +215,12 @@
 - 新增 3 个 xUnit 用例；完整测试套件 796/796 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实目录枚举、跨进程 lock 实现、真实 coordinator 与完整 Load commit 协议。
 
+### 2026-08-13：2.2 同句柄校验模拟（部分）
+
+- 新增 `Scripts/Core/V3/V3SameHandleVerifier.cs`：模拟同句柄校验，长度、hash 与 EOF 同时满足才成功。
+- 新增 3 个 xUnit 用例；完整测试套件 799/799 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实文件句柄读取/计数/hash/EOF、严格 format v1 reader 与真实 coordinator。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
