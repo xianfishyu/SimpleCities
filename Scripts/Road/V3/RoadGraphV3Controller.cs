@@ -148,6 +148,41 @@ public sealed class RoadGraphV3Controller
         return true;
     }
 
+    public bool TryUpgradeSelection(
+        IReadOnlyList<int> edgeIDs,
+        RoadType targetType,
+        out RoadGraphV3ChangeSummary summary)
+    {
+        ArgumentNullException.ThrowIfNull(edgeIDs);
+
+        RoadGraphV3Snapshot before = _facade.CaptureSnapshot();
+        long beforeRevision = before.Token.DomainRevisionID;
+        if (!_facade.TryChangeRoadTypes(edgeIDs, targetType, out summary))
+            return false;
+
+        RoadGraphV3Delta delta = RoadGraphV3DeltaBuilder.BuildDelta(
+            before.Revision,
+            _facade.Revision,
+            beforeRevision,
+            _facade.CurrentToken.DomainRevisionID);
+        if (!_history.TryPush(delta))
+        {
+            _facade.Restore(before);
+            summary = null!;
+            return false;
+        }
+
+        if (!TryNormalizeAndRecord(out _, out _))
+        {
+            _history.TryUndo(out _);
+            _facade.Restore(before);
+            summary = null!;
+            return false;
+        }
+
+        return true;
+    }
+
     public bool TryBuild(RoadBuildRequest request, out RoadGraphV3ChangeSummary summary)
     {
         ArgumentNullException.ThrowIfNull(request);

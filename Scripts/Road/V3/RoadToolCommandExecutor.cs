@@ -65,15 +65,10 @@ public sealed class RoadToolCommandExecutor
                 return false;
         }
 
-        var changed = new List<int>();
-        foreach (int edgeID in edgeIDs)
-        {
-            if (!_controller.TryChangeRoadType(edgeID, session.TargetType, out _))
-                return false;
-            changed.Add(edgeID);
-        }
+        if (!_controller.TryUpgradeSelection(edgeIDs, session.TargetType, out _))
+            return false;
 
-        changedEdgeIDs = changed;
+        changedEdgeIDs = edgeIDs;
         return true;
     }
 }

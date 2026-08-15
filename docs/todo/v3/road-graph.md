@@ -251,6 +251,12 @@
 - 新增 1 个 xUnit 用例；完整测试套件 984/984 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实应用装配与严格 format v1 接入。
 
+### 2026-08-13：8.5 批量类型改造入口（部分）
+
+- `RoadGraphV3Facade.TryChangeRoadTypes` 以单个不可变 root 替换完成多 Edge 类型改造，`RoadGraphV3Controller.TryUpgradeSelection` 将其作为一次可撤销 delta 入历史并继续自动规范化。
+- 新增 2 个 xUnit 用例；完整测试套件 1000/1000 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实应用装配与严格 format v1 接入。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成

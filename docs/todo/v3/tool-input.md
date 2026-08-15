@@ -51,9 +51,9 @@
 
 ### 2026-08-13：2.0～2.2 工具命令执行器（部分）
 
-- 新增 `Scripts/Road/V3/RoadToolCommandExecutor.cs`：把 `RoadPlacementSessionV3` 转换为控制器 `TryBuild`，把 `RoadUpgradeSessionV3` 选择转换为逐 Edge 类型改造，把 `RoadRemovalSessionV3` 选择转换为逐 Edge 删除；操作前先校验所有 Edge ID 存在，避免部分写入。
-- 新增 5 个 xUnit 用例；完整测试套件 998/998 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
-- 尚未完成：批量改造单历史、`RoadBuilder` 真实接线与 surface hit 选择。
+- 新增 `Scripts/Road/V3/RoadToolCommandExecutor.cs`：把 `RoadPlacementSessionV3` 转换为控制器 `TryBuild`，把 `RoadUpgradeSessionV3` 选择转换为控制器批量 `TryUpgradeSelection`（单次可撤销历史），把 `RoadRemovalSessionV3` 选择转换为逐 Edge 删除；操作前先校验所有 Edge ID 存在，避免部分写入。
+- 新增 5 个 xUnit 用例；完整测试套件 1000/1000 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：`RoadBuilder` 真实接线与 surface hit 选择。
 
 ## 执行顺序
 

@@ -85,6 +85,41 @@ public sealed class RoadGraphV3ControllerTests
     }
 
     [Fact]
+    public void TryUpgradeSelection_ChangesMultipleEdgesAndRecordsSingleHistory()
+    {
+        var controller = CreateController();
+        controller.TryAddNode(Vector2.Zero, out _);
+        controller.TryAddNode(new Vector2(1f, 0f), out _);
+        controller.TryAddNode(new Vector2(1f, 1f), out _);
+        var nodes = controller.Facade.Revision.Nodes.Values.ToArray();
+        controller.TryAddEdge(nodes[0].ID, nodes[1].ID, [new LineRoadGeometrySegment(nodes[0].Position, nodes[1].Position)], RoadType.Street, out _);
+        controller.TryAddEdge(nodes[1].ID, nodes[2].ID, [new LineRoadGeometrySegment(nodes[1].Position, nodes[2].Position)], RoadType.Arterial, out _);
+        int[] edgeIDs = controller.Facade.Revision.Edges.Keys.Order().ToArray();
+        controller.History.Clear();
+
+        Assert.True(controller.TryUpgradeSelection(edgeIDs, RoadType.Highway, out _));
+        Assert.Single(controller.Facade.Revision.Edges);
+        Assert.All(controller.Facade.Revision.Edges.Values, edge => Assert.Equal(RoadType.Highway, edge.RoadType));
+        Assert.Equal(2, controller.History.UndoCount);
+    }
+
+    [Fact]
+    public void TryUpgradeSelection_InvalidEdge_FailsWithoutChanges()
+    {
+        var controller = CreateController();
+        controller.TryAddNode(Vector2.Zero, out _);
+        controller.TryAddNode(new Vector2(1f, 0f), out _);
+        var nodes = controller.Facade.Revision.Nodes.Values.ToArray();
+        controller.TryAddEdge(nodes[0].ID, nodes[1].ID, [new LineRoadGeometrySegment(nodes[0].Position, nodes[1].Position)], RoadType.Street, out _);
+        int edgeID = controller.Facade.Revision.Edges.Keys.Single();
+        controller.History.Clear();
+
+        Assert.False(controller.TryUpgradeSelection([999], RoadType.Highway, out _));
+        Assert.Equal(RoadType.Street, controller.Facade.Revision.Edges[edgeID].RoadType);
+        Assert.Equal(0, controller.History.UndoCount);
+    }
+
+    [Fact]
     public void TryBuild_CreatesEdgeWithPolylineGeometry()
     {
         var controller = CreateController();

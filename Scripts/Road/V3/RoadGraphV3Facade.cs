@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace SimpleCities.Road.V3;
 
@@ -89,6 +90,47 @@ public sealed class RoadGraphV3Facade
         }
 
         Commit(next, out summary, updatedEdgeIDs: [edgeID]);
+        return true;
+    }
+
+    public bool TryChangeRoadTypes(
+        IReadOnlyList<int> edgeIDs,
+        RoadType roadType,
+        out RoadGraphV3ChangeSummary summary)
+    {
+        ArgumentNullException.ThrowIfNull(edgeIDs);
+        if (!RoadTypeChangeValidator.IsValidRoadType(roadType))
+        {
+            summary = null!;
+            return false;
+        }
+
+        RoadGraphV3Revision current = _revision;
+        foreach (int edgeID in edgeIDs.Distinct().Order())
+        {
+            if (!current.TryChangeRoadType(edgeID, roadType, out RoadGraphV3Revision next))
+            {
+                summary = null!;
+                return false;
+            }
+            current = next;
+        }
+
+        RoadGraphV3Delta delta = RoadGraphV3DeltaBuilder.BuildDelta(
+            _revision,
+            current,
+            _domainRevisionID,
+            _domainRevisionID + 1);
+        if (delta.IsEmpty)
+        {
+            summary = null!;
+            return false;
+        }
+
+        _revision = current;
+        _domainRevisionID++;
+        _changeSequence++;
+        summary = RoadGraphV3ChangeSummaryFactory.FromDelta(delta, _changeSequence, false);
         return true;
     }
 
