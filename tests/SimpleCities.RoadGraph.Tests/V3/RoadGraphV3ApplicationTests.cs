@@ -50,6 +50,31 @@ public sealed class RoadGraphV3ApplicationTests
     }
 
     [Fact]
+    public void TryAutosave_WhenGateFree_Saves()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            RoadGraphV3Revision revision = CreateRevision();
+
+            V3AutosaveDecision decision = app.TryAutosave(
+                "city-001",
+                revision,
+                hasNewerSuccess: false,
+                out bool saved);
+
+            Assert.Equal(V3AutosaveDecision.RunNow, decision);
+            Assert.True(saved);
+            Assert.True(new V3FileSlotStore(root).Load("city-001").Success);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void Delete_RemovesSlot()
     {
         string root = GetTempRoot();
