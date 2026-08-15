@@ -462,6 +462,12 @@
 - 新增 2 个 xUnit 用例；完整测试套件 914/914 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实应用装配与端到端 Load commit。
 
+### 2026-08-13：2.2 槽读取严格 manifest（部分）
+
+- `V3SlotReader` 改用 `V3ManifestStrictReader` 读取 manifest，槽目录中的重复键 manifest 在进入业务读取前即被拒绝。
+- 新增 1 个 xUnit 用例；完整测试套件 915/915 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实应用装配与端到端 Load commit。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议

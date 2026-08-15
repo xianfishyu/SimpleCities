@@ -29,7 +29,7 @@ public static class V3SlotReader
             return V3SlotReadResult.Failure("MissingManifest");
 
         string manifestJson = Encoding.UTF8.GetString(manifestBytes);
-        V3ManifestCodecResult manifestResult = V3ManifestCodec.Deserialize(manifestJson);
+        V3ManifestCodecResult manifestResult = V3ManifestStrictReader.Read(manifestJson);
         if (!manifestResult.Success || manifestResult.Manifest is null)
             return V3SlotReadResult.Failure(manifestResult.Error ?? "InvalidManifest");
 

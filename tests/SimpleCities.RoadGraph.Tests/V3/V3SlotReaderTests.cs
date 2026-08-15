@@ -45,6 +45,21 @@ public sealed class V3SlotReaderTests
         Assert.NotNull(result.Error);
     }
 
+    [Fact]
+    public void Read_DuplicateManifestKey_Fails()
+    {
+        const string json = """{"formatFamily":"simple-cities-v3","schemaVersion":1,"slotId":"city-001","slotId":"city-002","displayName":"n","timestamp":"2026-08-12T08:00:00.0000000Z","cityName":"n","population":null,"funds":null,"thumbnailFile":null,"files":[]}""";
+        var files = new Dictionary<string, byte[]>
+        {
+            [V3SlotReader.ManifestFileName] = Encoding.UTF8.GetBytes(json),
+        };
+
+        V3SlotReadResult result = V3SlotReader.Read(files);
+
+        Assert.False(result.Success);
+        Assert.StartsWith("DuplicateKey:", result.Error);
+    }
+
     private static V3Manifest ValidManifest(byte[] data) =>
         new(
             V3SaveRoot.FormatFamily,
