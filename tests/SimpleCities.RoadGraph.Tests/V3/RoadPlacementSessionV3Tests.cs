@@ -50,6 +50,42 @@ public sealed class RoadPlacementSessionV3Tests
     }
 
     [Fact]
+    public void TryClose_ClosesPath()
+    {
+        var session = new RoadPlacementSessionV3(RoadType.Street, Vector2.Zero);
+        session.TryAddPoint(new Vector2(1f, 0f));
+        session.TryAddPoint(new Vector2(1f, 1f));
+
+        Assert.True(session.TryClose());
+        Assert.True(session.IsClosed);
+        Assert.True(session.CurrentDraft.CanCommit);
+        Assert.Equal(Vector2.Zero, session.CurrentDraft.PreviewTo);
+    }
+
+    [Fact]
+    public void TryClose_NoFixedPoints_Fails()
+    {
+        var session = new RoadPlacementSessionV3(RoadType.Street, Vector2.Zero);
+
+        Assert.False(session.TryClose());
+        Assert.False(session.IsClosed);
+    }
+
+    [Fact]
+    public void TryCommit_ClosedPath_ReturnsTypedRequest()
+    {
+        var session = new RoadPlacementSessionV3(RoadType.Street, Vector2.Zero);
+        session.TryAddPoint(new Vector2(1f, 0f));
+        session.TryAddPoint(new Vector2(1f, 1f));
+        session.TryClose();
+
+        Assert.True(session.TryCommit(out RoadBuildRequest? request));
+        Assert.Equal(RoadType.Street, request.RoadType);
+        Assert.NotNull(request.Path);
+        Assert.Equal(3, request.Path.Segments.Count);
+    }
+
+    [Fact]
     public void TryCommit_ReturnsTypedRequest()
     {
         var session = new RoadPlacementSessionV3(RoadType.Highway, Vector2.Zero);

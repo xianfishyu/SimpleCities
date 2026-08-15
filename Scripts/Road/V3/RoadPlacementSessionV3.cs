@@ -42,6 +42,17 @@ public sealed class RoadPlacementSessionV3
         return CurrentDraft;
     }
 
+    public bool IsClosed => _fixedPoints.Count > 0 && _currentPointer == _startPosition;
+
+    public bool TryClose()
+    {
+        if (_fixedPoints.Count == 0)
+            return false;
+
+        _currentPointer = _startPosition;
+        return true;
+    }
+
     public bool TryAddPoint(Vector2 pointerPosition)
     {
         if (pointerPosition.DistanceTo(CurrentAnchor) <= 0f)
