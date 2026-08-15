@@ -1,5 +1,6 @@
 using Godot;
 using SimpleCities.Road.V3;
+using System.Linq;
 
 /// <summary>
 /// V3 最小连续铺路输入处理器：左键添加拐点，右键移除最后拐点，Enter 提交当前会话。
@@ -14,8 +15,28 @@ public partial class RoadGraphV3InputHandler : Node2D
     public bool IsClosed => _session?.IsClosed ?? false;
     public int FixedCornerCount => _session?.FixedCornerCount ?? 0;
 
+    public override void _Draw()
+    {
+        if (_session is null)
+            return;
+
+        RoadGraphV3System? system = RoadGraphV3System.Instance;
+        if (system is null)
+            return;
+
+        Vector2[] points = _session.CurrentDraft.PreviewPoints.ToArray();
+        if (points.Length < 2)
+            return;
+
+        if (!system.Application.DefaultStyles.TryGet(system.ToolState.SelectedRoadType, out RoadTypeStyle? style))
+            return;
+
+        DrawPolyline(points, style.Color, style.Width, true);
+    }
+
     public override void _UnhandledInput(InputEvent @event)
     {
+        QueueRedraw();
         if (@event is InputEventMouseButton mouseButton && mouseButton.Pressed)
         {
             RoadGraphV3System? system = RoadGraphV3System.Instance;
