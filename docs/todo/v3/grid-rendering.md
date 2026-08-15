@@ -64,9 +64,15 @@
 
 ### 2026-08-13：2.1 RoadStyleProvider 样式查询（部分）
 
-- 新增 `Scripts/Road/V3/RoadStyleProvider.cs`：从成功目录按 `RoadType` 提供只读样式查询，未知类型返回 `TryGet` false 或抛出 `KeyNotFoundException`。
+- 新增 `Scripts/Road/V3/RoadStyleProvider.cs`：从成功目录或显式字典按 `RoadType` 提供只读样式查询，未知类型返回 `TryGet` false 或抛出 `KeyNotFoundException`。
 - 新增 3 个 xUnit 用例；完整测试套件 966/966 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：Godot `Resource`/`.tres` 封装与 `RoadConfig` 接入。
+
+### 2026-08-13：2.2 RoadSurfaceSnapshotBuilder 快照构建（部分）
+
+- 新增 `Scripts/Road/V3/RoadSurfaceSnapshotBuilder.cs`：从权威 `RoadGraphV3Revision` 与 `RoadStyleProvider` 构建 `RoadSurfaceSnapshot`，每个 Edge 生成 Ribbon owner，并校验所有 Edge 类型都有样式。
+- 新增 3 个 xUnit 用例；完整测试套件 1009/1009 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实 mesh 生成与完整接管协议。
 
 ## 执行顺序
 

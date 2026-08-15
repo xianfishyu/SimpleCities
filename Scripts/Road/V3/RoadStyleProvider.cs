@@ -19,6 +19,11 @@ public sealed class RoadStyleProvider
         _styles = catalog.Styles;
     }
 
+    public RoadStyleProvider(IReadOnlyDictionary<RoadType, RoadTypeStyle> styles)
+    {
+        _styles = styles ?? throw new ArgumentNullException(nameof(styles));
+    }
+
     public RoadTypeStyle Get(RoadType roadType) =>
         _styles.TryGetValue(roadType, out RoadTypeStyle? style)
             ? style
