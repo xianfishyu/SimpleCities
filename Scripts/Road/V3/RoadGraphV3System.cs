@@ -20,6 +20,21 @@ public partial class RoadGraphV3System : Node2D
         out RoadGraphV3ChangeSummary summary) =>
         Application.TryBuildFromPolyline(points, roadType, out summary);
 
+    public bool SaveCurrent(
+        string displayName,
+        string cityName,
+        string timestamp,
+        long? population,
+        decimal? funds,
+        string? thumbnailFile) =>
+        Application.SaveCurrent(displayName, cityName, timestamp, population, funds, thumbnailFile);
+
+    public bool Load(string slotId, long lineageID = 1) =>
+        Application.Load(slotId, lineageID);
+
+    public bool DeleteCurrentSlot() =>
+        Application.DeleteCurrentSlot();
+
     public override void _Ready()
     {
         Instance = this;
