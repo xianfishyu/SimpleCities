@@ -365,6 +365,12 @@
 - 新增 3 个 xUnit 用例；完整测试套件 874/874 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：完整严格 token reader、真实应用装配与端到端 Load commit。
 
+### 2026-08-13：2.2 槽恢复服务（部分）
+
+- 新增 `Scripts/Core/V3/V3SlotRecoveryService.cs`：当槽缺失时从 backupRoot 恢复。
+- 新增 3 个 xUnit 用例；完整测试套件 877/877 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：完整严格 token reader、真实应用装配与端到端 Load commit。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
