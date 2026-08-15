@@ -209,6 +209,12 @@
 - 新增 4 个 xUnit 用例；完整测试套件 793/793 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实目录枚举、跨进程 lock 实现、真实 coordinator 与完整 Load commit 协议。
 
+### 2026-08-13：2.3 内存保存协调器（部分）
+
+- 新增 `Scripts/Core/V3/V3SaveCoordinator.cs`：组合内存槽存储与进程内 gate，Save/Load/Delete 排他执行并返回 operation result。
+- 新增 3 个 xUnit 用例；完整测试套件 796/796 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实目录枚举、跨进程 lock 实现、真实 coordinator 与完整 Load commit 协议。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
