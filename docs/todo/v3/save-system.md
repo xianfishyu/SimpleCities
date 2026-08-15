@@ -227,6 +227,12 @@
 - 新增 3 个 xUnit 用例；完整测试套件 802/802 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实文件句柄读取/计数/hash/EOF、严格 format v1 reader 与真实 coordinator。
 
+### 2026-08-13：2.3 跨进程文件锁（部分）
+
+- 新增 `Scripts/Core/V3/V3FileLock.cs`：以独占打开 `.save-root.lock` 实现跨进程排他；释放后其他进程可获取。
+- 新增 2 个 xUnit 用例；完整测试套件 812/812 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实文件句柄读取/计数/hash/EOF、严格 format v1 reader 与完整 coordinator。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
