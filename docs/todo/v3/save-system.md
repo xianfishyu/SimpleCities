@@ -269,6 +269,12 @@
 - 新增 3 个 xUnit 用例；完整测试套件 830/830 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：完整严格 token reader、完整 Load commit 协议与真实应用装配。
 
+### 2026-08-13：2.3 Load commit 门（部分）
+
+- 新增 `Scripts/Core/V3/V3LoadCommitter.cs`：仅当协议处于 Preflight 且所有 participant 已准备时允许进入 non-yield commit。
+- 新增 3 个 xUnit 用例；完整测试套件 833/833 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：完整严格 token reader、真实应用装配与端到端 Load commit。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
