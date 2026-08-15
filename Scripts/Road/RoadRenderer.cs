@@ -52,6 +52,17 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
 
     public int GetRemovalPreviewEdgeCount() => _removalPreviewEdgeIDs.Length;
 
+    private int[] _upgradePreviewEdgeIDs = [];
+    public int[] UpgradePreviewEdgeIDs
+    {
+        get => (int[])_upgradePreviewEdgeIDs.Clone();
+        set => _upgradePreviewEdgeIDs = value == null ? [] : value.Distinct().Order().ToArray();
+    }
+
+    public Rect2? UpgradeSelectionBounds { get; set; }
+
+    public int GetUpgradePreviewEdgeCount() => _upgradePreviewEdgeIDs.Length;
+
     public int GetRenderedEdgeCount() => _edgePoints.Count;
 
     public int GetRenderedPointCount(int edgeID) => _edgePoints[edgeID].Length;
@@ -224,7 +235,7 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
             RebuildStaticBatches();
     }
 
-    /// <summary>拆除工具悬停的 Edge ID（null = 未悬停在任何 Edge 上）</summary>
+    /// <summary>道路拆除或改造工具悬停的 Edge ID（null = 未命中）。</summary>
     public int? HoveredEdgeID { get; set; }
 
     public override void _Ready()
@@ -1083,7 +1094,9 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
         bool canDrawRoadInteraction = IsPresentationReady();
         bool hasEdgeHighlight =
             canDrawRoadInteraction &&
-            (_removalPreviewEdgeIDs.Length > 0 || HoveredEdgeID.HasValue);
+            (_removalPreviewEdgeIDs.Length > 0 ||
+             _upgradePreviewEdgeIDs.Length > 0 ||
+             HoveredEdgeID.HasValue);
         RoadTypeStyleSnapshot highlightStyles = hasEdgeHighlight
                 ? Config.CaptureRoadTypeStyleSnapshot()
                 : default;
@@ -1091,12 +1104,20 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
         {
             foreach (int edgeID in _removalPreviewEdgeIDs)
                 DrawEdgeHighlight(edgeID, highlightStyles);
+            foreach (int edgeID in _upgradePreviewEdgeIDs)
+                DrawEdgeHighlight(edgeID, highlightStyles);
 
             if (RemovalSelectionBounds is { } bounds &&
                 bounds.Size.X > 0f &&
                 bounds.Size.Y > 0f)
             {
                 DrawRect(bounds, Config.HoverHighlightColor, false, 2f);
+            }
+            if (UpgradeSelectionBounds is { } upgradeBounds &&
+                upgradeBounds.Size.X > 0f &&
+                upgradeBounds.Size.Y > 0f)
+            {
+                DrawRect(upgradeBounds, Config.HoverHighlightColor, false, 2f);
             }
 
             if (HoveredEdgeID.HasValue && _network != null)

@@ -16,8 +16,10 @@ public partial class RoadBuilder : Node2D
     private Vector2 _lastPlacePointerPosition;
 
     private bool _isRemoveHoverActive;
+    private bool _isUpgradeHoverActive;
     private int _lastHoveredEdgeID = -1;
     private RoadRemovalSession? _removalSession;
+    private RoadUpgradeSession? _upgradeSession;
     private RoadBuilderLoadAdmission? _loadAdmission;
     private long _loadAdmissionGeneration;
 
@@ -26,6 +28,7 @@ public partial class RoadBuilder : Node2D
     public RoadPathDraft? CurrentDraft => _placementSession?.CurrentDraft;
     public RoadType SelectedRoadType { get; private set; } = RoadType.Street;
     public bool IsRemoving => _removalSession != null;
+    public bool IsUpgrading => _upgradeSession != null;
     public bool CanUndo => _editHistory?.CanUndo == true;
     public bool CanRedo => _editHistory?.CanRedo == true;
 
@@ -43,6 +46,7 @@ public partial class RoadBuilder : Node2D
             return true;
 
         CancelPlaceSession();
+        CancelUpgradeSession();
         SelectedRoadType = roadType;
         return true;
     }
@@ -50,6 +54,13 @@ public partial class RoadBuilder : Node2D
     public bool HasActiveRemoveSession() => IsRemoving;
 
     public int GetRemovalSelectionCount() => _removalSession?.SelectedEdgeIDs.Length ?? 0;
+
+    public bool HasActiveUpgradeSession() => IsUpgrading;
+
+    public int GetUpgradeSelectionCount() => _upgradeSession?.SelectedEdgeIDs.Length ?? 0;
+
+    public RoadType GetUpgradeTargetRoadType() =>
+        _upgradeSession?.TargetRoadType ?? SelectedRoadType;
 
     public bool CanUndoLastEdit() => CanUndo;
 
@@ -66,6 +77,7 @@ public partial class RoadBuilder : Node2D
             throw new InvalidOperationException("RoadBuilder graph cannot change during load admission.");
         CancelPlaceSession();
         CancelRemoveSession();
+        CancelUpgradeSession();
         _editHistory?.Dispose();
         _graph = graph;
         _editHistory = new RoadEditHistory(graph);
@@ -78,6 +90,7 @@ public partial class RoadBuilder : Node2D
             throw new InvalidOperationException("RoadBuilder input strategy cannot change during load admission.");
         CancelPlaceSession();
         CancelRemoveSession();
+        CancelUpgradeSession();
         _inputStrategy = inputStrategy;
     }
 
@@ -174,13 +187,20 @@ public partial class RoadBuilder : Node2D
 
         if (_removalSession is not null && !_removalSession.IsCurrent)
             EndRemoveSession();
-        if (_isRemoveHoverActive && !IsRemoving)
-            UpdateRemoveHover();
+        if (_upgradeSession is not null && !_upgradeSession.IsCurrent)
+            EndUpgradeSession();
+        if ((_isRemoveHoverActive || _isUpgradeHoverActive) && !IsRemoving && !IsUpgrading)
+            UpdateRoadEditHover();
     }
 
     public bool BeginPlace(Vector2 pointerPosition)
     {
-        if (_loadAdmission is not null || _graph == null || _inputStrategy == null || IsPlacing)
+        if (_loadAdmission is not null ||
+            _graph == null ||
+            _inputStrategy == null ||
+            IsPlacing ||
+            IsRemoving ||
+            IsUpgrading)
             return false;
 
         _lastPlacePointerPosition = pointerPosition;
@@ -307,7 +327,9 @@ public partial class RoadBuilder : Node2D
             _graph == null ||
             _renderer is not IRoadSurfaceSelectionProvider surfaceProvider ||
             _inputStrategy == null ||
+            IsPlacing ||
             IsRemoving ||
+            IsUpgrading ||
             !TryCaptureCurrentRoadSurfaceToken(surfaceProvider, out RoadRenderToken renderToken))
         {
             return false;
@@ -326,7 +348,7 @@ public partial class RoadBuilder : Node2D
             _removalSession = null;
             return false;
         }
-        ClearRemoveHover();
+        ClearRoadEditHover();
         ApplyRemovePreview();
         return true;
     }
@@ -371,12 +393,126 @@ public partial class RoadBuilder : Node2D
         EndRemoveSession();
     }
 
+    public void HandleUpgradeInput(InputEvent @event)
+    {
+        if (_loadAdmission is not null || _graph == null || _inputStrategy == null)
+            return;
+
+        if (@event is InputEventMouseMotion mouseMotion)
+        {
+            if (IsUpgrading)
+                UpdateUpgrade(ToWorldPosition(mouseMotion.Position));
+            return;
+        }
+
+        if (@event is not InputEventMouseButton mouseButton)
+            return;
+
+        Vector2 pointerPosition = ToWorldPosition(mouseButton.Position);
+        if (mouseButton.ButtonIndex == MouseButton.Right && mouseButton.Pressed && IsUpgrading)
+        {
+            CancelUpgradeSession();
+            return;
+        }
+        if (mouseButton.ButtonIndex != MouseButton.Left)
+            return;
+
+        if (mouseButton.Pressed)
+            BeginUpgrade(pointerPosition, mouseButton.ShiftPressed);
+        else if (IsUpgrading)
+            ConfirmUpgrade(pointerPosition);
+    }
+
+    public bool BeginUpgrade(Vector2 pointerPosition, bool rectangleSelection = false)
+    {
+        if (_loadAdmission is not null ||
+            _graph == null ||
+            _renderer is not IRoadSurfaceSelectionProvider surfaceProvider ||
+            _inputStrategy == null ||
+            IsPlacing ||
+            IsRemoving ||
+            IsUpgrading ||
+            !TryCaptureCurrentRoadSurfaceToken(surfaceProvider, out RoadRenderToken renderToken))
+        {
+            return false;
+        }
+
+        _upgradeSession = new RoadUpgradeSession(
+            surfaceProvider,
+            renderToken,
+            SelectedRoadType,
+            rectangleSelection
+                ? RoadUpgradeSelectionMode.Rectangle
+                : RoadUpgradeSelectionMode.Continuous,
+            pointerPosition,
+            _inputStrategy.InteractionRadius);
+        if (!_upgradeSession.IsCurrent)
+        {
+            _upgradeSession = null;
+            return false;
+        }
+        ClearRoadEditHover();
+        ApplyUpgradePreview();
+        return true;
+    }
+
+    public void UpdateUpgrade(Vector2 pointerPosition)
+    {
+        if (_loadAdmission is not null || _upgradeSession == null)
+            return;
+
+        if (!_upgradeSession.Update(pointerPosition))
+        {
+            EndUpgradeSession();
+            return;
+        }
+        ApplyUpgradePreview();
+    }
+
+    public bool ConfirmUpgrade(Vector2 pointerPosition)
+    {
+        if (_loadAdmission is not null || _upgradeSession == null || _graph == null)
+            return false;
+
+        if (!_upgradeSession.Update(pointerPosition) ||
+            !IsUpgradeCommandAdmitted(_upgradeSession))
+        {
+            EndUpgradeSession();
+            return false;
+        }
+
+        int[] selectedEdgeIDs = _upgradeSession.SelectedEdgeIDs;
+        RoadType targetRoadType = _upgradeSession.TargetRoadType;
+        EndUpgradeSession();
+        if (selectedEdgeIDs.Length == 0)
+            return false;
+
+        RoadTypeChangeResult? result = null;
+        bool changed = ExecuteRoadEdit(() =>
+        {
+            result = _graph.ChangeRoadType(selectedEdgeIDs, targetRoadType);
+            return result.Success;
+        });
+        if (!changed)
+            GD.Print($"[UPGRADE-END] selection rejected: {result?.Error}");
+        return changed;
+    }
+
+    public void CancelUpgradeSession()
+    {
+        if (_loadAdmission is not null || _upgradeSession == null)
+            return;
+
+        EndUpgradeSession();
+    }
+
     public bool UndoLastEdit()
     {
         if (_loadAdmission is not null)
             return false;
         CancelPlaceSession();
         CancelRemoveSession();
+        CancelUpgradeSession();
         return _editHistory?.Undo() == true;
     }
 
@@ -386,6 +522,7 @@ public partial class RoadBuilder : Node2D
             return false;
         CancelPlaceSession();
         CancelRemoveSession();
+        CancelUpgradeSession();
         return _editHistory?.Redo() == true;
     }
 
@@ -409,7 +546,19 @@ public partial class RoadBuilder : Node2D
         if (!active)
         {
             CancelRemoveSession();
-            ClearRemoveHover();
+            ClearRoadEditHover();
+        }
+    }
+
+    public void SetUpgradeHoverActive(bool active)
+    {
+        if (_loadAdmission is not null)
+            return;
+        _isUpgradeHoverActive = active;
+        if (!active)
+        {
+            CancelUpgradeSession();
+            ClearRoadEditHover();
         }
     }
 
@@ -465,13 +614,34 @@ public partial class RoadBuilder : Node2D
         _renderer.QueueRedraw();
     }
 
+    private void ApplyUpgradePreview()
+    {
+        if (_renderer == null || _upgradeSession == null)
+            return;
+
+        _renderer.UpgradePreviewEdgeIDs = _upgradeSession.SelectedEdgeIDs;
+        _renderer.UpgradeSelectionBounds = _upgradeSession.SelectionBounds;
+        _renderer.QueueRedraw();
+    }
+
+    private void EndUpgradeSession()
+    {
+        _upgradeSession = null;
+        if (_renderer == null)
+            return;
+
+        _renderer.UpgradePreviewEdgeIDs = [];
+        _renderer.UpgradeSelectionBounds = null;
+        _renderer.QueueRedraw();
+    }
+
     private bool ExecuteRoadEdit(Func<bool> edit) =>
         _editHistory?.Execute(edit) ?? edit();
 
     private Vector2 ToWorldPosition(Vector2 viewportPosition) =>
         GetCanvasTransform().AffineInverse() * viewportPosition;
 
-    private void UpdateRemoveHover()
+    private void UpdateRoadEditHover()
     {
         int? edgeID = null;
         if (_renderer is IRoadSurfaceSelectionProvider surfaceProvider &&
@@ -526,7 +696,17 @@ public partial class RoadBuilder : Node2D
                renderToken.ChangeSequence == graph.CurrentStateToken.ChangeSequence;
     }
 
-    private void ClearRemoveHover()
+    private bool IsUpgradeCommandAdmitted(RoadUpgradeSession session)
+    {
+        if (_graph is not RoadGraph graph || !session.IsCurrent)
+            return false;
+
+        RoadRenderToken renderToken = session.RenderToken;
+        return renderToken.GraphFacadeID == graph.FacadeID &&
+               renderToken.ChangeSequence == graph.CurrentStateToken.ChangeSequence;
+    }
+
+    private void ClearRoadEditHover()
     {
         _lastHoveredEdgeID = -1;
         if (_renderer == null)

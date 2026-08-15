@@ -311,6 +311,8 @@ public partial class RoadRenderer
             _owner._previewPoints = [];
             _owner._removalPreviewEdgeIDs = [];
             _owner.RemovalSelectionBounds = null;
+            _owner._upgradePreviewEdgeIDs = [];
+            _owner.UpgradeSelectionBounds = null;
             _owner.HoveredEdgeID = null;
             _owner._presentedSurface = _targetSurfaceSnapshot;
             _owner._presentationTokens.CommitReservedLoad(

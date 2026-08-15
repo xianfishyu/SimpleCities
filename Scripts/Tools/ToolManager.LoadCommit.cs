@@ -28,7 +28,8 @@ public partial class ToolManager
             throw new LoadPreflightInvalidException("ToolManager load admission is stale.");
         RoadBuilder.RoadBuilderLoadCommitPlan builderPlan = _roadBuilder!.PreflightFullReset(
             admission.BuilderAdmission,
-            keepRemoveHoverActive: admission.CurrentTool == ToolType.RoadRemove);
+            keepRemoveHoverActive: admission.CurrentTool == ToolType.RoadRemove,
+            keepUpgradeHoverActive: admission.CurrentTool == ToolType.RoadUpgrade);
         return new ToolLoadCommitPlan(this, admission, builderPlan);
     }
 

@@ -22,10 +22,14 @@ public partial class ToolManager : Node2D
             // 切出 RoadRemove 工具前清除悬停高亮
             if (_currentTool == ToolType.RoadRemove)
                 _roadBuilder?.SetRemoveHoverActive(false);
+            if (_currentTool == ToolType.RoadUpgrade)
+                _roadBuilder?.SetUpgradeHoverActive(false);
             _currentTool = value;
             // 切入 RoadRemove 工具时开启悬停高亮
             if (_currentTool == ToolType.RoadRemove)
                 _roadBuilder?.SetRemoveHoverActive(true);
+            if (_currentTool == ToolType.RoadUpgrade)
+                _roadBuilder?.SetUpgradeHoverActive(true);
         }
     }
 
@@ -81,6 +85,7 @@ public partial class ToolManager : Node2D
             return;
         _roadBuilder?.CancelPlaceSession();
         _roadBuilder?.CancelRemoveSession();
+        _roadBuilder?.CancelUpgradeSession();
     }
 
     public override void _Input(InputEvent @event)
@@ -95,6 +100,9 @@ public partial class ToolManager : Node2D
                 break;
             case ToolType.RoadRemove:
                 _roadBuilder.HandleRemoveInput(@event);
+                break;
+            case ToolType.RoadUpgrade:
+                _roadBuilder.HandleUpgradeInput(@event);
                 break;
         }
     }

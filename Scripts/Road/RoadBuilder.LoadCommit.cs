@@ -18,7 +18,8 @@ public partial class RoadBuilder
 
     internal RoadBuilderLoadCommitPlan PreflightFullReset(
         RoadBuilderLoadAdmission admission,
-        bool keepRemoveHoverActive)
+        bool keepRemoveHoverActive,
+        bool keepUpgradeHoverActive)
     {
         ArgumentNullException.ThrowIfNull(admission);
         if (!IsLoadAdmissionCurrent(admission))
@@ -29,6 +30,7 @@ public partial class RoadBuilder
             admission,
             replacementHistory,
             keepRemoveHoverActive,
+            keepUpgradeHoverActive,
             _editHistory);
     }
 
@@ -75,6 +77,7 @@ public partial class RoadBuilder
         private readonly RoadEditHistory _replacementHistory;
         private readonly RoadEditHistory? _oldHistory;
         private readonly bool _keepRemoveHoverActive;
+        private readonly bool _keepUpgradeHoverActive;
         private bool _committed;
         private bool _completed;
 
@@ -83,12 +86,14 @@ public partial class RoadBuilder
             RoadBuilderLoadAdmission admission,
             RoadEditHistory replacementHistory,
             bool keepRemoveHoverActive,
+            bool keepUpgradeHoverActive,
             RoadEditHistory? oldHistory)
         {
             _owner = owner;
             _admission = admission;
             _replacementHistory = replacementHistory;
             _keepRemoveHoverActive = keepRemoveHoverActive;
+            _keepUpgradeHoverActive = keepUpgradeHoverActive;
             _oldHistory = oldHistory;
         }
 
@@ -100,10 +105,12 @@ public partial class RoadBuilder
             _oldHistory?.Dispose();
             _owner._placementSession = null;
             _owner._removalSession = null;
+            _owner._upgradeSession = null;
             _owner._editHistory = _replacementHistory;
             _owner._leftPressStartedSession = false;
             _owner._ignoreNextLeftRelease = false;
             _owner._isRemoveHoverActive = _keepRemoveHoverActive;
+            _owner._isUpgradeHoverActive = _keepUpgradeHoverActive;
             _owner._lastHoveredEdgeID = -1;
             _committed = true;
         }

@@ -3,11 +3,15 @@ namespace SimpleCities.Tests;
 public sealed class ConstructionCategoryDefinitionTests
 {
     [Fact]
-    public void ToolType_StillContainsKeyboardOnlySelectAndRoadRemove()
+    public void ToolType_AppendsRoadUpgradeWithoutRenumberingExistingTools()
     {
         Assert.Equal(
-            [ToolType.Select, ToolType.Road, ToolType.RoadRemove],
+            [ToolType.Select, ToolType.Road, ToolType.RoadRemove, ToolType.RoadUpgrade],
             Enum.GetValues<ToolType>());
+        Assert.Equal(0, (int)ToolType.Select);
+        Assert.Equal(1, (int)ToolType.Road);
+        Assert.Equal(2, (int)ToolType.RoadRemove);
+        Assert.Equal(3, (int)ToolType.RoadUpgrade);
     }
 
     [Fact]
