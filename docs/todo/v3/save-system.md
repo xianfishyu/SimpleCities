@@ -65,6 +65,12 @@
 - 新增 5 个 xUnit 用例；完整测试套件 693/693 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实文件系统分类、manifest/payload digest 绑定、严格 reader 与保存根 coordinator。
 
+### 2026-08-13：2.2 payload digest（部分）
+
+- 新增 `Scripts/Core/V3/V3PayloadDigest.cs`：计算 SHA-256 小写 hex，并校验 manifest 文件项与字节内容（长度 + hash）。
+- 新增 4 个 xUnit 用例；完整测试套件 697/697 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：同句柄读取/计数/hash/EOF、严格 reader 与保存根 coordinator。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
