@@ -233,6 +233,12 @@
 - 新增 2 个 xUnit 用例；完整测试套件 812/812 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实文件句柄读取/计数/hash/EOF、严格 format v1 reader 与完整 coordinator。
 
+### 2026-08-13：2.1/2.2 文件槽存储（部分）
+
+- 新增 `Scripts/Core/V3/V3FileSlotStore.cs`：基于真实文件系统的 V3 槽存储，在 root 下按 slotId 保存 manifest/payload，使用根锁文件排他，支持 Save/Load/Delete/List。
+- 新增 3 个 xUnit 用例；完整测试套件 815/815 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：同句柄 length/hash/EOF、严格 format v1 reader 与完整 coordinator。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
