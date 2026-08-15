@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace SimpleCities.Road.V3;
 
@@ -145,6 +146,23 @@ public sealed class RoadGraphV3Controller
         }
 
         return true;
+    }
+
+    public bool TryBuild(RoadBuildRequest request, out RoadGraphV3ChangeSummary summary)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        request.Validate();
+
+        RoadGeometrySegment first = request.Path.Segments[0]!;
+        RoadGeometrySegment last = request.Path.Segments[^1]!;
+
+        if (!_facade.TryAddNode(first.Start, out summary, out int nodeAID))
+            return false;
+        if (!_facade.TryAddNode(last.End, out summary, out int nodeBID))
+            return false;
+
+        var geometry = request.Path.Segments.Select(segment => segment!).ToList();
+        return TryAddEdge(nodeAID, nodeBID, geometry, request.RoadType, out summary);
     }
 
     public bool TryNormalize(out RoadGraphV3ChangeSummary summary) =>

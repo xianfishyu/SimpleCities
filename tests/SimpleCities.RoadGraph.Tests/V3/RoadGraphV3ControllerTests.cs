@@ -85,6 +85,22 @@ public sealed class RoadGraphV3ControllerTests
     }
 
     [Fact]
+    public void TryBuild_CreatesEdgeWithPolylineGeometry()
+    {
+        var controller = CreateController();
+        RoadPath path = RoadPathDraft.FromPolyline(
+            [Vector2.Zero, new Vector2(1f, 0f), new Vector2(2f, 0f)]).Path!;
+        var request = new RoadBuildRequest(path, RoadType.Street);
+
+        Assert.True(controller.TryBuild(request, out _));
+
+        Assert.Equal(2, controller.Facade.Revision.Nodes.Count);
+        var edge = Assert.Single(controller.Facade.Revision.Edges.Values);
+        Assert.Equal(2, edge.Geometry.Count);
+        Assert.Equal(RoadType.Street, edge.RoadType);
+    }
+
+    [Fact]
     public void RestoreSnapshot_ClearsHistoryAndRestoresState()
     {
         var controller = CreateController();
