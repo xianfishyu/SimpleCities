@@ -43,6 +43,12 @@
 - 新增 6 个 xUnit 用例；完整测试套件 983/983 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：`RoadBuilder` 真实接线、surface hit 选择与批量改造提交。
 
+### 2026-08-13：2.0～2.2 工具命令执行器（部分）
+
+- 新增 `Scripts/Road/V3/RoadToolCommandExecutor.cs`：把 `RoadPlacementSessionV3` 转换为控制器 `TryBuild`，把 `RoadUpgradeSessionV3` 选择转换为逐 Edge 类型改造。
+- 新增 3 个 xUnit 用例；完整测试套件 987/987 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：批量改造单历史、`RoadBuilder` 真实接线与 surface hit 选择。
+
 ## 执行顺序
 
 ### 阶段 3：第三代闭环、类型化建造与道路改造
