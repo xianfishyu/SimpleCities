@@ -74,6 +74,12 @@
 - 新增 3 个 xUnit 用例；完整测试套件 1009/1009 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实 mesh 生成与完整接管协议。
 
+### 2026-08-13：2.2 RoadPresentationController 表现控制器（部分）
+
+- 新增 `Scripts/Road/V3/RoadPresentationController.cs`：将权威 revision 构建为表面快照并设置 desired token，仅允许 matching token 的后台结果发布到 `RoadPresentationState`。
+- 新增 3 个 xUnit 用例；完整测试套件 1021/1021 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实 mesh 生成与完整接管协议。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁
