@@ -185,6 +185,12 @@
 - 新增 4 个 xUnit 用例；完整测试套件 781/781 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实目录枚举、跨进程 lock 实现、真实 coordinator 与完整 Load commit 协议。
 
+### 2026-08-13：2.1 槽列表生成（部分）
+
+- 新增 `Scripts/Core/V3/V3SlotLister.cs`：将已分类 direct child 集合转换为有序 `V3SlotSummary` 列表。
+- 新增 2 个 xUnit 用例；完整测试套件 783/783 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实目录枚举、跨进程 lock 实现、真实 coordinator 与完整 Load commit 协议。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
