@@ -36,25 +36,31 @@
   - `ExactLinePredicates.cs`：`BitwiseEquals`、`Orient2D`、同向 dot 与 line 无损合并谓词。
   - `RoadType.cs`：稳定 `Dirt/Street/Arterial/Highway` 与 wire name 映射。
 - 新增 `tests/SimpleCities.RoadGraph.Tests/V3/` 共 19 个 xUnit 用例，覆盖 `-0`、full-turn 边界、容量校验、ID 耗尽/预留和 1 ULP 折点不合并；完整测试套件 511/511 通过。
-- 尚未完成（仍属 8.0）：canonicalizer 幂等、mutation/load 容量接线。
+- 尚未完成（仍属 8.0）：graph/全 primitive canonicalizer 幂等、mutation/load 容量接线。
 
 ### 2026-08-13：8.0 NodeSnap（部分）
 
 - 新增 `Scripts/Road/V3/RoadNodeSnap.cs`：一次解析全部 request anchor，只读不写图；使用受检 double 距离，等距时选择最小 Node ID，`NodeSnapRadius` 与 cluster epsilon 分离。
 - 新增 6 个 xUnit 用例；完整测试套件 539/539 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
-- 尚未完成（仍属 8.0）：canonicalizer 幂等、mutation/load 容量接线。
+- 尚未完成（仍属 8.0）：graph/全 primitive canonicalizer 幂等、mutation/load 容量接线。
 
 ### 2026-08-13：8.0 full-turn 接入 CircularArc（部分）
 
 - 更新 `Scripts/Road/Geometry/CircularArcRoadGeometrySegment.cs`：`IsFullTurn` 按逐 bit canonical binary32 `+/-Tau` 判定；`End` / `GetPosition(1)` 直接复用 `Start`，`GetUnitTangent(1)` 与起点一致；`BitDecrement(Tau)` 不是 full-turn，`BitIncrement(Tau)` 仍被拒绝。
 - 新增 5 个 xUnit 用例；完整测试套件 544/544 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
-- 尚未完成（仍属 8.0）：canonicalizer 幂等、mutation/load 容量接线。
+- 尚未完成（仍属 8.0）：graph/全 primitive canonicalizer 幂等、mutation/load 容量接线。
 
 ### 2026-08-13：8.0 确定性交点 cluster（部分）
 
 - 新增 `Scripts/Road/V3/RoadIntersectionCluster.cs`：`IntersectionWitness` / `IntersectionCluster` / `IntersectionClusterResult`；按稳定 key 排序后以 connected component 聚类，与输入顺序无关；多个既有 Node 或组件直径超限返回结构化失败；无既有 Node 时选择稳定 key 最小的代表并规范 `-0`。
 - 新增 7 个 xUnit 用例；完整测试套件 551/551 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
-- 尚未完成（仍属 8.0）：canonicalizer 幂等、mutation/load 容量接线。
+- 尚未完成（仍属 8.0）：graph/全 primitive canonicalizer 幂等、mutation/load 容量接线。
+
+### 2026-08-13：8.0/8.2 geometry line canonicalizer（部分）
+
+- 新增 `Scripts/Road/V3/RoadGeometryCanonicalizer.cs`：对相邻 `LineRoadGeometrySegment` 按 exact-sign 契约无损合并，输出规范 `-0`；非 line 曲线保留原样，不采样降级；单次扫描可级联合并，重复执行幂等。
+- 新增 8 个 xUnit 用例；完整测试套件 559/559 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成（仍属 8.0/8.2）：graph 层 canonicalizer、全 primitive 精确合并契约、self-loop seam 硬边界接入。
 
 ### 2026-08-13：8.1 incidence 与原生几何反向基础（部分）
 
