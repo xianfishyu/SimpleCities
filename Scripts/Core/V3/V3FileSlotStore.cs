@@ -86,9 +86,15 @@ public sealed class V3FileSlotStore
                 continue;
             }
 
-            children[name] = File.Exists(Path.Combine(directory, V3SlotReader.ManifestFileName))
+            if (!File.Exists(Path.Combine(directory, V3SlotReader.ManifestFileName)))
+            {
+                children[name] = V3SlotOccupant.Foreign;
+                continue;
+            }
+
+            children[name] = V3SlotIntegrity.Verify(directory).Success
                 ? V3SlotOccupant.CompleteV3
-                : V3SlotOccupant.Foreign;
+                : V3SlotOccupant.CorruptV3;
         }
 
         return V3SlotLister.List(children);

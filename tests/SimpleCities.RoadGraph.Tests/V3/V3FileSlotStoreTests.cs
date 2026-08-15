@@ -71,6 +71,29 @@ public sealed class V3FileSlotStoreTests
         }
     }
 
+    [Fact]
+    public void List_CorruptPayload_ReturnsCorruptV3()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var store = new V3FileSlotStore(root);
+            byte[] data = "road-network"u8.ToArray();
+            store.Save("city-001", CreateManifest("city-001", data), new Dictionary<string, byte[]> { ["road_network.json"] = data });
+            File.WriteAllBytes(Path.Combine(root, "city-001", "road_network.json"), "other"u8.ToArray());
+
+            IReadOnlyList<V3SlotSummary> list = store.List();
+
+            V3SlotSummary summary = Assert.Single(list);
+            Assert.Equal(V3SlotOccupant.CorruptV3, summary.Occupant);
+            Assert.False(summary.IsUsable);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
     private static string GetTempRoot() =>
         Path.Combine(Path.GetTempPath(), $"v3-store-{Guid.NewGuid():N}");
 

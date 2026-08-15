@@ -474,6 +474,12 @@
 - 新增 1 个 xUnit 用例；完整测试套件 916/916 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实应用装配与端到端 Load commit。
 
+### 2026-08-13：2.1 文件槽列表按完整性分类（部分）
+
+- `V3FileSlotStore.List` 对含 manifest 的目录执行 `V3SlotIntegrity.Verify`，损坏 payload 的槽分类为 `CorruptV3` 而非 `CompleteV3`。
+- 新增 1 个 xUnit 用例；完整测试套件 917/917 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实应用装配与端到端 Load commit。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
