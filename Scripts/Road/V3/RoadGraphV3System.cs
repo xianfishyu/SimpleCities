@@ -30,6 +30,17 @@ public partial class RoadGraphV3System : Node2D
         string? thumbnailFile) =>
         Application.SaveCurrent(displayName, cityName, timestamp, population, funds, thumbnailFile);
 
+    public bool TryUpgradeEdges(
+        System.Collections.Generic.IReadOnlyList<int> edgeIDs,
+        RoadType targetType,
+        out RoadGraphV3ChangeSummary summary) =>
+        Application.TryUpgradeEdges(edgeIDs, targetType, out summary);
+
+    public bool TryRemoveEdges(
+        System.Collections.Generic.IReadOnlyList<int> edgeIDs,
+        out RoadGraphV3ChangeSummary summary) =>
+        Application.TryRemoveEdges(edgeIDs, out summary);
+
     public bool Load(string slotId, long lineageID = 1) =>
         Application.Load(slotId, lineageID);
 
