@@ -59,6 +59,12 @@
 - 新增 4 个 xUnit 用例；完整测试套件 688/688 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：目录分类、manifest/payload digest 绑定、严格 reader 与保存根 coordinator。
 
+### 2026-08-13：2.2 occupant 分类基础（部分）
+
+- 新增 `Scripts/Core/V3/V3SlotOccupant.cs`：`V3SlotOccupant` 枚举与 `V3SlotClassifier`，按目录/manifest 声明/校验/payload 校验分类为 `CompleteV3`、`CorruptV3`、`Foreign`、`Unsafe`。
+- 新增 5 个 xUnit 用例；完整测试套件 693/693 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实文件系统分类、manifest/payload digest 绑定、严格 reader 与保存根 coordinator。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
