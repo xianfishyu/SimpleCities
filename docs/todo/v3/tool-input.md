@@ -31,6 +31,12 @@
 - 新增 7 个 xUnit 用例；完整测试套件 973/973 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：首锚点闭合吸附、自交拒绝、`RoadBuilder` 真实接线与完整工具生命周期。
 
+### 2026-08-13：2.1/2.2 工具状态基础（部分）
+
+- 新增 `Scripts/Road/V3/RoadToolState.cs`：定义 `RoadToolType`（Place/Remove/Upgrade）与当前工具/已选 RoadType 状态，非法类型选择被拒绝。
+- 新增 4 个 xUnit 用例；完整测试套件 977/977 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：`RoadBuilder` 真实接线、改造选择生命周期与完整工具路由。
+
 ## 执行顺序
 
 ### 阶段 3：第三代闭环、类型化建造与道路改造
