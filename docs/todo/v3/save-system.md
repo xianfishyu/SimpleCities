@@ -523,6 +523,12 @@
 - 新增 6 个 xUnit 用例；完整测试套件 935/935 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实 Godot 场景装配与端到端 Load commit。
 
+### 2026-08-13：2.1 槽状态返回 manifest 摘要（更新）
+
+- `V3SlotStatusService.GetStatus` 对完整槽读取 manifest，返回 `DisplayName` 与 `Timestamp`，不再只返回 slotId 和 null。
+- 更新 1 个 xUnit 用例断言；完整测试套件 935/935 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实 Godot 场景装配与端到端 Load commit。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议

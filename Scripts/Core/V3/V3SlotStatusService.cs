@@ -21,6 +21,18 @@ public static class V3SlotStatusService
 
         V3SlotIntegrityResult integrity = V3SlotIntegrity.Verify(slotDirectory);
         var occupant = integrity.Success ? V3SlotOccupant.CompleteV3 : V3SlotOccupant.CorruptV3;
-        return new V3SlotSummary(slotId, slotId, occupant, null);
+        if (occupant != V3SlotOccupant.CompleteV3)
+            return new V3SlotSummary(slotId, slotId, occupant, null);
+
+        V3ManifestCodecResult manifestResult = V3ManifestStrictFileReader.Read(
+            Path.Combine(slotDirectory, V3SlotReader.ManifestFileName));
+        if (!manifestResult.Success || manifestResult.Manifest is null)
+            return new V3SlotSummary(slotId, slotId, V3SlotOccupant.CorruptV3, null);
+
+        return new V3SlotSummary(
+            slotId,
+            manifestResult.Manifest.DisplayName,
+            V3SlotOccupant.CompleteV3,
+            manifestResult.Manifest.Timestamp);
     }
 }
