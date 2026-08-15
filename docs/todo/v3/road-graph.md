@@ -43,7 +43,13 @@
 - 新增 `Scripts/Road/V3/EdgeIncidence.cs`：`EdgeEndpoint` / `EdgeIncidence`，为 self-loop 在同一节点的 A/B incidence 提供值类型基础。
 - 新增 `Scripts/Road/V3/RoadGeometryReverser.cs`：六类原生几何（Line/Bezier/Hermite/Arc/Clothoid/RationalQuadratic）的权威反向契约；全圆保留 seam，Clothoid 正确转换朝向与有符号曲率。
 - 新增 15 个 xUnit 用例；完整测试套件 526/526 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
-- 尚未完成（仍属 8.1）：把 incidence 接入 `GraphNode`/`RoadGraph` 的 detach/rebuild、typed direction key、parallel edge 与 self-loop 图级验收。
+- 尚未完成（仍属 8.1）：把 incidence 接入 `GraphNode`/`RoadGraph` 的 detach/rebuild、parallel edge 与 self-loop 图级验收。
+
+### 2026-08-13：8.1 typed direction key（部分）
+
+- 新增 `Scripts/Road/V3/RoadDirectionKey.cs`：版本化 typed binary32 token key，规范 `-0` 与周期角度，使用 IEEE total order 比较；`SelectCanonicalDirection` 在正向/反向链中选择 key 较小者。
+- 新增 7 个 xUnit 用例；完整测试套件 533/533 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：将 direction key 接入 self-loop 图级规范化与 format v1 往返。
 
 ## 执行顺序
 
