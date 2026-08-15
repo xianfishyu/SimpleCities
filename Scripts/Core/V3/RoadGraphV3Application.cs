@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using SimpleCities.Road.V3;
 
 namespace SimpleCities.Core.V3;
@@ -248,6 +249,9 @@ public sealed class RoadGraphV3Application
     }
 
     public IReadOnlyList<V3SlotSummary> List() => _transactionCoordinator.List(_root);
+
+    public IReadOnlyList<V3SlotSummary> ListUsableSlots() =>
+        List().Where(summary => summary.IsUsable).ToList();
 
     public void NewCity(long lineageID = 1)
     {

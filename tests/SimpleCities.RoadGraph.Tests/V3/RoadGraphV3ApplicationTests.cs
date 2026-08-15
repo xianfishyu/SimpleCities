@@ -427,6 +427,31 @@ public sealed class RoadGraphV3ApplicationTests
     }
 
     [Fact]
+    public void ListUsableSlots_FiltersCorrupt()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            app.Controller.ReplaceWithFullReset(CreateRevision(), 1);
+            Assert.True(app.Save("city-001", "n", "n", "2026-08-12T08:00:00.0000000Z", null, null, null));
+            Assert.True(app.Save("city-002", "n", "n", "2026-08-12T08:00:00.0000000Z", null, null, null));
+            System.IO.File.WriteAllText(
+                System.IO.Path.Combine(root, "city-002", "road_network.json"),
+                "corrupt");
+
+            IReadOnlyList<V3SlotSummary> usable = app.ListUsableSlots();
+
+            V3SlotSummary summary = Assert.Single(usable);
+            Assert.Equal("city-001", summary.SlotId);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void GetStatus_ReturnsCompleteAfterSave()
     {
         string root = GetTempRoot();
