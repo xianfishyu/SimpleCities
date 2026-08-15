@@ -44,6 +44,12 @@
 - 新增 4 个 xUnit 用例；完整测试套件 951/951 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：hit provider、mesh 生成与表现接管协议。
 
+### 2026-08-13：2.2 RoadRenderToken 数据模型（部分）
+
+- 新增 `Scripts/Road/V3/RoadRenderToken.cs`：定义包含场景、图、样式与请求世代的不可变表现 token，并提供有效性校验与精确匹配。
+- 新增 4 个 xUnit 用例；完整测试套件 955/955 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：hit provider、mesh 生成与表现接管协议。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁
