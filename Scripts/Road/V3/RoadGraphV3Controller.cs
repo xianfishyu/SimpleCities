@@ -126,6 +126,9 @@ public sealed class RoadGraphV3Controller
         return true;
     }
 
+    public bool TryNormalize(out RoadGraphV3ChangeSummary summary) =>
+        _facade.TryNormalize(out summary);
+
     public RoadGraphV3ChangeSummary ReplaceWithFullReset(
         RoadGraphV3Revision newRevision,
         long newLineageID)

@@ -203,6 +203,12 @@
 - 新增 2 个 xUnit 用例；完整测试套件 804/804 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：将自动规范化接入 controller mutation 后自动调用与完整 delta 历史记录。
 
+### 2026-08-13：8.5 controller 规范化入口（部分）
+
+- 在 `RoadGraphV3Controller` 增加 `TryNormalize()` 转发 facade 规范化；可通过 controller 在批量编辑后主动规范化。
+- 新增 1 个 xUnit 用例；完整测试套件 805/805 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：mutation 后自动调用与规范化 delta 历史记录。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成

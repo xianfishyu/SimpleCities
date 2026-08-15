@@ -103,6 +103,23 @@ public sealed class RoadGraphV3ControllerTests
     }
 
     [Fact]
+    public void Normalize_MergesChainBuiltThroughController()
+    {
+        var controller = CreateController();
+        controller.TryAddNode(Vector2.Zero, out _);
+        controller.TryAddNode(new Vector2(1f, 0f), out _);
+        controller.TryAddNode(new Vector2(2f, 0f), out _);
+        var nodes = controller.Facade.Revision.Nodes.Values.ToArray();
+        controller.TryAddEdge(nodes[0].ID, nodes[1].ID, [new LineRoadGeometrySegment(nodes[0].Position, nodes[1].Position)], RoadType.Street, out _);
+        controller.TryAddEdge(nodes[1].ID, nodes[2].ID, [new LineRoadGeometrySegment(nodes[1].Position, nodes[2].Position)], RoadType.Street, out _);
+
+        Assert.True(controller.TryNormalize(out _));
+
+        Assert.Equal(2, controller.Facade.Revision.Nodes.Count);
+        Assert.Single(controller.Facade.Revision.Edges);
+    }
+
+    [Fact]
     public void TryAddNode_WhenHistoryRejects_RollsBackAndReturnsFalse()
     {
         var facade = new RoadGraphV3Facade(RoadGraphV3Revision.Empty(RoadGraphCapacity.Default));
