@@ -23,6 +23,15 @@
 | 表现事务与 Load 原子接管 | 普通 mutation 允许领域提交后异步构建并在失败时 stalled/retry；Load 不能暴露提交后表现窗口，关键资源必须在 Preflight 完成 | 2.2、`v3-save-system:2.3`、`v3-tool-input:2.4` |
 | V2 显示与规模基线 | 六类原生几何已有统一只读显示采样；统一样式的 10k Edge 已通过 60 FPS 门槛并记录 100k 压测 | `grid-rendering:1.1`～`1.2`（V2 已完成）、2.3 |
 
+## V3 实施记录
+
+### 2026-08-13：2.1 RoadTypeStyle 数据与目录校验（部分）
+
+- 新增 `Scripts/Road/V3/RoadTypeStyle.cs`：纯 C# 样式数据类，包含稳定 `RoadType`、展示名称、颜色与正有限宽度，并校验非法枚举、空名称、非有限颜色与非正宽度。
+- 新增 `Scripts/Road/V3/RoadTypeStyleCatalog.cs`：校验样式集合恰好覆盖 `Dirt`/`Street`/`Arterial`/`Highway` 且无重复，返回可查询目录。
+- 新增 7 个 xUnit 用例；完整测试套件 942/942 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：Godot `Resource`/`.tres` 封装、`RoadConfig` 接入与真实渲染使用。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁
