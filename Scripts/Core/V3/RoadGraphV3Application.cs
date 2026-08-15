@@ -20,6 +20,7 @@ public sealed class RoadGraphV3Application
 
     public RoadGraphV3Controller Controller { get; private set; }
     public RoadToolState ToolState { get; } = new();
+    public RoadStyleProvider DefaultStyles { get; }
     public RoadToolType CurrentTool
     {
         get => ToolState.CurrentTool;
@@ -52,6 +53,7 @@ public sealed class RoadGraphV3Application
         _coordinator = new V3RoadSaveLoadCoordinator(_gate);
         _autosave = new V3SlotAutosaveCoordinator(_gate, new V3SlotAutosaveService());
         _transactionCoordinator = new V3SlotTransactionCoordinator(_gate);
+        DefaultStyles = new RoadStyleProvider(RoadTypeStyleCatalog.CreateDefault());
         Controller = new RoadGraphV3Controller(
             new RoadGraphV3Facade(RoadGraphV3Revision.Empty(capacity), 1),
             new RoadEditHistoryV3(100, 100000));
@@ -137,6 +139,9 @@ public sealed class RoadGraphV3Application
             Controller.Facade.Revision,
             Controller.Facade.CurrentToken,
             styles);
+
+    public RoadSurfaceSnapshotBuildResult BuildDefaultSurfaceSnapshot() =>
+        BuildSurfaceSnapshot(DefaultStyles);
 
     public bool TryUpgrade(RoadUpgradeSessionV3 session, out IReadOnlyList<int> changedEdgeIDs) =>
         new RoadToolCommandExecutor(Controller).TryUpgrade(session, out changedEdgeIDs);

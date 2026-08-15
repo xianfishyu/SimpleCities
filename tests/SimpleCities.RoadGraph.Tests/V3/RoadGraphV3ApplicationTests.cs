@@ -75,6 +75,29 @@ public sealed class RoadGraphV3ApplicationTests
     }
 
     [Fact]
+    public void BuildDefaultSurfaceSnapshot_ReturnsSnapshotWithOwners()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            var session = new RoadPlacementSessionV3(RoadType.Street, Vector2.Zero);
+            session.TryAddPoint(new Vector2(1f, 0f));
+            Assert.True(app.TryBuild(session, out _));
+
+            RoadSurfaceSnapshotBuildResult result = app.BuildDefaultSurfaceSnapshot();
+
+            Assert.True(result.Success, result.Error);
+            Assert.NotNull(result.Snapshot);
+            Assert.Single(result.Snapshot!.Owners);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void BuildSurfaceSnapshot_ReturnsSnapshotWithOwners()
     {
         string root = GetTempRoot();
