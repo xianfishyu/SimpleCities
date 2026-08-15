@@ -85,6 +85,23 @@ public sealed class RoadGraphV3ControllerTests
     }
 
     [Fact]
+    public void RestoreSnapshot_ClearsHistoryAndRestoresState()
+    {
+        var controller = CreateController();
+        RoadGraphV3Snapshot before = controller.Facade.CaptureSnapshot();
+
+        Assert.True(controller.TryAddNode(Vector2.Zero, out _));
+        Assert.Single(controller.Facade.Revision.Nodes);
+        Assert.Equal(1, controller.History.UndoCount);
+
+        controller.Restore(before);
+
+        Assert.Empty(controller.Facade.Revision.Nodes);
+        Assert.Equal(0, controller.History.UndoCount);
+        Assert.Equal(0, controller.History.RedoCount);
+    }
+
+    [Fact]
     public void ReplaceWithFullReset_ClearsHistoryAndChangesLineage()
     {
         var controller = CreateController();

@@ -206,6 +206,13 @@ public sealed class RoadGraphV3Controller
         return RoadGraphV3ChangeSummary.FullReset(_facade.CurrentToken.ChangeSequence);
     }
 
+    public void Restore(RoadGraphV3Snapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        _facade.Restore(snapshot);
+        _history.Clear();
+    }
+
     public bool TryUndo(out RoadGraphV3ChangeSummary summary)
     {
         if (!_history.TryUndo(out RoadGraphV3Delta delta))

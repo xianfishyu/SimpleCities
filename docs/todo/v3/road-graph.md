@@ -233,6 +233,12 @@
 - 新增 1 个 xUnit 用例；完整测试套件 810/810 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实应用装配与严格 format v1 接入。
 
+### 2026-08-13：8.5 控制器快照恢复（部分）
+
+- 在 `RoadGraphV3Controller` 增加 `Restore(RoadGraphV3Snapshot)`：恢复 facade 状态并清空 undo/redo，供 load/full-reset 回滚与外部快照恢复使用。
+- 新增 1 个 xUnit 用例；完整测试套件 929/929 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实应用装配与严格 format v1 接入。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成
