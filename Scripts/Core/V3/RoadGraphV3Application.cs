@@ -75,6 +75,20 @@ public sealed class RoadGraphV3Application
         return true;
     }
 
+    public bool LoadIntoCurrent(string slotId, long newLineageID = 1)
+    {
+        bool success = V3RoadLoadPipeline.TryLoadIntoController(
+            slotId,
+            _root,
+            _capacity,
+            _budget,
+            Controller,
+            newLineageID);
+        if (success)
+            CurrentSlotID = slotId;
+        return success;
+    }
+
     public bool TryUndo(GraphStateToken expectedToken, out RoadGraphV3ChangeSummary summary) =>
         Controller.TryUndo(expectedToken, out summary);
 

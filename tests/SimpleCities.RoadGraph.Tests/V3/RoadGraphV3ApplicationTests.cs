@@ -99,6 +99,32 @@ public sealed class RoadGraphV3ApplicationTests
     }
 
     [Fact]
+    public void LoadIntoCurrent_ReplacesControllerAndClearsHistory()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            RoadGraphV3Revision revision = CreateRevision();
+            var saver = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            saver.Controller.ReplaceWithFullReset(revision, 1);
+            Assert.True(saver.Save("city-001", "n", "n", "2026-08-12T08:00:00.0000000Z", null, null, null));
+
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            Assert.True(app.Controller.TryAddNode(Vector2.Zero, out _));
+            Assert.True(app.LoadIntoCurrent("city-001", newLineageID: 7));
+
+            Assert.Equal(revision.Nodes.Count, app.Controller.Facade.Revision.Nodes.Count);
+            Assert.Equal(revision.Edges.Count, app.Controller.Facade.Revision.Edges.Count);
+            Assert.Equal(0, app.Controller.History.UndoCount);
+            Assert.Equal("city-001", app.CurrentSlotID);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void TryBuild_CommitsSessionThroughApplication()
     {
         string root = GetTempRoot();
