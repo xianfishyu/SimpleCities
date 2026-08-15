@@ -191,6 +191,12 @@
 - 新增 2 个 xUnit 用例；完整测试套件 783/783 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实目录枚举、跨进程 lock 实现、真实 coordinator 与完整 Load commit 协议。
 
+### 2026-08-13：2.2 槽文件组装（部分）
+
+- 新增 `Scripts/Core/V3/V3SlotWriter.cs`：将 manifest 与 payload 字节组装为槽内文件字典（manifest.json + payloads），缺失/未声明 payload 拒绝。
+- 新增 3 个 xUnit 用例；完整测试套件 786/786 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实目录枚举、跨进程 lock 实现、真实 coordinator 与完整 Load commit 协议。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
