@@ -43,6 +43,29 @@ public sealed class V3SlotMoveServiceTests
         }
     }
 
+    [Fact]
+    public void Move_CorruptSlot_FailsAndKeepsSource()
+    {
+        string sourceRoot = GetTempRoot();
+        string destinationRoot = GetTempRoot();
+        try
+        {
+            byte[] data = "road-network"u8.ToArray();
+            var store = new V3FileSlotStore(sourceRoot);
+            store.Save("city-001", CreateManifest("city-001", data), new Dictionary<string, byte[]> { ["road_network.json"] = data });
+            File.WriteAllBytes(Path.Combine(sourceRoot, "city-001", "road_network.json"), "other"u8.ToArray());
+
+            Assert.False(V3SlotMoveService.Move("city-001", sourceRoot, destinationRoot));
+            Assert.True(store.Load("city-001").Success);
+            Assert.False(new V3FileSlotStore(destinationRoot).Load("city-001").Success);
+        }
+        finally
+        {
+            Cleanup(sourceRoot);
+            Cleanup(destinationRoot);
+        }
+    }
+
     private static string GetTempRoot() =>
         Path.Combine(Path.GetTempPath(), $"v3-move-{Guid.NewGuid():N}");
 
