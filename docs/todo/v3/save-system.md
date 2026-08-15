@@ -113,6 +113,12 @@
 - 新增 5 个 xUnit 用例；完整测试套件 740/740 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：descriptor JSON 编解码、同句柄校验与 coordinator。
 
+### 2026-08-13：2.2 publish descriptor codec（部分）
+
+- 新增 `Scripts/Core/V3/V3PublishDescriptorCodec.cs`：camelCase JSON 序列化/反序列化 publish descriptor，并在反序列化后执行基础校验。
+- 新增 4 个 xUnit 用例；完整测试套件 744/744 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：同句柄校验、严格 format v1 reader 与 coordinator。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议
