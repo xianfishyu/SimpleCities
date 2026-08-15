@@ -148,6 +148,12 @@
 - 新增 5 个 xUnit 用例；完整测试套件 629/629 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：结构共享、O(1) snapshot capture、事务摘要/delta 与真实 facade 接线。
 
+### 2026-08-13：8.5 稳定 facade 与事务提交（部分）
+
+- 新增 `Scripts/Road/V3/RoadGraphV3Facade.cs`：稳定 facade 持有不可变 root；普通 mutation 原子替换 root、递增 DomainRevisionID/ChangeSequence 并生成 `RoadGraphV3ChangeSummary`；full reset 创建新 lineage。
+- 新增 6 个 xUnit 用例；完整测试套件 635/635 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：结构共享、O(1) snapshot capture、delta 历史接入与真实应用装配。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成
