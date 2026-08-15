@@ -24,6 +24,7 @@ public sealed class RoadGraphV3Application
     public RoadGraphV3Revision Revision => Controller.Facade.Revision;
     public bool CanUndo => Controller.History.UndoCount > 0;
     public bool CanRedo => Controller.History.RedoCount > 0;
+    public void ClearHistory() => Controller.History.Clear();
     public RoadToolState ToolState { get; } = new();
     public RoadStyleProvider DefaultStyles { get; }
     public RoadPresentationController Presentation { get; }
