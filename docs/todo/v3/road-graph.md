@@ -112,6 +112,12 @@
 - 新增 3 个 xUnit 用例；完整测试套件 596/596 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：将摘要/token 接入真实 mutation、undo/redo 与 full-reset load。
 
+### 2026-08-13：8.5/10.7 可逆 delta 基础（部分）
+
+- 新增 `Scripts/Road/V3/RoadGraphDelta.cs`：`RoadGraphV3EntityChange<T>`（Before/After、created/updated/removed 分类）与 `RoadGraphV3Delta`（BeforeRevisionID/AfterRevisionID、Node/Edge changes、`Invert()`）。
+- 新增 4 个 xUnit 用例；完整测试套件 600/600 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：将 delta 接入 mutation plan、有界历史与 undo/redo token 校验。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成
