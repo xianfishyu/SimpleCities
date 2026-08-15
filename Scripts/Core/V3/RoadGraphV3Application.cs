@@ -21,6 +21,7 @@ public sealed class RoadGraphV3Application
     public RoadGraphV3Controller Controller { get; private set; }
     public RoadToolState ToolState { get; } = new();
     public RoadStyleProvider DefaultStyles { get; }
+    public RoadPresentationController Presentation { get; }
     public RoadToolType CurrentTool
     {
         get => ToolState.CurrentTool;
@@ -54,6 +55,9 @@ public sealed class RoadGraphV3Application
         _autosave = new V3SlotAutosaveCoordinator(_gate, new V3SlotAutosaveService());
         _transactionCoordinator = new V3SlotTransactionCoordinator(_gate);
         DefaultStyles = new RoadStyleProvider(RoadTypeStyleCatalog.CreateDefault());
+        Presentation = new RoadPresentationController(
+            new RoadPresentationState(new RoadRenderToken(0, 0, 0, 0, 0, 0)),
+            DefaultStyles);
         Controller = new RoadGraphV3Controller(
             new RoadGraphV3Facade(RoadGraphV3Revision.Empty(capacity), 1),
             new RoadEditHistoryV3(100, 100000));
