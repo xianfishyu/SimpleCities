@@ -147,6 +147,12 @@
 - 新增 4 个 xUnit 用例；完整测试套件 1166/1166 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：连续/矩形批量选择输入与端到端工具验收。
 
+### 2026-08-13：2.4 输入处理器外部重置入口（部分）
+
+- `RoadGraphV3InputHandler` 新增 `ResetTools()`，供 Load/NewCity 等外部生命周期清除当前工具会话。
+- 完整测试套件 1207/1207 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
+- 尚未完成：真实输入自动化（鼠标点击）与端到端工具验收。
+
 ## 执行顺序
 
 ### 阶段 3：第三代闭环、类型化建造与道路改造

@@ -18,6 +18,8 @@ public partial class RoadGraphV3InputHandler : Node2D
     public bool IsClosed => Router?.IsPlacementClosed ?? false;
     public int FixedCornerCount => Router?.PlacementSession?.FixedCornerCount ?? 0;
 
+    public void ResetTools() => Router?.Cancel();
+
     private RoadToolInputRouter? Router
     {
         get
