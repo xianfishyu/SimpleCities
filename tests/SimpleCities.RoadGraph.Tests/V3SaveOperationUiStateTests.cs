@@ -131,6 +131,7 @@ public sealed class V3SaveOperationUiStateTests
         Assert.True(state.IsComplete);
         Assert.True(state.HasWarnings);
         Assert.Equal("cleanup pending", state.WarningSummary);
+        Assert.True(state.IsTerminal);
         Assert.Null(state.Error);
     }
 
