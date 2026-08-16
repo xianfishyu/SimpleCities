@@ -40,6 +40,7 @@
 - 消费 `V3SaveOperation` token/result，实现 Publish/Load/Delete 的 busy、取消与二次确认。
 - 确保 Load 的 Admission/Prepare/Preflight 期间 Escape 只取消一次，commit 期间不可取消。
 - 验证 V2/Foreign 槽不进入普通操作列表。
+- 准备已完成：`PauseMenu` 同步调用点调查与 `V3SaveOperation` 阶段映射见 `docs/todo/v3/save-system.md` 与 `docs/todo/v3/ui.md` 的 2026-08-16 条目。
 
 ## 5. 最终组合验收 `v3-road-graph:8.6`
 
@@ -68,7 +69,7 @@
 - M2：`v3-ui:1.2` / `v3-tool-input:2.2` surface hit 选择验收通过（单元测试覆盖已完成，待环境验证）。
 - M3：`RoadGraphV3Diagnostics.QueryFragmentCount` 接入并显示（实现完成，待环境验证）。
 - M4：`v3-ui:1.4` 异步存档状态机验收通过。
-  - 准备：先梳理 PauseMenu 当前同步 Save/Load/Delete 调用点，再映射 `V3SaveOperation` 阶段到 UI busy/取消/结果状态。
+  - 准备：已完成 PauseMenu 同步调用点调查与 `V3SaveOperation` 阶段映射；接下来实现 busy/取消/结果状态机。
 - M5：`v3-road-graph:8.6` 最终组合验收证据写回指南附录 D。
 
 ## 9. 相关文档

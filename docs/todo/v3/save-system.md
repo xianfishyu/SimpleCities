@@ -29,6 +29,7 @@
 
 - V3 format v1、manifest v1、槽 ID/路径/occupant/digest、保存根 `user://saves-v3` 与 coordinator/gate/load pipeline 已落地；`RoadGraphV3Application` 的 aggregate Load commit 已支持 tool/presentation/renderer inside-commit 参与者。
 - 真实 Godot 场景装配、renderer participant 与端到端 Load 生命周期仍由 `2.3` 和 `v3-road-graph:8.6` 跟踪。
+- M4 准备：已调查 `PauseMenu` 当前同步 Save/Load/Delete 调用点并映射到 `V3SaveOperation` 阶段（见 2026-08-16 条目）；异步状态机尚未实现。
 
 ## V3 实施记录
 
@@ -735,6 +736,23 @@
 - `RoadGraphV3Application.TryCommitPreparedLoad` / `Load` / `LoadIntoCurrent` 透传回调；`RoadGraphV3Renderer` 新增 `TryPreflight` / `ApplyPreparedSwap` 与 `RoadGraphV3RendererPreparedSwap`，场景根节点在 commit 前预构建隐藏 ArrayMesh，并在 commit 临界区内应用。
 - 新增 2 个 xUnit 用例；完整测试套件 1218/1218 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实 Load 成功路径的隐藏 Mesh/RID 联合交换自动化（GDScript 绑定限制），以及混合宽度/锐角 junction 真实填补。
+
+### 2026-08-16：M4 准备——PauseMenu 同步存档调用点调查（文档）
+
+- 调查对象：`Scripts/UI/PauseMenu.cs` 当前存档相关调用点，为 `v3-ui:1.4` 异步状态机提供迁移基线。
+- 当前同步调用点：
+  - `CreateNamedSave` -> `SaveManager.SaveAs(displayName)`：同步 bool，成功后清空输入并刷新列表。
+  - `OverwriteConfirmedSave` -> `SaveManager.Save(slotID)`：同步 bool，确认后立即执行并回到列表。
+  - `LoadConfirmedSave` -> `SaveManager.Load(slotID)`：同步 bool，确认后立即执行并回到列表。
+  - `DeleteConfirmedSave` -> `SaveManager.DeleteSlot(slotID)`：同步 bool，确认后立即执行并回到列表。
+  - `RefreshSaveSlots` -> `SaveManager.ListSlots()`：同步读取 V2 根，`SaveSlotSummary` 来自 V2 manifest。
+  - `ActiveSaveManager` 仅校验实例有效，无 scene/menu generation 或 operation token。
+- 与 `V3SaveOperation` 的映射：
+  - Save As/Overwrite -> `V3SaveOperationKind.Publish`；Load -> `Load`；Delete -> `Delete`。
+  - `V3SaveOperationResult.Phase` 可驱动 busy/取消/结果 UI：`Admission/Prepare/Preflight` 可取消，`Commit/Completed` 不可取消。
+  - 列表应改用 V3 occupant 分类，只展示 `CompleteV3` / `CorruptV3`；`Foreign` / `Unsafe` 不作为普通操作目标。
+  - `CurrentSlotID` 只在成功 commit 后更新。
+- 下一步：将上述同步 bool 调用替换为 operation token/result 状态机；实现 busy 禁用、Escape 独占取消、generation 防护与精确确认文案。完整工作项见 `v3-ui:1.4`。
 
 ## 执行顺序
 

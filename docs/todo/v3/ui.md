@@ -18,6 +18,7 @@
 
 - `v3-ui:1.1` 已完成：RoadType 选择器、分类联动、键盘/手柄焦点、暂停返回、场景重入和三档视口。
 - RoadUpgrade 已具备道路分类入口、`ToolManager` 同步与 U 快捷键；DebugPanel 已接入 V3 诊断并实现隐藏零轮询。`1.2`～`1.4` 的 surface hit 选择、完整改造呈现与异步存档状态机仍开放。
+- M4 准备：已梳理 `PauseMenu` 同步存档调用点并映射到 `V3SaveOperation` 阶段（见 2026-08-16 条目）；`1.4` 仍开放。
 
 ### 设计覆盖矩阵
 
@@ -71,6 +72,13 @@
 - `DebugPanel` 新增 `QueryRow`，显示 `RoadGraphV3Diagnostics.QueryFragmentCount`（当前按 line primitive 计算）。
 - 验证：Godot `MapTest` 冻结运行后显示面板 `node=0 edge=0`；隐藏后继续步进标签保持 `0`；`command_center_runtime_contract.gd` 已更新为 V3 指标并 headless 输出 `PASS command center runtime contract`（含 1600x900、640x480、435x480 视口断言）；完整测试套件 1250/1250 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：曲线 primitive 的精细切分与空间索引完整接入。
+
+### 2026-08-16：M4 准备——PauseMenu 同步存档调用点调查（文档）
+
+- 调用点：`CreateNamedSave` -> `SaveManager.SaveAs`；`OverwriteConfirmedSave` -> `SaveManager.Save`；`LoadConfirmedSave` -> `SaveManager.Load`；`DeleteConfirmedSave` -> `SaveManager.DeleteSlot`；`RefreshSaveSlots` -> `SaveManager.ListSlots`。
+- 现状：全部为同步 bool，无 busy/取消/generation/token；列表来自 V2 根，不能区分 `CompleteV3`/`CorruptV3`/`Foreign`/`Unsafe`。
+- 映射：Save As/Overwrite -> `V3SaveOperationKind.Publish`；Load -> `Load`；Delete -> `Delete`；`Admission/Prepare/Preflight` 可取消，`Commit/Completed` 不可取消。
+- 下一步：在 `1.4` 中替换为 operation token/result 状态机，并接入 V3 occupant 分类列表。
 
 ## 执行顺序
 
