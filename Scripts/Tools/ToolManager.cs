@@ -1,4 +1,5 @@
 using Godot;
+using SimpleCities.Road.V3;
 
 public partial class ToolManager : Node2D
 {
@@ -20,6 +21,7 @@ public partial class ToolManager : Node2D
             if (_currentTool == ToolType.RoadRemove)
                 _roadBuilder?.SetRemoveHoverActive(false);
             _currentTool = value;
+            SyncV3Tool(value);
             // 切入 RoadRemove 工具时开启悬停高亮
             if (_currentTool == ToolType.RoadRemove)
                 _roadBuilder?.SetRemoveHoverActive(true);
@@ -32,6 +34,7 @@ public partial class ToolManager : Node2D
     {
         Instance = this;
         _roadBuilder = GetNode<RoadBuilder>("../RoadSystem/RoadBuilder");
+        SyncV3Tool(_currentTool);
     }
 
     public override void _ExitTree()
@@ -48,6 +51,14 @@ public partial class ToolManager : Node2D
     public bool CanUndoRoadEdit() => _roadBuilder?.CanUndoLastEdit() == true;
 
     public bool CanRedoRoadEdit() => _roadBuilder?.CanRedoLastEdit() == true;
+
+    private void SyncV3Tool(ToolType tool)
+    {
+        if (!GodotObject.IsInstanceValid(RoadGraphV3System.Instance))
+            return;
+
+        RoadGraphV3System.Instance.ToolState.SwitchTo(tool.ToRoadToolType());
+    }
 
     public override void _Input(InputEvent @event)
     {

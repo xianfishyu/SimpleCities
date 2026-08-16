@@ -10,7 +10,7 @@
 | ID | 发现 | 当前状态 | 处置方式 |
 |---|---|---|---|
 | 1.1 | 道路上下文没有 RoadType 选择控件 | 部分实现 | 四段式名称与颜色 swatch 选择器写入共享 tool state |
-| 1.2 | ConstructionDock 没有道路改造工具呈现 | 开放 | 资源化 RoadUpgrade 工具、选中态和上下文联动 |
+| 1.2 | ConstructionDock 没有道路改造工具呈现 | 部分实现 | 资源化 RoadUpgrade 工具、选中态和上下文联动 |
 | 1.3 | DebugPanel 仍把 RoadGroup 数量作为路网指标 | 开放 | 移除 Group 指标，展示 canonical Node/Edge/geometry/self-loop 结构量 |
 | 1.4 | 暂停菜单没有异步 Save/Load/Delete 的独占状态机 | 开放 | generation/token 防护、Escape 独占及三类操作的明确提交边界 |
 
@@ -20,7 +20,7 @@
 |---|---|---|
 | 命令中心基线 | ConstructionDock、ToolContextPanel、DebugPanel 和 PauseMenu 已有响应式布局、焦点链和运行时契约 | 已解决基线 |
 | V3 类型建造 | 当前道路分类只有一个 `city-road` 工具；ToolContextPanel 已加入四段式 RoadType 选择器，支持分类联动与键盘焦点，剩余手柄焦点、场景重入和三档视口回归 | 1.1、`v3-tool-input:2.1` |
-| V3 既有道路改造 | `ToolType` 和 catalog 没有 RoadUpgrade，ConstructionDock 只渲染 Road 工具定义 | 1.2、`v3-tool-input:2.2` |
+| V3 既有道路改造 | ConstructionDock 已渲染“城市道路/道路改造”两个工具项并同步 ToolManager 与 V3 ToolState；剩余真实 surface hit 选择与端到端验收 | 1.2、`v3-tool-input:2.2` |
 | V3 规范存储诊断 | DebugPanel 仍读取 `GetAllGroups()`，无法观察 Edge 压缩、原生几何数量或 self-loop | 1.3、`v3-road-graph:8.2`～`8.5` |
 | V3 异步存档体验 | PauseMenu 调用同步 bool API；没有 busy 目标、并发禁用、取消边界、autosave skipped 与 scene generation 失效呈现 | 1.4、`v3-save-system:2.3`、`v3-tool-input:2.4` |
 
@@ -51,6 +51,13 @@
 - 验证：Godot `MapTest` 冻结运行后 GDScript 读取 `row_visible=true`、按钮 4 个、文本 `土路/街道/主干道/高速`、`toggle_mode` 全 true、`button_pressed` 仅 `街道` 为 true；模拟点击 `高速` 后 pressed 迁移到 `高速`；按 `ui_right` 焦点从 `土路` 移到 `街道`，聚焦 `高速` 后按 Enter 切换 pressed；切换到 `区域` 分类后 `row_visible=false`，切回 `道路` 后恢复且选中类型保持。完整测试套件 1246/1246 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误，编辑器错误日志为空；DAP stdout 仅引擎/bridge/embedded-window 提示，无 stderr。
 - 尚未完成：手柄焦点、暂停返回、场景重复进入和三档视口布局回归（嵌入式运行窗口无法在运行中调整尺寸，视口门禁需在非嵌入式运行或编辑器窗口配置下补验）。
 
+### 2026-08-13：1.2 RoadUpgrade 工具呈现（部分）
+
+- `ToolType` 新增 `RoadUpgrade`；`RoadsConstructionCategory.tres` 新增 `road-upgrade` 工具定义与独立图标；`ConstructionDock` 渲染“城市道路/道路改造”两个工具项，内置展示、焦点链和节点命名覆盖 `RoadUpgrade`。
+- `ToolTypeExtensions` 将 `Select/Road/RoadRemove/RoadUpgrade` 稳定映射到 `RoadToolType.Select/Place/Remove/Upgrade`，`ToolManager` 在工具切换和 `_Ready` 时同步 V3 `ToolState`。
+- 验证：Godot `MapTest` 冻结运行后 tool list 有 `RoadToolButton` / `RoadUpgradeToolButton`；点击“道路改造”后按钮 `pressed=true` 且 `ToolContextPanel` 显示“道路改造”；完整测试套件 1250/1250 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误，编辑器错误日志与 DAP stderr 为空。
+- 尚未完成：真实 surface hit 选择、矩形批量改造、self-loop/parallel Edge 选择、失效 token 与端到端工具验收。
+
 ## 执行顺序
 
 ### 阶段 7：第三代道路控件、诊断与存档交互
@@ -71,6 +78,7 @@
 - [ ] **1.2 在道路分类中呈现并同步 RoadUpgrade 工具**
   - 当前问题：`ConstructionDock.RenderRoadsMenu` 只接受 `ToolType.Road`，内置展示只覆盖 Select 和 RoadRemove，无法资源化呈现改造工具或同步选中态。
   - 修改：扩展道路 catalog 和 dock 渲染规则，使“城市道路”和“道路改造”作为两个稳定工具项显示；改造工具使用独立图标、tooltip、焦点节点和 `ToolType.RoadUpgrade`，与 GameHUD / ToolManager 实际状态双向同步。切出工具时 UI 只触发输入层取消，不自行提交改造。
+  - 进度（2026-08-13）：`ConstructionDock` 已显示两个道路工具，点击“道路改造”会同步 `ToolManager` 与 V3 `ToolState`；剩余 surface hit 与端到端验收见状态总览进度记录。
   - 依赖：`v3-tool-input:2.2`、`v3-ui:1.1`。
   - 集成负责人：`v3-ui`；端到端完成判定由 `v3-road-graph:8.6` 负责。
   - 验证：catalog 唯一 ID、排序、图标资源、选中态、分类展开/折叠、焦点循环、快捷动作显示、工具切换取消预览、场景生命周期和三档视口运行时契约。

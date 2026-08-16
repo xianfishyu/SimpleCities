@@ -22,6 +22,7 @@ public partial class ConstructionDock : Control
         {
             [ToolType.Select] = new("选择", "查看当前状态。", string.Empty),
             [ToolType.RoadRemove] = new("拆路", "点击已有道路进行拆除。", string.Empty),
+            [ToolType.RoadUpgrade] = new("道路改造", "选择已有道路并修改道路类型。", "U"),
         };
 
     [Export] public ConstructionCategoryDefinition? Category { get; set; }
@@ -258,7 +259,7 @@ public partial class ConstructionDock : Control
                 GD.PushWarning("ConstructionDock: Category contains an empty tool reference.");
                 continue;
             }
-            if (tool.ToolType == ToolType.Road)
+            if (tool.ToolType is ToolType.Road or ToolType.RoadUpgrade)
                 tools.Add(tool);
         }
         tools.Sort(static (left, right) => left.SortOrder.CompareTo(right.SortOrder));
@@ -545,8 +546,12 @@ public partial class ConstructionDock : Control
 
     private bool TryGetActiveToolButton(out Button? button)
     {
-        if (_activeCategoryId == RoadsCategoryId && _toolButtons.TryGetValue(ToolType.Road, out button))
+        if (_activeCategoryId == RoadsCategoryId &&
+            (_toolButtons.TryGetValue(ToolType.Road, out button) ||
+             _toolButtons.TryGetValue(ToolType.RoadUpgrade, out button)))
+        {
             return true;
+        }
 
         button = null;
         return false;
@@ -590,6 +595,7 @@ public partial class ConstructionDock : Control
     private static string ToolNodeName(ToolType toolType) => toolType switch
     {
         ToolType.Road => "RoadToolButton",
+        ToolType.RoadUpgrade => "RoadUpgradeToolButton",
         _ => $"{toolType}ToolButton",
     };
 }

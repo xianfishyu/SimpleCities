@@ -207,25 +207,36 @@ public sealed class ConstructionDockContractTests
     }
 
     [Fact]
-    public void RoadsCatalog_ContainsOnlyCityRoadMappedToRoadTool()
+    public void RoadsCatalog_ContainsCityRoadAndRoadUpgradeMappedToRoadTools()
     {
         string category = File.ReadAllText(RoadsCategoryPath);
         string toolScriptId = ExtractUniqueExtResourceId(category, "res://Scripts/UI/ConstructionToolDefinition.cs");
         string[] toolBlocks = ExtractSubResourceBlocks(category)
             .Where(block => block.Contains($"script = ExtResource(\"{toolScriptId}\")", StringComparison.Ordinal))
             .ToArray();
-        string toolBlock = Assert.Single(toolBlocks);
-        string toolResourceId = ExtractHeaderAttribute(toolBlock, "id");
+        Assert.Equal(2, toolBlocks.Length);
+        string roadBlock = Assert.Single(toolBlocks, block => block.Contains("Id = \"city-road\"", StringComparison.Ordinal));
+        string upgradeBlock = Assert.Single(toolBlocks, block => block.Contains("Id = \"road-upgrade\"", StringComparison.Ordinal));
+        string roadResourceId = ExtractHeaderAttribute(roadBlock, "id");
+        string upgradeResourceId = ExtractHeaderAttribute(upgradeBlock, "id");
         string toolsLine = Assert.Single(ReadPropertyLines(category, "Tools"));
         string roadIconId = ExtractUniqueExtResourceId(category, "res://Assets/UI/Icons/construction-road.svg");
+        string upgradeIconId = ExtractUniqueExtResourceId(category, "res://Assets/UI/Icons/construction-road-upgrade.svg");
 
-        Assert.Contains("Id = \"city-road\"", toolBlock, StringComparison.Ordinal);
-        Assert.Contains("DisplayName = \"城市道路\"", toolBlock, StringComparison.Ordinal);
-        Assert.DoesNotContain("ShortcutHint =", toolBlock, StringComparison.Ordinal);
-        Assert.Contains("ToolType = 1", toolBlock, StringComparison.Ordinal);
-        Assert.Contains($"Icon = ExtResource(\"{roadIconId}\")", toolBlock, StringComparison.Ordinal);
-        Assert.Equal($"Tools = Array[ExtResource(\"{toolScriptId}\")]([SubResource(\"{toolResourceId}\")])", toolsLine);
-        Assert.Single(ExtractSubResourceReferences(toolsLine));
+        Assert.Contains("DisplayName = \"城市道路\"", roadBlock, StringComparison.Ordinal);
+        Assert.DoesNotContain("ShortcutHint =", roadBlock, StringComparison.Ordinal);
+        Assert.Contains("ToolType = 1", roadBlock, StringComparison.Ordinal);
+        Assert.Contains($"Icon = ExtResource(\"{roadIconId}\")", roadBlock, StringComparison.Ordinal);
+
+        Assert.Contains("DisplayName = \"道路改造\"", upgradeBlock, StringComparison.Ordinal);
+        Assert.Contains("ShortcutHint = \"U\"", upgradeBlock, StringComparison.Ordinal);
+        Assert.Contains("ToolType = 3", upgradeBlock, StringComparison.Ordinal);
+        Assert.Contains($"Icon = ExtResource(\"{upgradeIconId}\")", upgradeBlock, StringComparison.Ordinal);
+
+        Assert.Equal(
+            $"Tools = Array[ExtResource(\"{toolScriptId}\")]([SubResource(\"{roadResourceId}\"), SubResource(\"{upgradeResourceId}\")])",
+            toolsLine);
+        Assert.Equal(2, ExtractSubResourceReferences(toolsLine).Length);
         Assert.DoesNotContain("Id = \"select\"", category, StringComparison.Ordinal);
         Assert.DoesNotContain("Id = \"road-remove\"", category, StringComparison.Ordinal);
         Assert.DoesNotContain("ToolType = 0", category, StringComparison.Ordinal);

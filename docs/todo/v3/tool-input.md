@@ -196,6 +196,13 @@
 - 完整测试套件 1234/1234 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实输入自动化与端到端工具验收。
 
+### 2026-08-13：2.2 UI 工具切换同步（部分）
+
+- `ToolType` 新增 `RoadUpgrade`；`ToolTypeExtensions` 将 `Select/Road/RoadRemove/RoadUpgrade` 稳定映射到 `RoadToolType.Select/Place/Remove/Upgrade`；`ToolManager` 在工具切换和 `_Ready` 时同步 V3 `ToolState`，UI“道路改造”按钮可进入 Upgrade。
+- `RoadToolType` 新增 `Select`，使非道路工具可映射到无操作工具状态。
+- 验证：Godot `MapTest` 冻结运行后点击“道路改造”按钮 `pressed=true` 且上下文显示“道路改造”；完整测试套件 1250/1250 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实 surface hit 选择、矩形批量改造、self-loop/parallel Edge 选择、失效 token 与端到端工具验收。
+
 ## 执行顺序
 
 ### 阶段 3：第三代闭环、类型化建造与道路改造

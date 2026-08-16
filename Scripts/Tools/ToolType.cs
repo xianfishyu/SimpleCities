@@ -2,5 +2,6 @@ public enum ToolType
 {
     Select,
     Road,
-    RoadRemove
+    RoadRemove,
+    RoadUpgrade
 }

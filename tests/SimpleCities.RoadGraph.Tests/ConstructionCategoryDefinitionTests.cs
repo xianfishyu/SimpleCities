@@ -3,10 +3,10 @@ namespace SimpleCities.Tests;
 public sealed class ConstructionCategoryDefinitionTests
 {
     [Fact]
-    public void ToolType_StillContainsKeyboardOnlySelectAndRoadRemove()
+    public void ToolType_ContainsSelectRoadRemoveAndRoadUpgrade()
     {
         Assert.Equal(
-            [ToolType.Select, ToolType.Road, ToolType.RoadRemove],
+            [ToolType.Select, ToolType.Road, ToolType.RoadRemove, ToolType.RoadUpgrade],
             Enum.GetValues<ToolType>());
     }
 

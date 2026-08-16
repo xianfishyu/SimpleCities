@@ -8,6 +8,7 @@ public enum RoadToolType
     Place,
     Remove,
     Upgrade,
+    Select,
 }
 
 /// <summary>
