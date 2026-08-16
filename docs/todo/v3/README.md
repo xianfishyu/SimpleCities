@@ -94,6 +94,11 @@ docs/todo/v3/                                各系统路线图
 - 验证证据必须来自实际运行结果，不编造测试或性能数据。
 - 修改文档后运行 `git diff --check` 确认无空白错误。
 
+## 最近新增测试
+
+- `RoadQueryFragmentBuilderTests`：`BuildSegmentFragments` line 与曲线分支。
+- `RoadGraphV3FacadeTests`：`Diagnostics.QueryFragmentCount` 空图、line Edge、曲线 Edge 集成。
+
 ## 文档更新示例
 
 以完成 `v3-ui:1.2` 为例：
