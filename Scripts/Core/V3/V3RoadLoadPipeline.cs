@@ -30,6 +30,20 @@ public sealed record V3RoadLoadPipelineResult(
         new(false, null, phase, error);
 }
 
+public sealed record V3RoadLoadPrepareResult(
+    bool Success,
+    V3LoadPhase Phase,
+    V3LoadPreflightPlan? Plan,
+    string? Error,
+    V3LoadAggregateCoordinator? Coordinator)
+{
+    public RoadToolFullReset? ToolPlan { get; init; }
+    public RoadPresentationFullReset? PresentationPlan { get; init; }
+
+    public static V3RoadLoadPrepareResult Failure(V3LoadPhase phase, string error) =>
+        new(false, phase, null, error, null);
+}
+
 /// <summary>
 /// 道路 Load 管线：按 Admission -> Prepare -> Preflight -> Commit 四阶段加载槽，
 /// 在 Commit 阶段构造新的不可变 facade/controller，失败时协议进入 Failed。
@@ -50,6 +64,43 @@ public static class V3RoadLoadPipeline
         RoadStyleProvider? styles = null,
         RoadRenderToken? desiredPresentationToken = null)
     {
+        V3RoadLoadPrepareResult prepare = Prepare(
+            slotId,
+            root,
+            capacity,
+            budget,
+            lineageID,
+            preservedToolState,
+            styles,
+            desiredPresentationToken);
+        if (!prepare.Success || prepare.Plan is null || prepare.Coordinator is null)
+            return V3RoadLoadPipelineResult.Failure(prepare.Phase, prepare.Error ?? "PrepareFailed");
+
+        RoadGraphV3Controller? createdController = null;
+        bool committed = prepare.Coordinator.TryCommit(() =>
+        {
+            createdController = prepare.Plan.CreateController(lineageID);
+        });
+        if (!committed || createdController is null)
+            return V3RoadLoadPipelineResult.Failure(prepare.Coordinator.Phase, "CommitFailed");
+
+        return new V3RoadLoadPipelineResult(true, createdController, prepare.Coordinator.Phase, null)
+        {
+            ToolPlan = prepare.ToolPlan,
+            PresentationPlan = prepare.PresentationPlan,
+        };
+    }
+
+    public static V3RoadLoadPrepareResult Prepare(
+        string slotId,
+        string root,
+        RoadGraphCapacity capacity,
+        V3PayloadBudget budget,
+        long lineageID = 1,
+        RoadToolState? preservedToolState = null,
+        RoadStyleProvider? styles = null,
+        RoadRenderToken? desiredPresentationToken = null)
+    {
         ArgumentNullException.ThrowIfNull(root);
 
         var required = new List<string> { RequiredParticipant };
@@ -59,19 +110,19 @@ public static class V3RoadLoadPipeline
             required.Add(RendererParticipant);
         var coordinator = new V3LoadAggregateCoordinator(required);
         if (!coordinator.TryBegin())
-            return V3RoadLoadPipelineResult.Failure(coordinator.Phase, "AdmissionRejected");
+            return V3RoadLoadPrepareResult.Failure(coordinator.Phase, "AdmissionRejected");
 
         if (!coordinator.TryEnterPrepare())
         {
             coordinator.Fail();
-            return V3RoadLoadPipelineResult.Failure(coordinator.Phase, "PrepareRejected");
+            return V3RoadLoadPrepareResult.Failure(coordinator.Phase, "PrepareRejected");
         }
 
         V3SlotLoadServiceResult load = V3SlotLoadService.Load(slotId, root, capacity, budget);
         if (!load.Success || load.Revision is null)
         {
             coordinator.Fail();
-            return V3RoadLoadPipelineResult.Failure(coordinator.Phase, load.Error ?? "LoadFailed");
+            return V3RoadLoadPrepareResult.Failure(coordinator.Phase, load.Error ?? "LoadFailed");
         }
 
         RoadPresentationFullReset? presentationPlan = null;
@@ -84,7 +135,7 @@ public static class V3RoadLoadPipeline
             if (!surface.Success || surface.Snapshot is null)
             {
                 coordinator.Fail();
-                return V3RoadLoadPipelineResult.Failure(coordinator.Phase, surface.Error ?? "PresentationPreflightFailed");
+                return V3RoadLoadPrepareResult.Failure(coordinator.Phase, surface.Error ?? "PresentationPreflightFailed");
             }
 
             var ribbonMeshes = new List<RoadRibbonMeshData>();
@@ -123,42 +174,34 @@ public static class V3RoadLoadPipeline
         if (!preflightPlan.CanCommit)
         {
             coordinator.Fail();
-            return V3RoadLoadPipelineResult.Failure(coordinator.Phase, "PreflightPlanRejected");
+            return V3RoadLoadPrepareResult.Failure(coordinator.Phase, "PreflightPlanRejected");
         }
 
         if (toolParticipant is not null && !coordinator.TryPrepare(toolParticipant))
         {
             coordinator.Fail();
-            return V3RoadLoadPipelineResult.Failure(coordinator.Phase, "ToolParticipantRejected");
+            return V3RoadLoadPrepareResult.Failure(coordinator.Phase, "ToolParticipantRejected");
         }
 
         if (rendererParticipant is not null && !coordinator.TryPrepare(rendererParticipant))
         {
             coordinator.Fail();
-            return V3RoadLoadPipelineResult.Failure(coordinator.Phase, "RendererParticipantRejected");
+            return V3RoadLoadPrepareResult.Failure(coordinator.Phase, "RendererParticipantRejected");
         }
 
         if (!coordinator.TryPrepare(RequiredParticipant))
         {
             coordinator.Fail();
-            return V3RoadLoadPipelineResult.Failure(coordinator.Phase, "PrepareParticipantRejected");
+            return V3RoadLoadPrepareResult.Failure(coordinator.Phase, "PrepareParticipantRejected");
         }
 
         if (!coordinator.TryEnterPreflight())
         {
             coordinator.Fail();
-            return V3RoadLoadPipelineResult.Failure(coordinator.Phase, "PreflightRejected");
+            return V3RoadLoadPrepareResult.Failure(coordinator.Phase, "PreflightRejected");
         }
 
-        RoadGraphV3Controller? createdController = null;
-        bool committed = coordinator.TryCommit(() =>
-        {
-            createdController = preflightPlan.CreateController(lineageID);
-        });
-        if (!committed || createdController is null)
-            return V3RoadLoadPipelineResult.Failure(coordinator.Phase, "CommitFailed");
-
-        return new V3RoadLoadPipelineResult(true, createdController, coordinator.Phase, null)
+        return new V3RoadLoadPrepareResult(true, coordinator.Phase, preflightPlan, null, coordinator)
         {
             ToolPlan = toolParticipant?.Plan,
             PresentationPlan = presentationPlan,
