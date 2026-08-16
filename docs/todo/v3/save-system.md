@@ -571,6 +571,12 @@
 - 新增 3 个 xUnit 用例；完整测试套件 1191/1191 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：在 `V3RoadLoadPipeline` 中改用参与者包装并完成 non-yield commit。
 
+### 2026-08-13：2.3 道路 Load 管线改用参与者包装（重构）
+
+- `V3RoadLoadPipeline` 的 tool/renderer prepared 流程改为使用 `V3ToolLoadParticipant` / `V3RendererLoadParticipant`，渲染参与者必须 `CanCommit` 才会进入 aggregate。
+- 完整测试套件 1191/1191 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实 Load 隐藏资源 Preflight 与 non-yield 联合交换。
+
 ### 2026-08-13：2.3 道路 Load 管线改用 aggregate 协调器（重构）
 
 - `V3RoadLoadPipeline.Load` 改为使用 `V3LoadAggregateCoordinator` 管理 Admission/Prepare/Preflight/Commit，不再手写 `V3LoadProtocol` + `V3PreparedAggregate`；行为与既有测试保持一致。

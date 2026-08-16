@@ -99,16 +99,24 @@ public static class V3RoadLoadPipeline
                 junctionPatches);
         }
 
-        if (preservedToolState is not null && !coordinator.TryPrepare(ToolParticipant))
+        if (preservedToolState is not null)
         {
-            coordinator.Fail();
-            return V3RoadLoadPipelineResult.Failure(coordinator.Phase, "ToolParticipantRejected");
+            var toolParticipant = V3ToolLoadParticipant.Prepare(RoadToolFullReset.Prepare(preservedToolState));
+            if (!coordinator.TryPrepare(toolParticipant))
+            {
+                coordinator.Fail();
+                return V3RoadLoadPipelineResult.Failure(coordinator.Phase, "ToolParticipantRejected");
+            }
         }
 
-        if (styles is not null && desiredPresentationToken is not null && !coordinator.TryPrepare(RendererParticipant))
+        if (styles is not null && desiredPresentationToken is not null)
         {
-            coordinator.Fail();
-            return V3RoadLoadPipelineResult.Failure(coordinator.Phase, "RendererParticipantRejected");
+            var rendererParticipant = V3RendererLoadParticipant.Prepare(presentationPlan!);
+            if (!coordinator.TryPrepare(rendererParticipant))
+            {
+                coordinator.Fail();
+                return V3RoadLoadPipelineResult.Failure(coordinator.Phase, "RendererParticipantRejected");
+            }
         }
 
         if (!coordinator.TryPrepare(RequiredParticipant))
