@@ -14,9 +14,10 @@ public sealed record RoadPresentationFullReset(
 {
     public IReadOnlyList<RoadRibbonMeshData> RibbonMeshes { get; init; } = [];
     public IReadOnlyList<RoadJunctionPatchData> JunctionPatches { get; init; } = [];
+    public IReadOnlyList<RoadCapMeshData> CapMeshes { get; init; } = [];
 
     public bool IsValid => Snapshot.IsValid;
-    public bool HasMeshData => RibbonMeshes.Count > 0 || JunctionPatches.Count > 0;
+    public bool HasMeshData => RibbonMeshes.Count > 0 || JunctionPatches.Count > 0 || CapMeshes.Count > 0;
 
     public static RoadPresentationFullReset Create(RoadRenderToken desiredToken, RoadSurfaceSnapshot snapshot)
     {
@@ -37,6 +38,26 @@ public sealed record RoadPresentationFullReset(
         {
             RibbonMeshes = ribbonMeshes,
             JunctionPatches = junctionPatches,
+            CapMeshes = [],
+        };
+    }
+
+    public static RoadPresentationFullReset Create(
+        RoadRenderToken desiredToken,
+        RoadSurfaceSnapshot snapshot,
+        IReadOnlyList<RoadRibbonMeshData> ribbonMeshes,
+        IReadOnlyList<RoadJunctionPatchData> junctionPatches,
+        IReadOnlyList<RoadCapMeshData> capMeshes)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        ArgumentNullException.ThrowIfNull(ribbonMeshes);
+        ArgumentNullException.ThrowIfNull(junctionPatches);
+        ArgumentNullException.ThrowIfNull(capMeshes);
+        return new RoadPresentationFullReset(desiredToken, snapshot)
+        {
+            RibbonMeshes = ribbonMeshes,
+            JunctionPatches = junctionPatches,
+            CapMeshes = capMeshes,
         };
     }
 

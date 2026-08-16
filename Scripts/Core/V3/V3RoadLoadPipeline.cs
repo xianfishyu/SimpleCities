@@ -222,11 +222,19 @@ public static class V3RoadLoadPipeline
                     junctionPatches.Add(patch);
             }
 
+            var capMeshes = new List<RoadCapMeshData>();
+            foreach (int nodeID in load.Revision.Nodes.Keys.Order())
+            {
+                if (RoadCapBuilder.TryBuild(load.Revision, styles, nodeID, out RoadCapMeshData cap))
+                    capMeshes.Add(cap);
+            }
+
             presentationPlan = RoadPresentationFullReset.Create(
                 desiredPresentationToken.Value,
                 surface.Snapshot,
                 ribbonMeshes,
-                junctionPatches);
+                junctionPatches,
+                capMeshes);
         }
 
         V3ToolLoadParticipant? toolParticipant = null;

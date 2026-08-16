@@ -315,6 +315,13 @@
 - 更新既有快照计数断言并新增 1 个 xUnit 用例；完整测试套件 1235/1235 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：端帽真实网格与工具对 cap 命中的端到端接线。
 
+### 2026-08-13：2.0/2.2 端帽网格数据与渲染接入（部分）
+
+- 新增 `RoadCapMeshData` / `RoadCapBuilder`：对 degree-1 非 self-loop 端点生成以节点中心为 fan 原点的半圆端帽轮廓。
+- `RoadPresentationFullReset` / `RoadGraphV3Application` / `V3RoadLoadPipeline` / `RoadGraphV3Renderer` 接入 `CapMeshes`，渲染器在 ribbon/junction 之外绘制端帽，Load Preflight 隐藏 mesh 也包含端帽。
+- 新增 4 个 xUnit 用例；完整测试套件 1239/1239 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot `MapTest` 冻结运行无新增错误。
+- 尚未完成：端帽与混合宽度 junction 的像素/owner 等价验证。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁

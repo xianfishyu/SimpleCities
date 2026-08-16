@@ -40,6 +40,37 @@ public sealed class RoadPresentationFullResetTests
     }
 
     [Fact]
+    public void Create_WithCapMeshes_SetsProperties()
+    {
+        var ribbon = new RoadRibbonMeshData(
+            [new Vector2(0f, 1f), new Vector2(0f, -1f), new Vector2(10f, 1f), new Vector2(10f, -1f)],
+            [0, 1, 2, 1, 3, 2],
+            [Colors.White, Colors.White, Colors.White, Colors.White]);
+        var patch = new RoadJunctionPatchData(
+            1,
+            [new Vector2(1f, 0f), new Vector2(0f, 1f), new Vector2(-1f, 0f)],
+            Colors.White);
+        var cap = new RoadCapMeshData(
+            2,
+            20,
+            EdgeEndpoint.A,
+            [new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0f, 1f)],
+            Colors.White);
+
+        RoadPresentationFullReset plan = RoadPresentationFullReset.Create(
+            CreateToken(),
+            CreateSnapshot(),
+            [ribbon],
+            [patch],
+            [cap]);
+
+        Assert.Single(plan.RibbonMeshes);
+        Assert.Single(plan.JunctionPatches);
+        Assert.Single(plan.CapMeshes);
+        Assert.True(plan.HasMeshData);
+    }
+
+    [Fact]
     public void Prepare_FromPublishedState_CapturesPlan()
     {
         var state = new RoadPresentationState(CreateToken());

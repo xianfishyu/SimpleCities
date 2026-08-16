@@ -15,6 +15,7 @@ public partial class RoadGraphV3Renderer : Node2D
     private GraphStateToken? _lastToken;
     private IReadOnlyList<RoadRibbonMeshData> _cachedMeshes = [];
     private IReadOnlyList<RoadJunctionPatchData> _cachedPatches = [];
+    private IReadOnlyList<RoadCapMeshData> _cachedCaps = [];
     private MeshInstance2D _meshLayer = null!;
 
     public MeshInstance2D? MeshLayer => _meshLayer;
@@ -23,11 +24,13 @@ public partial class RoadGraphV3Renderer : Node2D
 
     public int MeshVertexCount =>
         _cachedMeshes.Sum(mesh => mesh.Vertices.Count) +
-        _cachedPatches.Sum(patch => patch.Outline.Count);
+        _cachedPatches.Sum(patch => patch.Outline.Count) +
+        _cachedCaps.Sum(cap => cap.Outline.Count);
 
     public int MeshIndexCount =>
         _cachedMeshes.Sum(mesh => mesh.Indices.Count) +
-        _cachedPatches.Sum(patch => Math.Max(0, patch.Outline.Count - 2) * 3);
+        _cachedPatches.Sum(patch => Math.Max(0, patch.Outline.Count - 2) * 3) +
+        _cachedCaps.Sum(cap => Math.Max(0, cap.Outline.Count - 2) * 3);
 
     public override void _Ready()
     {
@@ -43,6 +46,7 @@ public partial class RoadGraphV3Renderer : Node2D
         ArgumentNullException.ThrowIfNull(plan);
         _cachedMeshes = plan.RibbonMeshes;
         _cachedPatches = plan.JunctionPatches;
+        _cachedCaps = plan.CapMeshes;
         _lastToken = plan.Snapshot.Token;
         RebuildMesh();
     }
@@ -51,6 +55,7 @@ public partial class RoadGraphV3Renderer : Node2D
     {
         _cachedMeshes = [];
         _cachedPatches = [];
+        _cachedCaps = [];
         _lastToken = null;
         RebuildMesh();
     }
@@ -68,6 +73,7 @@ public partial class RoadGraphV3Renderer : Node2D
         _lastToken = current;
         _cachedMeshes = system.Application.BuildDefaultRibbonMeshes(DisplayTolerance);
         _cachedPatches = system.Application.BuildDefaultJunctionPatches();
+        _cachedCaps = system.Application.BuildDefaultCapMeshes();
         RebuildMesh();
     }
 
@@ -78,13 +84,14 @@ public partial class RoadGraphV3Renderer : Node2D
         if (!plan.IsValid || !plan.HasMeshData)
             return false;
 
-        ArrayMesh? mesh = BuildMesh(plan.RibbonMeshes, plan.JunctionPatches);
+        ArrayMesh? mesh = BuildMesh(plan.RibbonMeshes, plan.JunctionPatches, plan.CapMeshes);
         if (mesh is null)
             return false;
 
         swap = new RoadGraphV3RendererPreparedSwap(
             plan.RibbonMeshes,
             plan.JunctionPatches,
+            plan.CapMeshes,
             plan.Snapshot.Token,
             mesh);
         return true;
@@ -95,13 +102,15 @@ public partial class RoadGraphV3Renderer : Node2D
         ArgumentNullException.ThrowIfNull(swap);
         _cachedMeshes = swap.RibbonMeshes;
         _cachedPatches = swap.JunctionPatches;
+        _cachedCaps = swap.CapMeshes;
         _lastToken = swap.Token;
         _meshLayer.Mesh = swap.Mesh;
     }
 
     private static ArrayMesh? BuildMesh(
         IReadOnlyList<RoadRibbonMeshData> ribbonMeshes,
-        IReadOnlyList<RoadJunctionPatchData> junctionPatches)
+        IReadOnlyList<RoadJunctionPatchData> junctionPatches,
+        IReadOnlyList<RoadCapMeshData> capMeshes)
     {
         var vertices = new List<Vector2>();
         var colors = new List<Color>();
@@ -134,6 +143,24 @@ public partial class RoadGraphV3Renderer : Node2D
             }
         }
 
+        foreach (RoadCapMeshData cap in capMeshes)
+        {
+            if (cap.Outline.Count < 3)
+                continue;
+
+            int baseVertex = vertices.Count;
+            vertices.AddRange(cap.Outline);
+            for (int index = 0; index < cap.Outline.Count; index++)
+                colors.Add(cap.Color);
+
+            for (int index = 1; index < cap.Outline.Count - 1; index++)
+            {
+                indices.Add(baseVertex);
+                indices.Add(baseVertex + index);
+                indices.Add(baseVertex + index + 1);
+            }
+        }
+
         if (vertices.Count == 0 || indices.Count == 0)
             return null;
 
@@ -150,7 +177,7 @@ public partial class RoadGraphV3Renderer : Node2D
 
     private void RebuildMesh()
     {
-        _meshLayer.Mesh = BuildMesh(_cachedMeshes, _cachedPatches);
+        _meshLayer.Mesh = BuildMesh(_cachedMeshes, _cachedPatches, _cachedCaps);
     }
 }
 
@@ -161,17 +188,20 @@ public sealed class RoadGraphV3RendererPreparedSwap
 {
     public IReadOnlyList<RoadRibbonMeshData> RibbonMeshes { get; }
     public IReadOnlyList<RoadJunctionPatchData> JunctionPatches { get; }
+    public IReadOnlyList<RoadCapMeshData> CapMeshes { get; }
     public GraphStateToken Token { get; }
     public ArrayMesh Mesh { get; }
 
     public RoadGraphV3RendererPreparedSwap(
         IReadOnlyList<RoadRibbonMeshData> ribbonMeshes,
         IReadOnlyList<RoadJunctionPatchData> junctionPatches,
+        IReadOnlyList<RoadCapMeshData> capMeshes,
         GraphStateToken token,
         ArrayMesh mesh)
     {
         RibbonMeshes = ribbonMeshes ?? throw new ArgumentNullException(nameof(ribbonMeshes));
         JunctionPatches = junctionPatches ?? throw new ArgumentNullException(nameof(junctionPatches));
+        CapMeshes = capMeshes ?? throw new ArgumentNullException(nameof(capMeshes));
         Token = token;
         Mesh = mesh ?? throw new ArgumentNullException(nameof(mesh));
     }

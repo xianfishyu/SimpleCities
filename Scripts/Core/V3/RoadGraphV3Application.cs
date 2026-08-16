@@ -355,6 +355,22 @@ public sealed class RoadGraphV3Application
         float radius = RoadJunctionPatchBuilder.DefaultRadius) =>
         BuildJunctionPatches(DefaultStyles, radius);
 
+    public IReadOnlyList<RoadCapMeshData> BuildCapMeshes(RoadStyleProvider styles)
+    {
+        ArgumentNullException.ThrowIfNull(styles);
+        var caps = new List<RoadCapMeshData>();
+        foreach (int nodeID in Revision.Nodes.Keys.Order())
+        {
+            if (RoadCapBuilder.TryBuild(Revision, styles, nodeID, out RoadCapMeshData cap))
+                caps.Add(cap);
+        }
+
+        return caps;
+    }
+
+    public IReadOnlyList<RoadCapMeshData> BuildDefaultCapMeshes() =>
+        BuildCapMeshes(DefaultStyles);
+
     public RoadSurfaceSnapshotBuildResult BuildDefaultSurfaceSnapshot() =>
         BuildSurfaceSnapshot(DefaultStyles);
 
@@ -386,7 +402,8 @@ public sealed class RoadGraphV3Application
             desiredToken,
             surface.Snapshot,
             BuildRibbonMeshes(styles),
-            BuildJunctionPatches(styles));
+            BuildJunctionPatches(styles),
+            BuildCapMeshes(styles));
     }
 
     public bool TryFindClosestSurfaceHit(
