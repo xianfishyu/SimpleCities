@@ -105,6 +105,7 @@ public sealed class RoadGraphV3FacadeTests
         Assert.Equal(0, diagnostics.GeometrySegmentCount);
         Assert.Equal(0, diagnostics.SelfLoopCount);
         Assert.Equal(0, diagnostics.ParallelEdgeCount);
+        Assert.Equal(0, diagnostics.QueryFragmentCount);
         Assert.True(diagnostics.IsValid);
     }
 
@@ -129,6 +130,7 @@ public sealed class RoadGraphV3FacadeTests
         Assert.Equal(1, diagnostics.GeometrySegmentCount);
         Assert.Equal(0, diagnostics.SelfLoopCount);
         Assert.Equal(0, diagnostics.ParallelEdgeCount);
+        Assert.Equal(1, diagnostics.QueryFragmentCount);
         Assert.Equal(facade.CurrentToken.ChangeSequence, diagnostics.ChangeSequence);
     }
 
@@ -142,6 +144,23 @@ public sealed class RoadGraphV3FacadeTests
         facade.TryAddEdge(a, b, [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(1f, 0f))], RoadType.Highway, out _, out _);
 
         Assert.Equal(1, facade.Diagnostics.ParallelEdgeCount);
+    }
+
+    [Fact]
+    public void Diagnostics_CurveEdge_CountsSingleWholeBoundsFragment()
+    {
+        var facade = new RoadGraphV3Facade(RoadGraphV3Revision.Empty(RoadGraphCapacity.Default));
+        facade.TryAddNode(Vector2.Zero, out _, out int a);
+        facade.TryAddNode(new Vector2(2f, 1f), out _, out int b);
+        facade.TryAddEdge(
+            a,
+            b,
+            [new CubicBezierRoadGeometrySegment(Vector2.Zero, new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(2f, 1f))],
+            RoadType.Street,
+            out _,
+            out _);
+
+        Assert.Equal(1, facade.Diagnostics.QueryFragmentCount);
     }
 
     [Fact]
