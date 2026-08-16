@@ -13,6 +13,8 @@ public partial class RoadGraphV3System : Node2D
     public RoadGraphV3Application Application { get; private set; } = null!;
     public RoadGraphV3Controller Controller => Application.Controller;
     public RoadGraphV3Revision Revision => Application.Revision;
+    public int CurrentNodeCount => Application.CurrentNodeCount;
+    public int CurrentEdgeCount => Application.CurrentEdgeCount;
     public bool CanUndo => Application.CanUndo;
     public bool CanRedo => Application.CanRedo;
     public void ClearHistory() => Application.ClearHistory();
