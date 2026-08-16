@@ -632,6 +632,9 @@ public sealed class RoadGraphV3Application
     public V3ManifestFile? GetSlotRoadNetworkFile(string slotId) =>
         GetSlotFile(slotId, V3RoadSlotFactory.RoadNetworkFileName);
 
+    public long? GetSlotRoadNetworkSize(string slotId) =>
+        GetSlotRoadNetworkFile(slotId)?.EncodedLength;
+
     public byte[]? CurrentSlotPayload(string fileName) =>
         string.IsNullOrEmpty(CurrentSlotID) ? null : GetPayload(CurrentSlotID, fileName);
 
