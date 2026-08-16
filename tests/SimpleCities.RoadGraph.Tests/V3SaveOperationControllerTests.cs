@@ -197,6 +197,19 @@ public sealed class V3SaveOperationControllerTests
     }
 
     [Fact]
+    public void RequestCancel_WhenAlreadyCancelling_KeepsCancelling()
+    {
+        var controller = new V3SaveOperationController();
+        controller.TryBegin(V3SaveOperationKind.Load, 1);
+        controller.RequestCancel();
+
+        V3SaveOperationUiState state = controller.RequestCancel();
+
+        Assert.Equal(V3SaveOperationUiPhase.Cancelling, state.Phase);
+        Assert.True(controller.IsCancelling);
+    }
+
+    [Fact]
     public void RequestCancel_WhenNotCancellable_KeepsState()
     {
         var controller = new V3SaveOperationController();
