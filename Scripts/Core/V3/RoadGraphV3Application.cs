@@ -27,6 +27,11 @@ public sealed class RoadGraphV3Application
     public int CurrentEdgeCount => Revision.Edges.Count;
     public int CurrentGeometrySegmentCount => Revision.Edges.Values.Sum(edge => edge.Geometry.Count);
     public int CurrentSelfLoopCount => Revision.Edges.Values.Count(edge => edge.IsSelfLoop);
+
+    public IReadOnlyDictionary<RoadType, int> CurrentRoadTypeCounts =>
+        Revision.Edges.Values
+            .GroupBy(edge => edge.RoadType)
+            .ToDictionary(group => group.Key, group => group.Count());
     public bool CanUndo => Controller.History.UndoCount > 0;
     public bool CanRedo => Controller.History.RedoCount > 0;
     public void ClearHistory() => Controller.History.Clear();
