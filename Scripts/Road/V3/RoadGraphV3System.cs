@@ -34,6 +34,7 @@ public partial class RoadGraphV3System : Node2D
     public string? CurrentSlotTimestamp => Application.CurrentSlotTimestamp;
     public SimpleCities.Core.V3.V3SlotOccupant? CurrentSlotOccupant => Application.CurrentSlotOccupant;
     public bool CurrentSlotIsComplete => Application.CurrentSlotIsComplete;
+    public bool CurrentSlotIsUsable => Application.CurrentSlotIsUsable;
     public bool CurrentSlotIsCorrupt => Application.CurrentSlotIsCorrupt;
     public bool CurrentSlotIsAbsent => Application.CurrentSlotIsAbsent;
     public bool CurrentSlotIsUnsafe => Application.CurrentSlotIsUnsafe;
