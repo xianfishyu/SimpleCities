@@ -658,6 +658,9 @@ public sealed class RoadGraphV3Application
 
     public V3SlotSummary GetSlotSummary(string slotId) => GetStatus(slotId);
 
+    public bool GetSlotIsComplete(string slotId) =>
+        GetSlotOccupant(slotId) == V3SlotOccupant.CompleteV3;
+
     public byte[]? CurrentSlotPayload(string fileName) =>
         string.IsNullOrEmpty(CurrentSlotID) ? null : GetPayload(CurrentSlotID, fileName);
 

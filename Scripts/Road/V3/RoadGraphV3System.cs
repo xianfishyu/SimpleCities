@@ -366,6 +366,9 @@ public partial class RoadGraphV3System : Node2D
     public SimpleCities.Core.V3.V3SlotSummary GetSlotSummary(string slotId) =>
         Application.GetSlotSummary(slotId);
 
+    public bool GetSlotIsComplete(string slotId) =>
+        Application.GetSlotIsComplete(slotId);
+
     public byte[]? CurrentSlotPayload(string fileName) =>
         Application.CurrentSlotPayload(fileName);
 
