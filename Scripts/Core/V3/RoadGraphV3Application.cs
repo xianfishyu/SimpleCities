@@ -49,6 +49,7 @@ public sealed class RoadGraphV3Application
         string.IsNullOrEmpty(CurrentSlotID) ? null : GetStatus(CurrentSlotID);
 
     public string? CurrentSlotDisplayName => CurrentSlotSummary?.DisplayName;
+    public string? CurrentSlotTimestamp => CurrentSlotSummary?.Timestamp;
 
     public RoadGraphV3Application(
         string root,
