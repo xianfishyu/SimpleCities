@@ -317,6 +317,9 @@ public partial class RoadGraphV3System : Node2D
     public string? GetSlotRoadNetworkHash(string slotId) =>
         Application.GetSlotRoadNetworkHash(slotId);
 
+    public SimpleCities.Core.V3.V3ManifestFile? GetSlotRoadNetworkFile(string slotId) =>
+        Application.GetSlotRoadNetworkFile(slotId);
+
     public byte[]? CurrentSlotPayload(string fileName) =>
         Application.CurrentSlotPayload(fileName);
 
