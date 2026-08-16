@@ -183,6 +183,13 @@
 - 新增 4 个 xUnit 用例；完整测试套件 1227/1227 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实输入处理器矩形拖拽接线与端到端工具验收。
 
+### 2026-08-13：2.2 输入处理器矩形拖拽选择（部分）
+
+- `RoadGraphV3InputHandler` 在 Upgrade/Remove 工具下按住左键拖拽：移动时绘制矩形，松开时小位移按单击处理，大位移调用 `HandleSelectionRect` 批量选择。
+- `RoadGraphV3System.TryFindSurfaceHitsInRect` 作为矩形解析器接入。
+- 完整测试套件 1227/1227 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot `MapTest` 冻结运行无新增错误。
+- 尚未完成：真实鼠标拖拽的自动化输入验收与端到端工具验收。
+
 ## 执行顺序
 
 ### 阶段 3：第三代闭环、类型化建造与道路改造

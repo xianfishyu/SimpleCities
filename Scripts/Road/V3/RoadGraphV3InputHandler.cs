@@ -13,6 +13,10 @@ public partial class RoadGraphV3InputHandler : Node2D
     [Export] public float HitRadius { get; set; } = 20f;
 
     private RoadToolInputRouter? _router;
+    private Vector2 _dragStart;
+    private Vector2 _dragCurrent;
+    private bool _isDragging;
+    private bool _dragUpgrade;
 
     public bool IsPlacing => Router?.IsPlacing ?? false;
     public bool IsClosed => Router?.IsPlacementClosed ?? false;
@@ -71,6 +75,15 @@ public partial class RoadGraphV3InputHandler : Node2D
             DrawSelectionHighlights(system, upgrade.SelectedEdgeIDs, new Color(1f, 1f, 0f, 0.8f));
         if (router.RemovalSession is RoadRemovalSessionV3 removal)
             DrawSelectionHighlights(system, removal.SelectedEdgeIDs, new Color(1f, 0.2f, 0.2f, 0.8f));
+
+        if (_isDragging)
+        {
+            Rect2 rect = new(
+                Min(_dragStart, _dragCurrent),
+                (_dragCurrent - _dragStart).Abs());
+            DrawRect(rect, new Color(1f, 1f, 0f, 0.15f), true);
+            DrawRect(rect, new Color(1f, 1f, 0f, 0.8f), false);
+        }
     }
 
     public override void _UnhandledInput(InputEvent @event)
@@ -84,26 +97,67 @@ public partial class RoadGraphV3InputHandler : Node2D
         if (router is null)
             return;
 
-        if (@event is InputEventMouseButton mouseButton && mouseButton.Pressed)
+        if (@event is InputEventMouseButton mouseButton)
         {
             Vector2 position = GetGlobalMousePosition();
             if (mouseButton.ButtonIndex == MouseButton.Left)
             {
-                router.HandleLeftClick(position, CloseRadius, HitRadius);
-                if (router.IsPlacementClosed &&
-                    router.TryTakePlacementSession(out RoadPlacementSessionV3 session))
+                if (mouseButton.Pressed)
                 {
-                    system.TryBuild(session, out _);
+                    if (router.CurrentTool == RoadToolType.Place)
+                    {
+                        router.HandleLeftClick(position, CloseRadius, HitRadius);
+                        if (router.IsPlacementClosed &&
+                            router.TryTakePlacementSession(out RoadPlacementSessionV3 session))
+                        {
+                            system.TryBuild(session, out _);
+                        }
+                    }
+                    else
+                    {
+                        _dragStart = position;
+                        _dragCurrent = position;
+                        _isDragging = true;
+                        _dragUpgrade = router.CurrentTool == RoadToolType.Upgrade;
+                    }
+                }
+                else if (_isDragging)
+                {
+                    _isDragging = false;
+                    _dragCurrent = position;
+                    Rect2 rect = new(
+                        Min(_dragStart, _dragCurrent),
+                        (_dragCurrent - _dragStart).Abs());
+                    if (rect.Size.LengthSquared() <= 16f)
+                    {
+                        router.HandleLeftClick(position, CloseRadius, HitRadius);
+                    }
+                    else
+                    {
+                        router.HandleSelectionRect(
+                            rect,
+                            queryRect => system.TryFindSurfaceHitsInRect(queryRect, out var hits) ? hits : [],
+                            _dragUpgrade);
+                    }
+
+                    QueueRedraw();
                 }
 
                 return;
             }
 
-            if (mouseButton.ButtonIndex == MouseButton.Right)
+            if (mouseButton.ButtonIndex == MouseButton.Right && mouseButton.Pressed)
             {
                 router.HandleRightClick();
                 return;
             }
+        }
+
+        if (@event is InputEventMouseMotion motion && _isDragging)
+        {
+            _dragCurrent = GetGlobalMousePosition();
+            QueueRedraw();
+            return;
         }
 
         if (@event is InputEventKey keyEvent && keyEvent.Pressed && !keyEvent.Echo)
@@ -147,6 +201,9 @@ public partial class RoadGraphV3InputHandler : Node2D
             }
         }
     }
+
+    private static Vector2 Min(Vector2 a, Vector2 b) =>
+        new(Mathf.Min(a.X, b.X), Mathf.Min(a.Y, b.Y));
 
     private void DrawSelectionHighlights(
         RoadGraphV3System system,
