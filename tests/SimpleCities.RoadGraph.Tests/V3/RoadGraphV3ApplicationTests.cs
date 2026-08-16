@@ -886,6 +886,25 @@ public sealed class RoadGraphV3ApplicationTests
     }
 
     [Fact]
+    public void CurrentSlotPopulationAndFunds_AfterSave_ReturnValues()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            app.Controller.ReplaceWithFullReset(CreateRevision(), 1);
+            Assert.True(app.Save("city-001", "n", "n", "2026-08-12T08:00:00.0000000Z", 1200, 50000m, null));
+
+            Assert.Equal(1200, app.CurrentSlotPopulation);
+            Assert.Equal(50000m, app.CurrentSlotFunds);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void CurrentSlotCityName_AfterSave_ReturnsCityName()
     {
         string root = GetTempRoot();

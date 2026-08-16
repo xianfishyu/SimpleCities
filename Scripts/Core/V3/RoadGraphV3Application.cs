@@ -297,6 +297,8 @@ public sealed class RoadGraphV3Application
         string.IsNullOrEmpty(CurrentSlotID) ? null : GetManifest(CurrentSlotID);
 
     public string? CurrentSlotCityName => CurrentSlotManifest?.CityName;
+    public long? CurrentSlotPopulation => CurrentSlotManifest?.Population;
+    public decimal? CurrentSlotFunds => CurrentSlotManifest?.Funds;
 
     public byte[]? GetPayload(string slotId, string fileName) =>
         V3SlotPayloadService.GetPayload(slotId, _root, fileName);
