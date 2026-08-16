@@ -303,6 +303,12 @@
 - 新增 1 个 xUnit 用例；完整测试套件 1231/1231 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：semantic join 的真实无洞宽度/颜色过渡网格，以及 hit tester 对 semantic join 的命中解析。
 
+### 2026-08-13：2.2 semantic join 命中测试（部分）
+
+- `RoadSurfaceHitTester` 新增 `TryFindClosestSemanticJoin`：对 degree-2 且两侧 RoadType 不同的节点，按查询点方向解析到最近入射 Edge，返回 `SemanticJoin` owner 命中。
+- 新增 3 个 xUnit 用例；完整测试套件 1234/1234 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：semantic join 真实无洞网格，以及工具路由对 semantic join 命中的端到端接线。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁

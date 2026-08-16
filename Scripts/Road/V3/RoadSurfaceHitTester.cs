@@ -132,6 +132,76 @@ public static class RoadSurfaceHitTester
         return true;
     }
 
+    public static bool TryFindClosestSemanticJoin(
+        RoadGraphV3Revision revision,
+        GraphStateToken token,
+        Vector2 point,
+        float maxDistance,
+        out RoadSurfaceHit hit)
+    {
+        ArgumentNullException.ThrowIfNull(revision);
+        if (!point.IsFinite())
+            throw new ArgumentException("Query point must be finite.", nameof(point));
+        if (!float.IsFinite(maxDistance) || maxDistance < 0f)
+            throw new ArgumentOutOfRangeException(nameof(maxDistance), maxDistance, "Max distance must be finite and non-negative.");
+
+        hit = null!;
+        float bestDistanceSquared = maxDistance * maxDistance;
+        int bestNodeID = -1;
+
+        foreach (RoadGraphV3Node node in revision.Nodes.Values.OrderBy(node => node.ID))
+        {
+            var incidences = RoadJunctionPatchBuilder.GetIncidences(revision, node.ID);
+            var distinctEdgeIDs = incidences
+                .Select(incidence => incidence.EdgeID)
+                .Distinct()
+                .ToList();
+            if (distinctEdgeIDs.Count != 2 ||
+                revision.Edges[distinctEdgeIDs[0]].RoadType == revision.Edges[distinctEdgeIDs[1]].RoadType)
+            {
+                continue;
+            }
+
+            float distanceSquared = point.DistanceSquaredTo(node.Position);
+            if (distanceSquared > bestDistanceSquared)
+                continue;
+
+            bestDistanceSquared = distanceSquared;
+            bestNodeID = node.ID;
+        }
+
+        if (bestNodeID < 0)
+            return false;
+
+        int? hitEdgeID = null;
+        EdgeEndpoint? hitEndpoint = null;
+        RoadLocation hitLocation = new(0, 0, 0f);
+        Vector2 offset = point - revision.Nodes[bestNodeID].Position;
+        var semanticIncidences = RoadJunctionPatchBuilder.GetIncidences(revision, bestNodeID)
+            .Where(incidence => incidence.Direction.IsFinite() && incidence.Direction.LengthSquared() > 0f)
+            .ToList();
+        if (semanticIncidences.Count > 0)
+        {
+            RoadJunctionIncidence best = semanticIncidences
+                .OrderBy(incidence => AngleBetween(offset, incidence.Direction))
+                .ThenBy(incidence => incidence.EdgeID)
+                .First();
+            hitEdgeID = best.EdgeID;
+            hitEndpoint = best.Endpoint;
+            hitLocation = new RoadLocation(best.EdgeID, 0, 0f);
+        }
+
+        hit = new RoadSurfaceHit(
+            token,
+            RoadSurfaceOwnerKind.SemanticJoin,
+            NodeID: bestNodeID,
+            EdgeID: hitEdgeID,
+            Endpoint: hitEndpoint,
+            hitLocation,
+            bestDistanceSquared);
+        return true;
+    }
+
     public static bool TryFindAllInRect(
         RoadGraphV3Revision revision,
         GraphStateToken token,

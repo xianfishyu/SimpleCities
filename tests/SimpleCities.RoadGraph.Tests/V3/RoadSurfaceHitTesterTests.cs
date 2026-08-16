@@ -130,6 +130,55 @@ public sealed class RoadSurfaceHitTesterTests
     }
 
     [Fact]
+    public void TryFindClosestSemanticJoin_DifferentTypes_ReturnsHit()
+    {
+        RoadGraphV3Revision revision = CreateSemanticJoinRevision(out int centerID, out int leftEdgeID);
+
+        Assert.True(RoadSurfaceHitTester.TryFindClosestSemanticJoin(
+            revision,
+            new GraphStateToken(1, 1, 1),
+            new Vector2(-0.2f, 0.05f),
+            maxDistance: 1f,
+            out RoadSurfaceHit hit));
+
+        Assert.Equal(RoadSurfaceOwnerKind.SemanticJoin, hit.OwnerKind);
+        Assert.Equal(centerID, hit.NodeID);
+        Assert.Equal(leftEdgeID, hit.EdgeID);
+        Assert.NotNull(hit.Endpoint);
+    }
+
+    [Fact]
+    public void TryFindClosestSemanticJoin_SameTypes_Fails()
+    {
+        RoadGraphV3Revision revision = RoadGraphV3Revision.Empty(RoadGraphCapacity.Default);
+        revision.TryAddNode(Vector2.Zero, out revision, out int center);
+        revision.TryAddNode(new Vector2(-1f, 0f), out revision, out int left);
+        revision.TryAddNode(new Vector2(1f, 0f), out revision, out int right);
+        revision.TryAddEdge(center, left, [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(-1f, 0f))], RoadType.Street, out revision, out _);
+        revision.TryAddEdge(center, right, [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(1f, 0f))], RoadType.Street, out revision, out _);
+
+        Assert.False(RoadSurfaceHitTester.TryFindClosestSemanticJoin(
+            revision,
+            new GraphStateToken(1, 1, 1),
+            Vector2.Zero,
+            maxDistance: 1f,
+            out _));
+    }
+
+    [Fact]
+    public void TryFindClosestSemanticJoin_TooFar_Fails()
+    {
+        RoadGraphV3Revision revision = CreateSemanticJoinRevision(out _, out _);
+
+        Assert.False(RoadSurfaceHitTester.TryFindClosestSemanticJoin(
+            revision,
+            new GraphStateToken(1, 1, 1),
+            new Vector2(10f, 10f),
+            maxDistance: 1f,
+            out _));
+    }
+
+    [Fact]
     public void TryFindClosest_InvalidPoint_Throws()
     {
         RoadGraphV3Revision revision = CreateRevisionWithSingleLine();
@@ -195,6 +244,17 @@ public sealed class RoadSurfaceHitTesterTests
             new GraphStateToken(1, 1, 1),
             new Rect2(0f, 0f, 0f, 0f),
             out _));
+    }
+
+    private static RoadGraphV3Revision CreateSemanticJoinRevision(out int centerID, out int leftEdgeID)
+    {
+        RoadGraphV3Revision revision = RoadGraphV3Revision.Empty(RoadGraphCapacity.Default);
+        revision.TryAddNode(Vector2.Zero, out revision, out centerID);
+        revision.TryAddNode(new Vector2(-1f, 0f), out revision, out int left);
+        revision.TryAddNode(new Vector2(1f, 0f), out revision, out int right);
+        revision.TryAddEdge(centerID, left, [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(-1f, 0f))], RoadType.Street, out revision, out leftEdgeID);
+        revision.TryAddEdge(centerID, right, [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(1f, 0f))], RoadType.Highway, out revision, out _);
+        return revision;
     }
 
     private static RoadGraphV3Revision CreateCrossRevision(out int centerID)
