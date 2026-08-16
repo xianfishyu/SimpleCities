@@ -246,6 +246,26 @@ public sealed class V3AsyncSaveOperationCoordinatorTests
     }
 
     [Fact]
+    public async Task Reset_AfterCancel_AllowsNewOperation()
+    {
+        var backend = new FakeBackend();
+        var coordinator = new V3AsyncSaveOperationCoordinator(backend);
+        coordinator.RequestCancel();
+        coordinator.Reset();
+
+        V3SaveOperationUiState state = await coordinator.SaveAsAsync(
+            "City",
+            "City",
+            "2026-08-16T00:00:00.0000000Z",
+            null,
+            null,
+            null);
+
+        Assert.True(state.IsComplete);
+        Assert.Equal(1, backend.SaveAsCalls);
+    }
+
+    [Fact]
     public void Reset_ClearsCancellationAndReturnsIdle()
     {
         var backend = new FakeBackend();
