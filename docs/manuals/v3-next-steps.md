@@ -28,12 +28,14 @@
 - 用真实 `MapTest` 验证 Ribbon / Cap / JunctionPatch / SemanticJoin 的单击、连续与矩形选择。
 - 覆盖 self-loop、parallel Edge、失效 render token、semantic boundary 合并后的 Edge ID 失效。
 - 提交前确认 RoadGraph 不变；成功批次只产生一条历史。
+- 实现/单元测试已完成，待环境恢复后运行真实场景验收。
 
 ## 3. 接入 query fragment 诊断
 
 - 将 `RoadSpatialIndexV3` / `RoadQueryFragmentBuilder` 接入 `RoadGraphV3Revision` 或 facade 的派生索引。
 - 在 `RoadGraphV3Diagnostics` 增加 `QueryFragmentCount`，DebugPanel 增加对应行。
 - 验证 10k/100k 下局部查询不随远端增长线性退化。
+- 实现已完成（line bucket/曲线 bounds、DebugPanel 显示），待环境恢复后运行性能验证。
 
 ## 4. 完成 `v3-ui:1.4` 异步存档状态机
 
