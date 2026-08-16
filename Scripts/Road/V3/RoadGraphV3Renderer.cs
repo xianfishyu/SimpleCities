@@ -4,8 +4,8 @@ using System.Collections.Generic;
 using System.Linq;
 
 /// <summary>
-/// V3 最小道路渲染器：仅在 GraphStateToken 变化时从 RoadGraphV3System 重建 ribbon 网格缓存，
-/// 绘制填充路面；不修改图数据。
+/// V3 道路渲染器：仅在 GraphStateToken 变化时从 RoadGraphV3System 重建 ribbon/junction
+/// ArrayMesh 缓存，并通过 MeshInstance2D 子节点绘制；不修改图数据。
 /// </summary>
 public partial class RoadGraphV3Renderer : Node2D
 {
@@ -14,6 +14,16 @@ public partial class RoadGraphV3Renderer : Node2D
     private GraphStateToken? _lastToken;
     private IReadOnlyList<RoadRibbonMeshData> _cachedMeshes = [];
     private IReadOnlyList<RoadJunctionPatchData> _cachedPatches = [];
+    private MeshInstance2D _meshLayer = null!;
+
+    public override void _Ready()
+    {
+        _meshLayer = new MeshInstance2D
+        {
+            ZIndex = -1,
+        };
+        AddChild(_meshLayer);
+    }
 
     public override void _Process(double delta)
     {
@@ -28,23 +38,22 @@ public partial class RoadGraphV3Renderer : Node2D
         _lastToken = current;
         _cachedMeshes = system.Application.BuildDefaultRibbonMeshes(DisplayTolerance);
         _cachedPatches = system.Application.BuildDefaultJunctionPatches();
-        QueueRedraw();
+        RebuildMesh();
     }
 
-    public override void _Draw()
+    private void RebuildMesh()
     {
+        var vertices = new List<Vector2>();
+        var colors = new List<Color>();
+        var indices = new List<int>();
+
         foreach (RoadRibbonMeshData ribbon in _cachedMeshes)
         {
-            Vector2[] outline = ribbon.ToOutlineVertices().ToArray();
-            if (outline.Length < 3)
-                continue;
-
-            Color color = ribbon.Colors.Count > 0 ? ribbon.Colors[0] : Colors.White;
-            var colors = new Color[outline.Length];
-            for (int index = 0; index < colors.Length; index++)
-                colors[index] = color;
-
-            DrawPolygon(outline, colors);
+            int baseVertex = vertices.Count;
+            vertices.AddRange(ribbon.Vertices);
+            colors.AddRange(ribbon.Colors);
+            foreach (int index in ribbon.Indices)
+                indices.Add(baseVertex + index);
         }
 
         foreach (RoadJunctionPatchData patch in _cachedPatches)
@@ -52,12 +61,33 @@ public partial class RoadGraphV3Renderer : Node2D
             if (patch.Outline.Count < 3)
                 continue;
 
-            Vector2[] outline = patch.Outline.ToArray();
-            var colors = new Color[outline.Length];
-            for (int index = 0; index < colors.Length; index++)
-                colors[index] = patch.Color;
+            int baseVertex = vertices.Count;
+            vertices.AddRange(patch.Outline);
+            for (int index = 0; index < patch.Outline.Count; index++)
+                colors.Add(patch.Color);
 
-            DrawPolygon(outline, colors);
+            for (int index = 1; index < patch.Outline.Count - 1; index++)
+            {
+                indices.Add(baseVertex);
+                indices.Add(baseVertex + index);
+                indices.Add(baseVertex + index + 1);
+            }
         }
+
+        if (vertices.Count == 0 || indices.Count == 0)
+        {
+            _meshLayer.Mesh = null;
+            return;
+        }
+
+        var arrays = new Godot.Collections.Array();
+        arrays.Resize((int)Mesh.ArrayType.Max);
+        arrays[(int)Mesh.ArrayType.Vertex] = vertices.ToArray();
+        arrays[(int)Mesh.ArrayType.Color] = colors.ToArray();
+        arrays[(int)Mesh.ArrayType.Index] = indices.ToArray();
+
+        var mesh = new ArrayMesh();
+        mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
+        _meshLayer.Mesh = mesh;
     }
 }

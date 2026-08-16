@@ -220,6 +220,12 @@
 - 新增 2 个 xUnit 用例；完整测试套件 1180/1180 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：将 junction 命中接入真实输入路由，以及混合宽度/锐角真实填补。
 
+### 2026-08-13：2.2 渲染器 ArrayMesh 资源化（部分）
+
+- `RoadGraphV3Renderer` 改为在 `_Ready` 创建 `MeshInstance2D` 子节点，并在 token 变化时把 ribbon + junction patch 合并为 `ArrayMesh`（顶点/颜色/索引）赋给子节点，不再每帧 `DrawPolygon`。
+- 完整测试套件 1180/1180 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
+- 尚未完成：将 junction 命中接入真实输入路由，以及混合宽度/锐角真实填补、surface owner 与 mesh 同源发布。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁
