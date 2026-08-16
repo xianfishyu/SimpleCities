@@ -504,6 +504,9 @@ public sealed class RoadGraphV3Application
     public bool CurrentSlotHasRoadNetwork =>
         GetCurrentSlotFile(V3RoadSlotFactory.RoadNetworkFileName) is not null;
 
+    public V3ManifestFile? CurrentSlotRoadNetworkFile =>
+        GetCurrentSlotFile(V3RoadSlotFactory.RoadNetworkFileName);
+
     public string? CurrentSlotRoadNetworkJson
     {
         get
