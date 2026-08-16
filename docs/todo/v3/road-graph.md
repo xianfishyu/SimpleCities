@@ -26,7 +26,7 @@
 ### 当前落地摘要（2026-08-16）
 
 - V3 canonical Node/Edge、不可变 `RoadGraphV3Revision`、`RoadGraphV3Facade` / `Controller` / `Application` / `System` 已落地，支持 self-loop、parallel Edge、RoadType、统一 `GraphChanged`、诊断快照与 cap/semantic join 构建入口。
-- 空间索引 query fragment 尚未接入 revision 诊断；`v3-road-graph:8.0`～`8.5` 的完整性能和结构共享门禁仍开放。
+- 空间索引 query fragment 尚未接入 revision 诊断；`RoadGraphV3Diagnostics.QueryFragmentCount` 已增加占位属性（当前 0），`v3-road-graph:8.0`～`8.5` 的完整性能和结构共享门禁仍开放。
 
 ## V3 实施记录
 
