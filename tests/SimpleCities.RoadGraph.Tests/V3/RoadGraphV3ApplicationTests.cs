@@ -106,6 +106,28 @@ public sealed class RoadGraphV3ApplicationTests
     }
 
     [Fact]
+    public void LoadIntoCurrent_AppliesPresentationPlan()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var source = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            RoadGraphV3Revision revision = CreateRevision();
+            source.Controller.ReplaceWithFullReset(revision, 1);
+            Assert.True(source.Save("city-001", "n", "n", "2026-08-12T08:00:00.0000000Z", null, null, null));
+
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            Assert.True(app.LoadIntoCurrent("city-001", newLineageID: 7));
+            Assert.False(app.Presentation.IsStalled);
+            Assert.NotNull(app.Presentation.PresentedSnapshot);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void Load_MissingSlot_Fails()
     {
         string root = GetTempRoot();

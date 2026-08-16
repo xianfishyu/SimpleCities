@@ -186,17 +186,24 @@ public sealed class RoadGraphV3Application
 
     public bool LoadIntoCurrent(string slotId, long newLineageID = 1)
     {
-        bool success = V3RoadLoadPipeline.TryLoadIntoController(
+        V3RoadLoadPipelineResult result = V3RoadLoadPipeline.Load(
             slotId,
             _root,
             _capacity,
             _budget,
-            Controller,
+            newLineageID,
             ToolState,
-            newLineageID);
-        if (success)
-            CurrentSlotID = slotId;
-        return success;
+            DefaultStyles,
+            new RoadRenderToken(0, newLineageID, 0, 0, 0, 0));
+        if (!result.Success || result.Controller is null)
+            return false;
+
+        Controller.ReplaceWithFullReset(result.Controller.Facade.Revision, newLineageID);
+        result.ToolPlan?.TryApplyTo(ToolState);
+        if (result.PresentationPlan is not null)
+            Presentation.TryApplyFullReset(result.PresentationPlan);
+        CurrentSlotID = slotId;
+        return true;
     }
 
     public bool TryUndo(GraphStateToken expectedToken, out RoadGraphV3ChangeSummary summary) =>

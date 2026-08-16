@@ -120,6 +120,12 @@
 - 新增 2 个 xUnit 用例；完整测试套件 1126/1126 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实 mesh/ribbon、junction patch、renderer participant 与完整接管协议。
 
+### 2026-08-13：2.2 LoadIntoCurrent 应用 presentation full-reset（部分）
+
+- `RoadGraphV3Application.LoadIntoCurrent` 在 full reset 后应用 `PresentationPlan`，与 `Load` 的 presentation 接管路径一致。
+- 新增 1 个 xUnit 用例；完整测试套件 1127/1127 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实 mesh/ribbon、junction patch、renderer participant 与完整接管协议。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁
