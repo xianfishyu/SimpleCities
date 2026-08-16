@@ -57,7 +57,9 @@
 
 - [ ] M1：环境恢复后完整 QA 通过
 - [ ] M2：surface hit 选择验收通过
+  - 单元测试覆盖已完成，待环境验证。
 - [ ] M3：query fragment 诊断接入
+  - 实现完成（line bucket/曲线 bounds、DebugPanel 显示），待环境验证。
 - [ ] M4：异步存档 UI 验收通过
   - 实现已完成（异步入口/busy/取消令牌/generation 防护），待环境验证。
 - [ ] M5：`v3-road-graph:8.6` 最终组合验收完成
