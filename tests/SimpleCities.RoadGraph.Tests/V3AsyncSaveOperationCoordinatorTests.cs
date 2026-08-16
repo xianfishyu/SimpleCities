@@ -80,6 +80,20 @@ public sealed class V3AsyncSaveOperationCoordinatorTests
     }
 
     [Fact]
+    public async Task LoadAsync_WhenBackendFails_ReturnsFailed()
+    {
+        var backend = new FakeBackend { FailOperations = true };
+        var coordinator = new V3AsyncSaveOperationCoordinator(backend);
+
+        V3SaveOperationUiState state = await coordinator.LoadAsync("city-001", lineageID: 2);
+
+        Assert.Equal(V3SaveOperationUiPhase.Failed, state.Phase);
+        Assert.False(state.IsComplete);
+        Assert.Equal("fail", state.Error);
+        Assert.Equal(1, backend.LoadCalls);
+    }
+
+    [Fact]
     public async Task DeleteAsync_ReturnsCompletedDeleteResult()
     {
         var backend = new FakeBackend();
