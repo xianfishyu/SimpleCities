@@ -147,6 +147,23 @@ public sealed class RoadGraphV3FacadeTests
     }
 
     [Fact]
+    public void Diagnostics_LongLine_CountsMultipleFragments()
+    {
+        var facade = new RoadGraphV3Facade(RoadGraphV3Revision.Empty(RoadGraphCapacity.Default));
+        facade.TryAddNode(Vector2.Zero, out _, out int a);
+        facade.TryAddNode(new Vector2(100f, 0f), out _, out int b);
+        facade.TryAddEdge(
+            a,
+            b,
+            [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(100f, 0f))],
+            RoadType.Street,
+            out _,
+            out _);
+
+        Assert.Equal(2, facade.Diagnostics.QueryFragmentCount);
+    }
+
+    [Fact]
     public void Diagnostics_CurveEdge_CountsSingleWholeBoundsFragment()
     {
         var facade = new RoadGraphV3Facade(RoadGraphV3Revision.Empty(RoadGraphCapacity.Default));
