@@ -47,6 +47,24 @@ public sealed class RoadUpgradeSessionV3Tests
     }
 
     [Fact]
+    public void TrySetTargetType_Valid_UpdatesTarget()
+    {
+        var session = new RoadUpgradeSessionV3(RoadType.Highway);
+
+        Assert.True(session.TrySetTargetType(RoadType.Arterial));
+        Assert.Equal(RoadType.Arterial, session.TargetType);
+    }
+
+    [Fact]
+    public void TrySetTargetType_Invalid_KeepsTarget()
+    {
+        var session = new RoadUpgradeSessionV3(RoadType.Highway);
+
+        Assert.False(session.TrySetTargetType((RoadType)99));
+        Assert.Equal(RoadType.Highway, session.TargetType);
+    }
+
+    [Fact]
     public void TryCommit_WithSelection_ReturnsTrue()
     {
         var session = new RoadUpgradeSessionV3(RoadType.Arterial);

@@ -54,6 +54,14 @@ public sealed class RoadUpgradeSessionV3
 
     public void ClearSelection() => _selectedEdgeIDs.Clear();
 
+    public bool TrySetTargetType(RoadType roadType)
+    {
+        if (!RoadTypeChangeValidator.IsValidRoadType(roadType))
+            return false;
+        _targetType = roadType;
+        return true;
+    }
+
     public bool TryCommit(out IReadOnlyList<int> selection)
     {
         selection = SelectedEdgeIDs;

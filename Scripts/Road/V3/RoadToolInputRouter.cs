@@ -39,7 +39,15 @@ public sealed class RoadToolInputRouter
         ClearSessions();
     }
 
-    public bool TrySelectRoadType(RoadType roadType) => _toolState.TrySelectRoadType(roadType);
+    public bool TrySelectRoadType(RoadType roadType)
+    {
+        if (_toolState.SelectedRoadType == roadType)
+            return true;
+
+        _placement = null;
+        _upgrade?.TrySetTargetType(roadType);
+        return _toolState.TrySelectRoadType(roadType);
+    }
 
     public bool HandleLeftClick(Vector2 point, float closeRadius, float hitRadius)
     {

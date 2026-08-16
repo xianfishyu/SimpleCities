@@ -203,6 +203,12 @@
 - 验证：Godot `MapTest` 冻结运行后点击“道路改造”按钮 `pressed=true` 且上下文显示“道路改造”；完整测试套件 1250/1250 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实 surface hit 选择、矩形批量改造、self-loop/parallel Edge 选择、失效 token 与端到端工具验收。
 
+### 2026-08-13：2.1/2.2 切换类型取消未提交铺路并同步改造目标（部分）
+
+- `RoadToolInputRouter.TrySelectRoadType` 在类型变化时取消未提交的 placement 会话，并把活动 upgrade 会话的目标类型更新为新类型；`RoadUpgradeSessionV3` 新增 `TrySetTargetType`。
+- 新增 4 个 xUnit 用例；完整测试套件 1254/1254 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误，Godot `MapTest` 冻结运行无新增错误。
+- 尚未完成：真实 surface hit 选择与端到端工具验收。
+
 ## 执行顺序
 
 ### 阶段 3：第三代闭环、类型化建造与道路改造

@@ -161,6 +161,32 @@ public sealed class RoadToolInputRouterTests
         Assert.False(router.IsSelecting);
     }
 
+    [Fact]
+    public void TrySelectRoadType_WhilePlacing_CancelsPlacement()
+    {
+        var router = CreateRouter();
+        router.HandleLeftClick(Vector2.Zero, closeRadius: 10f, hitRadius: 10f);
+        Assert.True(router.IsPlacing);
+
+        Assert.True(router.TrySelectRoadType(RoadType.Highway));
+
+        Assert.False(router.IsPlacing);
+        Assert.Equal(RoadToolType.Place, router.CurrentTool);
+    }
+
+    [Fact]
+    public void TrySelectRoadType_WhileUpgrade_UpdatesTargetAndKeepsSelection()
+    {
+        var router = CreateRouter();
+        router.SwitchTool(RoadToolType.Upgrade);
+        router.HandleSelectionHits([CreateHit()], upgrade: true);
+
+        Assert.True(router.TrySelectRoadType(RoadType.Highway));
+        Assert.True(router.TryTakeUpgradeSession(out RoadUpgradeSessionV3 session));
+        Assert.Equal(RoadType.Highway, session.TargetType);
+        Assert.Equal([20], session.SelectedEdgeIDs);
+    }
+
     private static RoadToolInputRouter CreateRouter(Func<Vector2, float, RoadSurfaceHit?>? resolver = null) =>
         new(new RoadToolState(), resolver ?? ((_, _) => null));
 
