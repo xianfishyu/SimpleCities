@@ -17,6 +17,15 @@ public sealed class RoadToolInputRouterTests
     }
 
     [Fact]
+    public void HandleLeftClick_Place_NonFinitePoint_Throws()
+    {
+        var router = CreateRouter();
+
+        Assert.Throws<ArgumentException>(() =>
+            router.HandleLeftClick(new Vector2(float.NaN, 0f), closeRadius: 10f, hitRadius: 10f));
+    }
+
+    [Fact]
     public void HandleLeftClick_Place_AddsPointsAndCanClose()
     {
         var router = CreateRouter();
