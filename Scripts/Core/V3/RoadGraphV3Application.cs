@@ -315,6 +315,9 @@ public sealed class RoadGraphV3Application
     public IReadOnlyList<V3ManifestFile> CurrentSlotFiles =>
         CurrentSlotManifest?.Files ?? [];
 
+    public V3ManifestFile? GetCurrentSlotFile(string fileName) =>
+        CurrentSlotFiles.FirstOrDefault(file => string.Equals(file.Name, fileName, StringComparison.Ordinal));
+
     public IReadOnlyList<string> CurrentSlotFileNames =>
         CurrentSlotManifest?.Files.Select(file => file.Name).ToList() ?? [];
 
