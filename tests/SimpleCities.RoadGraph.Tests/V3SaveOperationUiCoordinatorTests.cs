@@ -26,6 +26,25 @@ public sealed class V3SaveOperationUiCoordinatorTests
     }
 
     [Fact]
+    public void SaveAs_WhenBackendFails_ReturnsFailed()
+    {
+        var backend = new FakeBackend { FailOperations = true };
+        var coordinator = new V3SaveOperationUiCoordinator(backend);
+
+        V3SaveOperationUiState state = coordinator.SaveAs(
+            "City",
+            "City",
+            "2026-08-16T00:00:00.0000000Z",
+            null,
+            null,
+            null);
+
+        Assert.Equal(V3SaveOperationUiPhase.Failed, state.Phase);
+        Assert.False(state.IsComplete);
+        Assert.Equal("fail", state.Error);
+    }
+
+    [Fact]
     public void Save_WhenBusy_DoesNotCallBackend()
     {
         var backend = new FakeBackend();
@@ -105,6 +124,7 @@ public sealed class V3SaveOperationUiCoordinatorTests
     private sealed class FakeBackend : IV3SaveOperationBackend
     {
         public string? CurrentSlotID { get; set; } = "city-001";
+        public bool FailOperations;
         public int SaveAsCalls;
         public int SaveCalls;
         public int LoadCalls;
@@ -156,7 +176,12 @@ public sealed class V3SaveOperationUiCoordinatorTests
             return Result(V3SaveOperationKind.Delete);
         }
 
-        private static V3SaveOperationResult Result(V3SaveOperationKind kind) =>
-            V3SaveOperationResult.Succeeded(V3SaveOperationToken.Create(kind, 1));
+        private V3SaveOperationResult Result(V3SaveOperationKind kind)
+        {
+            V3SaveOperationToken token = V3SaveOperationToken.Create(kind, 1);
+            return FailOperations
+                ? V3SaveOperationResult.FailedBeforeCommit(token, V3SaveOperationPhase.Prepare, "fail")
+                : V3SaveOperationResult.Succeeded(token);
+        }
     }
 }
