@@ -28,7 +28,7 @@
 | V3 类型建造 | 当前道路分类只有一个 `city-road` 工具；ToolContextPanel 已加入四段式 RoadType 选择器，分类联动、键盘/手柄焦点、暂停返回、场景重入和三档视口均已验证 | 1.1、`v3-tool-input:2.1` |
 | V3 既有道路改造 | ConstructionDock 已渲染“城市道路/道路改造”两个工具项并同步 ToolManager 与 V3 ToolState；剩余真实 surface hit 选择与端到端验收 | 1.2、`v3-tool-input:2.2` |
 | V3 规范存储诊断 | DebugPanel 已展示 Node/Edge/Geometry/SelfLoop/Parallel 且隐藏时不轮询；query fragment 指标待空间索引接入 | 1.3、`v3-road-graph:8.2`～`8.5` |
-| V3 异步存档体验 | PauseMenu 调用同步 bool API；没有 busy 目标、并发禁用、取消边界、autosave skipped 与 scene generation 失效呈现 | 1.4、`v3-save-system:2.3`、`v3-tool-input:2.4` |
+| V3 异步存档体验 | PauseMenu 已接入 V3 异步入口；busy 禁用、取消令牌、scene generation 防护已实现，待端到端验证 | 1.4、`v3-save-system:2.3`、`v3-tool-input:2.4` |
 
 ### 2026-08-13：1.3 诊断快照数据源（部分）
 
