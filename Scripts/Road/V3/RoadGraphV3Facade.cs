@@ -11,6 +11,8 @@ namespace SimpleCities.Road.V3;
 /// </summary>
 public sealed class RoadGraphV3Facade
 {
+    private const float QueryBucketSize = 64f;
+
     private RoadGraphV3Revision _revision;
     private long _domainRevisionID;
     private long _changeSequence;
@@ -261,6 +263,22 @@ public sealed class RoadGraphV3Facade
             _revision.Edges.Values.Sum(edge => edge.Geometry.Count),
             _revision.Edges.Values.Count(edge => edge.IsSelfLoop),
             parallelEdgeCount,
-            _changeSequence);
+            _changeSequence,
+            CountQueryFragments(_revision));
+    }
+
+    private static int CountQueryFragments(RoadGraphV3Revision revision)
+    {
+        int count = 0;
+        foreach (RoadGraphV3Edge edge in revision.Edges.Values)
+        {
+            for (int index = 0; index < edge.Geometry.Count; index++)
+            {
+                if (edge.Geometry[index] is LineRoadGeometrySegment line)
+                    count += RoadQueryFragmentBuilder.BuildLineFragments(edge.ID, index, line, QueryBucketSize).Count;
+            }
+        }
+
+        return count;
     }
 }

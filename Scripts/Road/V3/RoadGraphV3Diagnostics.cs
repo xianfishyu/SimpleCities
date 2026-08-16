@@ -9,13 +9,9 @@ public sealed record RoadGraphV3Diagnostics(
     int GeometrySegmentCount,
     int SelfLoopCount,
     int ParallelEdgeCount,
-    long ChangeSequence)
+    long ChangeSequence,
+    int QueryFragmentCount = 0)
 {
-    /// <summary>
-    /// 空间索引 query fragment 数量；当前为 0，待接入 <see cref="RoadSpatialIndexV3"/> 后由事务维护。
-    /// </summary>
-    public int QueryFragmentCount => 0;
-
     public bool IsValid =>
         NodeCount >= 0 &&
         EdgeCount >= 0 &&
