@@ -300,6 +300,7 @@ public sealed class RoadGraphV3Application
     public long? CurrentSlotPopulation => CurrentSlotManifest?.Population;
     public decimal? CurrentSlotFunds => CurrentSlotManifest?.Funds;
     public string? CurrentSlotThumbnailFile => CurrentSlotManifest?.ThumbnailFile;
+    public int CurrentSlotFileCount => CurrentSlotManifest?.Files.Count ?? 0;
 
     public byte[]? GetPayload(string slotId, string fileName) =>
         V3SlotPayloadService.GetPayload(slotId, _root, fileName);
