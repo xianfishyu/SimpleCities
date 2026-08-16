@@ -66,6 +66,21 @@ public sealed class V3SaveOperationControllerTests
     }
 
     [Fact]
+    public void Complete_ResultWithDifferentSceneGeneration_IsIgnored()
+    {
+        var controller = new V3SaveOperationController();
+        controller.TryBegin(V3SaveOperationKind.Load, 5);
+        V3SaveOperationToken staleToken = V3SaveOperationToken.Create(V3SaveOperationKind.Load, 6);
+        V3SaveOperationResult staleResult = V3SaveOperationResult.Succeeded(staleToken);
+
+        V3SaveOperationUiState state = controller.Complete(staleResult);
+
+        Assert.Equal(V3SaveOperationUiPhase.Busy, state.Phase);
+        Assert.True(controller.IsBusy);
+        Assert.NotNull(controller.ActiveToken);
+    }
+
+    [Fact]
     public void Complete_BeforeBegin_IsIgnored()
     {
         var controller = new V3SaveOperationController();
