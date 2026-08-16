@@ -334,6 +334,11 @@
 - `RoadSurfaceHitProvider.TryResolveEdge` 对 Cap 与 SemanticJoin owner 的解析新增 2 个 xUnit 用例。
 - 完整测试套件 1246/1246 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 
+### 2026-08-13：2.0/2.2 场景根节点暴露 cap/semantic join 构建入口（更新）
+
+- `RoadGraphV3System` 新增 `BuildDefaultCapMeshes` / `BuildDefaultSemanticJoinMeshes`，与既有 surface/junction 便捷入口一致。
+- 完整测试套件 1246/1246 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁

@@ -144,6 +144,12 @@ public partial class RoadGraphV3System : Node2D
     public RoadSurfaceSnapshotBuildResult BuildDefaultSurfaceSnapshot() =>
         Application.BuildDefaultSurfaceSnapshot();
 
+    public System.Collections.Generic.IReadOnlyList<RoadCapMeshData> BuildDefaultCapMeshes() =>
+        Application.BuildDefaultCapMeshes();
+
+    public System.Collections.Generic.IReadOnlyList<RoadSemanticJoinMeshData> BuildDefaultSemanticJoinMeshes() =>
+        Application.BuildDefaultSemanticJoinMeshes();
+
     public bool TryApplyPresentationFullReset(RoadPresentationFullReset plan) =>
         Application.Presentation.TryApplyFullReset(plan);
 
