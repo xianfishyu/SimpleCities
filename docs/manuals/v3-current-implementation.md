@@ -42,6 +42,7 @@
 - `dotnet build SimpleCities.sln` 最近一次通过：0 警告 / 0 错误（环境恢复后需重新运行确认）。
 - `command_center_runtime_contract.gd` 最近一次输出：`PASS command center runtime contract`。
 - Godot `MapTest` 冻结运行验证：RoadType 行可见、四按钮、默认 Street、键盘 Enter 与手柄 A 可切换、分类切换显隐、暂停返回与场景重入保持。
+- M3：`QueryFragmentCount` 实现完成（line 按 bucket 切分、曲线按整体 bounds、DebugPanel 已显示），待环境恢复后运行测试确认。
 
 ## 3. 模块验证状态矩阵
 
