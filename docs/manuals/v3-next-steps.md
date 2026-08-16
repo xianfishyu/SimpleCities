@@ -44,6 +44,7 @@
 - 验证 V2/Foreign 槽不进入普通操作列表。
 - 准备已完成：`PauseMenu` 同步调用点调查与 `V3SaveOperation` 阶段映射见 `docs/todo/v3/save-system.md` 与 `docs/todo/v3/ui.md` 的 2026-08-16 条目。
 - 实现已完成：`PauseMenu` 已接入 V3 异步入口、busy 禁用、`CancellationTokenSource` 取消请求与 scene generation 防护；待环境恢复后运行测试与真实场景验收。
+- 专项验证步骤见 `docs/manuals/v3-qa-runbook.md` 的 “M4 异步存档 UI 专项验证”。
 
 ## 5. 最终组合验收 `v3-road-graph:8.6`
 
