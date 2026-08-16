@@ -46,7 +46,7 @@ public sealed class V3SaveOperationController
             return _state;
 
         _state = V3SaveOperationUiState.FromResult(result);
-        if (_state.Phase is V3SaveOperationUiPhase.Completed or V3SaveOperationUiPhase.Failed)
+        if (_state.IsTerminal)
             _activeToken = null;
         return _state;
     }
