@@ -104,7 +104,7 @@
 
 ## 10. 已知限制
 
-- `RoadGraphV3Diagnostics` 尚未包含 `QueryFragmentCount`。
+- `RoadGraphV3Diagnostics.QueryFragmentCount` 当前为占位 `0`，待空间索引接入后由事务维护。
 - 真实 junction patch 网格与完整表现接管尚未落地。
 - 异步 Save/Load/Delete UI 状态机尚未实现。
 - `v3-road-graph:8.6` 最终组合验收尚未完成。
