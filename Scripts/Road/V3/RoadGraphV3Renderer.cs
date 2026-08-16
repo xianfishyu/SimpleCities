@@ -19,6 +19,7 @@ public partial class RoadGraphV3Renderer : Node2D
 
     public MeshInstance2D? MeshLayer => _meshLayer;
     public ArrayMesh? CurrentMesh => _meshLayer?.Mesh as ArrayMesh;
+    public bool IsMeshReady => CurrentMesh is not null && MeshVertexCount > 0;
 
     public int MeshVertexCount =>
         _cachedMeshes.Sum(mesh => mesh.Vertices.Count) +
