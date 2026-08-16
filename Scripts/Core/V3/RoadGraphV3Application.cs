@@ -614,6 +614,9 @@ public sealed class RoadGraphV3Application
     public int GetSlotSchemaVersion(string slotId) =>
         GetManifest(slotId)?.SchemaVersion ?? 0;
 
+    public V3SlotOccupant GetSlotOccupant(string slotId) =>
+        GetStatus(slotId).Occupant;
+
     public byte[]? CurrentSlotPayload(string fileName) =>
         string.IsNullOrEmpty(CurrentSlotID) ? null : GetPayload(CurrentSlotID, fileName);
 
