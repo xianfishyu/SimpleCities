@@ -48,6 +48,8 @@ public sealed class RoadGraphV3Application
     public V3SlotSummary? CurrentSlotSummary =>
         string.IsNullOrEmpty(CurrentSlotID) ? null : GetStatus(CurrentSlotID);
 
+    public string? CurrentSlotDisplayName => CurrentSlotSummary?.DisplayName;
+
     public RoadGraphV3Application(
         string root,
         RoadGraphCapacity capacity,
