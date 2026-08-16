@@ -644,6 +644,9 @@ public sealed class RoadGraphV3Application
     public int GetSlotRoadNetworkJsonLength(string slotId) =>
         GetSlotRoadNetworkJson(slotId)?.Length ?? 0;
 
+    public bool GetSlotRoadNetworkHasFile(string slotId) =>
+        GetSlotRoadNetworkFile(slotId) is not null;
+
     public byte[]? CurrentSlotPayload(string fileName) =>
         string.IsNullOrEmpty(CurrentSlotID) ? null : GetPayload(CurrentSlotID, fileName);
 
