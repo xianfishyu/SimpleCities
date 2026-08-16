@@ -80,6 +80,12 @@
 - 新增 1 个 xUnit 用例；完整测试套件 1108/1108 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
 - 尚未完成：`RoadBuilder` 真实接线、完整工具生命周期与真实 surface hit 输入路由。
 
+### 2026-08-13：2.4 empty tool root 计划（部分）
+
+- 新增 `Scripts/Road/V3/RoadToolFullReset.cs`：在 Preflight 阶段捕获需要保留的 `RoadToolType` / `RoadType`，形成不携带活动会话、选择或预览的 empty tool root 计划，并提供 `TryApplyTo` 在 commit 时应用到新工具状态。
+- 新增 5 个 xUnit 用例；完整测试套件 1113/1113 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：将 empty tool root 接入 `V3RoadLoadPipeline` / `RoadGraphV3Application` 的 aggregate Load commit。
+
 ## 执行顺序
 
 ### 阶段 3：第三代闭环、类型化建造与道路改造
