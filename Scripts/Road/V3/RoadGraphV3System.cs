@@ -21,6 +21,7 @@ public partial class RoadGraphV3System : Node2D
     public RoadGraphV3Revision Revision => Application.Revision;
     public int CurrentNodeCount => Application.CurrentNodeCount;
     public int CurrentEdgeCount => Application.CurrentEdgeCount;
+    public bool CurrentGraphIsEmpty => Application.CurrentGraphIsEmpty;
     public int CurrentGeometrySegmentCount => Application.CurrentGeometrySegmentCount;
     public int CurrentSelfLoopCount => Application.CurrentSelfLoopCount;
     public System.Collections.Generic.IReadOnlyDictionary<RoadType, int> CurrentRoadTypeCounts => Application.CurrentRoadTypeCounts;

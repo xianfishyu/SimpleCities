@@ -25,6 +25,7 @@ public sealed class RoadGraphV3Application
     public RoadGraphV3Revision Revision => Controller.Facade.Revision;
     public int CurrentNodeCount => Revision.Nodes.Count;
     public int CurrentEdgeCount => Revision.Edges.Count;
+    public bool CurrentGraphIsEmpty => Revision.Nodes.Count == 0 && Revision.Edges.Count == 0;
     public int CurrentGeometrySegmentCount => Revision.Edges.Values.Sum(edge => edge.Geometry.Count);
     public int CurrentSelfLoopCount => Revision.Edges.Values.Count(edge => edge.IsSelfLoop);
 
