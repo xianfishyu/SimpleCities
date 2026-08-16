@@ -71,13 +71,43 @@ public partial class RoadGraphV3Renderer : Node2D
         RebuildMesh();
     }
 
-    private void RebuildMesh()
+    public bool TryPreflight(RoadPresentationFullReset plan, out RoadGraphV3RendererPreparedSwap? swap)
+    {
+        swap = null;
+        ArgumentNullException.ThrowIfNull(plan);
+        if (!plan.IsValid || !plan.HasMeshData)
+            return false;
+
+        ArrayMesh? mesh = BuildMesh(plan.RibbonMeshes, plan.JunctionPatches);
+        if (mesh is null)
+            return false;
+
+        swap = new RoadGraphV3RendererPreparedSwap(
+            plan.RibbonMeshes,
+            plan.JunctionPatches,
+            plan.Snapshot.Token,
+            mesh);
+        return true;
+    }
+
+    public void ApplyPreparedSwap(RoadGraphV3RendererPreparedSwap swap)
+    {
+        ArgumentNullException.ThrowIfNull(swap);
+        _cachedMeshes = swap.RibbonMeshes;
+        _cachedPatches = swap.JunctionPatches;
+        _lastToken = swap.Token;
+        _meshLayer.Mesh = swap.Mesh;
+    }
+
+    private static ArrayMesh? BuildMesh(
+        IReadOnlyList<RoadRibbonMeshData> ribbonMeshes,
+        IReadOnlyList<RoadJunctionPatchData> junctionPatches)
     {
         var vertices = new List<Vector2>();
         var colors = new List<Color>();
         var indices = new List<int>();
 
-        foreach (RoadRibbonMeshData ribbon in _cachedMeshes)
+        foreach (RoadRibbonMeshData ribbon in ribbonMeshes)
         {
             int baseVertex = vertices.Count;
             vertices.AddRange(ribbon.Vertices);
@@ -86,7 +116,7 @@ public partial class RoadGraphV3Renderer : Node2D
                 indices.Add(baseVertex + index);
         }
 
-        foreach (RoadJunctionPatchData patch in _cachedPatches)
+        foreach (RoadJunctionPatchData patch in junctionPatches)
         {
             if (patch.Outline.Count < 3)
                 continue;
@@ -105,10 +135,7 @@ public partial class RoadGraphV3Renderer : Node2D
         }
 
         if (vertices.Count == 0 || indices.Count == 0)
-        {
-            _meshLayer.Mesh = null;
-            return;
-        }
+            return null;
 
         var arrays = new Godot.Collections.Array();
         arrays.Resize((int)Mesh.ArrayType.Max);
@@ -118,6 +145,34 @@ public partial class RoadGraphV3Renderer : Node2D
 
         var mesh = new ArrayMesh();
         mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
-        _meshLayer.Mesh = mesh;
+        return mesh;
+    }
+
+    private void RebuildMesh()
+    {
+        _meshLayer.Mesh = BuildMesh(_cachedMeshes, _cachedPatches);
+    }
+}
+
+/// <summary>
+/// Load Preflight 阶段构建好的隐藏道路 mesh 交换计划；non-yield commit 内只做引用赋值。
+/// </summary>
+public sealed class RoadGraphV3RendererPreparedSwap
+{
+    public IReadOnlyList<RoadRibbonMeshData> RibbonMeshes { get; }
+    public IReadOnlyList<RoadJunctionPatchData> JunctionPatches { get; }
+    public GraphStateToken Token { get; }
+    public ArrayMesh Mesh { get; }
+
+    public RoadGraphV3RendererPreparedSwap(
+        IReadOnlyList<RoadRibbonMeshData> ribbonMeshes,
+        IReadOnlyList<RoadJunctionPatchData> junctionPatches,
+        GraphStateToken token,
+        ArrayMesh mesh)
+    {
+        RibbonMeshes = ribbonMeshes ?? throw new ArgumentNullException(nameof(ribbonMeshes));
+        JunctionPatches = junctionPatches ?? throw new ArgumentNullException(nameof(junctionPatches));
+        Token = token;
+        Mesh = mesh ?? throw new ArgumentNullException(nameof(mesh));
     }
 }

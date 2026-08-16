@@ -282,6 +282,13 @@
 - 新增 1 个 xUnit 用例；完整测试套件 1216/1216 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实隐藏 Mesh/RID Preflight 与 renderer 联合交换。
 
+### 2026-08-13：2.2 渲染器隐藏 mesh Preflight 与 inside-commit 交换（部分）
+
+- `RoadGraphV3Renderer` 新增 `TryPreflight` 从 `RoadPresentationFullReset` 构建隐藏 `ArrayMesh`，`ApplyPreparedSwap` 在 non-yield commit 内只做引用赋值；`RoadGraphV3RendererPreparedSwap` 持有 mesh、缓存数据与 token。
+- `RoadGraphV3System` 的 Load 入口在 commit 前调用 `TryPreflight`，失败则不提交；成功通过 `insideCommit` 回调在 commit 临界区应用 swap。
+- 新增 2 个 xUnit 用例（回调机制）；完整测试套件 1218/1218 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实 Load 成功路径的 renderer 联合交换自动化与混合宽度/锐角 junction 真实填补。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁

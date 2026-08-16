@@ -89,7 +89,8 @@ public sealed class V3RoadSaveLoadCoordinator
         RoadStyleProvider? styles = null,
         RoadRenderToken? desiredPresentationToken = null,
         RoadToolState? commitToolState = null,
-        RoadPresentationState? commitPresentationState = null)
+        RoadPresentationState? commitPresentationState = null,
+        Action? insideCommit = null)
     {
         if (!_gate.TryAcquire(out Guid operationId))
             return null;
@@ -112,7 +113,8 @@ public sealed class V3RoadSaveLoadCoordinator
                 lineageID,
                 commitToolState,
                 commitPresentationState,
-                slotId);
+                slotId,
+                insideCommit);
         }
         finally
         {

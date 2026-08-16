@@ -481,6 +481,105 @@ public sealed class V3RoadLoadPipelineTests
     }
 
     [Fact]
+    public void Commit_InsideCommitAction_RunsWithinCommit()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            RoadGraphV3Revision revision = CreateRevision();
+            Assert.True(V3RoadSavePipeline.Save("city-001", root, revision, "n", "n", "2026-08-12T08:00:00.0000000Z", null, null, null));
+            RoadTypeStyleCatalogResult catalog = RoadTypeStyleCatalog.CreateDefault();
+            Assert.True(catalog.Success);
+            var styles = new RoadStyleProvider(catalog);
+            RoadRenderToken desired = new(0, 7, 0, 0, 0, 32);
+            var sourceTool = new RoadToolState();
+            sourceTool.SwitchTo(RoadToolType.Upgrade);
+            sourceTool.TrySelectRoadType(RoadType.Highway);
+
+            V3RoadLoadPrepareResult prepare = V3RoadLoadPipeline.Prepare(
+                "city-001",
+                root,
+                RoadGraphCapacity.Default,
+                V3PayloadBudget.Default,
+                lineageID: 7,
+                preservedToolState: sourceTool,
+                styles: styles,
+                desiredPresentationToken: desired);
+            Assert.True(prepare.Success, prepare.Error);
+
+            var toolState = new RoadToolState();
+            var presentationState = new RoadPresentationState(new RoadRenderToken(0, 0, 0, 0, 0, 0));
+            bool ran = false;
+            V3RoadLoadPipelineResult result = prepare.Commit(
+                7,
+                toolState,
+                presentationState,
+                "city-001",
+                () => ran = true);
+
+            Assert.True(result.Success, result.Error);
+            Assert.True(ran);
+            Assert.Equal(RoadToolType.Upgrade, toolState.CurrentTool);
+            Assert.Equal(RoadType.Highway, toolState.SelectedRoadType);
+            Assert.False(presentationState.IsStalled);
+            Assert.NotNull(presentationState.PresentedSnapshot);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
+    public void Commit_InsideCommitFailure_RestoresToolAndPresentation()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            RoadGraphV3Revision revision = CreateRevision();
+            Assert.True(V3RoadSavePipeline.Save("city-001", root, revision, "n", "n", "2026-08-12T08:00:00.0000000Z", null, null, null));
+            RoadTypeStyleCatalogResult catalog = RoadTypeStyleCatalog.CreateDefault();
+            Assert.True(catalog.Success);
+            var styles = new RoadStyleProvider(catalog);
+            RoadRenderToken desired = new(0, 7, 0, 0, 0, 33);
+            var sourceTool = new RoadToolState();
+            sourceTool.SwitchTo(RoadToolType.Upgrade);
+            sourceTool.TrySelectRoadType(RoadType.Highway);
+
+            V3RoadLoadPrepareResult prepare = V3RoadLoadPipeline.Prepare(
+                "city-001",
+                root,
+                RoadGraphCapacity.Default,
+                V3PayloadBudget.Default,
+                lineageID: 7,
+                preservedToolState: sourceTool,
+                styles: styles,
+                desiredPresentationToken: desired);
+            Assert.True(prepare.Success, prepare.Error);
+
+            var toolState = new RoadToolState();
+            var presentationState = new RoadPresentationState(new RoadRenderToken(0, 0, 0, 0, 0, 0));
+            V3RoadLoadPipelineResult result = prepare.Commit(
+                7,
+                toolState,
+                presentationState,
+                "city-001",
+                () => throw new InvalidOperationException("SwapFailed"));
+
+            Assert.False(result.Success);
+            Assert.Equal(RoadToolType.Place, toolState.CurrentTool);
+            Assert.Equal(RoadType.Street, toolState.SelectedRoadType);
+            Assert.Equal(new RoadRenderToken(0, 0, 0, 0, 0, 0), presentationState.DesiredToken);
+            Assert.Equal(new RoadRenderToken(0, 0, 0, 0, 0, 0), presentationState.PresentedToken);
+            Assert.Null(presentationState.PresentedSnapshot);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void Commit_PresentationFailure_RestoresToolAndPresentation()
     {
         string root = GetTempRoot();

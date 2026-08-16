@@ -58,8 +58,9 @@ public sealed record V3RoadLoadPrepareResult(
         long lineageID,
         RoadToolState? toolState = null,
         RoadPresentationState? presentationState = null,
-        string? slotId = null) =>
-        V3RoadLoadPipeline.Commit(this, lineageID, toolState, presentationState, slotId);
+        string? slotId = null,
+        Action? insideCommit = null) =>
+        V3RoadLoadPipeline.Commit(this, lineageID, toolState, presentationState, slotId, insideCommit);
 
     public static V3RoadLoadPrepareResult Failure(V3LoadPhase phase, string error) =>
         new(false, phase, null, error, null);
@@ -85,7 +86,8 @@ public static class V3RoadLoadPipeline
         RoadStyleProvider? styles = null,
         RoadRenderToken? desiredPresentationToken = null,
         RoadToolState? commitToolState = null,
-        RoadPresentationState? commitPresentationState = null)
+        RoadPresentationState? commitPresentationState = null,
+        Action? insideCommit = null)
     {
         V3RoadLoadPrepareResult prepare = Prepare(
             slotId,
@@ -96,7 +98,7 @@ public static class V3RoadLoadPipeline
             preservedToolState,
             styles,
             desiredPresentationToken);
-        return Commit(prepare, lineageID, commitToolState, commitPresentationState, slotId);
+        return Commit(prepare, lineageID, commitToolState, commitPresentationState, slotId, insideCommit);
     }
 
     public static V3RoadLoadPipelineResult Commit(
@@ -104,7 +106,8 @@ public static class V3RoadLoadPipeline
         long lineageID,
         RoadToolState? toolState = null,
         RoadPresentationState? presentationState = null,
-        string? slotId = null)
+        string? slotId = null,
+        Action? insideCommit = null)
     {
         ArgumentNullException.ThrowIfNull(prepare);
         if (!prepare.Success || prepare.Plan is null || prepare.Coordinator is null)
@@ -132,6 +135,8 @@ public static class V3RoadLoadPipeline
                     if (!prepare.PresentationPlan.TryApplyTo(presentationState))
                         throw new InvalidOperationException("PresentationPlanRejected");
                 }
+
+                insideCommit?.Invoke();
             }
             catch
             {

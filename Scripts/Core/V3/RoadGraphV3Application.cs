@@ -183,10 +183,11 @@ public sealed class RoadGraphV3Application
     public bool TryCommitPreparedLoad(
         V3RoadLoadPrepareResult prepare,
         long lineageID,
-        out V3RoadLoadPipelineResult result)
+        out V3RoadLoadPipelineResult result,
+        Action? insideCommit = null)
     {
         ArgumentNullException.ThrowIfNull(prepare);
-        result = prepare.Commit(lineageID, ToolState, Presentation.State, prepare.SlotId);
+        result = prepare.Commit(lineageID, ToolState, Presentation.State, prepare.SlotId, insideCommit);
         if (!result.Success || result.Controller is null)
             return false;
 
@@ -196,7 +197,7 @@ public sealed class RoadGraphV3Application
         return true;
     }
 
-    public bool Load(string slotId, long lineageID = 1)
+    public bool Load(string slotId, long lineageID = 1, Action? insideCommit = null)
     {
         V3RoadLoadPipelineResult? result = _coordinator.LoadResult(
             slotId,
@@ -208,7 +209,8 @@ public sealed class RoadGraphV3Application
             DefaultStyles,
             new RoadRenderToken(0, lineageID, 0, 0, 0, 0),
             ToolState,
-            Presentation.State);
+            Presentation.State,
+            insideCommit);
         if (result is null || !result.Success || result.Controller is null)
             return false;
 
@@ -217,7 +219,7 @@ public sealed class RoadGraphV3Application
         return true;
     }
 
-    public bool LoadIntoCurrent(string slotId, long newLineageID = 1)
+    public bool LoadIntoCurrent(string slotId, long newLineageID = 1, Action? insideCommit = null)
     {
         V3RoadLoadPipelineResult result = V3RoadLoadPipeline.Load(
             slotId,
@@ -229,7 +231,8 @@ public sealed class RoadGraphV3Application
             DefaultStyles,
             new RoadRenderToken(0, newLineageID, 0, 0, 0, 0),
             ToolState,
-            Presentation.State);
+            Presentation.State,
+            insideCommit);
         if (!result.Success || result.Controller is null)
             return false;
 

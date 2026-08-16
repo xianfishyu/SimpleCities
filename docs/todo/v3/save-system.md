@@ -724,6 +724,13 @@
 - 新增 5 个 xUnit 用例；完整测试套件 1216/1216 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实 Load 隐藏 Mesh/RID 的 Preflight 与联合交换，以及混合宽度/锐角 junction 真实填补。
 
+### 2026-08-13：2.3 Load commit 支持 renderer inside-commit 回调（部分）
+
+- `V3RoadLoadPipeline.Commit` / `Load` / `V3RoadLoadPrepareResult.Commit` / `V3RoadSaveLoadCoordinator.LoadResult` 新增 `Action? insideCommit`，在 non-yield 临界区内所有参与者状态应用后执行，供真实 renderer 一次性交换隐藏 Mesh。
+- `RoadGraphV3Application.TryCommitPreparedLoad` / `Load` / `LoadIntoCurrent` 透传回调；`RoadGraphV3Renderer` 新增 `TryPreflight` / `ApplyPreparedSwap` 与 `RoadGraphV3RendererPreparedSwap`，场景根节点在 commit 前预构建隐藏 ArrayMesh，并在 commit 临界区内应用。
+- 新增 2 个 xUnit 用例；完整测试套件 1218/1218 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实 Load 成功路径的隐藏 Mesh/RID 联合交换自动化（GDScript 绑定限制），以及混合宽度/锐角 junction 真实填补。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议

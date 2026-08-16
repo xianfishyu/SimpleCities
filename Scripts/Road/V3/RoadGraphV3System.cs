@@ -194,10 +194,18 @@ public partial class RoadGraphV3System : Node2D
             return false;
         }
 
-        if (!Application.TryCommitPreparedLoad(prepare, lineageID, out _))
+        if (!TryPrepareRendererSwap(prepare.PresentationPlan, out RoadGraphV3RendererPreparedSwap? swap))
             return false;
 
-        ApplyCurrentPresentation();
+        if (!Application.TryCommitPreparedLoad(
+                prepare,
+                lineageID,
+                out _,
+                swap is null ? null : () => _renderer!.ApplyPreparedSwap(swap)))
+        {
+            return false;
+        }
+
         _inputHandler?.ResetTools();
         return true;
     }
@@ -207,29 +215,82 @@ public partial class RoadGraphV3System : Node2D
         long lineageID,
         out SimpleCities.Core.V3.V3RoadLoadPipelineResult result)
     {
-        if (!Application.TryCommitPreparedLoad(prepare, lineageID, out result))
+        if (!TryPrepareRendererSwap(prepare.PresentationPlan, out RoadGraphV3RendererPreparedSwap? swap))
+        {
+            result = SimpleCities.Core.V3.V3RoadLoadPipelineResult.Failure(prepare.Phase, "RendererPreflightFailed");
             return false;
-        ApplyCurrentPresentation();
+        }
+
+        if (!Application.TryCommitPreparedLoad(
+                prepare,
+                lineageID,
+                out result,
+                swap is null ? null : () => _renderer!.ApplyPreparedSwap(swap)))
+        {
+            return false;
+        }
+
         _inputHandler?.ResetTools();
         return true;
     }
 
     public bool Load(string slotId, long lineageID = 1)
     {
-        if (!Application.Load(slotId, lineageID))
+        if (!Application.TryPrepareLoad(slotId, lineageID, out SimpleCities.Core.V3.V3RoadLoadPrepareResult? prepare) ||
+            prepare is null)
+        {
             return false;
-        ApplyCurrentPresentation();
+        }
+
+        if (!TryPrepareRendererSwap(prepare.PresentationPlan, out RoadGraphV3RendererPreparedSwap? swap))
+            return false;
+
+        if (!Application.TryCommitPreparedLoad(
+                prepare,
+                lineageID,
+                out _,
+                swap is null ? null : () => _renderer!.ApplyPreparedSwap(swap)))
+        {
+            return false;
+        }
+
         _inputHandler?.ResetTools();
         return true;
     }
 
     public bool LoadIntoCurrent(string slotId, long newLineageID = 1)
     {
-        if (!Application.LoadIntoCurrent(slotId, newLineageID))
+        if (!Application.TryPrepareLoad(slotId, newLineageID, out SimpleCities.Core.V3.V3RoadLoadPrepareResult? prepare) ||
+            prepare is null)
+        {
             return false;
-        ApplyCurrentPresentation();
+        }
+
+        if (!TryPrepareRendererSwap(prepare.PresentationPlan, out RoadGraphV3RendererPreparedSwap? swap))
+            return false;
+
+        if (!Application.TryCommitPreparedLoad(
+                prepare,
+                newLineageID,
+                out _,
+                swap is null ? null : () => _renderer!.ApplyPreparedSwap(swap)))
+        {
+            return false;
+        }
+
         _inputHandler?.ResetTools();
         return true;
+    }
+
+    private bool TryPrepareRendererSwap(
+        SimpleCities.Road.V3.RoadPresentationFullReset? plan,
+        out RoadGraphV3RendererPreparedSwap? swap)
+    {
+        swap = null;
+        if (_renderer is null || plan is null)
+            return true;
+
+        return _renderer.TryPreflight(plan, out swap);
     }
 
     private void ApplyCurrentPresentation()
