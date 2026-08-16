@@ -185,6 +185,19 @@ public sealed class RoadToolInputRouterTests
     }
 
     [Fact]
+    public void HandleSelectionHits_Remove_AllInvalid_DoesNotCreateSession()
+    {
+        var router = CreateRouter();
+        router.SwitchTool(RoadToolType.Remove);
+        RoadSurfaceHit invalid = CreateHit() with { DistanceSquared = -1f };
+
+        int selected = router.HandleSelectionHits([invalid], upgrade: false);
+
+        Assert.Equal(0, selected);
+        Assert.False(router.IsSelecting);
+    }
+
+    [Fact]
     public void HandleSelectionRect_WithResolver_SelectsHits()
     {
         var router = CreateRouter();
