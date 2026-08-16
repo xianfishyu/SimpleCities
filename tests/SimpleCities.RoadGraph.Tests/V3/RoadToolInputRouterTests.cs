@@ -140,6 +140,18 @@ public sealed class RoadToolInputRouterTests
     }
 
     [Fact]
+    public void HandleLeftClick_Remove_SemanticJoinOwnerWithEdgeID_Selects()
+    {
+        RoadSurfaceHit joinHit = CreateHit() with { OwnerKind = RoadSurfaceOwnerKind.SemanticJoin };
+        var router = CreateRouter((_, _) => joinHit);
+        router.SwitchTool(RoadToolType.Remove);
+
+        Assert.True(router.HandleLeftClick(new Vector2(5f, 0f), closeRadius: 10f, hitRadius: 10f));
+        Assert.True(router.TryTakeRemovalSession(out RoadRemovalSessionV3 session));
+        Assert.Equal([20], session.SelectedEdgeIDs);
+    }
+
+    [Fact]
     public void HandleLeftClick_Remove_SelectsHit()
     {
         var router = CreateRouter((_, _) => CreateHit());
