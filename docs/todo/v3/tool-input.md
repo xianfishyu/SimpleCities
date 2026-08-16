@@ -281,6 +281,7 @@
 - [x] **相机、工具和暂停输入已有统一可重绑入口。** 输入动作由 `InputBindingManager` 管理。
 - [x] **三种输入网格共用同一提交边界。** 米字型、三角形和六边形策略只产生 `RoadPathDraft`；交叉、拆分、不变式和存档由 RoadGraph 处理。
 - [x] **连续铺路、批量拆除和完整图 JSON 历史已建立 V2 行为基线。** V3 在替换存储方式时必须保留用户可见的确认、取消、撤销与重做语义。
+- [x] **RoadUpgrade 已具备 UI 入口与快捷键。** ConstructionDock 显示道路改造按钮，ToolManager 同步 V3 `ToolState`，`InputBindingManager` 提供 U 快捷键；切换 RoadType 会取消未提交铺路并同步改造目标。
 
 ## 完成标准
 
