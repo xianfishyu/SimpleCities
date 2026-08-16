@@ -186,6 +186,22 @@ public partial class RoadGraphV3System : Node2D
         out SimpleCities.Core.V3.V3RoadLoadPrepareResult? prepare) =>
         Application.TryPrepareLoad(slotId, lineageID, out prepare);
 
+    public bool TryPrepareLoadAndCommit(string slotId, long lineageID)
+    {
+        if (!Application.TryPrepareLoad(slotId, lineageID, out SimpleCities.Core.V3.V3RoadLoadPrepareResult? prepare) ||
+            prepare is null)
+        {
+            return false;
+        }
+
+        if (!Application.TryCommitPreparedLoad(prepare, lineageID, out _))
+            return false;
+
+        ApplyCurrentPresentation();
+        _inputHandler?.ResetTools();
+        return true;
+    }
+
     public bool TryCommitPreparedLoad(
         SimpleCities.Core.V3.V3RoadLoadPrepareResult prepare,
         long lineageID,
