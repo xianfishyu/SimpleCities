@@ -54,6 +54,7 @@
 - [RoadGraph 重构与演进说明](manuals/road-system-v2-gen.md)
 - [第三代道路系统迭代指南](manuals/road-system-v3-gen.md)：可完全重构且不向后兼容的 canonical Edge、自环/平行边、RoadGroup 移除、RoadType、分级渲染和独立 V3 存档契约。
 - [第三代道路系统当前实现与验证状态](manuals/v3-current-implementation.md)：汇总 V3 已落地模块、验证证据与开放工作项。
+- [第三代道路系统下一步执行计划](manuals/v3-next-steps.md)：按依赖排序的剩余工作执行步骤。
 
 ## OpenCode 工具链
 
