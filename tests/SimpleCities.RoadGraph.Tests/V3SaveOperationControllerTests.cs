@@ -79,6 +79,15 @@ public sealed class V3SaveOperationControllerTests
     }
 
     [Fact]
+    public void Complete_NullResult_ThrowsArgumentNullException()
+    {
+        var controller = new V3SaveOperationController();
+        controller.TryBegin(V3SaveOperationKind.Load, 1);
+
+        Assert.Throws<ArgumentNullException>(() => controller.Complete(null!));
+    }
+
+    [Fact]
     public void Complete_WithObserverWarnings_ReturnsCompletedAndClearsToken()
     {
         var controller = new V3SaveOperationController();
