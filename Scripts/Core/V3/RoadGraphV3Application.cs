@@ -2,6 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using SimpleCities.Road.V3;
 
 namespace SimpleCities.Core.V3;
@@ -320,6 +321,15 @@ public sealed class RoadGraphV3Application
 
     public bool CurrentSlotHasRoadNetwork =>
         GetCurrentSlotFile(V3RoadSlotFactory.RoadNetworkFileName) is not null;
+
+    public string? CurrentSlotRoadNetworkJson
+    {
+        get
+        {
+            byte[]? payload = CurrentSlotPayload(V3RoadSlotFactory.RoadNetworkFileName);
+            return payload is null ? null : Encoding.UTF8.GetString(payload);
+        }
+    }
 
     public IReadOnlyList<string> CurrentSlotFileNames =>
         CurrentSlotManifest?.Files.Select(file => file.Name).ToList() ?? [];
