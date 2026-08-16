@@ -109,7 +109,7 @@
 
 - `RoadGraphV3Diagnostics.QueryFragmentCount` 当前按 primitive 计算：line 按 bucket 切分，曲线暂以整体保守 bounds 作为单个 fragment；已可在 DebugPanel 显示。
 - 真实 junction patch 网格与完整表现接管尚未落地。
-- 异步 Save/Load/Delete UI 状态机尚未实现。
+- 异步 Save/Load/Delete UI 状态机已实现（PauseMenu 异步入口、busy 禁用、取消令牌、scene generation 防护）；已开始的后端 I/O 无法真正中止，端到端验收尚未运行。
 - `v3-road-graph:8.6` 最终组合验收尚未完成。
 
 ## 11. 相关文档
