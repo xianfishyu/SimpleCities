@@ -32,6 +32,7 @@ public sealed class V3SaveOperationBackendTests
             Assert.StartsWith("manual-", app.CurrentSlotID);
             Assert.Equal(app.CurrentSlotID, backend.CurrentSlotID);
             Assert.Contains(app.CurrentSlotID, backend.ListSlots().Select(summary => summary.SlotId));
+            Assert.Equal("My City", backend.ListSlots().Single().DisplayName);
         }
         finally
         {
