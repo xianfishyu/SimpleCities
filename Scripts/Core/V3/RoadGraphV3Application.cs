@@ -572,6 +572,9 @@ public sealed class RoadGraphV3Application
     public long GetSlotTotalBytes(string slotId) =>
         GetManifest(slotId)?.Files.Sum(file => file.EncodedLength) ?? 0;
 
+    public string? GetSlotCityName(string slotId) =>
+        GetManifest(slotId)?.CityName;
+
     public byte[]? CurrentSlotPayload(string fileName) =>
         string.IsNullOrEmpty(CurrentSlotID) ? null : GetPayload(CurrentSlotID, fileName);
 
