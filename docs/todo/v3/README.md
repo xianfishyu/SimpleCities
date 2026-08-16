@@ -97,7 +97,7 @@ docs/todo/v3/                                各系统路线图
 ## 最近新增测试
 
 - `RoadQueryFragmentBuilderTests`：`BuildSegmentFragments` line 与曲线分支、空 segment 抛异常、曲线非法 bucket size。
-- `RoadGraphV3FacadeTests`：`Diagnostics.QueryFragmentCount` 空图、line Edge、长直线跨 bucket、曲线 Edge 集成。
+- `RoadGraphV3FacadeTests`：`Diagnostics.QueryFragmentCount` 空图、默认 0、line Edge、长直线跨 bucket、曲线 Edge、负数 IsValid。
 - `RoadToolInputRouterTests`：重复命中去重、混合有效/无效命中、全无效不创建会话、无效类型保留 placement/upgrade、同类型保留 placement、矩形空结果、Upgrade/Remove 矩形重复去重、右键移除/清除、切换工具清除 upgrade/removal、非有限坐标抛异常、取消后三类会话不可取回。
 
 ## 文档更新示例
