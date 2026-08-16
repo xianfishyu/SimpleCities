@@ -271,6 +271,27 @@ public sealed class RoadGraphV3Application
             Controller.Facade.CurrentToken,
             styles);
 
+    public IReadOnlyList<RoadRibbonMeshData> BuildRibbonMeshes(
+        RoadStyleProvider styles,
+        float displayTolerance = RoadGeometryDisplaySampler.DefaultTolerance)
+    {
+        ArgumentNullException.ThrowIfNull(styles);
+        var meshes = new List<RoadRibbonMeshData>();
+        foreach (RoadGraphV3Edge edge in Revision.Edges.Values.OrderBy(edge => edge.ID))
+        {
+            if (!styles.TryGet(edge.RoadType, out RoadTypeStyle? style))
+                continue;
+            if (RoadRibbonBuilder.TryBuild(edge, style, displayTolerance, out RoadRibbonMeshData mesh))
+                meshes.Add(mesh);
+        }
+
+        return meshes;
+    }
+
+    public IReadOnlyList<RoadRibbonMeshData> BuildDefaultRibbonMeshes(
+        float displayTolerance = RoadGeometryDisplaySampler.DefaultTolerance) =>
+        BuildRibbonMeshes(DefaultStyles, displayTolerance);
+
     public RoadSurfaceSnapshotBuildResult BuildDefaultSurfaceSnapshot() =>
         BuildSurfaceSnapshot(DefaultStyles);
 

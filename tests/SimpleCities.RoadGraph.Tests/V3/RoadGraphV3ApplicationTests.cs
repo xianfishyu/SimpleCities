@@ -305,6 +305,28 @@ public sealed class RoadGraphV3ApplicationTests
     }
 
     [Fact]
+    public void BuildDefaultRibbonMeshes_AfterBuild_ReturnsValidMesh()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            var session = new RoadPlacementSessionV3(RoadType.Street, Vector2.Zero);
+            session.TryAddPoint(new Vector2(1f, 0f));
+            Assert.True(app.TryBuild(session, out _));
+
+            var meshes = app.BuildDefaultRibbonMeshes();
+
+            RoadRibbonMeshData mesh = Assert.Single(meshes);
+            Assert.True(mesh.IsValid);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void LoadIntoCurrent_ReplacesControllerAndClearsHistory()
     {
         string root = GetTempRoot();
