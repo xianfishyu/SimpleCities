@@ -41,6 +41,33 @@ public sealed class RoadRibbonBuilderTests
     }
 
     [Fact]
+    public void TryBuild_SelfLoop_ReturnsValidClosedOutline()
+    {
+        var edge = new RoadGraphV3Edge(
+            1,
+            10,
+            10,
+            [
+                new LineRoadGeometrySegment(Vector2.Zero, new Vector2(2f, 0f)),
+                new LineRoadGeometrySegment(new Vector2(2f, 0f), new Vector2(0f, 2f)),
+                new LineRoadGeometrySegment(new Vector2(0f, 2f), Vector2.Zero),
+            ],
+            RoadType.Street);
+        RoadTypeStyle style = CreateStyle(width: 2f);
+
+        Assert.True(edge.IsSelfLoop);
+        Assert.True(RoadRibbonBuilder.TryBuild(edge, style, 0.25f, out RoadRibbonMeshData mesh));
+        Assert.True(mesh.IsValid);
+        Assert.Equal(8, mesh.Vertices.Count);
+        Assert.Equal(18, mesh.Indices.Count);
+
+        IReadOnlyList<Vector2> outline = mesh.ToOutlineVertices();
+        Assert.Equal(8, outline.Count);
+        Assert.Equal(outline[0], outline[3]);
+        Assert.Equal(outline[4], outline[7]);
+    }
+
+    [Fact]
     public void TryBuild_InvalidWidth_Fails()
     {
         var edge = CreateEdge([new LineRoadGeometrySegment(Vector2.Zero, new Vector2(10f, 0f))]);

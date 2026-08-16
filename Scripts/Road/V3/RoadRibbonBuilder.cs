@@ -28,12 +28,15 @@ public static class RoadRibbonBuilder
             return false;
 
         float halfWidth = style.Width * 0.5f;
+        bool isClosed = points.Length >= 3 && points[0] == points[^1];
         var vertices = new List<Vector2>(points.Length * 2);
         var colors = new List<Color>(points.Length * 2);
 
         for (int index = 0; index < points.Length; index++)
         {
-            Vector2 direction = GetDirection(points, index);
+            Vector2 direction = isClosed && (index == 0 || index == points.Length - 1)
+                ? GetClosedSeamDirection(points)
+                : GetDirection(points, index);
             if (!direction.IsFinite() || direction.LengthSquared() <= 0f)
                 return false;
 
@@ -67,5 +70,13 @@ public static class RoadRibbonBuilder
         if (index == points.Length - 1)
             return points[index] - points[index - 1];
         return (points[index + 1] - points[index - 1]).Normalized();
+    }
+
+    private static Vector2 GetClosedSeamDirection(Vector2[] points)
+    {
+        Vector2 incoming = points[0] - points[^2];
+        Vector2 outgoing = points[1] - points[0];
+        Vector2 sum = incoming + outgoing;
+        return sum.LengthSquared() > 0f ? sum.Normalized() : outgoing.Normalized();
     }
 }

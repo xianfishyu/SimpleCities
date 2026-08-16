@@ -145,6 +145,12 @@
 - 完整测试套件 1145/1145 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
 - 尚未完成：self-loop/平行 Edge 专用 ribbon、junction patch、真实 mesh 资源与完整接管协议。
 
+### 2026-08-13：2.0 self-loop seam 闭合 ribbon（部分）
+
+- `RoadRibbonBuilder` 检测首尾采样点重合的闭合路径，使用 seam 方向统一首尾法线，使 self-loop 的 ribbon 轮廓在 seam 处闭合，避免首尾法线不一致造成裂缝。
+- 新增 1 个 xUnit 用例；完整测试套件 1146/1146 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：平行 Edge 专用 ribbon、junction patch、真实 mesh 资源与完整接管协议。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁
