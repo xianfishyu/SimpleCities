@@ -61,6 +61,7 @@ public partial class RoadGraphV3System : Node2D
         Application.GetCurrentSlotFileSize(fileName);
     public bool CurrentSlotHasRoadNetwork => Application.CurrentSlotHasRoadNetwork;
     public SimpleCities.Core.V3.V3ManifestFile? CurrentSlotRoadNetworkFile => Application.CurrentSlotRoadNetworkFile;
+    public string? CurrentSlotRoadNetworkHash => Application.CurrentSlotRoadNetworkHash;
     public string? CurrentSlotRoadNetworkJson => Application.CurrentSlotRoadNetworkJson;
     public int CurrentSlotRoadNetworkJsonLength => Application.CurrentSlotRoadNetworkJsonLength;
     public byte[]? CurrentSlotRoadNetworkPayload => Application.CurrentSlotRoadNetworkPayload;

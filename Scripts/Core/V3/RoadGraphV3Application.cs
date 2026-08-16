@@ -512,6 +512,8 @@ public sealed class RoadGraphV3Application
     public V3ManifestFile? CurrentSlotRoadNetworkFile =>
         GetCurrentSlotFile(V3RoadSlotFactory.RoadNetworkFileName);
 
+    public string? CurrentSlotRoadNetworkHash => CurrentSlotRoadNetworkFile?.Sha256;
+
     public string? CurrentSlotRoadNetworkJson
     {
         get
