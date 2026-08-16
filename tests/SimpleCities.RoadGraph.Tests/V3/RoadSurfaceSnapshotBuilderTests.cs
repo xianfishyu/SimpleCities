@@ -1,6 +1,7 @@
 using Godot;
 using SimpleCities.Road.V3;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace SimpleCities.Tests.V3;
 
@@ -45,6 +46,31 @@ public sealed class RoadSurfaceSnapshotBuilderTests
             owner.NodeID == centerID &&
             owner.EdgeID is not null &&
             owner.Endpoint is not null);
+    }
+
+    [Fact]
+    public void Build_DegreeTwoDifferentTypes_AddsSemanticJoinOwners()
+    {
+        RoadGraphV3Revision revision = RoadGraphV3Revision.Empty(RoadGraphCapacity.Default);
+        revision.TryAddNode(Vector2.Zero, out revision, out int center);
+        revision.TryAddNode(new Vector2(-1f, 0f), out revision, out int left);
+        revision.TryAddNode(new Vector2(1f, 0f), out revision, out int right);
+        revision.TryAddEdge(center, left, [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(-1f, 0f))], RoadType.Street, out revision, out int leftEdge);
+        revision.TryAddEdge(center, right, [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(1f, 0f))], RoadType.Highway, out revision, out int rightEdge);
+        RoadStyleProvider styles = CreateProvider();
+
+        RoadSurfaceSnapshotBuildResult result = RoadSurfaceSnapshotBuilder.Build(
+            revision,
+            new GraphStateToken(1, 2, 3),
+            styles);
+
+        Assert.True(result.Success, result.Error);
+        List<RoadSurfaceOwner> semanticOwners = result.Snapshot!.Owners
+            .Where(owner => owner.Kind == RoadSurfaceOwnerKind.SemanticJoin && owner.NodeID == center)
+            .ToList();
+        Assert.Equal(2, semanticOwners.Count);
+        Assert.Contains(semanticOwners, owner => owner.EdgeID == leftEdge);
+        Assert.Contains(semanticOwners, owner => owner.EdgeID == rightEdge);
     }
 
     [Fact]

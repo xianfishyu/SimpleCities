@@ -297,6 +297,12 @@
 - 新增 1 个 xUnit 用例并更新 2 个既有断言；完整测试套件 1219/1219 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：混合宽度/锐角 junction 的真实多边形填补与像素/owner 等价验证。
 
+### 2026-08-13：2.2 semantic join owner 发布（部分）
+
+- `RoadSurfaceSnapshotBuilder.Build` 对 degree-2 且两侧 RoadType 不同的节点发布两个 `SemanticJoin` owner（各带 EdgeID/Endpoint），为混合类型过渡提供稳定表面归属。
+- 新增 1 个 xUnit 用例；完整测试套件 1231/1231 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：semantic join 的真实无洞宽度/颜色过渡网格，以及 hit tester 对 semantic join 的命中解析。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁

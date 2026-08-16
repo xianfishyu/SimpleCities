@@ -46,6 +46,28 @@ public static class RoadSurfaceSnapshotBuilder
 
         foreach (int nodeID in revision.Nodes.Keys.Order())
         {
+            var incidences = RoadJunctionPatchBuilder.GetIncidences(revision, nodeID);
+            var distinctEdgeIDs = incidences
+                .Select(incidence => incidence.EdgeID)
+                .Distinct()
+                .ToList();
+            if (distinctEdgeIDs.Count == 2 &&
+                revision.Edges[distinctEdgeIDs[0]].RoadType != revision.Edges[distinctEdgeIDs[1]].RoadType)
+            {
+                foreach (RoadJunctionIncidence incidence in incidences)
+                {
+                    owners.Add(new RoadSurfaceOwner(
+                        RoadSurfaceOwnerKind.SemanticJoin,
+                        NodeID: nodeID,
+                        EdgeID: incidence.EdgeID,
+                        Endpoint: incidence.Endpoint,
+                        new RoadLocation(incidence.EdgeID, 0, 0f)));
+                }
+            }
+        }
+
+        foreach (int nodeID in revision.Nodes.Keys.Order())
+        {
             if (!RoadJunctionPatchBuilder.TryBuild(revision, styles, nodeID, junctionRadius, out _))
                 continue;
 
