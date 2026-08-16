@@ -115,6 +115,19 @@ public sealed class V3SaveOperationUiStateTests
     }
 
     [Fact]
+    public void FromResult_EmptyObserverWarnings_HasNoWarnings()
+    {
+        V3SaveOperationToken token = V3SaveOperationToken.Create(V3SaveOperationKind.Delete, 1);
+        V3SaveOperationResult result = V3SaveOperationResult.SucceededWithObserverWarnings(token, []);
+
+        V3SaveOperationUiState state = V3SaveOperationUiState.FromResult(result);
+
+        Assert.True(state.IsComplete);
+        Assert.False(state.HasWarnings);
+        Assert.Null(state.WarningSummary);
+    }
+
+    [Fact]
     public void FromResult_MultipleObserverWarnings_JoinsWithSemicolon()
     {
         V3SaveOperationToken token = V3SaveOperationToken.Create(V3SaveOperationKind.Delete, 1);
