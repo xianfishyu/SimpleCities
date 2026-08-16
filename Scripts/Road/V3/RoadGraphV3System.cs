@@ -308,6 +308,9 @@ public partial class RoadGraphV3System : Node2D
     public SimpleCities.Core.V3.V3SlotOccupant GetSlotOccupant(string slotId) =>
         Application.GetSlotOccupant(slotId);
 
+    public bool GetSlotIsUsable(string slotId) =>
+        Application.GetSlotIsUsable(slotId);
+
     public byte[]? CurrentSlotPayload(string fileName) =>
         Application.CurrentSlotPayload(fileName);
 
