@@ -176,6 +176,13 @@
 - 完整测试套件 1166/1166 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
 - 尚未完成：junction patch 命中、真实 mesh 资源与完整接管协议。
 
+### 2026-08-13：2.2 RoadJunctionPatch 数据与构建器（部分）
+
+- 新增 `RoadJunctionPatchData`：以节点为中心的 junction 轮廓多边形数据。
+- 新增 `RoadJunctionPatchBuilder`：对 degree >= 3 节点，按入射 Edge 的 outgoing 方向生成轮廓；self-loop 只贡献一次 seam 方向，degree 2 不生成 patch。
+- 新增 5 个 xUnit 用例；完整测试套件 1171/1171 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
+- 尚未完成：将 junction patch 接入渲染与 surface owner，以及混合宽度/锐角真实填补。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁
