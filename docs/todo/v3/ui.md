@@ -80,6 +80,13 @@
 - 映射：Save As/Overwrite -> `V3SaveOperationKind.Publish`；Load -> `Load`；Delete -> `Delete`；`Admission/Prepare/Preflight` 可取消，`Commit/Completed` 不可取消。
 - 下一步：在 `1.4` 中替换为 operation token/result 状态机，并接入 V3 occupant 分类列表。
 
+### 2026-08-16：M4 基础——V3SaveOperationUiState 映射助手（部分）
+
+- 新增 `Scripts/UI/V3SaveOperationUiState.cs`：`V3SaveOperationUiPhase`（Idle/Busy/Cancelling/Completed/Failed）与 `V3SaveOperationUiState` record，将 `V3SaveOperationResult` 映射为 UI 可消费的 `IsBusy` / `IsCancellable` / `IsComplete` / `IsFailed` / `WarningSummary`。
+- 映射规则：`Success && CommitCompleted` -> Completed；`!Success && !CommitCompleted` -> Failed；`Admission/Prepare/Preflight` 阶段视为可取消。
+- 新增 `tests/SimpleCities.RoadGraph.Tests/V3SaveOperationUiStateTests.cs`：覆盖 null、成功、提交前失败、observer warning 与 Cancelling 状态。
+- 尚未接入 `PauseMenu`；`1.4` 仍开放，完整异步状态机待实现。
+
 ## 执行顺序
 
 ### 阶段 7：第三代道路控件、诊断与存档交互
