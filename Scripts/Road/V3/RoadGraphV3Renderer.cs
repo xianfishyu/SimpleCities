@@ -1,5 +1,6 @@
 using Godot;
 using SimpleCities.Road.V3;
+using System.Linq;
 
 /// <summary>
 /// V3 最小道路渲染器：从 RoadGraphV3System 的 controller 读取权威几何，
@@ -43,6 +44,18 @@ public partial class RoadGraphV3Renderer : Node2D
                 continue;
 
             DrawPolyline(points, style.Color, style.Width, true);
+
+            if (RoadRibbonBuilder.TryBuild(edge, style, DisplayTolerance, out RoadRibbonMeshData ribbon))
+            {
+                Vector2[] outline = ribbon.ToOutlineVertices().ToArray();
+                if (outline.Length >= 3)
+                {
+                    var colors = new Color[outline.Length];
+                    for (int index = 0; index < colors.Length; index++)
+                        colors[index] = style.Color;
+                    DrawPolygon(outline, colors);
+                }
+            }
         }
     }
 }

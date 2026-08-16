@@ -139,6 +139,12 @@
 - 新增 2 个 xUnit 用例；完整测试套件 1145/1145 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：self-loop/平行 Edge 专用 ribbon、junction patch、真实 mesh 资源与完整接管协议。
 
+### 2026-08-13：2.0/2.2 渲染器使用 ribbon 填充预览（部分）
+
+- `RoadGraphV3Renderer` 在原有中心线折线之外，使用 `RoadRibbonBuilder` 生成 ribbon 轮廓并通过 `DrawPolygon` 绘制填充路面；仍从权威几何读取，不修改图数据。
+- 完整测试套件 1145/1145 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
+- 尚未完成：self-loop/平行 Edge 专用 ribbon、junction patch、真实 mesh 资源与完整接管协议。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁
