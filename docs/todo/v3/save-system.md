@@ -547,6 +547,12 @@
 - 新增 1 个 xUnit 用例；完整测试套件 1127/1127 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实 Godot 场景装配、renderer participant 与端到端 aggregate Load commit。
 
+### 2026-08-13：2.3 Load aggregate 协调器（部分）
+
+- 新增 `Scripts/Core/V3/V3LoadAggregateCoordinator.cs`：组合 `V3LoadProtocol` 与 `V3PreparedAggregate`，要求全部 required participant 在 Preflight 前就绪，并在 non-yield commit 中执行一次不可抛动作；commit 抛错进入 `Failed`。
+- 新增 7 个 xUnit 用例；完整测试套件 1137/1137 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：将协调器接入 `V3RoadLoadPipeline` / 真实 Godot 场景装配与 renderer participant。
+
 ### 2026-08-13：2.1 槽状态返回 manifest 摘要（更新）
 
 - `V3SlotStatusService.GetStatus` 对完整槽读取 manifest，返回 `DisplayName` 与 `Timestamp`，不再只返回 slotId 和 null。
