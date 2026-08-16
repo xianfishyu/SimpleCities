@@ -52,6 +52,7 @@ public sealed class RoadGraphV3Application
     public string? CurrentSlotTimestamp => CurrentSlotSummary?.Timestamp;
     public V3SlotOccupant? CurrentSlotOccupant => CurrentSlotSummary?.Occupant;
     public bool CurrentSlotIsComplete => CurrentSlotOccupant == V3SlotOccupant.CompleteV3;
+    public bool CurrentSlotIsCorrupt => CurrentSlotOccupant == V3SlotOccupant.CorruptV3;
 
     public RoadGraphV3Application(
         string root,
