@@ -548,6 +548,11 @@ public sealed class RoadGraphV3Application
             .FirstOrDefault(file => string.Equals(file.Name, fileName, StringComparison.Ordinal))
             ?.Sha256;
 
+    public long? GetSlotFileSize(string slotId, string fileName) =>
+        GetManifest(slotId)?.Files
+            .FirstOrDefault(file => string.Equals(file.Name, fileName, StringComparison.Ordinal))
+            ?.EncodedLength;
+
     public byte[]? CurrentSlotPayload(string fileName) =>
         string.IsNullOrEmpty(CurrentSlotID) ? null : GetPayload(CurrentSlotID, fileName);
 
