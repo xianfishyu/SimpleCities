@@ -102,7 +102,14 @@
 - 渲染：`RoadGraphV3Renderer` → `RoadRibbonBuilder` / `RoadCapBuilder` / `RoadSemanticJoinBuilder` → `RoadSurfaceSnapshot` / `RoadSurfaceHitProvider`
 - UI：`ConstructionDock` / `ToolContextPanel` / `DebugPanel` → `ToolManager` / `InputBindingManager` → V3 `ToolState`
 
-## 10. 相关文档
+## 10. 已知限制
+
+- `RoadGraphV3Diagnostics` 尚未包含 `QueryFragmentCount`。
+- 真实 junction patch 网格与完整表现接管尚未落地。
+- 异步 Save/Load/Delete UI 状态机尚未实现。
+- `v3-road-graph:8.6` 最终组合验收尚未完成。
+
+## 11. 相关文档
 
 - 架构与验收规范：`docs/manuals/road-system-v3-gen.md`
 - 当前实现与验证状态：`docs/manuals/v3-current-implementation.md`
