@@ -439,6 +439,22 @@ public sealed class RoadToolInputRouterTests
     }
 
     [Fact]
+    public void HandleSelectionRect_WithOwnerWithoutEdgeID_Skips()
+    {
+        var router = CreateRouter();
+        router.SwitchTool(RoadToolType.Upgrade);
+        RoadSurfaceHit invalid = CreateHit() with { OwnerKind = RoadSurfaceOwnerKind.Cap, EdgeID = null };
+
+        int selected = router.HandleSelectionRect(
+            new Rect2(0f, 0f, 10f, 10f),
+            _ => [invalid],
+            upgrade: true);
+
+        Assert.Equal(0, selected);
+        Assert.False(router.IsSelecting);
+    }
+
+    [Fact]
     public void HandleSelectionRect_WithDuplicateHits_Deduplicates()
     {
         var router = CreateRouter();
