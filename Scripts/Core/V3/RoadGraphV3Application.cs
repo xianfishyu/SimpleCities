@@ -301,6 +301,9 @@ public sealed class RoadGraphV3Application
     public V3Manifest? CurrentSlotManifest =>
         string.IsNullOrEmpty(CurrentSlotID) ? null : GetManifest(CurrentSlotID);
 
+    public string? CurrentSlotFormatFamily => CurrentSlotManifest?.FormatFamily;
+    public int CurrentSlotSchemaVersion => CurrentSlotManifest?.SchemaVersion ?? 0;
+
     public string? CurrentSlotCityName => CurrentSlotManifest?.CityName;
     public long? CurrentSlotPopulation => CurrentSlotManifest?.Population;
     public decimal? CurrentSlotFunds => CurrentSlotManifest?.Funds;
