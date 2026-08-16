@@ -157,6 +157,12 @@
 - 新增 1 个 xUnit 用例；完整测试套件 1147/1147 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：平行 Edge 专用 ribbon、junction patch、真实 mesh 资源与完整接管协议。
 
+### 2026-08-13：2.2 RoadSurfaceHitTester 中心线命中测试（部分）
+
+- 新增 `RoadSurfaceHitTester`：从权威 revision 的采样几何查找离查询点最近的 Edge，生成带完整 token 的 Ribbon `RoadSurfaceHit`；支持平行 Edge 返回更近者，超距返回失败。
+- 新增 5 个 xUnit 用例；完整测试套件 1152/1152 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
+- 尚未完成：将命中测试接入 `RoadSurfaceHitProvider` 与真实输入路由，以及 junction patch 命中。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁

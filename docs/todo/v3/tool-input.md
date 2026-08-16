@@ -111,6 +111,12 @@
 - 完整测试套件 1138/1138 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
 - 尚未完成：`RoadBuilder` 真实接线、完整工具生命周期与真实 surface hit 输入路由。
 
+### 2026-08-13：2.2 中心线命中测试基础（部分）
+
+- 新增 `RoadSurfaceHitTester`，为工具层提供基于权威 revision 中心线的最近 Edge 命中候选；后续可与 `RoadSurfaceHitProvider` 组合，确保只消费与已呈现表现同代的命中。
+- 新增 5 个 xUnit 用例；完整测试套件 1152/1152 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：`RoadBuilder` 真实接线、完整工具生命周期与真实 surface hit 输入路由。
+
 ## 执行顺序
 
 ### 阶段 3：第三代闭环、类型化建造与道路改造
