@@ -28,3 +28,12 @@
 
 - `tests/SimpleCities.RoadGraph.Tests/V3/`：RoadGraph、存档、渲染、工具相关 xUnit 测试。
 - `tests/godot/command_center_runtime_contract.gd`：命令中心运行时契约。
+
+## 5. 相关文档
+
+- 架构与验收规范：`docs/manuals/road-system-v3-gen.md`
+- 当前实现与验证状态：`docs/manuals/v3-current-implementation.md`
+- 下一步执行计划：`docs/manuals/v3-next-steps.md`
+- QA 运行手册：`docs/manuals/v3-qa-runbook.md`
+- 关键决策记录：`docs/manuals/v3-decisions.md`
+- 术语表：`docs/manuals/v3-glossary.md`
