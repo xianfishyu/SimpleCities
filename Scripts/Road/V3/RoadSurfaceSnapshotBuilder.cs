@@ -21,7 +21,8 @@ public static class RoadSurfaceSnapshotBuilder
     public static RoadSurfaceSnapshotBuildResult Build(
         RoadGraphV3Revision revision,
         GraphStateToken token,
-        RoadStyleProvider styles)
+        RoadStyleProvider styles,
+        float junctionRadius = RoadJunctionPatchBuilder.DefaultRadius)
     {
         ArgumentNullException.ThrowIfNull(revision);
         ArgumentNullException.ThrowIfNull(styles);
@@ -41,6 +42,19 @@ public static class RoadSurfaceSnapshotBuilder
                 EdgeID: edge.ID,
                 Endpoint: EdgeEndpoint.A,
                 new RoadLocation(edge.ID, 0, 0f)));
+        }
+
+        foreach (int nodeID in revision.Nodes.Keys.Order())
+        {
+            if (RoadJunctionPatchBuilder.TryBuild(revision, styles, nodeID, junctionRadius, out _))
+            {
+                owners.Add(new RoadSurfaceOwner(
+                    RoadSurfaceOwnerKind.JunctionPatch,
+                    NodeID: nodeID,
+                    EdgeID: null,
+                    Endpoint: null,
+                    new RoadLocation(0, 0, 0f)));
+            }
         }
 
         return new RoadSurfaceSnapshotBuildResult(true, new RoadSurfaceSnapshot(token, owners), null);

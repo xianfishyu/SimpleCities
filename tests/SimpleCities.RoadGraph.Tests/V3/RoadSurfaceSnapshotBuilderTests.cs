@@ -23,6 +23,25 @@ public sealed class RoadSurfaceSnapshotBuilderTests
     }
 
     [Fact]
+    public void Build_CrossNode_AddsJunctionOwner()
+    {
+        RoadGraphV3Revision revision = CreateCrossRevision(out int centerID);
+        RoadStyleProvider styles = CreateProvider();
+
+        RoadSurfaceSnapshotBuildResult result = RoadSurfaceSnapshotBuilder.Build(
+            revision,
+            new GraphStateToken(1, 2, 3),
+            styles);
+
+        Assert.True(result.Success, result.Error);
+        Assert.NotNull(result.Snapshot);
+        Assert.Equal(revision.Edges.Count + 1, result.Snapshot!.Owners.Count);
+        Assert.Contains(result.Snapshot.Owners, owner =>
+            owner.Kind == RoadSurfaceOwnerKind.JunctionPatch &&
+            owner.NodeID == centerID);
+    }
+
+    [Fact]
     public void Build_MissingStyle_Fails()
     {
         RoadGraphV3Revision revision = CreateHighwayRevision();
@@ -56,6 +75,21 @@ public sealed class RoadSurfaceSnapshotBuilderTests
 
         Assert.False(result.Success);
         Assert.Equal("InvalidToken", result.Error);
+    }
+
+    private static RoadGraphV3Revision CreateCrossRevision(out int centerID)
+    {
+        RoadGraphV3Revision revision = RoadGraphV3Revision.Empty(RoadGraphCapacity.Default);
+        revision.TryAddNode(Vector2.Zero, out revision, out centerID);
+        revision.TryAddNode(new Vector2(1f, 0f), out revision, out int east);
+        revision.TryAddNode(new Vector2(-1f, 0f), out revision, out int west);
+        revision.TryAddNode(new Vector2(0f, 1f), out revision, out int north);
+        revision.TryAddNode(new Vector2(0f, -1f), out revision, out int south);
+        revision.TryAddEdge(centerID, east, [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(1f, 0f))], RoadType.Street, out revision, out _);
+        revision.TryAddEdge(centerID, west, [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(-1f, 0f))], RoadType.Street, out revision, out _);
+        revision.TryAddEdge(centerID, north, [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(0f, 1f))], RoadType.Street, out revision, out _);
+        revision.TryAddEdge(centerID, south, [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(0f, -1f))], RoadType.Street, out revision, out _);
+        return revision;
     }
 
     private static RoadGraphV3Revision CreateRevision()

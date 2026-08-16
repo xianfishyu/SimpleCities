@@ -195,6 +195,12 @@
 - 完整测试套件 1172/1172 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
 - 尚未完成：将 junction patch 接入 surface owner 与命中，以及混合宽度/锐角真实填补。
 
+### 2026-08-13：2.2 surface snapshot 包含 junction owner（部分）
+
+- `RoadSurfaceSnapshotBuilder.Build` 在 Ribbon owner 之外，为 degree >= 3 节点生成 `JunctionPatch` owner，使已呈现快照覆盖 junction 表面。
+- 新增 1 个 xUnit 用例；完整测试套件 1173/1173 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：junction patch 命中测试与真实输入路由，以及混合宽度/锐角真实填补。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁
