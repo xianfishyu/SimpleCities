@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace SimpleCities.Road.V3;
@@ -130,6 +131,103 @@ public static class RoadSurfaceHitTester
             bestDistanceSquared);
         return true;
     }
+
+    public static bool TryFindAllInRect(
+        RoadGraphV3Revision revision,
+        GraphStateToken token,
+        Rect2 rect,
+        out IReadOnlyList<RoadSurfaceHit> hits)
+    {
+        ArgumentNullException.ThrowIfNull(revision);
+        if (!rect.HasArea())
+        {
+            hits = [];
+            return false;
+        }
+        if (!RoadNumericPolicy.IsWithinCoordinateRange(rect.Position) ||
+            !RoadNumericPolicy.IsWithinCoordinateRange(rect.End))
+        {
+            throw new ArgumentOutOfRangeException(nameof(rect), "Query rect must be within the V3 numeric range.");
+        }
+
+        var edgeIDs = new HashSet<int>();
+        foreach (RoadGraphV3Edge edge in revision.Edges.Values.OrderBy(edge => edge.ID))
+        {
+            for (int geometryIndex = 0; geometryIndex < edge.Geometry.Count; geometryIndex++)
+            {
+                Vector2[] samples = RoadGeometryDisplaySampler.SampleSegment(edge.Geometry[geometryIndex]);
+                for (int sampleIndex = 0; sampleIndex < samples.Length - 1; sampleIndex++)
+                {
+                    if (SegmentIntersectsRect(rect, samples[sampleIndex], samples[sampleIndex + 1]))
+                    {
+                        edgeIDs.Add(edge.ID);
+                        break;
+                    }
+                }
+
+                if (edgeIDs.Contains(edge.ID))
+                    break;
+            }
+        }
+
+        hits = edgeIDs
+            .Order()
+            .Select(edgeID => new RoadSurfaceHit(
+                token,
+                RoadSurfaceOwnerKind.Ribbon,
+                NodeID: revision.Edges[edgeID].NodeAID,
+                EdgeID: edgeID,
+                Endpoint: EdgeEndpoint.A,
+                new RoadLocation(edgeID, 0, 0.5f),
+                0f))
+            .ToList();
+        return hits.Count > 0;
+    }
+
+    private static bool SegmentIntersectsRect(Rect2 rect, Vector2 a, Vector2 b)
+    {
+        if (rect.HasPoint(a) || rect.HasPoint(b))
+            return true;
+
+        Vector2 topLeft = rect.Position;
+        Vector2 topRight = new(rect.End.X, rect.Position.Y);
+        Vector2 bottomLeft = new(rect.Position.X, rect.End.Y);
+        Vector2 bottomRight = rect.End;
+        return SegmentsIntersect(a, b, topLeft, topRight) ||
+               SegmentsIntersect(a, b, topRight, bottomRight) ||
+               SegmentsIntersect(a, b, bottomRight, bottomLeft) ||
+               SegmentsIntersect(a, b, bottomLeft, topLeft);
+    }
+
+    private static bool SegmentsIntersect(Vector2 a, Vector2 b, Vector2 c, Vector2 d)
+    {
+        float o1 = Cross(b - a, c - a);
+        float o2 = Cross(b - a, d - a);
+        float o3 = Cross(d - c, a - c);
+        float o4 = Cross(d - c, b - c);
+
+        if (Mathf.Abs(o1) < 1e-6f && IsOnSegment(a, b, c))
+            return true;
+        if (Mathf.Abs(o2) < 1e-6f && IsOnSegment(a, b, d))
+            return true;
+        if (Mathf.Abs(o3) < 1e-6f && IsOnSegment(c, d, a))
+            return true;
+        if (Mathf.Abs(o4) < 1e-6f && IsOnSegment(c, d, b))
+            return true;
+
+        return (o1 * o2 < 0f) && (o3 * o4 < 0f);
+    }
+
+    private static bool IsOnSegment(Vector2 a, Vector2 b, Vector2 point)
+    {
+        return point.X >= Mathf.Min(a.X, b.X) - 1e-6f &&
+               point.X <= Mathf.Max(a.X, b.X) + 1e-6f &&
+               point.Y >= Mathf.Min(a.Y, b.Y) - 1e-6f &&
+               point.Y <= Mathf.Max(a.Y, b.Y) + 1e-6f;
+    }
+
+    private static float Cross(Vector2 left, Vector2 right) =>
+        left.X * right.Y - left.Y * right.X;
 
     private static int GetIncidentEdgeCount(RoadGraphV3Revision revision, int nodeID) =>
         revision.Edges.Values.Count(edge => edge.NodeAID == nodeID || edge.NodeBID == nodeID);

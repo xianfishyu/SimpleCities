@@ -135,6 +135,11 @@ public partial class RoadGraphV3System : Node2D
         out RoadSurfaceHit hit) =>
         Application.TryFindClosestJunctionSurfaceHit(point, maxDistance, out hit);
 
+    public bool TryFindSurfaceHitsInRect(
+        Rect2 rect,
+        out System.Collections.Generic.IReadOnlyList<RoadSurfaceHit> hits) =>
+        Application.TryFindSurfaceHitsInRect(rect, out hits);
+
     public RoadSurfaceSnapshotBuildResult BuildDefaultSurfaceSnapshot() =>
         Application.BuildDefaultSurfaceSnapshot();
 

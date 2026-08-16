@@ -407,6 +407,15 @@ public sealed class RoadGraphV3Application
         return HitProvider.TryResolve(candidate, out hit);
     }
 
+    public bool TryFindSurfaceHitsInRect(
+        Rect2 rect,
+        out IReadOnlyList<RoadSurfaceHit> hits) =>
+        RoadSurfaceHitTester.TryFindAllInRect(
+            Controller.Facade.Revision,
+            Controller.Facade.CurrentToken,
+            rect,
+            out hits);
+
     public bool TryFindClosestJunctionSurfaceHit(
         Vector2 point,
         float maxDistance,

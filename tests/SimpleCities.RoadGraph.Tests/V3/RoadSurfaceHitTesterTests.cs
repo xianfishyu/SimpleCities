@@ -142,6 +142,61 @@ public sealed class RoadSurfaceHitTesterTests
             out _));
     }
 
+    [Fact]
+    public void TryFindAllInRect_LineInsideRect_ReturnsEdgeHit()
+    {
+        RoadGraphV3Revision revision = CreateRevisionWithSingleLine();
+        int edgeID = revision.Edges.Keys.Single();
+
+        Assert.True(RoadSurfaceHitTester.TryFindAllInRect(
+            revision,
+            new GraphStateToken(1, 1, 1),
+            new Rect2(2f, -1f, 4f, 2f),
+            out System.Collections.Generic.IReadOnlyList<RoadSurfaceHit> hits));
+
+        RoadSurfaceHit hit = Assert.Single(hits);
+        Assert.Equal(edgeID, hit.EdgeID);
+        Assert.Equal(RoadSurfaceOwnerKind.Ribbon, hit.OwnerKind);
+    }
+
+    [Fact]
+    public void TryFindAllInRect_LineOutsideRect_ReturnsFalse()
+    {
+        RoadGraphV3Revision revision = CreateRevisionWithSingleLine();
+
+        Assert.False(RoadSurfaceHitTester.TryFindAllInRect(
+            revision,
+            new GraphStateToken(1, 1, 1),
+            new Rect2(20f, 20f, 1f, 1f),
+            out _));
+    }
+
+    [Fact]
+    public void TryFindAllInRect_LineCrossingRect_ReturnsEdgeHit()
+    {
+        RoadGraphV3Revision revision = CreateRevisionWithSingleLine();
+
+        Assert.True(RoadSurfaceHitTester.TryFindAllInRect(
+            revision,
+            new GraphStateToken(1, 1, 1),
+            new Rect2(5f, -1f, 2f, 2f),
+            out System.Collections.Generic.IReadOnlyList<RoadSurfaceHit> hits));
+
+        Assert.Single(hits);
+    }
+
+    [Fact]
+    public void TryFindAllInRect_EmptyRect_ReturnsFalse()
+    {
+        RoadGraphV3Revision revision = CreateRevisionWithSingleLine();
+
+        Assert.False(RoadSurfaceHitTester.TryFindAllInRect(
+            revision,
+            new GraphStateToken(1, 1, 1),
+            new Rect2(0f, 0f, 0f, 0f),
+            out _));
+    }
+
     private static RoadGraphV3Revision CreateCrossRevision(out int centerID)
     {
         RoadGraphV3Revision revision = RoadGraphV3Revision.Empty(RoadGraphCapacity.Default);

@@ -177,6 +177,12 @@
 - 新增 4 个 xUnit 用例；完整测试套件 1223/1223 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实输入处理器矩形拖拽接线与端到端工具验收。
 
+### 2026-08-13：2.2 矩形表面命中查询与应用/场景暴露（部分）
+
+- `RoadSurfaceHitTester` 新增 `TryFindAllInRect`，按中心线采样段与矩形相交返回每个 Edge 一个 Ribbon hit；`RoadGraphV3Application` / `RoadGraphV3System` 暴露 `TryFindSurfaceHitsInRect`。
+- 新增 4 个 xUnit 用例；完整测试套件 1227/1227 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实输入处理器矩形拖拽接线与端到端工具验收。
+
 ## 执行顺序
 
 ### 阶段 3：第三代闭环、类型化建造与道路改造
