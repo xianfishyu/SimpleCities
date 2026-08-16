@@ -43,6 +43,7 @@
 - `command_center_runtime_contract.gd` 最近一次输出：`PASS command center runtime contract`。
 - Godot `MapTest` 冻结运行验证：RoadType 行可见、四按钮、默认 Street、键盘 Enter 与手柄 A 可切换、分类切换显隐、暂停返回与场景重入保持。
 - M3：`QueryFragmentCount` 实现完成（line 按 bucket 切分、曲线按整体 bounds、DebugPanel 已显示），待环境恢复后运行测试确认。
+- M2：工具输入边界测试已扩充（重复去重、混合命中、全无效不建会话、无效类型保留会话等），待环境恢复后运行确认。
 
 ## 3. 模块验证状态矩阵
 
