@@ -560,6 +560,12 @@ public sealed class RoadGraphV3Application
         GetManifest(slotId)?.Files
             .FirstOrDefault(file => string.Equals(file.Name, fileName, StringComparison.Ordinal));
 
+    public string? GetSlotPayloadString(string slotId, string fileName)
+    {
+        byte[]? payload = GetPayload(slotId, fileName);
+        return payload is null ? null : Encoding.UTF8.GetString(payload);
+    }
+
     public byte[]? CurrentSlotPayload(string fileName) =>
         string.IsNullOrEmpty(CurrentSlotID) ? null : GetPayload(CurrentSlotID, fileName);
 

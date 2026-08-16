@@ -260,6 +260,9 @@ public partial class RoadGraphV3System : Node2D
     public SimpleCities.Core.V3.V3ManifestFile? GetSlotFile(string slotId, string fileName) =>
         Application.GetSlotFile(slotId, fileName);
 
+    public string? GetSlotPayloadString(string slotId, string fileName) =>
+        Application.GetSlotPayloadString(slotId, fileName);
+
     public byte[]? CurrentSlotPayload(string fileName) =>
         Application.CurrentSlotPayload(fileName);
 
