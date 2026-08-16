@@ -25,6 +25,11 @@
 | Load 生命周期 | 当前逐个 restore 不能保证 graph、tool、mesh、surface、hit index 和当前槽全有或全无 | `v3-save-system:2.3`、`v3-road-graph:8.5`、`v3-grid-rendering:2.2`、`v3-tool-input:2.4`、`v3-ui:1.4` |
 | 操作权限 | Publish、Load 与 Delete 若共享 bool 结果或 continuation，会混淆磁盘和活动会话是否已提交 | `v3-save-system:2.2`～`2.3`、`v3-ui:1.4` |
 
+### 当前落地摘要（2026-08-16）
+
+- V3 format v1、manifest v1、槽 ID/路径/occupant/digest、保存根 `user://saves-v3` 与 coordinator/gate/load pipeline 已落地；`RoadGraphV3Application` 的 aggregate Load commit 已支持 tool/presentation/renderer inside-commit 参与者。
+- 真实 Godot 场景装配、renderer participant 与端到端 Load 生命周期仍由 `2.3` 和 `v3-road-graph:8.6` 跟踪。
+
 ## V3 实施记录
 
 > 本段记录已落地且经过验证的 V3 存档模块；完整工作项仍以「状态总览」和「执行顺序」为准。
