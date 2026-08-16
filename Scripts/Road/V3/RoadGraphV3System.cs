@@ -119,6 +119,9 @@ public partial class RoadGraphV3System : Node2D
     public byte[]? GetPayload(string slotId, string fileName) =>
         Application.GetPayload(slotId, fileName);
 
+    public byte[]? CurrentSlotPayload(string fileName) =>
+        Application.CurrentSlotPayload(fileName);
+
     public override void _Ready()
     {
         Instance = this;
