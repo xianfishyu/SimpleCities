@@ -53,6 +53,9 @@ public sealed record V3RoadLoadPrepareResult(
         return true;
     }
 
+    public V3RoadLoadPipelineResult Commit(long lineageID) =>
+        V3RoadLoadPipeline.Commit(this, lineageID);
+
     public static V3RoadLoadPrepareResult Failure(V3LoadPhase phase, string error) =>
         new(false, phase, null, error, null);
 }
