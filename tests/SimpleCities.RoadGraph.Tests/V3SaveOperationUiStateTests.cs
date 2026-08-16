@@ -59,6 +59,7 @@ public sealed class V3SaveOperationUiStateTests
         Assert.Equal("boom", state.Error);
         Assert.Equal(V3SaveOperationKind.Load, state.Kind);
         Assert.Equal(V3SaveOperationPhase.Prepare, state.OperationPhase);
+        Assert.True(state.IsTerminal);
     }
 
     [Fact]
