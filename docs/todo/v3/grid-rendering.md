@@ -163,6 +163,13 @@
 - 新增 5 个 xUnit 用例；完整测试套件 1152/1152 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
 - 尚未完成：将命中测试接入 `RoadSurfaceHitProvider` 与真实输入路由，以及 junction patch 命中。
 
+### 2026-08-13：2.2 应用/场景暴露已呈现表面命中查询（部分）
+
+- `RoadGraphV3Application` 新增 `TryFindClosestSurfaceHit`：先用 `RoadSurfaceHitTester` 从权威 revision 找候选，再经 `RoadSurfaceHitProvider` 校验已呈现快照；未发布表现或过期 token 返回失败。
+- `RoadGraphV3System` 转发该入口。
+- 新增 2 个 xUnit 用例；完整测试套件 1154/1154 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：junction patch 命中、真实输入路由与完整接管协议。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁

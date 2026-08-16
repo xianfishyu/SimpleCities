@@ -117,6 +117,12 @@
 - 新增 5 个 xUnit 用例；完整测试套件 1152/1152 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：`RoadBuilder` 真实接线、完整工具生命周期与真实 surface hit 输入路由。
 
+### 2026-08-13：2.2 应用/场景暴露已呈现表面命中查询（部分）
+
+- `RoadGraphV3Application.TryFindClosestSurfaceHit` 与 `RoadGraphV3System` 转发入口：工具层可先获取中心线候选，再经 `HitProvider` 确认与已呈现表现同代后才进入选择。
+- 新增 2 个 xUnit 用例；完整测试套件 1154/1154 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：`RoadBuilder` 真实接线、完整工具生命周期与真实 surface hit 输入路由。
+
 ## 执行顺序
 
 ### 阶段 3：第三代闭环、类型化建造与道路改造

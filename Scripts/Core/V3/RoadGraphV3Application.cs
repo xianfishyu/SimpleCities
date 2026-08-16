@@ -301,6 +301,25 @@ public sealed class RoadGraphV3Application
             Controller.Facade.CurrentToken,
             desiredToken);
 
+    public bool TryFindClosestSurfaceHit(
+        Vector2 point,
+        float maxDistance,
+        out RoadSurfaceHit hit)
+    {
+        if (!RoadSurfaceHitTester.TryFindClosest(
+                Controller.Facade.Revision,
+                Controller.Facade.CurrentToken,
+                point,
+                maxDistance,
+                out RoadSurfaceHit candidate))
+        {
+            hit = null!;
+            return false;
+        }
+
+        return HitProvider.TryResolve(candidate, out hit);
+    }
+
     public bool TryUpgrade(RoadUpgradeSessionV3 session, out IReadOnlyList<int> changedEdgeIDs) =>
         new RoadToolCommandExecutor(Controller).TryUpgrade(session, out changedEdgeIDs);
 

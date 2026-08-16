@@ -104,6 +104,12 @@ public partial class RoadGraphV3System : Node2D
     public bool TryRequestPresentation(RoadRenderToken desiredToken) =>
         Application.TryRequestPresentation(desiredToken);
 
+    public bool TryFindClosestSurfaceHit(
+        Vector2 point,
+        float maxDistance,
+        out RoadSurfaceHit hit) =>
+        Application.TryFindClosestSurfaceHit(point, maxDistance, out hit);
+
     public RoadSurfaceSnapshotBuildResult BuildDefaultSurfaceSnapshot() =>
         Application.BuildDefaultSurfaceSnapshot();
 

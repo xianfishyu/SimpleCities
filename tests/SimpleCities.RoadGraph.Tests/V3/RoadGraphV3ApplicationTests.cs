@@ -258,6 +258,57 @@ public sealed class RoadGraphV3ApplicationTests
     }
 
     [Fact]
+    public void TryFindClosestSurfaceHit_AfterPresentation_ReturnsResolvedHit()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            var session = new RoadPlacementSessionV3(RoadType.Street, Vector2.Zero);
+            session.TryAddPoint(new Vector2(10f, 0f));
+            Assert.True(app.TryBuild(session, out _));
+            RoadRenderToken desired = new(1, 1, 1, 1, 1, 11);
+            Assert.True(app.Presentation.TryRequest(
+                app.Controller.Facade.Revision,
+                app.Controller.Facade.CurrentToken,
+                desired));
+            Assert.True(app.Presentation.TryPublish(desired));
+
+            Assert.True(app.TryFindClosestSurfaceHit(
+                new Vector2(5f, 1f),
+                maxDistance: 2f,
+                out RoadSurfaceHit hit));
+            Assert.Equal(app.Revision.Edges.Keys.Single(), hit.EdgeID);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
+    public void TryFindClosestSurfaceHit_BeforePresentation_Fails()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            var session = new RoadPlacementSessionV3(RoadType.Street, Vector2.Zero);
+            session.TryAddPoint(new Vector2(10f, 0f));
+            Assert.True(app.TryBuild(session, out _));
+
+            Assert.False(app.TryFindClosestSurfaceHit(
+                new Vector2(5f, 1f),
+                maxDistance: 2f,
+                out _));
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void BuildDefaultSurfaceSnapshot_ReturnsSnapshotWithOwners()
     {
         string root = GetTempRoot();
