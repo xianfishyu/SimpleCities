@@ -47,6 +47,15 @@ godot --headless --path . --script tests/godot/command_center_runtime_contract.g
 - Godot 编辑器日志无新增错误；运行中 DAP stderr 为空。
 - 运行时状态（RoadType 按钮、DebugPanel 文本、ToolManager.CurrentTool）与预期一致。
 
+## 相关文档
+
+- 架构与验收规范：`docs/manuals/road-system-v3-gen.md`
+- 当前实现与验证状态：`docs/manuals/v3-current-implementation.md`
+- 下一步执行计划：`docs/manuals/v3-next-steps.md`
+- 关键决策记录：`docs/manuals/v3-decisions.md`
+- 术语表：`docs/manuals/v3-glossary.md`
+- 代码地图：`docs/manuals/v3-code-map.md`
+
 ## 验收证据记录模板
 
 | 模块 | 命令/场景 | 实际结果 | 通过 |
