@@ -128,6 +128,20 @@ public sealed class V3SaveOperationUiCoordinatorTests
     }
 
     [Fact]
+    public void Load_WhenBusy_DoesNotCallBackend()
+    {
+        var backend = new FakeBackend();
+        var controller = new V3SaveOperationController();
+        var coordinator = new V3SaveOperationUiCoordinator(backend, controller);
+        controller.TryBegin(V3SaveOperationKind.Delete, 1);
+
+        V3SaveOperationUiState state = coordinator.Load("city-001", lineageID: 1);
+
+        Assert.Equal(V3SaveOperationUiPhase.Busy, state.Phase);
+        Assert.Equal(0, backend.LoadCalls);
+    }
+
+    [Fact]
     public void Load_ReturnsCompletedLoadResult()
     {
         var backend = new FakeBackend();
