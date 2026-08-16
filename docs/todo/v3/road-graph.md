@@ -23,6 +23,11 @@
 |---|---|---|
 | V3 规范存储、环路与道路分级 | 当前非共线 waypoint/原生段会碎片化为 Edge；Group 阻止跨提交合并；self-loop 被拒绝且 EdgeRef 无端接角色；数值/ID/长 Edge 查询没有 V3 容量契约；schema 和 Edge 均无类型 | 8.0～8.6、`v3-save-system:2.1`～`2.3`、`v3-grid-rendering:2.0`～`2.3`、`v3-tool-input:2.0`～`2.4`、`v3-ui:1.1`～`1.4` |
 
+### 当前落地摘要（2026-08-16）
+
+- V3 canonical Node/Edge、不可变 `RoadGraphV3Revision`、`RoadGraphV3Facade` / `Controller` / `Application` / `System` 已落地，支持 self-loop、parallel Edge、RoadType、统一 `GraphChanged`、诊断快照与 cap/semantic join 构建入口。
+- 空间索引 query fragment 尚未接入 revision 诊断；`v3-road-graph:8.0`～`8.5` 的完整性能和结构共享门禁仍开放。
+
 ## V3 实施记录
 
 > 本段记录已落地且经过验证的 V3 模块；完整工作项仍以「状态总览」和「执行顺序」为准。
