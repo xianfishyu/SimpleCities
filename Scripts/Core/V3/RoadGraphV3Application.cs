@@ -312,6 +312,9 @@ public sealed class RoadGraphV3Application
     public int CurrentSlotFileCount => CurrentSlotManifest?.Files.Count ?? 0;
     public bool CurrentSlotHasFiles => CurrentSlotFileCount > 0;
 
+    public IReadOnlyList<V3ManifestFile> CurrentSlotFiles =>
+        CurrentSlotManifest?.Files ?? [];
+
     public IReadOnlyList<string> CurrentSlotFileNames =>
         CurrentSlotManifest?.Files.Select(file => file.Name).ToList() ?? [];
 
