@@ -1,4 +1,6 @@
+using Godot;
 using SimpleCities.Core.V3;
+using SimpleCities.Road.V3;
 
 namespace SimpleCities.Tests.V3;
 
@@ -74,9 +76,68 @@ public sealed class V3LoadAggregateCoordinatorTests
     }
 
     [Fact]
+    public void TryPrepare_ToolParticipant_WhenPrepared_MarksReady()
+    {
+        var coordinator = new V3LoadAggregateCoordinator(["tool", "graph"]);
+        coordinator.TryBegin();
+        coordinator.TryEnterPrepare();
+        var participant = V3ToolLoadParticipant.Prepare(new RoadToolFullReset(RoadToolType.Place, RoadType.Street));
+
+        Assert.True(coordinator.TryPrepare(participant));
+        Assert.Contains("tool", coordinator.Aggregate.PreparedParticipants);
+    }
+
+    [Fact]
+    public void TryPrepare_RendererParticipant_WhenNotCanCommit_Fails()
+    {
+        var coordinator = new V3LoadAggregateCoordinator(["renderer", "graph"]);
+        coordinator.TryBegin();
+        coordinator.TryEnterPrepare();
+        var participant = V3RendererLoadParticipant.Prepare(CreatePresentationPlan(includeMesh: false));
+
+        Assert.False(coordinator.TryPrepare(participant));
+        Assert.DoesNotContain("renderer", coordinator.Aggregate.PreparedParticipants);
+    }
+
+    [Fact]
+    public void TryPrepare_RendererParticipant_WhenCanCommit_MarksReady()
+    {
+        var coordinator = new V3LoadAggregateCoordinator(["renderer", "graph"]);
+        coordinator.TryBegin();
+        coordinator.TryEnterPrepare();
+        var participant = V3RendererLoadParticipant.Prepare(CreatePresentationPlan(includeMesh: true));
+
+        Assert.True(coordinator.TryPrepare(participant));
+        Assert.Contains("renderer", coordinator.Aggregate.PreparedParticipants);
+    }
+
+    [Fact]
     public void Constructor_EmptyRequired_Throws()
     {
         Assert.Throws<System.ArgumentException>(() => new V3LoadAggregateCoordinator([]));
+    }
+
+    private static RoadPresentationFullReset CreatePresentationPlan(bool includeMesh)
+    {
+        var snapshot = new RoadSurfaceSnapshot(
+            new GraphStateToken(1, 3, 4),
+            [
+                new RoadSurfaceOwner(
+                    RoadSurfaceOwnerKind.Ribbon,
+                    NodeID: 10,
+                    EdgeID: 20,
+                    Endpoint: EdgeEndpoint.A,
+                    new RoadLocation(20, 0, 0.5f)),
+            ]);
+        var token = new RoadRenderToken(1, 2, 3, 4, 5, 6);
+        if (!includeMesh)
+            return RoadPresentationFullReset.Create(token, snapshot);
+
+        var ribbon = new RoadRibbonMeshData(
+            [new Vector2(0f, 1f), new Vector2(0f, -1f), new Vector2(10f, 1f), new Vector2(10f, -1f)],
+            [0, 1, 2, 1, 3, 2],
+            [Colors.White, Colors.White, Colors.White, Colors.White]);
+        return RoadPresentationFullReset.Create(token, snapshot, [ribbon], []);
     }
 
     private static V3LoadAggregateCoordinator CreatePreflightCoordinator()

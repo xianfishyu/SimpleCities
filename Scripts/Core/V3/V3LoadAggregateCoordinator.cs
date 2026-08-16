@@ -39,6 +39,18 @@ public sealed class V3LoadAggregateCoordinator
         return _prepared.Add(participant);
     }
 
+    public bool TryPrepare(V3ToolLoadParticipant participant)
+    {
+        ArgumentNullException.ThrowIfNull(participant);
+        return participant.IsPrepared && TryPrepare(V3ToolLoadParticipant.ParticipantName);
+    }
+
+    public bool TryPrepare(V3RendererLoadParticipant participant)
+    {
+        ArgumentNullException.ThrowIfNull(participant);
+        return participant.IsPrepared && participant.CanCommit && TryPrepare(V3RendererLoadParticipant.ParticipantName);
+    }
+
     public void AddWarning(string warning)
     {
         ArgumentNullException.ThrowIfNull(warning);
