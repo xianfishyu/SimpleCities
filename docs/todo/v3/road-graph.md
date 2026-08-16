@@ -318,6 +318,12 @@
 - 新增 1 个 xUnit 用例；完整测试套件 1208/1208 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：替换 V2 RoadSystem 与端到端验收。
 
+### 2026-08-13：8.6 场景根节点暴露子节点访问器（部分）
+
+- `RoadGraphV3System` 新增 `Renderer` / `InputHandler` 只读属性，供外部直接访问 V3 子节点。
+- 完整测试套件 1208/1208 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：替换 V2 RoadSystem 与端到端验收。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成

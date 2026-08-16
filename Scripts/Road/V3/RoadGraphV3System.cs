@@ -14,6 +14,8 @@ public partial class RoadGraphV3System : Node2D
 
     public static RoadGraphV3System Instance { get; private set; } = null!;
     public RoadGraphV3Application Application { get; private set; } = null!;
+    public RoadGraphV3Renderer? Renderer => _renderer;
+    public RoadGraphV3InputHandler? InputHandler => _inputHandler;
     public RoadSurfaceHitProvider HitProvider => Application.HitProvider;
     public RoadGraphV3Controller Controller => Application.Controller;
     public RoadGraphV3Revision Revision => Application.Revision;
