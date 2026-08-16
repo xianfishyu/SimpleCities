@@ -43,7 +43,20 @@
 - `command_center_runtime_contract.gd` 最近一次输出：`PASS command center runtime contract`。
 - Godot `MapTest` 冻结运行验证：RoadType 行可见、四按钮、默认 Street、键盘 Enter 与手柄 A 可切换、分类切换显隐、暂停返回与场景重入保持。
 
-## 3. 环境恢复后的验证步骤
+## 3. 模块验证状态矩阵
+
+| 模块 | 实现状态 | 最近验证 | 仍开放 |
+| --- | --- | --- | --- |
+| RoadGraph 核心 | 已落地 | 1254 测试套件 | 结构共享、query fragment、性能门禁 |
+| 存档 V3 | 已落地 | 1254 测试套件 | 真实场景装配、端到端 Load |
+| 渲染 V3 | 已落地 | 1254 测试套件 | junction patch、真实 mesh、表现接管 |
+| 工具输入 V3 | 已落地 | 1254 测试套件 | 真实 surface hit、失效 token、端到端工具 |
+| UI 1.1 | 已完成 | 运行时 + 契约 PASS | 无 |
+| UI 1.2 | 部分实现 | 运行时入口/快捷键 | surface hit 选择、完整改造呈现 |
+| UI 1.3 | 部分实现 | 运行时 + 契约 PASS | query fragment 指标 |
+| UI 1.4 | 未完成 | 无 | 异步存档状态机 |
+
+## 4. 环境恢复后的验证步骤
 
 1. `dotnet restore SimpleCities.sln`
 2. `dotnet build SimpleCities.sln`
@@ -51,7 +64,7 @@
 4. `godot --headless --path . --script tests/godot/command_center_runtime_contract.gd`
 5. `godot --editor --path .` 后运行 `MapTest`，检查 RoadType 选择器、RoadUpgrade 快捷键与 DebugPanel 指标
 
-## 4. 仍开放的工作项
+## 5. 仍开放的工作项
 
 - `v3-road-graph:8.0`～`8.5` 的完整结构共享、query fragment 接入与性能门禁。
 - `v3-save-system:2.3` 的真实 Godot 场景装配与端到端 aggregate Load。
