@@ -89,6 +89,12 @@ public partial class ToolContextPanel : PanelContainer
         Category = category;
     }
 
+    public void SetRoadTypeSelectorVisible(bool visible)
+    {
+        if (_roadTypeRow != null)
+            _roadTypeRow.Visible = visible;
+    }
+
     public void ConfigureRoadTypeSelector(
         RoadTypeStyleCatalogResult catalog,
         RoadType selectedRoadType,
@@ -96,7 +102,12 @@ public partial class ToolContextPanel : PanelContainer
     {
         ArgumentNullException.ThrowIfNull(catalog);
         if (!catalog.Success || catalog.Styles is null)
-            throw new ArgumentException("RoadType catalog must be successful.", nameof(catalog));
+        {
+            _roadTypeChanged = onChange;
+            _roadTypeButtonsByType.Clear();
+            SetRoadTypeSelectorVisible(false);
+            return;
+        }
 
         _roadTypeChanged = onChange;
         _roadTypeButtonsByType.Clear();
@@ -106,6 +117,7 @@ public partial class ToolContextPanel : PanelContainer
             child.QueueFree();
         }
 
+        var createdButtons = new List<Button>();
         foreach (RoadTypeStyle style in catalog.Styles.Values.OrderBy(style => style.RoadType))
         {
             RoadType roadType = style.RoadType;
@@ -113,6 +125,7 @@ public partial class ToolContextPanel : PanelContainer
             {
                 Text = style.DisplayName,
                 ToggleMode = true,
+                FocusMode = FocusModeEnum.All,
                 CustomMinimumSize = new Vector2(0f, 32f),
                 SizeFlagsHorizontal = SizeFlags.ExpandFill,
             };
@@ -126,6 +139,15 @@ public partial class ToolContextPanel : PanelContainer
             };
             _roadTypeButtons.AddChild(button);
             _roadTypeButtonsByType[roadType] = button;
+            createdButtons.Add(button);
+        }
+
+        for (int index = 0; index < createdButtons.Count; index++)
+        {
+            if (index > 0)
+                createdButtons[index].FocusNeighborLeft = createdButtons[index - 1].GetPath();
+            if (index + 1 < createdButtons.Count)
+                createdButtons[index].FocusNeighborRight = createdButtons[index + 1].GetPath();
         }
 
         _roadTypeRow.Visible = true;

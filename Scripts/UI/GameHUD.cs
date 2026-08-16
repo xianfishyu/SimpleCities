@@ -178,6 +178,7 @@ public partial class GameHUD : CanvasLayer
             RoadTypeStyleCatalog.CreateDefault(),
             _v3System?.ToolState.SelectedRoadType ?? RoadType.Street,
             roadType => _v3System?.ToolState.TrySelectRoadType(roadType));
+        _toolContextPanel.SetRoadTypeSelectorVisible(_constructionDock?.UsesCatalogContext ?? true);
         _pauseMenu.ConfigureSaveManager(
             GodotObject.IsInstanceValid(SaveManager.Instance) ? SaveManager.Instance : null);
     }
@@ -265,6 +266,7 @@ public partial class GameHUD : CanvasLayer
 
     private void OnDockContextDisplayChanged(string categoryDisplayName, bool usesCatalogContext)
     {
+        _toolContextPanel.SetRoadTypeSelectorVisible(usesCatalogContext);
         if (usesCatalogContext)
             _toolContextPanel.UpdateContext(_toolManager?.CurrentTool ?? ToolType.Select, Config);
         else

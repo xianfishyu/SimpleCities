@@ -19,7 +19,7 @@
 | 设计范围 | 当前事实 | 关联待办 |
 |---|---|---|
 | 命令中心基线 | ConstructionDock、ToolContextPanel、DebugPanel 和 PauseMenu 已有响应式布局、焦点链和运行时契约 | 已解决基线 |
-| V3 类型建造 | 当前道路分类只有一个 `city-road` 工具；ToolContextPanel 已加入四段式 RoadType 选择器，剩余键盘/手柄焦点、场景重入和三档视口回归 | 1.1、`v3-tool-input:2.1` |
+| V3 类型建造 | 当前道路分类只有一个 `city-road` 工具；ToolContextPanel 已加入四段式 RoadType 选择器，支持分类联动与键盘焦点，剩余手柄焦点、场景重入和三档视口回归 | 1.1、`v3-tool-input:2.1` |
 | V3 既有道路改造 | `ToolType` 和 catalog 没有 RoadUpgrade，ConstructionDock 只渲染 Road 工具定义 | 1.2、`v3-tool-input:2.2` |
 | V3 规范存储诊断 | DebugPanel 仍读取 `GetAllGroups()`，无法观察 Edge 压缩、原生几何数量或 self-loop | 1.3、`v3-road-graph:8.2`～`8.5` |
 | V3 异步存档体验 | PauseMenu 调用同步 bool API；没有 busy 目标、并发禁用、取消边界、autosave skipped 与 scene generation 失效呈现 | 1.4、`v3-save-system:2.3`、`v3-tool-input:2.4` |
@@ -45,9 +45,11 @@
 ### 2026-08-13：1.1 RoadType 选择器（部分）
 
 - `ToolContextPanel.ConfigureRoadTypeSelector` 从 `RoadTypeStyleCatalogResult` 生成四个 toggle 按钮，按钮使用样式的 `DisplayName` 与 `Color`；`GameHUD` 在 `_Ready` 注入默认目录、`RoadGraphV3System.ToolState.SelectedRoadType` 与 `TrySelectRoadType` 回调。
-- `Scenes/UI/GameHUD.tscn` 新增 `RoadTypeRow` / `RoadTypeButtons`，初始隐藏，配置后显示。
-- 验证：Godot `MapTest` 冻结运行后 GDScript 读取 `row_visible=true`、按钮 4 个、文本 `土路/街道/主干道/高速`、`toggle_mode` 全 true、`button_pressed` 仅 `街道` 为 true；模拟点击 `高速` 后 pressed 迁移到 `高速`。完整测试套件 1246/1246 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误，编辑器错误日志与 DAP stderr 为空。
-- 尚未完成：鼠标/键盘/手柄焦点真实输入、无效样式降级、道路/改造共享状态、切换分类、暂停返回、场景重复进入和三档视口布局回归。
+- `Scenes/UI/GameHUD.tscn` 新增 `RoadTypeRow` / `RoadTypeButtons`，初始隐藏，配置后显示；`SetRoadTypeSelectorVisible` 与 `OnDockContextDisplayChanged` 联动，切换到非道路分类时隐藏、切回道路分类时恢复。
+- 无效/不完整 `RoadTypeStyleCatalogResult` 不再抛异常，而是隐藏选择器并保留旧回调，避免提交错误类型。
+- 四个按钮均设置 `ToggleMode = true`、`FocusMode = All` 和左右 `FocusNeighbor`。
+- 验证：Godot `MapTest` 冻结运行后 GDScript 读取 `row_visible=true`、按钮 4 个、文本 `土路/街道/主干道/高速`、`toggle_mode` 全 true、`button_pressed` 仅 `街道` 为 true；模拟点击 `高速` 后 pressed 迁移到 `高速`；按 `ui_right` 焦点从 `土路` 移到 `街道`，聚焦 `高速` 后按 Enter 切换 pressed；切换到 `区域` 分类后 `row_visible=false`，切回 `道路` 后恢复且选中类型保持。完整测试套件 1246/1246 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误，编辑器错误日志为空；DAP stdout 仅引擎/bridge/embedded-window 提示，无 stderr。
+- 尚未完成：手柄焦点、暂停返回、场景重复进入和三档视口布局回归（嵌入式运行窗口无法在运行中调整尺寸，视口门禁需在非嵌入式运行或编辑器窗口配置下补验）。
 
 ## 执行顺序
 
