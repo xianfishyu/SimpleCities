@@ -106,7 +106,7 @@ docs/todo/v3/                                各系统路线图
 - `V3SaveOperationUiStateTests`：null 结果、成功、提交前失败、in-progress busy、observer warning（含多 warning 拼接）与 Cancelling 状态映射。
 - `V3SaveOperationControllerTests`：开始/重复开始/Cancelling 拒绝开始、匹配/过期/不同 scene generation/未开始完成、null 结果抛异常、observer warning 完成、可取消阶段取消、不可取消阶段保持、Reset。
 - `V3SaveOperationBackendTests`：SaveAs/Save/Load/Delete 成功、CurrentSlotID 同步、Load/Delete 缺失失败。
-- `V3SaveSlotUiSummaryTests`：Complete/Corrupt/Foreign/Unsafe/Absent 槽的展示与操作权限、autosave SlotKind。
+- `V3SaveSlotUiSummaryTests`：Complete/Corrupt/Foreign/Unsafe/Absent 槽的展示与操作权限、autosave SlotKind、null 抛异常。
 - `PauseMenuContractTests`：新增 V3 存档后端接线契约（`ConfigureV3Backend` / `IV3SaveOperationBackend` / `V3SaveOperationController` / `V3SaveSlotUiSummary`）。
 - `V3SaveOperationUiCoordinatorTests`：SaveAs/Save/Load/Delete 成功与失败、busy 不调用后端、RequestCancel（可取消/不可取消）、Reset。
 - `V3AsyncSaveOperationCoordinatorTests`：异步 SaveAs/Save/Load/Delete 成功与失败、busy 不调用后端、取消后不启动、RequestCancel、Reset 清除取消标记。

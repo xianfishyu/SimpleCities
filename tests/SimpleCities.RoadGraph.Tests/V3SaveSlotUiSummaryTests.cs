@@ -50,6 +50,12 @@ public sealed class V3SaveSlotUiSummaryTests
     }
 
     [Fact]
+    public void FromSlot_Null_ThrowsArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => V3SaveSlotUiSummary.FromSlot(null!));
+    }
+
+    [Fact]
     public void FromSlot_Absent_NotListable()
     {
         var slot = new V3SlotSummary("absent-001", "Absent", V3SlotOccupant.Absent, null);
