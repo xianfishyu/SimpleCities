@@ -1,4 +1,6 @@
 using Godot;
+using SimpleCities.Road.V3;
+using System;
 using System.Linq;
 
 /// <summary>
@@ -12,11 +14,13 @@ public partial class DebugPanel : PanelContainer
     private VBoxContainer _debugContent = null!;
     private Label _fpsValue = null!;
     private Label _gridValue = null!;
-    private Label _roadGroupValue = null!;
+    private Label _geometryValue = null!;
+    private Label _selfLoopValue = null!;
     private Label _graphEdgeValue = null!;
     private Label _graphNodeValue = null!;
 
     private RoadGraph? _network;
+    private Func<RoadGraphV3Diagnostics?>? _v3DiagnosticsProvider;
 
     public NodePath ToggleFocusPath => _toggleButton.GetPath();
 
@@ -26,7 +30,8 @@ public partial class DebugPanel : PanelContainer
         _debugContent = GetNode<VBoxContainer>("PanelMargin/Rows/DebugContent");
         _fpsValue = GetNode<Label>("PanelMargin/Rows/DebugContent/FpsRow/FpsValue");
         _gridValue = GetNode<Label>("PanelMargin/Rows/DebugContent/GridRow/GridValue");
-        _roadGroupValue = GetNode<Label>("PanelMargin/Rows/DebugContent/RoadGroupRow/RoadGroupValue");
+        _geometryValue = GetNode<Label>("PanelMargin/Rows/DebugContent/GeometryRow/GeometryValue");
+        _selfLoopValue = GetNode<Label>("PanelMargin/Rows/DebugContent/SelfLoopRow/SelfLoopValue");
         _graphEdgeValue = GetNode<Label>("PanelMargin/Rows/DebugContent/GraphEdgeRow/GraphEdgeValue");
         _graphNodeValue = GetNode<Label>("PanelMargin/Rows/DebugContent/GraphNodeRow/GraphNodeValue");
 
@@ -48,6 +53,12 @@ public partial class DebugPanel : PanelContainer
         Config = config;
     }
 
+    /// <summary>注入 V3 诊断快照提供器；存在时面板优先读取 O(1) 快照。</summary>
+    public void SetDiagnosticsProvider(Func<RoadGraphV3Diagnostics?> provider)
+    {
+        _v3DiagnosticsProvider = provider ?? throw new ArgumentNullException(nameof(provider));
+    }
+
     public void ConfigureFocus(NodePath previousPath, NodePath nextPath)
     {
         _toggleButton.FocusPrevious = previousPath;
@@ -60,17 +71,28 @@ public partial class DebugPanel : PanelContainer
         _fpsValue.Text = Engine.GetFramesPerSecond().ToString();
         _gridValue.Text = GridText();
 
-        if (_network == null)
+        if (_v3DiagnosticsProvider?.Invoke() is { } diagnostics)
         {
-            _roadGroupValue.Text = "--";
-            _graphEdgeValue.Text = "--";
-            _graphNodeValue.Text = "--";
+            _graphNodeValue.Text = diagnostics.NodeCount.ToString();
+            _graphEdgeValue.Text = diagnostics.EdgeCount.ToString();
+            _geometryValue.Text = diagnostics.GeometrySegmentCount.ToString();
+            _selfLoopValue.Text = diagnostics.SelfLoopCount.ToString();
             return;
         }
 
-        _roadGroupValue.Text = _network.GetAllGroups().Count().ToString();
+        if (_network == null)
+        {
+            _graphEdgeValue.Text = "--";
+            _graphNodeValue.Text = "--";
+            _geometryValue.Text = "--";
+            _selfLoopValue.Text = "--";
+            return;
+        }
+
         _graphEdgeValue.Text = _network.GetAllEdges().Count().ToString();
         _graphNodeValue.Text = _network.GetAllNodes().Count().ToString();
+        _geometryValue.Text = "--";
+        _selfLoopValue.Text = "--";
     }
 
     private void ToggleDebugContent()

@@ -30,6 +30,13 @@
 - 完整测试套件 1230/1230 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：DebugPanel 实际移除 Group 指标并接入快照。
 
+### 2026-08-13：1.3 DebugPanel 接入 V3 诊断快照（部分）
+
+- `DebugPanel` 移除 RoadGroup 行，新增 Geometry/SelfLoop 行；`GameHUD` 在 `_Ready` 解析 `RoadGraphV3System` 并注入诊断提供器，面板优先读取 O(1) `RoadGraphV3Diagnostics`，V2 仅作回退。
+- `Scenes/UI/GameHUD.tscn` 同步替换 RoadGroupRow 为 GeometryRow/SelfLoopRow。
+- 验证：Godot `MapTest` 冻结运行后 GDScript 读取 `node=0 edge=0 geom=0 loop=0`；完整测试套件 1230/1230 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：query fragment 指标、隐藏时零轮询断言与三档视口运行时契约回归。
+
 ## 执行顺序
 
 ### 阶段 7：第三代道路控件、诊断与存档交互

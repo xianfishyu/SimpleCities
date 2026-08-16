@@ -182,18 +182,33 @@ size_flags_horizontal = 3
 layout_mode = 2
 text = "--"
 
-[node name="RoadGroupRow" type="HBoxContainer" parent="DebugPanel/PanelMargin/Rows/DebugContent" unique_id=301884421]
+[node name="GeometryRow" type="HBoxContainer" parent="DebugPanel/PanelMargin/Rows/DebugContent" unique_id=1135855257]
 layout_mode = 2
 
-[node name="RoadGroupLabel" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/RoadGroupRow" unique_id=182247382]
+[node name="GeometryLabel" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/GeometryRow" unique_id=1856064698]
 layout_mode = 2
-text = "RoadGroup"
+text = "Geometry"
 
-[node name="RoadGroupSpacer" type="Control" parent="DebugPanel/PanelMargin/Rows/DebugContent/RoadGroupRow" unique_id=664671129]
+[node name="GeometrySpacer" type="Control" parent="DebugPanel/PanelMargin/Rows/DebugContent/GeometryRow" unique_id=809575302]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="RoadGroupValue" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/RoadGroupRow" unique_id=1677075965]
+[node name="GeometryValue" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/GeometryRow" unique_id=1189236426]
+layout_mode = 2
+text = "--"
+
+[node name="SelfLoopRow" type="HBoxContainer" parent="DebugPanel/PanelMargin/Rows/DebugContent" unique_id=326498757]
+layout_mode = 2
+
+[node name="SelfLoopLabel" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/SelfLoopRow" unique_id=2027899792]
+layout_mode = 2
+text = "SelfLoop"
+
+[node name="SelfLoopSpacer" type="Control" parent="DebugPanel/PanelMargin/Rows/DebugContent/SelfLoopRow" unique_id=1659917312]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="SelfLoopValue" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/SelfLoopRow" unique_id=830768198]
 layout_mode = 2
 text = "--"
 

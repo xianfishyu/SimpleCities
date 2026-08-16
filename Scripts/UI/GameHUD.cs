@@ -19,6 +19,7 @@ public partial class GameHUD : CanvasLayer
     private UIManager _uiManager = null!;
 
     private RoadGraph? _network;
+    private RoadGraphV3System? _v3System;
     private ToolManager? _toolManager;
     private Viewport? _wiredViewport;
     private Callable _panelResizedCallable;
@@ -31,6 +32,9 @@ public partial class GameHUD : CanvasLayer
         _toolManager = GodotObject.IsInstanceValid(ToolManager.Instance) ? ToolManager.Instance : null;
         RoadSystem? roadSystem = GodotObject.IsInstanceValid(RoadSystem.Instance) ? RoadSystem.Instance : null;
         _network = roadSystem?.Graph;
+        _v3System = GetTree().CurrentScene?.GetNodeOrNull<RoadGraphV3System>("RoadGraphV3System");
+        if (_v3System == null && GodotObject.IsInstanceValid(RoadGraphV3System.Instance))
+            _v3System = RoadGraphV3System.Instance;
         if (_toolManager == null)
             GD.PushWarning("GameHUD: ToolManager.Instance is missing; tool display is degraded.");
         if (roadSystem == null)
@@ -160,6 +164,15 @@ public partial class GameHUD : CanvasLayer
         _toolContextPanel.Config = Config;
         _toolContextPanel.SetCategory(_constructionDock?.Category);
         _debugPanel.SetDependencies(_network, Config);
+        _debugPanel.SetDiagnosticsProvider(() =>
+        {
+            RoadGraphV3System? system = _v3System;
+            if (system == null && GodotObject.IsInstanceValid(RoadGraphV3System.Instance))
+                system = RoadGraphV3System.Instance;
+            return system is { } resolved && GodotObject.IsInstanceValid(resolved)
+                ? resolved.Diagnostics
+                : null;
+        });
         _pauseMenu.ConfigureSaveManager(
             GodotObject.IsInstanceValid(SaveManager.Instance) ? SaveManager.Instance : null);
     }
