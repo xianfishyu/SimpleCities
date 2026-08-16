@@ -156,6 +156,18 @@ public sealed class V3SaveOperationControllerTests
     }
 
     [Fact]
+    public void RequestCancel_WhenIdle_KeepsIdle()
+    {
+        var controller = new V3SaveOperationController();
+
+        V3SaveOperationUiState state = controller.RequestCancel();
+
+        Assert.Equal(V3SaveOperationUiPhase.Idle, state.Phase);
+        Assert.False(controller.IsBusy);
+        Assert.Null(controller.ActiveToken);
+    }
+
+    [Fact]
     public void RequestCancel_WhenCancellable_SetsCancelling()
     {
         var controller = new V3SaveOperationController();
