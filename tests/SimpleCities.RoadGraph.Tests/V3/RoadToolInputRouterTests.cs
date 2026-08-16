@@ -77,6 +77,26 @@ public sealed class RoadToolInputRouterTests
     }
 
     [Fact]
+    public void HandleRightClick_WithPlacement_RemovesLastPoint()
+    {
+        var router = CreateRouter();
+        router.HandleLeftClick(Vector2.Zero, closeRadius: 10f, hitRadius: 10f);
+        router.HandleLeftClick(new Vector2(10f, 0f), closeRadius: 10f, hitRadius: 10f);
+        Assert.Equal(2, router.PlacementSession!.FixedCornerCount);
+
+        Assert.True(router.HandleRightClick());
+        Assert.Equal(1, router.PlacementSession!.FixedCornerCount);
+    }
+
+    [Fact]
+    public void HandleRightClick_NoPlacement_ReturnsFalse()
+    {
+        var router = CreateRouter();
+
+        Assert.False(router.HandleRightClick());
+    }
+
+    [Fact]
     public void HandleLeftClick_Remove_NoHit_DoesNotCreateSession()
     {
         var router = CreateRouter((_, _) => null);
