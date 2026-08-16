@@ -11,6 +11,8 @@ namespace SimpleCities.Road.V3;
 /// </summary>
 public static class RoadJunctionPatchBuilder
 {
+    public const float DefaultRadius = 8f;
+
     public static bool TryBuild(
         RoadGraphV3Revision revision,
         RoadStyleProvider styles,

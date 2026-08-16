@@ -378,6 +378,38 @@ public sealed class RoadGraphV3ApplicationTests
     }
 
     [Fact]
+    public void BuildDefaultJunctionPatches_AfterCrossBuild_ReturnsPatch()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            RoadGraphV3Revision revision = RoadGraphV3Revision.Empty(RoadGraphCapacity.Default);
+            revision.TryAddNode(Vector2.Zero, out revision, out int centerID);
+            revision.TryAddNode(new Vector2(1f, 0f), out revision, out int eastID);
+            revision.TryAddNode(new Vector2(-1f, 0f), out revision, out int westID);
+            revision.TryAddNode(new Vector2(0f, 1f), out revision, out int northID);
+            revision.TryAddNode(new Vector2(0f, -1f), out revision, out int southID);
+            revision.TryAddEdge(centerID, eastID, [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(1f, 0f))], RoadType.Street, out revision, out _);
+            revision.TryAddEdge(centerID, westID, [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(-1f, 0f))], RoadType.Street, out revision, out _);
+            revision.TryAddEdge(centerID, northID, [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(0f, 1f))], RoadType.Street, out revision, out _);
+            revision.TryAddEdge(centerID, southID, [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(0f, -1f))], RoadType.Street, out revision, out _);
+
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            app.Controller.ReplaceWithFullReset(revision, 1);
+
+            var patches = app.BuildDefaultJunctionPatches();
+
+            RoadJunctionPatchData patch = Assert.Single(patches);
+            Assert.Equal(4, patch.Outline.Count);
+            Assert.True(patch.IsValid);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void LoadIntoCurrent_ReplacesControllerAndClearsHistory()
     {
         string root = GetTempRoot();

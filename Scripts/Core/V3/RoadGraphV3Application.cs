@@ -292,6 +292,25 @@ public sealed class RoadGraphV3Application
         float displayTolerance = RoadGeometryDisplaySampler.DefaultTolerance) =>
         BuildRibbonMeshes(DefaultStyles, displayTolerance);
 
+    public IReadOnlyList<RoadJunctionPatchData> BuildJunctionPatches(
+        RoadStyleProvider styles,
+        float radius = RoadJunctionPatchBuilder.DefaultRadius)
+    {
+        ArgumentNullException.ThrowIfNull(styles);
+        var patches = new List<RoadJunctionPatchData>();
+        foreach (int nodeID in Revision.Nodes.Keys.Order())
+        {
+            if (RoadJunctionPatchBuilder.TryBuild(Revision, styles, nodeID, radius, out RoadJunctionPatchData patch))
+                patches.Add(patch);
+        }
+
+        return patches;
+    }
+
+    public IReadOnlyList<RoadJunctionPatchData> BuildDefaultJunctionPatches(
+        float radius = RoadJunctionPatchBuilder.DefaultRadius) =>
+        BuildJunctionPatches(DefaultStyles, radius);
+
     public RoadSurfaceSnapshotBuildResult BuildDefaultSurfaceSnapshot() =>
         BuildSurfaceSnapshot(DefaultStyles);
 
