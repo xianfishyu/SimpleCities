@@ -8,6 +8,7 @@ public sealed record RoadGraphV3Diagnostics(
     int EdgeCount,
     int GeometrySegmentCount,
     int SelfLoopCount,
+    int ParallelEdgeCount,
     long ChangeSequence)
 {
     public bool IsValid =>
@@ -16,5 +17,7 @@ public sealed record RoadGraphV3Diagnostics(
         GeometrySegmentCount >= 0 &&
         SelfLoopCount >= 0 &&
         SelfLoopCount <= EdgeCount &&
+        ParallelEdgeCount >= 0 &&
+        ParallelEdgeCount <= EdgeCount &&
         ChangeSequence >= 0;
 }

@@ -588,6 +588,11 @@
 - 新增 3 个 xUnit 用例；完整测试套件 1230/1230 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：DebugPanel 接入该快照与移除 RoadGroup 指标。
 
+### 2026-08-13：8.5 诊断快照增加 parallel edge 计数（更新）
+
+- `RoadGraphV3Diagnostics` 增加 `ParallelEdgeCount`；`RoadGraphV3Facade` 在提交时按无序 Node 对统计平行 Edge 组数。
+- 新增 1 个 xUnit 用例；完整测试套件 1240/1240 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成

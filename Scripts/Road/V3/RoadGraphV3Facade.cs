@@ -249,11 +249,18 @@ public sealed class RoadGraphV3Facade
 
     private void UpdateDiagnostics()
     {
+        int parallelEdgeCount = _revision.Edges.Values
+            .GroupBy(edge => edge.IsSelfLoop
+                ? (int.MinValue, int.MinValue)
+                : (Math.Min(edge.NodeAID, edge.NodeBID), Math.Max(edge.NodeAID, edge.NodeBID)))
+            .Count(group => group.Count() > 1);
+
         Diagnostics = new RoadGraphV3Diagnostics(
             _revision.Nodes.Count,
             _revision.Edges.Count,
             _revision.Edges.Values.Sum(edge => edge.Geometry.Count),
             _revision.Edges.Values.Count(edge => edge.IsSelfLoop),
+            parallelEdgeCount,
             _changeSequence);
     }
 }

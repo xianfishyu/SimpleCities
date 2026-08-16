@@ -104,6 +104,7 @@ public sealed class RoadGraphV3FacadeTests
         Assert.Equal(0, diagnostics.EdgeCount);
         Assert.Equal(0, diagnostics.GeometrySegmentCount);
         Assert.Equal(0, diagnostics.SelfLoopCount);
+        Assert.Equal(0, diagnostics.ParallelEdgeCount);
         Assert.True(diagnostics.IsValid);
     }
 
@@ -127,7 +128,20 @@ public sealed class RoadGraphV3FacadeTests
         Assert.Equal(1, diagnostics.EdgeCount);
         Assert.Equal(1, diagnostics.GeometrySegmentCount);
         Assert.Equal(0, diagnostics.SelfLoopCount);
+        Assert.Equal(0, diagnostics.ParallelEdgeCount);
         Assert.Equal(facade.CurrentToken.ChangeSequence, diagnostics.ChangeSequence);
+    }
+
+    [Fact]
+    public void Diagnostics_ParallelEdges_CountsPairs()
+    {
+        var facade = new RoadGraphV3Facade(RoadGraphV3Revision.Empty(RoadGraphCapacity.Default));
+        facade.TryAddNode(Vector2.Zero, out _, out int a);
+        facade.TryAddNode(new Vector2(1f, 0f), out _, out int b);
+        facade.TryAddEdge(a, b, [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(1f, 0f))], RoadType.Street, out _, out _);
+        facade.TryAddEdge(a, b, [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(1f, 0f))], RoadType.Highway, out _, out _);
+
+        Assert.Equal(1, facade.Diagnostics.ParallelEdgeCount);
     }
 
     [Fact]
@@ -141,6 +155,7 @@ public sealed class RoadGraphV3FacadeTests
 
         Assert.Equal(0, facade.Diagnostics.NodeCount);
         Assert.Equal(0, facade.Diagnostics.EdgeCount);
+        Assert.Equal(0, facade.Diagnostics.ParallelEdgeCount);
         Assert.Equal(sequenceBefore + 1, facade.Diagnostics.ChangeSequence);
     }
 }
