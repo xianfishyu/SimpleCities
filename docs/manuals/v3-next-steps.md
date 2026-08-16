@@ -36,3 +36,11 @@
 - 在真实 `MapTest` 中完成连续折线、环路、四类型建造/改造、撤销重做、保存/加载、表面命中与混合 junction。
 - 完成 Vulkan 视觉、10k 硬门槛、100k 压测和 Windows 导出证据。
 - 将最终证据写回 `docs/manuals/road-system-v3-gen.md` 附录 D。
+
+## 6. 验收检查清单
+
+- [ ] 环境恢复后完整 QA 通过（restore/build/test/headless 契约）
+- [ ] `v3-ui:1.2` / `v3-tool-input:2.2` surface hit 选择验收通过
+- [ ] `RoadGraphV3Diagnostics.QueryFragmentCount` 接入并显示
+- [ ] `v3-ui:1.4` 异步存档状态机验收通过
+- [ ] `v3-road-graph:8.6` 最终组合验收证据写回指南附录 D
