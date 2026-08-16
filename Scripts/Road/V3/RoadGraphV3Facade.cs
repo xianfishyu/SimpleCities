@@ -273,10 +273,7 @@ public sealed class RoadGraphV3Facade
         foreach (RoadGraphV3Edge edge in revision.Edges.Values)
         {
             for (int index = 0; index < edge.Geometry.Count; index++)
-            {
-                if (edge.Geometry[index] is LineRoadGeometrySegment line)
-                    count += RoadQueryFragmentBuilder.BuildLineFragments(edge.ID, index, line, QueryBucketSize).Count;
-            }
+                count += RoadQueryFragmentBuilder.BuildSegmentFragments(edge.ID, index, edge.Geometry[index], QueryBucketSize).Count;
         }
 
         return count;

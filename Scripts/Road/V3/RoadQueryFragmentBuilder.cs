@@ -55,6 +55,28 @@ public static class RoadQueryFragmentBuilder
         return fragments;
     }
 
+    /// <summary>
+    /// 为任意 geometry segment 生成 query fragment：line 按 bucket 切分，其他 primitive 暂以整体保守 bounds 作为单个 fragment。
+    /// </summary>
+    public static IReadOnlyList<RoadQueryFragment> BuildSegmentFragments(
+        int edgeID,
+        int geometryIndex,
+        RoadGeometrySegment segment,
+        float bucketSize)
+    {
+        ArgumentNullException.ThrowIfNull(segment);
+        if (segment is LineRoadGeometrySegment line)
+            return BuildLineFragments(edgeID, geometryIndex, line, bucketSize);
+
+        return [new RoadQueryFragment(
+            edgeID,
+            geometryIndex,
+            0,
+            0f,
+            1f,
+            segment.Bounds)];
+    }
+
     private static void AddBoundaryCrossings(List<float> cuts, float start, float end, float bucketSize)
     {
         if (end == start)

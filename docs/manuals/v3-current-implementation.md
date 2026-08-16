@@ -104,7 +104,7 @@
 
 ## 10. 已知限制
 
-- `RoadGraphV3Diagnostics.QueryFragmentCount` 当前按 line primitive 计算并已在 DebugPanel 显示，曲线暂不计入；待空间索引接入后由事务维护完整计数。
+- `RoadGraphV3Diagnostics.QueryFragmentCount` 当前按 primitive 计算：line 按 bucket 切分，曲线暂以整体保守 bounds 作为单个 fragment；已可在 DebugPanel 显示。
 - 真实 junction patch 网格与完整表现接管尚未落地。
 - 异步 Save/Load/Delete UI 状态机尚未实现。
 - `v3-road-graph:8.6` 最终组合验收尚未完成。
