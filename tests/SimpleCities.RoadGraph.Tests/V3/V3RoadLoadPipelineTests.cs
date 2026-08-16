@@ -157,6 +157,42 @@ public sealed class V3RoadLoadPipelineTests
     }
 
     [Fact]
+    public void Load_WithToolAndPresentation_ReturnsBothPlans()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            RoadGraphV3Revision revision = CreateRevision();
+            Assert.True(V3RoadSavePipeline.Save("city-001", root, revision, "n", "n", "2026-08-12T08:00:00.0000000Z", null, null, null));
+            RoadTypeStyleCatalogResult catalog = RoadTypeStyleCatalog.CreateDefault();
+            Assert.True(catalog.Success);
+            var styles = new RoadStyleProvider(catalog);
+            RoadRenderToken desired = new(0, 7, 0, 0, 0, 10);
+            var toolState = new RoadToolState();
+            toolState.SwitchTo(RoadToolType.Upgrade);
+            toolState.TrySelectRoadType(RoadType.Highway);
+
+            V3RoadLoadPipelineResult result = V3RoadLoadPipeline.Load(
+                "city-001",
+                root,
+                RoadGraphCapacity.Default,
+                V3PayloadBudget.Default,
+                lineageID: 7,
+                preservedToolState: toolState,
+                styles: styles,
+                desiredPresentationToken: desired);
+
+            Assert.True(result.Success, result.Error);
+            Assert.NotNull(result.ToolPlan);
+            Assert.NotNull(result.PresentationPlan);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void TryLoadIntoController_WithToolState_AppliesEmptyToolRoot()
     {
         string root = GetTempRoot();

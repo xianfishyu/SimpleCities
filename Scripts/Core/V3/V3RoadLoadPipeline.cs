@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using SimpleCities.Road.V3;
 
 namespace SimpleCities.Core.V3;
@@ -23,6 +24,8 @@ public sealed record V3RoadLoadPipelineResult(
 public static class V3RoadLoadPipeline
 {
     public const string RequiredParticipant = "road-graph";
+    public const string ToolParticipant = "tool";
+    public const string RendererParticipant = "renderer";
 
     public static V3RoadLoadPipelineResult Load(
         string slotId,
@@ -36,7 +39,12 @@ public static class V3RoadLoadPipeline
     {
         ArgumentNullException.ThrowIfNull(root);
 
-        var coordinator = new V3LoadAggregateCoordinator([RequiredParticipant]);
+        var required = new List<string> { RequiredParticipant };
+        if (preservedToolState is not null)
+            required.Add(ToolParticipant);
+        if (styles is not null && desiredPresentationToken is not null)
+            required.Add(RendererParticipant);
+        var coordinator = new V3LoadAggregateCoordinator(required);
         if (!coordinator.TryBegin())
             return V3RoadLoadPipelineResult.Failure(coordinator.Phase, "AdmissionRejected");
 
@@ -67,6 +75,18 @@ public static class V3RoadLoadPipeline
             }
 
             presentationPlan = RoadPresentationFullReset.Create(desiredPresentationToken.Value, surface.Snapshot);
+        }
+
+        if (preservedToolState is not null && !coordinator.TryPrepare(ToolParticipant))
+        {
+            coordinator.Fail();
+            return V3RoadLoadPipelineResult.Failure(coordinator.Phase, "ToolParticipantRejected");
+        }
+
+        if (styles is not null && desiredPresentationToken is not null && !coordinator.TryPrepare(RendererParticipant))
+        {
+            coordinator.Fail();
+            return V3RoadLoadPipelineResult.Failure(coordinator.Phase, "RendererParticipantRejected");
         }
 
         if (!coordinator.TryPrepare(RequiredParticipant))

@@ -559,6 +559,12 @@
 - 完整测试套件 1137/1137 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实 Godot 场景装配、renderer participant 与端到端 aggregate Load commit。
 
+### 2026-08-13：2.3 道路 Load 管线按可选参与者纳入 aggregate（部分）
+
+- `V3RoadLoadPipeline` 新增 `ToolParticipant` / `RendererParticipant` 常量；传入 `RoadToolState` 时要求 `tool` 参与者，传入样式与目标 token 时要求 `renderer` 参与者，全部 prepared 后才进入 Preflight/Commit。
+- 新增 1 个 xUnit 用例；完整测试套件 1138/1138 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实 Godot 场景装配、renderer participant 与端到端 aggregate Load commit。
+
 ### 2026-08-13：2.1 槽状态返回 manifest 摘要（更新）
 
 - `V3SlotStatusService.GetStatus` 对完整槽读取 manifest，返回 `DisplayName` 与 `Timestamp`，不再只返回 slotId 和 null。
