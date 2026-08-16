@@ -566,6 +566,9 @@ public sealed class RoadGraphV3Application
         return payload is null ? null : Encoding.UTF8.GetString(payload);
     }
 
+    public int GetSlotFileCount(string slotId) =>
+        GetManifest(slotId)?.Files.Count ?? 0;
+
     public byte[]? CurrentSlotPayload(string fileName) =>
         string.IsNullOrEmpty(CurrentSlotID) ? null : GetPayload(CurrentSlotID, fileName);
 
