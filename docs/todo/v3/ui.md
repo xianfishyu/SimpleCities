@@ -129,6 +129,7 @@
 - 新增 `tests/SimpleCities.RoadGraph.Tests/V3AsyncSaveOperationCoordinatorTests.cs`：覆盖异步 SaveAs、后端失败、busy 不调用后端、Load/Delete、RequestCancel、Reset。
 - `PauseMenu.ConfigureV3Backend` 每次配置递增 `_sceneGeneration`，使旧配置产生的 operation token 失效。
 - `PauseMenu` 已切换到异步入口：`CreateNamedSave` / `OverwriteConfirmedSave` / `LoadConfirmedSave` / `DeleteConfirmedSave` 使用 `async void` + `V3AsyncSaveOperationCoordinator`，busy 时禁用按钮并显示进行中状态。
+- `PauseMenu._Input` 在 busy 时调用 `_v3AsyncCoordinator.RequestCancel()`，同时取消 `CancellationTokenSource` 与操作状态。
 - 真正取消边界（`Task.Run` 无法中止已开始的后端 I/O）与端到端验收仍待环境验证。`1.4` 仍开放。
 
 ## 执行顺序

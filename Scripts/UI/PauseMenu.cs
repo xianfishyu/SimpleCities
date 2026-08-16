@@ -127,7 +127,10 @@ public partial class PauseMenu : Control
 
         if (_operationController.IsBusy)
         {
-            _operationController.RequestCancel();
+            if (_v3AsyncCoordinator != null)
+                _v3AsyncCoordinator.RequestCancel();
+            else
+                _operationController.RequestCancel();
             GetViewport().SetInputAsHandled();
             return;
         }
