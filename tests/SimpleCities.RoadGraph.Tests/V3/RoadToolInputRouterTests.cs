@@ -447,6 +447,19 @@ public sealed class RoadToolInputRouterTests
     }
 
     [Fact]
+    public void HandleSelectionHits_Remove_WithNullHit_Skips()
+    {
+        var router = CreateRouter();
+        router.SwitchTool(RoadToolType.Remove);
+
+        int selected = router.HandleSelectionHits([null!, CreateHit()], upgrade: false);
+
+        Assert.Equal(1, selected);
+        Assert.True(router.TryTakeRemovalSession(out RoadRemovalSessionV3 session));
+        Assert.Equal([20], session.SelectedEdgeIDs);
+    }
+
+    [Fact]
     public void HandleSelectionHits_Remove_AllInvalid_DoesNotCreateSession()
     {
         var router = CreateRouter();
