@@ -59,6 +59,7 @@
 - [ ] M2：surface hit 选择验收通过
 - [ ] M3：query fragment 诊断接入
 - [ ] M4：异步存档 UI 验收通过
+  - 实现已完成（异步入口/busy/取消令牌/generation 防护），待环境验证。
 - [ ] M5：`v3-road-graph:8.6` 最终组合验收完成
 
 ## V3 文档结构
