@@ -169,6 +169,7 @@ public sealed class V3AsyncSaveOperationCoordinatorTests
 
         Assert.Equal(V3SaveOperationUiPhase.Failed, state.Phase);
         Assert.False(state.IsComplete);
+        Assert.True(state.IsTerminal);
         Assert.Equal("fail", state.Error);
         Assert.Equal(1, backend.LoadCalls);
     }
@@ -212,6 +213,7 @@ public sealed class V3AsyncSaveOperationCoordinatorTests
 
         Assert.Equal(V3SaveOperationUiPhase.Failed, state.Phase);
         Assert.False(state.IsComplete);
+        Assert.True(state.IsTerminal);
         Assert.Equal("fail", state.Error);
         Assert.Equal(1, backend.DeleteCalls);
     }
