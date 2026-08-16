@@ -38,3 +38,12 @@ godot --headless --path . --script tests/godot/command_center_runtime_contract.g
 - 停止运行中的项目；
 - 删除测试产生的临时槽、日志和运行时节点；
 - 恢复被编辑器改写的无关 `.tscn` / `.tres`。
+
+## 验收证据记录模板
+
+| 模块 | 命令/场景 | 实际结果 | 通过 |
+| --- | --- | --- | --- |
+| 构建 | `dotnet build SimpleCities.sln` | 0 警告 / 0 错误 |  |
+| 测试 | `dotnet test ...` | 全部通过 |  |
+| 契约 | `command_center_runtime_contract.gd` | `PASS ...` |  |
+| 运行时 | `MapTest` RoadType/Upgrade/DebugPanel | 状态符合预期 |  |
