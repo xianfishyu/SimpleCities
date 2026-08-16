@@ -60,6 +60,23 @@ public sealed class V3SaveOperationUiStateTests
     }
 
     [Fact]
+    public void FromResult_FailedBeforeAdmission_ReturnsFailedAndCancellable()
+    {
+        V3SaveOperationToken token = V3SaveOperationToken.Create(V3SaveOperationKind.Publish, 2);
+        V3SaveOperationResult result = V3SaveOperationResult.FailedBeforeCommit(
+            token,
+            V3SaveOperationPhase.Admission,
+            "busy");
+
+        V3SaveOperationUiState state = V3SaveOperationUiState.FromResult(result);
+
+        Assert.Equal(V3SaveOperationUiPhase.Failed, state.Phase);
+        Assert.True(state.IsFailed);
+        Assert.True(state.IsCancellable);
+        Assert.Equal("busy", state.Error);
+    }
+
+    [Fact]
     public void FromResult_FailedBeforePreflight_ReturnsFailedAndCancellable()
     {
         V3SaveOperationToken token = V3SaveOperationToken.Create(V3SaveOperationKind.Load, 3);
