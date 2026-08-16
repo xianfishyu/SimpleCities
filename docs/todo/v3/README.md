@@ -108,8 +108,8 @@ docs/todo/v3/                                各系统路线图
 - `V3SaveOperationBackendTests`：SaveAs/Save/Load/Delete 成功、CurrentSlotID 同步、Load/Delete 缺失失败。
 - `V3SaveSlotUiSummaryTests`：Complete/Corrupt/Foreign/Unsafe 四类槽的展示与操作权限。
 - `PauseMenuContractTests`：新增 V3 存档后端接线契约（`ConfigureV3Backend` / `IV3SaveOperationBackend` / `V3SaveOperationController` / `V3SaveSlotUiSummary`）。
-- `V3SaveOperationUiCoordinatorTests`：SaveAs 成功/失败、Load 成功/失败、busy 不调用后端、Delete、RequestCancel、Reset。
-- `V3AsyncSaveOperationCoordinatorTests`：异步 SaveAs/Load 成功与失败、busy 不调用后端、取消后不启动、Delete、RequestCancel、Reset 清除取消标记。
+- `V3SaveOperationUiCoordinatorTests`：SaveAs/Load/Delete 成功与失败、busy 不调用后端、RequestCancel、Reset。
+- `V3AsyncSaveOperationCoordinatorTests`：异步 SaveAs/Load/Delete 成功与失败、busy 不调用后端、取消后不启动、RequestCancel、Reset 清除取消标记。
 
 ## 文档更新示例
 
