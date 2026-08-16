@@ -170,6 +170,20 @@ public sealed class V3SaveOperationUiCoordinatorTests
     }
 
     [Fact]
+    public void Delete_WhenBusy_DoesNotCallBackend()
+    {
+        var backend = new FakeBackend();
+        var controller = new V3SaveOperationController();
+        var coordinator = new V3SaveOperationUiCoordinator(backend, controller);
+        controller.TryBegin(V3SaveOperationKind.Load, 1);
+
+        V3SaveOperationUiState state = coordinator.Delete("city-001");
+
+        Assert.Equal(V3SaveOperationUiPhase.Busy, state.Phase);
+        Assert.Equal(0, backend.DeleteCalls);
+    }
+
+    [Fact]
     public void Delete_ReturnsCompletedDeleteResult()
     {
         var backend = new FakeBackend();
