@@ -39,6 +39,14 @@ godot --headless --path . --script tests/godot/command_center_runtime_contract.g
 - 删除测试产生的临时槽、日志和运行时节点；
 - 恢复被编辑器改写的无关 `.tscn` / `.tres`。
 
+## 验收门禁
+
+- `dotnet build SimpleCities.sln` 退出码 0，0 警告 / 0 错误。
+- `dotnet test` 全部通过，无跳过/失败。
+- `command_center_runtime_contract.gd` 输出 `PASS command center runtime contract`。
+- Godot 编辑器日志无新增错误；运行中 DAP stderr 为空。
+- 运行时状态（RoadType 按钮、DebugPanel 文本、ToolManager.CurrentTool）与预期一致。
+
 ## 验收证据记录模板
 
 | 模块 | 命令/场景 | 实际结果 | 通过 |
