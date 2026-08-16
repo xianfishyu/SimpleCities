@@ -559,6 +559,12 @@
 - 新增 7 个 xUnit 用例；完整测试套件 1137/1137 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：将协调器接入 `V3RoadLoadPipeline` / 真实 Godot 场景装配与 renderer participant。
 
+### 2026-08-13：2.3 工具/渲染 Load 参与者包装（部分）
+
+- 新增 `V3ToolLoadParticipant` / `V3RendererLoadParticipant`：分别包装 `RoadToolFullReset` 与 `RoadPresentationFullReset`，暴露 `IsPrepared` / `CanCommit`。
+- 新增 6 个 xUnit 用例；完整测试套件 1188/1188 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
+- 尚未完成：将参与者包装接入 `V3LoadAggregateCoordinator` 的 prepared/commit 流程。
+
 ### 2026-08-13：2.3 道路 Load 管线改用 aggregate 协调器（重构）
 
 - `V3RoadLoadPipeline.Load` 改为使用 `V3LoadAggregateCoordinator` 管理 Admission/Prepare/Preflight/Commit，不再手写 `V3LoadProtocol` + `V3PreparedAggregate`；行为与既有测试保持一致。
