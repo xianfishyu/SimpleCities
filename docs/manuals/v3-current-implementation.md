@@ -101,3 +101,13 @@
 - 存档：`V3RoadSaveLoadCoordinator` → `V3RoadLoadPipeline` → inside-commit 参与者（tool / presentation / renderer）
 - 渲染：`RoadGraphV3Renderer` → `RoadRibbonBuilder` / `RoadCapBuilder` / `RoadSemanticJoinBuilder` → `RoadSurfaceSnapshot` / `RoadSurfaceHitProvider`
 - UI：`ConstructionDock` / `ToolContextPanel` / `DebugPanel` → `ToolManager` / `InputBindingManager` → V3 `ToolState`
+
+## 10. 相关文档
+
+- 架构与验收规范：`docs/manuals/road-system-v3-gen.md`
+- 当前实现与验证状态：`docs/manuals/v3-current-implementation.md`
+- 下一步执行计划：`docs/manuals/v3-next-steps.md`
+- QA 运行手册：`docs/manuals/v3-qa-runbook.md`
+- 关键决策记录：`docs/manuals/v3-decisions.md`
+- 术语表：`docs/manuals/v3-glossary.md`
+- 系统路线图：`docs/todo/v3/`
