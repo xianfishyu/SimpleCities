@@ -41,6 +41,7 @@
 - 确保 Load 的 Admission/Prepare/Preflight 期间 Escape 只取消一次，commit 期间不可取消。
 - 验证 V2/Foreign 槽不进入普通操作列表。
 - 准备已完成：`PauseMenu` 同步调用点调查与 `V3SaveOperation` 阶段映射见 `docs/todo/v3/save-system.md` 与 `docs/todo/v3/ui.md` 的 2026-08-16 条目。
+- 实现已完成：`PauseMenu` 已接入 V3 异步入口、busy 禁用、`CancellationTokenSource` 取消请求与 scene generation 防护；待环境恢复后运行测试与真实场景验收。
 
 ## 5. 最终组合验收 `v3-road-graph:8.6`
 
@@ -69,7 +70,8 @@
 - M2：`v3-ui:1.2` / `v3-tool-input:2.2` surface hit 选择验收通过（单元测试覆盖已完成，待环境验证）。
 - M3：`RoadGraphV3Diagnostics.QueryFragmentCount` 接入并显示（实现完成，待环境验证）。
 - M4：`v3-ui:1.4` 异步存档状态机验收通过。
-  - 准备：已完成 PauseMenu 同步调用点调查与 `V3SaveOperation` 阶段映射；接下来实现 busy/取消/结果状态机。
+  - 准备：已完成 PauseMenu 同步调用点调查与 `V3SaveOperation` 阶段映射。
+  - 实现：已完成异步入口、busy 禁用、取消令牌与 generation 防护；待环境验证与端到端验收。
 - M5：`v3-road-graph:8.6` 最终组合验收证据写回指南附录 D。
 
 ## 9. 相关文档
