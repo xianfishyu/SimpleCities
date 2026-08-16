@@ -22,6 +22,7 @@ public sealed class V3AsyncSaveOperationCoordinatorTests
 
         Assert.True(state.IsComplete);
         Assert.Equal(V3SaveOperationKind.Publish, state.Kind);
+        Assert.True(state.IsTerminal);
         Assert.Equal(1, backend.SaveAsCalls);
     }
 
