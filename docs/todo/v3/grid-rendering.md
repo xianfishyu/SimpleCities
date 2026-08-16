@@ -226,6 +226,13 @@
 - 完整测试套件 1180/1180 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
 - 尚未完成：将 junction 命中接入真实输入路由，以及混合宽度/锐角真实填补、surface owner 与 mesh 同源发布。
 
+### 2026-08-13：2.2 presentation full-reset 携带 mesh 数据（部分）
+
+- `RoadPresentationFullReset` 新增 `RibbonMeshes` / `JunctionPatches` 与 `HasMeshData`，并提供带 mesh 数据的 `Create` 重载。
+- `V3RoadLoadPipeline` 在 Preflight 构建 presentation 计划时同时生成 ribbon/junction mesh 数据。
+- 新增 1 个 xUnit 用例；完整测试套件 1181/1181 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：将计划中的 mesh 数据接入渲染器 Load 交换，以及混合宽度/锐角真实填补。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁

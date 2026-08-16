@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using SimpleCities.Road.V3;
 
 namespace SimpleCities.Core.V3;
@@ -74,7 +75,28 @@ public static class V3RoadLoadPipeline
                 return V3RoadLoadPipelineResult.Failure(coordinator.Phase, surface.Error ?? "PresentationPreflightFailed");
             }
 
-            presentationPlan = RoadPresentationFullReset.Create(desiredPresentationToken.Value, surface.Snapshot);
+            var ribbonMeshes = new List<RoadRibbonMeshData>();
+            foreach (RoadGraphV3Edge edge in load.Revision.Edges.Values.OrderBy(edge => edge.ID))
+            {
+                if (styles.TryGet(edge.RoadType, out RoadTypeStyle? edgeStyle) &&
+                    RoadRibbonBuilder.TryBuild(edge, edgeStyle, RoadGeometryDisplaySampler.DefaultTolerance, out RoadRibbonMeshData ribbonMesh))
+                {
+                    ribbonMeshes.Add(ribbonMesh);
+                }
+            }
+
+            var junctionPatches = new List<RoadJunctionPatchData>();
+            foreach (int nodeID in load.Revision.Nodes.Keys.Order())
+            {
+                if (RoadJunctionPatchBuilder.TryBuild(load.Revision, styles, nodeID, RoadJunctionPatchBuilder.DefaultRadius, out RoadJunctionPatchData patch))
+                    junctionPatches.Add(patch);
+            }
+
+            presentationPlan = RoadPresentationFullReset.Create(
+                desiredPresentationToken.Value,
+                surface.Snapshot,
+                ribbonMeshes,
+                junctionPatches);
         }
 
         if (preservedToolState is not null && !coordinator.TryPrepare(ToolParticipant))

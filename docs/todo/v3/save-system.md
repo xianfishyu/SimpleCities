@@ -541,6 +541,12 @@
 - 新增 2 个 xUnit 用例；完整测试套件 1126/1126 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实 Godot 场景装配、renderer participant 与端到端 aggregate Load commit。
 
+### 2026-08-13：2.3 presentation full-reset 携带 mesh 数据（部分）
+
+- `RoadPresentationFullReset` 新增 `RibbonMeshes` / `JunctionPatches` / `HasMeshData`；`V3RoadLoadPipeline` 在 Preflight 同时生成 ribbon/junction mesh 数据放入 presentation 计划。
+- 新增 1 个 xUnit 用例；完整测试套件 1181/1181 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实 Godot 场景装配、renderer participant 与端到端 aggregate Load commit。
+
 ### 2026-08-13：2.3 LoadIntoCurrent 应用 presentation full-reset（部分）
 
 - `RoadGraphV3Application.LoadIntoCurrent` 改为直接使用 `V3RoadLoadPipeline.Load`，在 full reset 后同时应用 `ToolPlan` 与 `PresentationPlan`，与 `Load` 的 Load 生命周期行为保持一致。

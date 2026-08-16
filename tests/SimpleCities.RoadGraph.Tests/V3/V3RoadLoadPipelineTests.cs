@@ -149,6 +149,7 @@ public sealed class V3RoadLoadPipelineTests
             Assert.NotNull(result.PresentationPlan);
             Assert.Equal(desired, result.PresentationPlan!.DesiredToken);
             Assert.NotNull(result.PresentationPlan.Snapshot);
+            Assert.True(result.PresentationPlan.HasMeshData);
         }
         finally
         {

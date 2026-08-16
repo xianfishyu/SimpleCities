@@ -1,3 +1,4 @@
+using Godot;
 using SimpleCities.Road.V3;
 using System.Linq;
 
@@ -13,6 +14,29 @@ public sealed class RoadPresentationFullResetTests
         Assert.True(plan.IsValid);
         Assert.Equal(CreateToken(), plan.DesiredToken);
         AssertSnapshotEqual(CreateSnapshot(), plan.Snapshot);
+    }
+
+    [Fact]
+    public void Create_WithMeshData_SetsProperties()
+    {
+        var ribbon = new RoadRibbonMeshData(
+            [new Vector2(0f, 1f), new Vector2(0f, -1f), new Vector2(10f, 1f), new Vector2(10f, -1f)],
+            [0, 1, 2, 1, 3, 2],
+            [Colors.White, Colors.White, Colors.White, Colors.White]);
+        var patch = new RoadJunctionPatchData(
+            1,
+            [new Vector2(1f, 0f), new Vector2(0f, 1f), new Vector2(-1f, 0f)],
+            Colors.White);
+
+        RoadPresentationFullReset plan = RoadPresentationFullReset.Create(
+            CreateToken(),
+            CreateSnapshot(),
+            [ribbon],
+            [patch]);
+
+        Assert.Single(plan.RibbonMeshes);
+        Assert.Single(plan.JunctionPatches);
+        Assert.True(plan.HasMeshData);
     }
 
     [Fact]
