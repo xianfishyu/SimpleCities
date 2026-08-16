@@ -326,6 +326,9 @@ public partial class RoadGraphV3System : Node2D
     public bool GetSlotRoadNetworkHasPayload(string slotId) =>
         Application.GetSlotRoadNetworkHasPayload(slotId);
 
+    public int GetSlotRoadNetworkPayloadLength(string slotId) =>
+        Application.GetSlotRoadNetworkPayloadLength(slotId);
+
     public byte[]? CurrentSlotPayload(string fileName) =>
         Application.CurrentSlotPayload(fileName);
 
