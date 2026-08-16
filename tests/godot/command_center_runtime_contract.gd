@@ -64,7 +64,7 @@ func run() -> void:
 	category_button.emit_signal("pressed")
 	await process_frame
 	assert_true(not tray.visible, "Repeating the active Roads category should collapse tray")
-	assert_true(dock.find_children("*ToolButton", "Button", true, false).size() == 1, "Collapsing active category should not rebuild or clear Roads menu")
+	assert_true(dock.find_children("*ToolButton", "Button", true, false).size() == 2, "Collapsing active category should not rebuild or clear Roads menu")
 	assert_actual_dock_contains_panel(dock, "default roads collapsed after repeat")
 	category_button.emit_signal("pressed")
 	await process_frame
@@ -124,12 +124,14 @@ func run() -> void:
 	await process_frame
 	assert_true(tray.visible, "Roads category should reopen tray for expanded focus assertions")
 	assert_focus_link(dock.get_node("DockPanel/DockStack/CategoryScroll/CategoryBar/LandscapingCategoryButton"), dock.find_child("RoadToolButton", true, false), "landscaping -> road tool")
-	assert_focus_link(dock.find_child("RoadToolButton", true, false), context_entry, "road -> context")
+	var upgrade_button: Button = dock.find_child("RoadUpgradeToolButton", true, false)
+	assert_focus_link(dock.find_child("RoadToolButton", true, false), upgrade_button, "road -> upgrade")
+	assert_focus_link(upgrade_button, context_entry, "upgrade -> context")
 	context_entry.grab_focus()
 	await process_frame
 	Input.parse_input_event(action_event("ui_focus_prev"))
 	await process_frame
-	assert_true(root.gui_get_focus_owner() == dock.find_child("RoadToolButton", true, false), "Reverse focus from expanded context did not move to RoadToolButton")
+	assert_true(root.gui_get_focus_owner() == upgrade_button, "Reverse focus from expanded context did not move to RoadUpgradeToolButton")
 	assert_focus_link(context_entry, debug_button, "context -> debug")
 	assert_focus_link(debug_button, category_button, "debug -> roads")
 
@@ -379,33 +381,22 @@ func test_malformed_dock() -> void:
 	await process_frame
 
 func assert_debug_metrics_continuity(map: Node, debug_panel: Control) -> void:
-	var manager: Node = map.get_node("ToolManager")
-	var groups: Label = debug_panel.get_node("PanelMargin/Rows/DebugContent/RoadGroupRow/RoadGroupValue")
-	var edges: Label = debug_panel.get_node("PanelMargin/Rows/DebugContent/GraphEdgeRow/GraphEdgeValue")
 	var nodes: Label = debug_panel.get_node("PanelMargin/Rows/DebugContent/GraphNodeRow/GraphNodeValue")
+	var edges: Label = debug_panel.get_node("PanelMargin/Rows/DebugContent/GraphEdgeRow/GraphEdgeValue")
+	var geometry: Label = debug_panel.get_node("PanelMargin/Rows/DebugContent/GeometryRow/GeometryValue")
+	var self_loop: Label = debug_panel.get_node("PanelMargin/Rows/DebugContent/SelfLoopRow/SelfLoopValue")
+	var parallel: Label = debug_panel.get_node("PanelMargin/Rows/DebugContent/ParallelRow/ParallelValue")
 	debug_panel.UpdateMetrics()
-	var before := Vector3i(int(groups.text), int(edges.text), int(nodes.text))
-	manager.set("CurrentTool", 1)
-	await process_frame
-	var start_motion := mouse_motion_event(Vector2(320, 320))
-	Input.parse_input_event(start_motion)
-	manager._Input(start_motion)
-	await process_frame
-	manager._Input(mouse_button_event(true, Vector2(320, 320)))
-	await process_frame
-	var end_motion := mouse_motion_event(Vector2(384, 320))
-	Input.parse_input_event(end_motion)
-	manager._Input(end_motion)
-	await process_frame
-	manager._Input(mouse_button_event(false, Vector2(384, 320)))
-	await process_frame
+	assert_true(nodes.text == "0", "Debug V3 node metric should start at 0: %s" % nodes.text)
+	assert_true(edges.text == "0", "Debug V3 edge metric should start at 0: %s" % edges.text)
+	assert_true(geometry.text == "0", "Debug V3 geometry metric should start at 0: %s" % geometry.text)
+	assert_true(self_loop.text == "0", "Debug V3 self-loop metric should start at 0: %s" % self_loop.text)
+	assert_true(parallel.text == "0", "Debug V3 parallel metric should start at 0: %s" % parallel.text)
+	var content: Control = debug_panel.get_node("PanelMargin/Rows/DebugContent")
+	content.visible = false
 	debug_panel.UpdateMetrics()
-	var after := Vector3i(int(groups.text), int(edges.text), int(nodes.text))
-	if after.x != before.x + 1:
-		fail("Debug RoadGroup metric did not continue after graph mutation: %s -> %s" % [before, after])
-		return
-	assert_true(after.y > before.y, "Debug GraphEdge metric did not continue after graph mutation: %s -> %s" % [before, after])
-	assert_true(after.z > before.z, "Debug GraphNode metric did not continue after graph mutation: %s -> %s" % [before, after])
+	assert_true(nodes.text == "0", "Hidden DebugPanel should not rewrite V3 metrics")
+	content.visible = true
 
 func assert_k_runtime_contract(hud: CanvasLayer) -> void:
 	var dock: Control = hud.get_node("ConstructionDock")
@@ -595,6 +586,16 @@ func assert_k_icon_label_structure(dock: Control) -> void:
 		return
 	assert_true(road_button.get("DisplayText") == "城市道路", "K city-road asset must expose exact native display label 城市道路")
 	assert_true(road_button.get("IconTexture") != null, "K city-road asset must expose a non-null native IconTexture")
+	var upgrade_button: Button = dock.find_child("RoadUpgradeToolButton", true, false)
+	if upgrade_button == null:
+		fail("K Roads tray must contain RoadUpgradeToolButton before icon inspection")
+		return
+	var upgrade_button_script: Script = upgrade_button.get_script()
+	if upgrade_button_script == null or upgrade_button_script.resource_path != "res://Scripts/UI/ConstructionDockButton.cs":
+		fail("K road-upgrade asset must use reusable ConstructionDockButton")
+		return
+	assert_true(upgrade_button.get("DisplayText") == "道路改造", "K road-upgrade asset must expose exact native display label 道路改造")
+	assert_true(upgrade_button.get("IconTexture") != null, "K road-upgrade asset must expose a non-null native IconTexture")
 
 func assert_k_resources(dock: Control) -> void:
 	var new_definition := ConstructionToolDefinition.new()
@@ -623,6 +624,24 @@ func assert_k_resources(dock: Control) -> void:
 		fail("K loaded city-road definition Icon must be Texture2D")
 		return
 	assert_texture_is_production_icon(city_road_icon, "K loaded city-road definition Icon")
+	if failed:
+		return
+	var upgrade_definition: Variant = null
+	for tool in tools:
+		if tool != null and tool.get("Id") == "road-upgrade":
+			upgrade_definition = tool
+			break
+	if upgrade_definition == null:
+		fail("K loaded Roads category must contain road-upgrade before Icon inspection")
+		return
+	var upgrade_icon: Variant = upgrade_definition.get("Icon")
+	if upgrade_icon == null:
+		fail("K loaded road-upgrade definition Icon must be non-null")
+		return
+	if not upgrade_icon is Texture2D:
+		fail("K loaded road-upgrade definition Icon must be Texture2D")
+		return
+	assert_texture_is_production_icon(upgrade_icon, "K loaded road-upgrade definition Icon")
 	if failed:
 		return
 	for path in ICON_PATHS:
@@ -738,21 +757,20 @@ func assert_k_asset_scroll_modes(tool_scroll: ScrollContainer, label: String) ->
 
 func assert_k_active_tool_tray_geometry(dock: Control, label: String) -> void:
 	var tray: Control = dock.get_node("DockPanel/DockStack/ToolTray")
-	var tool: Button = dock.find_child("RoadToolButton", true, false)
-	if tool == null:
-		fail("K %s Roads tray is missing RoadToolButton" % label)
-		return
-	var dock_rect := actual_rect(dock)
 	var tray_rect := actual_rect(tray)
-	var tool_rect := actual_rect(tool)
-	var expected_left := dock_rect.get_center().x - tool_rect.size.x / 2.0
-	assert_true(absf(tool_rect.position.x - expected_left) <= 1.0, "K %s city-road tool group must use dock global center: x=%.1f expected=%.1f" % [label, tool_rect.position.x, expected_left])
-	assert_true(tool_rect.position.y >= tray_rect.position.y - 1.0 and tool_rect.end.y <= tray_rect.end.y + 1.0, "K %s city-road tool escapes 64px tray: tool=%s tray=%s" % [label, tool_rect, tray_rect])
-	var icon: TextureRect = first_descendant_of_type(tool, "TextureRect")
-	var tool_label: Label = first_descendant_of_type(tool, "Label")
-	assert_true(icon != null and actual_rect(icon).position.y >= tool_rect.position.y - 1.0 and actual_rect(icon).end.y <= tool_rect.end.y + 1.0, "K %s city-road icon is clipped by tool button" % label)
-	assert_true(tool_label != null and actual_rect(tool_label).position.y >= tool_rect.position.y - 1.0 and actual_rect(tool_label).end.y <= tool_rect.end.y + 1.0, "K %s city-road label is clipped by tool button: label=%s tool=%s" % [label, actual_rect(tool_label) if tool_label != null else Rect2(), tool_rect])
-	assert_true(icon != null and absf(icon.custom_minimum_size.x - 24.0) <= 0.1 and absf(icon.custom_minimum_size.y - 24.0) <= 0.1, "K %s city-road icon must be 24px" % label)
+	var tools := dock.find_children("*ToolButton", "Button", true, false)
+	if tools.is_empty():
+		fail("K %s Roads tray is missing tool buttons" % label)
+		return
+	for tool in tools:
+		var tool_rect := actual_rect(tool)
+		assert_true(tool_rect.position.y >= tray_rect.position.y - 1.0 and tool_rect.end.y <= tray_rect.end.y + 1.0, "K %s tool escapes 64px tray: tool=%s tray=%s" % [label, tool_rect, tray_rect])
+		var icon: TextureRect = first_descendant_of_type(tool, "TextureRect")
+		var tool_label: Label = first_descendant_of_type(tool, "Label")
+		assert_true(icon != null and actual_rect(icon).position.y >= tool_rect.position.y - 1.0 and actual_rect(icon).end.y <= tool_rect.end.y + 1.0, "K %s tool icon is clipped by tool button" % label)
+		assert_true(tool_label != null and actual_rect(tool_label).position.y >= tool_rect.position.y - 1.0 and actual_rect(tool_label).end.y <= tool_rect.end.y + 1.0, "K %s tool label is clipped by tool button: label=%s tool=%s" % [label, actual_rect(tool_label) if tool_label != null else Rect2(), tool_rect])
+		assert_true(icon != null and absf(icon.custom_minimum_size.x - 24.0) <= 0.1 and absf(icon.custom_minimum_size.y - 24.0) <= 0.1, "K %s tool icon must be 24px" % label)
+	assert_secondary_group_globally_centered(dock, label)
 
 func assert_k_selection_hierarchy(dock: Control, roads_button: Button, label: String) -> void:
 	var primary_indicator: ColorRect = roads_button.get_node_or_null("PrimarySelectionIndicator")
@@ -841,7 +859,7 @@ func assert_category_buttons(dock: Control) -> void:
 
 func assert_roads_menu(dock: Control, tray: Control, manager: Node) -> void:
 	assert_true(tray.visible, "Roads menu should keep the shared tray open")
-	assert_true(dock.find_children("*ToolButton", "Button", true, false).size() == 1, "Roads menu should expose exactly one real tool")
+	assert_true(dock.find_children("*ToolButton", "Button", true, false).size() == 2, "Roads menu should expose two real tools")
 	assert_true(dock.find_child("SelectToolButton", true, false) == null, "Roads menu must not show Select")
 	assert_true(dock.find_child("RoadRemoveToolButton", true, false) == null, "Roads menu must not show RoadRemove")
 	var road_button: Button = dock.find_child("RoadToolButton", true, false)
@@ -849,10 +867,19 @@ func assert_roads_menu(dock: Control, tray: Control, manager: Node) -> void:
 	assert_true(control_display_text(road_button) == "城市道路", "Road label should not include a removed shortcut hint")
 	assert_true(not road_button.disabled, "City road should be enabled")
 	assert_true(road_button.focus_mode == Control.FOCUS_ALL, "City road should be focusable")
+	var upgrade_button: Button = dock.find_child("RoadUpgradeToolButton", true, false)
+	assert_true(upgrade_button != null, "Roads menu is missing road upgrade button")
+	assert_true(control_display_text(upgrade_button) == "道路改造", "RoadUpgrade label mismatch")
+	assert_true(not upgrade_button.disabled, "Road upgrade should be enabled")
+	assert_true(upgrade_button.focus_mode == Control.FOCUS_ALL, "Road upgrade should be focusable")
 	if manager != null:
 		var before_tool: Variant = manager.get("CurrentTool")
 		road_button.emit_signal("pressed")
 		assert_true(manager.get("CurrentTool") == 1, "City road button did not select Road")
+		upgrade_button.emit_signal("pressed")
+		assert_true(manager.get("CurrentTool") == 3, "Road upgrade button did not select RoadUpgrade")
+		road_button.emit_signal("pressed")
+		assert_true(manager.get("CurrentTool") == 1, "City road button did not restore Road")
 		manager.set("CurrentTool", before_tool)
 
 func assert_builtin_context(context: Control, expected_tool: String, expected_operation: String, expected_shortcut: String, label: String) -> void:
@@ -877,7 +904,7 @@ func assert_pause_menu(hud: CanvasLayer, manager: Node) -> void:
 	assert_true(not paused, "Continue did not resume the scene tree")
 
 func assert_removed_shortcuts_are_no_op(manager: Node, dock: Control, context: Control) -> void:
-	for initial_tool in [0, 1, 2]:
+	for initial_tool in [0, 1, 2, 3]:
 		manager.set("CurrentTool", initial_tool)
 		await process_frame
 		for keycode in [KEY_R, KEY_E]:
@@ -885,7 +912,7 @@ func assert_removed_shortcuts_are_no_op(manager: Node, dock: Control, context: C
 			await process_frame
 			assert_true(manager.get("CurrentTool") == initial_tool, "%s changed tool %d" % [OS.get_keycode_string(keycode), initial_tool])
 
-	for initial_tool in [0, 1, 2]:
+	for initial_tool in [0, 1, 2, 3]:
 		manager.set("CurrentTool", initial_tool)
 		await process_frame
 		manager._Input(key_event(KEY_ESCAPE))

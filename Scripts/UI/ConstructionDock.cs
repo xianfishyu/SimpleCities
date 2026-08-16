@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 
 /// <summary>
@@ -171,8 +172,15 @@ public partial class ConstructionDock : Control
 
     public Control? GetLastDockFocusControl()
     {
-        if (_toolTray.Visible && TryGetActiveToolButton(out Button? activeToolButton))
-            return activeToolButton;
+        if (_toolTray.Visible)
+        {
+            Button? lastTool = _toolList.GetChildren()
+                .OfType<Button>()
+                .Where(button => button.FocusMode != FocusModeEnum.None)
+                .LastOrDefault();
+            if (lastTool != null)
+                return lastTool;
+        }
 
         return _categoryButtons.TryGetValue(Categories[^1].Id, out Button? lastCategory)
             ? lastCategory
@@ -530,31 +538,30 @@ public partial class ConstructionDock : Control
 
         if (previousCategory == null) return;
 
-        if (_toolTray.Visible && TryGetActiveToolButton(out Button? toolButton))
+        if (_toolTray.Visible)
         {
-            Button activeToolButton = toolButton!;
-            if (!activeToolButton.IsInsideTree()) return;
-            previousCategory.FocusNext = activeToolButton.GetPath();
-            activeToolButton.FocusPrevious = previousCategory.GetPath();
-            activeToolButton.FocusNext = _contextFocusPath;
-        }
-        else
-        {
-            previousCategory.FocusNext = _contextFocusPath;
-        }
-    }
+            List<Button> toolButtons = _toolList.GetChildren()
+                .OfType<Button>()
+                .Where(button => button.FocusMode != FocusModeEnum.None)
+                .ToList();
+            if (toolButtons.Count > 0)
+            {
+                previousCategory.FocusNext = toolButtons[0].GetPath();
+                toolButtons[0].FocusPrevious = previousCategory.GetPath();
+                for (int index = 0; index < toolButtons.Count; index++)
+                {
+                    if (index > 0)
+                        toolButtons[index].FocusPrevious = toolButtons[index - 1].GetPath();
+                    if (index + 1 < toolButtons.Count)
+                        toolButtons[index].FocusNext = toolButtons[index + 1].GetPath();
+                }
 
-    private bool TryGetActiveToolButton(out Button? button)
-    {
-        if (_activeCategoryId == RoadsCategoryId &&
-            (_toolButtons.TryGetValue(ToolType.Road, out button) ||
-             _toolButtons.TryGetValue(ToolType.RoadUpgrade, out button)))
-        {
-            return true;
+                toolButtons[^1].FocusNext = _contextFocusPath;
+                return;
+            }
         }
 
-        button = null;
-        return false;
+        previousCategory.FocusNext = _contextFocusPath;
     }
 
     private void NotifyContextDisplay()
