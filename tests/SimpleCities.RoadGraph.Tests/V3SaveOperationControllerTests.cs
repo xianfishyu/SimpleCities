@@ -88,6 +88,20 @@ public sealed class V3SaveOperationControllerTests
     }
 
     [Fact]
+    public void TryBegin_AfterReset_AllowsNewOperation()
+    {
+        var controller = new V3SaveOperationController();
+        controller.TryBegin(V3SaveOperationKind.Load, 1);
+        controller.Reset();
+
+        bool began = controller.TryBegin(V3SaveOperationKind.Delete, 2);
+
+        Assert.True(began);
+        Assert.Equal(V3SaveOperationKind.Delete, controller.ActiveToken!.Kind);
+        Assert.Equal(2, controller.ActiveToken.SceneGeneration);
+    }
+
+    [Fact]
     public void Complete_InProgressResult_KeepsTokenActive()
     {
         var controller = new V3SaveOperationController();
