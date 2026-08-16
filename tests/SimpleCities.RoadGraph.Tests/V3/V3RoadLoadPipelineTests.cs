@@ -274,6 +274,47 @@ public sealed class V3RoadLoadPipelineTests
     }
 
     [Fact]
+    public void Prepare_ResultCanApplyParticipants()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            RoadGraphV3Revision revision = CreateRevision();
+            Assert.True(V3RoadSavePipeline.Save("city-001", root, revision, "n", "n", "2026-08-12T08:00:00.0000000Z", null, null, null));
+            RoadTypeStyleCatalogResult catalog = RoadTypeStyleCatalog.CreateDefault();
+            Assert.True(catalog.Success);
+            var styles = new RoadStyleProvider(catalog);
+            RoadRenderToken desired = new(0, 7, 0, 0, 0, 21);
+            var sourceTool = new RoadToolState();
+            sourceTool.SwitchTo(RoadToolType.Upgrade);
+            sourceTool.TrySelectRoadType(RoadType.Highway);
+
+            V3RoadLoadPrepareResult prepare = V3RoadLoadPipeline.Prepare(
+                "city-001",
+                root,
+                RoadGraphCapacity.Default,
+                V3PayloadBudget.Default,
+                lineageID: 7,
+                preservedToolState: sourceTool,
+                styles: styles,
+                desiredPresentationToken: desired);
+            Assert.True(prepare.Success, prepare.Error);
+
+            var toolState = new RoadToolState();
+            var presentationState = new RoadPresentationState(new RoadRenderToken(0, 0, 0, 0, 0, 0));
+            Assert.True(prepare.TryApplyParticipants(toolState, presentationState));
+            Assert.Equal(RoadToolType.Upgrade, toolState.CurrentTool);
+            Assert.Equal(RoadType.Highway, toolState.SelectedRoadType);
+            Assert.False(presentationState.IsStalled);
+            Assert.NotNull(presentationState.PresentedSnapshot);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void Prepare_MissingSlot_Fails()
     {
         string root = GetTempRoot();

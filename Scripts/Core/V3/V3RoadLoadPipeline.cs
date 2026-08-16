@@ -41,6 +41,18 @@ public sealed record V3RoadLoadPrepareResult(
     public RoadToolFullReset? ToolPlan { get; init; }
     public RoadPresentationFullReset? PresentationPlan { get; init; }
 
+    public bool TryApplyParticipants(RoadToolState toolState, RoadPresentationState presentationState)
+    {
+        ArgumentNullException.ThrowIfNull(toolState);
+        ArgumentNullException.ThrowIfNull(presentationState);
+
+        if (ToolPlan is not null && !ToolPlan.TryApplyTo(toolState))
+            return false;
+        if (PresentationPlan is not null && !PresentationPlan.TryApplyTo(presentationState))
+            return false;
+        return true;
+    }
+
     public static V3RoadLoadPrepareResult Failure(V3LoadPhase phase, string error) =>
         new(false, phase, null, error, null);
 }
