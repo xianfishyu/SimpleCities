@@ -72,6 +72,12 @@ public partial class RoadGraphV3System : Node2D
     public bool TryBuild(RoadPlacementSessionV3 session, out RoadGraphV3ChangeSummary summary) =>
         Application.TryBuild(session, out summary);
 
+    public bool TryUpgrade(RoadUpgradeSessionV3 session, out System.Collections.Generic.IReadOnlyList<int> changedEdgeIDs) =>
+        Application.TryUpgrade(session, out changedEdgeIDs);
+
+    public bool TryRemove(RoadRemovalSessionV3 session, out System.Collections.Generic.IReadOnlyList<int> removedEdgeIDs) =>
+        Application.TryRemove(session, out removedEdgeIDs);
+
     public bool TryAddNode(Vector2 position, out RoadGraphV3ChangeSummary summary) =>
         Application.TryAddNode(position, out summary);
 
@@ -94,6 +100,15 @@ public partial class RoadGraphV3System : Node2D
 
     public bool TryRedo(out RoadGraphV3ChangeSummary summary) =>
         Application.TryRedo(out summary);
+
+    public bool TryRequestPresentation(RoadRenderToken desiredToken) =>
+        Application.TryRequestPresentation(desiredToken);
+
+    public RoadSurfaceSnapshotBuildResult BuildDefaultSurfaceSnapshot() =>
+        Application.BuildDefaultSurfaceSnapshot();
+
+    public bool TryApplyPresentationFullReset(RoadPresentationFullReset plan) =>
+        Application.Presentation.TryApplyFullReset(plan);
 
     public bool SaveCurrent(
         string displayName,

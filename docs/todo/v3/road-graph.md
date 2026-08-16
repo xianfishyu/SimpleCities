@@ -276,6 +276,12 @@
 - 完整测试套件 1038/1038 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：替换 V2 RoadSystem 与端到端验收。
 
+### 2026-08-13：8.6 场景根节点工具/表现便捷入口（部分）
+
+- `RoadGraphV3System` 新增 `TryUpgrade` / `TryRemove` / `TryRequestPresentation` / `BuildDefaultSurfaceSnapshot` / `TryApplyPresentationFullReset` 转发入口，供工具与渲染层直接消费。
+- 完整测试套件 1146/1146 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
+- 尚未完成：替换 V2 RoadSystem 与端到端验收。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成
