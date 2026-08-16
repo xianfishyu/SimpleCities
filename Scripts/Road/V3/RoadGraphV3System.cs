@@ -24,6 +24,7 @@ public partial class RoadGraphV3System : Node2D
     public bool CurrentSlotIsComplete => Application.CurrentSlotIsComplete;
     public bool CurrentSlotIsCorrupt => Application.CurrentSlotIsCorrupt;
     public bool CurrentSlotIsAbsent => Application.CurrentSlotIsAbsent;
+    public bool CurrentSlotIsUnsafe => Application.CurrentSlotIsUnsafe;
     public SimpleCities.Core.V3.V3Manifest? CurrentSlotManifest => Application.CurrentSlotManifest;
     public string? CurrentSlotCityName => Application.CurrentSlotCityName;
     public long? CurrentSlotPopulation => Application.CurrentSlotPopulation;
