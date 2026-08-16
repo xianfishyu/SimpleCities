@@ -170,6 +170,12 @@
 - 新增 2 个 xUnit 用例；完整测试套件 1154/1154 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：junction patch 命中、真实输入路由与完整接管协议。
 
+### 2026-08-13：2.2 渲染器 ribbon 网格缓存（部分）
+
+- `RoadGraphV3Renderer` 改为在 `GraphStateToken` 变化时通过 `Application.BuildDefaultRibbonMeshes` 重建 `RoadRibbonMeshData` 缓存，`_Draw` 只绘制缓存轮廓，避免每次重绘重复采样/构建。
+- 完整测试套件 1166/1166 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
+- 尚未完成：junction patch 命中、真实 mesh 资源与完整接管协议。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁
