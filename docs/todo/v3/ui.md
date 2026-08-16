@@ -123,6 +123,13 @@
 - 新增 `tests/SimpleCities.RoadGraph.Tests/V3SaveOperationUiCoordinatorTests.cs`：使用 fake backend 覆盖 SaveAs、busy 不调用后端、Load/Delete、RequestCancel、Reset。
 - 尚未实现真正异步后台 I/O；`1.4` 仍开放。
 
+### 2026-08-16：M4 基础——V3AsyncSaveOperationCoordinator 异步协调器（部分）
+
+- 新增 `Scripts/UI/V3AsyncSaveOperationCoordinator.cs`：提供 `SaveAsAsync` / `SaveAsync` / `LoadAsync` / `DeleteAsync`，通过 `Task.Run` 将后端 I/O 放到线程池，操作状态仍由 `V3SaveOperationController` 维护。
+- 新增 `tests/SimpleCities.RoadGraph.Tests/V3AsyncSaveOperationCoordinatorTests.cs`：覆盖异步 SaveAs、busy 不调用后端、Load/Delete、RequestCancel、Reset。
+- `PauseMenu.ConfigureV3Backend` 每次配置递增 `_sceneGeneration`，使旧配置产生的 operation token 失效。
+- `PauseMenu` 尚未切换到异步入口；真正异步 UI 接线与取消边界仍待实现。`1.4` 仍开放。
+
 ## 执行顺序
 
 ### 阶段 7：第三代道路控件、诊断与存档交互

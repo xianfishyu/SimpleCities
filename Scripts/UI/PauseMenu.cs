@@ -171,6 +171,7 @@ public partial class PauseMenu : Control
     /// <summary>由 HUD 组合根提供 V3 存档后端；传入 null 时回退到 V2 SaveManager。</summary>
     public void ConfigureV3Backend(IV3SaveOperationBackend? backend)
     {
+        _sceneGeneration++;
         _v3Backend = backend;
         _v3Coordinator = backend != null
             ? new V3SaveOperationUiCoordinator(backend, _operationController, _sceneGeneration)

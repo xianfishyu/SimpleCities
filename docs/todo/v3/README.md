@@ -27,7 +27,7 @@
 - RoadUpgrade 已具备道路分类入口、`ToolManager` 同步、U 快捷键与运行时手柄确认（`v3-ui:1.2` / `v3-tool-input:2.2` 部分实现）。
 - DebugPanel 已接入 V3 诊断并实现隐藏零轮询（`v3-ui:1.3` 部分实现）。
 - 切换 RoadType 会取消未提交铺路并同步改造目标（`v3-tool-input:2.1` / `2.2` 部分实现）。
-- M4 基础：新增 `V3SaveOperationUiState` 结果映射助手、`V3SaveOperationController` 状态机、`IV3SaveOperationBackend` 后端适配器、`V3SaveSlotUiSummary` 槽展示模型与 `V3SaveOperationUiCoordinator` 统一操作入口及单元测试；`PauseMenu` 已接入 V3 后端（同步包装，待环境运行确认）。
+- M4 基础：新增 `V3SaveOperationUiState` 结果映射助手、`V3SaveOperationController` 状态机、`IV3SaveOperationBackend` 后端适配器、`V3SaveSlotUiSummary` 槽展示模型、`V3SaveOperationUiCoordinator` 统一操作入口与 `V3AsyncSaveOperationCoordinator` 异步协调器及单元测试；`PauseMenu` 已接入 V3 后端（同步包装，待环境运行确认）。
 
 ## Phase 0～8 全局依赖
 
@@ -106,6 +106,7 @@ docs/todo/v3/                                各系统路线图
 - `V3SaveSlotUiSummaryTests`：Complete/Corrupt/Foreign/Unsafe 四类槽的展示与操作权限。
 - `PauseMenuContractTests`：新增 V3 存档后端接线契约（`ConfigureV3Backend` / `IV3SaveOperationBackend` / `V3SaveOperationController` / `V3SaveSlotUiSummary`）。
 - `V3SaveOperationUiCoordinatorTests`：SaveAs、busy 不调用后端、Load/Delete、RequestCancel、Reset。
+- `V3AsyncSaveOperationCoordinatorTests`：异步 SaveAs、busy 不调用后端、Load/Delete、RequestCancel、Reset。
 
 ## 文档更新示例
 
