@@ -16,6 +16,9 @@
   - 从同版本开发机复制 `%USERPROFILE%\.nuget\packages` 到当前用户；
   - 或使用本地 NuGet 源：`dotnet restore SimpleCities.sln --source D:\path\to\packages`；
   - 或从 CI/缓存恢复 `project.assets.json` 对应的包目录。
+- 网络源不可达时可尝试镜像：
+  - `dotnet restore SimpleCities.sln --source https://nuget.cdn.azure.cn/v3/index.json`
+  - `dotnet restore SimpleCities.sln --source https://mirrors.cloud.tencent.com/nuget/v3/index.json`
 
 ## 2. 完成 `v3-ui:1.2` / `v3-tool-input:2.2` 的 surface hit 选择
 
