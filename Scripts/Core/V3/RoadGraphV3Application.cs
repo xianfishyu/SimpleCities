@@ -650,6 +650,12 @@ public sealed class RoadGraphV3Application
     public bool GetSlotThumbnailHasFile(string slotId) =>
         GetSlotThumbnailFile(slotId) is not null;
 
+    public long? GetSlotThumbnailSize(string slotId)
+    {
+        string? thumbnailFile = GetSlotThumbnailFile(slotId);
+        return thumbnailFile is null ? null : GetSlotFile(slotId, thumbnailFile)?.EncodedLength;
+    }
+
     public byte[]? CurrentSlotPayload(string fileName) =>
         string.IsNullOrEmpty(CurrentSlotID) ? null : GetPayload(CurrentSlotID, fileName);
 
