@@ -20,6 +20,7 @@ public partial class RoadGraphV3System : Node2D
     public SimpleCities.Core.V3.V3SlotSummary? CurrentSlotSummary => Application.CurrentSlotSummary;
     public string? CurrentSlotDisplayName => Application.CurrentSlotDisplayName;
     public string? CurrentSlotTimestamp => Application.CurrentSlotTimestamp;
+    public SimpleCities.Core.V3.V3SlotOccupant? CurrentSlotOccupant => Application.CurrentSlotOccupant;
 
     public System.Collections.Generic.IReadOnlyList<SimpleCities.Core.V3.V3SlotSummary> ListUsableSlots() =>
         Application.ListUsableSlots();
