@@ -19,6 +19,14 @@ public partial class RoadGraphV3Renderer : Node2D
 
     public MeshInstance2D? MeshLayer => _meshLayer;
 
+    public int MeshVertexCount =>
+        _cachedMeshes.Sum(mesh => mesh.Vertices.Count) +
+        _cachedPatches.Sum(patch => patch.Outline.Count);
+
+    public int MeshIndexCount =>
+        _cachedMeshes.Sum(mesh => mesh.Indices.Count) +
+        _cachedPatches.Sum(patch => Math.Max(0, patch.Outline.Count - 2) * 3);
+
     public override void _Ready()
     {
         _meshLayer = new MeshInstance2D
