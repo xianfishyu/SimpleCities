@@ -357,6 +357,9 @@ public partial class RoadGraphV3System : Node2D
     public long? GetSlotThumbnailSize(string slotId) =>
         Application.GetSlotThumbnailSize(slotId);
 
+    public SimpleCities.Core.V3.V3SlotSummary GetSlotSummary(string slotId) =>
+        Application.GetSlotSummary(slotId);
+
     public byte[]? CurrentSlotPayload(string fileName) =>
         Application.CurrentSlotPayload(fileName);
 
