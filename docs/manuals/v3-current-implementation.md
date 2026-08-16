@@ -56,7 +56,7 @@
 | UI 1.1 | 已完成 | 运行时 + 契约 PASS | 无 |
 | UI 1.2 | 部分实现 | 运行时入口/快捷键 | surface hit 选择、完整改造呈现 |
 | UI 1.3 | 部分实现 | 运行时 + 契约 PASS | query fragment 指标 |
-| UI 1.4 | 基础助手+状态机已落地 | 未验证 | `V3SaveOperationUiState` / `V3SaveOperationController` 已落地；PauseMenu 尚未接入异步状态机 |
+| UI 1.4 | 基础助手+状态机+后端适配器已落地 | 未验证 | `V3SaveOperationUiState` / `V3SaveOperationController` / `IV3SaveOperationBackend` 已落地；PauseMenu 尚未接入异步状态机 |
 
 ## 4. 环境恢复后的验证步骤
 
@@ -71,7 +71,7 @@
 - 2026-08-16：新增本文档、`v3-next-steps.md`，并在 `docs/README.md` / `docs/todo/v3/README.md` 加入链接。
 - 2026-08-16：`docs/todo/v3/` 各系统文档补充当前落地摘要。
 - 2026-08-16：`docs/manuals/road-system-v3-gen.md` Phase 7 补充当前落地状态。
-- 2026-08-16：新增 `V3SaveOperationUiState` 映射助手、`V3SaveOperationController` 状态机及对应测试，作为 M4 异步存档 UI 的基础模块。
+- 2026-08-16：新增 `V3SaveOperationUiState` 映射助手、`V3SaveOperationController` 状态机、`IV3SaveOperationBackend` 后端适配器及对应测试，作为 M4 异步存档 UI 的基础模块。
 
 ## 6. 仍开放的工作项
 

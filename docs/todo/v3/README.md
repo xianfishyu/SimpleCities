@@ -27,7 +27,7 @@
 - RoadUpgrade 已具备道路分类入口、`ToolManager` 同步、U 快捷键与运行时手柄确认（`v3-ui:1.2` / `v3-tool-input:2.2` 部分实现）。
 - DebugPanel 已接入 V3 诊断并实现隐藏零轮询（`v3-ui:1.3` 部分实现）。
 - 切换 RoadType 会取消未提交铺路并同步改造目标（`v3-tool-input:2.1` / `2.2` 部分实现）。
-- M4 基础：新增 `V3SaveOperationUiState` 结果映射助手与 `V3SaveOperationController` 状态机及单元测试（未接入 `PauseMenu`，待环境运行确认）。
+- M4 基础：新增 `V3SaveOperationUiState` 结果映射助手、`V3SaveOperationController` 状态机与 `IV3SaveOperationBackend` 后端适配器及单元测试（未接入 `PauseMenu`，待环境运行确认）。
 
 ## Phase 0～8 全局依赖
 
@@ -102,6 +102,7 @@ docs/todo/v3/                                各系统路线图
 - `RoadToolInputRouterTests`：重复命中去重、混合有效/无效命中、混合 null/无效/有效命中（Upgrade/Remove/矩形 Upgrade/矩形 Remove）、全无效/空/全 null 批量不创建会话（Upgrade/Remove）、null 命中跳过（Upgrade/Remove/矩形 Upgrade/矩形 Remove）、矩形全 null 不创建会话（Upgrade/Remove）、矩形空解析不创建会话（Upgrade/Remove）、null 列表抛异常（Upgrade/Remove）、null resolver 抛异常（Upgrade/Remove）、无效类型保留 placement/upgrade、同类型保留 placement、矩形空结果、Upgrade/Remove 矩形重复去重、右键移除/清除、切换工具清除 upgrade/removal、非有限坐标抛异常、取消后三类会话不可取回、铺路会话携带当前 RoadType、Cap/JunctionPatch/SemanticJoin owner 命中（Upgrade/Remove）、无 EdgeID owner 拒绝（Upgrade/Remove/矩形/批量）。
 - `V3SaveOperationUiStateTests`：null 结果、成功、提交前失败、observer warning 与 Cancelling 状态映射。
 - `V3SaveOperationControllerTests`：开始/重复开始、匹配/过期/未开始完成、可取消阶段取消、不可取消阶段保持、Reset。
+- `V3SaveOperationBackendTests`：SaveAs/Save/Load/Delete 成功与 Delete 缺失失败。
 
 ## 文档更新示例
 

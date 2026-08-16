@@ -94,6 +94,12 @@
 - 新增 `tests/SimpleCities.RoadGraph.Tests/V3SaveOperationControllerTests.cs`：覆盖开始、重复开始、匹配/过期/未开始完成、可取消阶段取消、不可取消阶段保持、Reset。
 - 尚未接入 `PauseMenu`；`1.4` 仍开放。
 
+### 2026-08-16：M4 基础——IV3SaveOperationBackend 与 V3ApplicationSaveOperationBackend（部分）
+
+- 新增 `Scripts/UI/V3SaveOperationBackend.cs`：`IV3SaveOperationBackend` 抽象 Save/Load/Delete/List，`V3ApplicationSaveOperationBackend` 将 `RoadGraphV3Application` 的同步 bool API 包装为 `V3SaveOperationResult`（Publish/Load/Delete token），并统一生成 `manual-{Guid:N}` 槽 ID。
+- 新增 `tests/SimpleCities.RoadGraph.Tests/V3SaveOperationBackendTests.cs`：覆盖 SaveAs/Save/Load/Delete 成功与 Delete 缺失失败。
+- 尚未接入 `PauseMenu`；`1.4` 仍开放。
+
 ## 执行顺序
 
 ### 阶段 7：第三代道路控件、诊断与存档交互
