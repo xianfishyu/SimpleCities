@@ -40,6 +40,29 @@ public sealed class V3SaveOperationBackendTests
     }
 
     [Fact]
+    public void SaveAs_GeneratesDistinctSlotIds()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            var backend = new V3ApplicationSaveOperationBackend(app);
+
+            backend.SaveAs("A", "A", "2026-08-16T00:00:00.0000000Z", null, null, null);
+            string first = app.CurrentSlotID;
+            backend.SaveAs("B", "B", "2026-08-16T00:00:00.0000000Z", null, null, null);
+            string second = app.CurrentSlotID;
+
+            Assert.NotEqual(first, second);
+            Assert.Equal(2, backend.ListSlots().Count);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void Save_ReturnsCompletedPublishResult()
     {
         string root = GetTempRoot();
