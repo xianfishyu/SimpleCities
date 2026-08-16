@@ -529,6 +529,12 @@
 - 新增 2 个 xUnit 用例；完整测试套件 1115/1115 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实 Godot 场景装配、renderer participant 与端到端 aggregate Load commit。
 
+### 2026-08-13：2.3 应用 Load/LoadIntoCurrent 应用 empty tool root（部分）
+
+- `V3RoadSaveLoadCoordinator` 新增 `LoadResult`（gate 内返回完整管线结果），`RoadGraphV3Application.Load` / `LoadIntoCurrent` 现在会携带当前 `ToolState` 生成 `RoadToolFullReset`，并在成功 full reset 后应用到工具状态。
+- 新增 2 个 xUnit 用例；完整测试套件 1117/1117 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实 Godot 场景装配、renderer participant 与端到端 aggregate Load commit。
+
 ### 2026-08-13：2.1 槽状态返回 manifest 摘要（更新）
 
 - `V3SlotStatusService.GetStatus` 对完整槽读取 manifest，返回 `DisplayName` 与 `Timestamp`，不再只返回 slotId 和 null。

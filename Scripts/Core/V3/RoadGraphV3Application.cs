@@ -163,11 +163,19 @@ public sealed class RoadGraphV3Application
 
     public bool Load(string slotId, long lineageID = 1)
     {
-        RoadGraphV3Controller? loaded = _coordinator.Load(slotId, _root, _capacity, _budget, lineageID);
-        if (loaded is null)
+        V3RoadLoadPipelineResult? result = _coordinator.LoadResult(
+            slotId,
+            _root,
+            _capacity,
+            _budget,
+            lineageID,
+            ToolState);
+        if (result is null || !result.Success || result.Controller is null)
             return false;
 
-        Controller = loaded;
+        Controller = result.Controller;
+        if (result.ToolPlan is not null)
+            result.ToolPlan.TryApplyTo(ToolState);
         CurrentSlotID = slotId;
         return true;
     }
@@ -180,6 +188,7 @@ public sealed class RoadGraphV3Application
             _capacity,
             _budget,
             Controller,
+            ToolState,
             newLineageID);
         if (success)
             CurrentSlotID = slotId;

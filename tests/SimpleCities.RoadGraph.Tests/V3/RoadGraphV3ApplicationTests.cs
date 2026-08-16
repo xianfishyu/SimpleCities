@@ -34,6 +34,56 @@ public sealed class RoadGraphV3ApplicationTests
     }
 
     [Fact]
+    public void Load_AppliesPreservedToolState()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var source = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            RoadGraphV3Revision revision = CreateRevision();
+            source.Controller.ReplaceWithFullReset(revision, 1);
+            Assert.True(source.Save("city-001", "n", "n", "2026-08-12T08:00:00.0000000Z", null, null, null));
+
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            app.ToolState.SwitchTo(RoadToolType.Upgrade);
+            app.ToolState.TrySelectRoadType(RoadType.Highway);
+
+            Assert.True(app.Load("city-001"));
+            Assert.Equal(RoadToolType.Upgrade, app.ToolState.CurrentTool);
+            Assert.Equal(RoadType.Highway, app.ToolState.SelectedRoadType);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
+    public void LoadIntoCurrent_AppliesPreservedToolState()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var source = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            RoadGraphV3Revision revision = CreateRevision();
+            source.Controller.ReplaceWithFullReset(revision, 1);
+            Assert.True(source.Save("city-001", "n", "n", "2026-08-12T08:00:00.0000000Z", null, null, null));
+
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            app.ToolState.SwitchTo(RoadToolType.Remove);
+            app.ToolState.TrySelectRoadType(RoadType.Arterial);
+
+            Assert.True(app.LoadIntoCurrent("city-001"));
+            Assert.Equal(RoadToolType.Remove, app.ToolState.CurrentTool);
+            Assert.Equal(RoadType.Arterial, app.ToolState.SelectedRoadType);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void Load_MissingSlot_Fails()
     {
         string root = GetTempRoot();

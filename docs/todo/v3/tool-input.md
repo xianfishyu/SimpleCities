@@ -92,6 +92,12 @@
 - 新增 2 个 xUnit 用例；完整测试套件 1115/1115 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：`RoadGraphV3Application` 的 aggregate Load commit 与 renderer participant。
 
+### 2026-08-13：2.4 应用 Load/LoadIntoCurrent 应用 empty tool root（部分）
+
+- `V3RoadSaveLoadCoordinator` 新增 `LoadResult`，`RoadGraphV3Application.Load` / `LoadIntoCurrent` 现在会在成功 full reset 后把 `RoadToolFullReset` 应用到 `ToolState`。
+- 新增 2 个 xUnit 用例；完整测试套件 1117/1117 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：`RoadGraphV3Application` 的 aggregate Load commit 与 renderer participant。
+
 ## 执行顺序
 
 ### 阶段 3：第三代闭环、类型化建造与道路改造
