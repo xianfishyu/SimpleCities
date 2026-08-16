@@ -17,6 +17,7 @@ public partial class DebugPanel : PanelContainer
     private Label _geometryValue = null!;
     private Label _selfLoopValue = null!;
     private Label _parallelValue = null!;
+    private Label _queryFragmentValue = null!;
     private Label _graphEdgeValue = null!;
     private Label _graphNodeValue = null!;
 
@@ -35,6 +36,7 @@ public partial class DebugPanel : PanelContainer
         _geometryValue = GetNode<Label>("PanelMargin/Rows/DebugContent/GeometryRow/GeometryValue");
         _selfLoopValue = GetNode<Label>("PanelMargin/Rows/DebugContent/SelfLoopRow/SelfLoopValue");
         _parallelValue = GetNode<Label>("PanelMargin/Rows/DebugContent/ParallelRow/ParallelValue");
+        _queryFragmentValue = GetNode<Label>("PanelMargin/Rows/DebugContent/QueryRow/QueryValue");
         _graphEdgeValue = GetNode<Label>("PanelMargin/Rows/DebugContent/GraphEdgeRow/GraphEdgeValue");
         _graphNodeValue = GetNode<Label>("PanelMargin/Rows/DebugContent/GraphNodeRow/GraphNodeValue");
 
@@ -88,6 +90,7 @@ public partial class DebugPanel : PanelContainer
             _geometryValue.Text = diagnostics.GeometrySegmentCount.ToString();
             _selfLoopValue.Text = diagnostics.SelfLoopCount.ToString();
             _parallelValue.Text = diagnostics.ParallelEdgeCount.ToString();
+            _queryFragmentValue.Text = diagnostics.QueryFragmentCount.ToString();
             return;
         }
 
@@ -99,6 +102,7 @@ public partial class DebugPanel : PanelContainer
             _geometryValue.Text = "--";
             _selfLoopValue.Text = "--";
             _parallelValue.Text = "--";
+            _queryFragmentValue.Text = "--";
             return;
         }
 
@@ -107,6 +111,7 @@ public partial class DebugPanel : PanelContainer
         _geometryValue.Text = "--";
         _selfLoopValue.Text = "--";
         _parallelValue.Text = "--";
+        _queryFragmentValue.Text = "--";
     }
 
     private void ToggleDebugContent()

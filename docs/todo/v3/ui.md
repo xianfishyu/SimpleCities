@@ -68,8 +68,9 @@
 ### 2026-08-13：1.3 DebugPanel 隐藏时零轮询（部分）
 
 - `DebugPanel.UpdateMetrics` 在 `DebugContent` 隐藏时直接返回；V3 诊断仅在 `ChangeSequence` 变化时刷新文本，避免隐藏时逐帧轮询诊断或全图。
+- `DebugPanel` 新增 `QueryRow`，显示 `RoadGraphV3Diagnostics.QueryFragmentCount`（当前按 line primitive 计算）。
 - 验证：Godot `MapTest` 冻结运行后显示面板 `node=0 edge=0`；隐藏后继续步进标签保持 `0`；`command_center_runtime_contract.gd` 已更新为 V3 指标并 headless 输出 `PASS command center runtime contract`（含 1600x900、640x480、435x480 视口断言）；完整测试套件 1250/1250 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
-- 尚未完成：query fragment 指标（依赖空间索引接入）。
+- 尚未完成：曲线 primitive 的 query fragment 计数与空间索引完整接入。
 
 ## 执行顺序
 
