@@ -190,6 +190,12 @@
 - 完整测试套件 1227/1227 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot `MapTest` 冻结运行无新增错误。
 - 尚未完成：真实鼠标拖拽的自动化输入验收与端到端工具验收。
 
+### 2026-08-13：2.2 统一表面命中解析（部分）
+
+- `RoadGraphV3Application.TryFindClosestSurfaceHit` 现在同时考虑 Ribbon、JunctionPatch 与 SemanticJoin，并选择最近的有效命中；工具路由器通过同一入口即可命中 junction/semantic owner。
+- 完整测试套件 1234/1234 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实输入自动化与端到端工具验收。
+
 ## 执行顺序
 
 ### 阶段 3：第三代闭环、类型化建造与道路改造

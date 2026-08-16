@@ -394,18 +394,32 @@ public sealed class RoadGraphV3Application
         float maxDistance,
         out RoadSurfaceHit hit)
     {
-        if (!RoadSurfaceHitTester.TryFindClosest(
-                Controller.Facade.Revision,
-                Controller.Facade.CurrentToken,
-                point,
-                maxDistance,
-                out RoadSurfaceHit candidate))
+        GraphStateToken token = Controller.Facade.CurrentToken;
+        RoadGraphV3Revision revision = Controller.Facade.Revision;
+        RoadSurfaceHit? best = null;
+
+        if (RoadSurfaceHitTester.TryFindClosest(revision, token, point, maxDistance, out RoadSurfaceHit ribbon))
+            best = ribbon;
+
+        if (RoadSurfaceHitTester.TryFindClosestJunction(revision, token, point, maxDistance, out RoadSurfaceHit junction) &&
+            (best is null || junction.DistanceSquared < best.DistanceSquared))
+        {
+            best = junction;
+        }
+
+        if (RoadSurfaceHitTester.TryFindClosestSemanticJoin(revision, token, point, maxDistance, out RoadSurfaceHit semantic) &&
+            (best is null || semantic.DistanceSquared < best.DistanceSquared))
+        {
+            best = semantic;
+        }
+
+        if (best is null)
         {
             hit = null!;
             return false;
         }
 
-        return HitProvider.TryResolve(candidate, out hit);
+        return HitProvider.TryResolve(best, out hit);
     }
 
     public bool TryFindSurfaceHitsInRect(
