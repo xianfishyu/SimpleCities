@@ -511,11 +511,13 @@ public partial class PauseMenu : Control
                 }
                 else
                 {
+                    UpdateSaveActionAvailability();
                     ShowSaveStatus(state.Error ?? "新建存档失败", success: false);
                 }
             }
             catch (Exception e)
             {
+                UpdateSaveActionAvailability();
                 ShowSaveStatus(e.Message, success: false);
             }
 
