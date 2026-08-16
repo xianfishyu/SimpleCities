@@ -377,6 +377,19 @@ public sealed class RoadToolInputRouterTests
     }
 
     [Fact]
+    public void HandleSelectionHits_Upgrade_WithNullHit_Skips()
+    {
+        var router = CreateRouter();
+        router.SwitchTool(RoadToolType.Upgrade);
+
+        int selected = router.HandleSelectionHits([null!, CreateHit()], upgrade: true);
+
+        Assert.Equal(1, selected);
+        Assert.True(router.TryTakeUpgradeSession(out RoadUpgradeSessionV3 session));
+        Assert.Equal([20], session.SelectedEdgeIDs);
+    }
+
+    [Fact]
     public void HandleSelectionHits_Upgrade_AllInvalid_DoesNotCreateSession()
     {
         var router = CreateRouter();
