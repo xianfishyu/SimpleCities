@@ -155,6 +155,16 @@ public sealed class RoadToolInputRouterTests
     }
 
     [Fact]
+    public void TryTakePlacementSession_AfterCancel_ReturnsFalse()
+    {
+        var router = CreateRouter();
+        router.HandleLeftClick(Vector2.Zero, closeRadius: 10f, hitRadius: 10f);
+        router.Cancel();
+
+        Assert.False(router.TryTakePlacementSession(out _));
+    }
+
+    [Fact]
     public void Cancel_ClearsSessions()
     {
         var router = CreateRouter((_, _) => CreateHit());
