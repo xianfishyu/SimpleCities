@@ -16,6 +16,7 @@ public partial class RoadGraphV3Renderer : Node2D
     private IReadOnlyList<RoadRibbonMeshData> _cachedMeshes = [];
     private IReadOnlyList<RoadJunctionPatchData> _cachedPatches = [];
     private IReadOnlyList<RoadCapMeshData> _cachedCaps = [];
+    private IReadOnlyList<RoadSemanticJoinMeshData> _cachedSemanticJoins = [];
     private MeshInstance2D _meshLayer = null!;
 
     public MeshInstance2D? MeshLayer => _meshLayer;
@@ -25,12 +26,14 @@ public partial class RoadGraphV3Renderer : Node2D
     public int MeshVertexCount =>
         _cachedMeshes.Sum(mesh => mesh.Vertices.Count) +
         _cachedPatches.Sum(patch => patch.Outline.Count) +
-        _cachedCaps.Sum(cap => cap.Outline.Count);
+        _cachedCaps.Sum(cap => cap.Outline.Count) +
+        _cachedSemanticJoins.Sum(join => join.Vertices.Count);
 
     public int MeshIndexCount =>
         _cachedMeshes.Sum(mesh => mesh.Indices.Count) +
         _cachedPatches.Sum(patch => Math.Max(0, patch.Outline.Count - 2) * 3) +
-        _cachedCaps.Sum(cap => Math.Max(0, cap.Outline.Count - 2) * 3);
+        _cachedCaps.Sum(cap => Math.Max(0, cap.Outline.Count - 2) * 3) +
+        _cachedSemanticJoins.Sum(join => join.Indices.Count);
 
     public override void _Ready()
     {
@@ -47,6 +50,7 @@ public partial class RoadGraphV3Renderer : Node2D
         _cachedMeshes = plan.RibbonMeshes;
         _cachedPatches = plan.JunctionPatches;
         _cachedCaps = plan.CapMeshes;
+        _cachedSemanticJoins = plan.SemanticJoinMeshes;
         _lastToken = plan.Snapshot.Token;
         RebuildMesh();
     }
@@ -56,6 +60,7 @@ public partial class RoadGraphV3Renderer : Node2D
         _cachedMeshes = [];
         _cachedPatches = [];
         _cachedCaps = [];
+        _cachedSemanticJoins = [];
         _lastToken = null;
         RebuildMesh();
     }
@@ -74,6 +79,7 @@ public partial class RoadGraphV3Renderer : Node2D
         _cachedMeshes = system.Application.BuildDefaultRibbonMeshes(DisplayTolerance);
         _cachedPatches = system.Application.BuildDefaultJunctionPatches();
         _cachedCaps = system.Application.BuildDefaultCapMeshes();
+        _cachedSemanticJoins = system.Application.BuildDefaultSemanticJoinMeshes();
         RebuildMesh();
     }
 
@@ -84,7 +90,7 @@ public partial class RoadGraphV3Renderer : Node2D
         if (!plan.IsValid || !plan.HasMeshData)
             return false;
 
-        ArrayMesh? mesh = BuildMesh(plan.RibbonMeshes, plan.JunctionPatches, plan.CapMeshes);
+        ArrayMesh? mesh = BuildMesh(plan.RibbonMeshes, plan.JunctionPatches, plan.CapMeshes, plan.SemanticJoinMeshes);
         if (mesh is null)
             return false;
 
@@ -92,6 +98,7 @@ public partial class RoadGraphV3Renderer : Node2D
             plan.RibbonMeshes,
             plan.JunctionPatches,
             plan.CapMeshes,
+            plan.SemanticJoinMeshes,
             plan.Snapshot.Token,
             mesh);
         return true;
@@ -103,6 +110,7 @@ public partial class RoadGraphV3Renderer : Node2D
         _cachedMeshes = swap.RibbonMeshes;
         _cachedPatches = swap.JunctionPatches;
         _cachedCaps = swap.CapMeshes;
+        _cachedSemanticJoins = swap.SemanticJoinMeshes;
         _lastToken = swap.Token;
         _meshLayer.Mesh = swap.Mesh;
     }
@@ -110,7 +118,8 @@ public partial class RoadGraphV3Renderer : Node2D
     private static ArrayMesh? BuildMesh(
         IReadOnlyList<RoadRibbonMeshData> ribbonMeshes,
         IReadOnlyList<RoadJunctionPatchData> junctionPatches,
-        IReadOnlyList<RoadCapMeshData> capMeshes)
+        IReadOnlyList<RoadCapMeshData> capMeshes,
+        IReadOnlyList<RoadSemanticJoinMeshData> semanticJoinMeshes)
     {
         var vertices = new List<Vector2>();
         var colors = new List<Color>();
@@ -161,6 +170,15 @@ public partial class RoadGraphV3Renderer : Node2D
             }
         }
 
+        foreach (RoadSemanticJoinMeshData join in semanticJoinMeshes)
+        {
+            int baseVertex = vertices.Count;
+            vertices.AddRange(join.Vertices);
+            colors.AddRange(join.Colors);
+            foreach (int index in join.Indices)
+                indices.Add(baseVertex + index);
+        }
+
         if (vertices.Count == 0 || indices.Count == 0)
             return null;
 
@@ -177,7 +195,7 @@ public partial class RoadGraphV3Renderer : Node2D
 
     private void RebuildMesh()
     {
-        _meshLayer.Mesh = BuildMesh(_cachedMeshes, _cachedPatches, _cachedCaps);
+        _meshLayer.Mesh = BuildMesh(_cachedMeshes, _cachedPatches, _cachedCaps, _cachedSemanticJoins);
     }
 }
 
@@ -189,6 +207,7 @@ public sealed class RoadGraphV3RendererPreparedSwap
     public IReadOnlyList<RoadRibbonMeshData> RibbonMeshes { get; }
     public IReadOnlyList<RoadJunctionPatchData> JunctionPatches { get; }
     public IReadOnlyList<RoadCapMeshData> CapMeshes { get; }
+    public IReadOnlyList<RoadSemanticJoinMeshData> SemanticJoinMeshes { get; }
     public GraphStateToken Token { get; }
     public ArrayMesh Mesh { get; }
 
@@ -196,12 +215,14 @@ public sealed class RoadGraphV3RendererPreparedSwap
         IReadOnlyList<RoadRibbonMeshData> ribbonMeshes,
         IReadOnlyList<RoadJunctionPatchData> junctionPatches,
         IReadOnlyList<RoadCapMeshData> capMeshes,
+        IReadOnlyList<RoadSemanticJoinMeshData> semanticJoinMeshes,
         GraphStateToken token,
         ArrayMesh mesh)
     {
         RibbonMeshes = ribbonMeshes ?? throw new ArgumentNullException(nameof(ribbonMeshes));
         JunctionPatches = junctionPatches ?? throw new ArgumentNullException(nameof(junctionPatches));
         CapMeshes = capMeshes ?? throw new ArgumentNullException(nameof(capMeshes));
+        SemanticJoinMeshes = semanticJoinMeshes ?? throw new ArgumentNullException(nameof(semanticJoinMeshes));
         Token = token;
         Mesh = mesh ?? throw new ArgumentNullException(nameof(mesh));
     }

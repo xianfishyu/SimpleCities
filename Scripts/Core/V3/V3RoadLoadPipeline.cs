@@ -229,12 +229,20 @@ public static class V3RoadLoadPipeline
                     capMeshes.Add(cap);
             }
 
+            var semanticJoinMeshes = new List<RoadSemanticJoinMeshData>();
+            foreach (int nodeID in load.Revision.Nodes.Keys.Order())
+            {
+                if (RoadSemanticJoinBuilder.TryBuild(load.Revision, styles, nodeID, out RoadSemanticJoinMeshData join))
+                    semanticJoinMeshes.Add(join);
+            }
+
             presentationPlan = RoadPresentationFullReset.Create(
                 desiredPresentationToken.Value,
                 surface.Snapshot,
                 ribbonMeshes,
                 junctionPatches,
-                capMeshes);
+                capMeshes,
+                semanticJoinMeshes);
         }
 
         V3ToolLoadParticipant? toolParticipant = null;

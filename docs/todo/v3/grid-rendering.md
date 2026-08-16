@@ -322,6 +322,13 @@
 - 新增 4 个 xUnit 用例；完整测试套件 1239/1239 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot `MapTest` 冻结运行无新增错误。
 - 尚未完成：端帽与混合宽度 junction 的像素/owner 等价验证。
 
+### 2026-08-13：2.2 semantic join 网格数据与渲染接入（部分）
+
+- 新增 `RoadSemanticJoinMeshData` / `RoadSemanticJoinBuilder`：对 degree-2 且两侧 RoadType 不同的节点生成带两侧颜色的四边形过渡 mesh。
+- `RoadPresentationFullReset` / `RoadGraphV3Application` / `V3RoadLoadPipeline` / `RoadGraphV3Renderer` 接入 `SemanticJoinMeshes`，Load Preflight 隐藏 mesh 也包含语义过渡。
+- 新增 4 个 xUnit 用例；完整测试套件 1244/1244 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot `MapTest` 冻结运行无新增错误。
+- 尚未完成：锐角/近共线语义过渡的像素与 owner 等价验证。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁

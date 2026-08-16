@@ -371,6 +371,22 @@ public sealed class RoadGraphV3Application
     public IReadOnlyList<RoadCapMeshData> BuildDefaultCapMeshes() =>
         BuildCapMeshes(DefaultStyles);
 
+    public IReadOnlyList<RoadSemanticJoinMeshData> BuildSemanticJoinMeshes(RoadStyleProvider styles)
+    {
+        ArgumentNullException.ThrowIfNull(styles);
+        var joins = new List<RoadSemanticJoinMeshData>();
+        foreach (int nodeID in Revision.Nodes.Keys.Order())
+        {
+            if (RoadSemanticJoinBuilder.TryBuild(Revision, styles, nodeID, out RoadSemanticJoinMeshData join))
+                joins.Add(join);
+        }
+
+        return joins;
+    }
+
+    public IReadOnlyList<RoadSemanticJoinMeshData> BuildDefaultSemanticJoinMeshes() =>
+        BuildSemanticJoinMeshes(DefaultStyles);
+
     public RoadSurfaceSnapshotBuildResult BuildDefaultSurfaceSnapshot() =>
         BuildSurfaceSnapshot(DefaultStyles);
 
@@ -403,7 +419,8 @@ public sealed class RoadGraphV3Application
             surface.Snapshot,
             BuildRibbonMeshes(styles),
             BuildJunctionPatches(styles),
-            BuildCapMeshes(styles));
+            BuildCapMeshes(styles),
+            BuildSemanticJoinMeshes(styles));
     }
 
     public bool TryFindClosestSurfaceHit(
