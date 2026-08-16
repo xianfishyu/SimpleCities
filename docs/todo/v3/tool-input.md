@@ -98,6 +98,13 @@
 - 新增 2 个 xUnit 用例；完整测试套件 1117/1117 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：`RoadGraphV3Application` 的 aggregate Load commit 与 renderer participant。
 
+### 2026-08-13：2.0 闭合自交检测与提交前校验（部分）
+
+- `RoadPlacementSessionV3` 重构自交检测为 `PathHasSelfIntersection`，新增 `HasClosedSelfIntersection(pointer, closeRadius)`；闭合预览的首尾 seam 相邻段不再误报自交，开放折线的首尾交叉仍正常检测。
+- `RoadGraphV3InputHandler` 改为先用 `TryGetClosedDraft` 生成闭合预览并校验自交，通过后才 `TryClose` 并提交，失败不会把会话留在已闭合状态。
+- 新增 3 个 xUnit 用例；完整测试套件 1130/1130 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
+- 尚未完成：`RoadBuilder` 真实接线、完整工具生命周期与真实 surface hit 输入路由。
+
 ## 执行顺序
 
 ### 阶段 3：第三代闭环、类型化建造与道路改造

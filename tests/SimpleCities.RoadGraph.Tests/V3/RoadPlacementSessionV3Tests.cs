@@ -231,4 +231,36 @@ public sealed class RoadPlacementSessionV3Tests
         Assert.Throws<System.ArgumentOutOfRangeException>(
             () => session.TryGetClosedDraft(new Vector2(0.1f, 0f), -1f, out _));
     }
+
+    [Fact]
+    public void HasClosedSelfIntersection_ClosingSegmentCrosses_ReturnsTrue()
+    {
+        var session = new RoadPlacementSessionV3(RoadType.Street, Vector2.Zero);
+        session.TryAddPoint(new Vector2(2f, 0f));
+        session.TryAddPoint(new Vector2(0f, 1f));
+        session.TryAddPoint(new Vector2(2f, 2f));
+
+        Assert.False(session.HasSelfIntersection);
+        Assert.True(session.HasClosedSelfIntersection(new Vector2(0.1f, 0.1f), 0.2f));
+    }
+
+    [Fact]
+    public void HasClosedSelfIntersection_SimpleClosedPath_ReturnsFalse()
+    {
+        var session = new RoadPlacementSessionV3(RoadType.Street, Vector2.Zero);
+        session.TryAddPoint(new Vector2(2f, 0f));
+        session.TryAddPoint(new Vector2(2f, 2f));
+        session.TryAddPoint(new Vector2(0f, 2f));
+
+        Assert.False(session.HasClosedSelfIntersection(new Vector2(0.1f, 0.1f), 0.2f));
+    }
+
+    [Fact]
+    public void HasClosedSelfIntersection_OutsideRadius_Fails()
+    {
+        var session = new RoadPlacementSessionV3(RoadType.Street, Vector2.Zero);
+        session.TryAddPoint(new Vector2(1f, 0f));
+
+        Assert.False(session.HasClosedSelfIntersection(new Vector2(2f, 0f), 0.2f));
+    }
 }

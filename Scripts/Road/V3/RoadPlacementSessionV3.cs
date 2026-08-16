@@ -23,32 +23,39 @@ public sealed class RoadPlacementSessionV3
 
     public RoadPathDraft CurrentDraft => BuildDraft();
 
-    public bool HasSelfIntersection
+    public bool HasSelfIntersection =>
+        CurrentDraft.Path is not null && PathHasSelfIntersection(CurrentDraft.Path);
+
+    public bool HasClosedSelfIntersection(Vector2 pointerPosition, float closeRadius)
     {
-        get
-        {
-            RoadPath? path = CurrentDraft.Path;
-            if (path is null)
-                return false;
-
-            var segments = path.Segments.Where(segment => segment is not null).Select(segment => segment!).ToList();
-            for (int index = 0; index < segments.Count; index++)
-            {
-                for (int other = index + 1; other < segments.Count; other++)
-                {
-                    if (other == index + 1)
-                        continue;
-                    if (SegmentsIntersect(
-                            segments[index].Start,
-                            segments[index].End,
-                            segments[other].Start,
-                            segments[other].End))
-                        return true;
-                }
-            }
-
+        if (!TryGetClosedDraft(pointerPosition, closeRadius, out RoadPathDraft draft) || draft.Path is null)
             return false;
+        return PathHasSelfIntersection(draft.Path);
+    }
+
+    private static bool PathHasSelfIntersection(RoadPath path)
+    {
+        var segments = path.Segments.Where(segment => segment is not null).Select(segment => segment!).ToList();
+        for (int index = 0; index < segments.Count; index++)
+        {
+            for (int other = index + 1; other < segments.Count; other++)
+            {
+                if (other == index + 1)
+                    continue;
+                if (index == 0 &&
+                    other == segments.Count - 1 &&
+                    segments[other].End == segments[0].Start)
+                    continue;
+                if (SegmentsIntersect(
+                        segments[index].Start,
+                        segments[index].End,
+                        segments[other].Start,
+                        segments[other].End))
+                    return true;
+            }
         }
+
+        return false;
     }
 
     public RoadPlacementSessionV3(RoadType roadType, Vector2 startPosition)
