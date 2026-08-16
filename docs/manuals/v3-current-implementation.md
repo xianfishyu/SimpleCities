@@ -97,6 +97,7 @@
 - 渲染：`tests/SimpleCities.RoadGraph.Tests/V3/RoadRibbonBuilderTests.cs`、`RoadCapBuilderTests.cs`、`RoadSemanticJoinBuilderTests.cs`、`RoadSurfaceHitTesterTests.cs`
 - 工具：`tests/SimpleCities.RoadGraph.Tests/V3/RoadToolInputRouterTests.cs`、`RoadToolCommandExecutorTests.cs`、`RoadPlacementSessionV3Tests.cs`
 - UI 契约：`tests/godot/command_center_runtime_contract.gd`
+- M4 存档 UI：`V3SaveOperationUiStateTests`、`V3SaveOperationControllerTests`、`V3SaveOperationUiCoordinatorTests`、`V3AsyncSaveOperationCoordinatorTests`、`V3SaveOperationBackendTests`、`V3SaveSlotUiSummaryTests`、`PauseMenuContractTests`
 
 ## 9. 架构组件关系
 
