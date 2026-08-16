@@ -15,6 +15,11 @@
 | 2.3 | 64 项历史为每项保留 before/after 完整 JSON | 开放 | 消费 mutation delta，以 entry/字节双预算替换全图字符串 |
 | 2.4 | 外部 Load 可能让旧图工具状态或旧画面继续接受输入 | 开放 | full-reset Preflight 预建空工具 root，并在联合 commit 中一次接管 |
 
+### 当前落地摘要（2026-08-16）
+
+- `RoadPlacementSessionV3` / `RoadUpgradeSessionV3` / `RoadRemovalSessionV3`、`RoadToolState`、`RoadToolInputRouter`、`RoadToolCommandExecutor` 与 `RoadGraphV3InputHandler` 已落地，支持闭环草稿、类型化建造、改造/拆除选择、矩形批量选择与 U/P/R 工具切换。
+- RoadUpgrade 已具备 UI 入口、`ToolManager` 同步与 U 快捷键；切换 RoadType 会取消未提交铺路并同步改造目标。真实 surface hit 端到端与有界 delta 历史仍开放。
+
 ### 设计覆盖矩阵
 
 | 设计范围 | 当前事实 | 关联待办 |
