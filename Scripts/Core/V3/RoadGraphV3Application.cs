@@ -501,6 +501,9 @@ public sealed class RoadGraphV3Application
     public V3ManifestFile? GetCurrentSlotFile(string fileName) =>
         CurrentSlotFiles.FirstOrDefault(file => string.Equals(file.Name, fileName, StringComparison.Ordinal));
 
+    public long? GetCurrentSlotFileSize(string fileName) =>
+        GetCurrentSlotFile(fileName)?.EncodedLength;
+
     public bool CurrentSlotHasRoadNetwork =>
         GetCurrentSlotFile(V3RoadSlotFactory.RoadNetworkFileName) is not null;
 

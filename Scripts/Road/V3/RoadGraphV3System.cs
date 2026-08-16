@@ -55,6 +55,9 @@ public partial class RoadGraphV3System : Node2D
     public System.Collections.Generic.IReadOnlyList<SimpleCities.Core.V3.V3ManifestFile> CurrentSlotFiles => Application.CurrentSlotFiles;
     public SimpleCities.Core.V3.V3ManifestFile? GetCurrentSlotFile(string fileName) =>
         Application.GetCurrentSlotFile(fileName);
+
+    public long? GetCurrentSlotFileSize(string fileName) =>
+        Application.GetCurrentSlotFileSize(fileName);
     public bool CurrentSlotHasRoadNetwork => Application.CurrentSlotHasRoadNetwork;
     public SimpleCities.Core.V3.V3ManifestFile? CurrentSlotRoadNetworkFile => Application.CurrentSlotRoadNetworkFile;
     public string? CurrentSlotRoadNetworkJson => Application.CurrentSlotRoadNetworkJson;
