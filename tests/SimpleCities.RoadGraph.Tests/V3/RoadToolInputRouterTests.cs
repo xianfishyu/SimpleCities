@@ -632,6 +632,21 @@ public sealed class RoadToolInputRouterTests
     }
 
     [Fact]
+    public void HandleSelectionRect_Remove_AllNullHits_DoesNotCreateSession()
+    {
+        var router = CreateRouter();
+        router.SwitchTool(RoadToolType.Remove);
+
+        int selected = router.HandleSelectionRect(
+            new Rect2(0f, 0f, 10f, 10f),
+            _ => [null!, null!],
+            upgrade: false);
+
+        Assert.Equal(0, selected);
+        Assert.False(router.IsSelecting);
+    }
+
+    [Fact]
     public void HandleSelectionRect_Remove_WithNullHit_Skips()
     {
         var router = CreateRouter();
