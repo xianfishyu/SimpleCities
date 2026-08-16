@@ -115,6 +115,13 @@
 - 新增 `PauseMenuContractTests` 文本契约验证 `ConfigureV3Backend` / `IV3SaveOperationBackend` / `V3SaveOperationController` / `V3SaveSlotUiSummary` 接线。
 - 尚未实现真正异步后台 I/O；当前底层仍是同步 bool 包装，但 UI 状态机与 token/result 契约已接入。`1.4` 仍开放。
 
+### 2026-08-16：M4 集成——V3SaveOperationUiCoordinator 统一操作入口（部分）
+
+- 新增 `Scripts/UI/V3SaveOperationUiCoordinator.cs`：把 `IV3SaveOperationBackend` 与 `V3SaveOperationController` 组合为 `SaveAs` / `Save` / `Load` / `Delete` / `RequestCancel` / `Reset` 入口，busy 时不再调用后端。
+- `PauseMenu` 改用 `_v3Coordinator` 执行 V3 操作，移除内联 `TryBeginV3Operation` 分支，减少重复逻辑。
+- 新增 `tests/SimpleCities.RoadGraph.Tests/V3SaveOperationUiCoordinatorTests.cs`：使用 fake backend 覆盖 SaveAs、busy 不调用后端、Load/Delete、RequestCancel、Reset。
+- 尚未实现真正异步后台 I/O；`1.4` 仍开放。
+
 ## 执行顺序
 
 ### 阶段 7：第三代道路控件、诊断与存档交互

@@ -75,6 +75,7 @@ public partial class PauseMenu : Control
     private readonly List<V3SaveSlotUiSummary> _v3SaveSlots = new();
     private readonly V3SaveOperationController _operationController = new();
     private IV3SaveOperationBackend? _v3Backend;
+    private V3SaveOperationUiCoordinator? _v3Coordinator;
     private long _sceneGeneration = 1;
     private int _selectedSaveSlotIndex = -1;
     private bool _focusSaveNameOnViewOpen;
@@ -171,6 +172,9 @@ public partial class PauseMenu : Control
     public void ConfigureV3Backend(IV3SaveOperationBackend? backend)
     {
         _v3Backend = backend;
+        _v3Coordinator = backend != null
+            ? new V3SaveOperationUiCoordinator(backend, _operationController, _sceneGeneration)
+            : null;
         _operationController.Reset();
     }
 
@@ -475,27 +479,26 @@ public partial class PauseMenu : Control
             return;
         }
 
-        IV3SaveOperationBackend? v3Backend = ActiveV3Backend();
-        if (v3Backend != null)
+        V3SaveOperationUiCoordinator? v3Coordinator = ActiveV3Coordinator();
+        if (v3Coordinator != null)
         {
-            if (!TryBeginV3Operation(V3SaveOperationKind.Publish))
-            {
-                ShowSaveStatus("存档操作进行中", success: false);
-                return;
-            }
-
-            V3SaveOperationResult result = v3Backend.SaveAs(
+            V3SaveOperationUiState state = v3Coordinator.SaveAs(
                 displayName,
                 displayName,
                 DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture),
                 null,
                 null,
                 null);
-            V3SaveOperationUiState state = _operationController.Complete(result);
+            if (state.IsBusy || state.Phase == V3SaveOperationUiPhase.Cancelling)
+            {
+                ShowSaveStatus("存档操作进行中", success: false);
+                return;
+            }
+
             if (state.IsComplete)
             {
                 _saveNameInput.Text = string.Empty;
-                RefreshSaveSlots(v3Backend.CurrentSlotID);
+                RefreshSaveSlots(ActiveV3Backend()?.CurrentSlotID);
                 ShowSaveStatus($"已创建“{displayName}”", success: true);
             }
             else
@@ -622,19 +625,19 @@ public partial class PauseMenu : Control
 
     private void OverwriteConfirmedSave()
     {
-        IV3SaveOperationBackend? v3Backend = ActiveV3Backend();
+        V3SaveOperationUiCoordinator? v3Coordinator = ActiveV3Coordinator();
         string? slotID = _confirmationSlotID;
         string displayName = _confirmationDisplayName;
-        if (v3Backend != null)
+        if (v3Coordinator != null)
         {
-            if (slotID == null || !TryBeginV3Operation(V3SaveOperationKind.Publish))
+            if (slotID == null)
             {
                 ShowSaveManagementView(focusName: false);
                 ShowSaveStatus("覆盖存档失败", success: false);
                 return;
             }
 
-            V3SaveOperationResult result = v3Backend.Save(
+            V3SaveOperationUiState state = v3Coordinator.Save(
                 slotID,
                 displayName,
                 displayName,
@@ -642,7 +645,6 @@ public partial class PauseMenu : Control
                 null,
                 null,
                 null);
-            V3SaveOperationUiState state = _operationController.Complete(result);
             ShowSaveManagementView(focusName: false);
             ShowSaveStatus(
                 state.IsComplete ? $"已覆盖“{displayName}”" : state.Error ?? "覆盖存档失败",
@@ -658,20 +660,19 @@ public partial class PauseMenu : Control
 
     private void LoadConfirmedSave()
     {
-        IV3SaveOperationBackend? v3Backend = ActiveV3Backend();
+        V3SaveOperationUiCoordinator? v3Coordinator = ActiveV3Coordinator();
         string? slotID = _confirmationSlotID;
         string displayName = _confirmationDisplayName;
-        if (v3Backend != null)
+        if (v3Coordinator != null)
         {
-            if (slotID == null || !TryBeginV3Operation(V3SaveOperationKind.Load))
+            if (slotID == null)
             {
                 ShowSaveManagementView(focusName: false);
                 ShowSaveStatus("加载存档失败", success: false);
                 return;
             }
 
-            V3SaveOperationResult result = v3Backend.Load(slotID, lineageID: 1);
-            V3SaveOperationUiState state = _operationController.Complete(result);
+            V3SaveOperationUiState state = v3Coordinator.Load(slotID, lineageID: 1);
             ShowSaveManagementView(focusName: false);
             ShowSaveStatus(
                 state.IsComplete ? $"已加载“{displayName}”" : state.Error ?? "加载存档失败",
@@ -687,20 +688,19 @@ public partial class PauseMenu : Control
 
     private void DeleteConfirmedSave()
     {
-        IV3SaveOperationBackend? v3Backend = ActiveV3Backend();
+        V3SaveOperationUiCoordinator? v3Coordinator = ActiveV3Coordinator();
         string? slotID = _confirmationSlotID;
         string displayName = _confirmationDisplayName;
-        if (v3Backend != null)
+        if (v3Coordinator != null)
         {
-            if (slotID == null || !TryBeginV3Operation(V3SaveOperationKind.Delete))
+            if (slotID == null)
             {
                 ShowSaveManagementView(focusName: false);
                 ShowSaveStatus("删除存档失败", success: false);
                 return;
             }
 
-            V3SaveOperationResult result = v3Backend.Delete(slotID);
-            V3SaveOperationUiState state = _operationController.Complete(result);
+            V3SaveOperationUiState state = v3Coordinator.Delete(slotID);
             ShowSaveManagementView(focusName: false);
             ShowSaveStatus(
                 state.IsComplete ? $"已删除“{displayName}”" : state.Error ?? "删除存档失败",
@@ -932,8 +932,7 @@ public partial class PauseMenu : Control
 
     private IV3SaveOperationBackend? ActiveV3Backend() => _v3Backend;
 
-    private bool TryBeginV3Operation(V3SaveOperationKind kind) =>
-        _operationController.TryBegin(kind, _sceneGeneration);
+    private V3SaveOperationUiCoordinator? ActiveV3Coordinator() => _v3Coordinator;
 
     private SaveManager? ActiveSaveManager()
     {
