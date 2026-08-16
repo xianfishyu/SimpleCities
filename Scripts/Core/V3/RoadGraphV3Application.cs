@@ -56,6 +56,7 @@ public sealed class RoadGraphV3Application
     public bool CurrentSlotIsAbsent => CurrentSlotOccupant == V3SlotOccupant.Absent;
     public bool CurrentSlotIsUnsafe => CurrentSlotOccupant == V3SlotOccupant.Unsafe;
     public bool CurrentSlotIsForeign => CurrentSlotOccupant == V3SlotOccupant.Foreign;
+    public bool CurrentSlotIsOperable => CurrentSlotIsComplete || CurrentSlotIsCorrupt;
 
     public RoadGraphV3Application(
         string root,
