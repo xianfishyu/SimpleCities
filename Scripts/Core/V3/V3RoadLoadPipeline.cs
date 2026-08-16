@@ -10,6 +10,8 @@ public sealed record V3RoadLoadPipelineResult(
     V3LoadPhase Phase,
     string? Error)
 {
+    public RoadToolFullReset? ToolPlan { get; init; }
+
     public static V3RoadLoadPipelineResult Failure(V3LoadPhase phase, string error) =>
         new(false, null, phase, error);
 }
@@ -27,7 +29,8 @@ public static class V3RoadLoadPipeline
         string root,
         RoadGraphCapacity capacity,
         V3PayloadBudget budget,
-        long lineageID = 1)
+        long lineageID = 1,
+        RoadToolState? preservedToolState = null)
     {
         ArgumentNullException.ThrowIfNull(root);
 
@@ -73,7 +76,10 @@ public static class V3RoadLoadPipeline
             return V3RoadLoadPipelineResult.Failure(protocol.Phase, "CompleteRejected");
         }
 
-        return new V3RoadLoadPipelineResult(true, controller, protocol.Phase, null);
+        return new V3RoadLoadPipelineResult(true, controller, protocol.Phase, null)
+        {
+            ToolPlan = preservedToolState is null ? null : RoadToolFullReset.Prepare(preservedToolState),
+        };
     }
 
     public static bool TryLoadIntoController(
@@ -92,5 +98,25 @@ public static class V3RoadLoadPipeline
 
         controller.ReplaceWithFullReset(result.Controller.Facade.Revision, newLineageID);
         return true;
+    }
+
+    public static bool TryLoadIntoController(
+        string slotId,
+        string root,
+        RoadGraphCapacity capacity,
+        V3PayloadBudget budget,
+        RoadGraphV3Controller controller,
+        RoadToolState toolState,
+        long newLineageID = 1)
+    {
+        ArgumentNullException.ThrowIfNull(controller);
+        ArgumentNullException.ThrowIfNull(toolState);
+
+        V3RoadLoadPipelineResult result = Load(slotId, root, capacity, budget, newLineageID, toolState);
+        if (!result.Success || result.Controller is null || result.ToolPlan is null)
+            return false;
+
+        controller.ReplaceWithFullReset(result.Controller.Facade.Revision, newLineageID);
+        return result.ToolPlan.TryApplyTo(toolState);
     }
 }

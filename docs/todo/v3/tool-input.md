@@ -86,6 +86,12 @@
 - 新增 5 个 xUnit 用例；完整测试套件 1113/1113 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：将 empty tool root 接入 `V3RoadLoadPipeline` / `RoadGraphV3Application` 的 aggregate Load commit。
 
+### 2026-08-13：2.3/2.4 道路 Load 管线携带 empty tool root 计划（部分）
+
+- `V3RoadLoadPipelineResult` 新增 `ToolPlan`；`Load` 支持传入 `RoadToolState` 生成 `RoadToolFullReset`，并新增 `TryLoadIntoController` 重载在 full reset 后应用 empty tool root。
+- 新增 2 个 xUnit 用例；完整测试套件 1115/1115 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：`RoadGraphV3Application` 的 aggregate Load commit 与 renderer participant。
+
 ## 执行顺序
 
 ### 阶段 3：第三代闭环、类型化建造与道路改造
