@@ -883,6 +883,17 @@ public partial class PauseMenu : Control
 
     private void UpdateSaveActionAvailability()
     {
+        if (_operationController.IsBusy)
+        {
+            _saveAsButton.Disabled = true;
+            _overwriteSaveButton.Disabled = true;
+            _loadSaveButton.Disabled = true;
+            _deleteSaveButton.Disabled = true;
+            return;
+        }
+
+        _saveAsButton.Disabled = ActiveV3Backend() == null && ActiveSaveManager() == null;
+
         if (ActiveV3Backend() != null)
         {
             V3SaveSlotUiSummary? v3Summary = SelectedV3SaveSlot();
