@@ -195,6 +195,30 @@ public sealed class V3SaveOperationBackendTests
     }
 
     [Fact]
+    public void Load_AfterDelete_ReturnsFailedBeforeCommit()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            var backend = new V3ApplicationSaveOperationBackend(app);
+            backend.SaveAs("City", "City", "2026-08-16T00:00:00.0000000Z", null, null, null);
+            string slotId = app.CurrentSlotID;
+            backend.Delete(slotId);
+
+            V3SaveOperationResult result = backend.Load(slotId, lineageID: 1);
+
+            Assert.False(result.Success);
+            Assert.False(result.CommitCompleted);
+            Assert.Equal(V3SaveOperationPhase.Prepare, result.Phase);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void Delete_MissingSlot_ReturnsFailedBeforeCommit()
     {
         string root = GetTempRoot();
