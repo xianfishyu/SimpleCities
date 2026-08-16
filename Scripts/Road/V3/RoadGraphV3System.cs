@@ -163,6 +163,12 @@ public partial class RoadGraphV3System : Node2D
     public bool TryRemoveEdge(int edgeID, out RoadGraphV3ChangeSummary summary) =>
         Application.TryRemoveEdge(edgeID, out summary);
 
+    public bool TryPrepareLoad(
+        string slotId,
+        long lineageID,
+        out SimpleCities.Core.V3.V3RoadLoadPrepareResult? prepare) =>
+        Application.TryPrepareLoad(slotId, lineageID, out prepare);
+
     public bool Load(string slotId, long lineageID = 1)
     {
         if (!Application.Load(slotId, lineageID))

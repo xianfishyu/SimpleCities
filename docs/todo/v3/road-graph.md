@@ -294,6 +294,12 @@
 - 完整测试套件 1182/1182 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
 - 尚未完成：替换 V2 RoadSystem 与端到端验收。
 
+### 2026-08-13：8.6 场景根节点暴露 Load Preflight（部分）
+
+- `RoadGraphV3System` 新增 `TryPrepareLoad` 转发入口，场景层可在 commit 前获取 Preflight 计划。
+- 完整测试套件 1206/1206 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
+- 尚未完成：替换 V2 RoadSystem 与端到端验收。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成
