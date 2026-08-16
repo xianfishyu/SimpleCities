@@ -21,6 +21,7 @@ public sealed class V3SaveOperationUiCoordinatorTests
 
         Assert.True(state.IsComplete);
         Assert.Equal(V3SaveOperationKind.Publish, state.Kind);
+        Assert.True(state.IsTerminal);
         Assert.Equal(1, backend.SaveAsCalls);
         Assert.Equal("City", backend.LastDisplayName);
     }
