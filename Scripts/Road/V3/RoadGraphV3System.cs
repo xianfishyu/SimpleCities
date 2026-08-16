@@ -248,6 +248,9 @@ public partial class RoadGraphV3System : Node2D
     public byte[]? GetPayload(string slotId, string fileName) =>
         Application.GetPayload(slotId, fileName);
 
+    public string? GetSlotFileHash(string slotId, string fileName) =>
+        Application.GetSlotFileHash(slotId, fileName);
+
     public byte[]? CurrentSlotPayload(string fileName) =>
         Application.CurrentSlotPayload(fileName);
 

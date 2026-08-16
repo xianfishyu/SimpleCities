@@ -543,6 +543,11 @@ public sealed class RoadGraphV3Application
     public byte[]? GetPayload(string slotId, string fileName) =>
         V3SlotPayloadService.GetPayload(slotId, _root, fileName);
 
+    public string? GetSlotFileHash(string slotId, string fileName) =>
+        GetManifest(slotId)?.Files
+            .FirstOrDefault(file => string.Equals(file.Name, fileName, StringComparison.Ordinal))
+            ?.Sha256;
+
     public byte[]? CurrentSlotPayload(string fileName) =>
         string.IsNullOrEmpty(CurrentSlotID) ? null : GetPayload(CurrentSlotID, fileName);
 
