@@ -126,6 +126,13 @@
 - 新增 1 个 xUnit 用例；完整测试套件 1127/1127 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实 mesh/ribbon、junction patch、renderer participant 与完整接管协议。
 
+### 2026-08-13：2.2 RoadRibbonMeshData 与 RoadRibbonBuilder（部分）
+
+- 新增 `RoadRibbonMeshData`：纯数据 ribbon 网格（顶点/三角形索引/逐顶点颜色）与有效性校验。
+- 新增 `RoadRibbonBuilder`：从权威 Edge 几何采样中心线，按 `RoadTypeStyle` 半宽生成左右顶点与三角形索引，支持直线与折角。
+- 新增 5 个 xUnit 用例；完整测试套件 1143/1143 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
+- 尚未完成：self-loop/平行 Edge 专用 ribbon、junction patch、真实 mesh 资源与完整接管协议。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁
