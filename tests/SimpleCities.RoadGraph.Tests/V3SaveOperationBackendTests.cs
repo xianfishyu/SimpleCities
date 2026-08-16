@@ -63,6 +63,36 @@ public sealed class V3SaveOperationBackendTests
     }
 
     [Fact]
+    public void Save_OverwriteExistingSlot_KeepsSingleSlot()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            var backend = new V3ApplicationSaveOperationBackend(app);
+            backend.SaveAs("First", "First", "2026-08-16T00:00:00.0000000Z", null, null, null);
+            string slotId = app.CurrentSlotID;
+
+            V3SaveOperationResult result = backend.Save(
+                slotId,
+                "Second",
+                "Second",
+                "2026-08-16T00:00:00.0000000Z",
+                null,
+                null,
+                null);
+
+            Assert.True(result.Success);
+            Assert.Equal(1, backend.ListSlots().Count);
+            Assert.Equal("Second", backend.ListSlots().First(s => s.SlotId == slotId).DisplayName);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void Save_ReturnsCompletedPublishResult()
     {
         string root = GetTempRoot();
