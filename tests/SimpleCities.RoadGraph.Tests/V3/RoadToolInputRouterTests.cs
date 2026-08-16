@@ -45,6 +45,20 @@ public sealed class RoadToolInputRouterTests
     }
 
     [Fact]
+    public void SwitchTool_ClearsUpgradeSession()
+    {
+        var router = CreateRouter((_, _) => CreateHit());
+        router.SwitchTool(RoadToolType.Upgrade);
+        router.HandleLeftClick(new Vector2(5f, 0f), closeRadius: 10f, hitRadius: 10f);
+        Assert.True(router.IsSelecting);
+
+        router.SwitchTool(RoadToolType.Place);
+
+        Assert.False(router.IsSelecting);
+        Assert.Equal(RoadToolType.Place, router.CurrentTool);
+    }
+
+    [Fact]
     public void HandleLeftClick_Upgrade_SelectsHit()
     {
         var router = CreateRouter((_, _) => CreateHit());
