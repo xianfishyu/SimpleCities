@@ -100,6 +100,13 @@
 - 新增 `tests/SimpleCities.RoadGraph.Tests/V3SaveOperationBackendTests.cs`：覆盖 SaveAs/Save/Load/Delete 成功与 Delete 缺失失败。
 - 尚未接入 `PauseMenu`；`1.4` 仍开放。
 
+### 2026-08-16：M4 基础——V3SaveSlotUiSummary 槽展示模型（部分）
+
+- 新增 `Scripts/UI/V3SaveSlotUiSummary.cs`：将 `V3SlotSummary` 转换为 UI 展示模型，决定 `IsListable` / `CanLoadOrOverwrite` / `CanDelete` 与错误文案。
+- 规则：`CompleteV3` 可加载/覆盖/删除；`CorruptV3` 仅可删除；`Foreign` / `Unsafe` 不进入普通列表。
+- 新增 `tests/SimpleCities.RoadGraph.Tests/V3SaveSlotUiSummaryTests.cs`：覆盖 Complete/Corrupt/Foreign/Unsafe 四类。
+- 尚未接入 `PauseMenu`；`1.4` 仍开放。
+
 ## 执行顺序
 
 ### 阶段 7：第三代道路控件、诊断与存档交互
