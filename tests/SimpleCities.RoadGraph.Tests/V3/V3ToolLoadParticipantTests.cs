@@ -36,4 +36,24 @@ public sealed class V3ToolLoadParticipantTests
         Assert.True(participant.IsPrepared);
         Assert.False(participant.CanCommit);
     }
+
+    [Fact]
+    public void TryApplyTo_WhenPrepared_AppliesPlan()
+    {
+        var participant = V3ToolLoadParticipant.Prepare(
+            new RoadToolFullReset(RoadToolType.Upgrade, RoadType.Highway));
+        var state = new RoadToolState();
+
+        Assert.True(participant.TryApplyTo(state));
+        Assert.Equal(RoadToolType.Upgrade, state.CurrentTool);
+        Assert.Equal(RoadType.Highway, state.SelectedRoadType);
+    }
+
+    [Fact]
+    public void TryApplyTo_Unprepared_Fails()
+    {
+        V3ToolLoadParticipant participant = V3ToolLoadParticipant.Unprepared;
+
+        Assert.False(participant.TryApplyTo(new RoadToolState()));
+    }
 }

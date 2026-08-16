@@ -16,4 +16,7 @@ public sealed record V3RendererLoadParticipant(RoadPresentationFullReset? Plan)
     public static V3RendererLoadParticipant Prepare(RoadPresentationFullReset plan) => new(plan);
 
     public static V3RendererLoadParticipant Unprepared => new((RoadPresentationFullReset?)null);
+
+    public bool TryApplyTo(RoadPresentationState state) =>
+        Plan is not null && Plan.TryApplyTo(state);
 }

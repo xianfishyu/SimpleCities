@@ -15,4 +15,7 @@ public sealed record V3ToolLoadParticipant(RoadToolFullReset? Plan)
     public static V3ToolLoadParticipant Prepare(RoadToolFullReset plan) => new(plan);
 
     public static V3ToolLoadParticipant Unprepared => new((RoadToolFullReset?)null);
+
+    public bool TryApplyTo(RoadToolState state) =>
+        Plan is not null && Plan.TryApplyTo(state);
 }

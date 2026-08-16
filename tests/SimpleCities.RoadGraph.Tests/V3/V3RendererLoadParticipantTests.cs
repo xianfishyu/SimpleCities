@@ -37,6 +37,25 @@ public sealed class V3RendererLoadParticipantTests
         Assert.False(participant.CanCommit);
     }
 
+    [Fact]
+    public void TryApplyTo_WhenPrepared_AppliesPlan()
+    {
+        V3RendererLoadParticipant participant = V3RendererLoadParticipant.Prepare(CreatePlan(includeMesh: true));
+        var state = new RoadPresentationState(new RoadRenderToken(1, 2, 3, 4, 5, 6));
+
+        Assert.True(participant.TryApplyTo(state));
+        Assert.False(state.IsStalled);
+        Assert.NotNull(state.PresentedSnapshot);
+    }
+
+    [Fact]
+    public void TryApplyTo_Unprepared_Fails()
+    {
+        V3RendererLoadParticipant participant = V3RendererLoadParticipant.Unprepared;
+
+        Assert.False(participant.TryApplyTo(new RoadPresentationState(new RoadRenderToken(1, 2, 3, 4, 5, 6))));
+    }
+
     private static RoadPresentationFullReset CreatePlan(bool includeMesh)
     {
         var snapshot = new RoadSurfaceSnapshot(
