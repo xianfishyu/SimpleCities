@@ -41,6 +41,8 @@ public sealed class RoadToolInputRouter
 
     public bool TrySelectRoadType(RoadType roadType)
     {
+        if (!RoadTypeChangeValidator.IsValidRoadType(roadType))
+            return false;
         if (_toolState.SelectedRoadType == roadType)
             return true;
 

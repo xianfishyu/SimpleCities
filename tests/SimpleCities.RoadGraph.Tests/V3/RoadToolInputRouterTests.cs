@@ -99,6 +99,18 @@ public sealed class RoadToolInputRouterTests
     }
 
     [Fact]
+    public void TrySelectRoadType_Invalid_KeepsPlacement()
+    {
+        var router = CreateRouter();
+        router.HandleLeftClick(Vector2.Zero, closeRadius: 10f, hitRadius: 10f);
+        Assert.True(router.IsPlacing);
+
+        Assert.False(router.TrySelectRoadType((RoadType)99));
+
+        Assert.True(router.IsPlacing);
+    }
+
+    [Fact]
     public void HandleSelectionHits_Upgrade_SelectsMultipleEdges()
     {
         var router = CreateRouter();
