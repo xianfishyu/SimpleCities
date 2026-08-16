@@ -89,6 +89,17 @@ public sealed class RoadToolInputRouterTests
     }
 
     [Fact]
+    public void HandleRightClick_WithSinglePoint_ClearsPlacement()
+    {
+        var router = CreateRouter();
+        router.HandleLeftClick(Vector2.Zero, closeRadius: 10f, hitRadius: 10f);
+        Assert.True(router.IsPlacing);
+
+        Assert.True(router.HandleRightClick());
+        Assert.False(router.IsPlacing);
+    }
+
+    [Fact]
     public void HandleRightClick_NoPlacement_ReturnsFalse()
     {
         var router = CreateRouter();
