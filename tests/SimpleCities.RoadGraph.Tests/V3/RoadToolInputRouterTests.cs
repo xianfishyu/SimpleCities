@@ -364,6 +364,19 @@ public sealed class RoadToolInputRouterTests
     }
 
     [Fact]
+    public void HandleSelectionHits_Upgrade_OwnerWithoutEdgeID_Skips()
+    {
+        var router = CreateRouter();
+        router.SwitchTool(RoadToolType.Upgrade);
+        RoadSurfaceHit invalid = CreateHit() with { OwnerKind = RoadSurfaceOwnerKind.Cap, EdgeID = null };
+
+        int selected = router.HandleSelectionHits([invalid], upgrade: true);
+
+        Assert.Equal(0, selected);
+        Assert.False(router.IsSelecting);
+    }
+
+    [Fact]
     public void HandleSelectionHits_Upgrade_AllInvalid_DoesNotCreateSession()
     {
         var router = CreateRouter();
