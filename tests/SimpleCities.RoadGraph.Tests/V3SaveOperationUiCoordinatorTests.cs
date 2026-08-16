@@ -80,6 +80,20 @@ public sealed class V3SaveOperationUiCoordinatorTests
     }
 
     [Fact]
+    public void Load_WhenBackendFails_ReturnsFailed()
+    {
+        var backend = new FakeBackend { FailOperations = true };
+        var coordinator = new V3SaveOperationUiCoordinator(backend);
+
+        V3SaveOperationUiState state = coordinator.Load("city-001", lineageID: 2);
+
+        Assert.Equal(V3SaveOperationUiPhase.Failed, state.Phase);
+        Assert.False(state.IsComplete);
+        Assert.Equal("fail", state.Error);
+        Assert.Equal(1, backend.LoadCalls);
+    }
+
+    [Fact]
     public void Delete_ReturnsCompletedDeleteResult()
     {
         var backend = new FakeBackend();
