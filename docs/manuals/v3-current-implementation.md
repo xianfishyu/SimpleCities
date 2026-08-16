@@ -118,3 +118,15 @@
 - 关键决策记录：`docs/manuals/v3-decisions.md`
 - 术语表：`docs/manuals/v3-glossary.md`
 - 系统路线图：`docs/todo/v3/`
+
+## 12. 完成标准对照表
+
+| 工作项 | 状态 |
+| --- | --- |
+| `v3-road-graph:8.0`～`8.5` | 部分实现 |
+| `v3-road-graph:8.6` | 开放 |
+| `v3-save-system:2.1`～`2.3` | 部分实现 |
+| `v3-grid-rendering:2.0`～`2.3` | 部分实现 |
+| `v3-tool-input:2.0`～`2.4` | 部分实现 |
+| `v3-ui:1.1` | 已完成 |
+| `v3-ui:1.2`～`1.4` | 部分实现 / 开放 |
