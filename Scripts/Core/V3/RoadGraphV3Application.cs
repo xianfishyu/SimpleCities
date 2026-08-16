@@ -626,6 +626,9 @@ public sealed class RoadGraphV3Application
         return thumbnailFile is null ? null : GetSlotFile(slotId, thumbnailFile)?.Sha256;
     }
 
+    public string? GetSlotRoadNetworkHash(string slotId) =>
+        GetSlotFile(slotId, V3RoadSlotFactory.RoadNetworkFileName)?.Sha256;
+
     public byte[]? CurrentSlotPayload(string fileName) =>
         string.IsNullOrEmpty(CurrentSlotID) ? null : GetPayload(CurrentSlotID, fileName);
 
