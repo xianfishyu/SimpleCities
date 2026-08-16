@@ -49,7 +49,7 @@
 - 无效/不完整 `RoadTypeStyleCatalogResult` 不再抛异常，而是隐藏选择器并保留旧回调，避免提交错误类型。
 - 四个按钮均设置 `ToggleMode = true`、`FocusMode = All` 和左右 `FocusNeighbor`。
 - 验证：Godot `MapTest` 冻结运行后 GDScript 读取 `row_visible=true`、按钮 4 个、文本 `土路/街道/主干道/高速`、`toggle_mode` 全 true、`button_pressed` 仅 `街道` 为 true；模拟点击 `高速` 后 pressed 迁移到 `高速`；按 `ui_right` 焦点从 `土路` 移到 `街道`，聚焦 `高速` 后按 Enter 切换 pressed；切换到 `区域` 分类后 `row_visible=false`，切回 `道路` 后恢复且选中类型保持。`command_center_runtime_contract.gd` 已新增 RoadType 行可见、暂停返回保持、场景重入保持断言，并继续覆盖三档视口；headless 输出 `PASS command center runtime contract`。完整测试套件 1254/1254 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误，编辑器错误日志为空；DAP stdout 仅引擎/bridge/embedded-window 提示，无 stderr。
-- 尚未完成：手柄焦点显式回归（当前用 action/键盘路径覆盖焦点导航，未单独注入 joypad 事件）。
+- 尚未完成：手柄焦点显式回归。运行时注入 joypad A 未激活按钮，原因是项目 `ui_accept` 输入映射没有 joypad 绑定；需补充 `ui_accept` 手柄事件后再验证。
 
 ### 2026-08-13：1.2 RoadUpgrade 工具呈现（部分）
 
