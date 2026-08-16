@@ -60,6 +60,19 @@
 - [ ] M4：异步存档 UI 验收通过
 - [ ] M5：`v3-road-graph:8.6` 最终组合验收完成
 
+## V3 文档结构
+
+```text
+docs/manuals/road-system-v3-gen.md           架构与验收规范
+docs/manuals/v3-current-implementation.md    当前实现与验证状态
+docs/manuals/v3-next-steps.md                下一步执行计划
+docs/manuals/v3-qa-runbook.md                QA 运行手册
+docs/manuals/v3-decisions.md                 关键决策记录
+docs/manuals/v3-glossary.md                  术语表
+docs/manuals/v3-code-map.md                  代码地图
+docs/todo/v3/                                各系统路线图
+```
+
 ## 最终集成归属
 
 V3 跨系统计划只有一个最终集成负责人：[`v3-road-graph:8.6`](./road-graph.md#v3-road-graph8.6)。其余工作项负责各自系统的可独立验证产出，但不得单独宣称第三代道路系统完成。
