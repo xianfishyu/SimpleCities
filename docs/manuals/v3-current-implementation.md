@@ -151,3 +151,8 @@
 - [ ] `v3-tool-input:2.0`～`2.4` 工具与 delta 历史通过
 - [ ] `v3-ui:1.1`～`1.4` 交互与视口契约通过
 - [ ] `v3-road-graph:8.6` 最终组合验收证据写回指南附录 D
+
+## 15. 近期变更日志
+
+- 2026-08-16：新增 `v3-current-implementation.md`、`v3-next-steps.md`、`v3-qa-runbook.md`、`v3-decisions.md`、`v3-glossary.md`、`v3-code-map.md`。
+- 2026-08-16：更新 `docs/README.md`、`docs/todo/v3/README.md` 与各系统路线图，补充当前落地摘要、里程碑、检查清单和维护约定。
