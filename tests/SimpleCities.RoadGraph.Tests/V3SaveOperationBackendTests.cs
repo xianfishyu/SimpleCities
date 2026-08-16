@@ -165,6 +165,7 @@ public sealed class V3SaveOperationBackendTests
             Assert.True(result.CommitCompleted);
             Assert.Equal(V3SaveOperationKind.Delete, result.Token.Kind);
             Assert.DoesNotContain(slotId, backend.ListSlots().Select(summary => summary.SlotId));
+            Assert.Empty(backend.ListSlots());
         }
         finally
         {
