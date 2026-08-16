@@ -122,6 +122,19 @@ public sealed class V3SaveOperationUiCoordinatorTests
     }
 
     [Fact]
+    public void RequestCancel_WhenNotCancellable_KeepsCompletedState()
+    {
+        var backend = new FakeBackend();
+        var coordinator = new V3SaveOperationUiCoordinator(backend);
+        coordinator.SaveAs("City", "City", "2026-08-16T00:00:00.0000000Z", null, null, null);
+
+        V3SaveOperationUiState state = coordinator.RequestCancel();
+
+        Assert.Equal(V3SaveOperationUiPhase.Completed, state.Phase);
+        Assert.True(state.IsComplete);
+    }
+
+    [Fact]
     public void RequestCancel_DelegatesToController()
     {
         var backend = new FakeBackend();
