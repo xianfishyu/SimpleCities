@@ -527,6 +527,7 @@ public sealed class RoadGraphV3Application
         CurrentSlotPayload(V3RoadSlotFactory.RoadNetworkFileName);
 
     public int CurrentSlotRoadNetworkPayloadLength => CurrentSlotRoadNetworkPayload?.Length ?? 0;
+    public bool CurrentSlotHasRoadNetworkPayload => CurrentSlotRoadNetworkPayload is not null;
 
     public IReadOnlyList<string> CurrentSlotFileNames =>
         CurrentSlotManifest?.Files.Select(file => file.Name).ToList() ?? [];
