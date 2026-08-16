@@ -216,6 +216,21 @@ public sealed class RoadToolInputRouterTests
     }
 
     [Fact]
+    public void HandleSelectionRect_ResolverReturnsEmpty_ReturnsZero()
+    {
+        var router = CreateRouter();
+        router.SwitchTool(RoadToolType.Upgrade);
+
+        int selected = router.HandleSelectionRect(
+            new Rect2(0f, 0f, 10f, 10f),
+            _ => [],
+            upgrade: true);
+
+        Assert.Equal(0, selected);
+        Assert.False(router.IsSelecting);
+    }
+
+    [Fact]
     public void HandleSelectionRect_EmptyRect_ReturnsZero()
     {
         var router = CreateRouter();
