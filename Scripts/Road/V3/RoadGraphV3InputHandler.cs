@@ -32,6 +32,12 @@ public partial class RoadGraphV3InputHandler : Node2D
             return;
 
         DrawPolyline(points, style.Color, style.Width, true);
+
+        if (_session.TryGetClosedDraft(GetGlobalMousePosition(), CloseRadius, out _))
+        {
+            Color closeColor = new(style.Color.R, style.Color.G, style.Color.B, 0.5f);
+            DrawLine(_session.CurrentAnchor, _session.StartPosition, closeColor, style.Width * 0.75f, true);
+        }
     }
 
     public override void _UnhandledInput(InputEvent @event)

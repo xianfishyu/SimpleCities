@@ -105,6 +105,12 @@
 - 新增 3 个 xUnit 用例；完整测试套件 1130/1130 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
 - 尚未完成：`RoadBuilder` 真实接线、完整工具生命周期与真实 surface hit 输入路由。
 
+### 2026-08-13：2.0 闭合预览高亮（部分）
+
+- `RoadGraphV3InputHandler._Draw` 在指针进入首锚点闭合半径时，使用 `TryGetClosedDraft` 检测闭合候选，并以半透明颜色绘制从当前锚点到首锚点的闭合预览线段。
+- 完整测试套件 1138/1138 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
+- 尚未完成：`RoadBuilder` 真实接线、完整工具生命周期与真实 surface hit 输入路由。
+
 ## 执行顺序
 
 ### 阶段 3：第三代闭环、类型化建造与道路改造
