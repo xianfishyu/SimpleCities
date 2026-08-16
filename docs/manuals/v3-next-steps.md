@@ -19,6 +19,9 @@
 - 网络源不可达时可尝试镜像：
   - `dotnet restore SimpleCities.sln --source https://nuget.cdn.azure.cn/v3/index.json`
   - `dotnet restore SimpleCities.sln --source https://mirrors.cloud.tencent.com/nuget/v3/index.json`
+- 若 restore 无错误信息但退出码非 0，可尝试：
+  - `dotnet restore SimpleCities.sln --disable-parallel`
+  - 清理 NuGet 缓存后重试：`dotnet nuget locals all --clear`
 
 ## 2. 完成 `v3-ui:1.2` / `v3-tool-input:2.2` 的 surface hit 选择
 
