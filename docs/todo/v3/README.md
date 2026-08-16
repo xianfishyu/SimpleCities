@@ -98,7 +98,7 @@ docs/todo/v3/                                各系统路线图
 
 - `RoadQueryFragmentBuilderTests`：`BuildSegmentFragments` line 与曲线分支、空 segment 抛异常、曲线非法 bucket size。
 - `RoadGraphV3FacadeTests`：`Diagnostics.QueryFragmentCount` 空图、默认 0、line Edge、长直线跨 bucket、曲线 Edge、负数 IsValid。
-- `RoadToolInputRouterTests`：重复命中去重、混合有效/无效命中、全无效/空批量不创建会话（Upgrade/Remove）、null 命中跳过（Upgrade/Remove/矩形 Upgrade/矩形 Remove）、null 列表抛异常（Upgrade/Remove）、null resolver 抛异常、无效类型保留 placement/upgrade、同类型保留 placement、矩形空结果、Upgrade/Remove 矩形重复去重、右键移除/清除、切换工具清除 upgrade/removal、非有限坐标抛异常、取消后三类会话不可取回、铺路会话携带当前 RoadType、Cap/JunctionPatch/SemanticJoin owner 命中（Upgrade/Remove）、无 EdgeID owner 拒绝（Upgrade/Remove/矩形/批量）。
+- `RoadToolInputRouterTests`：重复命中去重、混合有效/无效命中、全无效/空批量不创建会话（Upgrade/Remove）、null 命中跳过（Upgrade/Remove/矩形 Upgrade/矩形 Remove）、null 列表抛异常（Upgrade/Remove）、null resolver 抛异常（Upgrade/Remove）、无效类型保留 placement/upgrade、同类型保留 placement、矩形空结果、Upgrade/Remove 矩形重复去重、右键移除/清除、切换工具清除 upgrade/removal、非有限坐标抛异常、取消后三类会话不可取回、铺路会话携带当前 RoadType、Cap/JunctionPatch/SemanticJoin owner 命中（Upgrade/Remove）、无 EdgeID owner 拒绝（Upgrade/Remove/矩形/批量）。
 
 ## 文档更新示例
 
