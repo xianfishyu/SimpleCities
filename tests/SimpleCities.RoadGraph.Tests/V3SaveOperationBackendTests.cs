@@ -122,6 +122,32 @@ public sealed class V3SaveOperationBackendTests
     }
 
     [Fact]
+    public void Save_ThenLoad_UsingBackend_RoundTrips()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var source = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            var sourceBackend = new V3ApplicationSaveOperationBackend(source);
+            sourceBackend.SaveAs("City", "City", "2026-08-16T00:00:00.0000000Z", null, null, null);
+            string slotId = source.CurrentSlotID;
+
+            var target = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            var targetBackend = new V3ApplicationSaveOperationBackend(target);
+
+            V3SaveOperationResult result = targetBackend.Load(slotId, lineageID: 1);
+
+            Assert.True(result.Success);
+            Assert.True(result.CommitCompleted);
+            Assert.Equal(slotId, target.CurrentSlotID);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void Load_ReturnsCompletedLoadResult()
     {
         string root = GetTempRoot();
