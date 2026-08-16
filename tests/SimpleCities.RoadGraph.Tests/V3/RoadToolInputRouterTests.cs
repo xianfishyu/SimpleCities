@@ -111,6 +111,22 @@ public sealed class RoadToolInputRouterTests
     }
 
     [Fact]
+    public void TrySelectRoadType_Invalid_KeepsUpgradeSession()
+    {
+        var router = CreateRouter((_, _) => CreateHit());
+        router.SwitchTool(RoadToolType.Upgrade);
+        router.HandleLeftClick(new Vector2(5f, 0f), closeRadius: 10f, hitRadius: 10f);
+        Assert.True(router.IsSelecting);
+
+        Assert.False(router.TrySelectRoadType((RoadType)99));
+
+        Assert.True(router.IsSelecting);
+        Assert.True(router.TryTakeUpgradeSession(out RoadUpgradeSessionV3 session));
+        Assert.Equal(RoadType.Street, session.TargetType);
+        Assert.Equal([20], session.SelectedEdgeIDs);
+    }
+
+    [Fact]
     public void HandleSelectionHits_Upgrade_SelectsMultipleEdges()
     {
         var router = CreateRouter();
