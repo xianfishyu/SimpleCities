@@ -97,6 +97,27 @@ public sealed class RoadRemovalSessionV3Tests
         Assert.Empty(session.SelectedEdgeIDs);
     }
 
+    [Fact]
+    public void TrySelectHits_ValidHits_AddsAll()
+    {
+        var session = new RoadRemovalSessionV3();
+        RoadSurfaceHit hit1 = CreateHit();
+        RoadSurfaceHit hit2 = CreateHit() with { EdgeID = 21 };
+
+        Assert.Equal(2, session.TrySelectHits([hit1, hit2]));
+        Assert.Equal([20, 21], session.SelectedEdgeIDs);
+    }
+
+    [Fact]
+    public void TrySelectHits_InvalidHit_Skips()
+    {
+        var session = new RoadRemovalSessionV3();
+        RoadSurfaceHit invalid = CreateHit() with { DistanceSquared = -1f };
+
+        Assert.Equal(1, session.TrySelectHits([invalid, CreateHit()]));
+        Assert.Equal([20], session.SelectedEdgeIDs);
+    }
+
     private static RoadSurfaceHit CreateHit() =>
         new(
             new GraphStateToken(1, 3, 4),

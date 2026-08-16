@@ -141,6 +141,12 @@
 - 完整测试套件 1162/1162 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
 - 尚未完成：真实输入自动化（鼠标点击）与端到端工具验收。
 
+### 2026-08-13：2.2 批量表面命中选择（部分）
+
+- `RoadUpgradeSessionV3` / `RoadRemovalSessionV3` 新增 `TrySelectHits`：一次处理多个 `RoadSurfaceHit`，只选择有效且带稳定 Edge ID 的命中，返回实际选中数量。
+- 新增 4 个 xUnit 用例；完整测试套件 1166/1166 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：连续/矩形批量选择输入与端到端工具验收。
+
 ## 执行顺序
 
 ### 阶段 3：第三代闭环、类型化建造与道路改造

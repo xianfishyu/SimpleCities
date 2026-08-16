@@ -37,6 +37,19 @@ public sealed class RoadUpgradeSessionV3
         return TrySelectEdge(edgeID);
     }
 
+    public int TrySelectHits(IEnumerable<RoadSurfaceHit> hits)
+    {
+        ArgumentNullException.ThrowIfNull(hits);
+        int selected = 0;
+        foreach (RoadSurfaceHit hit in hits)
+        {
+            if (TrySelectHit(hit))
+                selected++;
+        }
+
+        return selected;
+    }
+
     public bool DeselectEdge(int edgeID) => _selectedEdgeIDs.Remove(edgeID);
 
     public void ClearSelection() => _selectedEdgeIDs.Clear();
