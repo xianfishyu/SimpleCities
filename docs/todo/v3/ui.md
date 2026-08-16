@@ -14,6 +14,11 @@
 | 1.3 | DebugPanel 仍把 RoadGroup 数量作为路网指标 | 部分实现 | 移除 Group 指标，展示 canonical Node/Edge/geometry/self-loop 结构量 |
 | 1.4 | 暂停菜单没有异步 Save/Load/Delete 的独占状态机 | 开放 | generation/token 防护、Escape 独占及三类操作的明确提交边界 |
 
+### 当前落地摘要（2026-08-16）
+
+- `v3-ui:1.1` 已完成：RoadType 选择器、分类联动、键盘/手柄焦点、暂停返回、场景重入和三档视口。
+- RoadUpgrade 已具备道路分类入口、`ToolManager` 同步与 U 快捷键；DebugPanel 已接入 V3 诊断并实现隐藏零轮询。`1.2`～`1.4` 的 surface hit 选择、完整改造呈现与异步存档状态机仍开放。
+
 ### 设计覆盖矩阵
 
 | 设计范围 | 当前事实 | 关联待办 |
