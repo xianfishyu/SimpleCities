@@ -523,6 +523,9 @@ public sealed class RoadGraphV3Application
 
     public int CurrentSlotRoadNetworkJsonLength => CurrentSlotRoadNetworkJson?.Length ?? 0;
 
+    public byte[]? CurrentSlotRoadNetworkPayload =>
+        CurrentSlotPayload(V3RoadSlotFactory.RoadNetworkFileName);
+
     public IReadOnlyList<string> CurrentSlotFileNames =>
         CurrentSlotManifest?.Files.Select(file => file.Name).ToList() ?? [];
 
