@@ -58,6 +58,7 @@
 - [第三代道路系统 QA 运行手册](manuals/v3-qa-runbook.md)：Tier 1～3 的最小充分验证步骤。
 - [第三代道路系统关键决策记录](manuals/v3-decisions.md)：V3 存档根、RoadType、统一事件与 Load 原子提交决策。
 - [第三代道路系统术语表](manuals/v3-glossary.md)：统一 V3 核心术语定义。
+- [第三代道路系统代码地图](manuals/v3-code-map.md)：V3 核心源码与测试文件导航。
 
 ## OpenCode 工具链
 
