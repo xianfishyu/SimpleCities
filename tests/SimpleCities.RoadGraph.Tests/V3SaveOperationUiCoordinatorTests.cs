@@ -45,6 +45,26 @@ public sealed class V3SaveOperationUiCoordinatorTests
     }
 
     [Fact]
+    public void SaveAs_WhenBusy_DoesNotCallBackend()
+    {
+        var backend = new FakeBackend();
+        var controller = new V3SaveOperationController();
+        var coordinator = new V3SaveOperationUiCoordinator(backend, controller);
+        controller.TryBegin(V3SaveOperationKind.Delete, 1);
+
+        V3SaveOperationUiState state = coordinator.SaveAs(
+            "City",
+            "City",
+            "2026-08-16T00:00:00.0000000Z",
+            null,
+            null,
+            null);
+
+        Assert.Equal(V3SaveOperationUiPhase.Busy, state.Phase);
+        Assert.Equal(0, backend.SaveAsCalls);
+    }
+
+    [Fact]
     public void Save_WhenBusy_DoesNotCallBackend()
     {
         var backend = new FakeBackend();
