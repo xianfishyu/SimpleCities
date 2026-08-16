@@ -81,7 +81,7 @@ public sealed class V3SaveOperationUiStateTests
 
         Assert.Equal(V3SaveOperationUiPhase.Cancelling, state.Phase);
         Assert.Equal(V3SaveOperationKind.Delete, state.Kind);
-        Assert.False(state.IsBusy);
+        Assert.True(state.IsBusy);
         Assert.False(state.IsCancellable);
         Assert.False(state.IsComplete);
         Assert.False(state.IsFailed);

@@ -87,6 +87,13 @@
 - 新增 `tests/SimpleCities.RoadGraph.Tests/V3SaveOperationUiStateTests.cs`：覆盖 null、成功、提交前失败、observer warning 与 Cancelling 状态。
 - 尚未接入 `PauseMenu`；`1.4` 仍开放，完整异步状态机待实现。
 
+### 2026-08-16：M4 基础——V3SaveOperationController 状态机（部分）
+
+- 新增 `Scripts/UI/V3SaveOperationController.cs`：跟踪当前 `V3SaveOperationToken`，`TryBegin` 在 busy/cancelling 时拒绝重复提交，`Complete` 只接受匹配 token 的结果，`RequestCancel` 仅在 `Admission/Prepare/Preflight` 阶段生效并进入 `Cancelling`，`Reset` 回到 Idle。
+- `V3SaveOperationUiState.Cancelling` 调整为 `IsBusy = true`，使取消请求后仍阻止新操作。
+- 新增 `tests/SimpleCities.RoadGraph.Tests/V3SaveOperationControllerTests.cs`：覆盖开始、重复开始、匹配/过期/未开始完成、可取消阶段取消、不可取消阶段保持、Reset。
+- 尚未接入 `PauseMenu`；`1.4` 仍开放。
+
 ## 执行顺序
 
 ### 阶段 7：第三代道路控件、诊断与存档交互

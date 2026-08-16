@@ -63,5 +63,5 @@ public sealed record V3SaveOperationUiState(
     }
 
     public static V3SaveOperationUiState Cancelling(V3SaveOperationKind kind) =>
-        new(kind, V3SaveOperationUiPhase.Cancelling, null, false, false, false, false, false, null, null);
+        new(kind, V3SaveOperationUiPhase.Cancelling, null, true, false, false, false, false, null, null);
 }
