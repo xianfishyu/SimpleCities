@@ -1745,6 +1745,36 @@ public sealed class RoadGraphV3ApplicationTests
         }
     }
 
+    [Fact]
+    public void NewCity_ResetsPresentation()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            var session = new RoadPlacementSessionV3(RoadType.Street, Vector2.Zero);
+            session.TryAddPoint(new Vector2(1f, 0f));
+            Assert.True(app.TryBuild(session, out _));
+            RoadRenderToken desired = new(1, 1, 1, 1, 1, 16);
+            Assert.True(app.Presentation.TryRequest(
+                app.Controller.Facade.Revision,
+                app.Controller.Facade.CurrentToken,
+                desired));
+            Assert.True(app.Presentation.TryPublish(desired));
+            Assert.NotEmpty(app.Presentation.PresentedSnapshot!.Owners);
+
+            app.NewCity(lineageID: 42);
+
+            Assert.False(app.Presentation.IsStalled);
+            Assert.NotNull(app.Presentation.PresentedSnapshot);
+            Assert.Empty(app.Presentation.PresentedSnapshot!.Owners);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
     private static string GetTempRoot() =>
         Path.Combine(Path.GetTempPath(), $"v3-app-{Guid.NewGuid():N}");
 

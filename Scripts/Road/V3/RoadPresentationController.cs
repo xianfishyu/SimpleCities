@@ -22,6 +22,14 @@ public sealed class RoadPresentationController
     public RoadSurfaceSnapshot? PresentedSnapshot => _state.PresentedSnapshot;
     public RoadSurfaceSnapshot? PendingSnapshot => _pendingSnapshot;
     public RoadSurfaceHitProvider HitProvider { get; }
+    public RoadPresentationState State => _state;
+
+    public void Reset(RoadRenderToken token)
+    {
+        _pendingSnapshot = null;
+        _state.SetDesired(token);
+        _state.TryPublish(token, new RoadSurfaceSnapshot(new GraphStateToken(0, 0, 0), []));
+    }
 
     public bool TryRequest(
         RoadGraphV3Revision revision,

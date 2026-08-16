@@ -494,6 +494,7 @@ public sealed class RoadGraphV3Application
         Controller = new RoadGraphV3Controller(
             new RoadGraphV3Facade(RoadGraphV3Revision.Empty(_capacity), lineageID),
             new RoadEditHistoryV3(100, 100000));
+        Presentation.Reset(new RoadRenderToken(0, lineageID, 0, 0, 0, 0));
         CurrentSlotID = string.Empty;
     }
 }
