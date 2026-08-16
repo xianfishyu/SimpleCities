@@ -620,6 +620,12 @@ public sealed class RoadGraphV3Application
     public bool GetSlotIsUsable(string slotId) =>
         GetStatus(slotId).IsUsable;
 
+    public string? GetSlotThumbnailHash(string slotId)
+    {
+        string? thumbnailFile = GetSlotThumbnailFile(slotId);
+        return thumbnailFile is null ? null : GetSlotFile(slotId, thumbnailFile)?.Sha256;
+    }
+
     public byte[]? CurrentSlotPayload(string fileName) =>
         string.IsNullOrEmpty(CurrentSlotID) ? null : GetPayload(CurrentSlotID, fileName);
 

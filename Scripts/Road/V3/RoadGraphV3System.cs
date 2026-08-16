@@ -311,6 +311,9 @@ public partial class RoadGraphV3System : Node2D
     public bool GetSlotIsUsable(string slotId) =>
         Application.GetSlotIsUsable(slotId);
 
+    public string? GetSlotThumbnailHash(string slotId) =>
+        Application.GetSlotThumbnailHash(slotId);
+
     public byte[]? CurrentSlotPayload(string fileName) =>
         Application.CurrentSlotPayload(fileName);
 
