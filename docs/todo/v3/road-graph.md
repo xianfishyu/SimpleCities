@@ -306,6 +306,12 @@
 - 完整测试套件 1207/1207 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：替换 V2 RoadSystem 与端到端验收。
 
+### 2026-08-13：8.6 NewCity 刷新渲染表现（部分）
+
+- `RoadGraphV3System.NewCity` 在新建城市后应用当前 presentation 到渲染器，清空旧道路 mesh。
+- 完整测试套件 1207/1207 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
+- 尚未完成：替换 V2 RoadSystem 与端到端验收。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成

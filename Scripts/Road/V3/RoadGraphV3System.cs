@@ -205,8 +205,11 @@ public partial class RoadGraphV3System : Node2D
             ApplyPresentationFullReset(plan);
     }
 
-    public void NewCity(long lineageID = 1) =>
+    public void NewCity(long lineageID = 1)
+    {
         Application.NewCity(lineageID);
+        ApplyCurrentPresentation();
+    }
 
     public System.Collections.Generic.IReadOnlyList<SimpleCities.Core.V3.V3SlotSummary> List() =>
         Application.List();
