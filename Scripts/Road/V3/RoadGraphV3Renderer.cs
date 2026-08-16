@@ -37,6 +37,14 @@ public partial class RoadGraphV3Renderer : Node2D
         RebuildMesh();
     }
 
+    public void ResetMesh()
+    {
+        _cachedMeshes = [];
+        _cachedPatches = [];
+        _lastToken = null;
+        RebuildMesh();
+    }
+
     public override void _Process(double delta)
     {
         RoadGraphV3System? system = RoadGraphV3System.Instance;

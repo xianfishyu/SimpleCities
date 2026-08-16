@@ -252,6 +252,12 @@
 - 完整测试套件 1208/1208 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实 Load 隐藏资源 Preflight 与 non-yield 联合交换，以及混合宽度/锐角真实填补。
 
+### 2026-08-13：2.2 渲染器重置 mesh 入口（部分）
+
+- `RoadGraphV3Renderer` 新增 `ResetMesh()`；`RoadGraphV3System.ClearPresentation()` 转发并清空当前 mesh。
+- 完整测试套件 1211/1211 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实 Load 隐藏资源 Preflight 与 non-yield 联合交换，以及混合宽度/锐角真实填补。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁

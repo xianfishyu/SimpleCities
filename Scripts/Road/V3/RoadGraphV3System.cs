@@ -227,6 +227,8 @@ public partial class RoadGraphV3System : Node2D
 
     public void RefreshPresentation() => ApplyCurrentPresentation();
 
+    public void ClearPresentation() => _renderer?.ResetMesh();
+
     public void NewCity(long lineageID = 1)
     {
         Application.NewCity(lineageID);
