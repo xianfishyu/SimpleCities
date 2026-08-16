@@ -53,6 +53,12 @@ public partial class RoadGraphV3System : Node2D
     public bool TryUndo(out RoadGraphV3ChangeSummary summary) =>
         Application.TryUndo(out summary);
 
+    public SimpleCities.Core.V3.V3AutosaveDecision TryAutosaveCurrent(
+        RoadGraphV3Revision revision,
+        bool hasNewerSuccess,
+        out bool saved) =>
+        Application.TryAutosaveCurrent(revision, hasNewerSuccess, out saved);
+
     public bool TryRedo(out RoadGraphV3ChangeSummary summary) =>
         Application.TryRedo(out summary);
 
