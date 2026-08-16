@@ -50,6 +50,19 @@ public sealed class V3SaveSlotUiSummaryTests
     }
 
     [Fact]
+    public void FromSlot_Absent_NotListable()
+    {
+        var slot = new V3SlotSummary("absent-001", "Absent", V3SlotOccupant.Absent, null);
+
+        V3SaveSlotUiSummary summary = V3SaveSlotUiSummary.FromSlot(slot);
+
+        Assert.False(summary.IsListable);
+        Assert.False(summary.CanLoadOrOverwrite);
+        Assert.False(summary.CanDelete);
+        Assert.Null(summary.Error);
+    }
+
+    [Fact]
     public void FromSlot_AutosaveSlotId_UsesAutomaticKind()
     {
         var slot = new V3SlotSummary("autosave", "自动存档", V3SlotOccupant.CompleteV3, null);
