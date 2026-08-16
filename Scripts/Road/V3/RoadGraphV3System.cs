@@ -158,6 +158,15 @@ public partial class RoadGraphV3System : Node2D
     public bool Load(string slotId, long lineageID = 1) =>
         Application.Load(slotId, lineageID);
 
+    public bool LoadIntoCurrent(string slotId, long newLineageID = 1) =>
+        Application.LoadIntoCurrent(slotId, newLineageID);
+
+    public void NewCity(long lineageID = 1) =>
+        Application.NewCity(lineageID);
+
+    public System.Collections.Generic.IReadOnlyList<SimpleCities.Core.V3.V3SlotSummary> List() =>
+        Application.List();
+
     public bool DeleteCurrentSlot() =>
         Application.DeleteCurrentSlot();
 
