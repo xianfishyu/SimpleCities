@@ -106,7 +106,7 @@ docs/todo/v3/                                各系统路线图
 - `V3SaveSlotUiSummaryTests`：Complete/Corrupt/Foreign/Unsafe 四类槽的展示与操作权限。
 - `PauseMenuContractTests`：新增 V3 存档后端接线契约（`ConfigureV3Backend` / `IV3SaveOperationBackend` / `V3SaveOperationController` / `V3SaveSlotUiSummary`）。
 - `V3SaveOperationUiCoordinatorTests`：SaveAs、busy 不调用后端、Load/Delete、RequestCancel、Reset。
-- `V3AsyncSaveOperationCoordinatorTests`：异步 SaveAs、busy 不调用后端、Load/Delete、RequestCancel、Reset。
+- `V3AsyncSaveOperationCoordinatorTests`：异步 SaveAs、后端失败、busy 不调用后端、Load/Delete、RequestCancel、Reset。
 
 ## 文档更新示例
 
