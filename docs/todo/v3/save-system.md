@@ -30,6 +30,7 @@
 - V3 format v1、manifest v1、槽 ID/路径/occupant/digest、保存根 `user://saves-v3` 与 coordinator/gate/load pipeline 已落地；`RoadGraphV3Application` 的 aggregate Load commit 已支持 tool/presentation/renderer inside-commit 参与者。
 - 真实 Godot 场景装配、renderer participant 与端到端 Load 生命周期仍由 `2.3` 和 `v3-road-graph:8.6` 跟踪。
 - M4 准备：已调查 `PauseMenu` 当前同步 Save/Load/Delete 调用点并映射到 `V3SaveOperation` 阶段（见 2026-08-16 条目）；异步状态机尚未实现。
+- M4 UI：`PauseMenu` 已接入 V3 异步存档入口（busy 禁用、取消令牌、scene generation 防护），待环境恢复后运行专项验证。
 
 ## V3 实施记录
 
