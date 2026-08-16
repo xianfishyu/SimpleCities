@@ -55,6 +55,22 @@ godot --headless --path . --script tests/godot/command_center_runtime_contract.g
 
 预期：上述单元测试全部通过；手工场景无重复提交、无提前关闭菜单、无 V2/Foreign 槽进入普通操作列表。
 
+## M5 最终组合验收专项
+
+前置：M1～M4 全部通过，环境可运行 `MapTest` 与 Windows 导出。
+
+1. 真实 `MapTest` 场景完成：
+   - 连续折线、环路、四类型建造/改造、撤销重做、保存/加载、表面命中、混合 junction。
+2. 性能门禁：
+   - 10k 硬门槛：构建/查询/保存/加载在预算内完成。
+   - 100k 压测：记录耗时与峰值内存，确认无全图扫描退化。
+3. 视觉与导出：
+   - Vulkan 渲染下检查 Ribbon/Cap/JunctionPatch 外观。
+   - Windows 导出后运行同一验收场景。
+4. 证据写回 `docs/manuals/road-system-v3-gen.md` 附录 D。
+
+预期：`v3-road-graph:8.6` 联合 `v3-grid-rendering:2.2`、`v3-tool-input:2.4`、`v3-ui:1.4`、`v3-save-system:2.3` 的端到端证据齐全。
+
 ## 清理
 
 - 停止运行中的项目；
@@ -87,3 +103,4 @@ godot --headless --path . --script tests/godot/command_center_runtime_contract.g
 | 契约 | `command_center_runtime_contract.gd` | `PASS ...` |  |
 | 运行时 | `MapTest` RoadType/Upgrade/DebugPanel | 状态符合预期 |  |
 | M4 UI | PauseMenu V3 另存/覆盖/加载/删除/取消 | busy 禁用、Escape 取消、V2/Foreign 不可见 |  |
+| M5 组合 | `MapTest` 10k/100k/Vulkan/Windows 导出 | 全部通过，证据写入附录 D |  |
