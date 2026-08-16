@@ -77,6 +77,54 @@ public sealed class RoadSurfaceHitTesterTests
     }
 
     [Fact]
+    public void TryFindClosestJunction_CrossNode_ReturnsHit()
+    {
+        RoadGraphV3Revision revision = CreateCrossRevision(out int centerID);
+
+        Assert.True(RoadSurfaceHitTester.TryFindClosestJunction(
+            revision,
+            new GraphStateToken(1, 1, 1),
+            new Vector2(0.1f, 0.1f),
+            maxDistance: 1f,
+            out RoadSurfaceHit hit));
+
+        Assert.Equal(RoadSurfaceOwnerKind.JunctionPatch, hit.OwnerKind);
+        Assert.Equal(centerID, hit.NodeID);
+        Assert.Null(hit.EdgeID);
+    }
+
+    [Fact]
+    public void TryFindClosestJunction_DegreeTwo_Fails()
+    {
+        RoadGraphV3Revision revision = RoadGraphV3Revision.Empty(RoadGraphCapacity.Default);
+        revision.TryAddNode(Vector2.Zero, out revision, out int center);
+        revision.TryAddNode(new Vector2(1f, 0f), out revision, out int east);
+        revision.TryAddNode(new Vector2(-1f, 0f), out revision, out int west);
+        revision.TryAddEdge(center, east, [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(1f, 0f))], RoadType.Street, out revision, out _);
+        revision.TryAddEdge(center, west, [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(-1f, 0f))], RoadType.Street, out revision, out _);
+
+        Assert.False(RoadSurfaceHitTester.TryFindClosestJunction(
+            revision,
+            new GraphStateToken(1, 1, 1),
+            Vector2.Zero,
+            maxDistance: 1f,
+            out _));
+    }
+
+    [Fact]
+    public void TryFindClosestJunction_TooFar_Fails()
+    {
+        RoadGraphV3Revision revision = CreateCrossRevision(out _);
+
+        Assert.False(RoadSurfaceHitTester.TryFindClosestJunction(
+            revision,
+            new GraphStateToken(1, 1, 1),
+            new Vector2(10f, 10f),
+            maxDistance: 1f,
+            out _));
+    }
+
+    [Fact]
     public void TryFindClosest_InvalidPoint_Throws()
     {
         RoadGraphV3Revision revision = CreateRevisionWithSingleLine();
@@ -87,6 +135,21 @@ public sealed class RoadSurfaceHitTesterTests
             new Vector2(float.NaN, 0f),
             maxDistance: 2f,
             out _));
+    }
+
+    private static RoadGraphV3Revision CreateCrossRevision(out int centerID)
+    {
+        RoadGraphV3Revision revision = RoadGraphV3Revision.Empty(RoadGraphCapacity.Default);
+        revision.TryAddNode(Vector2.Zero, out revision, out centerID);
+        revision.TryAddNode(new Vector2(1f, 0f), out revision, out int east);
+        revision.TryAddNode(new Vector2(-1f, 0f), out revision, out int west);
+        revision.TryAddNode(new Vector2(0f, 1f), out revision, out int north);
+        revision.TryAddNode(new Vector2(0f, -1f), out revision, out int south);
+        revision.TryAddEdge(centerID, east, [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(1f, 0f))], RoadType.Street, out revision, out _);
+        revision.TryAddEdge(centerID, west, [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(-1f, 0f))], RoadType.Street, out revision, out _);
+        revision.TryAddEdge(centerID, north, [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(0f, 1f))], RoadType.Street, out revision, out _);
+        revision.TryAddEdge(centerID, south, [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(0f, -1f))], RoadType.Street, out revision, out _);
+        return revision;
     }
 
     private static RoadGraphV3Revision CreateRevisionWithSingleLine()

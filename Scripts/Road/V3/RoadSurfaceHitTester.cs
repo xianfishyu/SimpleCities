@@ -69,6 +69,53 @@ public static class RoadSurfaceHitTester
         return true;
     }
 
+    public static bool TryFindClosestJunction(
+        RoadGraphV3Revision revision,
+        GraphStateToken token,
+        Vector2 point,
+        float maxDistance,
+        out RoadSurfaceHit hit)
+    {
+        ArgumentNullException.ThrowIfNull(revision);
+        if (!point.IsFinite())
+            throw new ArgumentException("Query point must be finite.", nameof(point));
+        if (!float.IsFinite(maxDistance) || maxDistance < 0f)
+            throw new ArgumentOutOfRangeException(nameof(maxDistance), maxDistance, "Max distance must be finite and non-negative.");
+
+        hit = null!;
+        float bestDistanceSquared = maxDistance * maxDistance;
+        int bestNodeID = -1;
+
+        foreach (RoadGraphV3Node node in revision.Nodes.Values.OrderBy(node => node.ID))
+        {
+            if (GetIncidentEdgeCount(revision, node.ID) < 3)
+                continue;
+
+            float distanceSquared = point.DistanceSquaredTo(node.Position);
+            if (distanceSquared > bestDistanceSquared)
+                continue;
+
+            bestDistanceSquared = distanceSquared;
+            bestNodeID = node.ID;
+        }
+
+        if (bestNodeID < 0)
+            return false;
+
+        hit = new RoadSurfaceHit(
+            token,
+            RoadSurfaceOwnerKind.JunctionPatch,
+            NodeID: bestNodeID,
+            EdgeID: null,
+            Endpoint: null,
+            new RoadLocation(0, 0, 0f),
+            bestDistanceSquared);
+        return true;
+    }
+
+    private static int GetIncidentEdgeCount(RoadGraphV3Revision revision, int nodeID) =>
+        revision.Edges.Values.Count(edge => edge.NodeAID == nodeID || edge.NodeBID == nodeID);
+
     private static bool TryClosestPointOnSegment(
         Vector2 point,
         Vector2 start,

@@ -201,6 +201,12 @@
 - 新增 1 个 xUnit 用例；完整测试套件 1173/1173 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：junction patch 命中测试与真实输入路由，以及混合宽度/锐角真实填补。
 
+### 2026-08-13：2.2 junction patch 命中测试（部分）
+
+- `RoadSurfaceHitTester` 新增 `TryFindClosestJunction`：对 degree >= 3 节点按到节点距离返回 `JunctionPatch` 命中；degree 2 或超距返回失败。
+- 新增 3 个 xUnit 用例；完整测试套件 1176/1176 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：将 junction 命中接入真实输入路由，以及混合宽度/锐角真实填补。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁
