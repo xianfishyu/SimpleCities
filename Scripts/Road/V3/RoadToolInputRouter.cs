@@ -21,6 +21,9 @@ public sealed class RoadToolInputRouter
     public bool IsSelecting => _upgrade is not null || _removal is not null;
     public bool HasActiveSession => IsPlacing || IsSelecting;
     public bool IsPlacementClosed => _placement?.IsClosed ?? false;
+    public RoadPlacementSessionV3? PlacementSession => _placement;
+    public RoadUpgradeSessionV3? UpgradeSession => _upgrade;
+    public RoadRemovalSessionV3? RemovalSession => _removal;
 
     public RoadToolInputRouter(
         RoadToolState toolState,
