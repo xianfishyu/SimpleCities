@@ -82,6 +82,40 @@ public sealed class RoadPlacementSessionV3
         return true;
     }
 
+    public bool IsWithinCloseRadius(Vector2 pointerPosition, float closeRadius)
+    {
+        if (!pointerPosition.IsFinite())
+            throw new ArgumentException("Pointer position must be finite.", nameof(pointerPosition));
+        if (!float.IsFinite(closeRadius) || closeRadius <= 0f)
+            throw new ArgumentOutOfRangeException(nameof(closeRadius), closeRadius, "Close radius must be positive and finite.");
+
+        return _fixedPoints.Count > 0 && pointerPosition.DistanceTo(_startPosition) <= closeRadius;
+    }
+
+    public bool TryGetClosedDraft(Vector2 pointerPosition, float closeRadius, out RoadPathDraft closedDraft)
+    {
+        if (!IsWithinCloseRadius(pointerPosition, closeRadius))
+        {
+            closedDraft = null!;
+            return false;
+        }
+
+        var points = new List<Vector2> { _startPosition };
+        points.AddRange(_fixedPoints);
+        points.Add(_startPosition);
+        closedDraft = RoadPathDraft.FromPolyline(points);
+        return true;
+    }
+
+    public bool TryClose(Vector2 pointerPosition, float closeRadius)
+    {
+        if (!IsWithinCloseRadius(pointerPosition, closeRadius))
+            return false;
+
+        _currentPointer = _startPosition;
+        return true;
+    }
+
     public bool TryAddPoint(Vector2 pointerPosition)
     {
         if (pointerPosition.DistanceTo(CurrentAnchor) <= 0f)

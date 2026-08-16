@@ -62,6 +62,12 @@
 - 完整测试套件 1054/1054 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：结构化闭合预览与 surface hit 选择。
 
+### 2026-08-13：2.0 铺路会话首锚点闭合半径与结构化闭合预览（部分）
+
+- `RoadPlacementSessionV3` 新增 `IsWithinCloseRadius` / `TryGetClosedDraft` / `TryClose(pointerPosition, closeRadius)`：把首锚点身份半径纳入会话，可返回由同一 `RoadPath` 派生的闭合预览，且不追加退化段；`RoadGraphV3InputHandler` 改用会话级 `TryClose` 处理回到首锚点。
+- 新增 10 个 xUnit 用例；完整测试套件 1097/1097 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
+- 尚未完成：`RoadBuilder` 真实接线、完整工具生命周期与 surface hit 选择。
+
 ## 执行顺序
 
 ### 阶段 3：第三代闭环、类型化建造与道路改造

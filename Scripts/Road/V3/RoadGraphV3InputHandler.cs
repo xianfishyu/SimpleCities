@@ -50,10 +50,8 @@ public partial class RoadGraphV3InputHandler : Node2D
                 {
                     _session = new RoadPlacementSessionV3(system.ToolState.SelectedRoadType, position);
                 }
-                else if (_session.FixedCornerCount > 0 &&
-                         position.DistanceTo(_session.StartPosition) <= CloseRadius)
+                else if (_session.TryClose(position, CloseRadius))
                 {
-                    _session.TryClose();
                     if (!_session.HasSelfIntersection)
                     {
                         system.TryBuild(_session, out _);

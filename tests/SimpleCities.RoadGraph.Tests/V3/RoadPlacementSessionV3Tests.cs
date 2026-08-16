@@ -132,4 +132,103 @@ public sealed class RoadPlacementSessionV3Tests
         Assert.Throws<System.ArgumentOutOfRangeException>(
             () => new RoadPlacementSessionV3((RoadType)99, Vector2.Zero));
     }
+
+    [Fact]
+    public void TryClose_WithinCloseRadius_ClosesPath()
+    {
+        var session = new RoadPlacementSessionV3(RoadType.Street, Vector2.Zero);
+        session.TryAddPoint(new Vector2(1f, 0f));
+        session.TryAddPoint(new Vector2(1f, 1f));
+
+        Assert.True(session.TryClose(new Vector2(0.1f, 0.1f), 0.2f));
+        Assert.True(session.IsClosed);
+        Assert.Equal(Vector2.Zero, session.CurrentDraft.PreviewTo);
+    }
+
+    [Fact]
+    public void TryClose_OutsideCloseRadius_Fails()
+    {
+        var session = new RoadPlacementSessionV3(RoadType.Street, Vector2.Zero);
+        session.TryAddPoint(new Vector2(1f, 0f));
+
+        Assert.False(session.TryClose(new Vector2(2f, 0f), 0.2f));
+        Assert.False(session.IsClosed);
+    }
+
+    [Fact]
+    public void TryClose_InvalidCloseRadius_Throws()
+    {
+        var session = new RoadPlacementSessionV3(RoadType.Street, Vector2.Zero);
+        session.TryAddPoint(new Vector2(1f, 0f));
+
+        Assert.Throws<System.ArgumentOutOfRangeException>(
+            () => session.TryClose(new Vector2(0.1f, 0f), 0f));
+    }
+
+    [Fact]
+    public void IsWithinCloseRadius_Boundary_ReturnsTrue()
+    {
+        var session = new RoadPlacementSessionV3(RoadType.Street, Vector2.Zero);
+        session.TryAddPoint(new Vector2(1f, 0f));
+
+        Assert.True(session.IsWithinCloseRadius(new Vector2(0.2f, 0f), 0.2f));
+        Assert.False(session.IsWithinCloseRadius(new Vector2(0.21f, 0f), 0.2f));
+    }
+
+    [Fact]
+    public void IsWithinCloseRadius_NoFixedPoints_Fails()
+    {
+        var session = new RoadPlacementSessionV3(RoadType.Street, Vector2.Zero);
+
+        Assert.False(session.IsWithinCloseRadius(Vector2.Zero, 1f));
+    }
+
+    [Fact]
+    public void IsWithinCloseRadius_NonFinitePointer_Throws()
+    {
+        var session = new RoadPlacementSessionV3(RoadType.Street, Vector2.Zero);
+
+        Assert.Throws<System.ArgumentException>(
+            () => session.IsWithinCloseRadius(new Vector2(float.NaN, 0f), 1f));
+    }
+
+    [Fact]
+    public void TryGetClosedDraft_WithinRadius_ReturnsClosedPath()
+    {
+        var session = new RoadPlacementSessionV3(RoadType.Street, Vector2.Zero);
+        session.TryAddPoint(new Vector2(1f, 0f));
+        session.TryAddPoint(new Vector2(1f, 1f));
+
+        Assert.True(session.TryGetClosedDraft(new Vector2(0.1f, 0.1f), 0.2f, out RoadPathDraft draft));
+        Assert.Equal(4, draft.PreviewPoints.Count);
+        Assert.Equal(Vector2.Zero, draft.PreviewTo);
+        Assert.NotNull(draft.Path);
+        Assert.Equal(3, draft.Path.Segments.Count);
+    }
+
+    [Fact]
+    public void TryGetClosedDraft_OutsideRadius_Fails()
+    {
+        var session = new RoadPlacementSessionV3(RoadType.Street, Vector2.Zero);
+        session.TryAddPoint(new Vector2(1f, 0f));
+
+        Assert.False(session.TryGetClosedDraft(new Vector2(2f, 0f), 0.2f, out _));
+    }
+
+    [Fact]
+    public void TryGetClosedDraft_NoFixedPoints_Fails()
+    {
+        var session = new RoadPlacementSessionV3(RoadType.Street, Vector2.Zero);
+
+        Assert.False(session.TryGetClosedDraft(new Vector2(0.1f, 0f), 1f, out _));
+    }
+
+    [Fact]
+    public void TryGetClosedDraft_InvalidCloseRadius_Throws()
+    {
+        var session = new RoadPlacementSessionV3(RoadType.Street, Vector2.Zero);
+
+        Assert.Throws<System.ArgumentOutOfRangeException>(
+            () => session.TryGetClosedDraft(new Vector2(0.1f, 0f), -1f, out _));
+    }
 }
