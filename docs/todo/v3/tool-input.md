@@ -153,6 +153,12 @@
 - 完整测试套件 1207/1207 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
 - 尚未完成：真实输入自动化（鼠标点击）与端到端工具验收。
 
+### 2026-08-13：2.4 Load/NewCity 清除工具会话（部分）
+
+- `RoadGraphV3System` 在 `Load` / `LoadIntoCurrent` / `TryCommitPreparedLoad` / `NewCity` 成功后调用 `RoadGraphV3InputHandler.ResetTools()`，避免旧图工具会话残留。
+- 完整测试套件 1207/1207 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
+- 尚未完成：真实输入自动化（鼠标点击）与端到端工具验收。
+
 ## 执行顺序
 
 ### 阶段 3：第三代闭环、类型化建造与道路改造

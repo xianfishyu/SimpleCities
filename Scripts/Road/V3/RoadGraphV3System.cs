@@ -10,6 +10,7 @@ public partial class RoadGraphV3System : Node2D
     [Export] public RoadConfigV3 Config { get; set; } = null!;
 
     private RoadGraphV3Renderer? _renderer;
+    private RoadGraphV3InputHandler? _inputHandler;
 
     public static RoadGraphV3System Instance { get; private set; } = null!;
     public RoadGraphV3Application Application { get; private set; } = null!;
@@ -177,6 +178,7 @@ public partial class RoadGraphV3System : Node2D
         if (!Application.TryCommitPreparedLoad(prepare, lineageID, out result))
             return false;
         ApplyCurrentPresentation();
+        _inputHandler?.ResetTools();
         return true;
     }
 
@@ -185,6 +187,7 @@ public partial class RoadGraphV3System : Node2D
         if (!Application.Load(slotId, lineageID))
             return false;
         ApplyCurrentPresentation();
+        _inputHandler?.ResetTools();
         return true;
     }
 
@@ -193,6 +196,7 @@ public partial class RoadGraphV3System : Node2D
         if (!Application.LoadIntoCurrent(slotId, newLineageID))
             return false;
         ApplyCurrentPresentation();
+        _inputHandler?.ResetTools();
         return true;
     }
 
@@ -209,6 +213,7 @@ public partial class RoadGraphV3System : Node2D
     {
         Application.NewCity(lineageID);
         ApplyCurrentPresentation();
+        _inputHandler?.ResetTools();
     }
 
     public System.Collections.Generic.IReadOnlyList<SimpleCities.Core.V3.V3SlotSummary> List() =>
@@ -234,6 +239,7 @@ public partial class RoadGraphV3System : Node2D
             ? new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default, Config)
             : new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
         _renderer = GetNodeOrNull<RoadGraphV3Renderer>("RoadGraphV3Renderer");
+        _inputHandler = GetNodeOrNull<RoadGraphV3InputHandler>("RoadGraphV3InputHandler");
     }
 
     public void ApplyPresentationFullReset(RoadPresentationFullReset plan) =>
