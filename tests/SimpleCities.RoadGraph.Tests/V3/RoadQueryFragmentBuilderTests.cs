@@ -117,6 +117,13 @@ public sealed class RoadQueryFragmentBuilderTests
             RoadQueryFragmentBuilder.BuildSegmentFragments(7, 0, curve, 0f));
     }
 
+    [Fact]
+    public void BuildSegmentFragments_NullSegment_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            RoadQueryFragmentBuilder.BuildSegmentFragments(7, 0, null!, 1f));
+    }
+
     private static bool ContainsInclusive(Rect2 bounds, Vector2 point) =>
         point.X >= bounds.Position.X - 1e-5f &&
         point.X <= bounds.End.X + 1e-5f &&
