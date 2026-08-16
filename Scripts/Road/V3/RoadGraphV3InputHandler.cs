@@ -1,5 +1,6 @@
 using Godot;
 using SimpleCities.Road.V3;
+using System.Collections.Generic;
 using System.Linq;
 
 /// <summary>
@@ -43,27 +44,30 @@ public partial class RoadGraphV3InputHandler : Node2D
     public override void _Draw()
     {
         RoadToolInputRouter? router = Router;
-        if (router?.PlacementSession is not RoadPlacementSessionV3 session)
-            return;
-
         RoadGraphV3System? system = RoadGraphV3System.Instance;
-        if (system is null)
+        if (router is null || system is null)
             return;
 
-        Vector2[] points = session.CurrentDraft.PreviewPoints.ToArray();
-        if (points.Length < 2)
-            return;
-
-        if (!system.Application.DefaultStyles.TryGet(system.ToolState.SelectedRoadType, out RoadTypeStyle? style))
-            return;
-
-        DrawPolyline(points, style.Color, style.Width, true);
-
-        if (session.TryGetClosedDraft(GetGlobalMousePosition(), CloseRadius, out _))
+        if (router.PlacementSession is RoadPlacementSessionV3 session)
         {
-            Color closeColor = new(style.Color.R, style.Color.G, style.Color.B, 0.5f);
-            DrawLine(session.CurrentAnchor, session.StartPosition, closeColor, style.Width * 0.75f, true);
+            Vector2[] points = session.CurrentDraft.PreviewPoints.ToArray();
+            if (points.Length >= 2 &&
+                system.Application.DefaultStyles.TryGet(system.ToolState.SelectedRoadType, out RoadTypeStyle? style))
+            {
+                DrawPolyline(points, style.Color, style.Width, true);
+
+                if (session.TryGetClosedDraft(GetGlobalMousePosition(), CloseRadius, out _))
+                {
+                    Color closeColor = new(style.Color.R, style.Color.G, style.Color.B, 0.5f);
+                    DrawLine(session.CurrentAnchor, session.StartPosition, closeColor, style.Width * 0.75f, true);
+                }
+            }
         }
+
+        if (router.UpgradeSession is RoadUpgradeSessionV3 upgrade)
+            DrawSelectionHighlights(system, upgrade.SelectedEdgeIDs, new Color(1f, 1f, 0f, 0.8f));
+        if (router.RemovalSession is RoadRemovalSessionV3 removal)
+            DrawSelectionHighlights(system, removal.SelectedEdgeIDs, new Color(1f, 0.2f, 0.2f, 0.8f));
     }
 
     public override void _UnhandledInput(InputEvent @event)
@@ -138,6 +142,22 @@ public partial class RoadGraphV3InputHandler : Node2D
                     CommitActive(router, system);
                     break;
             }
+        }
+    }
+
+    private void DrawSelectionHighlights(
+        RoadGraphV3System system,
+        IEnumerable<int> edgeIDs,
+        Color color)
+    {
+        foreach (int edgeID in edgeIDs)
+        {
+            if (!system.Revision.Edges.TryGetValue(edgeID, out RoadGraphV3Edge? edge))
+                continue;
+
+            Vector2[] points = RoadGeometryDisplaySampler.SampleSegments(edge.Geometry);
+            if (points.Length >= 2)
+                DrawPolyline(points, color, 4f, true);
         }
     }
 

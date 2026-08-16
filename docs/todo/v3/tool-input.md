@@ -135,6 +135,12 @@
 - 完整测试套件 1162/1162 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
 - 尚未完成：真实输入自动化（鼠标点击）与端到端工具验收。
 
+### 2026-08-13：2.2 改造/拆除选择高亮（部分）
+
+- `RoadGraphV3InputHandler._Draw` 在 Upgrade/Remove 会话存在时，以黄色/红色折线高亮已选 Edge；没有活动放置会话时仍可绘制选择高亮。
+- 完整测试套件 1162/1162 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
+- 尚未完成：真实输入自动化（鼠标点击）与端到端工具验收。
+
 ## 执行顺序
 
 ### 阶段 3：第三代闭环、类型化建造与道路改造
