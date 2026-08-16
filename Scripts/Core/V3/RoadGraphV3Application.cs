@@ -50,6 +50,7 @@ public sealed class RoadGraphV3Application
 
     public string? CurrentSlotDisplayName => CurrentSlotSummary?.DisplayName;
     public string? CurrentSlotTimestamp => CurrentSlotSummary?.Timestamp;
+    public V3SlotOccupant? CurrentSlotOccupant => CurrentSlotSummary?.Occupant;
 
     public RoadGraphV3Application(
         string root,
