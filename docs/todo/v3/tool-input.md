@@ -200,7 +200,8 @@
 
 - `ToolType` 新增 `RoadUpgrade`；`ToolTypeExtensions` 将 `Select/Road/RoadRemove/RoadUpgrade` 稳定映射到 `RoadToolType.Select/Place/Remove/Upgrade`；`ToolManager` 在工具切换和 `_Ready` 时同步 V3 `ToolState`，UI“道路改造”按钮可进入 Upgrade。
 - `RoadToolType` 新增 `Select`，使非道路工具可映射到无操作工具状态。
-- 验证：Godot `MapTest` 冻结运行后点击“道路改造”按钮 `pressed=true` 且上下文显示“道路改造”；完整测试套件 1250/1250 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- `InputBindingManager` 新增 `tool_road_upgrade`（默认 U），`GameHUD` 通过 U 切换到 `RoadUpgrade`；运行时验证 `CurrentTool` 0 → 3。
+- 验证：Godot `MapTest` 冻结运行后点击“道路改造”按钮 `pressed=true` 且上下文显示“道路改造”；完整测试套件 1254/1254 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实 surface hit 选择、矩形批量改造、self-loop/parallel Edge 选择、失效 token 与端到端工具验收。
 
 ### 2026-08-13：2.1/2.2 切换类型取消未提交铺路并同步改造目标（部分）

@@ -56,7 +56,8 @@
 - `ToolType` 新增 `RoadUpgrade`；`RoadsConstructionCategory.tres` 新增 `road-upgrade` 工具定义与独立图标；`ConstructionDock` 渲染“城市道路/道路改造”两个工具项，内置展示、焦点链和节点命名覆盖 `RoadUpgrade`。
 - `ToolTypeExtensions` 将 `Select/Road/RoadRemove/RoadUpgrade` 稳定映射到 `RoadToolType.Select/Place/Remove/Upgrade`，`ToolManager` 在工具切换和 `_Ready` 时同步 V3 `ToolState`。
 - `ConstructionDock` 焦点链扩展为全部工具按钮（Road → RoadUpgrade → Context），`GetLastDockFocusControl` 返回最后工具按钮。
-- 验证：Godot `MapTest` 冻结运行后 tool list 有 `RoadToolButton` / `RoadUpgradeToolButton`；点击“道路改造”后按钮 `pressed=true` 且 `ToolContextPanel` 显示“道路改造”；`command_center_runtime_contract.gd` headless 输出 `PASS command center runtime contract`；完整测试套件 1250/1250 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- `InputBindingManager` 新增 `tool_road_upgrade`（默认 U），`GameHUD` 可通过 U 切换到 `RoadUpgrade`；运行时验证 `CurrentTool` 0 → 3。
+- 验证：Godot `MapTest` 冻结运行后 tool list 有 `RoadToolButton` / `RoadUpgradeToolButton`；点击“道路改造”后按钮 `pressed=true` 且 `ToolContextPanel` 显示“道路改造”；`command_center_runtime_contract.gd` headless 输出 `PASS command center runtime contract`；完整测试套件 1254/1254 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实 surface hit 选择、矩形批量改造、self-loop/parallel Edge 选择、失效 token 与端到端工具验收。
 
 ### 2026-08-13：1.3 DebugPanel 隐藏时零轮询（部分）

@@ -18,15 +18,15 @@ public sealed class InputBindingManagerContractTests
     private static readonly string ToolManagerPath = Path.Combine(ProjectRoot, "Scripts", "Tools", "ToolManager.cs");
 
     [Fact]
-    public void Catalog_DefinesTenUniqueSingleKeyActions()
+    public void Catalog_DefinesElevenUniqueSingleKeyActions()
     {
         InputBindingManager.BindingDefinition[] definitions = InputBindingManager.Definitions.ToArray();
 
-        Assert.Equal(10, definitions.Length);
+        Assert.Equal(11, definitions.Length);
         Assert.Equal(definitions.Length, definitions.Select(definition => definition.ActionName).Distinct(StringComparer.Ordinal).Count());
         Assert.Equal(definitions.Length, definitions.Select(definition => definition.DefaultKey).Distinct().Count());
         Assert.All(definitions, definition => Assert.True(InputBindingManager.IsBindableKey(definition.DefaultKey)));
-        Assert.Equal(3, definitions.Count(definition => definition.Tool != null));
+        Assert.Equal(4, definitions.Count(definition => definition.Tool != null));
     }
 
     [Fact]
