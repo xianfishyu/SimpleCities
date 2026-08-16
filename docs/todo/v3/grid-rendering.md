@@ -213,6 +213,13 @@
 - 新增 2 个 xUnit 用例；完整测试套件 1178/1178 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：将 junction 命中接入真实输入路由，以及混合宽度/锐角真实填补。
 
+### 2026-08-13：2.2 应用/场景暴露 junction 表面命中查询（部分）
+
+- `RoadGraphV3Application` 新增 `TryFindClosestJunctionSurfaceHit`：先用 `RoadSurfaceHitTester.TryFindClosestJunction` 获取候选，再经 `HitProvider` 校验已呈现快照；未发布表现返回失败。
+- `RoadGraphV3System` 转发该入口。
+- 新增 2 个 xUnit 用例；完整测试套件 1180/1180 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：将 junction 命中接入真实输入路由，以及混合宽度/锐角真实填补。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁

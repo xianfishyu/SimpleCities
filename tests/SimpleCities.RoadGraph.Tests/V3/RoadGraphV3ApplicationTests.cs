@@ -309,6 +309,56 @@ public sealed class RoadGraphV3ApplicationTests
     }
 
     [Fact]
+    public void TryFindClosestJunctionSurfaceHit_AfterPresentation_ReturnsJunctionHit()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            RoadGraphV3Revision revision = CreateCrossRevisionForHitTest(out int centerID);
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            app.Controller.ReplaceWithFullReset(revision, 1);
+            RoadRenderToken desired = new(1, 1, 1, 1, 1, 13);
+            Assert.True(app.Presentation.TryRequest(
+                app.Controller.Facade.Revision,
+                app.Controller.Facade.CurrentToken,
+                desired));
+            Assert.True(app.Presentation.TryPublish(desired));
+
+            Assert.True(app.TryFindClosestJunctionSurfaceHit(
+                new Vector2(0.1f, 0.1f),
+                maxDistance: 1f,
+                out RoadSurfaceHit hit));
+            Assert.Equal(RoadSurfaceOwnerKind.JunctionPatch, hit.OwnerKind);
+            Assert.Equal(centerID, hit.NodeID);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
+    public void TryFindClosestJunctionSurfaceHit_BeforePresentation_Fails()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            RoadGraphV3Revision revision = CreateCrossRevisionForHitTest(out _);
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            app.Controller.ReplaceWithFullReset(revision, 1);
+
+            Assert.False(app.TryFindClosestJunctionSurfaceHit(
+                new Vector2(0.1f, 0.1f),
+                maxDistance: 1f,
+                out _));
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void BuildDefaultSurfaceSnapshot_ReturnsSnapshotWithOwners()
     {
         string root = GetTempRoot();
@@ -1685,6 +1735,21 @@ public sealed class RoadGraphV3ApplicationTests
         {
             // best-effort cleanup
         }
+    }
+
+    private static RoadGraphV3Revision CreateCrossRevisionForHitTest(out int centerID)
+    {
+        RoadGraphV3Revision revision = RoadGraphV3Revision.Empty(RoadGraphCapacity.Default);
+        revision.TryAddNode(Vector2.Zero, out revision, out centerID);
+        revision.TryAddNode(new Vector2(1f, 0f), out revision, out int eastID);
+        revision.TryAddNode(new Vector2(-1f, 0f), out revision, out int westID);
+        revision.TryAddNode(new Vector2(0f, 1f), out revision, out int northID);
+        revision.TryAddNode(new Vector2(0f, -1f), out revision, out int southID);
+        revision.TryAddEdge(centerID, eastID, [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(1f, 0f))], RoadType.Street, out revision, out _);
+        revision.TryAddEdge(centerID, westID, [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(-1f, 0f))], RoadType.Street, out revision, out _);
+        revision.TryAddEdge(centerID, northID, [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(0f, 1f))], RoadType.Street, out revision, out _);
+        revision.TryAddEdge(centerID, southID, [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(0f, -1f))], RoadType.Street, out revision, out _);
+        return revision;
     }
 
     private static RoadGraphV3Revision CreateRevision()

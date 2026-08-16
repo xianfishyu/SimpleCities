@@ -339,6 +339,25 @@ public sealed class RoadGraphV3Application
         return HitProvider.TryResolve(candidate, out hit);
     }
 
+    public bool TryFindClosestJunctionSurfaceHit(
+        Vector2 point,
+        float maxDistance,
+        out RoadSurfaceHit hit)
+    {
+        if (!RoadSurfaceHitTester.TryFindClosestJunction(
+                Controller.Facade.Revision,
+                Controller.Facade.CurrentToken,
+                point,
+                maxDistance,
+                out RoadSurfaceHit candidate))
+        {
+            hit = null!;
+            return false;
+        }
+
+        return HitProvider.TryResolve(candidate, out hit);
+    }
+
     public bool TryUpgrade(RoadUpgradeSessionV3 session, out IReadOnlyList<int> changedEdgeIDs) =>
         new RoadToolCommandExecutor(Controller).TryUpgrade(session, out changedEdgeIDs);
 
