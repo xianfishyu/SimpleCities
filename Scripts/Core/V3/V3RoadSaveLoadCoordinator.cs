@@ -112,4 +112,35 @@ public sealed class V3RoadSaveLoadCoordinator
             _gate.Release(operationId);
         }
     }
+
+    public V3RoadLoadPrepareResult? Prepare(
+        string slotId,
+        string root,
+        RoadGraphCapacity capacity,
+        V3PayloadBudget budget,
+        long lineageID = 1,
+        RoadToolState? preservedToolState = null,
+        RoadStyleProvider? styles = null,
+        RoadRenderToken? desiredPresentationToken = null)
+    {
+        if (!_gate.TryAcquire(out Guid operationId))
+            return null;
+
+        try
+        {
+            return V3RoadLoadPipeline.Prepare(
+                slotId,
+                root,
+                capacity,
+                budget,
+                lineageID,
+                preservedToolState,
+                styles,
+                desiredPresentationToken);
+        }
+        finally
+        {
+            _gate.Release(operationId);
+        }
+    }
 }

@@ -145,6 +145,30 @@ public sealed class RoadGraphV3ApplicationTests
     }
 
     [Fact]
+    public void TryPrepareLoad_ReturnsPreflightPlan()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var source = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            RoadGraphV3Revision revision = CreateRevision();
+            source.Controller.ReplaceWithFullReset(revision, 1);
+            Assert.True(source.Save("city-001", "n", "n", "2026-08-12T08:00:00.0000000Z", null, null, null));
+
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            Assert.True(app.TryPrepareLoad("city-001", lineageID: 7, out V3RoadLoadPrepareResult? prepare));
+            Assert.NotNull(prepare);
+            Assert.True(prepare!.Success);
+            Assert.Equal(V3LoadPhase.Preflight, prepare.Phase);
+            Assert.NotNull(prepare.Plan);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void TryAutosave_WhenGateFree_Saves()
     {
         string root = GetTempRoot();

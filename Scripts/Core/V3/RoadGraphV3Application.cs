@@ -161,6 +161,23 @@ public sealed class RoadGraphV3Application
         string? thumbnailFile) =>
         Save(slotId, displayName, cityName, timestamp, population, funds, thumbnailFile);
 
+    public bool TryPrepareLoad(
+        string slotId,
+        long lineageID,
+        out V3RoadLoadPrepareResult? prepare)
+    {
+        prepare = _coordinator.Prepare(
+            slotId,
+            _root,
+            _capacity,
+            _budget,
+            lineageID,
+            ToolState,
+            DefaultStyles,
+            new RoadRenderToken(0, lineageID, 0, 0, 0, 0));
+        return prepare is { Success: true };
+    }
+
     public bool Load(string slotId, long lineageID = 1)
     {
         V3RoadLoadPipelineResult? result = _coordinator.LoadResult(
