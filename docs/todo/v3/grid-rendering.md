@@ -107,6 +107,12 @@
 - 新增 5 个 xUnit 用例；完整测试套件 1108/1108 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
 - 尚未完成：真实 mesh/ribbon、junction patch 与完整接管协议。
 
+### 2026-08-13：2.2 presentation full-reset 计划（部分）
+
+- 新增 `Scripts/Road/V3/RoadPresentationFullReset.cs`：绑定目标 `RoadRenderToken` 与已构建 `RoadSurfaceSnapshot`，在 commit 中一次设置 desired/presented；可 `Create` 构造 Load 计划或 `Prepare` 从当前已呈现状态捕获。
+- 新增 7 个 xUnit 用例；完整测试套件 1124/1124 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实 mesh/ribbon、junction patch、renderer participant 与完整接管协议。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁
