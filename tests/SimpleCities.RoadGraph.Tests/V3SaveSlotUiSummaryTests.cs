@@ -14,6 +14,9 @@ public sealed class V3SaveSlotUiSummaryTests
         Assert.True(summary.IsListable);
         Assert.True(summary.CanLoadOrOverwrite);
         Assert.True(summary.CanDelete);
+        Assert.True(summary.IsComplete);
+        Assert.False(summary.IsCorrupt);
+        Assert.Equal("手动", summary.SlotKind);
         Assert.Null(summary.Error);
     }
 
@@ -27,6 +30,9 @@ public sealed class V3SaveSlotUiSummaryTests
         Assert.True(summary.IsListable);
         Assert.False(summary.CanLoadOrOverwrite);
         Assert.True(summary.CanDelete);
+        Assert.False(summary.IsComplete);
+        Assert.True(summary.IsCorrupt);
+        Assert.Equal("手动", summary.SlotKind);
         Assert.Equal("槽内容损坏", summary.Error);
     }
 
@@ -41,6 +47,17 @@ public sealed class V3SaveSlotUiSummaryTests
         Assert.False(summary.CanLoadOrOverwrite);
         Assert.False(summary.CanDelete);
         Assert.Equal("非 V3 槽", summary.Error);
+    }
+
+    [Fact]
+    public void FromSlot_AutosaveSlotId_UsesAutomaticKind()
+    {
+        var slot = new V3SlotSummary("autosave", "自动存档", V3SlotOccupant.CompleteV3, null);
+
+        V3SaveSlotUiSummary summary = V3SaveSlotUiSummary.FromSlot(slot);
+
+        Assert.Equal("自动", summary.SlotKind);
+        Assert.True(summary.IsComplete);
     }
 
     [Fact]

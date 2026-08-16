@@ -825,16 +825,14 @@ public partial class PauseMenu : Control
                 continue;
 
             _v3SaveSlots.Add(summary);
-            string slotKind = string.Equals(summary.SlotId, SaveManager.AutosaveSlotID, StringComparison.OrdinalIgnoreCase)
-                ? "自动"
-                : "手动";
-            string itemText = summary.Occupant == V3SlotOccupant.CompleteV3
+            string slotKind = summary.SlotKind;
+            string itemText = summary.IsComplete
                 ? $"{slotKind}  ·  {summary.DisplayName}  ·  {FormatSaveTime(ParseTimestamp(summary.Timestamp))}"
                 : $"损坏{slotKind}存档  ·  {summary.SlotId}";
             int itemIndex = _saveSlotList.ItemCount;
             _saveSlotList.AddItem(itemText);
             _saveSlotList.SetItemMetadata(itemIndex, summary.SlotId);
-            if (summary.Occupant == V3SlotOccupant.CorruptV3)
+            if (summary.IsCorrupt)
                 _saveSlotList.SetItemCustomFgColor(itemIndex, new Color("#FF6B6B"));
             if (string.Equals(summary.SlotId, preferredSlotID, StringComparison.Ordinal))
                 preferredIndex = itemIndex;
@@ -910,7 +908,7 @@ public partial class PauseMenu : Control
             return;
         }
 
-        if (summary.Occupant == V3SlotOccupant.CorruptV3)
+        if (summary.IsCorrupt)
         {
             string error = summary.Error ?? "清单无法读取";
             _saveSlotSummaryLabel.Text = $"损坏存档：{summary.SlotId}\n{error}";
@@ -919,9 +917,7 @@ public partial class PauseMenu : Control
             return;
         }
 
-        string slotKind = string.Equals(summary.SlotId, SaveManager.AutosaveSlotID, StringComparison.OrdinalIgnoreCase)
-            ? "自动存档"
-            : "手动存档";
+        string slotKind = summary.SlotKind == "自动" ? "自动存档" : "手动存档";
         _saveSlotSummaryLabel.Text =
             $"{slotKind}  ·  {summary.DisplayName}  ·  {FormatSaveTime(ParseTimestamp(summary.Timestamp))}\n" +
             $"槽 ID：{summary.SlotId}";
@@ -1009,10 +1005,8 @@ public partial class PauseMenu : Control
 
     private static string ConfirmationSummary(V3SaveSlotUiSummary summary)
     {
-        string slotKind = string.Equals(summary.SlotId, SaveManager.AutosaveSlotID, StringComparison.OrdinalIgnoreCase)
-            ? "自动"
-            : "手动";
-        return summary.Occupant == V3SlotOccupant.CompleteV3
+        string slotKind = summary.SlotKind;
+        return summary.IsComplete
             ? $"{slotKind} · “{summary.DisplayName}” · {FormatSaveTime(ParseTimestamp(summary.Timestamp))}"
             : $"损坏{slotKind}存档 · {summary.SlotId}";
     }

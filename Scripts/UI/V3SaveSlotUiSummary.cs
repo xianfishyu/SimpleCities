@@ -14,6 +14,13 @@ public sealed record V3SaveSlotUiSummary(
     bool CanDelete,
     string? Error)
 {
+    public bool IsComplete => Occupant == V3SlotOccupant.CompleteV3;
+
+    public bool IsCorrupt => Occupant == V3SlotOccupant.CorruptV3;
+
+    public string SlotKind =>
+        string.Equals(SlotId, SaveManager.AutosaveSlotID, StringComparison.OrdinalIgnoreCase) ? "自动" : "手动";
+
     public static V3SaveSlotUiSummary FromSlot(V3SlotSummary slot)
     {
         ArgumentNullException.ThrowIfNull(slot);
