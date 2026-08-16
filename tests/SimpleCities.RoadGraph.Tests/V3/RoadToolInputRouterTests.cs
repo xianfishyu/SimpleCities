@@ -26,6 +26,17 @@ public sealed class RoadToolInputRouterTests
     }
 
     [Fact]
+    public void HandleLeftClick_Place_StartsSessionWithSelectedRoadType()
+    {
+        var router = CreateRouter();
+        router.TrySelectRoadType(RoadType.Highway);
+
+        Assert.True(router.HandleLeftClick(Vector2.Zero, closeRadius: 10f, hitRadius: 10f));
+        Assert.True(router.TryTakePlacementSession(out RoadPlacementSessionV3 session));
+        Assert.Equal(RoadType.Highway, session.RoadType);
+    }
+
+    [Fact]
     public void HandleLeftClick_Place_AddsPointsAndCanClose()
     {
         var router = CreateRouter();
