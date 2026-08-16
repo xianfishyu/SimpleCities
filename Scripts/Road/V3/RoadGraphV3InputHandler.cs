@@ -3,28 +3,54 @@ using SimpleCities.Road.V3;
 using System.Linq;
 
 /// <summary>
-/// V3 最小连续铺路输入处理器：左键添加拐点，右键移除最后拐点，Enter 提交当前会话。
+/// V3 最小连续铺路/改造/拆除输入处理器：左键按当前工具添加拐点、闭合或选择表面命中，
+/// 右键移除最后拐点，Enter 提交当前会话，Esc 取消，P/R/U 切换工具。
 /// </summary>
 public partial class RoadGraphV3InputHandler : Node2D
 {
     [Export] public float CloseRadius { get; set; } = 20f;
+    [Export] public float HitRadius { get; set; } = 20f;
 
-    private RoadPlacementSessionV3? _session;
+    private RoadToolInputRouter? _router;
 
-    public bool IsPlacing => _session is not null;
-    public bool IsClosed => _session?.IsClosed ?? false;
-    public int FixedCornerCount => _session?.FixedCornerCount ?? 0;
+    public bool IsPlacing => Router?.IsPlacing ?? false;
+    public bool IsClosed => Router?.IsPlacementClosed ?? false;
+    public int FixedCornerCount => Router?.PlacementSession?.FixedCornerCount ?? 0;
+
+    private RoadToolInputRouter? Router
+    {
+        get
+        {
+            if (_router is not null)
+                return _router;
+
+            RoadGraphV3System? system = RoadGraphV3System.Instance;
+            if (system is null)
+                return null;
+
+            _router = new RoadToolInputRouter(
+                system.ToolState,
+                (point, radius) =>
+                {
+                    if (system.TryFindClosestSurfaceHit(point, radius, out RoadSurfaceHit hit))
+                        return hit;
+                    return null;
+                });
+            return _router;
+        }
+    }
 
     public override void _Draw()
     {
-        if (_session is null)
+        RoadToolInputRouter? router = Router;
+        if (router?.PlacementSession is not RoadPlacementSessionV3 session)
             return;
 
         RoadGraphV3System? system = RoadGraphV3System.Instance;
         if (system is null)
             return;
 
-        Vector2[] points = _session.CurrentDraft.PreviewPoints.ToArray();
+        Vector2[] points = session.CurrentDraft.PreviewPoints.ToArray();
         if (points.Length < 2)
             return;
 
@@ -33,75 +59,70 @@ public partial class RoadGraphV3InputHandler : Node2D
 
         DrawPolyline(points, style.Color, style.Width, true);
 
-        if (_session.TryGetClosedDraft(GetGlobalMousePosition(), CloseRadius, out _))
+        if (session.TryGetClosedDraft(GetGlobalMousePosition(), CloseRadius, out _))
         {
             Color closeColor = new(style.Color.R, style.Color.G, style.Color.B, 0.5f);
-            DrawLine(_session.CurrentAnchor, _session.StartPosition, closeColor, style.Width * 0.75f, true);
+            DrawLine(session.CurrentAnchor, session.StartPosition, closeColor, style.Width * 0.75f, true);
         }
     }
 
     public override void _UnhandledInput(InputEvent @event)
     {
         QueueRedraw();
+        RoadGraphV3System? system = RoadGraphV3System.Instance;
+        if (system is null)
+            return;
+
+        RoadToolInputRouter? router = Router;
+        if (router is null)
+            return;
+
         if (@event is InputEventMouseButton mouseButton && mouseButton.Pressed)
         {
-            RoadGraphV3System? system = RoadGraphV3System.Instance;
-            if (system is null)
-                return;
-
             Vector2 position = GetGlobalMousePosition();
             if (mouseButton.ButtonIndex == MouseButton.Left)
             {
-                if (_session is null)
+                router.HandleLeftClick(position, CloseRadius, HitRadius);
+                if (router.IsPlacementClosed &&
+                    router.TryTakePlacementSession(out RoadPlacementSessionV3 session))
                 {
-                    _session = new RoadPlacementSessionV3(system.ToolState.SelectedRoadType, position);
+                    system.TryBuild(session, out _);
                 }
-                else if (_session.TryGetClosedDraft(position, CloseRadius, out _))
-                {
-                    if (!_session.HasClosedSelfIntersection(position, CloseRadius))
-                    {
-                        _session.TryClose(position, CloseRadius);
-                        system.TryBuild(_session, out _);
-                        _session = null;
-                    }
-                }
-                else
-                {
-                    _session.TryAddPoint(position);
-                }
+
                 return;
             }
 
-            if (mouseButton.ButtonIndex == MouseButton.Right && _session is not null)
+            if (mouseButton.ButtonIndex == MouseButton.Right)
             {
-                _session.TryRemoveLastPoint();
-                if (_session.FixedCornerCount == 0)
-                    _session = null;
+                router.HandleRightClick();
+                return;
             }
-            return;
         }
 
-        if (@event is InputEventKey keyEvent &&
-            keyEvent.Pressed &&
-            !keyEvent.Echo)
+        if (@event is InputEventKey keyEvent && keyEvent.Pressed && !keyEvent.Echo)
         {
-            RoadGraphV3System? system = RoadGraphV3System.Instance;
-            if (system is null)
-                return;
-
             switch (keyEvent.Keycode)
             {
                 case Key.Key1:
-                    system.ToolState.TrySelectRoadType(RoadType.Dirt);
+                    router.TrySelectRoadType(RoadType.Dirt);
                     break;
                 case Key.Key2:
-                    system.ToolState.TrySelectRoadType(RoadType.Street);
+                    router.TrySelectRoadType(RoadType.Street);
                     break;
                 case Key.Key3:
-                    system.ToolState.TrySelectRoadType(RoadType.Arterial);
+                    router.TrySelectRoadType(RoadType.Arterial);
                     break;
                 case Key.Key4:
-                    system.ToolState.TrySelectRoadType(RoadType.Highway);
+                    router.TrySelectRoadType(RoadType.Highway);
+                    break;
+                case Key.P:
+                    router.SwitchTool(RoadToolType.Place);
+                    break;
+                case Key.R:
+                    router.SwitchTool(RoadToolType.Remove);
+                    break;
+                case Key.U:
+                    router.SwitchTool(RoadToolType.Upgrade);
                     break;
                 case Key.Z when keyEvent.CtrlPressed:
                     system.TryUndo(out _);
@@ -110,15 +131,34 @@ public partial class RoadGraphV3InputHandler : Node2D
                     system.TryRedo(out _);
                     break;
                 case Key.Escape:
-                    _session = null;
+                    router.Cancel();
                     break;
                 case Key.Enter:
                 case Key.KpEnter:
-                    if (_session is not null && !_session.HasSelfIntersection)
-                        system.TryBuild(_session, out _);
-                    _session = null;
+                    CommitActive(router, system);
                     break;
             }
+        }
+    }
+
+    private static void CommitActive(RoadToolInputRouter router, RoadGraphV3System system)
+    {
+        if (router.TryTakePlacementSession(out RoadPlacementSessionV3 placement) &&
+            !placement.HasSelfIntersection)
+        {
+            system.TryBuild(placement, out _);
+            return;
+        }
+
+        if (router.TryTakeUpgradeSession(out RoadUpgradeSessionV3 upgrade))
+        {
+            system.TryUpgrade(upgrade, out _);
+            return;
+        }
+
+        if (router.TryTakeRemovalSession(out RoadRemovalSessionV3 removal))
+        {
+            system.TryRemove(removal, out _);
         }
     }
 }

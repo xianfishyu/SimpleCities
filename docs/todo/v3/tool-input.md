@@ -129,6 +129,12 @@
 - 新增 8 个 xUnit 用例；完整测试套件 1162/1162 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
 - 尚未完成：将路由器接入 `RoadGraphV3InputHandler` 真实输入事件与提交链路。
 
+### 2026-08-13：2.0～2.2 输入处理器接入路由器（部分）
+
+- `RoadGraphV3InputHandler` 改用 `RoadToolInputRouter`：左键按当前工具处理放置/闭合或表面命中选择，右键移除拐点，Enter 提交当前会话，Esc 取消，P/R/U 切换工具。
+- 完整测试套件 1162/1162 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
+- 尚未完成：真实输入自动化（鼠标点击）与端到端工具验收。
+
 ## 执行顺序
 
 ### 阶段 3：第三代闭环、类型化建造与道路改造
