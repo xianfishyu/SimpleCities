@@ -5,6 +5,7 @@
 > 整理日期：2026-08-13
 >
 > 架构与验收规范：[`docs/manuals/road-system-v3-gen.md`](../../manuals/road-system-v3-gen.md)
+> 当前实现与验证状态：[`docs/manuals/v3-current-implementation.md`](../../manuals/v3-current-implementation.md)
 
 本目录是 V3 路线图的唯一索引。第二代道路系统及其历史收尾继续由 [`docs/todo/README.md`](../README.md) 导航；V3 之后才启用的交通模拟仍属于 [`docs/todo/traffic-simulation.md`](../traffic-simulation.md)，不纳入本目录。
 
