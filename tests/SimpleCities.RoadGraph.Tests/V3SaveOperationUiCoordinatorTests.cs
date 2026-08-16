@@ -103,6 +103,7 @@ public sealed class V3SaveOperationUiCoordinatorTests
 
         Assert.True(state.IsComplete);
         Assert.Equal(V3SaveOperationKind.Publish, state.Kind);
+        Assert.True(state.IsTerminal);
         Assert.Equal(1, backend.SaveCalls);
         Assert.Equal("city-001", backend.LastSlotId);
     }
