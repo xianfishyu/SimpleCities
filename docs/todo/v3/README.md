@@ -111,6 +111,8 @@ docs/todo/v3/                                各系统路线图
 - `V3SaveOperationUiCoordinatorTests`：SaveAs/Save/Load/Delete 成功与失败、busy 不调用后端、RequestCancel（可取消/不可取消）、Reset。
 - `V3AsyncSaveOperationCoordinatorTests`：异步 SaveAs/Save/Load/Delete 成功与失败、busy 不调用后端、取消后不启动、Reset 清除取消标记并允许新操作、RequestCancel。
 
+- M4 状态机测试汇总：SaveAs/Save/Load/Delete 成功/失败、busy 不调用后端、取消/Reset/IsTerminal、observer warning 与各阶段映射。
+
 ## 文档更新示例
 
 以完成 `v3-ui:1.2` 为例：
