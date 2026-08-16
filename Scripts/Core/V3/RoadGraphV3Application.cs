@@ -293,6 +293,9 @@ public sealed class RoadGraphV3Application
 
     public V3Manifest? GetManifest(string slotId) => V3SlotManifestService.GetManifest(slotId, _root);
 
+    public V3Manifest? CurrentSlotManifest =>
+        string.IsNullOrEmpty(CurrentSlotID) ? null : GetManifest(CurrentSlotID);
+
     public byte[]? GetPayload(string slotId, string fileName) =>
         V3SlotPayloadService.GetPayload(slotId, _root, fileName);
 
