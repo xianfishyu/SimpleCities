@@ -26,6 +26,25 @@ public sealed class V3AsyncSaveOperationCoordinatorTests
     }
 
     [Fact]
+    public async Task SaveAsAsync_WhenCancelRequestedBeforeStart_DoesNotCallBackend()
+    {
+        var backend = new FakeBackend();
+        var coordinator = new V3AsyncSaveOperationCoordinator(backend);
+        coordinator.RequestCancel();
+
+        V3SaveOperationUiState state = await coordinator.SaveAsAsync(
+            "City",
+            "City",
+            "2026-08-16T00:00:00.0000000Z",
+            null,
+            null,
+            null);
+
+        Assert.Equal(V3SaveOperationUiPhase.Idle, state.Phase);
+        Assert.Equal(0, backend.SaveAsCalls);
+    }
+
+    [Fact]
     public async Task SaveAsync_WhenBusy_DoesNotCallBackend()
     {
         var backend = new FakeBackend();

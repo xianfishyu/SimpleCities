@@ -38,6 +38,9 @@ public sealed class V3AsyncSaveOperationCoordinator
         decimal? funds,
         string? thumbnailFile)
     {
+        if (IsCancellationRequested)
+            return _controller.State;
+
         if (!_controller.TryBegin(V3SaveOperationKind.Publish, _sceneGeneration))
             return _controller.State;
 
@@ -60,6 +63,9 @@ public sealed class V3AsyncSaveOperationCoordinator
         decimal? funds,
         string? thumbnailFile)
     {
+        if (IsCancellationRequested)
+            return _controller.State;
+
         if (!_controller.TryBegin(V3SaveOperationKind.Publish, _sceneGeneration))
             return _controller.State;
 
@@ -76,6 +82,9 @@ public sealed class V3AsyncSaveOperationCoordinator
 
     public async Task<V3SaveOperationUiState> LoadAsync(string slotId, long lineageID)
     {
+        if (IsCancellationRequested)
+            return _controller.State;
+
         if (!_controller.TryBegin(V3SaveOperationKind.Load, _sceneGeneration))
             return _controller.State;
 
@@ -87,6 +96,9 @@ public sealed class V3AsyncSaveOperationCoordinator
 
     public async Task<V3SaveOperationUiState> DeleteAsync(string slotId)
     {
+        if (IsCancellationRequested)
+            return _controller.State;
+
         if (!_controller.TryBegin(V3SaveOperationKind.Delete, _sceneGeneration))
             return _controller.State;
 
