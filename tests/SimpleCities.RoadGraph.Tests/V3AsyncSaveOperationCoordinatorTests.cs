@@ -274,6 +274,17 @@ public sealed class V3AsyncSaveOperationCoordinatorTests
     }
 
     [Fact]
+    public void RequestCancel_WhenIdle_CancelsToken()
+    {
+        var backend = new FakeBackend();
+        var coordinator = new V3AsyncSaveOperationCoordinator(backend);
+
+        coordinator.RequestCancel();
+
+        Assert.True(coordinator.IsCancellationRequested);
+    }
+
+    [Fact]
     public void Reset_ClearsCancellationAndReturnsIdle()
     {
         var backend = new FakeBackend();
