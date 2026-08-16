@@ -12,7 +12,7 @@
 | 1.1 | 道路上下文没有 RoadType 选择控件 | 已完成 | 四段式名称与颜色 swatch 选择器写入共享 tool state |
 | 1.2 | ConstructionDock 没有道路改造工具呈现 | 部分实现 | 资源化 RoadUpgrade 工具、选中态和上下文联动 |
 | 1.3 | DebugPanel 仍把 RoadGroup 数量作为路网指标 | 部分实现 | 移除 Group 指标，展示 canonical Node/Edge/geometry/self-loop 结构量 |
-| 1.4 | 暂停菜单没有异步 Save/Load/Delete 的独占状态机 | 开放 | generation/token 防护、Escape 独占及三类操作的明确提交边界 |
+| 1.4 | 暂停菜单没有异步 Save/Load/Delete 的独占状态机 | 实现完成待环境验证 | generation/token 防护、Escape 独占及三类操作的明确提交边界 |
 
 ### 当前落地摘要（2026-08-16）
 
