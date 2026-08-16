@@ -51,6 +51,18 @@ public static class RoadSurfaceSnapshotBuilder
                 .Select(incidence => incidence.EdgeID)
                 .Distinct()
                 .ToList();
+            if (distinctEdgeIDs.Count == 1 &&
+                !revision.Edges[distinctEdgeIDs[0]].IsSelfLoop)
+            {
+                RoadJunctionIncidence capIncidence = incidences[0];
+                owners.Add(new RoadSurfaceOwner(
+                    RoadSurfaceOwnerKind.Cap,
+                    NodeID: nodeID,
+                    EdgeID: capIncidence.EdgeID,
+                    Endpoint: capIncidence.Endpoint,
+                    new RoadLocation(capIncidence.EdgeID, 0, 0f)));
+            }
+
             if (distinctEdgeIDs.Count == 2 &&
                 revision.Edges[distinctEdgeIDs[0]].RoadType != revision.Edges[distinctEdgeIDs[1]].RoadType)
             {

@@ -309,6 +309,12 @@
 - 新增 3 个 xUnit 用例；完整测试套件 1234/1234 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：semantic join 真实无洞网格，以及工具路由对 semantic join 命中的端到端接线。
 
+### 2026-08-13：2.2 cap owner 发布（部分）
+
+- `RoadSurfaceSnapshotBuilder.Build` 对 degree-1 非 self-loop 端点发布 `Cap` owner（带 EdgeID/Endpoint），补齐端帽表面归属。
+- 更新既有快照计数断言并新增 1 个 xUnit 用例；完整测试套件 1235/1235 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：端帽真实网格与工具对 cap 命中的端到端接线。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁

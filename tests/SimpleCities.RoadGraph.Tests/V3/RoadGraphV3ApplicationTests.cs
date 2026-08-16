@@ -429,7 +429,7 @@ public sealed class RoadGraphV3ApplicationTests
 
             Assert.True(result.Success, result.Error);
             Assert.NotNull(result.Snapshot);
-            Assert.Single(result.Snapshot!.Owners);
+            Assert.Equal(3, result.Snapshot!.Owners.Count);
         }
         finally
         {
@@ -453,7 +453,7 @@ public sealed class RoadGraphV3ApplicationTests
 
             Assert.True(result.Success, result.Error);
             Assert.NotNull(result.Snapshot);
-            Assert.Equal(app.Controller.Facade.Revision.Edges.Count, result.Snapshot!.Owners.Count);
+            Assert.Equal(3, result.Snapshot!.Owners.Count);
         }
         finally
         {

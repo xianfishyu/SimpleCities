@@ -20,7 +20,23 @@ public sealed class RoadSurfaceSnapshotBuilderTests
 
         Assert.True(result.Success, result.Error);
         Assert.NotNull(result.Snapshot);
-        Assert.Equal(revision.Edges.Count, result.Snapshot!.Owners.Count);
+        Assert.Equal(revision.Edges.Count + 2, result.Snapshot!.Owners.Count);
+    }
+
+    [Fact]
+    public void Build_SingleEdge_AddsCapOwners()
+    {
+        RoadGraphV3Revision revision = CreateRevision();
+        RoadStyleProvider styles = CreateProvider();
+
+        RoadSurfaceSnapshotBuildResult result = RoadSurfaceSnapshotBuilder.Build(
+            revision,
+            new GraphStateToken(1, 2, 3),
+            styles);
+
+        Assert.True(result.Success, result.Error);
+        int capCount = result.Snapshot!.Owners.Count(owner => owner.Kind == RoadSurfaceOwnerKind.Cap);
+        Assert.Equal(2, capCount);
     }
 
     [Fact]
@@ -36,7 +52,7 @@ public sealed class RoadSurfaceSnapshotBuilderTests
 
         Assert.True(result.Success, result.Error);
         Assert.NotNull(result.Snapshot);
-        Assert.Equal(revision.Edges.Count + 1 + revision.Edges.Count, result.Snapshot!.Owners.Count);
+        Assert.Equal(revision.Edges.Count + 1 + revision.Edges.Count + 4, result.Snapshot!.Owners.Count);
         Assert.Contains(result.Snapshot.Owners, owner =>
             owner.Kind == RoadSurfaceOwnerKind.JunctionPatch &&
             owner.NodeID == centerID &&
