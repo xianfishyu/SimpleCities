@@ -272,6 +272,21 @@ public partial class RoadGraphV3System : Node2D
     public string? GetSlotCityName(string slotId) =>
         Application.GetSlotCityName(slotId);
 
+    public string? GetSlotDisplayName(string slotId) =>
+        Application.GetSlotDisplayName(slotId);
+
+    public string? GetSlotTimestamp(string slotId) =>
+        Application.GetSlotTimestamp(slotId);
+
+    public long? GetSlotPopulation(string slotId) =>
+        Application.GetSlotPopulation(slotId);
+
+    public decimal? GetSlotFunds(string slotId) =>
+        Application.GetSlotFunds(slotId);
+
+    public string? GetSlotThumbnailFile(string slotId) =>
+        Application.GetSlotThumbnailFile(slotId);
+
     public byte[]? CurrentSlotPayload(string fileName) =>
         Application.CurrentSlotPayload(fileName);
 

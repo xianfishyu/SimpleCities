@@ -575,6 +575,21 @@ public sealed class RoadGraphV3Application
     public string? GetSlotCityName(string slotId) =>
         GetManifest(slotId)?.CityName;
 
+    public string? GetSlotDisplayName(string slotId) =>
+        GetManifest(slotId)?.DisplayName;
+
+    public string? GetSlotTimestamp(string slotId) =>
+        GetManifest(slotId)?.Timestamp;
+
+    public long? GetSlotPopulation(string slotId) =>
+        GetManifest(slotId)?.Population;
+
+    public decimal? GetSlotFunds(string slotId) =>
+        GetManifest(slotId)?.Funds;
+
+    public string? GetSlotThumbnailFile(string slotId) =>
+        GetManifest(slotId)?.ThumbnailFile;
+
     public byte[]? CurrentSlotPayload(string fileName) =>
         string.IsNullOrEmpty(CurrentSlotID) ? null : GetPayload(CurrentSlotID, fileName);
 
