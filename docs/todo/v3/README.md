@@ -94,6 +94,15 @@ docs/todo/v3/                                各系统路线图
 - 验证证据必须来自实际运行结果，不编造测试或性能数据。
 - 修改文档后运行 `git diff --check` 确认无空白错误。
 
+## 文档更新示例
+
+以完成 `v3-ui:1.2` 为例：
+
+1. 在 `docs/todo/v3/ui.md` 勾选 1.2 并记录实际验证证据。
+2. 更新 `docs/manuals/v3-current-implementation.md` 的模块状态。
+3. 更新 `docs/manuals/v3-next-steps.md` 的检查清单。
+4. 提交：`更新：完成 v3-ui:1.2 surface hit 选择`。
+
 ## 最终集成归属
 
 V3 跨系统计划只有一个最终集成负责人：[`v3-road-graph:8.6`](./road-graph.md#v3-road-graph8.6)。其余工作项负责各自系统的可独立验证产出，但不得单独宣称第三代道路系统完成。
