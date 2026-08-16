@@ -79,6 +79,24 @@ public sealed class V3SaveOperationControllerTests
     }
 
     [Fact]
+    public void Complete_WithObserverWarnings_ReturnsCompletedAndClearsToken()
+    {
+        var controller = new V3SaveOperationController();
+        controller.TryBegin(V3SaveOperationKind.Delete, 1);
+        V3SaveOperationToken token = controller.ActiveToken!;
+        V3SaveOperationResult result = V3SaveOperationResult.SucceededWithObserverWarnings(
+            token,
+            new[] { "cleanup pending" });
+
+        V3SaveOperationUiState state = controller.Complete(result);
+
+        Assert.Equal(V3SaveOperationUiPhase.Completed, state.Phase);
+        Assert.True(state.HasWarnings);
+        Assert.Equal("cleanup pending", state.WarningSummary);
+        Assert.Null(controller.ActiveToken);
+    }
+
+    [Fact]
     public void Complete_ResultWithDifferentSceneGeneration_IsIgnored()
     {
         var controller = new V3SaveOperationController();
