@@ -9,7 +9,7 @@
 
 | ID | 发现 | 当前状态 | 处置方式 |
 |---|---|---|---|
-| 1.1 | 道路上下文没有 RoadType 选择控件 | 部分实现 | 四段式名称与颜色 swatch 选择器写入共享 tool state |
+| 1.1 | 道路上下文没有 RoadType 选择控件 | 已完成 | 四段式名称与颜色 swatch 选择器写入共享 tool state |
 | 1.2 | ConstructionDock 没有道路改造工具呈现 | 部分实现 | 资源化 RoadUpgrade 工具、选中态和上下文联动 |
 | 1.3 | DebugPanel 仍把 RoadGroup 数量作为路网指标 | 部分实现 | 移除 Group 指标，展示 canonical Node/Edge/geometry/self-loop 结构量 |
 | 1.4 | 暂停菜单没有异步 Save/Load/Delete 的独占状态机 | 开放 | generation/token 防护、Escape 独占及三类操作的明确提交边界 |
@@ -19,7 +19,7 @@
 | 设计范围 | 当前事实 | 关联待办 |
 |---|---|---|
 | 命令中心基线 | ConstructionDock、ToolContextPanel、DebugPanel 和 PauseMenu 已有响应式布局、焦点链和运行时契约 | 已解决基线 |
-| V3 类型建造 | 当前道路分类只有一个 `city-road` 工具；ToolContextPanel 已加入四段式 RoadType 选择器，支持分类联动与键盘焦点，剩余手柄焦点、场景重入和三档视口回归 | 1.1、`v3-tool-input:2.1` |
+| V3 类型建造 | 当前道路分类只有一个 `city-road` 工具；ToolContextPanel 已加入四段式 RoadType 选择器，分类联动、键盘/手柄焦点、暂停返回、场景重入和三档视口均已验证 | 1.1、`v3-tool-input:2.1` |
 | V3 既有道路改造 | ConstructionDock 已渲染“城市道路/道路改造”两个工具项并同步 ToolManager 与 V3 ToolState；剩余真实 surface hit 选择与端到端验收 | 1.2、`v3-tool-input:2.2` |
 | V3 规范存储诊断 | DebugPanel 已展示 Node/Edge/Geometry/SelfLoop/Parallel 且隐藏时不轮询；query fragment 指标待空间索引接入 | 1.3、`v3-road-graph:8.2`～`8.5` |
 | V3 异步存档体验 | PauseMenu 调用同步 bool API；没有 busy 目标、并发禁用、取消边界、autosave skipped 与 scene generation 失效呈现 | 1.4、`v3-save-system:2.3`、`v3-tool-input:2.4` |
@@ -42,14 +42,14 @@
 - `DebugPanel` 新增 Parallel 行，读取 `RoadGraphV3Diagnostics.ParallelEdgeCount`。
 - 验证：Godot `MapTest` 冻结运行后 GDScript 读取 `parallel=0`；完整测试套件 1240/1240 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 
-### 2026-08-13：1.1 RoadType 选择器（部分）
+### 2026-08-13：1.1 RoadType 选择器（已完成）
 
 - `ToolContextPanel.ConfigureRoadTypeSelector` 从 `RoadTypeStyleCatalogResult` 生成四个 toggle 按钮，按钮使用样式的 `DisplayName` 与 `Color`；`GameHUD` 在 `_Ready` 注入默认目录、`RoadGraphV3System.ToolState.SelectedRoadType` 与 `TrySelectRoadType` 回调。
 - `Scenes/UI/GameHUD.tscn` 新增 `RoadTypeRow` / `RoadTypeButtons`，初始隐藏，配置后显示；`SetRoadTypeSelectorVisible` 与 `OnDockContextDisplayChanged` 联动，切换到非道路分类时隐藏、切回道路分类时恢复。
 - 无效/不完整 `RoadTypeStyleCatalogResult` 不再抛异常，而是隐藏选择器并保留旧回调，避免提交错误类型。
 - 四个按钮均设置 `ToggleMode = true`、`FocusMode = All` 和左右 `FocusNeighbor`。
-- 验证：Godot `MapTest` 冻结运行后 GDScript 读取 `row_visible=true`、按钮 4 个、文本 `土路/街道/主干道/高速`、`toggle_mode` 全 true、`button_pressed` 仅 `街道` 为 true；模拟点击 `高速` 后 pressed 迁移到 `高速`；按 `ui_right` 焦点从 `土路` 移到 `街道`，聚焦 `高速` 后按 Enter 切换 pressed；切换到 `区域` 分类后 `row_visible=false`，切回 `道路` 后恢复且选中类型保持。`command_center_runtime_contract.gd` 已新增 RoadType 行可见、暂停返回保持、场景重入保持断言，并继续覆盖三档视口；headless 输出 `PASS command center runtime contract`。完整测试套件 1254/1254 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误，编辑器错误日志为空；DAP stdout 仅引擎/bridge/embedded-window 提示，无 stderr。
-- 尚未完成：手柄焦点显式回归。运行时注入 joypad A 未激活按钮，原因是项目 `ui_accept` 输入映射没有 joypad 绑定；需补充 `ui_accept` 手柄事件后再验证。
+- `project.godot` 为 `ui_accept` 补充 joypad button 0 绑定，手柄 A 可激活聚焦的 RoadType 按钮。
+- 验证：Godot `MapTest` 冻结运行后 GDScript 读取 `row_visible=true`、按钮 4 个、文本 `土路/街道/主干道/高速`、`toggle_mode` 全 true、`button_pressed` 仅 `街道` 为 true；模拟点击 `高速` 后 pressed 迁移到 `高速`；按 `ui_right` 焦点从 `土路` 移到 `街道`，聚焦 `高速` 后按 Enter 或手柄 A 均能切换 pressed；切换到 `区域` 分类后 `row_visible=false`，切回 `道路` 后恢复且选中类型保持。`command_center_runtime_contract.gd` 已覆盖 RoadType 行可见、暂停返回保持、场景重入保持和三档视口，headless 输出 `PASS command center runtime contract`。完整测试套件 1254/1254 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误，编辑器错误日志为空；DAP stdout 仅引擎/bridge/embedded-window 提示，无 stderr。
 
 ### 2026-08-13：1.2 RoadUpgrade 工具呈现（部分）
 
@@ -71,10 +71,10 @@
 
 <a id="v3-ui1.1"></a>
 
-- [ ] **1.1 在道路上下文中提供可访问的 RoadType 选择器**
+- [x] **1.1 在道路上下文中提供可访问的 RoadType 选择器**
   - 当前问题：`ToolContextPanel` 只能展示当前工具说明；玩家无法选择 `Dirt`、`Street`、`Arterial` 或 `Highway`，也无法确认预览将使用哪个类型。
   - 修改：在道路建造和改造上下文中加入四段式单选控件，每项显示来自 `RoadTypeStyle` 的名称与颜色 swatch；控件只更新 `SelectedRoadType`，不调用 RoadGraph。默认选择 `Street`，运行期间切换工具保留选择，重新进入城市场景恢复默认。
-  - 进度（2026-08-13）：`ToolContextPanel` 与 `GameHUD` 已接入四按钮选择器，运行时可见且模拟点击可迁移 pressed；剩余验收项见状态总览进度记录。
+  - 完成证据（2026-08-13）：`ToolContextPanel`/`GameHUD` 已接入四按钮选择器；`project.godot` 为 `ui_accept` 补充 joypad button 0 绑定；运行时键盘 Enter 与手柄 A 均能切换选中类型；`command_center_runtime_contract.gd` 覆盖 RoadType 行可见、非道路分类隐藏、暂停返回保持、场景重入保持和三档视口，headless 输出 `PASS command center runtime contract`；完整测试套件 1254/1254 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
   - 依赖：`v3-road-graph:8.4`、`v3-grid-rendering:2.1`、`v3-tool-input:2.1`。
   - 集成负责人：`v3-ui`；端到端完成判定由 `v3-road-graph:8.6` 负责。
   - 验证：四项唯一选择、鼠标、键盘/手柄焦点、无效样式降级、道路/改造上下文共享状态、切换分类、暂停返回、场景重复进入，以及 1600x900、640x480、435x480 布局。
@@ -126,6 +126,7 @@
 - [x] **ToolContextPanel 已支持宽屏和 760px 以下折叠/展开。** 新控件必须复用现有布局边界并保持内容可滚动。
 - [x] **GameHUD 统一路由工具、暂停和撤销重做动作。** 子控件不得绕过 ToolManager 或 RoadEditHistory 写图。
 - [x] **命令中心已验证 1600x900、640x480 和 435x480。** 新 RoadType 控件和第二个道路工具必须保留这些视口门禁。
+- [x] **RoadType 选择器已支持分类联动、键盘与手柄焦点。** 默认 `Street`，切换工具/分类/暂停/场景重入保持选择；非道路分类隐藏选择器。
 
 ## 完成标准
 

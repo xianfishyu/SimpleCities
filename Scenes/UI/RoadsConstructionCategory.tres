@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://de886vu2i2rko" path="res://Scripts/UI/ConstructionCategoryDefinition.cs" id="1_category"]
 [ext_resource type="Script" uid="uid://jx5b4mwa6elb" path="res://Scripts/UI/ConstructionToolDefinition.cs" id="2_tool"]
 [ext_resource type="Texture2D" uid="uid://duax1n2qfmxwp" path="res://Assets/UI/Icons/construction-road.svg" id="3_road_icon"]
-[ext_resource type="Texture2D" path="res://Assets/UI/Icons/construction-road-upgrade.svg" id="4_upgrade_icon"]
+[ext_resource type="Texture2D" uid="uid://mrayejr22qen" path="res://Assets/UI/Icons/construction-road-upgrade.svg" id="4_upgrade_icon"]
 
 [sub_resource type="Resource" id="Resource_road"]
 script = ExtResource("2_tool")
