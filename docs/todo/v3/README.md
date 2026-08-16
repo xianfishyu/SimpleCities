@@ -46,6 +46,11 @@
 
 各 Phase 是实现分支中的可编译检查点，不是玩家可选的运行模式。V3 可以完全重写现有架构，但产品装配始终只有一套新 runtime/API/event/format；不得用 feature gate、兼容适配器、双事件或双 writer 保留 V2 生产路径。V2 存档根只作为未触碰的历史数据保留。
 
+## 文档维护约定
+
+- 每个模块完成后，同步更新所属系统路线图、`docs/manuals/v3-current-implementation.md` 与 `docs/manuals/v3-next-steps.md` 检查清单。
+- 每次提交包含实现、直接测试、生成的 `.uid`/`.import` 与相关文档；提交信息使用仓库既定中文前缀规范。
+
 ## 最终集成归属
 
 V3 跨系统计划只有一个最终集成负责人：[`v3-road-graph:8.6`](./road-graph.md#v3-road-graph8.6)。其余工作项负责各自系统的可独立验证产出，但不得单独宣称第三代道路系统完成。
