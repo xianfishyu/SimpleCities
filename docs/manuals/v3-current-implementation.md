@@ -64,7 +64,13 @@
 4. `godot --headless --path . --script tests/godot/command_center_runtime_contract.gd`
 5. `godot --editor --path .` 后运行 `MapTest`，检查 RoadType 选择器、RoadUpgrade 快捷键与 DebugPanel 指标
 
-## 5. 仍开放的工作项
+## 5. 最近更新记录
+
+- 2026-08-16：新增本文档、`v3-next-steps.md`，并在 `docs/README.md` / `docs/todo/v3/README.md` 加入链接。
+- 2026-08-16：`docs/todo/v3/` 各系统文档补充当前落地摘要。
+- 2026-08-16：`docs/manuals/road-system-v3-gen.md` Phase 7 补充当前落地状态。
+
+## 6. 仍开放的工作项
 
 - `v3-road-graph:8.0`～`8.5` 的完整结构共享、query fragment 接入与性能门禁。
 - `v3-save-system:2.3` 的真实 Godot 场景装配与端到端 aggregate Load。
