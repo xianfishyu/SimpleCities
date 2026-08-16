@@ -722,6 +722,8 @@ V3 在实现分支中按阶段保持可编译，但产品装配始终只有一�
 5. 完成唯一 V3 应用装配：只注册新的 graph/renderer/tool/save/UI 实现和必填 `RoadBuildRequest`；完整构建与源码契约证明旧 Group/API/事件/DTO/writer 已删除，没有适配器、双消费、双写或运行时版本选择。
 6. 执行 junction-dense、geometry-dense、环路、四工具表面命中和混合类型视觉/性能契约。
 
+当前状态（2026-08-16）：`v3-ui:1.1` 已完成；RoadUpgrade 已具备道路分类入口、`ToolManager` 同步与 U 快捷键；DebugPanel 已接入 V3 诊断并实现隐藏零轮询；切换 RoadType 会取消未提交铺路并同步改造目标。剩余 surface hit 选择与端到端组合验收继续由对应路线图跟踪。
+
 ### Phase 8：最终组合验收
 
 在同一 `MapTest` 实例中完成连续折线路、跨提交延伸、简单环、棒棒糖、两路口环、八字形、支路删除重归一化、四类型建造与改造、token 防护的 delta 撤销重做、不可变 root 结构共享/释放、V3 family/version 有界往返、跨进程锁/publish lease/descriptor 恢复、共享表面命中与 junction patch、损坏/超限拒绝、并发 autosave、取消和 observer warning，以及成功/提交前失败且无提交后关键表现失败分支的 Load 生命周期。额外证明 V2 根未被枚举或修改、手工复制的 V2/未知格式被拒绝。再完成 Vulkan 视觉、10k 硬门槛、100k 压测和 Windows 导出验证。最终证据写回附录 D；`v3-road-graph:8.6` 是唯一集成负责人。
