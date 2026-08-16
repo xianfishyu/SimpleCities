@@ -35,6 +35,7 @@ public sealed class V3SaveOperationUiStateTests
         Assert.Equal(V3SaveOperationKind.Publish, state.Kind);
         Assert.Equal(V3SaveOperationPhase.Completed, state.OperationPhase);
         Assert.False(state.HasWarnings);
+        Assert.Null(state.WarningSummary);
     }
 
     [Fact]
