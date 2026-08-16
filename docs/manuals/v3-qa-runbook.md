@@ -33,6 +33,28 @@ godot --headless --path . --script tests/godot/command_center_runtime_contract.g
 
 预期：输出 `PASS command center runtime contract`。
 
+## M4 异步存档 UI 专项验证
+
+前置：环境已恢复，`MapTest` 可运行，V3 后端通过 `GameHUD.ConfigureV3Backend` 注入。
+
+1. 单元测试：
+   - `V3SaveOperationUiStateTests`
+   - `V3SaveOperationControllerTests`
+   - `V3SaveOperationUiCoordinatorTests`
+   - `V3AsyncSaveOperationCoordinatorTests`
+   - `V3SaveOperationBackendTests`
+   - `V3SaveSlotUiSummaryTests`
+   - `PauseMenuContractTests`
+2. 打开 PauseMenu 的存档管理，验证：
+   - V3 槽列表只显示 `CompleteV3` / `CorruptV3`；`Foreign` / `Unsafe` 不出现。
+   - 另存为成功后列表刷新并显示新槽；覆盖/加载/删除成功与失败均有明确状态文案。
+   - 操作进行中按钮禁用且显示“正在…”；Escape 只请求取消，不关闭菜单。
+   - `CorruptV3` 槽只能删除，不能加载/覆盖。
+3. 检查 `CurrentSlotID` 只在成功 commit 后更新；失败/取消不切换当前槽。
+4. 场景退出重入后旧 operation token 不生效（`ConfigureV3Backend` 递增 scene generation）。
+
+预期：上述单元测试全部通过；手工场景无重复提交、无提前关闭菜单、无 V2/Foreign 槽进入普通操作列表。
+
 ## 清理
 
 - 停止运行中的项目；
@@ -64,3 +86,4 @@ godot --headless --path . --script tests/godot/command_center_runtime_contract.g
 | 测试 | `dotnet test ...` | 全部通过 |  |
 | 契约 | `command_center_runtime_contract.gd` | `PASS ...` |  |
 | 运行时 | `MapTest` RoadType/Upgrade/DebugPanel | 状态符合预期 |  |
+| M4 UI | PauseMenu V3 另存/覆盖/加载/删除/取消 | busy 禁用、Escape 取消、V2/Foreign 不可见 |  |
