@@ -13,6 +13,7 @@ public sealed record V3RoadLoadPipelineResult(
 {
     public RoadToolFullReset? ToolPlan { get; init; }
     public RoadPresentationFullReset? PresentationPlan { get; init; }
+    public string SlotId { get; init; } = string.Empty;
 
     public bool TryApplyParticipants(RoadToolState toolState, RoadPresentationState presentationState)
     {
@@ -53,8 +54,12 @@ public sealed record V3RoadLoadPrepareResult(
         return true;
     }
 
-    public V3RoadLoadPipelineResult Commit(long lineageID) =>
-        V3RoadLoadPipeline.Commit(this, lineageID);
+    public V3RoadLoadPipelineResult Commit(
+        long lineageID,
+        RoadToolState? toolState = null,
+        RoadPresentationState? presentationState = null,
+        string? slotId = null) =>
+        V3RoadLoadPipeline.Commit(this, lineageID, toolState, presentationState, slotId);
 
     public static V3RoadLoadPrepareResult Failure(V3LoadPhase phase, string error) =>
         new(false, phase, null, error, null);
@@ -78,7 +83,9 @@ public static class V3RoadLoadPipeline
         long lineageID = 1,
         RoadToolState? preservedToolState = null,
         RoadStyleProvider? styles = null,
-        RoadRenderToken? desiredPresentationToken = null)
+        RoadRenderToken? desiredPresentationToken = null,
+        RoadToolState? commitToolState = null,
+        RoadPresentationState? commitPresentationState = null)
     {
         V3RoadLoadPrepareResult prepare = Prepare(
             slotId,
@@ -89,10 +96,15 @@ public static class V3RoadLoadPipeline
             preservedToolState,
             styles,
             desiredPresentationToken);
-        return Commit(prepare, lineageID);
+        return Commit(prepare, lineageID, commitToolState, commitPresentationState, slotId);
     }
 
-    public static V3RoadLoadPipelineResult Commit(V3RoadLoadPrepareResult prepare, long lineageID)
+    public static V3RoadLoadPipelineResult Commit(
+        V3RoadLoadPrepareResult prepare,
+        long lineageID,
+        RoadToolState? toolState = null,
+        RoadPresentationState? presentationState = null,
+        string? slotId = null)
     {
         ArgumentNullException.ThrowIfNull(prepare);
         if (!prepare.Success || prepare.Plan is null || prepare.Coordinator is null)
@@ -102,6 +114,33 @@ public static class V3RoadLoadPipeline
         bool committed = prepare.Coordinator.TryCommit(() =>
         {
             createdController = prepare.Plan.CreateController(lineageID);
+
+            RoadToolStateSnapshot? toolSnapshot = null;
+            RoadPresentationStateSnapshot? presentationSnapshot = null;
+            try
+            {
+                if (toolState is not null && prepare.ToolPlan is not null)
+                {
+                    toolSnapshot = toolState.Capture();
+                    if (!prepare.ToolPlan.TryApplyTo(toolState))
+                        throw new InvalidOperationException("ToolPlanRejected");
+                }
+
+                if (presentationState is not null && prepare.PresentationPlan is not null)
+                {
+                    presentationSnapshot = presentationState.Capture();
+                    if (!prepare.PresentationPlan.TryApplyTo(presentationState))
+                        throw new InvalidOperationException("PresentationPlanRejected");
+                }
+            }
+            catch
+            {
+                if (toolSnapshot is not null)
+                    toolState!.Restore(toolSnapshot.Value);
+                if (presentationSnapshot is not null)
+                    presentationState!.Restore(presentationSnapshot.Value);
+                throw;
+            }
         });
         if (!committed || createdController is null)
             return V3RoadLoadPipelineResult.Failure(prepare.Coordinator.Phase, "CommitFailed");
@@ -110,6 +149,7 @@ public static class V3RoadLoadPipeline
         {
             ToolPlan = prepare.ToolPlan,
             PresentationPlan = prepare.PresentationPlan,
+            SlotId = slotId ?? prepare.SlotId,
         };
     }
 

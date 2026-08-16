@@ -165,6 +165,12 @@
 - 完整测试套件 1208/1208 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实输入自动化（鼠标点击）与端到端工具验收。
 
+### 2026-08-13：2.4 工具状态快照与 Load 原子交换基础（部分）
+
+- `RoadToolState` 新增 `Capture` / `Restore`；Load non-yield commit 应用 empty tool root 失败时回滚旧工具状态。
+- 新增 1 个 xUnit 用例；完整测试套件 1216/1216 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实输入自动化与端到端工具验收。
+
 ## 执行顺序
 
 ### 阶段 3：第三代闭环、类型化建造与道路改造

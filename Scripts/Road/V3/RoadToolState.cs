@@ -11,6 +11,13 @@ public enum RoadToolType
 }
 
 /// <summary>
+/// 工具状态的可回滚快照，供 non-yield Load commit 在异常时恢复旧会话。
+/// </summary>
+public readonly record struct RoadToolStateSnapshot(
+    RoadToolType CurrentTool,
+    RoadType SelectedRoadType);
+
+/// <summary>
 /// V3 工具状态：当前工具与已选 RoadType。
 /// </summary>
 public sealed class RoadToolState
@@ -27,5 +34,13 @@ public sealed class RoadToolState
 
         SelectedRoadType = roadType;
         return true;
+    }
+
+    public RoadToolStateSnapshot Capture() => new(CurrentTool, SelectedRoadType);
+
+    public void Restore(RoadToolStateSnapshot snapshot)
+    {
+        CurrentTool = snapshot.CurrentTool;
+        SelectedRoadType = snapshot.SelectedRoadType;
     }
 }

@@ -87,7 +87,9 @@ public sealed class V3RoadSaveLoadCoordinator
         long lineageID = 1,
         RoadToolState? preservedToolState = null,
         RoadStyleProvider? styles = null,
-        RoadRenderToken? desiredPresentationToken = null)
+        RoadRenderToken? desiredPresentationToken = null,
+        RoadToolState? commitToolState = null,
+        RoadPresentationState? commitPresentationState = null)
     {
         if (!_gate.TryAcquire(out Guid operationId))
             return null;
@@ -105,7 +107,12 @@ public sealed class V3RoadSaveLoadCoordinator
                 desiredPresentationToken);
             if (!prepare.Success)
                 return V3RoadLoadPipelineResult.Failure(prepare.Phase, prepare.Error ?? "PrepareFailed");
-            return V3RoadLoadPipeline.Commit(prepare, lineageID);
+            return V3RoadLoadPipeline.Commit(
+                prepare,
+                lineageID,
+                commitToolState,
+                commitPresentationState,
+                slotId);
         }
         finally
         {

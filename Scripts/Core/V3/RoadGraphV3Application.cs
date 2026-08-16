@@ -186,16 +186,13 @@ public sealed class RoadGraphV3Application
         out V3RoadLoadPipelineResult result)
     {
         ArgumentNullException.ThrowIfNull(prepare);
-        result = prepare.Commit(lineageID);
+        result = prepare.Commit(lineageID, ToolState, Presentation.State, prepare.SlotId);
         if (!result.Success || result.Controller is null)
             return false;
 
-        if (!result.TryApplyParticipants(ToolState, Presentation.State))
-            return false;
-
         Controller = result.Controller;
-        if (!string.IsNullOrEmpty(prepare.SlotId))
-            CurrentSlotID = prepare.SlotId;
+        if (!string.IsNullOrEmpty(result.SlotId))
+            CurrentSlotID = result.SlotId;
         return true;
     }
 
@@ -209,15 +206,14 @@ public sealed class RoadGraphV3Application
             lineageID,
             ToolState,
             DefaultStyles,
-            new RoadRenderToken(0, lineageID, 0, 0, 0, 0));
+            new RoadRenderToken(0, lineageID, 0, 0, 0, 0),
+            ToolState,
+            Presentation.State);
         if (result is null || !result.Success || result.Controller is null)
             return false;
 
-        if (!result.TryApplyParticipants(ToolState, Presentation.State))
-            return false;
-
         Controller = result.Controller;
-        CurrentSlotID = slotId;
+        CurrentSlotID = result.SlotId;
         return true;
     }
 
@@ -231,15 +227,14 @@ public sealed class RoadGraphV3Application
             newLineageID,
             ToolState,
             DefaultStyles,
-            new RoadRenderToken(0, newLineageID, 0, 0, 0, 0));
+            new RoadRenderToken(0, newLineageID, 0, 0, 0, 0),
+            ToolState,
+            Presentation.State);
         if (!result.Success || result.Controller is null)
             return false;
 
-        if (!result.TryApplyParticipants(ToolState, Presentation.State))
-            return false;
-
-        Controller.ReplaceWithFullReset(result.Controller.Facade.Revision, newLineageID);
-        CurrentSlotID = slotId;
+        Controller = result.Controller;
+        CurrentSlotID = result.SlotId;
         return true;
     }
 

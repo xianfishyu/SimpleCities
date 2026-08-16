@@ -716,6 +716,14 @@
 - 完整测试套件 935/935 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实 Godot 场景装配与端到端 Load commit。
 
+### 2026-08-13：2.3 Load non-yield commit 原子交换 graph/tool/presentation/CurrentSlotID（部分）
+
+- `V3RoadLoadPipeline.Commit` 新增可选 `RoadToolState` / `RoadPresentationState` / `slotId`，在 aggregate coordinator 的 non-yield commit 临界区内同时创建 controller、应用 empty tool root 与 presentation full reset，并在任一参与者应用失败时回滚工具/表现状态。
+- `V3RoadLoadPrepareResult.Commit`、`V3RoadLoadPipeline.Load` 与 `V3RoadSaveLoadCoordinator.LoadResult` 透传同一提交目标；`RoadGraphV3Application.TryCommitPreparedLoad` / `Load` / `LoadIntoCurrent` 改为只交换成功结果，不再在 commit 后二次应用参与者。
+- `RoadToolState` / `RoadPresentationState` 新增 `Capture` / `Restore` 快照用于异常回滚；`V3RoadLoadPipelineResult` 新增 `SlotId`。
+- 新增 5 个 xUnit 用例；完整测试套件 1216/1216 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实 Load 隐藏 Mesh/RID 的 Preflight 与联合交换，以及混合宽度/锐角 junction 真实填补。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路 payload、容器与操作协议

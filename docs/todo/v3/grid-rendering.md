@@ -276,6 +276,12 @@
 - 完整测试套件 1211/1211 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实 Load 隐藏资源 Preflight 与 non-yield 联合交换，以及混合宽度/锐角真实填补。
 
+### 2026-08-13：2.2 表现状态快照与 Load 原子交换基础（部分）
+
+- `RoadPresentationState` 新增 `Capture` / `Restore`；`V3RoadLoadPipeline.Commit` 可在 non-yield 临界区内原子应用 `RoadPresentationFullReset`，失败时恢复旧 desired/presented/snapshot。
+- 新增 1 个 xUnit 用例；完整测试套件 1216/1216 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实隐藏 Mesh/RID Preflight 与 renderer 联合交换。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁

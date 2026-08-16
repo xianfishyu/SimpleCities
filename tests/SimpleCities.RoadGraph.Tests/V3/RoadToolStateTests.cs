@@ -40,4 +40,20 @@ public sealed class RoadToolStateTests
         Assert.False(state.TrySelectRoadType((RoadType)99));
         Assert.Equal(RoadType.Street, state.SelectedRoadType);
     }
+
+    [Fact]
+    public void CaptureRestore_RestoresPreviousState()
+    {
+        var state = new RoadToolState();
+        state.SwitchTo(RoadToolType.Upgrade);
+        state.TrySelectRoadType(RoadType.Highway);
+        RoadToolStateSnapshot snapshot = state.Capture();
+
+        state.SwitchTo(RoadToolType.Remove);
+        state.TrySelectRoadType(RoadType.Dirt);
+        state.Restore(snapshot);
+
+        Assert.Equal(RoadToolType.Upgrade, state.CurrentTool);
+        Assert.Equal(RoadType.Highway, state.SelectedRoadType);
+    }
 }

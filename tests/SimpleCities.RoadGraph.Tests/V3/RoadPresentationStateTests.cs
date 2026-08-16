@@ -51,6 +51,25 @@ public sealed class RoadPresentationStateTests
         Assert.Null(state.PresentedSnapshot);
     }
 
+    [Fact]
+    public void CaptureRestore_RestoresPreviousState()
+    {
+        var state = new RoadPresentationState(CreateToken(1));
+        state.SetDesired(CreateToken(2));
+        RoadSurfaceSnapshot snapshot = CreateSnapshot(CreateToken(2));
+        Assert.True(state.TryPublish(CreateToken(2), snapshot));
+        RoadPresentationStateSnapshot captured = state.Capture();
+
+        state.SetDesired(CreateToken(3));
+        Assert.True(state.TryPublish(CreateToken(3), CreateSnapshot(CreateToken(3))));
+        state.Restore(captured);
+
+        Assert.Equal(CreateToken(2), state.DesiredToken);
+        Assert.Equal(CreateToken(2), state.PresentedToken);
+        Assert.Same(snapshot, state.PresentedSnapshot);
+        Assert.False(state.IsStalled);
+    }
+
     private static RoadRenderToken CreateToken(long requestID) =>
         new(SceneGeneration: 1, GraphFacadeID: 2, GraphFacadeGeneration: 3, ChangeSequence: 4, RoadStyleRevision: 5, RenderRequestID: requestID);
 
