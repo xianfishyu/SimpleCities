@@ -165,6 +165,28 @@ public sealed class RoadToolInputRouterTests
     }
 
     [Fact]
+    public void TryTakeUpgradeSession_AfterCancel_ReturnsFalse()
+    {
+        var router = CreateRouter((_, _) => CreateHit());
+        router.SwitchTool(RoadToolType.Upgrade);
+        router.HandleLeftClick(new Vector2(5f, 0f), closeRadius: 10f, hitRadius: 10f);
+        router.Cancel();
+
+        Assert.False(router.TryTakeUpgradeSession(out _));
+    }
+
+    [Fact]
+    public void TryTakeRemovalSession_AfterCancel_ReturnsFalse()
+    {
+        var router = CreateRouter((_, _) => CreateHit());
+        router.SwitchTool(RoadToolType.Remove);
+        router.HandleLeftClick(new Vector2(5f, 0f), closeRadius: 10f, hitRadius: 10f);
+        router.Cancel();
+
+        Assert.False(router.TryTakeRemovalSession(out _));
+    }
+
+    [Fact]
     public void Cancel_ClearsSessions()
     {
         var router = CreateRouter((_, _) => CreateHit());
