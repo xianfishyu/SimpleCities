@@ -45,7 +45,14 @@
 - [ ] `v3-ui:1.4` 异步存档状态机验收通过
 - [ ] `v3-road-graph:8.6` 最终组合验收证据写回指南附录 D
 
-## 7. 完成定义
+## 7. 风险与缓解
+
+- 环境/网络不可用导致无法 restore/build：恢复 NuGet 缓存或网络后立即重跑完整 QA。
+- surface hit 选择在混合宽度 junction 上语义复杂：先复用已有 `RoadSurfaceHitTester` / `HitProvider` 测试，再补真实场景。
+- query fragment 接入可能引入性能回退：以 10k/100k 基线对比，禁止回退全图扫描。
+- 异步存档 UI 并发错误：统一使用 `V3SaveOperation` token/result，并用 generation 防护旧 continuation。
+
+## 8. 完成定义
 
 - 上述检查清单全部勾选。
 - `docs/todo/v3/` 中对应工作项标记为已完成，并记录实际验证证据。
