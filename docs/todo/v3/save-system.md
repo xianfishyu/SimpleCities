@@ -535,6 +535,12 @@
 - 新增 2 个 xUnit 用例；完整测试套件 1117/1117 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实 Godot 场景装配、renderer participant 与端到端 aggregate Load commit。
 
+### 2026-08-13：2.3 道路 Load 管线携带 presentation full-reset 计划（部分）
+
+- `V3RoadLoadPipelineResult` 新增 `PresentationPlan`，`Load` 支持在 Preflight 用加载 revision 构建 `RoadSurfaceSnapshot` 并生成 `RoadPresentationFullReset`；`RoadGraphV3Application.Load` 成功后应用该计划。
+- 新增 2 个 xUnit 用例；完整测试套件 1126/1126 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实 Godot 场景装配、renderer participant 与端到端 aggregate Load commit。
+
 ### 2026-08-13：2.1 槽状态返回 manifest 摘要（更新）
 
 - `V3SlotStatusService.GetStatus` 对完整槽读取 manifest，返回 `DisplayName` 与 `Timestamp`，不再只返回 slotId 和 null。

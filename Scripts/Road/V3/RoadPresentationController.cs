@@ -50,4 +50,10 @@ public sealed class RoadPresentationController
         _pendingSnapshot = null;
         return true;
     }
+
+    public bool TryApplyFullReset(RoadPresentationFullReset plan)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        return plan.TryApplyTo(_state);
+    }
 }

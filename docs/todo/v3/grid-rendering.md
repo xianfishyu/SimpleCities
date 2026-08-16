@@ -113,6 +113,13 @@
 - 新增 7 个 xUnit 用例；完整测试套件 1124/1124 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实 mesh/ribbon、junction patch、renderer participant 与完整接管协议。
 
+### 2026-08-13：2.2 道路 Load 管线携带 presentation full-reset 计划（部分）
+
+- `V3RoadLoadPipelineResult` 新增 `PresentationPlan`；`Load` 支持传入 `RoadStyleProvider` 与 `RoadRenderToken`，在 Preflight 阶段用加载 revision 构建 `RoadSurfaceSnapshot` 并生成 `RoadPresentationFullReset`。
+- `RoadPresentationController` 新增 `TryApplyFullReset`，`RoadGraphV3Application.Load` 成功后在 commit 应用 presentation 计划。
+- 新增 2 个 xUnit 用例；完整测试套件 1126/1126 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实 mesh/ribbon、junction patch、renderer participant 与完整接管协议。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁

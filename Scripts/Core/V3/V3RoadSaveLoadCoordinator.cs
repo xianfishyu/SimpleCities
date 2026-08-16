@@ -85,7 +85,9 @@ public sealed class V3RoadSaveLoadCoordinator
         RoadGraphCapacity capacity,
         V3PayloadBudget budget,
         long lineageID = 1,
-        RoadToolState? preservedToolState = null)
+        RoadToolState? preservedToolState = null,
+        RoadStyleProvider? styles = null,
+        RoadRenderToken? desiredPresentationToken = null)
     {
         if (!_gate.TryAcquire(out Guid operationId))
             return null;
@@ -98,7 +100,9 @@ public sealed class V3RoadSaveLoadCoordinator
                 capacity,
                 budget,
                 lineageID,
-                preservedToolState);
+                preservedToolState,
+                styles,
+                desiredPresentationToken);
         }
         finally
         {

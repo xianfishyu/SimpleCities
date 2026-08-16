@@ -11,6 +11,7 @@ public sealed record V3RoadLoadPipelineResult(
     string? Error)
 {
     public RoadToolFullReset? ToolPlan { get; init; }
+    public RoadPresentationFullReset? PresentationPlan { get; init; }
 
     public static V3RoadLoadPipelineResult Failure(V3LoadPhase phase, string error) =>
         new(false, null, phase, error);
@@ -30,7 +31,9 @@ public static class V3RoadLoadPipeline
         RoadGraphCapacity capacity,
         V3PayloadBudget budget,
         long lineageID = 1,
-        RoadToolState? preservedToolState = null)
+        RoadToolState? preservedToolState = null,
+        RoadStyleProvider? styles = null,
+        RoadRenderToken? desiredPresentationToken = null)
     {
         ArgumentNullException.ThrowIfNull(root);
 
@@ -52,6 +55,22 @@ public static class V3RoadLoadPipeline
         {
             protocol.Fail();
             return V3RoadLoadPipelineResult.Failure(protocol.Phase, load.Error ?? "LoadFailed");
+        }
+
+        RoadPresentationFullReset? presentationPlan = null;
+        if (styles is not null && desiredPresentationToken is not null)
+        {
+            RoadSurfaceSnapshotBuildResult surface = RoadSurfaceSnapshotBuilder.Build(
+                load.Revision,
+                new GraphStateToken(lineageID, 0, 0),
+                styles);
+            if (!surface.Success || surface.Snapshot is null)
+            {
+                protocol.Fail();
+                return V3RoadLoadPipelineResult.Failure(protocol.Phase, surface.Error ?? "PresentationPreflightFailed");
+            }
+
+            presentationPlan = RoadPresentationFullReset.Create(desiredPresentationToken.Value, surface.Snapshot);
         }
 
         prepared.Add(RequiredParticipant);
@@ -79,6 +98,7 @@ public static class V3RoadLoadPipeline
         return new V3RoadLoadPipelineResult(true, controller, protocol.Phase, null)
         {
             ToolPlan = preservedToolState is null ? null : RoadToolFullReset.Prepare(preservedToolState),
+            PresentationPlan = presentationPlan,
         };
     }
 

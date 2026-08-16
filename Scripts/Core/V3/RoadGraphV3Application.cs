@@ -169,13 +169,17 @@ public sealed class RoadGraphV3Application
             _capacity,
             _budget,
             lineageID,
-            ToolState);
+            ToolState,
+            DefaultStyles,
+            new RoadRenderToken(0, lineageID, 0, 0, 0, 0));
         if (result is null || !result.Success || result.Controller is null)
             return false;
 
         Controller = result.Controller;
         if (result.ToolPlan is not null)
             result.ToolPlan.TryApplyTo(ToolState);
+        if (result.PresentationPlan is not null)
+            Presentation.TryApplyFullReset(result.PresentationPlan);
         CurrentSlotID = slotId;
         return true;
     }
