@@ -86,3 +86,11 @@
 - 渲染：`Scripts/Road/V3/RoadRibbonBuilder.cs`、`RoadCapBuilder.cs`、`RoadSemanticJoinBuilder.cs`、`RoadGraphV3Renderer.cs`
 - 工具：`Scripts/Road/V3/RoadTool*.cs`、`RoadToolInputRouter.cs`、`RoadGraphV3InputHandler.cs`
 - UI：`Scripts/UI/ToolContextPanel.cs`、`GameHUD.cs`、`ConstructionDock.cs`、`DebugPanel.cs`
+
+## 8. 测试覆盖索引
+
+- RoadGraph：`tests/SimpleCities.RoadGraph.Tests/V3/RoadGraphV3*Tests.cs`、`RoadGraphV3ApplicationTests.cs`
+- 存档：`tests/SimpleCities.RoadGraph.Tests/V3/V3*Tests.cs`
+- 渲染：`tests/SimpleCities.RoadGraph.Tests/V3/RoadRibbonBuilderTests.cs`、`RoadCapBuilderTests.cs`、`RoadSemanticJoinBuilderTests.cs`、`RoadSurfaceHitTesterTests.cs`
+- 工具：`tests/SimpleCities.RoadGraph.Tests/V3/RoadToolInputRouterTests.cs`、`RoadToolCommandExecutorTests.cs`、`RoadPlacementSessionV3Tests.cs`
+- UI 契约：`tests/godot/command_center_runtime_contract.gd`
