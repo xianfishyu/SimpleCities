@@ -17,6 +17,8 @@ public partial class RoadGraphV3Renderer : Node2D
     private IReadOnlyList<RoadJunctionPatchData> _cachedPatches = [];
     private MeshInstance2D _meshLayer = null!;
 
+    public MeshInstance2D? MeshLayer => _meshLayer;
+
     public override void _Ready()
     {
         _meshLayer = new MeshInstance2D

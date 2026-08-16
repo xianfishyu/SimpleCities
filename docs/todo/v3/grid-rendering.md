@@ -246,6 +246,12 @@
 - 完整测试套件 1182/1182 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
 - 尚未完成：真实 Load 隐藏资源 Preflight 与 non-yield 联合交换，以及混合宽度/锐角真实填补。
 
+### 2026-08-13：2.2 渲染器暴露 MeshLayer 访问器（部分）
+
+- `RoadGraphV3Renderer` 新增 `MeshLayer` 只读属性，供 QA/工具检查当前 `MeshInstance2D`。
+- 完整测试套件 1208/1208 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实 Load 隐藏资源 Preflight 与 non-yield 联合交换，以及混合宽度/锐角真实填补。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁
