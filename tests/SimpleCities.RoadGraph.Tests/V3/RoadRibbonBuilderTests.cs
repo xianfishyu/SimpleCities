@@ -67,6 +67,35 @@ public sealed class RoadRibbonBuilderTests
             () => RoadRibbonBuilder.TryBuild(edge, null!, 0.25f, out _));
     }
 
+    [Fact]
+    public void ToOutlineVertices_StraightLine_ReturnsOrderedOutline()
+    {
+        var edge = CreateEdge([new LineRoadGeometrySegment(Vector2.Zero, new Vector2(10f, 0f))]);
+        RoadTypeStyle style = CreateStyle(width: 2f);
+        Assert.True(RoadRibbonBuilder.TryBuild(edge, style, 0.25f, out RoadRibbonMeshData mesh));
+
+        IReadOnlyList<Vector2> outline = mesh.ToOutlineVertices();
+
+        Assert.Equal(
+        [
+            new Vector2(0f, 1f),
+            new Vector2(10f, 1f),
+            new Vector2(10f, -1f),
+            new Vector2(0f, -1f),
+        ], outline);
+    }
+
+    [Fact]
+    public void ToOutlineVertices_InvalidVertexCount_ReturnsEmpty()
+    {
+        var mesh = new RoadRibbonMeshData(
+            [new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(2f, 0f)],
+            [0, 1, 2],
+            [Colors.White, Colors.White, Colors.White]);
+
+        Assert.Empty(mesh.ToOutlineVertices());
+    }
+
     private static RoadGraphV3Edge CreateEdge(IReadOnlyList<RoadGeometrySegment> geometry) =>
         new(1, 10, 11, geometry, RoadType.Street);
 

@@ -133,6 +133,12 @@
 - 新增 5 个 xUnit 用例；完整测试套件 1143/1143 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
 - 尚未完成：self-loop/平行 Edge 专用 ribbon、junction patch、真实 mesh 资源与完整接管协议。
 
+### 2026-08-13：2.2 RoadRibbonMeshData 轮廓顶点（部分）
+
+- `RoadRibbonMeshData` 新增 `ToOutlineVertices()`：把 left/right 成对顶点转换为有序 ribbon 轮廓，供 CanvasItem `DrawPolygon` 等渲染入口直接使用。
+- 新增 2 个 xUnit 用例；完整测试套件 1145/1145 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：self-loop/平行 Edge 专用 ribbon、junction patch、真实 mesh 资源与完整接管协议。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁

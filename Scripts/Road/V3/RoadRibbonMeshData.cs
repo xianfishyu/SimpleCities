@@ -16,6 +16,7 @@ public sealed record RoadRibbonMeshData(
 {
     public bool IsValid =>
         Vertices.Count >= 4 &&
+        Vertices.Count % 2 == 0 &&
         Indices.Count > 0 &&
         Indices.Count % 3 == 0 &&
         Colors.Count == Vertices.Count &&
@@ -25,4 +26,18 @@ public sealed record RoadRibbonMeshData(
             float.IsFinite(color.G) &&
             float.IsFinite(color.B) &&
             float.IsFinite(color.A));
+
+    public IReadOnlyList<Vector2> ToOutlineVertices()
+    {
+        if (Vertices.Count < 4 || Vertices.Count % 2 != 0)
+            return [];
+
+        int sampleCount = Vertices.Count / 2;
+        var outline = new List<Vector2>(Vertices.Count);
+        for (int index = 0; index < sampleCount; index++)
+            outline.Add(Vertices[index * 2]);
+        for (int index = sampleCount - 1; index >= 0; index--)
+            outline.Add(Vertices[index * 2 + 1]);
+        return outline;
+    }
 }
