@@ -1,4 +1,5 @@
 using Godot;
+using SimpleCities.Road.V3;
 
 /// <summary>
 /// 游戏内 HUD 的协调器。它解析游戏系统依赖、连接各子面板事件，并统一处理响应式布局和暂停菜单依赖。
@@ -173,6 +174,10 @@ public partial class GameHUD : CanvasLayer
                 ? resolved.Diagnostics
                 : null;
         });
+        _toolContextPanel.ConfigureRoadTypeSelector(
+            RoadTypeStyleCatalog.CreateDefault(),
+            _v3System?.ToolState.SelectedRoadType ?? RoadType.Street,
+            roadType => _v3System?.ToolState.TrySelectRoadType(roadType));
         _pauseMenu.ConfigureSaveManager(
             GodotObject.IsInstanceValid(SaveManager.Instance) ? SaveManager.Instance : null);
     }

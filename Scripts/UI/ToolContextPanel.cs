@@ -1,4 +1,8 @@
 using Godot;
+using SimpleCities.Road.V3;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 /// <summary>
 /// 右侧工具上下文面板。根据当前工具和分类资源显示说明，并在窄屏时折叠为可展开入口。
@@ -30,6 +34,10 @@ public partial class ToolContextPanel : PanelContainer
     private Label _cellSizeValue = null!;
     private VBoxContainer _shortcutRow = null!;
     private VBoxContainer _cellSizeRow = null!;
+    private VBoxContainer _roadTypeRow = null!;
+    private HBoxContainer _roadTypeButtons = null!;
+    private readonly Dictionary<RoadType, Button> _roadTypeButtonsByType = new();
+    private Action<RoadType>? _roadTypeChanged;
 
     private bool _compact;
     private bool _compactExpanded;
@@ -48,6 +56,9 @@ public partial class ToolContextPanel : PanelContainer
         _shortcutValue = GetNode<Label>("PanelMargin/Rows/ContextContentScroll/ContextContent/ShortcutRow/ShortcutValue");
         _cellSizeRow = GetNode<VBoxContainer>("PanelMargin/Rows/ContextContentScroll/ContextContent/CellSizeRow");
         _cellSizeValue = GetNode<Label>("PanelMargin/Rows/ContextContentScroll/ContextContent/CellSizeRow/CellSizeValue");
+        _roadTypeRow = GetNode<VBoxContainer>("PanelMargin/Rows/ContextContentScroll/ContextContent/RoadTypeRow");
+        _roadTypeButtons = GetNode<HBoxContainer>("PanelMargin/Rows/ContextContentScroll/ContextContent/RoadTypeRow/RoadTypeButtons");
+        _roadTypeRow.Visible = false;
         _focusEntryButton.FocusMode = FocusModeEnum.All;
         _focusEntryButton.Pressed += ToggleCompactExpanded;
         UpdateContext(ToolType.Select, Config);
@@ -76,6 +87,58 @@ public partial class ToolContextPanel : PanelContainer
     public void SetCategory(ConstructionCategoryDefinition? category)
     {
         Category = category;
+    }
+
+    public void ConfigureRoadTypeSelector(
+        RoadTypeStyleCatalogResult catalog,
+        RoadType selectedRoadType,
+        Action<RoadType>? onChange)
+    {
+        ArgumentNullException.ThrowIfNull(catalog);
+        if (!catalog.Success || catalog.Styles is null)
+            throw new ArgumentException("RoadType catalog must be successful.", nameof(catalog));
+
+        _roadTypeChanged = onChange;
+        _roadTypeButtonsByType.Clear();
+        foreach (Button child in _roadTypeButtons.GetChildren().OfType<Button>().ToList())
+        {
+            _roadTypeButtons.RemoveChild(child);
+            child.QueueFree();
+        }
+
+        foreach (RoadTypeStyle style in catalog.Styles.Values.OrderBy(style => style.RoadType))
+        {
+            RoadType roadType = style.RoadType;
+            var button = new Button
+            {
+                Text = style.DisplayName,
+                ToggleMode = true,
+                CustomMinimumSize = new Vector2(0f, 32f),
+                SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            };
+            button.AddThemeColorOverride("font_color", style.Color);
+            button.Pressed += () =>
+            {
+                _roadTypeButtonsByType[roadType].ButtonPressed = true;
+                foreach (KeyValuePair<RoadType, Button> pair in _roadTypeButtonsByType)
+                    pair.Value.ButtonPressed = pair.Key == roadType;
+                _roadTypeChanged?.Invoke(roadType);
+            };
+            _roadTypeButtons.AddChild(button);
+            _roadTypeButtonsByType[roadType] = button;
+        }
+
+        _roadTypeRow.Visible = true;
+        SelectRoadType(selectedRoadType);
+    }
+
+    public void SelectRoadType(RoadType roadType)
+    {
+        if (!_roadTypeButtonsByType.TryGetValue(roadType, out Button? button))
+            return;
+
+        foreach (KeyValuePair<RoadType, Button> pair in _roadTypeButtonsByType)
+            pair.Value.ButtonPressed = pair.Key == roadType;
     }
 
     /// <summary>

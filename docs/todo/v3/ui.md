@@ -9,7 +9,7 @@
 
 | ID | 发现 | 当前状态 | 处置方式 |
 |---|---|---|---|
-| 1.1 | 道路上下文没有 RoadType 选择控件 | 开放 | 四段式名称与颜色 swatch 选择器写入共享 tool state |
+| 1.1 | 道路上下文没有 RoadType 选择控件 | 部分实现 | 四段式名称与颜色 swatch 选择器写入共享 tool state |
 | 1.2 | ConstructionDock 没有道路改造工具呈现 | 开放 | 资源化 RoadUpgrade 工具、选中态和上下文联动 |
 | 1.3 | DebugPanel 仍把 RoadGroup 数量作为路网指标 | 开放 | 移除 Group 指标，展示 canonical Node/Edge/geometry/self-loop 结构量 |
 | 1.4 | 暂停菜单没有异步 Save/Load/Delete 的独占状态机 | 开放 | generation/token 防护、Escape 独占及三类操作的明确提交边界 |
@@ -19,7 +19,7 @@
 | 设计范围 | 当前事实 | 关联待办 |
 |---|---|---|
 | 命令中心基线 | ConstructionDock、ToolContextPanel、DebugPanel 和 PauseMenu 已有响应式布局、焦点链和运行时契约 | 已解决基线 |
-| V3 类型建造 | 当前道路分类只有一个 `city-road` 工具，ToolContextPanel 只显示只读文本和 CellSize | 1.1、`v3-tool-input:2.1` |
+| V3 类型建造 | 当前道路分类只有一个 `city-road` 工具；ToolContextPanel 已加入四段式 RoadType 选择器，剩余键盘/手柄焦点、场景重入和三档视口回归 | 1.1、`v3-tool-input:2.1` |
 | V3 既有道路改造 | `ToolType` 和 catalog 没有 RoadUpgrade，ConstructionDock 只渲染 Road 工具定义 | 1.2、`v3-tool-input:2.2` |
 | V3 规范存储诊断 | DebugPanel 仍读取 `GetAllGroups()`，无法观察 Edge 压缩、原生几何数量或 self-loop | 1.3、`v3-road-graph:8.2`～`8.5` |
 | V3 异步存档体验 | PauseMenu 调用同步 bool API；没有 busy 目标、并发禁用、取消边界、autosave skipped 与 scene generation 失效呈现 | 1.4、`v3-save-system:2.3`、`v3-tool-input:2.4` |
@@ -42,6 +42,13 @@
 - `DebugPanel` 新增 Parallel 行，读取 `RoadGraphV3Diagnostics.ParallelEdgeCount`。
 - 验证：Godot `MapTest` 冻结运行后 GDScript 读取 `parallel=0`；完整测试套件 1240/1240 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 
+### 2026-08-13：1.1 RoadType 选择器（部分）
+
+- `ToolContextPanel.ConfigureRoadTypeSelector` 从 `RoadTypeStyleCatalogResult` 生成四个 toggle 按钮，按钮使用样式的 `DisplayName` 与 `Color`；`GameHUD` 在 `_Ready` 注入默认目录、`RoadGraphV3System.ToolState.SelectedRoadType` 与 `TrySelectRoadType` 回调。
+- `Scenes/UI/GameHUD.tscn` 新增 `RoadTypeRow` / `RoadTypeButtons`，初始隐藏，配置后显示。
+- 验证：Godot `MapTest` 冻结运行后 GDScript 读取 `row_visible=true`、按钮 4 个、文本 `土路/街道/主干道/高速`、`toggle_mode` 全 true、`button_pressed` 仅 `街道` 为 true；模拟点击 `高速` 后 pressed 迁移到 `高速`。完整测试套件 1246/1246 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误，编辑器错误日志与 DAP stderr 为空。
+- 尚未完成：鼠标/键盘/手柄焦点真实输入、无效样式降级、道路/改造共享状态、切换分类、暂停返回、场景重复进入和三档视口布局回归。
+
 ## 执行顺序
 
 ### 阶段 7：第三代道路控件、诊断与存档交互
@@ -51,6 +58,7 @@
 - [ ] **1.1 在道路上下文中提供可访问的 RoadType 选择器**
   - 当前问题：`ToolContextPanel` 只能展示当前工具说明；玩家无法选择 `Dirt`、`Street`、`Arterial` 或 `Highway`，也无法确认预览将使用哪个类型。
   - 修改：在道路建造和改造上下文中加入四段式单选控件，每项显示来自 `RoadTypeStyle` 的名称与颜色 swatch；控件只更新 `SelectedRoadType`，不调用 RoadGraph。默认选择 `Street`，运行期间切换工具保留选择，重新进入城市场景恢复默认。
+  - 进度（2026-08-13）：`ToolContextPanel` 与 `GameHUD` 已接入四按钮选择器，运行时可见且模拟点击可迁移 pressed；剩余验收项见状态总览进度记录。
   - 依赖：`v3-road-graph:8.4`、`v3-grid-rendering:2.1`、`v3-tool-input:2.1`。
   - 集成负责人：`v3-ui`；端到端完成判定由 `v3-road-graph:8.6` 负责。
   - 验证：四项唯一选择、鼠标、键盘/手柄焦点、无效样式降级、道路/改造上下文共享状态、切换分类、暂停返回、场景重复进入，以及 1600x900、640x480、435x480 布局。

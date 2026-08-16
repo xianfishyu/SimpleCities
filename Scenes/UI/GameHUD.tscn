@@ -122,6 +122,20 @@ text = "道路配置"
 layout_mode = 2
 text = "CellSize: --"
 
+[node name="RoadTypeRow" type="VBoxContainer" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent"]
+visible = false
+layout_mode = 2
+
+[node name="RoadTypeLabel" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/RoadTypeRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.654902, 0.686275, 0.729412, 1)
+theme_override_font_sizes/font_size = 13
+text = "道路类型"
+
+[node name="RoadTypeButtons" type="HBoxContainer" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/RoadTypeRow"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
 [node name="DebugPanel" type="PanelContainer" parent="." unique_id=242022695]
 anchors_preset = -1
 offset_left = 16.0
