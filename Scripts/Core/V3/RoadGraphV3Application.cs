@@ -608,6 +608,12 @@ public sealed class RoadGraphV3Application
         return payload is null ? null : Encoding.UTF8.GetString(payload);
     }
 
+    public string? GetSlotFormatFamily(string slotId) =>
+        GetManifest(slotId)?.FormatFamily;
+
+    public int GetSlotSchemaVersion(string slotId) =>
+        GetManifest(slotId)?.SchemaVersion ?? 0;
+
     public byte[]? CurrentSlotPayload(string fileName) =>
         string.IsNullOrEmpty(CurrentSlotID) ? null : GetPayload(CurrentSlotID, fileName);
 
