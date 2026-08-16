@@ -32,3 +32,12 @@
 ## I
 
 - **inside-commit**：Load non-yield 临界区内执行的回调，用于一次性交换 renderer 等表现资源。
+
+## 相关文档
+
+- 架构与验收规范：`docs/manuals/road-system-v3-gen.md`
+- 当前实现与验证状态：`docs/manuals/v3-current-implementation.md`
+- 下一步执行计划：`docs/manuals/v3-next-steps.md`
+- QA 运行手册：`docs/manuals/v3-qa-runbook.md`
+- 关键决策记录：`docs/manuals/v3-decisions.md`
+- 代码地图：`docs/manuals/v3-code-map.md`
