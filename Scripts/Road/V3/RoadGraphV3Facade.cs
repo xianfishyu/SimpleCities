@@ -18,6 +18,7 @@ public sealed class RoadGraphV3Facade
     public long LineageID { get; private set; }
     public RoadGraphV3Revision Revision => _revision;
     public GraphStateToken CurrentToken => new(LineageID, _domainRevisionID, _changeSequence);
+    public RoadGraphV3Diagnostics Diagnostics { get; private set; } = null!;
 
     public RoadGraphV3Snapshot CaptureSnapshot() => new(_revision, CurrentToken);
 
@@ -28,6 +29,7 @@ public sealed class RoadGraphV3Facade
         LineageID = snapshot.Token.LineageID;
         _domainRevisionID = snapshot.Token.DomainRevisionID;
         _changeSequence = snapshot.Token.ChangeSequence;
+        UpdateDiagnostics();
     }
 
     public RoadGraphV3Facade(RoadGraphV3Revision initialRevision, long lineageID = 1)
@@ -37,6 +39,7 @@ public sealed class RoadGraphV3Facade
         LineageID = lineageID;
         _domainRevisionID = 0;
         _changeSequence = 0;
+        UpdateDiagnostics();
     }
 
     public bool TryAddNode(Vector2 position, out RoadGraphV3ChangeSummary summary, out int nodeID)
@@ -124,6 +127,7 @@ public sealed class RoadGraphV3Facade
         _revision = current;
         _domainRevisionID++;
         _changeSequence++;
+        UpdateDiagnostics();
         summary = RoadGraphV3ChangeSummaryFactory.FromDelta(delta, _changeSequence, false);
         return true;
     }
@@ -165,6 +169,7 @@ public sealed class RoadGraphV3Facade
         _revision = current;
         _domainRevisionID++;
         _changeSequence++;
+        UpdateDiagnostics();
         summary = RoadGraphV3ChangeSummaryFactory.FromDelta(delta, _changeSequence, false);
         return true;
     }
@@ -186,6 +191,7 @@ public sealed class RoadGraphV3Facade
         _revision = next;
         _domainRevisionID++;
         _changeSequence++;
+        UpdateDiagnostics();
         summary = RoadGraphV3ChangeSummaryFactory.FromDelta(delta, _changeSequence, false);
         return true;
     }
@@ -202,6 +208,7 @@ public sealed class RoadGraphV3Facade
         _revision = next;
         _domainRevisionID = delta.AfterRevisionID;
         _changeSequence++;
+        UpdateDiagnostics();
         summary = RoadGraphV3ChangeSummaryFactory.FromDelta(delta, _changeSequence, isFullReset: false);
         return true;
     }
@@ -213,6 +220,7 @@ public sealed class RoadGraphV3Facade
         LineageID = newLineageID;
         _domainRevisionID = 0;
         _changeSequence++;
+        UpdateDiagnostics();
     }
 
     private void Commit(
@@ -228,6 +236,7 @@ public sealed class RoadGraphV3Facade
         _revision = next;
         _domainRevisionID++;
         _changeSequence++;
+        UpdateDiagnostics();
         summary = RoadGraphV3ChangeSummaryFactory.Incremental(
             createdNodeIDs ?? [],
             removedNodeIDs ?? [],
@@ -235,6 +244,16 @@ public sealed class RoadGraphV3Facade
             createdEdgeIDs ?? [],
             removedEdgeIDs ?? [],
             updatedEdgeIDs ?? [],
+            _changeSequence);
+    }
+
+    private void UpdateDiagnostics()
+    {
+        Diagnostics = new RoadGraphV3Diagnostics(
+            _revision.Nodes.Count,
+            _revision.Edges.Count,
+            _revision.Edges.Values.Sum(edge => edge.Geometry.Count),
+            _revision.Edges.Values.Count(edge => edge.IsSelfLoop),
             _changeSequence);
     }
 }

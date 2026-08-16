@@ -582,6 +582,12 @@
 - 完整测试套件 1211/1211 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：替换 V2 RoadSystem 与端到端验收。
 
+### 2026-08-13：8.5/8.6 不可变诊断快照（部分）
+
+- 新增 `RoadGraphV3Diagnostics`；`RoadGraphV3Facade` 在每次提交/full reset/restore 时维护 Node/Edge/Geometry/SelfLoop/ChangeSequence 快照，`RoadGraphV3Application` / `RoadGraphV3System` 暴露 `Diagnostics`。
+- 新增 3 个 xUnit 用例；完整测试套件 1230/1230 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：DebugPanel 接入该快照与移除 RoadGroup 指标。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成

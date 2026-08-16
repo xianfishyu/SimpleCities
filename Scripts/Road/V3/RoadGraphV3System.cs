@@ -19,6 +19,7 @@ public partial class RoadGraphV3System : Node2D
     public RoadSurfaceHitProvider HitProvider => Application.HitProvider;
     public RoadGraphV3Controller Controller => Application.Controller;
     public RoadGraphV3Revision Revision => Application.Revision;
+    public SimpleCities.Road.V3.RoadGraphV3Diagnostics Diagnostics => Application.Diagnostics;
     public int CurrentNodeCount => Application.CurrentNodeCount;
     public int CurrentEdgeCount => Application.CurrentEdgeCount;
     public bool CurrentGraphIsEmpty => Application.CurrentGraphIsEmpty;

@@ -92,4 +92,55 @@ public sealed class RoadGraphV3FacadeTests
 
         Assert.Equal(before, facade.CurrentToken);
     }
+
+    [Fact]
+    public void Diagnostics_Empty_ReturnsZeroCounts()
+    {
+        var facade = new RoadGraphV3Facade(RoadGraphV3Revision.Empty(RoadGraphCapacity.Default));
+
+        RoadGraphV3Diagnostics diagnostics = facade.Diagnostics;
+
+        Assert.Equal(0, diagnostics.NodeCount);
+        Assert.Equal(0, diagnostics.EdgeCount);
+        Assert.Equal(0, diagnostics.GeometrySegmentCount);
+        Assert.Equal(0, diagnostics.SelfLoopCount);
+        Assert.True(diagnostics.IsValid);
+    }
+
+    [Fact]
+    public void Diagnostics_AfterAddEdge_ReflectsCounts()
+    {
+        var facade = new RoadGraphV3Facade(RoadGraphV3Revision.Empty(RoadGraphCapacity.Default));
+        facade.TryAddNode(Vector2.Zero, out _, out int a);
+        facade.TryAddNode(new Vector2(1f, 0f), out _, out int b);
+        facade.TryAddEdge(
+            a,
+            b,
+            [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(1f, 0f))],
+            RoadType.Street,
+            out _,
+            out _);
+
+        RoadGraphV3Diagnostics diagnostics = facade.Diagnostics;
+
+        Assert.Equal(2, diagnostics.NodeCount);
+        Assert.Equal(1, diagnostics.EdgeCount);
+        Assert.Equal(1, diagnostics.GeometrySegmentCount);
+        Assert.Equal(0, diagnostics.SelfLoopCount);
+        Assert.Equal(facade.CurrentToken.ChangeSequence, diagnostics.ChangeSequence);
+    }
+
+    [Fact]
+    public void Diagnostics_AfterFullReset_ResetsCountsAndAdvancesSequence()
+    {
+        var facade = new RoadGraphV3Facade(RoadGraphV3Revision.Empty(RoadGraphCapacity.Default));
+        facade.TryAddNode(Vector2.Zero, out _, out _);
+        long sequenceBefore = facade.CurrentToken.ChangeSequence;
+
+        facade.ReplaceWithFullReset(RoadGraphV3Revision.Empty(RoadGraphCapacity.Default), 7);
+
+        Assert.Equal(0, facade.Diagnostics.NodeCount);
+        Assert.Equal(0, facade.Diagnostics.EdgeCount);
+        Assert.Equal(sequenceBefore + 1, facade.Diagnostics.ChangeSequence);
+    }
 }

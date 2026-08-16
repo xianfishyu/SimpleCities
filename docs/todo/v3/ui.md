@@ -24,6 +24,12 @@
 | V3 规范存储诊断 | DebugPanel 仍读取 `GetAllGroups()`，无法观察 Edge 压缩、原生几何数量或 self-loop | 1.3、`v3-road-graph:8.2`～`8.5` |
 | V3 异步存档体验 | PauseMenu 调用同步 bool API；没有 busy 目标、并发禁用、取消边界、autosave skipped 与 scene generation 失效呈现 | 1.4、`v3-save-system:2.3`、`v3-tool-input:2.4` |
 
+### 2026-08-13：1.3 诊断快照数据源（部分）
+
+- `RoadGraphV3Diagnostics` 随事务维护；`RoadGraphV3Application` / `RoadGraphV3System` 暴露只读快照，DebugPanel 后续可 O(1) 读取。
+- 完整测试套件 1230/1230 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：DebugPanel 实际移除 Group 指标并接入快照。
+
 ## 执行顺序
 
 ### 阶段 7：第三代道路控件、诊断与存档交互

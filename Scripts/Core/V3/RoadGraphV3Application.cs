@@ -23,11 +23,12 @@ public sealed class RoadGraphV3Application
 
     public RoadGraphV3Controller Controller { get; private set; }
     public RoadGraphV3Revision Revision => Controller.Facade.Revision;
-    public int CurrentNodeCount => Revision.Nodes.Count;
-    public int CurrentEdgeCount => Revision.Edges.Count;
-    public bool CurrentGraphIsEmpty => Revision.Nodes.Count == 0 && Revision.Edges.Count == 0;
-    public int CurrentGeometrySegmentCount => Revision.Edges.Values.Sum(edge => edge.Geometry.Count);
-    public int CurrentSelfLoopCount => Revision.Edges.Values.Count(edge => edge.IsSelfLoop);
+    public RoadGraphV3Diagnostics Diagnostics => Controller.Facade.Diagnostics;
+    public int CurrentNodeCount => Diagnostics.NodeCount;
+    public int CurrentEdgeCount => Diagnostics.EdgeCount;
+    public bool CurrentGraphIsEmpty => CurrentNodeCount == 0 && CurrentEdgeCount == 0;
+    public int CurrentGeometrySegmentCount => Diagnostics.GeometrySegmentCount;
+    public int CurrentSelfLoopCount => Diagnostics.SelfLoopCount;
 
     public IReadOnlyDictionary<RoadType, int> CurrentRoadTypeCounts =>
         Revision.Edges.Values
