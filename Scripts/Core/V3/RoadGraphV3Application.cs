@@ -305,6 +305,9 @@ public sealed class RoadGraphV3Application
     public IReadOnlyList<string> CurrentSlotFileNames =>
         CurrentSlotManifest?.Files.Select(file => file.Name).ToList() ?? [];
 
+    public long CurrentSlotTotalBytes =>
+        CurrentSlotManifest?.Files.Sum(file => file.EncodedLength) ?? 0;
+
     public byte[]? GetPayload(string slotId, string fileName) =>
         V3SlotPayloadService.GetPayload(slotId, _root, fileName);
 
