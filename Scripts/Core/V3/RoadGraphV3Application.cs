@@ -480,6 +480,8 @@ public sealed class RoadGraphV3Application
     public V3Manifest? CurrentSlotManifest =>
         string.IsNullOrEmpty(CurrentSlotID) ? null : GetManifest(CurrentSlotID);
 
+    public bool CurrentSlotManifestIsValid => CurrentSlotManifest is not null;
+
     public string? CurrentSlotFormatFamily => CurrentSlotManifest?.FormatFamily;
     public int CurrentSlotSchemaVersion => CurrentSlotManifest?.SchemaVersion ?? 0;
 
