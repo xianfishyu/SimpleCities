@@ -66,6 +66,27 @@ public sealed class V3AsyncSaveOperationCoordinatorTests
     }
 
     [Fact]
+    public async Task SaveAsync_WhenBackendFails_ReturnsFailed()
+    {
+        var backend = new FakeBackend { FailOperations = true };
+        var coordinator = new V3AsyncSaveOperationCoordinator(backend);
+
+        V3SaveOperationUiState state = await coordinator.SaveAsync(
+            "city-001",
+            "City",
+            "City",
+            "2026-08-16T00:00:00.0000000Z",
+            null,
+            null,
+            null);
+
+        Assert.Equal(V3SaveOperationUiPhase.Failed, state.Phase);
+        Assert.False(state.IsComplete);
+        Assert.Equal("fail", state.Error);
+        Assert.Equal(1, backend.SaveCalls);
+    }
+
+    [Fact]
     public async Task LoadAsync_ReturnsCompletedLoadResult()
     {
         var backend = new FakeBackend();
