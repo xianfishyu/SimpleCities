@@ -488,6 +488,10 @@ public sealed class RoadGraphV3Application
     public decimal? CurrentSlotFunds => CurrentSlotManifest?.Funds;
     public string? CurrentSlotThumbnailFile => CurrentSlotManifest?.ThumbnailFile;
     public bool CurrentSlotHasThumbnail => CurrentSlotThumbnailFile is not null;
+    public byte[]? CurrentSlotThumbnailBytes =>
+        string.IsNullOrEmpty(CurrentSlotID) || CurrentSlotThumbnailFile is null
+            ? null
+            : GetPayload(CurrentSlotID, CurrentSlotThumbnailFile);
     public int CurrentSlotFileCount => CurrentSlotManifest?.Files.Count ?? 0;
     public bool CurrentSlotHasFiles => CurrentSlotFileCount > 0;
 
