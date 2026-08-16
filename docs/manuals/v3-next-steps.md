@@ -70,7 +70,16 @@
 - M4：`v3-ui:1.4` 异步存档状态机验收通过。
 - M5：`v3-road-graph:8.6` 最终组合验收证据写回指南附录 D。
 
-## 9. 完成定义
+## 9. 相关文档
+
+- 架构与验收规范：`docs/manuals/road-system-v3-gen.md`
+- 当前实现与验证状态：`docs/manuals/v3-current-implementation.md`
+- QA 运行手册：`docs/manuals/v3-qa-runbook.md`
+- 关键决策记录：`docs/manuals/v3-decisions.md`
+- 术语表：`docs/manuals/v3-glossary.md`
+- 代码地图：`docs/manuals/v3-code-map.md`
+
+## 10. 完成定义
 
 - 上述检查清单全部勾选。
 - `docs/todo/v3/` 中对应工作项标记为已完成，并记录实际验证证据。
