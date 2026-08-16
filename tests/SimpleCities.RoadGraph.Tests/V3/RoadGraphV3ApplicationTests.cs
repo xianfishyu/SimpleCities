@@ -1013,6 +1013,23 @@ public sealed class RoadGraphV3ApplicationTests
     }
 
     [Fact]
+    public void CurrentSelfLoopCount_AfterNormalBuild_IsZero()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            Assert.True(app.TryBuildFromPolyline([Vector2.Zero, new Vector2(1f, 0f)], RoadType.Street, out _));
+
+            Assert.Equal(0, app.CurrentSelfLoopCount);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void CurrentGeometrySegmentCount_AfterPolyline_EqualsSegments()
     {
         string root = GetTempRoot();
