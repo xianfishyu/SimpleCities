@@ -73,6 +73,12 @@ public static class V3RoadLoadPipeline
             preservedToolState,
             styles,
             desiredPresentationToken);
+        return Commit(prepare, lineageID);
+    }
+
+    public static V3RoadLoadPipelineResult Commit(V3RoadLoadPrepareResult prepare, long lineageID)
+    {
+        ArgumentNullException.ThrowIfNull(prepare);
         if (!prepare.Success || prepare.Plan is null || prepare.Coordinator is null)
             return V3RoadLoadPipelineResult.Failure(prepare.Phase, prepare.Error ?? "PrepareFailed");
 

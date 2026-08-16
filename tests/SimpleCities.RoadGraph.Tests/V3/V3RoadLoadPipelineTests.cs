@@ -296,6 +296,35 @@ public sealed class V3RoadLoadPipelineTests
     }
 
     [Fact]
+    public void Commit_FromPrepare_ReturnsController()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            RoadGraphV3Revision revision = CreateRevision();
+            Assert.True(V3RoadSavePipeline.Save("city-001", root, revision, "n", "n", "2026-08-12T08:00:00.0000000Z", null, null, null));
+
+            V3RoadLoadPrepareResult prepare = V3RoadLoadPipeline.Prepare(
+                "city-001",
+                root,
+                RoadGraphCapacity.Default,
+                V3PayloadBudget.Default,
+                lineageID: 7);
+            Assert.True(prepare.Success, prepare.Error);
+
+            V3RoadLoadPipelineResult result = V3RoadLoadPipeline.Commit(prepare, lineageID: 7);
+
+            Assert.True(result.Success, result.Error);
+            Assert.NotNull(result.Controller);
+            Assert.Equal(7, result.Controller!.Facade.LineageID);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void TryLoadIntoController_WithToolState_AppliesEmptyToolRoot()
     {
         string root = GetTempRoot();
