@@ -1013,6 +1013,24 @@ public sealed class RoadGraphV3ApplicationTests
     }
 
     [Fact]
+    public void CurrentNodeCountAndEdgeCount_AfterBuild_ReflectGraph()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            Assert.True(app.TryBuildFromPolyline([Vector2.Zero, new Vector2(1f, 0f)], RoadType.Street, out _));
+
+            Assert.Equal(2, app.CurrentNodeCount);
+            Assert.Equal(1, app.CurrentEdgeCount);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void CurrentSlotRoadNetworkJson_AfterSave_ContainsPayload()
     {
         string root = GetTempRoot();

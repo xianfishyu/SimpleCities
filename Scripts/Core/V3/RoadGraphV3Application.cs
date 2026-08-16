@@ -23,6 +23,8 @@ public sealed class RoadGraphV3Application
 
     public RoadGraphV3Controller Controller { get; private set; }
     public RoadGraphV3Revision Revision => Controller.Facade.Revision;
+    public int CurrentNodeCount => Revision.Nodes.Count;
+    public int CurrentEdgeCount => Revision.Edges.Count;
     public bool CanUndo => Controller.History.UndoCount > 0;
     public bool CanRedo => Controller.History.RedoCount > 0;
     public void ClearHistory() => Controller.History.Clear();
