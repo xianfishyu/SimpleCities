@@ -41,4 +41,16 @@ public sealed class RoadSurfaceHitProvider
         resolved = hit;
         return true;
     }
+
+    public bool TryResolveEdge(RoadSurfaceHit hit, out int edgeID)
+    {
+        if (!TryResolve(hit, out RoadSurfaceHit resolved) || resolved.EdgeID is not int id)
+        {
+            edgeID = 0;
+            return false;
+        }
+
+        edgeID = id;
+        return true;
+    }
 }

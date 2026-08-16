@@ -21,6 +21,13 @@ public sealed class RoadRemovalSessionV3
         return _selectedEdgeIDs.Add(edgeID);
     }
 
+    public bool TrySelectHit(RoadSurfaceHit hit)
+    {
+        if (hit is null || !hit.IsValid || hit.EdgeID is not int edgeID)
+            return false;
+        return TrySelectEdge(edgeID);
+    }
+
     public bool DeselectEdge(int edgeID) => _selectedEdgeIDs.Remove(edgeID);
 
     public void ClearSelection() => _selectedEdgeIDs.Clear();

@@ -57,6 +57,61 @@ public sealed class RoadSurfaceHitProviderTests
         Assert.False(provider.TryResolve(hit, out _));
     }
 
+    [Fact]
+    public void TryResolveEdge_WhenRibbonOwnerExists_ReturnsEdgeID()
+    {
+        RoadSurfaceSnapshot snapshot = CreateSnapshot();
+        var state = new RoadPresentationState(CreateToken(1));
+        Assert.True(state.TryPublish(CreateToken(1), snapshot));
+        var provider = new RoadSurfaceHitProvider(state);
+
+        Assert.True(provider.TryResolveEdge(CreateHit(), out int edgeID));
+        Assert.Equal(20, edgeID);
+    }
+
+    [Fact]
+    public void TryResolveEdge_WhenOwnerHasNoEdge_Fails()
+    {
+        RoadSurfaceSnapshot snapshot = new(
+            new GraphStateToken(1, 3, 4),
+            [
+                new RoadSurfaceOwner(
+                    RoadSurfaceOwnerKind.Cap,
+                    NodeID: 10,
+                    EdgeID: null,
+                    Endpoint: EdgeEndpoint.A,
+                    new RoadLocation(20, 0, 0.5f)),
+            ]);
+        var state = new RoadPresentationState(CreateToken(1));
+        Assert.True(state.TryPublish(CreateToken(1), snapshot));
+        var provider = new RoadSurfaceHitProvider(state);
+        RoadSurfaceHit hit = CreateHit() with { OwnerKind = RoadSurfaceOwnerKind.Cap, EdgeID = null };
+
+        Assert.False(provider.TryResolveEdge(hit, out _));
+    }
+
+    [Fact]
+    public void TryResolveEdge_WhenOwnerMissing_Fails()
+    {
+        RoadSurfaceSnapshot snapshot = CreateSnapshot();
+        var state = new RoadPresentationState(CreateToken(1));
+        Assert.True(state.TryPublish(CreateToken(1), snapshot));
+        var provider = new RoadSurfaceHitProvider(state);
+        RoadSurfaceHit hit = CreateHit() with { EdgeID = 999 };
+
+        Assert.False(provider.TryResolveEdge(hit, out _));
+    }
+
+    [Fact]
+    public void TryResolveEdge_WhenStalled_Fails()
+    {
+        var state = new RoadPresentationState(CreateToken(1));
+        state.SetDesired(CreateToken(2));
+        var provider = new RoadSurfaceHitProvider(state);
+
+        Assert.False(provider.TryResolveEdge(CreateHit(), out _));
+    }
+
     private static RoadRenderToken CreateToken(long requestID) =>
         new(SceneGeneration: 1, GraphFacadeID: 2, GraphFacadeGeneration: 3, ChangeSequence: 4, RoadStyleRevision: 5, RenderRequestID: requestID);
 

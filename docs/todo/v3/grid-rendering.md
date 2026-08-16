@@ -100,6 +100,12 @@
 - 完整测试套件 1038/1038 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实 mesh/ribbon、junction patch、surface hit 与完整接管协议。
 
+### 2026-08-13：2.2 RoadSurfaceHitProvider 边缘解析（部分）
+
+- `RoadSurfaceHitProvider` 新增 `TryResolveEdge`：在已呈现 snapshot 上解析命中的稳定 Edge ID；stalled、token 过期、owner 缺失或 owner 无 EdgeID 时返回 false。
+- 新增 4 个 xUnit 用例；完整测试套件 1107/1107 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实 mesh/ribbon、junction patch 与完整接管协议。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁

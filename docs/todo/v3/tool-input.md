@@ -68,6 +68,12 @@
 - 新增 10 个 xUnit 用例；完整测试套件 1097/1097 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
 - 尚未完成：`RoadBuilder` 真实接线、完整工具生命周期与 surface hit 选择。
 
+### 2026-08-13：2.2 改造/拆除会话表面命中选择（部分）
+
+- `RoadUpgradeSessionV3` / `RoadRemovalSessionV3` 新增 `TrySelectHit`：只接受有效且带稳定 Edge ID 的 `RoadSurfaceHit`，无 Edge owner、非法命中或过期表现直接拒绝；配合 `RoadSurfaceHitProvider.TryResolveEdge` 可在工具层先验证已呈现表现再进入选择集合。
+- 新增 6 个 xUnit 用例；完整测试套件 1107/1107 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：`RoadBuilder` 真实接线、完整工具生命周期与真实 surface hit 输入路由。
+
 ## 执行顺序
 
 ### 阶段 3：第三代闭环、类型化建造与道路改造

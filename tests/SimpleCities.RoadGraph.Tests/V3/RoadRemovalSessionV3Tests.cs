@@ -63,4 +63,47 @@ public sealed class RoadRemovalSessionV3Tests
 
         Assert.False(session.TryCommit(out _));
     }
+
+    [Fact]
+    public void TrySelectHit_ValidRibbon_AddsEdge()
+    {
+        var session = new RoadRemovalSessionV3();
+
+        Assert.True(session.TrySelectHit(CreateHit()));
+        Assert.Equal([20], session.SelectedEdgeIDs);
+    }
+
+    [Fact]
+    public void TrySelectHit_InvalidHit_Fails()
+    {
+        var session = new RoadRemovalSessionV3();
+        RoadSurfaceHit hit = CreateHit() with { DistanceSquared = -1f };
+
+        Assert.False(session.TrySelectHit(hit));
+        Assert.Empty(session.SelectedEdgeIDs);
+    }
+
+    [Fact]
+    public void TrySelectHit_OwnerWithoutEdge_Fails()
+    {
+        var session = new RoadRemovalSessionV3();
+        RoadSurfaceHit hit = CreateHit() with
+        {
+            OwnerKind = RoadSurfaceOwnerKind.Cap,
+            EdgeID = null,
+        };
+
+        Assert.False(session.TrySelectHit(hit));
+        Assert.Empty(session.SelectedEdgeIDs);
+    }
+
+    private static RoadSurfaceHit CreateHit() =>
+        new(
+            new GraphStateToken(1, 3, 4),
+            RoadSurfaceOwnerKind.Ribbon,
+            NodeID: 10,
+            EdgeID: 20,
+            Endpoint: EdgeEndpoint.A,
+            new RoadLocation(20, 0, 0.5f),
+            1f);
 }
