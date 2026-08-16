@@ -390,6 +390,16 @@ public sealed class RoadToolInputRouterTests
     }
 
     [Fact]
+    public void HandleSelectionHits_Upgrade_NullList_Throws()
+    {
+        var router = CreateRouter();
+        router.SwitchTool(RoadToolType.Upgrade);
+
+        Assert.Throws<ArgumentNullException>(() =>
+            router.HandleSelectionHits(null!, upgrade: true));
+    }
+
+    [Fact]
     public void HandleSelectionHits_Upgrade_EmptyList_DoesNotCreateSession()
     {
         var router = CreateRouter();
