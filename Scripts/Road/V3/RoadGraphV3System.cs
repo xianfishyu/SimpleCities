@@ -29,6 +29,8 @@ public partial class RoadGraphV3System : Node2D
     public bool CurrentSlotIsForeign => Application.CurrentSlotIsForeign;
     public bool CurrentSlotIsOperable => Application.CurrentSlotIsOperable;
     public SimpleCities.Core.V3.V3Manifest? CurrentSlotManifest => Application.CurrentSlotManifest;
+    public string? CurrentSlotFormatFamily => Application.CurrentSlotFormatFamily;
+    public int CurrentSlotSchemaVersion => Application.CurrentSlotSchemaVersion;
     public string? CurrentSlotCityName => Application.CurrentSlotCityName;
     public long? CurrentSlotPopulation => Application.CurrentSlotPopulation;
     public decimal? CurrentSlotFunds => Application.CurrentSlotFunds;
