@@ -285,13 +285,21 @@ public sealed class RoadGraphV3Application
         }
 
         var session = new RoadPlacementSessionV3(roadType, points[0]);
-        for (int index = 1; index < points.Count; index++)
+        bool isClosed = points.Count >= 3 && points[^1] == points[0];
+        int endIndex = isClosed ? points.Count - 1 : points.Count;
+        for (int index = 1; index < endIndex; index++)
         {
             if (!session.TryAddPoint(points[index]))
             {
                 summary = null!;
                 return false;
             }
+        }
+
+        if (isClosed && !session.TryClose())
+        {
+            summary = null!;
+            return false;
         }
 
         return TryBuild(session, snapRadius, out summary);

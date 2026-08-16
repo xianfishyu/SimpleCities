@@ -312,6 +312,12 @@
 - 完整测试套件 1207/1207 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
 - 尚未完成：替换 V2 RoadSystem 与端到端验收。
 
+### 2026-08-13：8.6 TryBuildFromPolyline 支持闭合折线（部分）
+
+- `RoadGraphV3Application.TryBuildFromPolyline` 识别首尾重合的闭合折线，先添加中间拐点再 `TryClose`，避免把末点当作零长度拐点拒绝。
+- 新增 1 个 xUnit 用例；完整测试套件 1208/1208 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：替换 V2 RoadSystem 与端到端验收。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成
