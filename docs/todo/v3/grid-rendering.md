@@ -329,6 +329,11 @@
 - 新增 4 个 xUnit 用例；完整测试套件 1244/1244 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot `MapTest` 冻结运行无新增错误。
 - 尚未完成：锐角/近共线语义过渡的像素与 owner 等价验证。
 
+### 2026-08-13：2.2 cap/semantic join owner 命中解析回归（测试）
+
+- `RoadSurfaceHitProvider.TryResolveEdge` 对 Cap 与 SemanticJoin owner 的解析新增 2 个 xUnit 用例。
+- 完整测试套件 1246/1246 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁

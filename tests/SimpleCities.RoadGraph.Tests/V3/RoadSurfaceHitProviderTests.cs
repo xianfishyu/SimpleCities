@@ -91,6 +91,50 @@ public sealed class RoadSurfaceHitProviderTests
     }
 
     [Fact]
+    public void TryResolveEdge_CapOwner_ReturnsEdgeID()
+    {
+        RoadSurfaceSnapshot snapshot = new(
+            new GraphStateToken(1, 3, 4),
+            [
+                new RoadSurfaceOwner(
+                    RoadSurfaceOwnerKind.Cap,
+                    NodeID: 10,
+                    EdgeID: 20,
+                    Endpoint: EdgeEndpoint.A,
+                    new RoadLocation(20, 0, 0f)),
+            ]);
+        var state = new RoadPresentationState(CreateToken(1));
+        Assert.True(state.TryPublish(CreateToken(1), snapshot));
+        var provider = new RoadSurfaceHitProvider(state);
+        RoadSurfaceHit hit = CreateHit() with { OwnerKind = RoadSurfaceOwnerKind.Cap, Location = new RoadLocation(20, 0, 0f) };
+
+        Assert.True(provider.TryResolveEdge(hit, out int edgeID));
+        Assert.Equal(20, edgeID);
+    }
+
+    [Fact]
+    public void TryResolveEdge_SemanticJoinOwner_ReturnsEdgeID()
+    {
+        RoadSurfaceSnapshot snapshot = new(
+            new GraphStateToken(1, 3, 4),
+            [
+                new RoadSurfaceOwner(
+                    RoadSurfaceOwnerKind.SemanticJoin,
+                    NodeID: 10,
+                    EdgeID: 20,
+                    Endpoint: EdgeEndpoint.A,
+                    new RoadLocation(20, 0, 0f)),
+            ]);
+        var state = new RoadPresentationState(CreateToken(1));
+        Assert.True(state.TryPublish(CreateToken(1), snapshot));
+        var provider = new RoadSurfaceHitProvider(state);
+        RoadSurfaceHit hit = CreateHit() with { OwnerKind = RoadSurfaceOwnerKind.SemanticJoin, Location = new RoadLocation(20, 0, 0f) };
+
+        Assert.True(provider.TryResolveEdge(hit, out int edgeID));
+        Assert.Equal(20, edgeID);
+    }
+
+    [Fact]
     public void TryResolveEdge_WhenOwnerMissing_Fails()
     {
         RoadSurfaceSnapshot snapshot = CreateSnapshot();
