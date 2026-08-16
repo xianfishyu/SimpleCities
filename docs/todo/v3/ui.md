@@ -37,6 +37,11 @@
 - 验证：Godot `MapTest` 冻结运行后 GDScript 读取 `node=0 edge=0 geom=0 loop=0`；完整测试套件 1230/1230 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：query fragment 指标、隐藏时零轮询断言与三档视口运行时契约回归。
 
+### 2026-08-13：1.3 DebugPanel 增加 parallel edge 指标（更新）
+
+- `DebugPanel` 新增 Parallel 行，读取 `RoadGraphV3Diagnostics.ParallelEdgeCount`。
+- 验证：Godot `MapTest` 冻结运行后 GDScript 读取 `parallel=0`；完整测试套件 1240/1240 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+
 ## 执行顺序
 
 ### 阶段 7：第三代道路控件、诊断与存档交互
