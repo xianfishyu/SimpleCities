@@ -93,6 +93,7 @@ public sealed class V3SaveOperationUiStateTests
         Assert.Equal(V3SaveOperationUiPhase.Failed, state.Phase);
         Assert.True(state.IsFailed);
         Assert.True(state.IsCancellable);
+        Assert.True(state.IsTerminal);
         Assert.Equal("preflight failed", state.Error);
     }
 
