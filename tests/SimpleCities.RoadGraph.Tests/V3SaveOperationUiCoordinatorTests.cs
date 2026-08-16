@@ -66,6 +66,27 @@ public sealed class V3SaveOperationUiCoordinatorTests
     }
 
     [Fact]
+    public void Save_ReturnsCompletedPublishResult()
+    {
+        var backend = new FakeBackend();
+        var coordinator = new V3SaveOperationUiCoordinator(backend);
+
+        V3SaveOperationUiState state = coordinator.Save(
+            "city-001",
+            "City",
+            "City",
+            "2026-08-16T00:00:00.0000000Z",
+            null,
+            null,
+            null);
+
+        Assert.True(state.IsComplete);
+        Assert.Equal(V3SaveOperationKind.Publish, state.Kind);
+        Assert.Equal(1, backend.SaveCalls);
+        Assert.Equal("city-001", backend.LastSlotId);
+    }
+
+    [Fact]
     public void Save_WhenBackendFails_ReturnsFailed()
     {
         var backend = new FakeBackend { FailOperations = true };
