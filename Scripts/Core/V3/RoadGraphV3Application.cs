@@ -185,7 +185,7 @@ public sealed class RoadGraphV3Application
         out V3RoadLoadPipelineResult result)
     {
         ArgumentNullException.ThrowIfNull(prepare);
-        result = V3RoadLoadPipeline.Commit(prepare, lineageID);
+        result = prepare.Commit(lineageID);
         if (!result.Success || result.Controller is null)
             return false;
 
