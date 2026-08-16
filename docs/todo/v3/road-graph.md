@@ -456,6 +456,12 @@
 - 完整测试套件 1211/1211 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：替换 V2 RoadSystem 与端到端验收。
 
+### 2026-08-13：8.6 任意槽缩略图字节查询（部分）
+
+- `RoadGraphV3Application` / `RoadGraphV3System` 新增 `GetSlotThumbnailBytes(slotId)`。
+- 完整测试套件 1211/1211 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：替换 V2 RoadSystem 与端到端验收。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成

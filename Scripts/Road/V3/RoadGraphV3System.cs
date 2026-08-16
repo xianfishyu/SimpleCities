@@ -287,6 +287,9 @@ public partial class RoadGraphV3System : Node2D
     public string? GetSlotThumbnailFile(string slotId) =>
         Application.GetSlotThumbnailFile(slotId);
 
+    public byte[]? GetSlotThumbnailBytes(string slotId) =>
+        Application.GetSlotThumbnailBytes(slotId);
+
     public byte[]? CurrentSlotPayload(string fileName) =>
         Application.CurrentSlotPayload(fileName);
 
