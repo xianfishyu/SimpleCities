@@ -23,6 +23,11 @@
 | 表现事务与 Load 原子接管 | 普通 mutation 允许领域提交后异步构建并在失败时 stalled/retry；Load 不能暴露提交后表现窗口，关键资源必须在 Preflight 完成 | 2.2、`v3-save-system:2.3`、`v3-tool-input:2.4` |
 | V2 显示与规模基线 | 六类原生几何已有统一只读显示采样；统一样式的 10k Edge 已通过 60 FPS 门槛并记录 100k 压测 | `grid-rendering:1.1`～`1.2`（V2 已完成）、2.3 |
 
+### 当前落地摘要（2026-08-16）
+
+- `RoadTypeStyle` / `RoadConfigV3` 默认四类样式已落地；`RoadGraphV3Application` / `RoadGraphV3System` 已暴露 ribbon、cap、semantic join 与 junction patch 构建入口。
+- `RoadGraphV3Renderer` 使用 ribbon 填充预览并闭合 self-loop seam；完整 junction patch、真实 mesh 资源与表现接管仍由 `2.2`～`2.3` 跟踪。
+
 ## V3 实施记录
 
 ### 2026-08-13：2.1 RoadTypeStyle 数据与目录校验（部分）
