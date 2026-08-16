@@ -44,3 +44,10 @@
 - [ ] `RoadGraphV3Diagnostics.QueryFragmentCount` 接入并显示
 - [ ] `v3-ui:1.4` 异步存档状态机验收通过
 - [ ] `v3-road-graph:8.6` 最终组合验收证据写回指南附录 D
+
+## 7. 完成定义
+
+- 上述检查清单全部勾选。
+- `docs/todo/v3/` 中对应工作项标记为已完成，并记录实际验证证据。
+- `docs/manuals/road-system-v3-gen.md` 附录 D 写入最终组合验收证据。
+- 工作树无未提交改动，所有相关提交使用仓库既定提交规范。
