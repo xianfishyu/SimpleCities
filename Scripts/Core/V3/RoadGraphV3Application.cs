@@ -175,11 +175,10 @@ public sealed class RoadGraphV3Application
         if (result is null || !result.Success || result.Controller is null)
             return false;
 
+        if (!result.TryApplyParticipants(ToolState, Presentation.State))
+            return false;
+
         Controller = result.Controller;
-        if (result.ToolPlan is not null)
-            result.ToolPlan.TryApplyTo(ToolState);
-        if (result.PresentationPlan is not null)
-            Presentation.TryApplyFullReset(result.PresentationPlan);
         CurrentSlotID = slotId;
         return true;
     }
@@ -198,10 +197,10 @@ public sealed class RoadGraphV3Application
         if (!result.Success || result.Controller is null)
             return false;
 
+        if (!result.TryApplyParticipants(ToolState, Presentation.State))
+            return false;
+
         Controller.ReplaceWithFullReset(result.Controller.Facade.Revision, newLineageID);
-        result.ToolPlan?.TryApplyTo(ToolState);
-        if (result.PresentationPlan is not null)
-            Presentation.TryApplyFullReset(result.PresentationPlan);
         CurrentSlotID = slotId;
         return true;
     }

@@ -595,6 +595,12 @@
 - 新增 1 个 xUnit 用例；完整测试套件 1197/1197 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实 Load 隐藏资源 Preflight 与 non-yield 联合交换。
 
+### 2026-08-13：2.3 应用 Load 改用统一参与者应用（重构）
+
+- `RoadGraphV3Application.Load` / `LoadIntoCurrent` 改为先通过 `V3RoadLoadPipelineResult.TryApplyParticipants` 应用 tool/presentation 计划，成功后再替换 controller，避免应用失败时已切换图状态。
+- 完整测试套件 1197/1197 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实 Load 隐藏资源 Preflight 与 non-yield 联合交换。
+
 ### 2026-08-13：2.3 道路 Load 管线改用 aggregate 协调器（重构）
 
 - `V3RoadLoadPipeline.Load` 改为使用 `V3LoadAggregateCoordinator` 管理 Admission/Prepare/Preflight/Commit，不再手写 `V3LoadProtocol` + `V3PreparedAggregate`；行为与既有测试保持一致。
