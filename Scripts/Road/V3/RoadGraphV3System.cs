@@ -211,6 +211,8 @@ public partial class RoadGraphV3System : Node2D
             ApplyPresentationFullReset(plan);
     }
 
+    public void RefreshPresentation() => ApplyCurrentPresentation();
+
     public void NewCity(long lineageID = 1)
     {
         Application.NewCity(lineageID);

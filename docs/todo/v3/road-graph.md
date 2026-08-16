@@ -324,6 +324,12 @@
 - 完整测试套件 1208/1208 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：替换 V2 RoadSystem 与端到端验收。
 
+### 2026-08-13：8.6 场景根节点刷新表现入口（部分）
+
+- `RoadGraphV3System` 新增 `RefreshPresentation()`，供外部在普通 mutation 后主动重建当前 presentation/mesh。
+- 完整测试套件 1208/1208 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：替换 V2 RoadSystem 与端到端验收。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成
