@@ -596,6 +596,9 @@ public sealed class RoadGraphV3Application
         return thumbnailFile is null ? null : GetPayload(slotId, thumbnailFile);
     }
 
+    public IReadOnlyList<V3ManifestFile> GetSlotManifestFiles(string slotId) =>
+        GetManifest(slotId)?.Files ?? [];
+
     public byte[]? CurrentSlotPayload(string fileName) =>
         string.IsNullOrEmpty(CurrentSlotID) ? null : GetPayload(CurrentSlotID, fileName);
 

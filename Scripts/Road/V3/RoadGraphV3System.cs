@@ -290,6 +290,9 @@ public partial class RoadGraphV3System : Node2D
     public byte[]? GetSlotThumbnailBytes(string slotId) =>
         Application.GetSlotThumbnailBytes(slotId);
 
+    public System.Collections.Generic.IReadOnlyList<SimpleCities.Core.V3.V3ManifestFile> GetSlotManifestFiles(string slotId) =>
+        Application.GetSlotManifestFiles(slotId);
+
     public byte[]? CurrentSlotPayload(string fileName) =>
         Application.CurrentSlotPayload(fileName);
 
