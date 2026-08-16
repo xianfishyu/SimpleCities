@@ -153,6 +153,7 @@ public sealed class V3SaveOperationUiCoordinatorTests
 
         Assert.True(state.IsComplete);
         Assert.Equal(V3SaveOperationKind.Load, state.Kind);
+        Assert.True(state.IsTerminal);
         Assert.Equal(1, backend.LoadCalls);
         Assert.Equal("city-001", backend.LastSlotId);
     }
@@ -195,6 +196,7 @@ public sealed class V3SaveOperationUiCoordinatorTests
 
         Assert.True(state.IsComplete);
         Assert.Equal(V3SaveOperationKind.Delete, state.Kind);
+        Assert.True(state.IsTerminal);
         Assert.Equal(1, backend.DeleteCalls);
         Assert.Equal("city-001", backend.LastSlotId);
     }
