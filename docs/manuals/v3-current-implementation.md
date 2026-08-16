@@ -156,3 +156,4 @@
 
 - 2026-08-16：新增 `v3-current-implementation.md`、`v3-next-steps.md`、`v3-qa-runbook.md`、`v3-decisions.md`、`v3-glossary.md`、`v3-code-map.md`。
 - 2026-08-16：更新 `docs/README.md`、`docs/todo/v3/README.md` 与各系统路线图，补充当前落地摘要、里程碑、检查清单和维护约定。
+- 2026-08-16：实现 `QueryFragmentCount` 并修复 `BuildSegmentFragments` 对曲线分支的 bucket size 校验。
