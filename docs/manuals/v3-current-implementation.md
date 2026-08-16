@@ -78,3 +78,11 @@
 - `v3-tool-input:2.2` 的真实 surface hit 选择、失效 token 与端到端工具验收。
 - `v3-ui:1.2`～`1.4` 的完整改造呈现、异步存档状态机。
 - `v3-road-graph:8.6` 最终组合验收（Vulkan、10k/100k、Windows 导出）。
+
+## 7. 关键源码索引
+
+- RoadGraph：`Scripts/Road/V3/RoadGraphV3*.cs`、`RoadGraphV3Application.cs`、`RoadGraphV3System.cs`
+- 存档：`Scripts/Core/V3/*.cs`
+- 渲染：`Scripts/Road/V3/RoadRibbonBuilder.cs`、`RoadCapBuilder.cs`、`RoadSemanticJoinBuilder.cs`、`RoadGraphV3Renderer.cs`
+- 工具：`Scripts/Road/V3/RoadTool*.cs`、`RoadToolInputRouter.cs`、`RoadGraphV3InputHandler.cs`
+- UI：`Scripts/UI/ToolContextPanel.cs`、`GameHUD.cs`、`ConstructionDock.cs`、`DebugPanel.cs`
