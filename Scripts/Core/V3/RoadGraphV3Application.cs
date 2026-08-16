@@ -319,6 +319,12 @@ public sealed class RoadGraphV3Application
             Controller.Facade.CurrentToken,
             desiredToken);
 
+    public bool TryApplyToolFullReset(RoadToolFullReset plan) =>
+        plan.TryApplyTo(ToolState);
+
+    public bool TryApplyPresentationFullReset(RoadPresentationFullReset plan) =>
+        Presentation.TryApplyFullReset(plan);
+
     public RoadPresentationFullReset? BuildPresentationFullReset(
         RoadRenderToken desiredToken,
         RoadStyleProvider? styles = null)

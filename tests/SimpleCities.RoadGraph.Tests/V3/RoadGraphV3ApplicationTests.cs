@@ -484,6 +484,49 @@ public sealed class RoadGraphV3ApplicationTests
     }
 
     [Fact]
+    public void TryApplyToolFullReset_AppliesPlan()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            var plan = new RoadToolFullReset(RoadToolType.Remove, RoadType.Arterial);
+
+            Assert.True(app.TryApplyToolFullReset(plan));
+            Assert.Equal(RoadToolType.Remove, app.ToolState.CurrentTool);
+            Assert.Equal(RoadType.Arterial, app.ToolState.SelectedRoadType);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
+    public void TryApplyPresentationFullReset_AppliesPlan()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            var session = new RoadPlacementSessionV3(RoadType.Street, Vector2.Zero);
+            session.TryAddPoint(new Vector2(10f, 0f));
+            Assert.True(app.TryBuild(session, out _));
+            RoadPresentationFullReset? plan = app.BuildPresentationFullReset(
+                new RoadRenderToken(0, 1, 0, 0, 0, 17));
+            Assert.NotNull(plan);
+
+            Assert.True(app.TryApplyPresentationFullReset(plan!));
+            Assert.False(app.Presentation.IsStalled);
+            Assert.NotNull(app.Presentation.PresentedSnapshot);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void LoadIntoCurrent_ReplacesControllerAndClearsHistory()
     {
         string root = GetTempRoot();
