@@ -37,6 +37,7 @@ public sealed record V3RoadLoadPrepareResult(
     string? Error,
     V3LoadAggregateCoordinator? Coordinator)
 {
+    public string SlotId { get; init; } = string.Empty;
     public RoadToolFullReset? ToolPlan { get; init; }
     public RoadPresentationFullReset? PresentationPlan { get; init; }
 
@@ -209,6 +210,7 @@ public static class V3RoadLoadPipeline
 
         return new V3RoadLoadPrepareResult(true, coordinator.Phase, preflightPlan, null, coordinator)
         {
+            SlotId = slotId,
             ToolPlan = toolParticipant?.Plan,
             PresentationPlan = presentationPlan,
         };

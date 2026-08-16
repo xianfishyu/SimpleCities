@@ -178,6 +178,22 @@ public sealed class RoadGraphV3Application
         return prepare is { Success: true };
     }
 
+    public bool TryCommitPreparedLoad(
+        V3RoadLoadPrepareResult prepare,
+        long lineageID,
+        out V3RoadLoadPipelineResult result)
+    {
+        ArgumentNullException.ThrowIfNull(prepare);
+        result = V3RoadLoadPipeline.Commit(prepare, lineageID);
+        if (!result.Success || result.Controller is null)
+            return false;
+
+        Controller = result.Controller;
+        if (!string.IsNullOrEmpty(prepare.SlotId))
+            CurrentSlotID = prepare.SlotId;
+        return true;
+    }
+
     public bool Load(string slotId, long lineageID = 1)
     {
         V3RoadLoadPipelineResult? result = _coordinator.LoadResult(

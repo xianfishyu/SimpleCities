@@ -519,7 +519,7 @@
 
 ### 2026-08-13：2.3 道路应用门面（部分）
 
-- 新增 `Scripts/Core/V3/RoadGraphV3Application.cs`：持有当前 controller、`Revision`、`CurrentNodeCount`/`CurrentEdgeCount`/`CurrentGeometrySegmentCount`/`CurrentSelfLoopCount`/`CurrentRoadTypeCounts`、`CanUndo`/`CanRedo`、`ClearHistory`、`RoadToolState`、`DefaultStyles`、`Presentation`、`HitProvider`、保存根与共享 gate 的 `V3RoadSaveLoadCoordinator` / `V3SlotAutosaveCoordinator` / `V3SlotTransactionCoordinator`，提供 `Save`/`SaveCurrent`/`SaveAs`/`Load`/`LoadIntoCurrent`/`Delete`/`DeleteCurrentSlot`/`List`/`ListUsableSlots`/`GetStatus`/`GetManifest`/`GetPayload`/`CurrentSlotManifest`/`CurrentSlotPayload`/`CurrentSlotCityName`/`CurrentSlotPopulation`/`CurrentSlotFunds`/`CurrentSlotThumbnailFile`/`CurrentSlotHasThumbnail`/`CurrentSlotFileCount`/`CurrentSlotHasFiles`/`CurrentSlotFiles`/`GetCurrentSlotFile`/`CurrentSlotHasRoadNetwork`/`CurrentSlotRoadNetworkJson`/`CurrentSlotFileNames`/`CurrentSlotTotalBytes`/`CurrentSlotFormatFamily`/`CurrentSlotSchemaVersion`/`CurrentSlotSummary`/`CurrentSlotDisplayName`/`CurrentSlotTimestamp`/`CurrentSlotOccupant`/`CurrentSlotIsComplete`/`CurrentSlotIsCorrupt`/`CurrentSlotIsAbsent`/`CurrentSlotIsUnsafe`/`CurrentSlotIsForeign`/`CurrentSlotIsOperable`/`HasCurrentSlot`/`TryAutosave`/`TryAutosaveCurrent`/`NewCity`/`TryAddNode`/`TryAddEdge`/`TryUndo`（含 token）/`TryRedo`（含 token）/`TryBuild`（含 snapRadius）/`TryBuildFromPolyline`/`TryUpgrade`/`TryUpgradeEdges`/`TryChangeRoadType`/`TryRemove`/`TryRemoveEdge`/`TryRemoveEdges`/`BuildSurfaceSnapshot`/`BuildDefaultSurfaceSnapshot`/`BuildRibbonMeshes`/`BuildDefaultRibbonMeshes`/`BuildJunctionPatches`/`BuildDefaultJunctionPatches`/`BuildPresentationFullReset`/`TryPrepareLoad`/`TryRequestPresentation`/`TryFindClosestSurfaceHit`/`TryFindClosestJunctionSurfaceHit`/`CurrentTool`/`SelectedRoadType` 同步入口；构造函数支持注入 `RoadTypeStyleCatalogResult` 或 `RoadConfigV3`。
+- 新增 `Scripts/Core/V3/RoadGraphV3Application.cs`：持有当前 controller、`Revision`、`CurrentNodeCount`/`CurrentEdgeCount`/`CurrentGeometrySegmentCount`/`CurrentSelfLoopCount`/`CurrentRoadTypeCounts`、`CanUndo`/`CanRedo`、`ClearHistory`、`RoadToolState`、`DefaultStyles`、`Presentation`、`HitProvider`、保存根与共享 gate 的 `V3RoadSaveLoadCoordinator` / `V3SlotAutosaveCoordinator` / `V3SlotTransactionCoordinator`，提供 `Save`/`SaveCurrent`/`SaveAs`/`Load`/`LoadIntoCurrent`/`Delete`/`DeleteCurrentSlot`/`List`/`ListUsableSlots`/`GetStatus`/`GetManifest`/`GetPayload`/`CurrentSlotManifest`/`CurrentSlotPayload`/`CurrentSlotCityName`/`CurrentSlotPopulation`/`CurrentSlotFunds`/`CurrentSlotThumbnailFile`/`CurrentSlotHasThumbnail`/`CurrentSlotFileCount`/`CurrentSlotHasFiles`/`CurrentSlotFiles`/`GetCurrentSlotFile`/`CurrentSlotHasRoadNetwork`/`CurrentSlotRoadNetworkJson`/`CurrentSlotFileNames`/`CurrentSlotTotalBytes`/`CurrentSlotFormatFamily`/`CurrentSlotSchemaVersion`/`CurrentSlotSummary`/`CurrentSlotDisplayName`/`CurrentSlotTimestamp`/`CurrentSlotOccupant`/`CurrentSlotIsComplete`/`CurrentSlotIsCorrupt`/`CurrentSlotIsAbsent`/`CurrentSlotIsUnsafe`/`CurrentSlotIsForeign`/`CurrentSlotIsOperable`/`HasCurrentSlot`/`TryAutosave`/`TryAutosaveCurrent`/`NewCity`/`TryAddNode`/`TryAddEdge`/`TryUndo`（含 token）/`TryRedo`（含 token）/`TryBuild`（含 snapRadius）/`TryBuildFromPolyline`/`TryUpgrade`/`TryUpgradeEdges`/`TryChangeRoadType`/`TryRemove`/`TryRemoveEdge`/`TryRemoveEdges`/`BuildSurfaceSnapshot`/`BuildDefaultSurfaceSnapshot`/`BuildRibbonMeshes`/`BuildDefaultRibbonMeshes`/`BuildJunctionPatches`/`BuildDefaultJunctionPatches`/`BuildPresentationFullReset`/`TryPrepareLoad`/`TryCommitPreparedLoad`/`TryRequestPresentation`/`TryFindClosestSurfaceHit`/`TryFindClosestJunctionSurfaceHit`/`CurrentTool`/`SelectedRoadType` 同步入口；构造函数支持注入 `RoadTypeStyleCatalogResult` 或 `RoadConfigV3`。
 - 新增 74 个 xUnit 用例；完整测试套件 1087/1087 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实 Godot 场景装配与端到端 Load commit。
 
@@ -641,6 +641,13 @@
 
 - `V3RoadSaveLoadCoordinator` 新增 `Prepare`；`RoadGraphV3Application.TryPrepareLoad` 暴露 Preflight 计划，供真实场景在 commit 前预检。
 - 新增 1 个 xUnit 用例；完整测试套件 1206/1206 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实 Load 隐藏资源 Preflight 与端到端 aggregate Load commit。
+
+### 2026-08-13：2.3 应用提交 Prepared Load（部分）
+
+- `V3RoadLoadPrepareResult` 新增 `SlotId`；`RoadGraphV3Application.TryCommitPreparedLoad` 对 Preflight 计划执行 Commit 并切换 controller/当前槽。
+- `RoadGraphV3System` 转发 `TryCommitPreparedLoad`，成功后应用当前 presentation。
+- 新增 1 个 xUnit 用例；完整测试套件 1207/1207 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实 Load 隐藏资源 Preflight 与端到端 aggregate Load commit。
 
 ### 2026-08-13：2.3 道路 Load 管线改用 aggregate 协调器（重构）

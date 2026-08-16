@@ -300,6 +300,12 @@
 - 完整测试套件 1206/1206 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
 - 尚未完成：替换 V2 RoadSystem 与端到端验收。
 
+### 2026-08-13：8.6 场景根节点提交 Prepared Load（部分）
+
+- `RoadGraphV3System` 新增 `TryCommitPreparedLoad` 转发入口，成功提交 Preflight 计划后应用当前 presentation。
+- 完整测试套件 1207/1207 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：替换 V2 RoadSystem 与端到端验收。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成

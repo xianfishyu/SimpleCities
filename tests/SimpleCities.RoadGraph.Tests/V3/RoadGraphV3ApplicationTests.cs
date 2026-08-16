@@ -169,6 +169,33 @@ public sealed class RoadGraphV3ApplicationTests
     }
 
     [Fact]
+    public void TryPrepareLoad_ThenCommitPreparedLoad_LoadsSlot()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var source = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            RoadGraphV3Revision revision = CreateRevision();
+            source.Controller.ReplaceWithFullReset(revision, 1);
+            Assert.True(source.Save("city-001", "n", "n", "2026-08-12T08:00:00.0000000Z", null, null, null));
+
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            Assert.True(app.TryPrepareLoad("city-001", lineageID: 7, out V3RoadLoadPrepareResult? prepare));
+            Assert.NotNull(prepare);
+
+            Assert.True(app.TryCommitPreparedLoad(prepare!, lineageID: 7, out V3RoadLoadPipelineResult result));
+            Assert.True(result.Success, result.Error);
+            Assert.Equal("city-001", app.CurrentSlotID);
+            Assert.Equal(revision.Nodes.Count, app.Controller.Facade.Revision.Nodes.Count);
+            Assert.Equal(revision.Edges.Count, app.Controller.Facade.Revision.Edges.Count);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void TryAutosave_WhenGateFree_Saves()
     {
         string root = GetTempRoot();
