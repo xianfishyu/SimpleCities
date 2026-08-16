@@ -301,6 +301,8 @@ func assert_reentered_hud_contract(hud: CanvasLayer, sub_viewport: SubViewport, 
 	await process_frame
 	assert_true(tray.visible, "%s Roads press did not expand tray exactly once" % label)
 	assert_reserved_bottom_matches_dock(context, dock, "%s expanded" % label)
+	var road_type_row: Control = context.get_node("PanelMargin/Rows/ContextContentScroll/ContextContent/RoadTypeRow")
+	assert_true(road_type_row.visible, "%s Roads reentry should show RoadType selector" % label)
 
 	var debug_before := debug_content.visible
 	debug_button.emit_signal("pressed")
@@ -872,6 +874,13 @@ func assert_roads_menu(dock: Control, tray: Control, manager: Node) -> void:
 	assert_true(control_display_text(upgrade_button) == "道路改造", "RoadUpgrade label mismatch")
 	assert_true(not upgrade_button.disabled, "Road upgrade should be enabled")
 	assert_true(upgrade_button.focus_mode == Control.FOCUS_ALL, "Road upgrade should be focusable")
+	var hud: Node = dock.get_parent()
+	var context: Control = hud.get_node("ToolContextPanel")
+	var road_type_row: Control = context.get_node("PanelMargin/Rows/ContextContentScroll/ContextContent/RoadTypeRow")
+	assert_true(road_type_row.visible, "Roads context should show RoadType selector")
+	var road_type_buttons: Array[Node] = road_type_row.get_node("RoadTypeButtons").get_children()
+	assert_true(road_type_buttons.size() == 4, "RoadType selector should expose four buttons")
+	assert_true(road_type_buttons[1].button_pressed, "Street should be the default selected RoadType")
 	if manager != null:
 		var before_tool: Variant = manager.get("CurrentTool")
 		road_button.emit_signal("pressed")
@@ -902,6 +911,9 @@ func assert_pause_menu(hud: CanvasLayer, manager: Node) -> void:
 	continue_button.emit_signal("pressed")
 	assert_true(not pause_menu.visible, "Continue did not close the pause menu")
 	assert_true(not paused, "Continue did not resume the scene tree")
+	var context: Control = hud.get_node("ToolContextPanel")
+	var road_type_row: Control = context.get_node("PanelMargin/Rows/ContextContentScroll/ContextContent/RoadTypeRow")
+	assert_true(road_type_row.visible, "Pause return should keep RoadType selector visible")
 
 func assert_removed_shortcuts_are_no_op(manager: Node, dock: Control, context: Control) -> void:
 	for initial_tool in [0, 1, 2, 3]:
@@ -944,6 +956,7 @@ func assert_future_menus_do_not_change_tool(dock: Control, tray: Control, manage
 		assert_true(context.get_node("PanelMargin/Rows/ContextContentScroll/ContextContent/CurrentToolRow/CurrentToolValue").text == "尚未开放", "%s context should show unavailable state" % category.name)
 		assert_true(not context.get_node("PanelMargin/Rows/ContextContentScroll/ContextContent/ShortcutRow").visible, "%s context should hide shortcut" % category.name)
 		assert_true(not context.get_node("PanelMargin/Rows/ContextContentScroll/ContextContent/CellSizeRow").visible, "%s context should hide road config" % category.name)
+		assert_true(not context.get_node("PanelMargin/Rows/ContextContentScroll/ContextContent/RoadTypeRow").visible, "%s context should hide RoadType selector" % category.name)
 		manager._Input(key_event(KEY_R))
 		await process_frame
 		assert_true(manager.get("CurrentTool") == 1, "%s R changed current tool" % category.name)
