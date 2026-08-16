@@ -80,17 +80,22 @@ public sealed class RoadSurfaceHitTesterTests
     public void TryFindClosestJunction_CrossNode_ReturnsHit()
     {
         RoadGraphV3Revision revision = CreateCrossRevision(out int centerID);
+        int eastEdgeID = revision.Edges.Values
+            .Single(edge => edge.NodeAID == centerID && edge.Geometry[0].End.X > 0f)
+            .ID;
 
         Assert.True(RoadSurfaceHitTester.TryFindClosestJunction(
             revision,
             new GraphStateToken(1, 1, 1),
-            new Vector2(0.1f, 0.1f),
+            new Vector2(0.2f, 0.05f),
             maxDistance: 1f,
             out RoadSurfaceHit hit));
 
         Assert.Equal(RoadSurfaceOwnerKind.JunctionPatch, hit.OwnerKind);
         Assert.Equal(centerID, hit.NodeID);
-        Assert.Null(hit.EdgeID);
+        Assert.Equal(eastEdgeID, hit.EdgeID);
+        Assert.Equal(EdgeEndpoint.A, hit.Endpoint);
+        Assert.Equal(eastEdgeID, hit.Location.EdgeID);
     }
 
     [Fact]

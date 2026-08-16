@@ -35,10 +35,16 @@ public sealed class RoadSurfaceSnapshotBuilderTests
 
         Assert.True(result.Success, result.Error);
         Assert.NotNull(result.Snapshot);
-        Assert.Equal(revision.Edges.Count + 1, result.Snapshot!.Owners.Count);
+        Assert.Equal(revision.Edges.Count + 1 + revision.Edges.Count, result.Snapshot!.Owners.Count);
         Assert.Contains(result.Snapshot.Owners, owner =>
             owner.Kind == RoadSurfaceOwnerKind.JunctionPatch &&
-            owner.NodeID == centerID);
+            owner.NodeID == centerID &&
+            owner.EdgeID is null);
+        Assert.Contains(result.Snapshot.Owners, owner =>
+            owner.Kind == RoadSurfaceOwnerKind.JunctionPatch &&
+            owner.NodeID == centerID &&
+            owner.EdgeID is not null &&
+            owner.Endpoint is not null);
     }
 
     [Fact]

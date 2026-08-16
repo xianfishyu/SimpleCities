@@ -138,6 +138,33 @@ public sealed class RoadSurfaceHitProviderTests
         Assert.False(provider.TryResolveEdge(CreateJunctionHit(), out _));
     }
 
+    [Fact]
+    public void TryResolveEdge_JunctionSectorOwner_ReturnsEdgeID()
+    {
+        RoadSurfaceSnapshot snapshot = new(
+            new GraphStateToken(1, 3, 4),
+            [
+                new RoadSurfaceOwner(
+                    RoadSurfaceOwnerKind.JunctionPatch,
+                    NodeID: 30,
+                    EdgeID: 40,
+                    Endpoint: EdgeEndpoint.A,
+                    new RoadLocation(40, 0, 0f)),
+            ]);
+        var state = new RoadPresentationState(CreateToken(1));
+        Assert.True(state.TryPublish(CreateToken(1), snapshot));
+        var provider = new RoadSurfaceHitProvider(state);
+        RoadSurfaceHit hit = CreateJunctionHit() with
+        {
+            EdgeID = 40,
+            Endpoint = EdgeEndpoint.A,
+            Location = new RoadLocation(40, 0, 0f),
+        };
+
+        Assert.True(provider.TryResolveEdge(hit, out int edgeID));
+        Assert.Equal(40, edgeID);
+    }
+
     private static RoadSurfaceSnapshot CreateJunctionSnapshot() =>
         new(
             new GraphStateToken(1, 3, 4),

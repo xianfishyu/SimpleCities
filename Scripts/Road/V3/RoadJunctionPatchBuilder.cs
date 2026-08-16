@@ -6,12 +6,47 @@ using System.Linq;
 namespace SimpleCities.Road.V3;
 
 /// <summary>
+/// 一条 Edge 在 junction 节点上的入射方向与端接角色。
+/// </summary>
+public sealed record RoadJunctionIncidence(
+    int EdgeID,
+    EdgeEndpoint Endpoint,
+    Vector2 Direction);
+
+/// <summary>
 /// V3 junction patch 构建器：对 degree >= 3 的节点，按入射 Edge 的 outgoing 方向生成
 /// 以节点为中心的轮廓多边形；self-loop 只贡献一次 seam 方向。不修改图数据。
 /// </summary>
 public static class RoadJunctionPatchBuilder
 {
     public const float DefaultRadius = 8f;
+
+    public static IReadOnlyList<RoadJunctionIncidence> GetIncidences(
+        RoadGraphV3Revision revision,
+        int nodeID)
+    {
+        ArgumentNullException.ThrowIfNull(revision);
+        var incidences = new List<RoadJunctionIncidence>();
+        foreach (RoadGraphV3Edge edge in revision.Edges.Values)
+        {
+            if (edge.NodeAID == nodeID)
+            {
+                incidences.Add(new RoadJunctionIncidence(
+                    edge.ID,
+                    EdgeEndpoint.A,
+                    GetOutgoingDirection(edge, nodeID).Normalized()));
+            }
+            else if (edge.NodeBID == nodeID)
+            {
+                incidences.Add(new RoadJunctionIncidence(
+                    edge.ID,
+                    EdgeEndpoint.B,
+                    GetOutgoingDirection(edge, nodeID).Normalized()));
+            }
+        }
+
+        return incidences;
+    }
 
     public static bool TryBuild(
         RoadGraphV3Revision revision,

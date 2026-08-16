@@ -289,6 +289,14 @@
 - 新增 2 个 xUnit 用例（回调机制）；完整测试套件 1218/1218 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实 Load 成功路径的 renderer 联合交换自动化与混合宽度/锐角 junction 真实填补。
 
+### 2026-08-13：2.2 junction sector owner 发布与命中解析（部分）
+
+- `RoadJunctionPatchBuilder` 新增 `RoadJunctionIncidence` / `GetIncidences`，统一提供入射 Edge 的端接角色与 outgoing 方向。
+- `RoadSurfaceSnapshotBuilder.Build` 为 degree >= 3 节点额外发布每个入射 Edge 的 `JunctionPatch` sector owner（带 EdgeID/Endpoint）；`RoadSurfaceHitTester.TryFindClosestJunction` 按查询点到节点方向的角度选择最近入射 Edge，命中携带 EdgeID/Endpoint/Location。
+- `RoadSurfaceHitProvider.TryResolveEdge` 现在可把 junction sector 命中解析为稳定 Edge ID。
+- 新增 1 个 xUnit 用例并更新 2 个既有断言；完整测试套件 1219/1219 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：混合宽度/锐角 junction 的真实多边形填补与像素/owner 等价验证。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁

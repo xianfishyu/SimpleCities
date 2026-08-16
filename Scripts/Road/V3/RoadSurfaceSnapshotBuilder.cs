@@ -46,14 +46,27 @@ public static class RoadSurfaceSnapshotBuilder
 
         foreach (int nodeID in revision.Nodes.Keys.Order())
         {
-            if (RoadJunctionPatchBuilder.TryBuild(revision, styles, nodeID, junctionRadius, out _))
+            if (!RoadJunctionPatchBuilder.TryBuild(revision, styles, nodeID, junctionRadius, out _))
+                continue;
+
+            owners.Add(new RoadSurfaceOwner(
+                RoadSurfaceOwnerKind.JunctionPatch,
+                NodeID: nodeID,
+                EdgeID: null,
+                Endpoint: null,
+                new RoadLocation(0, 0, 0f)));
+
+            foreach (RoadJunctionIncidence incidence in RoadJunctionPatchBuilder.GetIncidences(revision, nodeID))
             {
+                if (!incidence.Direction.IsFinite() || incidence.Direction.LengthSquared() <= 0f)
+                    continue;
+
                 owners.Add(new RoadSurfaceOwner(
                     RoadSurfaceOwnerKind.JunctionPatch,
                     NodeID: nodeID,
-                    EdgeID: null,
-                    Endpoint: null,
-                    new RoadLocation(0, 0, 0f)));
+                    EdgeID: incidence.EdgeID,
+                    Endpoint: incidence.Endpoint,
+                    new RoadLocation(incidence.EdgeID, 0, 0f)));
             }
         }
 

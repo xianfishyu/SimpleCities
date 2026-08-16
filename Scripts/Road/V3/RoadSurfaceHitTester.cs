@@ -102,19 +102,40 @@ public static class RoadSurfaceHitTester
         if (bestNodeID < 0)
             return false;
 
+        int? hitEdgeID = null;
+        EdgeEndpoint? hitEndpoint = null;
+        RoadLocation hitLocation = new(0, 0, 0f);
+        Vector2 offset = point - revision.Nodes[bestNodeID].Position;
+        var incidences = RoadJunctionPatchBuilder.GetIncidences(revision, bestNodeID)
+            .Where(incidence => incidence.Direction.IsFinite() && incidence.Direction.LengthSquared() > 0f)
+            .ToList();
+        if (incidences.Count > 0)
+        {
+            RoadJunctionIncidence best = incidences
+                .OrderBy(incidence => AngleBetween(offset, incidence.Direction))
+                .ThenBy(incidence => incidence.EdgeID)
+                .First();
+            hitEdgeID = best.EdgeID;
+            hitEndpoint = best.Endpoint;
+            hitLocation = new RoadLocation(best.EdgeID, 0, 0f);
+        }
+
         hit = new RoadSurfaceHit(
             token,
             RoadSurfaceOwnerKind.JunctionPatch,
             NodeID: bestNodeID,
-            EdgeID: null,
-            Endpoint: null,
-            new RoadLocation(0, 0, 0f),
+            EdgeID: hitEdgeID,
+            Endpoint: hitEndpoint,
+            hitLocation,
             bestDistanceSquared);
         return true;
     }
 
     private static int GetIncidentEdgeCount(RoadGraphV3Revision revision, int nodeID) =>
         revision.Edges.Values.Count(edge => edge.NodeAID == nodeID || edge.NodeBID == nodeID);
+
+    private static float AngleBetween(Vector2 from, Vector2 to) =>
+        Mathf.Abs(Mathf.Atan2(from.Cross(to), from.Dot(to)));
 
     private static bool TryClosestPointOnSegment(
         Vector2 point,
