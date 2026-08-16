@@ -74,6 +74,12 @@
 - 新增 6 个 xUnit 用例；完整测试套件 1107/1107 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：`RoadBuilder` 真实接线、完整工具生命周期与真实 surface hit 输入路由。
 
+### 2026-08-13：2.2 应用与场景暴露表面命中提供器（部分）
+
+- `RoadPresentationController` 新增 `HitProvider`，`RoadGraphV3Application` / `RoadGraphV3System` 暴露 `HitProvider`，使工具层可从当前已呈现表现直接解析稳定 Edge ID。
+- 新增 1 个 xUnit 用例；完整测试套件 1108/1108 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
+- 尚未完成：`RoadBuilder` 真实接线、完整工具生命周期与真实 surface hit 输入路由。
+
 ## 执行顺序
 
 ### 阶段 3：第三代闭环、类型化建造与道路改造

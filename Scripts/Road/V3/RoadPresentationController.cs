@@ -15,11 +15,13 @@ public sealed class RoadPresentationController
     {
         _state = state ?? throw new ArgumentNullException(nameof(state));
         _styles = styles ?? throw new ArgumentNullException(nameof(styles));
+        HitProvider = new RoadSurfaceHitProvider(_state);
     }
 
     public bool IsStalled => _state.IsStalled;
     public RoadSurfaceSnapshot? PresentedSnapshot => _state.PresentedSnapshot;
     public RoadSurfaceSnapshot? PendingSnapshot => _pendingSnapshot;
+    public RoadSurfaceHitProvider HitProvider { get; }
 
     public bool TryRequest(
         RoadGraphV3Revision revision,

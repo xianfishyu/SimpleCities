@@ -38,6 +38,7 @@ public sealed class RoadGraphV3Application
     public RoadToolState ToolState { get; } = new();
     public RoadStyleProvider DefaultStyles { get; }
     public RoadPresentationController Presentation { get; }
+    public RoadSurfaceHitProvider HitProvider => Presentation.HitProvider;
     public RoadToolType CurrentTool
     {
         get => ToolState.CurrentTool;

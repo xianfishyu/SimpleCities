@@ -125,6 +125,45 @@ public sealed class RoadGraphV3ApplicationTests
     }
 
     [Fact]
+    public void HitProvider_ResolvesPublishedEdgeHit()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            var session = new RoadPlacementSessionV3(RoadType.Street, Vector2.Zero);
+            session.TryAddPoint(new Vector2(1f, 0f));
+            Assert.True(app.TryBuild(session, out _));
+            int edgeID = app.Revision.Edges.Keys.Single();
+            int nodeAID = app.Revision.Edges[edgeID].NodeAID;
+
+            RoadRenderToken desired = new(1, 1, 1, 1, 1, 7);
+            Assert.True(app.Presentation.TryRequest(
+                app.Controller.Facade.Revision,
+                app.Controller.Facade.CurrentToken,
+                desired));
+            Assert.True(app.Presentation.TryPublish(desired));
+
+            var hit = new RoadSurfaceHit(
+                app.Controller.Facade.CurrentToken,
+                RoadSurfaceOwnerKind.Ribbon,
+                NodeID: nodeAID,
+                EdgeID: edgeID,
+                Endpoint: EdgeEndpoint.A,
+                new RoadLocation(edgeID, 0, 0f),
+                DistanceSquared: 1f);
+
+            Assert.True(app.HitProvider.TryResolve(hit, out _));
+            Assert.True(app.HitProvider.TryResolveEdge(hit, out int resolvedEdgeID));
+            Assert.Equal(edgeID, resolvedEdgeID);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void BuildDefaultSurfaceSnapshot_ReturnsSnapshotWithOwners()
     {
         string root = GetTempRoot();
