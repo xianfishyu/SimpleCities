@@ -135,6 +135,26 @@ public sealed class V3SaveOperationUiStateTests
     }
 
     [Fact]
+    public void FromResult_CommitPhaseInProgress_IsBusyButNotCancellable()
+    {
+        V3SaveOperationToken token = V3SaveOperationToken.Create(V3SaveOperationKind.Load, 1);
+        var result = new V3SaveOperationResult(
+            token,
+            V3SaveOperationPhase.Commit,
+            false,
+            false,
+            [],
+            null);
+
+        V3SaveOperationUiState state = V3SaveOperationUiState.FromResult(result);
+
+        Assert.Equal(V3SaveOperationUiPhase.Busy, state.Phase);
+        Assert.True(state.IsBusy);
+        Assert.False(state.IsCancellable);
+        Assert.False(state.IsTerminal);
+    }
+
+    [Fact]
     public void FromResult_EmptyObserverWarnings_HasNoWarnings()
     {
         V3SaveOperationToken token = V3SaveOperationToken.Create(V3SaveOperationKind.Delete, 1);
