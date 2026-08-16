@@ -299,6 +299,9 @@ public sealed class RoadGraphV3Application
     public byte[]? GetPayload(string slotId, string fileName) =>
         V3SlotPayloadService.GetPayload(slotId, _root, fileName);
 
+    public byte[]? CurrentSlotPayload(string fileName) =>
+        string.IsNullOrEmpty(CurrentSlotID) ? null : GetPayload(CurrentSlotID, fileName);
+
     public bool Delete(string slotId) => _transactionCoordinator.Delete(slotId, _root).Success;
 
     public bool DeleteCurrentSlot()
