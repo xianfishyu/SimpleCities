@@ -116,6 +116,18 @@ public sealed class RoadToolInputRouterTests
     }
 
     [Fact]
+    public void HandleLeftClick_Upgrade_JunctionPatchOwnerWithEdgeID_Selects()
+    {
+        RoadSurfaceHit junctionHit = CreateHit() with { OwnerKind = RoadSurfaceOwnerKind.JunctionPatch };
+        var router = CreateRouter((_, _) => junctionHit);
+        router.SwitchTool(RoadToolType.Upgrade);
+
+        Assert.True(router.HandleLeftClick(new Vector2(5f, 0f), closeRadius: 10f, hitRadius: 10f));
+        Assert.True(router.TryTakeUpgradeSession(out RoadUpgradeSessionV3 session));
+        Assert.Equal([20], session.SelectedEdgeIDs);
+    }
+
+    [Fact]
     public void HandleLeftClick_Remove_SelectsHit()
     {
         var router = CreateRouter((_, _) => CreateHit());
