@@ -460,6 +460,30 @@ public sealed class RoadGraphV3ApplicationTests
     }
 
     [Fact]
+    public void BuildPresentationFullReset_ReturnsPlanWithMeshData()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            var session = new RoadPlacementSessionV3(RoadType.Street, Vector2.Zero);
+            session.TryAddPoint(new Vector2(10f, 0f));
+            Assert.True(app.TryBuild(session, out _));
+
+            RoadPresentationFullReset? plan = app.BuildPresentationFullReset(
+                new RoadRenderToken(0, 1, 0, 0, 0, 14));
+
+            Assert.NotNull(plan);
+            Assert.True(plan!.HasMeshData);
+            Assert.Single(plan.RibbonMeshes);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void LoadIntoCurrent_ReplacesControllerAndClearsHistory()
     {
         string root = GetTempRoot();

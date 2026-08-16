@@ -320,6 +320,25 @@ public sealed class RoadGraphV3Application
             Controller.Facade.CurrentToken,
             desiredToken);
 
+    public RoadPresentationFullReset? BuildPresentationFullReset(
+        RoadRenderToken desiredToken,
+        RoadStyleProvider? styles = null)
+    {
+        styles ??= DefaultStyles;
+        RoadSurfaceSnapshotBuildResult surface = RoadSurfaceSnapshotBuilder.Build(
+            Controller.Facade.Revision,
+            Controller.Facade.CurrentToken,
+            styles);
+        if (!surface.Success || surface.Snapshot is null)
+            return null;
+
+        return RoadPresentationFullReset.Create(
+            desiredToken,
+            surface.Snapshot,
+            BuildRibbonMeshes(styles),
+            BuildJunctionPatches(styles));
+    }
+
     public bool TryFindClosestSurfaceHit(
         Vector2 point,
         float maxDistance,

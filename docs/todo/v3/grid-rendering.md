@@ -233,6 +233,12 @@
 - 新增 1 个 xUnit 用例；完整测试套件 1181/1181 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：将计划中的 mesh 数据接入渲染器 Load 交换，以及混合宽度/锐角真实填补。
 
+### 2026-08-13：2.2 应用构建 presentation full-reset（部分）
+
+- `RoadGraphV3Application` 新增 `BuildPresentationFullReset`：一次构建 surface snapshot、ribbon meshes 与 junction patches，并生成 `RoadPresentationFullReset`。
+- 新增 1 个 xUnit 用例；完整测试套件 1182/1182 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：将计划中的 mesh 数据接入渲染器 Load 交换，以及混合宽度/锐角真实填补。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁
