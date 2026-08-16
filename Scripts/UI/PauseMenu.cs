@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using Godot;
+using SimpleCities.Core.V3;
 
 /// <summary>
 /// 全屏暂停菜单。它管理菜单视图、焦点、会话内音频和持久化按键设置，游戏流程操作通过事件交给 GameHUD。
@@ -70,6 +72,10 @@ public partial class PauseMenu : Control
     private string? _capturingAction;
     private readonly Dictionary<string, Button> _bindingButtons = new(StringComparer.Ordinal);
     private readonly List<SaveSlotSummary> _saveSlots = new();
+    private readonly List<V3SaveSlotUiSummary> _v3SaveSlots = new();
+    private readonly V3SaveOperationController _operationController = new();
+    private IV3SaveOperationBackend? _v3Backend;
+    private long _sceneGeneration = 1;
     private int _selectedSaveSlotIndex = -1;
     private bool _focusSaveNameOnViewOpen;
     private SaveManager? _saveManager;
@@ -118,6 +124,13 @@ public partial class PauseMenu : Control
             !InputBindingManager.Instance.EventMatchesAction(@event, InputBindingManager.PauseMenuAction))
             return;
 
+        if (_operationController.IsBusy)
+        {
+            _operationController.RequestCancel();
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+
         if (_view == MenuView.Confirmation)
             CancelConfirmation();
         else if (_view == MenuView.SaveManagement)
@@ -153,6 +166,13 @@ public partial class PauseMenu : Control
 
     /// <summary>由 HUD 组合根提供存档后端；传入 null 时界面仍可打开并显示不可用状态。</summary>
     public void ConfigureSaveManager(SaveManager? saveManager) => _saveManager = saveManager;
+
+    /// <summary>由 HUD 组合根提供 V3 存档后端；传入 null 时回退到 V2 SaveManager。</summary>
+    public void ConfigureV3Backend(IV3SaveOperationBackend? backend)
+    {
+        _v3Backend = backend;
+        _operationController.Reset();
+    }
 
     private void ResolveNodes()
     {
@@ -455,6 +475,37 @@ public partial class PauseMenu : Control
             return;
         }
 
+        IV3SaveOperationBackend? v3Backend = ActiveV3Backend();
+        if (v3Backend != null)
+        {
+            if (!TryBeginV3Operation(V3SaveOperationKind.Publish))
+            {
+                ShowSaveStatus("存档操作进行中", success: false);
+                return;
+            }
+
+            V3SaveOperationResult result = v3Backend.SaveAs(
+                displayName,
+                displayName,
+                DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture),
+                null,
+                null,
+                null);
+            V3SaveOperationUiState state = _operationController.Complete(result);
+            if (state.IsComplete)
+            {
+                _saveNameInput.Text = string.Empty;
+                RefreshSaveSlots(v3Backend.CurrentSlotID);
+                ShowSaveStatus($"已创建“{displayName}”", success: true);
+            }
+            else
+            {
+                ShowSaveStatus(state.Error ?? "新建存档失败", success: false);
+            }
+
+            return;
+        }
+
         SaveManager? saveManager = ActiveSaveManager();
         if (saveManager == null)
         {
@@ -477,6 +528,22 @@ public partial class PauseMenu : Control
 
     private void RequestOverwriteSave()
     {
+        if (ActiveV3Backend() != null)
+        {
+            V3SaveSlotUiSummary? v3Summary = SelectedV3SaveSlot();
+            if (v3Summary?.CanLoadOrOverwrite != true)
+                return;
+
+            ShowConfirmationView(
+                "覆盖存档？",
+                $"{ConfirmationSummary(v3Summary)}\n现有内容将被当前城市替换。",
+                ConfirmationAction.OverwriteSave,
+                MenuView.SaveManagement,
+                v3Summary.SlotId,
+                v3Summary.DisplayName);
+            return;
+        }
+
         SaveSlotSummary? summary = SelectedSaveSlot();
         if (summary?.IsValid != true)
             return;
@@ -492,6 +559,22 @@ public partial class PauseMenu : Control
 
     private void RequestLoadSave()
     {
+        if (ActiveV3Backend() != null)
+        {
+            V3SaveSlotUiSummary? v3Summary = SelectedV3SaveSlot();
+            if (v3Summary?.CanLoadOrOverwrite != true)
+                return;
+
+            ShowConfirmationView(
+                "加载存档？",
+                $"{ConfirmationSummary(v3Summary)}\n未保存的当前变更将丢失。",
+                ConfirmationAction.LoadSave,
+                MenuView.SaveManagement,
+                v3Summary.SlotId,
+                v3Summary.DisplayName);
+            return;
+        }
+
         SaveSlotSummary? summary = SelectedSaveSlot();
         if (summary?.IsValid != true)
             return;
@@ -507,6 +590,22 @@ public partial class PauseMenu : Control
 
     private void RequestDeleteSave()
     {
+        if (ActiveV3Backend() != null)
+        {
+            V3SaveSlotUiSummary? v3Summary = SelectedV3SaveSlot();
+            if (v3Summary?.CanDelete != true)
+                return;
+
+            ShowConfirmationView(
+                "删除存档？",
+                $"{ConfirmationSummary(v3Summary)}\n删除后无法恢复。",
+                ConfirmationAction.DeleteSave,
+                MenuView.SaveManagement,
+                v3Summary.SlotId,
+                v3Summary.DisplayName);
+            return;
+        }
+
         SaveSlotSummary? summary = SelectedSaveSlot();
         if (summary == null)
             return;
@@ -523,9 +622,35 @@ public partial class PauseMenu : Control
 
     private void OverwriteConfirmedSave()
     {
-        SaveManager? saveManager = ActiveSaveManager();
+        IV3SaveOperationBackend? v3Backend = ActiveV3Backend();
         string? slotID = _confirmationSlotID;
         string displayName = _confirmationDisplayName;
+        if (v3Backend != null)
+        {
+            if (slotID == null || !TryBeginV3Operation(V3SaveOperationKind.Publish))
+            {
+                ShowSaveManagementView(focusName: false);
+                ShowSaveStatus("覆盖存档失败", success: false);
+                return;
+            }
+
+            V3SaveOperationResult result = v3Backend.Save(
+                slotID,
+                displayName,
+                displayName,
+                DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture),
+                null,
+                null,
+                null);
+            V3SaveOperationUiState state = _operationController.Complete(result);
+            ShowSaveManagementView(focusName: false);
+            ShowSaveStatus(
+                state.IsComplete ? $"已覆盖“{displayName}”" : state.Error ?? "覆盖存档失败",
+                state.IsComplete);
+            return;
+        }
+
+        SaveManager? saveManager = ActiveSaveManager();
         bool success = saveManager != null && slotID != null && saveManager.Save(slotID);
         ShowSaveManagementView(focusName: false);
         ShowSaveStatus(success ? $"已覆盖“{displayName}”" : "覆盖存档失败", success);
@@ -533,9 +658,28 @@ public partial class PauseMenu : Control
 
     private void LoadConfirmedSave()
     {
-        SaveManager? saveManager = ActiveSaveManager();
+        IV3SaveOperationBackend? v3Backend = ActiveV3Backend();
         string? slotID = _confirmationSlotID;
         string displayName = _confirmationDisplayName;
+        if (v3Backend != null)
+        {
+            if (slotID == null || !TryBeginV3Operation(V3SaveOperationKind.Load))
+            {
+                ShowSaveManagementView(focusName: false);
+                ShowSaveStatus("加载存档失败", success: false);
+                return;
+            }
+
+            V3SaveOperationResult result = v3Backend.Load(slotID, lineageID: 1);
+            V3SaveOperationUiState state = _operationController.Complete(result);
+            ShowSaveManagementView(focusName: false);
+            ShowSaveStatus(
+                state.IsComplete ? $"已加载“{displayName}”" : state.Error ?? "加载存档失败",
+                state.IsComplete);
+            return;
+        }
+
+        SaveManager? saveManager = ActiveSaveManager();
         bool success = saveManager != null && slotID != null && saveManager.Load(slotID);
         ShowSaveManagementView(focusName: false);
         ShowSaveStatus(success ? $"已加载“{displayName}”" : "加载存档失败", success);
@@ -543,9 +687,28 @@ public partial class PauseMenu : Control
 
     private void DeleteConfirmedSave()
     {
-        SaveManager? saveManager = ActiveSaveManager();
+        IV3SaveOperationBackend? v3Backend = ActiveV3Backend();
         string? slotID = _confirmationSlotID;
         string displayName = _confirmationDisplayName;
+        if (v3Backend != null)
+        {
+            if (slotID == null || !TryBeginV3Operation(V3SaveOperationKind.Delete))
+            {
+                ShowSaveManagementView(focusName: false);
+                ShowSaveStatus("删除存档失败", success: false);
+                return;
+            }
+
+            V3SaveOperationResult result = v3Backend.Delete(slotID);
+            V3SaveOperationUiState state = _operationController.Complete(result);
+            ShowSaveManagementView(focusName: false);
+            ShowSaveStatus(
+                state.IsComplete ? $"已删除“{displayName}”" : state.Error ?? "删除存档失败",
+                state.IsComplete);
+            return;
+        }
+
+        SaveManager? saveManager = ActiveSaveManager();
         bool success = saveManager != null && slotID != null && saveManager.DeleteSlot(slotID);
         ShowSaveManagementView(focusName: false);
         ShowSaveStatus(success ? $"已删除“{displayName}”" : "删除存档失败", success);
@@ -554,8 +717,16 @@ public partial class PauseMenu : Control
     private void RefreshSaveSlots(string? preferredSlotID)
     {
         _saveSlots.Clear();
+        _v3SaveSlots.Clear();
         _saveSlotList.Clear();
         _selectedSaveSlotIndex = -1;
+
+        IV3SaveOperationBackend? v3Backend = ActiveV3Backend();
+        if (v3Backend != null)
+        {
+            RefreshV3SaveSlots(v3Backend, preferredSlotID);
+            return;
+        }
 
         SaveManager? saveManager = ActiveSaveManager();
         if (saveManager == null)
@@ -596,14 +767,61 @@ public partial class PauseMenu : Control
         UpdateSelectedSaveSummary();
     }
 
+    private void RefreshV3SaveSlots(IV3SaveOperationBackend backend, string? preferredSlotID)
+    {
+        int preferredIndex = -1;
+        foreach (V3SlotSummary slot in backend.ListSlots())
+        {
+            V3SaveSlotUiSummary summary = V3SaveSlotUiSummary.FromSlot(slot);
+            if (!summary.IsListable)
+                continue;
+
+            _v3SaveSlots.Add(summary);
+            string slotKind = string.Equals(summary.SlotId, SaveManager.AutosaveSlotID, StringComparison.OrdinalIgnoreCase)
+                ? "自动"
+                : "手动";
+            string itemText = summary.Occupant == V3SlotOccupant.CompleteV3
+                ? $"{slotKind}  ·  {summary.DisplayName}  ·  {FormatSaveTime(ParseTimestamp(summary.Timestamp))}"
+                : $"损坏{slotKind}存档  ·  {summary.SlotId}";
+            int itemIndex = _saveSlotList.ItemCount;
+            _saveSlotList.AddItem(itemText);
+            _saveSlotList.SetItemMetadata(itemIndex, summary.SlotId);
+            if (summary.Occupant == V3SlotOccupant.CorruptV3)
+                _saveSlotList.SetItemCustomFgColor(itemIndex, new Color("#FF6B6B"));
+            if (string.Equals(summary.SlotId, preferredSlotID, StringComparison.Ordinal))
+                preferredIndex = itemIndex;
+        }
+
+        if (_v3SaveSlots.Count == 0)
+        {
+            _saveSlotSummaryLabel.Text = "暂无存档";
+            _saveSlotSummaryLabel.TooltipText = string.Empty;
+            UpdateSaveActionAvailability();
+            return;
+        }
+
+        _selectedSaveSlotIndex = preferredIndex >= 0 ? preferredIndex : 0;
+        _saveSlotList.Select(_selectedSaveSlotIndex);
+        UpdateSelectedSaveSummary();
+    }
+
     private void OnSaveSlotSelected(long index)
     {
-        _selectedSaveSlotIndex = index >= 0 && index < _saveSlots.Count ? (int)index : -1;
+        if (ActiveV3Backend() != null)
+            _selectedSaveSlotIndex = index >= 0 && index < _v3SaveSlots.Count ? (int)index : -1;
+        else
+            _selectedSaveSlotIndex = index >= 0 && index < _saveSlots.Count ? (int)index : -1;
         UpdateSelectedSaveSummary();
     }
 
     private void UpdateSelectedSaveSummary()
     {
+        if (ActiveV3Backend() != null)
+        {
+            UpdateSelectedV3SaveSummary();
+            return;
+        }
+
         SaveSlotSummary? summary = SelectedSaveSlot();
         if (summary == null)
         {
@@ -633,8 +851,47 @@ public partial class PauseMenu : Control
         UpdateSaveActionAvailability();
     }
 
+    private void UpdateSelectedV3SaveSummary()
+    {
+        V3SaveSlotUiSummary? summary = SelectedV3SaveSlot();
+        if (summary == null)
+        {
+            _saveSlotSummaryLabel.Text = "暂无存档";
+            _saveSlotSummaryLabel.TooltipText = string.Empty;
+            UpdateSaveActionAvailability();
+            return;
+        }
+
+        if (summary.Occupant == V3SlotOccupant.CorruptV3)
+        {
+            string error = summary.Error ?? "清单无法读取";
+            _saveSlotSummaryLabel.Text = $"损坏存档：{summary.SlotId}\n{error}";
+            _saveSlotSummaryLabel.TooltipText = error;
+            UpdateSaveActionAvailability();
+            return;
+        }
+
+        string slotKind = string.Equals(summary.SlotId, SaveManager.AutosaveSlotID, StringComparison.OrdinalIgnoreCase)
+            ? "自动存档"
+            : "手动存档";
+        _saveSlotSummaryLabel.Text =
+            $"{slotKind}  ·  {summary.DisplayName}  ·  {FormatSaveTime(ParseTimestamp(summary.Timestamp))}\n" +
+            $"槽 ID：{summary.SlotId}";
+        _saveSlotSummaryLabel.TooltipText = string.Empty;
+        UpdateSaveActionAvailability();
+    }
+
     private void UpdateSaveActionAvailability()
     {
+        if (ActiveV3Backend() != null)
+        {
+            V3SaveSlotUiSummary? v3Summary = SelectedV3SaveSlot();
+            _overwriteSaveButton.Disabled = v3Summary?.CanLoadOrOverwrite != true;
+            _loadSaveButton.Disabled = v3Summary?.CanLoadOrOverwrite != true;
+            _deleteSaveButton.Disabled = v3Summary?.CanDelete != true;
+            return;
+        }
+
         SaveSlotSummary? summary = SelectedSaveSlot();
         bool validSelection = summary?.IsValid == true;
         _overwriteSaveButton.Disabled = !validSelection;
@@ -649,14 +906,34 @@ public partial class PauseMenu : Control
             : null;
     }
 
+    private V3SaveSlotUiSummary? SelectedV3SaveSlot()
+    {
+        return _selectedSaveSlotIndex >= 0 && _selectedSaveSlotIndex < _v3SaveSlots.Count
+            ? _v3SaveSlots[_selectedSaveSlotIndex]
+            : null;
+    }
+
     private string? PreferredSaveSlotID()
     {
+        if (ActiveV3Backend() != null)
+        {
+            V3SaveSlotUiSummary? v3Selected = SelectedV3SaveSlot();
+            if (v3Selected != null)
+                return v3Selected.SlotId;
+            return ActiveV3Backend()?.CurrentSlotID;
+        }
+
         SaveSlotSummary? selected = SelectedSaveSlot();
         if (selected != null)
             return selected.SlotID;
 
         return ActiveSaveManager()?.CurrentSlotID;
     }
+
+    private IV3SaveOperationBackend? ActiveV3Backend() => _v3Backend;
+
+    private bool TryBeginV3Operation(V3SaveOperationKind kind) =>
+        _operationController.TryBegin(kind, _sceneGeneration);
 
     private SaveManager? ActiveSaveManager()
     {
@@ -670,6 +947,30 @@ public partial class PauseMenu : Control
         return summary.IsValid
             ? $"{(summary.IsAutosave ? "自动" : "手动")} · “{summary.DisplayName}” · {FormatSaveTime(summary.SavedAtUtc)}"
             : $"损坏{(summary.IsAutosave ? "自动" : "手动")}存档 · {summary.SlotID}";
+    }
+
+    private static string ConfirmationSummary(V3SaveSlotUiSummary summary)
+    {
+        string slotKind = string.Equals(summary.SlotId, SaveManager.AutosaveSlotID, StringComparison.OrdinalIgnoreCase)
+            ? "自动"
+            : "手动";
+        return summary.Occupant == V3SlotOccupant.CompleteV3
+            ? $"{slotKind} · “{summary.DisplayName}” · {FormatSaveTime(ParseTimestamp(summary.Timestamp))}"
+            : $"损坏{slotKind}存档 · {summary.SlotId}";
+    }
+
+    private static DateTimeOffset? ParseTimestamp(string? timestamp)
+    {
+        if (string.IsNullOrWhiteSpace(timestamp))
+            return null;
+
+        return DateTimeOffset.TryParse(
+            timestamp,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.None,
+            out DateTimeOffset value)
+            ? value
+            : null;
     }
 
     private static string FormatSaveTime(DateTimeOffset? savedAtUtc)

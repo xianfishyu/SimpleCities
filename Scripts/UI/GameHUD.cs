@@ -77,6 +77,7 @@ public partial class GameHUD : CanvasLayer
             _pauseMenu.ReturnToMainMenuRequested -= ReturnToMainMenu;
             _pauseMenu.QuitToDesktopRequested -= QuitToDesktop;
             _pauseMenu.ConfigureSaveManager(null);
+            _pauseMenu.ConfigureV3Backend(null);
         }
         DisconnectLayoutSignals();
 
@@ -181,6 +182,10 @@ public partial class GameHUD : CanvasLayer
         _toolContextPanel.SetRoadTypeSelectorVisible(_constructionDock?.UsesCatalogContext ?? true);
         _pauseMenu.ConfigureSaveManager(
             GodotObject.IsInstanceValid(SaveManager.Instance) ? SaveManager.Instance : null);
+        _pauseMenu.ConfigureV3Backend(
+            _v3System != null && GodotObject.IsInstanceValid(_v3System)
+                ? new V3ApplicationSaveOperationBackend(_v3System.Application)
+                : null);
     }
 
     /// <summary>将可独立显隐的面板登记到 HUD 私有的 UIManager；底栏始终常驻，不在此登记。</summary>

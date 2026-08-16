@@ -107,6 +107,14 @@
 - 新增 `tests/SimpleCities.RoadGraph.Tests/V3SaveSlotUiSummaryTests.cs`：覆盖 Complete/Corrupt/Foreign/Unsafe 四类。
 - 尚未接入 `PauseMenu`；`1.4` 仍开放。
 
+### 2026-08-16：M4 集成——PauseMenu 接入 V3 存档后端（部分）
+
+- `PauseMenu` 新增 `ConfigureV3Backend`；当 GameHUD 注入 `V3ApplicationSaveOperationBackend` 时，存档列表、另存为、覆盖、加载、删除全部走 V3 槽/`V3SaveOperationController`/`V3SaveOperationResult`；无 V3 后端时回退 V2 `SaveManager`。
+- `GameHUD.ConfigureComponents` 注入 `_v3System.Application`，`_ExitTree` 清理 V3 后端。
+- `PauseMenu._Input` 在操作 busy 时优先消费 Escape 并调用 `RequestCancel`，避免异步后误关菜单。
+- 新增 `PauseMenuContractTests` 文本契约验证 `ConfigureV3Backend` / `IV3SaveOperationBackend` / `V3SaveOperationController` / `V3SaveSlotUiSummary` 接线。
+- 尚未实现真正异步后台 I/O；当前底层仍是同步 bool 包装，但 UI 状态机与 token/result 契约已接入。`1.4` 仍开放。
+
 ## 执行顺序
 
 ### 阶段 7：第三代道路控件、诊断与存档交互

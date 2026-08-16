@@ -57,6 +57,20 @@ public sealed class PauseMenuContractTests
     }
 
     [Fact]
+    public void PauseMenuIntegration_SupportsV3SaveBackend()
+    {
+        string pauseMenu = File.ReadAllText(PauseMenuScriptPath);
+        string hud = File.ReadAllText(GameHudPath);
+
+        Assert.Contains("ConfigureV3Backend", pauseMenu, StringComparison.Ordinal);
+        Assert.Contains("IV3SaveOperationBackend", pauseMenu, StringComparison.Ordinal);
+        Assert.Contains("V3SaveOperationController", pauseMenu, StringComparison.Ordinal);
+        Assert.Contains("V3SaveSlotUiSummary", pauseMenu, StringComparison.Ordinal);
+        Assert.Contains("ConfigureV3Backend", hud, StringComparison.Ordinal);
+        Assert.Contains("V3ApplicationSaveOperationBackend", hud, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void PauseMenuIntegration_PausesThroughHudAndKeepsToolManagerFreeOfEscape()
     {
         string pauseMenu = File.ReadAllText(PauseMenuScriptPath);

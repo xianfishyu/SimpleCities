@@ -7,6 +7,8 @@ using SimpleCities.Core.V3;
 /// </summary>
 public interface IV3SaveOperationBackend
 {
+    string? CurrentSlotID { get; }
+
     IReadOnlyList<V3SlotSummary> ListSlots();
 
     V3SaveOperationResult SaveAs(
@@ -45,6 +47,9 @@ public sealed class V3ApplicationSaveOperationBackend : IV3SaveOperationBackend
         _application = application ?? throw new ArgumentNullException(nameof(application));
         _sceneGeneration = sceneGeneration;
     }
+
+    public string? CurrentSlotID =>
+        string.IsNullOrEmpty(_application.CurrentSlotID) ? null : _application.CurrentSlotID;
 
     public IReadOnlyList<V3SlotSummary> ListSlots() => _application.List();
 
