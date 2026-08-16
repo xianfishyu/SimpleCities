@@ -300,6 +300,7 @@ public sealed class RoadGraphV3Application
     public long? CurrentSlotPopulation => CurrentSlotManifest?.Population;
     public decimal? CurrentSlotFunds => CurrentSlotManifest?.Funds;
     public string? CurrentSlotThumbnailFile => CurrentSlotManifest?.ThumbnailFile;
+    public bool CurrentSlotHasThumbnail => CurrentSlotThumbnailFile is not null;
     public int CurrentSlotFileCount => CurrentSlotManifest?.Files.Count ?? 0;
 
     public IReadOnlyList<string> CurrentSlotFileNames =>
