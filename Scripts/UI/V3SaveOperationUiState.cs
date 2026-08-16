@@ -25,6 +25,8 @@ public sealed record V3SaveOperationUiState(
     string? Error,
     string? WarningSummary)
 {
+    public bool IsTerminal => Phase is V3SaveOperationUiPhase.Completed or V3SaveOperationUiPhase.Failed;
+
     public static V3SaveOperationUiState Idle() =>
         new(default, V3SaveOperationUiPhase.Idle, null, false, false, false, false, false, null, null);
 

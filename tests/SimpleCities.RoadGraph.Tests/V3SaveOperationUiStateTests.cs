@@ -17,6 +17,7 @@ public sealed class V3SaveOperationUiStateTests
         Assert.False(state.HasWarnings);
         Assert.Null(state.Error);
         Assert.Null(state.WarningSummary);
+        Assert.False(state.IsTerminal);
     }
 
     [Fact]
@@ -36,6 +37,7 @@ public sealed class V3SaveOperationUiStateTests
         Assert.Equal(V3SaveOperationPhase.Completed, state.OperationPhase);
         Assert.False(state.HasWarnings);
         Assert.Null(state.WarningSummary);
+        Assert.True(state.IsTerminal);
     }
 
     [Fact]
@@ -112,6 +114,7 @@ public sealed class V3SaveOperationUiStateTests
         Assert.True(state.IsCancellable);
         Assert.False(state.IsComplete);
         Assert.False(state.IsFailed);
+        Assert.False(state.IsTerminal);
         Assert.Null(state.Error);
     }
 
