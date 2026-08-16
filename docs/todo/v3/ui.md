@@ -173,6 +173,7 @@
 
 - [ ] **1.4 呈现并约束异步保存、加载与删除操作**
   - 当前问题：PauseMenu 以同步 bool 结果驱动槽列表和关闭行为；异步后，重复按钮、Enter、Escape 或旧 continuation 可能产生重复请求、错误覆盖/删除提示或提前关闭菜单。V3 还必须只展示独立根中的 `CompleteV3` / `CorruptV3` 槽，不能让 V2/`Foreign` 内容进入普通操作。
+  - 进度（2026-08-16）：异步入口、busy 禁用、取消令牌、scene generation 防护已实现；待环境验证。
   - 修改：消费 coordinator 的不可变 operation state/result，显示操作类型、目标存档名及 Save 的 Capture/Prepare/Publish、Load 的 Admission/Prepare/Preflight/Commit、Delete 的 Recover/Commit/Cleanup 阶段；busy 时禁用冲突按钮并防止重复提交。每个 continuation 同时校验 `SceneGeneration + MenuOpenGeneration + OperationToken`。手动 Load 从 admission 到 commit 始终保持菜单打开和场景暂停：Admission/Prepare/Preflight 期间 Escape 只发送一次取消请求并继续消费输入；进入短 non-yield commit 后只消费 Escape，不能关闭菜单、恢复游戏或再取消。Load 的关键 graph/tool/mesh/surface 失败必须在 Preflight，成功 commit 同时发布 matching `PresentationReady`；提交后只有普通 observer warning，可显示 `SucceededWithObserverWarnings`，不存在表现重试页。覆盖与删除二次确认必须显示精确 display name、slot ID 和 occupant 状态；`CorruptV3` 只允许确认删除，`Foreign` / `Unsafe` 不显示为可操作槽。删除越过 tombstone move 后即显示逻辑删除，cleanup pending 作为 warning，不把槽重新加入列表。autosave `SkippedBusy` 只更新诊断，不弹错误。
   - 依赖：`v3-save-system:2.2`～`2.3`、`v3-tool-input:2.4`、`v3-grid-rendering:2.2`。
   - 集成负责人：`v3-ui`；端到端完成判定由 `v3-road-graph:8.6` 负责。
