@@ -114,6 +114,21 @@ public sealed class RoadToolInputRouterTests
     }
 
     [Fact]
+    public void HandleSelectionHits_Upgrade_DuplicateHits_Deduplicates()
+    {
+        var router = CreateRouter();
+        router.SwitchTool(RoadToolType.Upgrade);
+
+        int selected = router.HandleSelectionHits(
+            [CreateHit(), CreateHit()],
+            upgrade: true);
+
+        Assert.Equal(1, selected);
+        Assert.True(router.TryTakeUpgradeSession(out RoadUpgradeSessionV3 session));
+        Assert.Equal([20], session.SelectedEdgeIDs);
+    }
+
+    [Fact]
     public void HandleSelectionHits_Remove_SelectsMultipleEdges()
     {
         var router = CreateRouter();
