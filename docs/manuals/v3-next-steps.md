@@ -66,7 +66,7 @@
 
 - M1：环境恢复后完整 QA 通过。
 - M2：`v3-ui:1.2` / `v3-tool-input:2.2` surface hit 选择验收通过。
-- M3：`RoadGraphV3Diagnostics.QueryFragmentCount` 接入并显示。
+- M3：`RoadGraphV3Diagnostics.QueryFragmentCount` 接入并显示（实现完成，待环境验证）。
 - M4：`v3-ui:1.4` 异步存档状态机验收通过。
 - M5：`v3-road-graph:8.6` 最终组合验收证据写回指南附录 D。
 
