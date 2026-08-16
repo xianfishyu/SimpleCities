@@ -12,6 +12,10 @@
   - `dotnet test tests/SimpleCities.RoadGraph.Tests/SimpleCities.RoadGraph.Tests.csproj`
   - `godot --headless --path . --script tests/godot/command_center_runtime_contract.gd`
 - 目标：重新确认 1254+ 测试、0 警告/0 错误、`PASS command center runtime contract`。
+- 离线恢复选项：
+  - 从同版本开发机复制 `%USERPROFILE%\.nuget\packages` 到当前用户；
+  - 或使用本地 NuGet 源：`dotnet restore SimpleCities.sln --source D:\path\to\packages`；
+  - 或从 CI/缓存恢复 `project.assets.json` 对应的包目录。
 
 ## 2. 完成 `v3-ui:1.2` / `v3-tool-input:2.2` 的 surface hit 选择
 
