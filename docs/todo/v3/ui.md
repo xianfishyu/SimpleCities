@@ -128,6 +128,7 @@
 - [x] **GameHUD 统一路由工具、暂停和撤销重做动作。** 子控件不得绕过 ToolManager 或 RoadEditHistory 写图。
 - [x] **命令中心已验证 1600x900、640x480 和 435x480。** 新 RoadType 控件和第二个道路工具必须保留这些视口门禁。
 - [x] **RoadType 选择器已支持分类联动、键盘与手柄焦点。** 默认 `Street`，切换工具/分类/暂停/场景重入保持选择；非道路分类隐藏选择器。
+- [x] **RoadUpgrade 已具备道路分类入口与 U 快捷键。** ConstructionDock 显示“道路改造”，ToolManager 同步 V3 `ToolState`，`InputBindingManager` 提供 U 切换。
 
 ## 完成标准
 
