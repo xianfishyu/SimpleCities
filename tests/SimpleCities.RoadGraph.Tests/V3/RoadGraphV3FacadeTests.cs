@@ -110,6 +110,14 @@ public sealed class RoadGraphV3FacadeTests
     }
 
     [Fact]
+    public void Diagnostics_IsValid_FalseForNegativeQueryFragmentCount()
+    {
+        var diagnostics = new RoadGraphV3Diagnostics(0, 0, 0, 0, 0, 0, QueryFragmentCount: -1);
+
+        Assert.False(diagnostics.IsValid);
+    }
+
+    [Fact]
     public void Diagnostics_AfterAddEdge_ReflectsCounts()
     {
         var facade = new RoadGraphV3Facade(RoadGraphV3Revision.Empty(RoadGraphCapacity.Default));

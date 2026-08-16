@@ -20,5 +20,6 @@ public sealed record RoadGraphV3Diagnostics(
         SelfLoopCount <= EdgeCount &&
         ParallelEdgeCount >= 0 &&
         ParallelEdgeCount <= EdgeCount &&
+        QueryFragmentCount >= 0 &&
         ChangeSequence >= 0;
 }
