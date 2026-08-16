@@ -66,6 +66,11 @@ public sealed class PauseMenuContractTests
         Assert.Contains("IV3SaveOperationBackend", pauseMenu, StringComparison.Ordinal);
         Assert.Contains("V3SaveOperationController", pauseMenu, StringComparison.Ordinal);
         Assert.Contains("V3SaveSlotUiSummary", pauseMenu, StringComparison.Ordinal);
+        Assert.Contains("V3AsyncSaveOperationCoordinator", pauseMenu, StringComparison.Ordinal);
+        Assert.Contains("async void CreateNamedSave", pauseMenu, StringComparison.Ordinal);
+        Assert.Contains("async void OverwriteConfirmedSave", pauseMenu, StringComparison.Ordinal);
+        Assert.Contains("async void LoadConfirmedSave", pauseMenu, StringComparison.Ordinal);
+        Assert.Contains("async void DeleteConfirmedSave", pauseMenu, StringComparison.Ordinal);
         Assert.Contains("ConfigureV3Backend", hud, StringComparison.Ordinal);
         Assert.Contains("V3ApplicationSaveOperationBackend", hud, StringComparison.Ordinal);
     }
