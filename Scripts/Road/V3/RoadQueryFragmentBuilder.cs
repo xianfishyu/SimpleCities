@@ -65,6 +65,8 @@ public static class RoadQueryFragmentBuilder
         float bucketSize)
     {
         ArgumentNullException.ThrowIfNull(segment);
+        if (!float.IsFinite(bucketSize) || bucketSize <= 0f)
+            throw new ArgumentOutOfRangeException(nameof(bucketSize), "Bucket size must be finite and positive.");
         if (segment is LineRoadGeometrySegment line)
             return BuildLineFragments(edgeID, geometryIndex, line, bucketSize);
 

@@ -104,6 +104,19 @@ public sealed class RoadQueryFragmentBuilderTests
         Assert.Equal(curve.Bounds, fragment.ConservativeBounds);
     }
 
+    [Fact]
+    public void BuildSegmentFragments_Curve_InvalidBucketSize_Throws()
+    {
+        var curve = new CubicBezierRoadGeometrySegment(
+            Vector2.Zero,
+            new Vector2(1f, 0f),
+            new Vector2(1f, 1f),
+            new Vector2(2f, 1f));
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            RoadQueryFragmentBuilder.BuildSegmentFragments(7, 0, curve, 0f));
+    }
+
     private static bool ContainsInclusive(Rect2 bounds, Vector2 point) =>
         point.X >= bounds.Position.X - 1e-5f &&
         point.X <= bounds.End.X + 1e-5f &&
