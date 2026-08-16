@@ -494,6 +494,9 @@ public sealed class RoadGraphV3Application
         string.IsNullOrEmpty(CurrentSlotID) || CurrentSlotThumbnailFile is null
             ? null
             : GetPayload(CurrentSlotID, CurrentSlotThumbnailFile);
+
+    public string? CurrentSlotThumbnailHash =>
+        CurrentSlotThumbnailFile is null ? null : GetCurrentSlotFile(CurrentSlotThumbnailFile)?.Sha256;
     public int CurrentSlotFileCount => CurrentSlotManifest?.Files.Count ?? 0;
     public bool CurrentSlotHasFiles => CurrentSlotFileCount > 0;
 

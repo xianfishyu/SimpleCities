@@ -51,6 +51,7 @@ public partial class RoadGraphV3System : Node2D
     public string? CurrentSlotThumbnailFile => Application.CurrentSlotThumbnailFile;
     public bool CurrentSlotHasThumbnail => Application.CurrentSlotHasThumbnail;
     public byte[]? CurrentSlotThumbnailBytes => Application.CurrentSlotThumbnailBytes;
+    public string? CurrentSlotThumbnailHash => Application.CurrentSlotThumbnailHash;
     public int CurrentSlotFileCount => Application.CurrentSlotFileCount;
     public bool CurrentSlotHasFiles => Application.CurrentSlotHasFiles;
     public System.Collections.Generic.IReadOnlyList<SimpleCities.Core.V3.V3ManifestFile> CurrentSlotFiles => Application.CurrentSlotFiles;
