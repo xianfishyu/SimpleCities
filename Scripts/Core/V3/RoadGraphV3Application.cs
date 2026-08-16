@@ -599,6 +599,9 @@ public sealed class RoadGraphV3Application
     public IReadOnlyList<V3ManifestFile> GetSlotManifestFiles(string slotId) =>
         GetManifest(slotId)?.Files ?? [];
 
+    public byte[]? GetSlotRoadNetworkPayload(string slotId) =>
+        GetPayload(slotId, V3RoadSlotFactory.RoadNetworkFileName);
+
     public byte[]? CurrentSlotPayload(string fileName) =>
         string.IsNullOrEmpty(CurrentSlotID) ? null : GetPayload(CurrentSlotID, fileName);
 
