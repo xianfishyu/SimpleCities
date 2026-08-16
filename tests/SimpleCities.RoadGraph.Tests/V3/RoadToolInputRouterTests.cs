@@ -152,6 +152,17 @@ public sealed class RoadToolInputRouterTests
     }
 
     [Fact]
+    public void HandleLeftClick_Upgrade_OwnerWithoutEdgeID_DoesNotSelect()
+    {
+        RoadSurfaceHit hit = CreateHit() with { OwnerKind = RoadSurfaceOwnerKind.Cap, EdgeID = null };
+        var router = CreateRouter((_, _) => hit);
+        router.SwitchTool(RoadToolType.Upgrade);
+
+        Assert.False(router.HandleLeftClick(new Vector2(5f, 0f), closeRadius: 10f, hitRadius: 10f));
+        Assert.False(router.IsSelecting);
+    }
+
+    [Fact]
     public void HandleLeftClick_Remove_SelectsHit()
     {
         var router = CreateRouter((_, _) => CreateHit());
