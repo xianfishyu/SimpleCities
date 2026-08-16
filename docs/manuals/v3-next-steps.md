@@ -68,6 +68,7 @@
 - M2：`v3-ui:1.2` / `v3-tool-input:2.2` surface hit 选择验收通过（单元测试覆盖已完成，待环境验证）。
 - M3：`RoadGraphV3Diagnostics.QueryFragmentCount` 接入并显示（实现完成，待环境验证）。
 - M4：`v3-ui:1.4` 异步存档状态机验收通过。
+  - 准备：先梳理 PauseMenu 当前同步 Save/Load/Delete 调用点，再映射 `V3SaveOperation` 阶段到 UI busy/取消/结果状态。
 - M5：`v3-road-graph:8.6` 最终组合验收证据写回指南附录 D。
 
 ## 9. 相关文档
