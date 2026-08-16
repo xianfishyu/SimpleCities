@@ -35,6 +35,19 @@ public sealed class V3SaveOperationControllerTests
     }
 
     [Fact]
+    public void TryBegin_WhenCancelling_ReturnsFalse()
+    {
+        var controller = new V3SaveOperationController();
+        controller.TryBegin(V3SaveOperationKind.Load, 1);
+        controller.RequestCancel();
+
+        bool began = controller.TryBegin(V3SaveOperationKind.Delete, 1);
+
+        Assert.False(began);
+        Assert.Equal(V3SaveOperationKind.Load, controller.ActiveToken!.Kind);
+    }
+
+    [Fact]
     public void Complete_MatchingResult_TransitionsToCompletedAndClearsToken()
     {
         var controller = new V3SaveOperationController();
