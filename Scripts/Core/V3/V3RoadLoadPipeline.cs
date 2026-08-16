@@ -111,24 +111,31 @@ public static class V3RoadLoadPipeline
                 junctionPatches);
         }
 
+        V3ToolLoadParticipant? toolParticipant = null;
         if (preservedToolState is not null)
+            toolParticipant = V3ToolLoadParticipant.Prepare(RoadToolFullReset.Prepare(preservedToolState));
+
+        V3RendererLoadParticipant? rendererParticipant = null;
+        if (presentationPlan is not null)
+            rendererParticipant = V3RendererLoadParticipant.Prepare(presentationPlan);
+
+        var preflightPlan = new V3LoadPreflightPlan(load.Revision, toolParticipant, rendererParticipant);
+        if (!preflightPlan.CanCommit)
         {
-            var toolParticipant = V3ToolLoadParticipant.Prepare(RoadToolFullReset.Prepare(preservedToolState));
-            if (!coordinator.TryPrepare(toolParticipant))
-            {
-                coordinator.Fail();
-                return V3RoadLoadPipelineResult.Failure(coordinator.Phase, "ToolParticipantRejected");
-            }
+            coordinator.Fail();
+            return V3RoadLoadPipelineResult.Failure(coordinator.Phase, "PreflightPlanRejected");
         }
 
-        if (styles is not null && desiredPresentationToken is not null)
+        if (toolParticipant is not null && !coordinator.TryPrepare(toolParticipant))
         {
-            var rendererParticipant = V3RendererLoadParticipant.Prepare(presentationPlan!);
-            if (!coordinator.TryPrepare(rendererParticipant))
-            {
-                coordinator.Fail();
-                return V3RoadLoadPipelineResult.Failure(coordinator.Phase, "RendererParticipantRejected");
-            }
+            coordinator.Fail();
+            return V3RoadLoadPipelineResult.Failure(coordinator.Phase, "ToolParticipantRejected");
+        }
+
+        if (rendererParticipant is not null && !coordinator.TryPrepare(rendererParticipant))
+        {
+            coordinator.Fail();
+            return V3RoadLoadPipelineResult.Failure(coordinator.Phase, "RendererParticipantRejected");
         }
 
         if (!coordinator.TryPrepare(RequiredParticipant))
@@ -146,15 +153,14 @@ public static class V3RoadLoadPipeline
         RoadGraphV3Controller? createdController = null;
         bool committed = coordinator.TryCommit(() =>
         {
-            var facade = new RoadGraphV3Facade(load.Revision, lineageID);
-            createdController = new RoadGraphV3Controller(facade, new RoadEditHistoryV3(100, 100000));
+            createdController = preflightPlan.CreateController(lineageID);
         });
         if (!committed || createdController is null)
             return V3RoadLoadPipelineResult.Failure(coordinator.Phase, "CommitFailed");
 
         return new V3RoadLoadPipelineResult(true, createdController, coordinator.Phase, null)
         {
-            ToolPlan = preservedToolState is null ? null : RoadToolFullReset.Prepare(preservedToolState),
+            ToolPlan = toolParticipant?.Plan,
             PresentationPlan = presentationPlan,
         };
     }
