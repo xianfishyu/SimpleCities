@@ -631,6 +631,12 @@
 - 新增 1 个 xUnit 用例；完整测试套件 1205/1205 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实 Load 隐藏资源 Preflight 与端到端 aggregate Load commit。
 
+### 2026-08-13：2.3 保存协调器使用 Prepare/Commit（重构）
+
+- `V3RoadSaveLoadCoordinator.LoadResult` 改为在 gate 持有期间先 `V3RoadLoadPipeline.Prepare` 再 `Commit`，保持原子 Load 生命周期。
+- 完整测试套件 1205/1205 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实 Load 隐藏资源 Preflight 与端到端 aggregate Load commit。
+
 ### 2026-08-13：2.3 道路 Load 管线改用 aggregate 协调器（重构）
 
 - `V3RoadLoadPipeline.Load` 改为使用 `V3LoadAggregateCoordinator` 管理 Admission/Prepare/Preflight/Commit，不再手写 `V3LoadProtocol` + `V3PreparedAggregate`；行为与既有测试保持一致。

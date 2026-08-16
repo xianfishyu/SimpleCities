@@ -94,7 +94,7 @@ public sealed class V3RoadSaveLoadCoordinator
 
         try
         {
-            return V3RoadLoadPipeline.Load(
+            V3RoadLoadPrepareResult prepare = V3RoadLoadPipeline.Prepare(
                 slotId,
                 root,
                 capacity,
@@ -103,6 +103,9 @@ public sealed class V3RoadSaveLoadCoordinator
                 preservedToolState,
                 styles,
                 desiredPresentationToken);
+            if (!prepare.Success)
+                return V3RoadLoadPipelineResult.Failure(prepare.Phase, prepare.Error ?? "PrepareFailed");
+            return V3RoadLoadPipeline.Commit(prepare, lineageID);
         }
         finally
         {
