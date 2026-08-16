@@ -207,6 +207,12 @@
 - 新增 3 个 xUnit 用例；完整测试套件 1176/1176 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：将 junction 命中接入真实输入路由，以及混合宽度/锐角真实填补。
 
+### 2026-08-13：2.2 RoadSurfaceHitProvider 解析 junction owner（部分）
+
+- `RoadSurfaceHitProvider` 可解析 `JunctionPatch` owner 命中；`TryResolveEdge` 对无 EdgeID 的 junction 命中返回 false。
+- 新增 2 个 xUnit 用例；完整测试套件 1178/1178 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：将 junction 命中接入真实输入路由，以及混合宽度/锐角真实填补。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁
