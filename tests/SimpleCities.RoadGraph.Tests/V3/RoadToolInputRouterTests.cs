@@ -98,6 +98,69 @@ public sealed class RoadToolInputRouterTests
         Assert.False(router.TrySelectRoadType((RoadType)99));
     }
 
+    [Fact]
+    public void HandleSelectionHits_Upgrade_SelectsMultipleEdges()
+    {
+        var router = CreateRouter();
+        router.SwitchTool(RoadToolType.Upgrade);
+
+        int selected = router.HandleSelectionHits(
+            [CreateHit(), CreateHit() with { EdgeID = 21, Location = new RoadLocation(21, 0, 0.5f) }],
+            upgrade: true);
+
+        Assert.Equal(2, selected);
+        Assert.True(router.TryTakeUpgradeSession(out RoadUpgradeSessionV3 session));
+        Assert.Equal([20, 21], session.SelectedEdgeIDs);
+    }
+
+    [Fact]
+    public void HandleSelectionHits_Remove_SelectsMultipleEdges()
+    {
+        var router = CreateRouter();
+        router.SwitchTool(RoadToolType.Remove);
+
+        int selected = router.HandleSelectionHits(
+            [CreateHit(), CreateHit() with { EdgeID = 21, Location = new RoadLocation(21, 0, 0.5f) }],
+            upgrade: false);
+
+        Assert.Equal(2, selected);
+        Assert.True(router.TryTakeRemovalSession(out RoadRemovalSessionV3 session));
+        Assert.Equal([20, 21], session.SelectedEdgeIDs);
+    }
+
+    [Fact]
+    public void HandleSelectionRect_WithResolver_SelectsHits()
+    {
+        var router = CreateRouter();
+        router.SwitchTool(RoadToolType.Upgrade);
+        RoadSurfaceHit hitA = CreateHit();
+        RoadSurfaceHit hitB = CreateHit() with { EdgeID = 21, Location = new RoadLocation(21, 0, 0.5f) };
+
+        int selected = router.HandleSelectionRect(
+            new Rect2(0f, 0f, 10f, 10f),
+            _ => [hitA, hitB],
+            upgrade: true);
+
+        Assert.Equal(2, selected);
+        Assert.True(router.TryTakeUpgradeSession(out RoadUpgradeSessionV3 session));
+        Assert.Equal([20, 21], session.SelectedEdgeIDs);
+    }
+
+    [Fact]
+    public void HandleSelectionRect_EmptyRect_ReturnsZero()
+    {
+        var router = CreateRouter();
+        router.SwitchTool(RoadToolType.Upgrade);
+
+        int selected = router.HandleSelectionRect(
+            new Rect2(0f, 0f, 0f, 0f),
+            _ => [CreateHit()],
+            upgrade: true);
+
+        Assert.Equal(0, selected);
+        Assert.False(router.IsSelecting);
+    }
+
     private static RoadToolInputRouter CreateRouter(Func<Vector2, float, RoadSurfaceHit?>? resolver = null) =>
         new(new RoadToolState(), resolver ?? ((_, _) => null));
 

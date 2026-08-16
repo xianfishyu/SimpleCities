@@ -67,6 +67,31 @@ public sealed class RoadToolInputRouter
         return false;
     }
 
+    public int HandleSelectionHits(IEnumerable<RoadSurfaceHit> hits, bool upgrade)
+    {
+        ArgumentNullException.ThrowIfNull(hits);
+        if (upgrade)
+        {
+            _upgrade ??= new RoadUpgradeSessionV3(_toolState.SelectedRoadType);
+            return _upgrade.TrySelectHits(hits);
+        }
+
+        _removal ??= new RoadRemovalSessionV3();
+        return _removal.TrySelectHits(hits);
+    }
+
+    public int HandleSelectionRect(
+        Rect2 rect,
+        Func<Rect2, IReadOnlyList<RoadSurfaceHit>> resolveRect,
+        bool upgrade)
+    {
+        ArgumentNullException.ThrowIfNull(resolveRect);
+        if (!rect.HasArea())
+            return 0;
+
+        return HandleSelectionHits(resolveRect(rect), upgrade);
+    }
+
     public void Cancel() => ClearSessions();
 
     public bool TryTakePlacementSession(out RoadPlacementSessionV3 session)

@@ -171,6 +171,12 @@
 - 新增 1 个 xUnit 用例；完整测试套件 1216/1216 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实输入自动化与端到端工具验收。
 
+### 2026-08-13：2.2 路由器批量与矩形选择入口（部分）
+
+- `RoadToolInputRouter` 新增 `HandleSelectionHits` 与 `HandleSelectionRect`，改造/拆除会话可一次接收多个 `RoadSurfaceHit` 或矩形解析结果，复用会话去重与提交边界。
+- 新增 4 个 xUnit 用例；完整测试套件 1223/1223 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实输入处理器矩形拖拽接线与端到端工具验收。
+
 ## 执行顺序
 
 ### 阶段 3：第三代闭环、类型化建造与道路改造
