@@ -11,7 +11,7 @@
 |---|---|---|---|
 | 1.1 | 道路上下文没有 RoadType 选择控件 | 部分实现 | 四段式名称与颜色 swatch 选择器写入共享 tool state |
 | 1.2 | ConstructionDock 没有道路改造工具呈现 | 部分实现 | 资源化 RoadUpgrade 工具、选中态和上下文联动 |
-| 1.3 | DebugPanel 仍把 RoadGroup 数量作为路网指标 | 开放 | 移除 Group 指标，展示 canonical Node/Edge/geometry/self-loop 结构量 |
+| 1.3 | DebugPanel 仍把 RoadGroup 数量作为路网指标 | 部分实现 | 移除 Group 指标，展示 canonical Node/Edge/geometry/self-loop 结构量 |
 | 1.4 | 暂停菜单没有异步 Save/Load/Delete 的独占状态机 | 开放 | generation/token 防护、Escape 独占及三类操作的明确提交边界 |
 
 ### 设计覆盖矩阵
@@ -21,7 +21,7 @@
 | 命令中心基线 | ConstructionDock、ToolContextPanel、DebugPanel 和 PauseMenu 已有响应式布局、焦点链和运行时契约 | 已解决基线 |
 | V3 类型建造 | 当前道路分类只有一个 `city-road` 工具；ToolContextPanel 已加入四段式 RoadType 选择器，支持分类联动与键盘焦点，剩余手柄焦点、场景重入和三档视口回归 | 1.1、`v3-tool-input:2.1` |
 | V3 既有道路改造 | ConstructionDock 已渲染“城市道路/道路改造”两个工具项并同步 ToolManager 与 V3 ToolState；剩余真实 surface hit 选择与端到端验收 | 1.2、`v3-tool-input:2.2` |
-| V3 规范存储诊断 | DebugPanel 仍读取 `GetAllGroups()`，无法观察 Edge 压缩、原生几何数量或 self-loop | 1.3、`v3-road-graph:8.2`～`8.5` |
+| V3 规范存储诊断 | DebugPanel 已展示 Node/Edge/Geometry/SelfLoop/Parallel 且隐藏时不轮询；query fragment 指标待空间索引接入 | 1.3、`v3-road-graph:8.2`～`8.5` |
 | V3 异步存档体验 | PauseMenu 调用同步 bool API；没有 busy 目标、并发禁用、取消边界、autosave skipped 与 scene generation 失效呈现 | 1.4、`v3-save-system:2.3`、`v3-tool-input:2.4` |
 
 ### 2026-08-13：1.3 诊断快照数据源（部分）
@@ -58,6 +58,12 @@
 - 验证：Godot `MapTest` 冻结运行后 tool list 有 `RoadToolButton` / `RoadUpgradeToolButton`；点击“道路改造”后按钮 `pressed=true` 且 `ToolContextPanel` 显示“道路改造”；完整测试套件 1250/1250 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误，编辑器错误日志与 DAP stderr 为空。
 - 尚未完成：真实 surface hit 选择、矩形批量改造、self-loop/parallel Edge 选择、失效 token 与端到端工具验收。
 
+### 2026-08-13：1.3 DebugPanel 隐藏时零轮询（部分）
+
+- `DebugPanel.UpdateMetrics` 在 `DebugContent` 隐藏时直接返回；V3 诊断仅在 `ChangeSequence` 变化时刷新文本，避免隐藏时逐帧轮询诊断或全图。
+- 验证：Godot `MapTest` 冻结运行后显示面板 `node=0 edge=0`；隐藏后继续步进标签保持 `0`；完整测试套件 1250/1250 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误，编辑器错误日志与 DAP stderr 为空。
+- 尚未完成：query fragment 指标（依赖空间索引接入）和三档视口运行时契约回归。
+
 ## 执行顺序
 
 ### 阶段 7：第三代道路控件、诊断与存档交互
@@ -89,6 +95,7 @@
 - [ ] **1.3 将 DebugPanel 改用 canonical RoadGraph 指标**
   - 当前问题：`DebugPanel` 和 `command_center_runtime_contract.gd` 通过 `GetAllGroups()` 显示/断言 RoadGroup 数；V3 移除 Group 后该指标既无法编译，也不能说明连续存储是否生效。若直接在 `_Process` 中调用 `GetAllNodes/Edges` 统计新指标，会每帧复制全图并让 geometry-dense 长 Edge 产生额外扫描/分配。
   - 修改：删除 RoadGroup 行和相关场景节点/引用，改为显示 Node、canonical Edge、原生 geometry segment、query fragment 和 self-loop 数；标签明确区分拓扑量、权威几何量与派生索引量，不把 parallel Edge 按邻居去重。只读取 `v3-road-graph:8.5` 随事务维护的不可变 diagnostics snapshot；面板可见且 sequence 改变时刷新文本，隐藏时不轮询/复制全图。
+  - 进度（2026-08-13）：Node/Edge/Geometry/SelfLoop/Parallel 与隐藏时零轮询已落地；query fragment 指标仍待空间索引接入。
   - 依赖：`v3-road-graph:8.2`、`v3-road-graph:8.3`、`v3-road-graph:8.5`。
   - 集成负责人：`v3-ui`；端到端完成判定由 `v3-road-graph:8.6` 负责。
   - 验证：直路、非共线多段、简单环、两路口环、交叉和删除重归一化后的指标；面板隐藏/显示、普通 delta/full reset、sequence 连跳、10k/100k 和单 Edge N geometry 下每帧分配；命令中心宽/窄屏和场景重复进入契约。

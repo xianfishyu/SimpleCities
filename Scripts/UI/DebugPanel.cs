@@ -22,6 +22,7 @@ public partial class DebugPanel : PanelContainer
 
     private RoadGraph? _network;
     private Func<RoadGraphV3Diagnostics?>? _v3DiagnosticsProvider;
+    private long _lastDiagnosticsChangeSequence = -1;
 
     public NodePath ToggleFocusPath => _toggleButton.GetPath();
 
@@ -67,14 +68,21 @@ public partial class DebugPanel : PanelContainer
         _toggleButton.FocusNext = nextPath;
     }
 
-    /// <summary>由 GameHUD 每帧调用，刷新轻量且可直接读取的调试指标。</summary>
+    /// <summary>由 GameHUD 每帧调用，刷新轻量且可直接读取的调试指标；面板隐藏时不轮询诊断或全图。</summary>
     public void UpdateMetrics()
     {
+        if (!_debugContent.Visible)
+            return;
+
         _fpsValue.Text = Engine.GetFramesPerSecond().ToString();
         _gridValue.Text = GridText();
 
         if (_v3DiagnosticsProvider?.Invoke() is { } diagnostics)
         {
+            if (diagnostics.ChangeSequence == _lastDiagnosticsChangeSequence)
+                return;
+
+            _lastDiagnosticsChangeSequence = diagnostics.ChangeSequence;
             _graphNodeValue.Text = diagnostics.NodeCount.ToString();
             _graphEdgeValue.Text = diagnostics.EdgeCount.ToString();
             _geometryValue.Text = diagnostics.GeometrySegmentCount.ToString();
@@ -83,6 +91,7 @@ public partial class DebugPanel : PanelContainer
             return;
         }
 
+        _lastDiagnosticsChangeSequence = -1;
         if (_network == null)
         {
             _graphEdgeValue.Text = "--";
