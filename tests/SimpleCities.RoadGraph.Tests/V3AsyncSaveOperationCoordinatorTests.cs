@@ -105,20 +105,23 @@ public sealed class V3AsyncSaveOperationCoordinatorTests
 
         Assert.Equal(V3SaveOperationUiPhase.Cancelling, state.Phase);
         Assert.True(coordinator.IsBusy);
+        Assert.True(coordinator.IsCancellationRequested);
     }
 
     [Fact]
-    public void Reset_ReturnsIdle()
+    public void Reset_ClearsCancellationAndReturnsIdle()
     {
         var backend = new FakeBackend();
         var controller = new V3SaveOperationController();
         var coordinator = new V3AsyncSaveOperationCoordinator(backend, controller);
         controller.TryBegin(V3SaveOperationKind.Delete, 1);
+        coordinator.RequestCancel();
 
         coordinator.Reset();
 
         Assert.Equal(V3SaveOperationUiPhase.Idle, coordinator.State.Phase);
         Assert.False(coordinator.IsBusy);
+        Assert.False(coordinator.IsCancellationRequested);
     }
 
     private sealed class FakeBackend : IV3SaveOperationBackend

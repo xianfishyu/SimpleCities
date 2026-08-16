@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using SimpleCities.Core.V3;
 
@@ -11,6 +12,7 @@ public sealed class V3AsyncSaveOperationCoordinator
     private readonly IV3SaveOperationBackend _backend;
     private readonly V3SaveOperationController _controller;
     private readonly long _sceneGeneration;
+    private CancellationTokenSource _cancellationTokenSource = new();
 
     public V3AsyncSaveOperationCoordinator(
         IV3SaveOperationBackend backend,
@@ -25,6 +27,8 @@ public sealed class V3AsyncSaveOperationCoordinator
     public V3SaveOperationUiState State => _controller.State;
 
     public bool IsBusy => _controller.IsBusy;
+
+    public bool IsCancellationRequested => _cancellationTokenSource.IsCancellationRequested;
 
     public async Task<V3SaveOperationUiState> SaveAsAsync(
         string displayName,
@@ -43,7 +47,7 @@ public sealed class V3AsyncSaveOperationCoordinator
             timestamp,
             population,
             funds,
-            thumbnailFile));
+            thumbnailFile), _cancellationTokenSource.Token);
         return _controller.Complete(result);
     }
 
@@ -66,7 +70,7 @@ public sealed class V3AsyncSaveOperationCoordinator
             timestamp,
             population,
             funds,
-            thumbnailFile));
+            thumbnailFile), _cancellationTokenSource.Token);
         return _controller.Complete(result);
     }
 
@@ -75,7 +79,9 @@ public sealed class V3AsyncSaveOperationCoordinator
         if (!_controller.TryBegin(V3SaveOperationKind.Load, _sceneGeneration))
             return _controller.State;
 
-        V3SaveOperationResult result = await Task.Run(() => _backend.Load(slotId, lineageID));
+        V3SaveOperationResult result = await Task.Run(
+            () => _backend.Load(slotId, lineageID),
+            _cancellationTokenSource.Token);
         return _controller.Complete(result);
     }
 
@@ -84,11 +90,22 @@ public sealed class V3AsyncSaveOperationCoordinator
         if (!_controller.TryBegin(V3SaveOperationKind.Delete, _sceneGeneration))
             return _controller.State;
 
-        V3SaveOperationResult result = await Task.Run(() => _backend.Delete(slotId));
+        V3SaveOperationResult result = await Task.Run(
+            () => _backend.Delete(slotId),
+            _cancellationTokenSource.Token);
         return _controller.Complete(result);
     }
 
-    public V3SaveOperationUiState RequestCancel() => _controller.RequestCancel();
+    public V3SaveOperationUiState RequestCancel()
+    {
+        _cancellationTokenSource.Cancel();
+        return _controller.RequestCancel();
+    }
 
-    public void Reset() => _controller.Reset();
+    public void Reset()
+    {
+        _cancellationTokenSource.Dispose();
+        _cancellationTokenSource = new CancellationTokenSource();
+        _controller.Reset();
+    }
 }
