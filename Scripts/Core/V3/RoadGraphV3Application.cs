@@ -188,6 +188,9 @@ public sealed class RoadGraphV3Application
         if (!result.Success || result.Controller is null)
             return false;
 
+        if (!result.TryApplyParticipants(ToolState, Presentation.State))
+            return false;
+
         Controller = result.Controller;
         if (!string.IsNullOrEmpty(prepare.SlotId))
             CurrentSlotID = prepare.SlotId;

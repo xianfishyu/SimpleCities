@@ -650,6 +650,12 @@
 - 新增 1 个 xUnit 用例；完整测试套件 1207/1207 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：真实 Load 隐藏资源 Preflight 与端到端 aggregate Load commit。
 
+### 2026-08-13：2.3 Prepared Load 提交应用参与者（修复）
+
+- `RoadGraphV3Application.TryCommitPreparedLoad` 在切换 controller 前应用 `result.TryApplyParticipants`，确保 tool/presentation 与图同时生效。
+- 更新 1 个 xUnit 用例断言；完整测试套件 1207/1207 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
+- 尚未完成：真实 Load 隐藏资源 Preflight 与端到端 aggregate Load commit。
+
 ### 2026-08-13：2.3 道路 Load 管线改用 aggregate 协调器（重构）
 
 - `V3RoadLoadPipeline.Load` 改为使用 `V3LoadAggregateCoordinator` 管理 Admission/Prepare/Preflight/Commit，不再手写 `V3LoadProtocol` + `V3PreparedAggregate`；行为与既有测试保持一致。

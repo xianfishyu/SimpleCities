@@ -180,6 +180,8 @@ public sealed class RoadGraphV3ApplicationTests
             Assert.True(source.Save("city-001", "n", "n", "2026-08-12T08:00:00.0000000Z", null, null, null));
 
             var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            app.ToolState.SwitchTo(RoadToolType.Upgrade);
+            app.ToolState.TrySelectRoadType(RoadType.Highway);
             Assert.True(app.TryPrepareLoad("city-001", lineageID: 7, out V3RoadLoadPrepareResult? prepare));
             Assert.NotNull(prepare);
 
@@ -188,6 +190,9 @@ public sealed class RoadGraphV3ApplicationTests
             Assert.Equal("city-001", app.CurrentSlotID);
             Assert.Equal(revision.Nodes.Count, app.Controller.Facade.Revision.Nodes.Count);
             Assert.Equal(revision.Edges.Count, app.Controller.Facade.Revision.Edges.Count);
+            Assert.Equal(RoadToolType.Upgrade, app.ToolState.CurrentTool);
+            Assert.Equal(RoadType.Highway, app.ToolState.SelectedRoadType);
+            Assert.False(app.Presentation.IsStalled);
         }
         finally
         {
