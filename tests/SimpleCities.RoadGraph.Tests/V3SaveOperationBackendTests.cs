@@ -120,6 +120,28 @@ public sealed class V3SaveOperationBackendTests
     }
 
     [Fact]
+    public void Load_MissingSlot_ReturnsFailedBeforeCommit()
+    {
+        string root = GetTempRoot();
+        try
+        {
+            var app = new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+            var backend = new V3ApplicationSaveOperationBackend(app);
+
+            V3SaveOperationResult result = backend.Load("missing-001", lineageID: 1);
+
+            Assert.False(result.Success);
+            Assert.False(result.CommitCompleted);
+            Assert.Equal(V3SaveOperationPhase.Prepare, result.Phase);
+            Assert.Equal(V3SaveOperationKind.Load, result.Token.Kind);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public void Delete_MissingSlot_ReturnsFailedBeforeCommit()
     {
         string root = GetTempRoot();
