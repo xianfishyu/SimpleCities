@@ -17,6 +17,7 @@ public partial class RoadGraphV3System : Node2D
     public bool CanRedo => Application.CanRedo;
     public void ClearHistory() => Application.ClearHistory();
     public string CurrentSlotID => Application.CurrentSlotID;
+    public bool HasCurrentSlot => Application.HasCurrentSlot;
     public SimpleCities.Core.V3.V3SlotSummary? CurrentSlotSummary => Application.CurrentSlotSummary;
     public string? CurrentSlotDisplayName => Application.CurrentSlotDisplayName;
     public string? CurrentSlotTimestamp => Application.CurrentSlotTimestamp;
