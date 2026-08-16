@@ -123,6 +123,12 @@
 - 新增 2 个 xUnit 用例；完整测试套件 1154/1154 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：`RoadBuilder` 真实接线、完整工具生命周期与真实 surface hit 输入路由。
 
+### 2026-08-13：2.0～2.2 工具输入路由器（部分）
+
+- 新增 `RoadToolInputRouter`：根据当前工具维护铺路/改造/拆除会话，将左键解析为放置拐点/闭合或表面命中选择；提供 `TryTake*Session` 让调用方取走会话后交给执行器提交。
+- 新增 8 个 xUnit 用例；完整测试套件 1162/1162 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
+- 尚未完成：将路由器接入 `RoadGraphV3InputHandler` 真实输入事件与提交链路。
+
 ## 执行顺序
 
 ### 阶段 3：第三代闭环、类型化建造与道路改造
