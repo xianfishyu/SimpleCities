@@ -26,3 +26,11 @@
 - 决策：`V3RoadLoadPipeline` 在 Preflight 准备 graph/tool/presentation/renderer 计划，commit 临界区内一次交换，并支持 inside-commit 参与者与快照回滚。
 - 理由：避免提交后关键表现失败窗口，保证 Load 全有或全无。
 - 状态：已落地。
+
+## 相关文档
+
+- 架构与验收规范：`docs/manuals/road-system-v3-gen.md`
+- 当前实现与验证状态：`docs/manuals/v3-current-implementation.md`
+- 下一步执行计划：`docs/manuals/v3-next-steps.md`
+- QA 运行手册：`docs/manuals/v3-qa-runbook.md`
+- 术语表：`docs/manuals/v3-glossary.md`
