@@ -94,3 +94,10 @@
 - 渲染：`tests/SimpleCities.RoadGraph.Tests/V3/RoadRibbonBuilderTests.cs`、`RoadCapBuilderTests.cs`、`RoadSemanticJoinBuilderTests.cs`、`RoadSurfaceHitTesterTests.cs`
 - 工具：`tests/SimpleCities.RoadGraph.Tests/V3/RoadToolInputRouterTests.cs`、`RoadToolCommandExecutorTests.cs`、`RoadPlacementSessionV3Tests.cs`
 - UI 契约：`tests/godot/command_center_runtime_contract.gd`
+
+## 9. 架构组件关系
+
+- `RoadGraphV3System`（场景根）→ `RoadGraphV3Application` → `Controller` / `Facade` / `Revision` → `HitProvider` / `Presentation` / `ToolState` / `Diagnostics`
+- 存档：`V3RoadSaveLoadCoordinator` → `V3RoadLoadPipeline` → inside-commit 参与者（tool / presentation / renderer）
+- 渲染：`RoadGraphV3Renderer` → `RoadRibbonBuilder` / `RoadCapBuilder` / `RoadSemanticJoinBuilder` → `RoadSurfaceSnapshot` / `RoadSurfaceHitProvider`
+- UI：`ConstructionDock` / `ToolContextPanel` / `DebugPanel` → `ToolManager` / `InputBindingManager` → V3 `ToolState`
