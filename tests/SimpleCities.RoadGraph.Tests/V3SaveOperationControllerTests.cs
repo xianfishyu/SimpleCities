@@ -153,6 +153,24 @@ public sealed class V3SaveOperationControllerTests
     }
 
     [Fact]
+    public void Complete_WithFailedResult_ClearsToken()
+    {
+        var controller = new V3SaveOperationController();
+        controller.TryBegin(V3SaveOperationKind.Load, 1);
+        V3SaveOperationToken token = controller.ActiveToken!;
+        V3SaveOperationResult result = V3SaveOperationResult.FailedBeforeCommit(
+            token,
+            V3SaveOperationPhase.Prepare,
+            "boom");
+
+        V3SaveOperationUiState state = controller.Complete(result);
+
+        Assert.Equal(V3SaveOperationUiPhase.Failed, state.Phase);
+        Assert.True(state.IsFailed);
+        Assert.Null(controller.ActiveToken);
+    }
+
+    [Fact]
     public void Complete_WithObserverWarnings_ReturnsCompletedAndClearsToken()
     {
         var controller = new V3SaveOperationController();
