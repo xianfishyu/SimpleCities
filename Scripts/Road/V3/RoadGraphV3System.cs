@@ -28,6 +28,7 @@ public partial class RoadGraphV3System : Node2D
     public long? CurrentSlotPopulation => Application.CurrentSlotPopulation;
     public decimal? CurrentSlotFunds => Application.CurrentSlotFunds;
     public string? CurrentSlotThumbnailFile => Application.CurrentSlotThumbnailFile;
+    public bool CurrentSlotHasThumbnail => Application.CurrentSlotHasThumbnail;
     public int CurrentSlotFileCount => Application.CurrentSlotFileCount;
     public System.Collections.Generic.IReadOnlyList<string> CurrentSlotFileNames => Application.CurrentSlotFileNames;
     public long CurrentSlotTotalBytes => Application.CurrentSlotTotalBytes;
