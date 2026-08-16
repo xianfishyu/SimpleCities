@@ -103,7 +103,7 @@ docs/todo/v3/                                各系统路线图
 - `RoadToolInputRouterTests`：重复命中去重、混合有效/无效命中、混合 null/无效/有效命中（Upgrade/Remove/矩形 Upgrade/矩形 Remove）、全无效/空/全 null 批量不创建会话（Upgrade/Remove）、null 命中跳过（Upgrade/Remove/矩形 Upgrade/矩形 Remove）、矩形全 null 不创建会话（Upgrade/Remove）、矩形空解析不创建会话（Upgrade/Remove）、null 列表抛异常（Upgrade/Remove）、null resolver 抛异常（Upgrade/Remove）、无效类型保留 placement/upgrade、同类型保留 placement、矩形空结果、Upgrade/Remove 矩形重复去重、右键移除/清除、切换工具清除 upgrade/removal、非有限坐标抛异常、取消后三类会话不可取回、铺路会话携带当前 RoadType、Cap/JunctionPatch/SemanticJoin owner 命中（Upgrade/Remove）、无 EdgeID owner 拒绝（Upgrade/Remove/矩形/批量）。
 - `V3SaveOperationUiStateTests`：null 结果、成功、提交前失败、in-progress busy、observer warning 与 Cancelling 状态映射。
 - `V3SaveOperationControllerTests`：开始/重复开始、匹配/过期/不同 scene generation/未开始完成、可取消阶段取消、不可取消阶段保持、Reset。
-- `V3SaveOperationBackendTests`：SaveAs/Save/Load/Delete 成功与 Delete 缺失失败。
+- `V3SaveOperationBackendTests`：SaveAs/Save/Load/Delete 成功、CurrentSlotID 同步与 Delete 缺失失败。
 - `V3SaveSlotUiSummaryTests`：Complete/Corrupt/Foreign/Unsafe 四类槽的展示与操作权限。
 - `PauseMenuContractTests`：新增 V3 存档后端接线契约（`ConfigureV3Backend` / `IV3SaveOperationBackend` / `V3SaveOperationController` / `V3SaveSlotUiSummary`）。
 - `V3SaveOperationUiCoordinatorTests`：SaveAs 成功/失败、busy 不调用后端、Load/Delete、RequestCancel、Reset。
