@@ -13,6 +13,7 @@ public partial class RoadGraphV3Renderer : Node2D
 
     private GraphStateToken? _lastToken;
     private IReadOnlyList<RoadRibbonMeshData> _cachedMeshes = [];
+    private IReadOnlyList<RoadJunctionPatchData> _cachedPatches = [];
 
     public override void _Process(double delta)
     {
@@ -26,6 +27,7 @@ public partial class RoadGraphV3Renderer : Node2D
 
         _lastToken = current;
         _cachedMeshes = system.Application.BuildDefaultRibbonMeshes(DisplayTolerance);
+        _cachedPatches = system.Application.BuildDefaultJunctionPatches();
         QueueRedraw();
     }
 
@@ -41,6 +43,19 @@ public partial class RoadGraphV3Renderer : Node2D
             var colors = new Color[outline.Length];
             for (int index = 0; index < colors.Length; index++)
                 colors[index] = color;
+
+            DrawPolygon(outline, colors);
+        }
+
+        foreach (RoadJunctionPatchData patch in _cachedPatches)
+        {
+            if (patch.Outline.Count < 3)
+                continue;
+
+            Vector2[] outline = patch.Outline.ToArray();
+            var colors = new Color[outline.Length];
+            for (int index = 0; index < colors.Length; index++)
+                colors[index] = patch.Color;
 
             DrawPolygon(outline, colors);
         }
