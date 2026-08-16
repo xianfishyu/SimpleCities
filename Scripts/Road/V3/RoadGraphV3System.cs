@@ -23,6 +23,7 @@ public partial class RoadGraphV3System : Node2D
     public SimpleCities.Core.V3.V3SlotOccupant? CurrentSlotOccupant => Application.CurrentSlotOccupant;
     public bool CurrentSlotIsComplete => Application.CurrentSlotIsComplete;
     public bool CurrentSlotIsCorrupt => Application.CurrentSlotIsCorrupt;
+    public SimpleCities.Core.V3.V3Manifest? CurrentSlotManifest => Application.CurrentSlotManifest;
 
     public System.Collections.Generic.IReadOnlyList<SimpleCities.Core.V3.V3SlotSummary> ListUsableSlots() =>
         Application.ListUsableSlots();
