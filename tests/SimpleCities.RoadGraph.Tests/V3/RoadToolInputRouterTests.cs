@@ -77,6 +77,16 @@ public sealed class RoadToolInputRouterTests
     }
 
     [Fact]
+    public void HandleLeftClick_Remove_NoHit_DoesNotCreateSession()
+    {
+        var router = CreateRouter((_, _) => null);
+        router.SwitchTool(RoadToolType.Remove);
+
+        Assert.False(router.HandleLeftClick(new Vector2(5f, 0f), closeRadius: 10f, hitRadius: 10f));
+        Assert.False(router.IsSelecting);
+    }
+
+    [Fact]
     public void Cancel_ClearsSessions()
     {
         var router = CreateRouter((_, _) => CreateHit());
