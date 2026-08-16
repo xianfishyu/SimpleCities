@@ -288,6 +288,12 @@
 - 完整测试套件 1162/1162 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
 - 尚未完成：替换 V2 RoadSystem 与端到端验收。
 
+### 2026-08-13：8.6 场景 Load 后应用 presentation full-reset（部分）
+
+- `RoadGraphV3System` 在 `Load` / `LoadIntoCurrent` 成功后构建当前 presentation 计划并应用到 `RoadGraphV3Renderer`，使场景层在 Load 后立即采用新 mesh 数据。
+- 完整测试套件 1182/1182 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
+- 尚未完成：替换 V2 RoadSystem 与端到端验收。
+
 ## 执行顺序
 
 ### 阶段 8：第三代规范存储、环路、分级与集成

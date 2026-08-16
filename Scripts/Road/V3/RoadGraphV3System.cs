@@ -9,6 +9,8 @@ public partial class RoadGraphV3System : Node2D
 {
     [Export] public RoadConfigV3 Config { get; set; } = null!;
 
+    private RoadGraphV3Renderer? _renderer;
+
     public static RoadGraphV3System Instance { get; private set; } = null!;
     public RoadGraphV3Application Application { get; private set; } = null!;
     public RoadSurfaceHitProvider HitProvider => Application.HitProvider;
@@ -161,11 +163,30 @@ public partial class RoadGraphV3System : Node2D
     public bool TryRemoveEdge(int edgeID, out RoadGraphV3ChangeSummary summary) =>
         Application.TryRemoveEdge(edgeID, out summary);
 
-    public bool Load(string slotId, long lineageID = 1) =>
-        Application.Load(slotId, lineageID);
+    public bool Load(string slotId, long lineageID = 1)
+    {
+        if (!Application.Load(slotId, lineageID))
+            return false;
+        ApplyCurrentPresentation();
+        return true;
+    }
 
-    public bool LoadIntoCurrent(string slotId, long newLineageID = 1) =>
-        Application.LoadIntoCurrent(slotId, newLineageID);
+    public bool LoadIntoCurrent(string slotId, long newLineageID = 1)
+    {
+        if (!Application.LoadIntoCurrent(slotId, newLineageID))
+            return false;
+        ApplyCurrentPresentation();
+        return true;
+    }
+
+    private void ApplyCurrentPresentation()
+    {
+        RoadGraphV3Revision revision = Application.Revision;
+        var plan = Application.BuildPresentationFullReset(
+            new RoadRenderToken(0, Application.Controller.Facade.LineageID, 0, 0, 0, 0));
+        if (plan is not null)
+            ApplyPresentationFullReset(plan);
+    }
 
     public void NewCity(long lineageID = 1) =>
         Application.NewCity(lineageID);
@@ -192,7 +213,11 @@ public partial class RoadGraphV3System : Node2D
         Application = Config is not null
             ? new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default, Config)
             : new RoadGraphV3Application(root, RoadGraphCapacity.Default, V3PayloadBudget.Default);
+        _renderer = GetNodeOrNull<RoadGraphV3Renderer>("RoadGraphV3Renderer");
     }
+
+    public void ApplyPresentationFullReset(RoadPresentationFullReset plan) =>
+        _renderer?.ApplyPresentationFullReset(plan);
 
     public override void _ExitTree()
     {

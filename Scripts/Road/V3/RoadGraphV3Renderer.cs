@@ -1,5 +1,6 @@
 using Godot;
 using SimpleCities.Road.V3;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -23,6 +24,15 @@ public partial class RoadGraphV3Renderer : Node2D
             ZIndex = -1,
         };
         AddChild(_meshLayer);
+    }
+
+    public void ApplyPresentationFullReset(RoadPresentationFullReset plan)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        _cachedMeshes = plan.RibbonMeshes;
+        _cachedPatches = plan.JunctionPatches;
+        _lastToken = plan.Snapshot.Token;
+        RebuildMesh();
     }
 
     public override void _Process(double delta)

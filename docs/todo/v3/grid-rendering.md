@@ -239,6 +239,13 @@
 - 新增 1 个 xUnit 用例；完整测试套件 1182/1182 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误。
 - 尚未完成：将计划中的 mesh 数据接入渲染器 Load 交换，以及混合宽度/锐角真实填补。
 
+### 2026-08-13：2.2 渲染器接入 presentation full-reset 交换（部分）
+
+- `RoadGraphV3Renderer` 新增 `ApplyPresentationFullReset`：直接采用计划中的 ribbon/junction mesh 数据重建 `ArrayMesh`。
+- `RoadGraphV3System` 在 `Load` / `LoadIntoCurrent` 成功后构建当前 presentation 计划并应用到渲染器。
+- 完整测试套件 1182/1182 通过，`dotnet build SimpleCities.sln` 0 警告/0 错误；Godot 编辑器加载 `MapTest` 并冻结运行 1 帧无新增 stderr 错误。
+- 尚未完成：真实 Load 隐藏资源 Preflight 与 non-yield 联合交换，以及混合宽度/锐角真实填补。
+
 ## 执行顺序
 
 ### 阶段 2：第三代道路表面、分级表现与接管门禁
