@@ -302,6 +302,7 @@ public sealed class RoadGraphV3Application
     public string? CurrentSlotThumbnailFile => CurrentSlotManifest?.ThumbnailFile;
     public bool CurrentSlotHasThumbnail => CurrentSlotThumbnailFile is not null;
     public int CurrentSlotFileCount => CurrentSlotManifest?.Files.Count ?? 0;
+    public bool CurrentSlotHasFiles => CurrentSlotFileCount > 0;
 
     public IReadOnlyList<string> CurrentSlotFileNames =>
         CurrentSlotManifest?.Files.Select(file => file.Name).ToList() ?? [];
