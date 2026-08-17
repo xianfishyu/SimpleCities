@@ -756,6 +756,7 @@ Debug `RoadGraph.AssertInvariants()` 对每个 Node ref 和每个 Edge query fra
 - Windows Debug QA 导出包的 V3 根、manifest family/schema/长度/hash 与删除契约通过；Release 导出因 ImGui GDExtension 导出错误且 MCP 6550 端口占用未正常返回，未记为通过。两个中断遗留性能槽已删除，测试结束后项目停止且错误通道为空。
 - 后续最终复跑（2026-08-14）中，Release C# 10k 最坏多交叉 P95 为 7.783 ms、100k 为 10.120 ms；Vulkan 10k camera/preview/highlight P95 为 2.183/2.633/2.297 ms，100k 为 2.088/1.959/1.853 ms，100k Load 与 renderer rebuild 为 4111.449 ms，契约输出 PASS。Windows Desktop QA 导出也已在显示驱动下通过；这些后续证据补齐导出与抖动复核，不改变 BUG-21 的线性覆盖修复范围。
 - 本轮收口复跑（2026-08-14）继续通过：Vulkan 10k camera/preview/highlight P95 为 0.410/0.477/0.395 ms，100k 为 0.635/0.697/0.612 ms，100k Load 与 renderer rebuild 为 3824.467 ms，`.godot/qa-road-rendering-performance-v3-current.log` 输出 PASS；renderer lifecycle 和当前 V3 综合运行时契约也分别输出 PASS。完整自动化更新为 720/720，双配置构建及 Roslyn diagnostics 继续为 0。该热复跑只增加当前证据，不覆盖前述首次冷启动失败，也不把尚未完成的 Phase 7 分级 surface 门禁记为通过。
+- 再次复验（2026-08-17）：invariant + V3 persistence 聚焦组合为 33/33，完整自动化为 833/833，Debug/`ExportRelease` build 均为 0 警告、0 错误。Vulkan 12k/20k/40k/60k/80k/100k Load 与 renderer rebuild 为 779.503/1193.439/2428.374/3431.815/4463.697/5129.679 ms，100k camera/preview/highlight P95 为 0.660/0.658/0.675 ms；独立 10k 硬门为 0.461/0.482/0.491 ms、重建 648.221 ms，各级均 PASS、静态 renderer 节点为 2。Release C# 10k/100k 多交叉 P95 为 7.848/8.363 ms；renderer lifecycle、V3 综合、render token、RoadType style/mesh、输入、闭环、六类几何和 Windows QA 导出包 writable 存档契约均 PASS。当前会话未暴露 Roslyn/Godot MCP 调用工具，未刷新历史 MCP/DAP 证据；两个 2026-08-16 既有损坏 QA 槽、headless editor 的 main-scene UID 提前解析和 ImGui 禁用导出分支的预期 GDExtension error 均保留为无关环境/工具输出。
 
 ---
 

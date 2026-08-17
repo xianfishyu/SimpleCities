@@ -1,7 +1,7 @@
 # 第三代 RoadGraph 系统待办清单
 
 > 系统 key：`v3-road-graph`
-> 整理日期：2026-08-14
+> 整理日期：2026-08-17
 > 证据：当前工作区源码、RoadGraph 自动化测试、`docs/manuals/road-system-v2-gen.md` 附录 D 及 `docs/manuals/road-system-v3-gen.md`。
 > 主导原则：负责第三代道路的数值与容量边界、连续拓扑存储、原生几何、自环/平行边、空间索引、RoadType、不可变事务以及最终跨系统集成验收；不负责交通模拟。
 
@@ -125,7 +125,7 @@
 - [x] **V3 公共闭合、自交与环路规范形已建立。** closed/full-turn、incoming/incoming intersection、离散自交 junction、rooted self-loop 和 parallel Edge 已进入公共提交；连续重叠与 canonical split 歧义在 mutation 前结构化拒绝。后续 RoadType、V3 reader、renderer 和 delta 必须保留 seam、endpoint-role incidence、typed direction 及失败原子性。
 - [x] **V3 Edge 级 RoadType 与类型化提交已建立。** 四个稳定领域值、严格 token、显式 `RoadBuildRequest`、拆分继承、typed merge key、semantic boundary 和覆盖不改造已由 611 项自动化及真实 `MapTest` 混合类型场景验证。后续改造、renderer、V3 reader 和工具选择必须消费 Edge 级类型，不能引入默认类型或把类型塞入几何草稿。
 - [x] **V3 不可变 root、原子改造和统一 delta 身份已建立。** 普通 mutation 结构共享未触碰 Entity/geometry/bucket 页，`CaptureRevision()` 为 O(1)，`GraphChanged` 是唯一事务事件；lineage/revision/sequence token、ID watermark、observer 隔离和重入拒绝均有自动化、Release 远端扩展基准及真实 `MapTest` undo/redo 证据。后续 V3 writer、renderer token 和 full-reset aggregate 必须直接消费该 root/token，不能重新捕获可变图或恢复逐 Edge 事件。
-- [x] **空间索引精确覆盖不变式已改为线性批量校验。** `AssertInvariants()` 先按引用 identity 汇总预期 bounds，再由 `UniformGrid.HasExactCoverage(...)` 单次扫描 bucket entries；缺失、额外、错桶、同桶重复和内部计数不符仍严格拒绝。修复后 12k～100k V3 Load/renderer rebuild 逐级完成，100k 为 5069.431 ms，不再因 `reference × bucket` 二次扫描进入 AppHang；完整自动化为 637/637。该修复不关闭 `v3-road-graph:8.6`，Godot 10k 冷启动帧门、Phase 7 表现契约和 Windows Release 导出仍需最终组合验收。
+- [x] **空间索引精确覆盖不变式已改为线性批量校验。** `AssertInvariants()` 先按引用 identity 汇总预期 bounds，再由 `UniformGrid.HasExactCoverage(...)` 单次扫描 bucket entries；缺失、额外、错桶、同桶重复和内部计数不符仍严格拒绝。2026-08-17 再次逐级完成 12k～100k V3 Load/renderer rebuild，100k 为 5129.679 ms，不再因 `reference × bucket` 二次扫描进入 AppHang；invariant + V3 persistence 为 33/33、完整自动化为 833/833。10k 硬门和 Windows QA 导出包 writable 存档契约也已通过，但当前会话未刷新 MCP/DAP，且完整 Phase 7 表现/故障矩阵仍未完成，因此不关闭 `v3-road-graph:8.6`。
 - [x] **V2 道路数据层不依赖输入层方向或网格概念。** 任意角度直线、折线和结构化非法路径拒绝已有自动化保护。
 - [x] **V2 原生曲线、二维交叉、查询、删除事务、渲染和存档已通过最终验收。** 这些是 V3 需要以新接口重新验证的玩家能力基线，不要求复用 V2 代码或读取 V2 数据。
 - [x] **V2 规模基线已记录。** V3 性能门槛必须使用同机、同口径对照，不能把后台总耗时误报为主线程无卡顿。

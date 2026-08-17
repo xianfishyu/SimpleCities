@@ -1,7 +1,7 @@
 # 第三代网格渲染系统待办清单
 
 > 系统 key：`v3-grid-rendering`
-> 整理日期：2026-08-15
+> 整理日期：2026-08-17
 > 证据：当前工作区 `Scripts/Road/RoadGeometryDisplaySampler.cs`、`RoadRenderer.cs`、`RoadBuilder.cs`、`RoadConfig.cs`，V2 显示与性能契约，`docs/performance/road-rendering-v2-baseline.md`、`docs/manuals/road-system-v2-gen.md` 附录 D 及 `docs/manuals/road-system-v3-gen.md`。
 > 主导原则：负责第三代 canonical Edge、self-loop、平行 Edge 和 RoadType 的确定性可视化，生成与实际 mesh 同源的道路表面命中，并为普通 mutation 与 Load 提供各自正确的表现接管协议；视觉样式和派生表面不是 RoadGraph 的事实来源。
 
@@ -100,6 +100,7 @@
   - 当前基线（2026-08-14）：统一样式 Vulkan 完整运行中，10k camera/preview/highlight P95 为 0.657/0.779/0.672 ms，Load 与 renderer rebuild 为 608.025 ms；首轮 100k 为 13.517/0.722/0.699 ms、重建 4108.956 ms，独立 100k 复跑为 0.616/0.661/0.637 ms、重建 4492.629 ms，两轮均输出 PASS，静态 renderer 节点为 2。首轮 100k camera 的 13.517 ms 尾延迟与复跑值同时保留，不能只报告热复跑。
   - 分级 ribbon 基线（2026-08-14）：加入 per-edge vertex color 后，独立真实 Vulkan 10k camera/preview/highlight P95 为 0.564/0.827/0.833 ms、Load 与 renderer rebuild 为 665.452 ms；随后独立 100k 为 8.674/0.977/0.737 ms、重建 4719.153 ms。两档均输出 PASS，draw call 为 4/5/4，静态 renderer 节点为 2；100k 仍只记录压力结果，不取代 10k 硬门槛。
   - Terminal cap 增量基线（2026-08-14）：本轮只执行 1k Vulkan，camera/preview/highlight P95 为 0.393/0.378/0.339 ms、renderer rebuild 135.918 ms、静态 renderer 节点为 2，并输出 PASS。该结果不刷新既有 10k/100k 基线，也不满足 2.3 的规模门禁。
+  - Load 线性恢复复验（2026-08-17）：独立直线数据集的 12k/20k/40k/60k/80k/100k Load 与 renderer rebuild 为 779.503/1193.439/2428.374/3431.815/4463.697/5129.679 ms，100k camera/preview/highlight P95 为 0.660/0.658/0.675 ms；独立 10k `--enforce-budget` 为 0.461/0.482/0.491 ms、重建 648.221 ms。各级均 PASS，draw call 为 4/5/4、静态 renderer 节点为 2；该数据证明 RoadGraph Load 二次退化未回归，但不含 junction-dense/geometry-dense、四类 owner、类型改造或完整 token 扰动，不能替代本项的完整性能矩阵。
   - 仍缺（保持开放）：Junction Patch 已通过聚焦功能、Load 和普通 T junction 视觉验证，普通 mutation stalled/retry、拆除与 RoadUpgrade 命令 admission 也已有功能契约；但其余道路命令的全 admission、离散类型改造时延，以及包含四类 owner 和完整 token 扰动的 10k/100k 性能矩阵仍未完成。现有聚焦证据、四条分级直线截图、ribbon hit、历史 1k cap PASS、patch 小图和小规模拆除/改造/重试都不能替代完整接管与规模门禁。
 
 ## 暂不执行
