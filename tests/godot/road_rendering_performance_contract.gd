@@ -40,7 +40,9 @@ func run() -> void:
 	current_scene = test_map
 	await wait_rendered_frame()
 	autosave_controller.SetAutosaveEnabled(false)
-	test_map.get_node("GameHUD").visible = false
+	var game_hud: CanvasLayer = test_map.get_node("GameHUD")
+	game_hud.process_mode = Node.PROCESS_MODE_DISABLED
+	game_hud.visible = false
 
 	var camera: Camera2D = test_map.get_node("Camera2D")
 	camera.process_mode = Node.PROCESS_MODE_DISABLED

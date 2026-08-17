@@ -28,9 +28,13 @@ static func delete_slot(save_manager: Node, slot_id: String) -> bool:
 static func operation_succeeded(save_manager: Node, operation_token: String) -> bool:
 	var result := await wait_for_operation(save_manager, operation_token)
 	if not await wait_for_idle(save_manager):
+		print("SAVE_OPERATION_FAILURE idle-timeout token=%s" % operation_token)
 		return false
 	var result_kind := int(result.get("resultKind", -1))
-	return result_kind == RESULT_SUCCEEDED or result_kind == RESULT_SUCCEEDED_WITH_WARNINGS
+	var succeeded := result_kind == RESULT_SUCCEEDED or result_kind == RESULT_SUCCEEDED_WITH_WARNINGS
+	if not succeeded:
+		print("SAVE_OPERATION_FAILURE %s" % JSON.stringify(result))
+	return succeeded
 
 static func wait_for_idle(
 	save_manager: Node,
