@@ -47,7 +47,7 @@
   - 集成负责人：`v3-tool-input`；UI 控件属于 `v3-ui:1.1`，端到端完成判定由 `v3-road-graph:8.6` 负责。
   - 验证证据（2026-08-15）：类型化建造聚焦组合 60/60，覆盖四类开路/闭环、同异类型接续、交叉、完全/部分覆盖、六类原生几何、无效类型、严格持久化往返、三种输入策略和会话冻结；完整 solution 自动化为 833/833。Debug 与 `ExportRelease` build 均为 0 错误，各有 1 条既有 `NU1900`；Roslyn compiler/analyzer、修改 GDScript 与 workspace scan 均为 0 diagnostics，`git diff --check` 通过。
   - Godot Tier 3（2026-08-15）：隔离 `road_input_strategy_runtime_contract.gd` 在真实 `MapTest` 中验证默认 `Street`、同值/无效值保持会话、合法切换取消会话与 preview、Dirt/Street/Arterial/Highway 各建一条并以四个稳定 token 保存；随后 full-reset Load 保留 `Highway` 选择，清空 placement 和 undo/redo，并恢复 4 条已呈现 Edge。MCP 冻结场景另得到 `selected_type = Highway`、`1 Edge / 4 mesh vertices / 1 undo`；editor 增量日志和 DAP `stderr`/`console` 为空，测试槽、隔离目录、日志和运行实例已清理。
-  - 验收结果：每次成功建造只使用会话冻结类型；合法切换不会混合提交或部分写图，无效/同值选择无副作用；更换输入策略不改变 RoadType 状态或 RoadGraph 契约。玩家可见四段式控件仍由开放的 `v3-ui:1.1` 负责。
+  - 验收结果：每次成功建造只使用会话冻结类型；合法切换不会混合提交或部分写图，无效/同值选择无副作用；更换输入策略不改变 RoadType 状态或 RoadGraph 契约。玩家可见四段式控件已由 `v3-ui:1.1` 接入；RoadUpgrade catalog 与其余 UI 入口仍由 `v3-ui:1.2` 负责。
 
 <a id="v3-tool-input2.2"></a>
 
@@ -60,7 +60,7 @@
   - 验收：四种道路工具命中与当前 mesh owner 一致且不接收过期 surface hit；提交前 RoadGraph 不变；成功批次达到 canonical form 且只产生一条历史，选择不缓存已移除 Edge；失败、取消和 NoChanges 无事件、无历史、无残留预览。
   - 验证证据（2026-08-15）：`RoadUpgradeSessionTests` 与 ToolManager/ToolType 契约聚焦组合 17/17；结合 `RoadSurfaceSnapshotTests`、`RoadRendererLoadPrepareTests`、`RoadGraphRoadTypeChangeV3Tests` 和 `RoadEditHistoryTests`，覆盖可见 ribbon/矩形接触、terminal/semantic/junction owner 的稳定 Edge 映射、self-loop/parallel Edge surface 身份、重复/失效目标、四类互转、NoChanges、semantic boundary 合并和 delta 往返。完整 solution 自动化为 833/833；Debug 与 `ExportRelease` build 均为 0 错误并只有既有 `NU1900`，Roslyn compiler/analyzer、修改 GDScript 与 workspace scan 均为 0 diagnostics，`git diff --check` 通过。
   - Godot Tier 3（2026-08-15）：扩展后的隔离 `road_input_strategy_runtime_contract.gd` 在真实 `MapTest` 中验证目标类型冻结，类型切换、右键、工具切换和暂停取消，连续与 Shift 矩形改造，NoChanges 无图/历史变化，样式刷新后旧 token 确认失败，semantic boundary 合并及单次 undo/redo；active upgrade 上的 full-reset Load 清空 selection/preview/history 并保留 `RoadUpgrade` 工具和 `Arterial` 目标，最终输出 `PASS`。Godot MCP 另观察到连续改造 sequence `4 -> 5`、异类型接续 `6 Edge` 改造后合并为 `5 Edge`、undo/redo 为 `6 -> 5`；真实 Save/Load 后为 `CurrentTool = RoadUpgrade`、`SelectedRoadType = Arterial`、session/preview/undo/redo 全空、`5 Edge` 与 matching token ready。editor 无新增错误，DAP `stderr`/`console` 为空，stdout 只有引擎/MCP 启动信息和预期 NoChanges 拒绝；测试槽、日志和运行实例已清理。
-  - 验收结果：RoadUpgrade 只消费同代可见 surface 和稳定 owner ID，提交前不改图；成功批次 canonicalize 且只生成一次事件/历史，取消、NoChanges、旧 token 与 full reset 均不留下可提交旧选择或 overlay。玩家可见 catalog、图标、快捷键和类型选择器仍由开放的 `v3-ui:1.1`～`1.2` 负责。
+  - 验收结果：RoadUpgrade 只消费同代可见 surface 和稳定 owner ID，提交前不改图；成功批次 canonicalize 且只生成一次事件/历史，取消、NoChanges、旧 token 与 full reset 均不留下可提交旧选择或 overlay。RoadType 类型选择器已由 `v3-ui:1.1` 提供；RoadUpgrade 的 catalog、图标和快捷键仍由开放的 `v3-ui:1.2` 负责。
 
 ### 阶段 6：可逆 delta 历史
 
