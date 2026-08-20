@@ -168,14 +168,32 @@ func run() -> void:
 	await test_two_hud_ui_manager_isolation()
 	await test_malformed_dock()
 	await assert_k_runtime_contract(hud)
+	await assert_new_scene_default_road_type(map_scene, map)
 	if failed:
 		return
 
-	map.queue_free()
-	await process_frame
-
 	print("PASS command center runtime contract")
 	quit(0)
+
+func assert_new_scene_default_road_type(map_scene: PackedScene, current_map: Node) -> void:
+	var current_builder: Node = current_map.get_node("RoadSystem/RoadBuilder")
+	current_builder.SetSelectedRoadType(3)
+	assert_true(int(current_builder.GetSelectedRoadType()) == 3, "Scene reset setup could not select Highway")
+	current_map.get_node("AutosaveController").SetAutosaveEnabled(false)
+	current_map.queue_free()
+	await process_frame
+	await process_frame
+
+	var fresh_map: Node = map_scene.instantiate()
+	fresh_map.get_node("AutosaveController").set("AutosaveEnabled", false)
+	root.add_child(fresh_map)
+	await process_frame
+	await process_frame
+	var fresh_builder: Node = fresh_map.get_node("RoadSystem/RoadBuilder")
+	assert_true(int(fresh_builder.GetSelectedRoadType()) == 1, "Fresh MapTest scene did not restore Street as the default RoadType")
+	fresh_map.queue_free()
+	await process_frame
+	await process_frame
 
 func assert_road_type_selector(
 	map: Node,
