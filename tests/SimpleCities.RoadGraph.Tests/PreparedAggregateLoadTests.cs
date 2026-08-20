@@ -174,6 +174,51 @@ public sealed class PreparedAggregateLoadTests
     }
 
     [Fact]
+    public void ObserverAndCleanupFailures_AreIsolatedAcrossTheWholeAggregate()
+    {
+        var state = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["graph"] = "old",
+            ["presentation"] = "old",
+            ["slot"] = "old",
+        };
+        var events = new List<string>();
+        string[] participantIDs = ["graph", "presentation", "slot"];
+        var graph = new FakePlan("graph", state, events, participantIDs)
+        {
+            ThrowDuringNotification = true,
+            ThrowDuringCompletion = true,
+        };
+        var presentation = new FakePlan("presentation", state, events, participantIDs)
+        {
+            ThrowDuringCompletion = true,
+        };
+        var slot = new FakePlan("slot", state, events, participantIDs);
+        using var aggregate = new PreparedAggregateLoad([graph, presentation, slot]);
+
+        IReadOnlyList<string> warnings = aggregate.Commit(
+            new UncoordinatedStorageOperationLease(SaveOperationKind.Load));
+
+        Assert.All(participantIDs, id => Assert.Equal("new", state[id]));
+        Assert.Equal(3, warnings.Count);
+        Assert.Contains("observer 'graph' failed", warnings[0], StringComparison.Ordinal);
+        Assert.Contains("participant 'graph' cleanup failed", warnings[1], StringComparison.Ordinal);
+        Assert.Contains("participant 'presentation' cleanup failed", warnings[2], StringComparison.Ordinal);
+        Assert.Equal(
+            [
+                "commit:graph",
+                "commit:presentation",
+                "commit:slot",
+                "notify:presentation",
+                "notify:slot",
+                "complete:graph",
+                "complete:presentation",
+                "complete:slot",
+            ],
+            events);
+    }
+
+    [Fact]
     public void CleanupFailure_BecomesWarningAndDoesNotStopRemainingCleanup()
     {
         var state = new Dictionary<string, string>(StringComparer.Ordinal)
