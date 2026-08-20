@@ -307,6 +307,29 @@ public sealed class RoadSurfaceSnapshotTests
     }
 
     [Theory]
+    [InlineData(10_000)]
+    [InlineData(100_000)]
+    public void PointQueryKeepsExactTriangleWorkLocalAtPerformanceContractScale(int edgeCount)
+    {
+        RoadSurfaceTriangle[] triangles = Enumerable.Range(0, edgeCount)
+            .SelectMany(index => Quad(index, y: index * 100f, halfWidth: 2f))
+            .ToArray();
+        var snapshot = new RoadSurfaceSnapshot(Token(), triangles);
+        int targetEdgeID = edgeCount / 2;
+
+        RoadSurfaceHit hit = Assert.IsType<RoadSurfaceHit>(snapshot.FindClosest(
+            new Vector2(5f, targetEdgeID * 100f),
+            maxSurfaceDistance: 0f,
+            out RoadSurfaceQueryMetrics metrics));
+
+        Assert.Equal(targetEdgeID, hit.EdgeID);
+        Assert.InRange(metrics.IndexNodeVisitCount, 1, 64);
+        Assert.InRange(metrics.PrimitiveCandidateCount, 2, 8);
+        Assert.Equal(2, metrics.ExactPrimitiveTestCount);
+        Assert.True(metrics.PrimitiveCandidateCount < snapshot.PrimitiveCount);
+    }
+
+    [Theory]
     [InlineData(float.NaN, 0f, 1f)]
     [InlineData(float.PositiveInfinity, 0f, 1f)]
     [InlineData(0f, float.NegativeInfinity, 1f)]
