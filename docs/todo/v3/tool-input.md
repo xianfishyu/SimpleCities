@@ -13,7 +13,7 @@
 | 2.1 | `RoadBuilder` 没有与网格策略解耦的类型选择状态 | 已完成 | `SelectedRoadType` 在会话开始冻结并显式提交 |
 | 2.2 | 既有道路没有先选择后提交的类型改造工作流 | 已完成 | 独立 RoadUpgrade 会话、同代 surface 批量选择、取消和单次撤销重做已验证 |
 | 2.3 | 64 项历史曾为每项保留 before/after 完整 JSON | 已完成 | delta/双预算已替换全图字符串，真实 V3 Load 会换 lineage 并清空旧历史/token |
-| 2.4 | 外部 Load 可能让旧图工具状态或旧画面继续接受输入 | 开放（部分实现） | placement/removal/upgrade/history 与 matching indexed 四类 surface/token 已加入 full-reset aggregate，现有玩家道路事务、deferred 表现 continuation 及未提交表现资源均服从失效/清理边界；真实 `RoadGraph` participant 的 commit-boundary generation 失配已验证，仍需 renderer/tool/slot 真实失配与联合故障矩阵 |
+| 2.4 | 外部 Load 可能让旧图工具状态或旧画面继续接受输入 | 开放（部分实现） | placement/removal/upgrade/history 与 matching indexed 四类 surface/token 已加入 full-reset aggregate，现有玩家道路事务、deferred 表现 continuation 及未提交表现资源均服从失效/清理边界；真实 `RoadGraph` participant 的 commit-boundary generation 失配和 fake participant observer/cleanup 组合已验证，仍需 renderer/tool/slot 真实失配、真实参与者组合与联合故障矩阵 |
 
 ### 设计覆盖矩阵
 
@@ -100,7 +100,8 @@
   - 连续 Load 证据（2026-08-20）：隔离 token 契约在同一场景和同一槽上连续完成两次 aggregate Load；第二次使用独立 operation token，graph facade generation、change sequence 和 render request ID 再各推进一次，四类 surface 命中均绑定第二次 presented token。完整自动化 843/843、双配置 build 0 警告/0 错误，隔离目录和日志已清理且原有 Godot PID 未受影响；该证据证明 tool/renderer admission 在成功 commit 后可再次建立，不替代各工具状态与故障注入组合。
   - Preflight 资源清理协作证据（2026-08-20）：renderer 创建中的 `ArrayMesh`/`MultiMesh`、Preflight 在 plan 接管前的异常路径和未提交 plan 均会确定性释放隐藏资源；成功 commit 后 cleanup 不销毁已挂载资源。renderer 生命周期契约 10/10、完整自动化 846/846、双配置 build 0 警告/0 错误，两个隔离道路运行时契约均 PASS；见 `save-system:BUG-14`。该证据只固化协作资源所有权，不替代工具状态组合。
   - 真实 generation 失配协作证据（2026-08-20）：`PreparedAggregateLoadTests` 9/9 以受控 lease 让真实 `RoadGraph` participant 在 commit boundary 失效，确认 `LoadPreflightInvalidException` 发生在任何 reference swap 前，graph revision、测试中的 presentation/slot 状态和工具计划均保持不变，未提交辅助计划各清理一次，admission 释放后 graph 可继续 mutation；完整自动化为 847/847，Debug 与 `ExportRelease` build 均为 0 警告、0 错误。xUnit 宿主无法初始化 Godot native Resource，本证据不覆盖原生 `ArrayMesh`/`MultiMesh` 生命周期。
-  - 仍缺（保持开放）：平行 Edge 完整工具矩阵、每类工具状态、renderer/tool/slot 的真实 generation 失配、每个关键 renderer Preflight Resource 故障点以及 observer/cleanup 组合仍未完成，因此 `v3-tool-input:2.4` 继续开放。
+  - Observer/cleanup 组合协作证据（2026-08-20）：三个 fake participant 同时注入 observer 与两个 cleanup 异常，`PreparedAggregateLoadTests` 10/10 验证三方引用先交换、warning 全部聚合且最后一个 participant 仍执行 cleanup；完整自动化为 848/848，Debug 与 `ExportRelease` build 均为 0 警告、0 错误。该证据只覆盖 CLR fake participant，不证明真实 renderer/tool/slot participant 的 observer/cleanup 组合、逐关键 Resource 故障或 native `ArrayMesh`/`MultiMesh` 生命周期。
+  - 仍缺（保持开放）：平行 Edge 完整工具矩阵、每类工具状态、renderer/tool/slot 的真实 generation 失配、真实参与者 observer/cleanup 组合以及每个关键 renderer Preflight Resource 故障点仍未完成，因此 `v3-tool-input:2.4` 继续开放。
 
 ## 暂不执行
 
