@@ -11,7 +11,7 @@
 |---|---|---|---|
 | 2.0 | V2 renderer 不理解 self-loop incidence 与固定 loop seam | 开放（部分实现） | closed ribbon、复杂环路与 seam 重定位已验证；继续覆盖缩放/重建和独立平行 Edge 命中/高亮 |
 | 2.1 | `RoadConfig` 没有完整且可验证的四类 RoadType 样式 | 已完成 | 四类 `RoadTypeStyle`、唯一覆盖、严格查询和运行时校验已验证 |
-| 2.2 | 单一全局样式的开放 ribbon 不能形成可命中的混合宽度完整路面 | 开放（部分实现） | 分级批次、六分量 token、同代四类 surface、canonical `RoadLocation`、基础空间索引、Junction Patch、普通 mutation stalled/retry、现有道路事务 admission、deferred continuation 代际失效与预提交资源清理已建立；继续故障/性能矩阵 |
+| 2.2 | 单一全局样式的开放 ribbon 不能形成可命中的混合宽度完整路面 | 开放（部分实现） | 分级批次、六分量 token、同代四类 surface、canonical `RoadLocation`、基础空间索引、Junction Patch、普通 mutation stalled/retry、现有道路事务 admission、deferred continuation 代际失效、真实 `RoadGraph` participant 的 commit-boundary generation 失配与预提交资源清理已建立；renderer/tool/slot 真实 generation 失配、逐关键 Resource 故障、observer/cleanup 组合与完整故障/性能矩阵仍开放 |
 | 2.3 | 混合类型、full reset 和批量改造没有 V3 性能与视觉门禁 | 开放 | 建立 10k 硬门槛、离散延迟指标、token 接管验证和 100k 压测 |
 
 ### 设计覆盖矩阵
@@ -92,7 +92,8 @@
   - Deferred continuation 证据（2026-08-20）：`RoadGeometryDisplaySamplerTests + RoadRendererLifecycleContractTests` 16/16、完整自动化 842/842、双配置 build 0 警告/0 错误；隔离 token 契约在 pending mutation 后同栈启动 Load，验证 admission 先同步发布当前代，Load 后额外两帧仍保持新 lineage 的 matching mesh/surface/token。输入契约继续 PASS；隔离目录已清理，原有 Godot 进程未受影响。当前会话未暴露 Roslyn/Godot MCP 与 DAP，未刷新对应通道。
   - 连续 Load 证据（2026-08-20）：隔离 token 契约在同一真实场景和槽上背靠背完成两次 aggregate Load；第二次 graph facade generation、change sequence 与 render request ID 各精确推进一次，四类 surface primitive 的 hit token 全部等于第二次 desired/presented token。完整自动化保持 843/843、双配置 build 0 警告/0 错误；隔离目录和日志已清理，原有 Godot 进程未受影响。
   - 预提交资源生命周期证据（2026-08-20）：普通 rebuild 只在 mesh/node batch 都挂载后转移所有权，过期或异常路径由 `finally` 清理；资源工厂在构造异常时自清理；Load Preflight 在 plan 接管前失败会回收隐藏资源，未提交 plan 的幂等 `Dispose()` 负责资源与 admission，成功 commit 后不释放表现层资源。renderer 生命周期契约 10/10、完整自动化 846/846、双配置 build 0 警告/0 错误，两个隔离道路运行时契约均 PASS；见 `save-system:BUG-14`。当前会话未暴露 Roslyn/Godot MCP 与 DAP，生命周期故障注入脚本的既有 disposed-object 输出未计作干净 console 门禁。
-  - 仍缺（保持开放）：平行 Edge 仍缺覆盖拆除与改造的完整独立工具矩阵；更新 token 的 renderer 级故障矩阵、真实 generation 失配及每个关键 Load Preflight 故障点仍需协作验证。
+  - 真实 generation 失配证据（2026-08-20）：`PreparedAggregateLoadTests` 9/9 通过受控 commit boundary 使真实 `RoadGraph` participant 的 admission 失效，确认 `LoadPreflightInvalidException` 在任何 reference swap 前返回，graph revision 与辅助计划状态不变，未提交计划清理一次且 admission 释放后 graph 可继续 mutation；完整自动化为 847/847，Debug 与 `ExportRelease` build 均为 0 警告、0 错误。xUnit 宿主无法初始化 Godot native Resource，本证据不覆盖真实 `ArrayMesh`/`MultiMesh` 生命周期。
+  - 仍缺（保持开放）：平行 Edge 仍缺覆盖拆除与改造的完整独立工具矩阵；renderer/tool/slot 的真实 generation 失配、逐关键 Load Preflight Resource 故障、observer/cleanup 组合及更新 token 的 renderer 级故障矩阵仍需协作验证。
 
 <a id="v3-grid-rendering2.3"></a>
 
