@@ -4,13 +4,18 @@ const MAP_SCENE := "res://Scenes/MapTest.tscn"
 const TEST_SLOT_NAME := "Road rendering performance contract"
 const V3_SAVE_FIXTURE := preload("res://tests/godot/v3_save_fixture.gd")
 const DATASET_SIZES: Array[int] = [10_000, 100_000]
-const DATASET_KINDS: Array[String] = ["grid", "junction-dense", "geometry-dense"]
+const DATASET_KINDS: Array[String] = ["grid", "junction-dense", "geometry-dense", "owner-dense"]
 const EDGE_LENGTH := 8.0
 const EDGE_SPACING := 32.0
 const GEOMETRY_DENSE_EDGE_SPACING := 320.0
 const GEOMETRY_DENSE_SEGMENT_LENGTH := 32.0
 const GEOMETRY_DENSE_SEGMENT_COUNT := 8
 const GEOMETRY_DENSE_WAVE_HEIGHT := 12.0
+const OWNER_DENSE_EDGES_PER_CELL := 8
+const OWNER_DENSE_NODES_PER_CELL := 13
+const OWNER_DENSE_CELL_SPACING := 320.0
+const OWNER_HIT_BATCH_COUNT := 20
+const OWNER_HIT_QUERIES_PER_BATCH := 1000
 const FRAME_BUDGET_MS := 16.67
 const CAMERA_SAMPLE_COUNT := 120
 const DYNAMIC_SAMPLE_COUNT := 60
@@ -20,6 +25,7 @@ var save_manager: Node
 var slot_id := ""
 var enforce_budget := false
 var measure_type_change_latency := false
+var measure_owner_hit_latency := false
 var failed_budget_scenarios: Array[String] = []
 var failure_cleanup_started := false
 var dataset_kind := "grid"
@@ -30,10 +36,13 @@ func _initialize() -> void:
 func run() -> void:
 	enforce_budget = OS.get_cmdline_user_args().has("--enforce-budget")
 	measure_type_change_latency = OS.get_cmdline_user_args().has("--measure-type-change")
+	measure_owner_hit_latency = OS.get_cmdline_user_args().has("--measure-owner-hits")
 	dataset_kind = read_requested_dataset_kind()
 	if not require(DATASET_KINDS.has(dataset_kind), "Unknown rendering performance dataset kind: %s" % dataset_kind):
 		return
 	if not require(not measure_type_change_latency or dataset_kind == "grid", "Type-change latency requires the grid dataset"):
+		return
+	if not require(not measure_owner_hit_latency or dataset_kind == "owner-dense", "Owner-hit latency requires the owner-dense dataset"):
 		return
 	var requested_dataset_size := read_requested_dataset_size()
 	var dataset_sizes: Array[int] = DATASET_SIZES.duplicate()
@@ -113,6 +122,10 @@ func run() -> void:
 			edge_count,
 			columns,
 			rows):
+			return
+		if measure_owner_hit_latency and not measure_owner_hit_latencies(
+			renderer,
+			edge_count):
 			return
 
 	if enforce_budget and not failed_budget_scenarios.is_empty():
@@ -297,6 +310,103 @@ func wait_for_current_presentation(
 	fail("%s did not publish a matching presentation" % source)
 	return -1.0
 
+func measure_owner_hit_latencies(renderer: Node, edge_count: int) -> bool:
+	if not require(edge_count >= OWNER_DENSE_EDGES_PER_CELL, "Owner-hit latency requires one complete owner cell"):
+		return false
+	var cell_count := edge_count / OWNER_DENSE_EDGES_PER_CELL
+	var columns := ceili(sqrt(float(cell_count) * 16.0 / 9.0))
+	var rows := ceili(float(cell_count) / float(columns))
+	var cell := owner_dense_cell_position(0, columns, rows)
+	var probes: Array[Dictionary] = [
+		{
+			"kind": "EdgeRibbon",
+			"hint": (owner_dense_node_position(cell, 7) + owner_dense_node_position(cell, 8)) * 0.5,
+			"radius": 8,
+		},
+		{
+			"kind": "TerminalCap",
+			"hint": owner_dense_node_position(cell, 7) + Vector2(-6.0, 0.0),
+			"radius": 12,
+		},
+		{
+			"kind": "SemanticJoin",
+			"hint": owner_dense_node_position(cell, 4),
+			"radius": 24,
+		},
+		{
+			"kind": "JunctionPatch",
+			"hint": owner_dense_node_position(cell, 0),
+			"radius": 48,
+		},
+	]
+	var presented: Dictionary = renderer.GetPresentationState().get("presented", {})
+	for probe: Dictionary in probes:
+		var owner_kind := String(probe.kind)
+		var position_value: Variant = find_owner_hit_position(
+			renderer,
+			probe.hint,
+			owner_kind,
+			int(probe.radius))
+		if position_value == null:
+			return false
+		var position: Vector2 = position_value
+		var initial_hit: Dictionary = renderer.FindRoadSurfaceHit(position, 0.0)
+		var initial_location: Dictionary = initial_hit.get("location", {})
+		if not require(
+			initial_hit.get("ownerKind", "") == owner_kind and
+			initial_hit.get("renderToken", {}) == presented and
+			float(initial_hit.get("surfaceDistance", -1.0)) == 0.0 and
+			not initial_location.is_empty(),
+			"%s query did not preserve its owner, token, distance, and canonical location" % owner_kind):
+			return false
+
+		for _warmup in range(100):
+			renderer.FindRoadSurfaceHit(position, 0.0)
+		var samples: Array[float] = []
+		for _batch in range(OWNER_HIT_BATCH_COUNT):
+			var hit_count := 0
+			var started_us := Time.get_ticks_usec()
+			for _query in range(OWNER_HIT_QUERIES_PER_BATCH):
+				var hit: Dictionary = renderer.FindRoadSurfaceHit(position, 0.0)
+				if hit.get("ownerKind", "") == owner_kind:
+					hit_count += 1
+			var elapsed_ms := float(Time.get_ticks_usec() - started_us) / 1000.0
+			if not require(
+				hit_count == OWNER_HIT_QUERIES_PER_BATCH,
+				"%s query batch returned %d/%d matching owner hits" % [owner_kind, hit_count, OWNER_HIT_QUERIES_PER_BATCH]):
+				return false
+			samples.append(elapsed_ms / float(OWNER_HIT_QUERIES_PER_BATCH))
+
+		print("OWNER_HIT_RESULT %s" % JSON.stringify({
+			"dataset": dataset_kind,
+			"edges": edge_count,
+			"owner_kind": owner_kind,
+			"mean_ms": snappedf(mean(samples), 0.000001),
+			"p95_ms": snappedf(percentile95(samples), 0.000001),
+			"batches": OWNER_HIT_BATCH_COUNT,
+			"queries_per_batch": OWNER_HIT_QUERIES_PER_BATCH,
+			"render_nodes": renderer.GetStaticRenderNodeCount(),
+			"surface_primitives": int(renderer.GetPresentationState().get("surfacePrimitiveCount", -1)),
+		}))
+	return true
+
+func find_owner_hit_position(
+	renderer: Node,
+	hint: Vector2,
+	owner_kind: String,
+	radius: int) -> Variant:
+	var hinted: Dictionary = renderer.FindRoadSurfaceHit(hint, 0.0)
+	if hinted.get("ownerKind", "") == owner_kind:
+		return hint
+	for y in range(-radius, radius + 1):
+		for x in range(-radius, radius + 1):
+			var position := hint + Vector2(x, y)
+			var hit: Dictionary = renderer.FindRoadSurfaceHit(position, 0.0)
+			if hit.get("ownerKind", "") == owner_kind:
+				return position
+	fail("No %s hit was found near %s" % [owner_kind, hint])
+	return null
+
 func capture_render_metrics(renderer: Node) -> Dictionary:
 	return {
 		"render_nodes": renderer.get_child_count(),
@@ -345,6 +455,8 @@ func write_fixture(path: String, edge_count: int, columns: int, rows: int) -> bo
 		return write_junction_dense_fixture(path, edge_count)
 	if dataset_kind == "geometry-dense":
 		return write_geometry_dense_fixture(path, edge_count)
+	if dataset_kind == "owner-dense":
+		return write_owner_dense_fixture(path, edge_count)
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
 		return false
@@ -455,6 +567,8 @@ func junction_arm_offset(arm: int) -> Vector2:
 func first_edge_id_for_dataset(edge_count: int) -> int:
 	if dataset_kind == "junction-dense":
 		return (edge_count / 4) * 5 + 1
+	if dataset_kind == "owner-dense":
+		return (edge_count / OWNER_DENSE_EDGES_PER_CELL) * OWNER_DENSE_NODES_PER_CELL + 1
 	return edge_count * 2 + 1
 
 func write_geometry_dense_fixture(path: String, edge_count: int) -> bool:
@@ -513,6 +627,100 @@ func geometry_dense_point(start: Vector2, point_index: int) -> Dictionary:
 		"x": start.x + float(point_index) * GEOMETRY_DENSE_SEGMENT_LENGTH,
 		"y": start.y + y_offset,
 	}
+
+func write_owner_dense_fixture(path: String, edge_count: int) -> bool:
+	if edge_count <= 0 or edge_count % OWNER_DENSE_EDGES_PER_CELL != 0:
+		return false
+	var cell_count := edge_count / OWNER_DENSE_EDGES_PER_CELL
+	var columns := ceili(sqrt(float(cell_count) * 16.0 / 9.0))
+	var rows := ceili(float(cell_count) / float(columns))
+	var node_count := cell_count * OWNER_DENSE_NODES_PER_CELL
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		return false
+	file.store_string('{"formatFamily":"simple-cities-v3","payloadType":"road-network","schemaVersion":1,"nextID":%d,"nodes":[' % (node_count + edge_count + 1))
+	for cell_index in range(cell_count):
+		var cell := owner_dense_cell_position(cell_index, columns, rows)
+		var first_node_id := cell_index * OWNER_DENSE_NODES_PER_CELL + 1
+		for local_node_index in range(OWNER_DENSE_NODES_PER_CELL):
+			var position := owner_dense_node_position(cell, local_node_index)
+			write_item(file, {
+				"id": first_node_id + local_node_index,
+				"x": position.x,
+				"y": position.y,
+			}, cell_index > 0 or local_node_index > 0)
+	file.store_string('],"edges":[')
+	var endpoint_pairs: Array[Vector2i] = [
+		Vector2i(0, 1),
+		Vector2i(0, 2),
+		Vector2i(0, 3),
+		Vector2i(4, 5),
+		Vector2i(4, 6),
+		Vector2i(7, 8),
+		Vector2i(9, 10),
+		Vector2i(11, 12),
+	]
+	var road_types: Array[String] = [
+		"dirt",
+		"street",
+		"arterial",
+		"dirt",
+		"highway",
+		"street",
+		"arterial",
+		"highway",
+	]
+	for cell_index in range(cell_count):
+		var cell := owner_dense_cell_position(cell_index, columns, rows)
+		var first_node_id := cell_index * OWNER_DENSE_NODES_PER_CELL + 1
+		for local_edge_index in range(OWNER_DENSE_EDGES_PER_CELL):
+			var endpoints := endpoint_pairs[local_edge_index]
+			var start := owner_dense_node_position(cell, endpoints.x)
+			var end := owner_dense_node_position(cell, endpoints.y)
+			var edge_index := cell_index * OWNER_DENSE_EDGES_PER_CELL + local_edge_index
+			write_item(file, {
+				"id": node_count + edge_index + 1,
+				"nodeAID": first_node_id + endpoints.x,
+				"nodeBID": first_node_id + endpoints.y,
+				"roadType": road_types[local_edge_index],
+				"geometry": [{
+					"version": 1,
+					"kind": "line",
+					"start": {"x": start.x, "y": start.y},
+					"end": {"x": end.x, "y": end.y},
+				}],
+			}, edge_index > 0)
+	file.store_string(']}')
+	file.close()
+	print("STAGE manifest-hash-start edges=%d dataset=%s" % [edge_count, dataset_kind])
+	var refreshed: bool = V3_SAVE_FIXTURE.refresh_manifest_payload(slot_id)
+	print("STAGE manifest-hash-done edges=%d dataset=%s" % [edge_count, dataset_kind])
+	return refreshed
+
+func owner_dense_cell_position(cell_index: int, columns: int, rows: int) -> Vector2:
+	var width := float(columns - 1) * OWNER_DENSE_CELL_SPACING
+	var height := float(rows - 1) * OWNER_DENSE_CELL_SPACING
+	return Vector2(
+		float(cell_index % columns) * OWNER_DENSE_CELL_SPACING - width * 0.5,
+		float(cell_index / columns) * OWNER_DENSE_CELL_SPACING - height * 0.5)
+
+func owner_dense_node_position(cell: Vector2, local_node_index: int) -> Vector2:
+	var offsets: Array[Vector2] = [
+		Vector2(0.0, -80.0),
+		Vector2(64.0, -80.0),
+		Vector2(64.0, -64.0),
+		Vector2(-64.0, -80.0),
+		Vector2(0.0, 0.0),
+		Vector2(-32.0, 32.0),
+		Vector2(32.0, 32.0),
+		Vector2(-32.0, 80.0),
+		Vector2(32.0, 80.0),
+		Vector2(-32.0, 128.0),
+		Vector2(32.0, 128.0),
+		Vector2(-32.0, 176.0),
+		Vector2(32.0, 176.0),
+	]
+	return cell + offsets[local_node_index]
 
 func read_requested_dataset_size() -> int:
 	for argument: String in OS.get_cmdline_user_args():
