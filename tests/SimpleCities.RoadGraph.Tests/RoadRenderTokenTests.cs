@@ -27,6 +27,34 @@ public sealed class RoadRenderTokenTests
     }
 
     [Theory]
+    [InlineData(nameof(RoadRenderToken.SceneGeneration))]
+    [InlineData(nameof(RoadRenderToken.GraphFacadeID))]
+    [InlineData(nameof(RoadRenderToken.GraphFacadeGeneration))]
+    [InlineData(nameof(RoadRenderToken.ChangeSequence))]
+    [InlineData(nameof(RoadRenderToken.RoadStyleRevision))]
+    [InlineData(nameof(RoadRenderToken.RenderRequestID))]
+    public void AnyTokenDimensionPerturbationRejectsLateBuildFailure(string component)
+    {
+        var tracker = new RoadPresentationTokenTracker();
+        RoadRenderToken initial = tracker.BindGraph(graphFacadeID: 61, changeSequence: 0);
+        tracker.CommitDesired(initial);
+        RoadRenderToken target = tracker.RequestGraphChange(changeSequence: 1, isFullReset: false);
+        int attempt = tracker.BeginBuildAttempt(target);
+
+        RoadRenderToken stale = Perturb(target, component);
+
+        Assert.NotEqual(target, stale);
+        Assert.Null(tracker.ReportBuildFailure(
+            stale,
+            attempt,
+            new InvalidOperationException($"late {component}")));
+        Assert.False(tracker.IsPresentationStalled);
+        Assert.Null(tracker.CurrentFailure);
+        Assert.Equal(initial, tracker.PresentedToken);
+        Assert.Equal(target, tracker.DesiredToken);
+    }
+
+    [Theory]
     [InlineData(0, 2, 3, 4, 5, 6)]
     [InlineData(1, 0, 3, 4, 5, 6)]
     [InlineData(1, 2, 0, 4, 5, 6)]
@@ -221,4 +249,51 @@ public sealed class RoadRenderTokenTests
         Assert.Equal(first.FacadeID, first.FacadeID);
         Assert.NotEqual(first.FacadeID, second.FacadeID);
     }
+
+    private static RoadRenderToken Perturb(RoadRenderToken token, string component) => component switch
+    {
+        nameof(RoadRenderToken.SceneGeneration) => new(
+            token.SceneGeneration + 1,
+            token.GraphFacadeID,
+            token.GraphFacadeGeneration,
+            token.ChangeSequence,
+            token.RoadStyleRevision,
+            token.RenderRequestID),
+        nameof(RoadRenderToken.GraphFacadeID) => new(
+            token.SceneGeneration,
+            token.GraphFacadeID + 1,
+            token.GraphFacadeGeneration,
+            token.ChangeSequence,
+            token.RoadStyleRevision,
+            token.RenderRequestID),
+        nameof(RoadRenderToken.GraphFacadeGeneration) => new(
+            token.SceneGeneration,
+            token.GraphFacadeID,
+            token.GraphFacadeGeneration + 1,
+            token.ChangeSequence,
+            token.RoadStyleRevision,
+            token.RenderRequestID),
+        nameof(RoadRenderToken.ChangeSequence) => new(
+            token.SceneGeneration,
+            token.GraphFacadeID,
+            token.GraphFacadeGeneration,
+            token.ChangeSequence + 1,
+            token.RoadStyleRevision,
+            token.RenderRequestID),
+        nameof(RoadRenderToken.RoadStyleRevision) => new(
+            token.SceneGeneration,
+            token.GraphFacadeID,
+            token.GraphFacadeGeneration,
+            token.ChangeSequence,
+            token.RoadStyleRevision + 1,
+            token.RenderRequestID),
+        nameof(RoadRenderToken.RenderRequestID) => new(
+            token.SceneGeneration,
+            token.GraphFacadeID,
+            token.GraphFacadeGeneration,
+            token.ChangeSequence,
+            token.RoadStyleRevision,
+            token.RenderRequestID + 1),
+        _ => throw new ArgumentOutOfRangeException(nameof(component), component, "Unknown road render token component."),
+    };
 }
