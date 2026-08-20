@@ -228,6 +228,97 @@ public sealed class RoadRendererLifecycleContractTests
             StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void PreparedPresentationResourcesAreReleasedBeforeOwnershipTransfer()
+    {
+        string rendererSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.cs"));
+        string loadSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.LoadCommit.cs"));
+        string ordinaryBuild = ExtractMethod(
+            rendererSource,
+            "private bool TryRebuildStaticBatches",
+            "private void PublishPresentationStalled");
+        string loadPreflight = ExtractMethod(
+            loadSource,
+            "internal INonThrowingLoadCommitPlan PreflightPreparedLoad",
+            "private bool IsLoadAdmissionCurrent");
+
+        Assert.Contains("bool presentationResourcesTransferred = false;", ordinaryBuild);
+        Assert.Contains("finally", ordinaryBuild);
+        Assert.Contains("if (!presentationResourcesTransferred)", ordinaryBuild);
+        Assert.Contains(
+            "DisposePreparedPresentationResources(roadMesh, nodeBatch);",
+            ordinaryBuild);
+
+        Assert.Contains("ArrayMesh? roadMesh = null;", loadPreflight);
+        Assert.Contains("MultiMesh? nodeBatch = null;", loadPreflight);
+        Assert.Contains("catch", loadPreflight);
+        Assert.Contains(
+            "DisposePreparedPresentationResources(roadMesh, nodeBatch);",
+            loadPreflight);
+    }
+
+    [Fact]
+    public void PresentationResourceFactoriesReleasePartiallyCreatedResources()
+    {
+        string rendererSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.cs"));
+        string loadSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.LoadCommit.cs"));
+        string roadMeshFactory = ExtractMethod(
+            rendererSource,
+            "private static ArrayMesh? CreateRoadMesh",
+            "private static void DisposePreparedPresentationResources");
+        string resourceDisposal = ExtractMethod(
+            rendererSource,
+            "private static void DisposePreparedPresentationResources",
+            "private static MultiMeshInstance2D CreateBatchLayer");
+        string nodeBatchFactory = ExtractMethod(
+            loadSource,
+            "private static MultiMesh CreateNodeBatch",
+            "internal sealed class RoadRendererLoadAdmission");
+
+        Assert.Contains("catch", roadMeshFactory);
+        Assert.Contains("mesh.Dispose();", roadMeshFactory);
+        Assert.Contains("catch", nodeBatchFactory);
+        Assert.Contains("batch.Dispose();", nodeBatchFactory);
+        Assert.Contains("using (var markerMesh", nodeBatchFactory);
+        Assert.Contains("finally", resourceDisposal);
+        Assert.Contains("nodeBatch?.Dispose();", resourceDisposal);
+        Assert.Contains("roadMesh?.Dispose();", resourceDisposal);
+    }
+
+    [Fact]
+    public void LoadCommitPlanReleasesOnlyResourcesThatWereNotCommitted()
+    {
+        string loadSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.LoadCommit.cs"));
+        string plan = ExtractMethod(
+            loadSource,
+            "private sealed class RoadRendererLoadCommitPlan",
+            "private static RoadRendererNodeSurface? CreateNodeSurface");
+
+        int roadTransfer = plan.IndexOf("_owner._roadBatchLayer.Mesh = _roadMesh;", StringComparison.Ordinal);
+        int nodeTransfer = plan.IndexOf(
+            "_owner._nodeBatchLayer.Multimesh = _nodeBatch;",
+            StringComparison.Ordinal);
+        int commit = plan.IndexOf("_committed = true;", StringComparison.Ordinal);
+        int disposedGuard = plan.LastIndexOf("if (_disposed)", StringComparison.Ordinal);
+        int committedGuard = plan.LastIndexOf("if (_completed || _committed)", StringComparison.Ordinal);
+        int release = plan.LastIndexOf(
+            "DisposePreparedPresentationResources(_roadMesh, _nodeBatch);",
+            StringComparison.Ordinal);
+
+        Assert.True(roadTransfer >= 0 && roadTransfer < nodeTransfer);
+        Assert.True(nodeTransfer < commit);
+        Assert.True(commit < disposedGuard);
+        Assert.True(disposedGuard < committedGuard && committedGuard < release);
+        Assert.Contains("_disposed = true;", plan);
+        Assert.Contains("finally", plan[release..]);
+        Assert.Contains("_admission.Dispose();", plan[release..]);
+    }
+
     private static string ExtractMethod(string source, string startMarker, string endMarker)
     {
         int start = source.IndexOf(startMarker, StringComparison.Ordinal);

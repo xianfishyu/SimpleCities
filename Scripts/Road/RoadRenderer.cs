@@ -417,6 +417,9 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
         }
 
         int attemptNumber = _presentationTokens.BeginBuildAttempt(targetToken);
+        ArrayMesh? roadMesh = null;
+        MultiMesh? nodeBatch = null;
+        bool presentationResourcesTransferred = false;
         try
         {
             var settings = new RoadRendererLoadSettings(
@@ -432,12 +435,12 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
                     _edgePoints,
                     _edgeDisplaySpans,
                     _invalidatedDisplayEdgeIDs);
-            ArrayMesh? roadMesh = CreateRoadMesh(
+            roadMesh = CreateRoadMesh(
                 prepared.RoadVertices,
                 prepared.RoadUvs,
                 prepared.RoadColors,
                 prepared.RoadIndices);
-            MultiMesh nodeBatch = CreateNodeBatch(prepared.NodeMarkers);
+            nodeBatch = CreateNodeBatch(prepared.NodeMarkers);
             var surfaceSnapshot = new RoadSurfaceSnapshot(
                 targetToken,
                 prepared.RoadSurface);
@@ -456,6 +459,7 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
             _roadMeshVertexCount = prepared.RoadVertices.Length;
             _roadBatchLayer.Mesh = roadMesh;
             _nodeBatchLayer.Multimesh = nodeBatch;
+            presentationResourcesTransferred = true;
             _presentedSurface = surfaceSnapshot;
             _presentationTokens.CommitDesired(targetToken);
             QueueRedraw();
@@ -470,6 +474,11 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
             if (failure is RoadPresentationFailure currentFailure)
                 PublishPresentationStalled(currentFailure);
             return false;
+        }
+        finally
+        {
+            if (!presentationResourcesTransferred)
+                DisposePreparedPresentationResources(roadMesh, nodeBatch);
         }
     }
 
@@ -1048,8 +1057,30 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
         arrays[(int)Mesh.ArrayType.Color] = colors.ToArray();
         arrays[(int)Mesh.ArrayType.Index] = indices.ToArray();
         var mesh = new ArrayMesh();
-        mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
-        return mesh;
+        try
+        {
+            mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
+            return mesh;
+        }
+        catch
+        {
+            mesh.Dispose();
+            throw;
+        }
+    }
+
+    private static void DisposePreparedPresentationResources(
+        ArrayMesh? roadMesh,
+        MultiMesh? nodeBatch)
+    {
+        try
+        {
+            nodeBatch?.Dispose();
+        }
+        finally
+        {
+            roadMesh?.Dispose();
+        }
     }
 
     private static MultiMeshInstance2D CreateBatchLayer(bool useColors, int zIndex)

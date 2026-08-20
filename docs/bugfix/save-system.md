@@ -449,3 +449,37 @@ manifest 缺少 `schemaVersion`，或只提供大小写错误的 `SchemaVersion`
 - `dotnet test SimpleCities.sln --no-restore`：727/727 在约 2 秒内通过；Debug 与 `ExportRelease` build 均为 0 警告、0 错误；Roslyn compiler/analyzer 为 0 diagnostics。
 - `pause_menu_runtime_contract.gd` 输出 `PASS pause menu runtime contract`；场景取消、退出收敛及后续 Save/Load 路径没有新增错误。日志中的损坏测试槽和缺失 `ToolManager` warning 为契约预期或既有隔离场景输出。
 - 本修复只关闭等待取消竞争，不补齐 `RoadSurfaceSnapshot`、完整 `RoadRenderToken`、第二 saveable 或逐关键资源故障矩阵，因此 `v3-save-system:2.3` 保持开放。
+
+---
+
+<a id="save-system-bug-14"></a>
+## BUG-14：未提交的道路表现资源没有确定性释放
+
+> 修复日期：2026-08-20
+> 影响文件：`Scripts/Road/RoadRenderer.cs`、`Scripts/Road/RoadRenderer.LoadCommit.cs`、`tests/SimpleCities.RoadGraph.Tests/RoadRendererLifecycleContractTests.cs`
+> 关联事项：`v3-save-system:2.3`、`v3-grid-rendering:2.2`
+
+### 症状
+
+普通道路表现构建在创建 `ArrayMesh` 或 `MultiMesh` 后若被更新 token 取代、后续创建失败或交换前抛错，未挂载资源只会离开局部变量；Load Preflight 已创建的隐藏 mesh/node batch 若后续步骤失败，或完整 plan 在 commit 前被取消/失效，原 `RoadRendererLoadCommitPlan.Dispose()` 也只释放 admission。对应 Godot Resource/RID 必须等待托管 GC 才释放，连续失败或取消可在运行期间累积不可见原生资源。
+
+### 根因分析
+
+资源工厂、普通 rebuild 和 Load plan 之间没有明确的所有权转移状态。`CreateRoadMesh()` 与 `CreateNodeBatch()` 在构造中途抛错时不负责清理已经创建的 Godot Resource；`PreflightPreparedLoad()` 在 mesh 创建后继续绑定 token/snapshot/plan，却没有异常回收；未提交 plan 的 `Dispose()` 只归还 renderer admission，没有释放自己持有的 `_roadMesh` 与 `_nodeBatch`。
+
+### 修复方案
+
+普通 `TryRebuildStaticBatches()` 现在在 try 外跟踪两个 prepared resource，只有 mesh/node batch 都挂载到表现层后才标记 ownership transferred；其余返回或异常路径由 `finally` 统一释放。`CreateRoadMesh()` 和 `CreateNodeBatch()` 各自捕获构造中途异常并释放已创建资源，node marker 的 `QuadMesh` 也在赋给 batch 后立即释放局部引用。
+
+Load Preflight 在 plan 成功接管资源前捕获全部后续异常并释放 mesh/node batch。`RoadRendererLoadCommitPlan` 增加幂等 `_disposed` 门禁；未 commit 的 plan 在 `Dispose()` 中先释放隐藏表现资源，再在 `finally` 归还 admission。成功 `CommitReferences()` 后资源已经转交 `MeshInstance2D`/`MultiMeshInstance2D`，plan 的完成或重复释放不再销毁已挂载资源。
+
+### 影响范围
+
+影响普通道路表现失败、Load Preflight 异常及未提交 aggregate plan 的 Godot Resource 生命周期，不改变 V3 payload、RoadGraph、surface 数据、render token 或成功 commit 的可见结果。当前切片只建立资源所有权与清理基线；每个关键 Preflight 故障点、真实 generation 失配及 observer/cleanup 联合矩阵仍由开放路线图继续覆盖。
+
+## BUG-14 验证状态
+
+- `dotnet test tests/SimpleCities.RoadGraph.Tests/SimpleCities.RoadGraph.Tests.csproj --no-restore --filter FullyQualifiedName~RoadRendererLifecycleContractTests`：10/10 通过，锁定普通 build 转交前 cleanup、两个资源工厂的异常自清理、Preflight 异常回收、未提交 plan 释放、重复 Dispose 幂等及成功 commit 后不释放已挂载资源。
+- `dotnet test SimpleCities.sln --no-restore`：846/846 通过；Debug 与 `ExportRelease` build 均为 0 警告、0 错误。
+- 隔离 `APPDATA` 的 `road_renderer_lifecycle_runtime_contract.gd` 与 `road_render_token_runtime_contract.gd` 均输出 PASS；后者验证普通 mutation、stalled/retry 和连续 Load 的成功资源转交保持可用。生命周期故障注入脚本主动移除 renderer 后仍产生其既有的 `RoadBuilder` 查询 disposed renderer 错误，因此不把该脚本记作干净的 editor/DAP 错误通道。
+- 隔离用户目录和日志均已清理，原有 Godot PID `74652` 未受影响。当前会话未暴露 Roslyn CodeLens、Godot MCP 或 DAP，focused semantic diagnostics、editor bridge 与 DAP console 均未记为通过。

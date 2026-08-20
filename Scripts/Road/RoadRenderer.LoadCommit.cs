@@ -53,27 +53,37 @@ public partial class RoadRenderer
             throw new LoadPreflightInvalidException("RoadRenderer resources left the scene before preflight.");
         }
 
-        ArrayMesh? roadMesh = CreateRoadMesh(
-            prepared.RoadVertices,
-            prepared.RoadUvs,
-            prepared.RoadColors,
-            prepared.RoadIndices);
-        MultiMesh nodeBatch = CreateNodeBatch(prepared.NodeMarkers);
-        RoadRenderToken renderToken = _presentationTokens.CreateReservedLoadToken(
-            admission.RenderReservation,
-            targetToken.ChangeSequence);
-        var surfaceSnapshot = new RoadSurfaceSnapshot(
-            renderToken,
-            prepared.RoadSurface);
-        return new RoadRendererLoadCommitPlan(
-            this,
-            admission,
-            prepared,
-            roadMesh,
-            nodeBatch,
-            targetToken,
-            renderToken,
-            surfaceSnapshot);
+        ArrayMesh? roadMesh = null;
+        MultiMesh? nodeBatch = null;
+        try
+        {
+            roadMesh = CreateRoadMesh(
+                prepared.RoadVertices,
+                prepared.RoadUvs,
+                prepared.RoadColors,
+                prepared.RoadIndices);
+            nodeBatch = CreateNodeBatch(prepared.NodeMarkers);
+            RoadRenderToken renderToken = _presentationTokens.CreateReservedLoadToken(
+                admission.RenderReservation,
+                targetToken.ChangeSequence);
+            var surfaceSnapshot = new RoadSurfaceSnapshot(
+                renderToken,
+                prepared.RoadSurface);
+            return new RoadRendererLoadCommitPlan(
+                this,
+                admission,
+                prepared,
+                roadMesh,
+                nodeBatch,
+                targetToken,
+                renderToken,
+                surfaceSnapshot);
+        }
+        catch
+        {
+            DisposePreparedPresentationResources(roadMesh, nodeBatch);
+            throw;
+        }
     }
 
     private bool IsLoadAdmissionCurrent(RoadRendererLoadAdmission admission) =>
@@ -93,22 +103,29 @@ public partial class RoadRenderer
 
     private static MultiMesh CreateNodeBatch(IReadOnlyList<RoadRendererNodeMarker> markers)
     {
-        var batch = new MultiMesh
+        var batch = new MultiMesh();
+        try
         {
-            TransformFormat = MultiMesh.TransformFormatEnum.Transform2D,
-            UseColors = true,
-            Mesh = new QuadMesh { Size = Vector2.One },
-            InstanceCount = markers.Count,
-        };
-        for (int index = 0; index < markers.Count; index++)
-        {
-            RoadRendererNodeMarker marker = markers[index];
-            var transform = new Transform2D(0f, marker.Position)
-                .ScaledLocal(new Vector2(marker.Diameter, marker.Diameter));
-            batch.SetInstanceTransform2D(index, transform);
-            batch.SetInstanceColor(index, marker.Color);
+            batch.TransformFormat = MultiMesh.TransformFormatEnum.Transform2D;
+            batch.UseColors = true;
+            using (var markerMesh = new QuadMesh { Size = Vector2.One })
+                batch.Mesh = markerMesh;
+            batch.InstanceCount = markers.Count;
+            for (int index = 0; index < markers.Count; index++)
+            {
+                RoadRendererNodeMarker marker = markers[index];
+                var transform = new Transform2D(0f, marker.Position)
+                    .ScaledLocal(new Vector2(marker.Diameter, marker.Diameter));
+                batch.SetInstanceTransform2D(index, transform);
+                batch.SetInstanceColor(index, marker.Color);
+            }
+            return batch;
         }
-        return batch;
+        catch
+        {
+            batch.Dispose();
+            throw;
+        }
     }
 
     internal sealed class RoadRendererLoadAdmission : IDisposable
@@ -273,6 +290,7 @@ public partial class RoadRenderer
         private readonly RoadSurfaceSnapshot _targetSurfaceSnapshot;
         private bool _committed;
         private bool _completed;
+        private bool _disposed;
 
         internal RoadRendererLoadCommitPlan(
             RoadRenderer owner,
@@ -296,7 +314,7 @@ public partial class RoadRenderer
 
         public string ParticipantID => "road-presentation";
         public bool IsGenerationCurrent =>
-            !_committed && _owner.IsLoadAdmissionCurrent(_admission);
+            !_disposed && !_committed && _owner.IsLoadAdmissionCurrent(_admission);
 
         public void CommitReferences()
         {
@@ -353,10 +371,19 @@ public partial class RoadRenderer
 
         public void Dispose()
         {
-            if (_completed)
+            if (_disposed)
                 return;
-            if (!_committed)
+            _disposed = true;
+            if (_completed || _committed)
+                return;
+            try
+            {
+                DisposePreparedPresentationResources(_roadMesh, _nodeBatch);
+            }
+            finally
+            {
                 _admission.Dispose();
+            }
         }
     }
 

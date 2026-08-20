@@ -13,7 +13,7 @@
 | 2.1 | `RoadBuilder` 没有与网格策略解耦的类型选择状态 | 已完成 | `SelectedRoadType` 在会话开始冻结并显式提交 |
 | 2.2 | 既有道路没有先选择后提交的类型改造工作流 | 已完成 | 独立 RoadUpgrade 会话、同代 surface 批量选择、取消和单次撤销重做已验证 |
 | 2.3 | 64 项历史曾为每项保留 before/after 完整 JSON | 已完成 | delta/双预算已替换全图字符串，真实 V3 Load 会换 lineage 并清空旧历史/token |
-| 2.4 | 外部 Load 可能让旧图工具状态或旧画面继续接受输入 | 开放（部分实现） | placement/removal/upgrade/history 与 matching indexed 四类 surface/token 已加入 full-reset aggregate，现有玩家道路事务及 deferred 表现 continuation 均服从代际门禁；补齐联合故障矩阵 |
+| 2.4 | 外部 Load 可能让旧图工具状态或旧画面继续接受输入 | 开放（部分实现） | placement/removal/upgrade/history 与 matching indexed 四类 surface/token 已加入 full-reset aggregate，现有玩家道路事务、deferred 表现 continuation 及未提交表现资源均服从失效/清理边界；补齐联合故障矩阵 |
 
 ### 设计覆盖矩阵
 
@@ -21,7 +21,7 @@
 |---|---|---|
 | V3 闭环与类型化编辑 | 三种策略共享闭环草稿和取消生命周期；`RoadBuilder.SelectedRoadType` 默认 `Street`，placement 与独立 RoadUpgrade 会话分别冻结建造/目标类型。RoadUpgrade 的连续与矩形选择消费 current presented surface，并以一条历史提交批量改造 | 2.1～2.2、`v3-road-graph:8.4`～`8.5`、`v3-grid-rendering:2.0`～`2.2`、`v3-ui:1.1`～`1.2` |
 | V3 操作历史存储 | `RoadEditHistory` 只保留可逆 delta 与完整 state token，以 entry/估算字节双预算在提交前 admission；真实 V3 Load 创建新 lineage，full reset 立即清空 undo/redo 并让旧 token 失效 | 2.3、`v3-road-graph:8.5`、`v3-save-system:2.1` |
-| V3 加载生命周期 | `ToolManager` / `RoadBuilder` 已提供 generation-guarded full-reset plan；成功 aggregate 清空 placement/removal/upgrade/history、保留 `CurrentTool` 与 `SelectedRoadType`，并与基础 mesh、带 canonical `RoadLocation` 和不可变空间索引的同源 `EdgeRibbon` + `TerminalCap` + `SemanticJoin` + `JunctionPatch` surface、matching desired/presented render token 一次交换，失败 Load 保留旧会话。placement、拆除、改造与 undo/redo 均复核 current token；renderer deferred 普通重建也由 continuation generation 在同步 flush/reset 后失效。联合故障矩阵尚未完成 | 2.4、`v3-save-system:2.3`、`v3-grid-rendering:2.2`、`v3-road-graph:8.5` |
+| V3 加载生命周期 | `ToolManager` / `RoadBuilder` 已提供 generation-guarded full-reset plan；成功 aggregate 清空 placement/removal/upgrade/history、保留 `CurrentTool` 与 `SelectedRoadType`，并与基础 mesh、带 canonical `RoadLocation` 和不可变空间索引的同源 `EdgeRibbon` + `TerminalCap` + `SemanticJoin` + `JunctionPatch` surface、matching desired/presented render token 一次交换，失败 Load 保留旧会话并释放未转交隐藏表现资源。placement、拆除、改造与 undo/redo 均复核 current token；renderer deferred 普通重建也由 continuation generation 在同步 flush/reset 后失效。联合故障矩阵尚未完成 | 2.4、`v3-save-system:2.3`、`v3-grid-rendering:2.2`、`v3-road-graph:8.5` |
 
 ## 执行顺序
 
@@ -98,7 +98,8 @@
   - 排队 continuation 进展（2026-08-20）：源码复核确认当前生产输入层没有道路事务命令队列，现有玩家图事务入口为 placement、removal、RoadUpgrade 与 undo/redo，均已接管同代 provider/graph 门禁。`RoadRenderer` 的 `CallDeferred` 普通批次重建是唯一真实排队表现 continuation；它现在捕获 `_staticBatchRebuildContinuationGeneration`，同帧 mutation 仍合并，但 Load admission 的同步 flush、full reset、换图、退树和 aggregate commit 都推进 generation，旧 callable 不会消费后续新请求。
   - 排队 continuation 证据（2026-08-20）：renderer/sampler 聚焦组合 16/16、完整自动化 842/842，Debug 与 `ExportRelease` build 均为 0 警告、0 错误。隔离 `APPDATA` 的 `road_render_token_runtime_contract.gd` 在普通 mutation 留下 pending 后同调用栈立即 `StartLoad`，确认 admission 同步发布 current presentation，Load 完成并多经过两帧后旧 callable 未覆盖新 lineage 的 mesh/surface/token；`road_input_strategy_runtime_contract.gd` 继续 PASS。隔离目录已清理，原有 Godot PID 未受影响；当前会话未暴露 Roslyn/Godot MCP 与 DAP，未刷新对应门禁。
   - 连续 Load 证据（2026-08-20）：隔离 token 契约在同一场景和同一槽上连续完成两次 aggregate Load；第二次使用独立 operation token，graph facade generation、change sequence 和 render request ID 再各推进一次，四类 surface 命中均绑定第二次 presented token。完整自动化 843/843、双配置 build 0 警告/0 错误，隔离目录和日志已清理且原有 Godot PID 未受影响；该证据证明 tool/renderer admission 在成功 commit 后可再次建立，不替代各工具状态与故障注入组合。
-  - 仍缺（保持开放）：平行 Edge 完整工具矩阵、每类工具状态与每个关键 renderer Preflight 故障点的联合矩阵，以及 generation 失配和 observer/cleanup 组合仍未完成，因此 `v3-tool-input:2.4` 继续开放。
+  - Preflight 资源清理协作证据（2026-08-20）：renderer 创建中的 `ArrayMesh`/`MultiMesh`、Preflight 在 plan 接管前的异常路径和未提交 plan 均会确定性释放隐藏资源；成功 commit 后 cleanup 不销毁已挂载资源。renderer 生命周期契约 10/10、完整自动化 846/846、双配置 build 0 警告/0 错误，两个隔离道路运行时契约均 PASS；见 `save-system:BUG-14`。该证据只固化协作资源所有权，不替代工具状态组合。
+  - 仍缺（保持开放）：平行 Edge 完整工具矩阵、每类工具状态与每个关键 renderer Preflight 故障点的联合矩阵，以及真实 generation 失配和 observer/cleanup 组合仍未完成，因此 `v3-tool-input:2.4` 继续开放。
 
 ## 暂不执行
 
