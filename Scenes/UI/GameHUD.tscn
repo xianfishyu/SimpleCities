@@ -96,6 +96,148 @@ layout_mode = 2
 text = "查看当前状态，取消建造操作。"
 autowrap_mode = 3
 
+[node name="RoadTypeRow" type="VBoxContainer" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent" unique_id=945732611]
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="RoadTypeLabel" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/RoadTypeRow" unique_id=945732612]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.654902, 0.686275, 0.729412, 1)
+theme_override_font_sizes/font_size = 13
+text = "道路类型"
+
+[node name="RoadTypeSelector" type="HBoxContainer" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/RoadTypeRow" unique_id=945732613]
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="DirtButton" type="Button" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/RoadTypeRow/RoadTypeSelector" unique_id=945732614]
+custom_minimum_size = Vector2(56, 56)
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+focus_mode = 2
+tooltip_text = "土路"
+
+[node name="Swatch" type="ColorRect" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/RoadTypeRow/RoadTypeSelector/DirtButton" unique_id=945732615]
+layout_mode = 0
+offset_left = 22.0
+offset_top = 7.0
+offset_right = 34.0
+offset_bottom = 19.0
+mouse_filter = 2
+color = Color(0.541176, 0.4, 0.321569, 1)
+
+[node name="Label" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/RoadTypeRow/RoadTypeSelector/DirtButton" unique_id=945732616]
+layout_mode = 0
+offset_top = 22.0
+offset_right = 56.0
+offset_bottom = 48.0
+theme_override_font_sizes/font_size = 12
+mouse_filter = 2
+text = "土路"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="StreetButton" type="Button" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/RoadTypeRow/RoadTypeSelector" unique_id=945732617]
+custom_minimum_size = Vector2(56, 56)
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+focus_mode = 2
+button_pressed = true
+tooltip_text = "街道"
+
+[node name="Swatch" type="ColorRect" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/RoadTypeRow/RoadTypeSelector/StreetButton" unique_id=945732618]
+layout_mode = 0
+offset_left = 22.0
+offset_top = 7.0
+offset_right = 34.0
+offset_bottom = 19.0
+mouse_filter = 2
+color = Color(0.376471, 0.447059, 0.486275, 1)
+
+[node name="Label" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/RoadTypeRow/RoadTypeSelector/StreetButton" unique_id=945732619]
+layout_mode = 0
+offset_top = 22.0
+offset_right = 56.0
+offset_bottom = 48.0
+theme_override_font_sizes/font_size = 12
+mouse_filter = 2
+text = "街道"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="ArterialButton" type="Button" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/RoadTypeRow/RoadTypeSelector" unique_id=945732620]
+custom_minimum_size = Vector2(56, 56)
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+focus_mode = 2
+tooltip_text = "主干道"
+
+[node name="Swatch" type="ColorRect" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/RoadTypeRow/RoadTypeSelector/ArterialButton" unique_id=945732621]
+layout_mode = 0
+offset_left = 22.0
+offset_top = 7.0
+offset_right = 34.0
+offset_bottom = 19.0
+mouse_filter = 2
+color = Color(0.843137, 0.662745, 0.156863, 1)
+
+[node name="Label" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/RoadTypeRow/RoadTypeSelector/ArterialButton" unique_id=945732622]
+layout_mode = 0
+offset_top = 22.0
+offset_right = 56.0
+offset_bottom = 48.0
+theme_override_font_sizes/font_size = 12
+mouse_filter = 2
+text = "主干道"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="HighwayButton" type="Button" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/RoadTypeRow/RoadTypeSelector" unique_id=945732623]
+custom_minimum_size = Vector2(56, 56)
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+focus_mode = 2
+tooltip_text = "高速道路"
+
+[node name="Swatch" type="ColorRect" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/RoadTypeRow/RoadTypeSelector/HighwayButton" unique_id=945732624]
+layout_mode = 0
+offset_left = 22.0
+offset_top = 7.0
+offset_right = 34.0
+offset_bottom = 19.0
+mouse_filter = 2
+color = Color(0.784314, 0.294118, 0.227451, 1)
+
+[node name="Label" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/RoadTypeRow/RoadTypeSelector/HighwayButton" unique_id=945732625]
+layout_mode = 0
+offset_top = 22.0
+offset_right = 56.0
+offset_bottom = 48.0
+theme_override_font_sizes/font_size = 12
+mouse_filter = 2
+text = "高速道路"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="RoadTypeStatus" type="Label" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/RoadTypeRow" unique_id=945732626]
+visible = false
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.55, 0.32, 1)
+theme_override_font_sizes/font_size = 12
+text = "道路类型选择不可用。"
+autowrap_mode = 3
+
 [node name="ShortcutRow" type="VBoxContainer" parent="ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent" unique_id=1340706977]
 layout_mode = 2
 

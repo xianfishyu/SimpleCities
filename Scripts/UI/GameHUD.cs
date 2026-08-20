@@ -164,6 +164,12 @@ public partial class GameHUD : CanvasLayer
     {
         _toolContextPanel.Config = Config;
         _toolContextPanel.SetCategory(_constructionDock?.Category);
+        if (_toolManager is not null)
+            _toolContextPanel.ConfigureRoadTypeState(
+                _toolManager.GetSelectedRoadType,
+                _toolManager.SetSelectedRoadType);
+        else
+            _toolContextPanel.ConfigureRoadTypeState(null, null);
         _debugPanel.SetDependencies(_network, Config);
         _pauseMenu.ConfigureSaveManager(
             GodotObject.IsInstanceValid(SaveManager.Instance) ? SaveManager.Instance : null);

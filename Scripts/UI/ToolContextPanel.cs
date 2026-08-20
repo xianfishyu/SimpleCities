@@ -1,4 +1,6 @@
 using Godot;
+using System;
+using System.Collections.Generic;
 
 /// <summary>
 /// 右侧工具上下文面板。根据当前工具和分类资源显示说明，并在窄屏时折叠为可展开入口。
@@ -12,6 +14,23 @@ public partial class ToolContextPanel : PanelContainer
     private const float CompactTop = 148f;
     private const int CompactExpandedMargin = 8;
     private const int ExpandedMargin = 20;
+
+    private static readonly RoadType[] RoadTypeOrder =
+    [
+        RoadType.Dirt,
+        RoadType.Street,
+        RoadType.Arterial,
+        RoadType.Highway,
+    ];
+
+    private static readonly IReadOnlyDictionary<RoadType, RoadTypePresentation> FallbackRoadTypePresentations =
+        new Dictionary<RoadType, RoadTypePresentation>
+        {
+            [RoadType.Dirt] = new("土路", new Color("#8A6652")),
+            [RoadType.Street] = new("街道", new Color("#60727C")),
+            [RoadType.Arterial] = new("主干道", new Color("#D7A928")),
+            [RoadType.Highway] = new("高速道路", new Color("#C84B3A")),
+        };
 
     [Export] public RoadConfig? Config { get; set; }
     [Export] public ConstructionCategoryDefinition? Category { get; set; }
@@ -30,6 +49,18 @@ public partial class ToolContextPanel : PanelContainer
     private Label _cellSizeValue = null!;
     private VBoxContainer _shortcutRow = null!;
     private VBoxContainer _cellSizeRow = null!;
+    private VBoxContainer _roadTypeRow = null!;
+    private HBoxContainer _roadTypeSelector = null!;
+    private Label _roadTypeStatus = null!;
+
+    private readonly Dictionary<RoadType, Button> _roadTypeButtons = new();
+    private readonly List<Action> _roadTypeDisconnectActions = [];
+    private ButtonGroup? _roadTypeButtonGroup;
+    private Func<RoadType>? _selectedRoadTypeGetter;
+    private Func<RoadType, bool>? _selectedRoadTypeSetter;
+    private RoadConfig? _roadTypeStyleConfig;
+    private bool _roadTypeStylesValid;
+    private bool _roadTypeSelectorAvailable;
 
     private bool _compact;
     private bool _compactExpanded;
@@ -48,6 +79,10 @@ public partial class ToolContextPanel : PanelContainer
         _shortcutValue = GetNode<Label>("PanelMargin/Rows/ContextContentScroll/ContextContent/ShortcutRow/ShortcutValue");
         _cellSizeRow = GetNode<VBoxContainer>("PanelMargin/Rows/ContextContentScroll/ContextContent/CellSizeRow");
         _cellSizeValue = GetNode<Label>("PanelMargin/Rows/ContextContentScroll/ContextContent/CellSizeRow/CellSizeValue");
+        _roadTypeRow = GetNode<VBoxContainer>("PanelMargin/Rows/ContextContentScroll/ContextContent/RoadTypeRow");
+        _roadTypeSelector = GetNode<HBoxContainer>("PanelMargin/Rows/ContextContentScroll/ContextContent/RoadTypeRow/RoadTypeSelector");
+        _roadTypeStatus = GetNode<Label>("PanelMargin/Rows/ContextContentScroll/ContextContent/RoadTypeRow/RoadTypeStatus");
+        WireRoadTypeButtons();
         _focusEntryButton.FocusMode = FocusModeEnum.All;
         _focusEntryButton.Pressed += ToggleCompactExpanded;
         UpdateContext(ToolType.Select, Config);
@@ -63,6 +98,10 @@ public partial class ToolContextPanel : PanelContainer
     {
         if (_focusEntryButton != null)
             _focusEntryButton.Pressed -= ToggleCompactExpanded;
+        DisconnectRoadTypeButtons();
+        _roadTypeButtonGroup = null;
+        _selectedRoadTypeGetter = null;
+        _selectedRoadTypeSetter = null;
     }
 
     public NodePath FocusEntryPath => _focusEntryButton.GetPath();
@@ -79,11 +118,38 @@ public partial class ToolContextPanel : PanelContainer
     }
 
     /// <summary>
+    /// 注入共享工具状态的读写委托。面板只编辑 RoadBuilder 的 SelectedRoadType，
+    /// 不直接依赖 RoadGraph 或执行道路命令。
+    /// </summary>
+    public void ConfigureRoadTypeState(
+        Func<RoadType>? getter,
+        Func<RoadType, bool>? setter)
+    {
+        _selectedRoadTypeGetter = getter;
+        _selectedRoadTypeSetter = setter;
+        _roadTypeSelectorAvailable = _roadTypeStylesValid &&
+            _selectedRoadTypeGetter is not null &&
+            _selectedRoadTypeSetter is not null;
+        ApplyRoadTypeAvailability();
+        SyncSelectedRoadTypeButtons();
+    }
+
+    public bool RoadTypeSelectorAvailable => _roadTypeSelectorAvailable;
+
+    public bool RoadTypeSelectorVisible => _roadTypeRow?.Visible == true;
+
+    public NodePath GetRoadTypeButtonPath(RoadType roadType) =>
+        _roadTypeButtons.TryGetValue(roadType, out Button? button)
+            ? button.GetPath()
+            : new NodePath();
+
+    /// <summary>
     /// 同步工具说明。优先使用资源化工具定义；选择和拆除等内置工具则使用底栏提供的后备文案。
     /// </summary>
     public void UpdateContext(ToolType currentTool, RoadConfig? config)
     {
         Config = config;
+        RefreshRoadTypeStylesIfNeeded();
         _shortcutRow.Visible = true;
         _cellSizeRow.Visible = true;
         ConstructionToolDefinition? definition = FindTool(currentTool);
@@ -111,6 +177,8 @@ public partial class ToolContextPanel : PanelContainer
             _shortcutValue.Text = "--";
         }
         _cellSizeValue.Text = Config == null ? "CellSize: unavailable" : $"CellSize: {Config.CellSize:F0}";
+        _roadTypeRow.Visible = currentTool is ToolType.Road or ToolType.RoadUpgrade;
+        SyncSelectedRoadTypeButtons();
     }
 
     /// <summary>非道路分类目前尚未实现时，显示分类名称和明确的不可用状态。</summary>
@@ -121,6 +189,7 @@ public partial class ToolContextPanel : PanelContainer
         _operationValue.Text = "尚未开放";
         _shortcutRow.Visible = false;
         _cellSizeRow.Visible = false;
+        _roadTypeRow.Visible = false;
     }
 
     public void ApplyResponsiveLayout()
@@ -217,6 +286,174 @@ public partial class ToolContextPanel : PanelContainer
 
         return null;
     }
+
+    private void WireRoadTypeButtons()
+    {
+        DisconnectRoadTypeButtons();
+        _roadTypeButtons.Clear();
+        _roadTypeButtonGroup = new ButtonGroup { AllowUnpress = false };
+
+        foreach (RoadType roadType in RoadTypeOrder)
+        {
+            Button button = _roadTypeSelector.GetNode<Button>(GetRoadTypeButtonName(roadType));
+            button.ButtonGroup = _roadTypeButtonGroup;
+            button.ToggleMode = true;
+            button.FocusMode = FocusModeEnum.All;
+            button.MouseDefaultCursorShape = CursorShape.PointingHand;
+            RoadType capturedRoadType = roadType;
+            Action handler = () => OnRoadTypePressed(capturedRoadType);
+            button.Pressed += handler;
+            _roadTypeDisconnectActions.Add(() => button.Pressed -= handler);
+            _roadTypeButtons[roadType] = button;
+        }
+
+        ConfigureRoadTypeFocusNeighbors();
+    }
+
+    private void DisconnectRoadTypeButtons()
+    {
+        foreach (Action disconnect in _roadTypeDisconnectActions)
+            disconnect();
+        _roadTypeDisconnectActions.Clear();
+    }
+
+    private void ConfigureRoadTypeFocusNeighbors()
+    {
+        for (int index = 0; index < RoadTypeOrder.Length; index++)
+        {
+            Button button = _roadTypeButtons[RoadTypeOrder[index]];
+            if (index > 0)
+                button.FocusNeighborLeft = _roadTypeButtons[RoadTypeOrder[index - 1]].GetPath();
+            if (index + 1 < RoadTypeOrder.Length)
+                button.FocusNeighborRight = _roadTypeButtons[RoadTypeOrder[index + 1]].GetPath();
+        }
+    }
+
+    private void RefreshRoadTypeStylesIfNeeded()
+    {
+        if (ReferenceEquals(_roadTypeStyleConfig, Config))
+            return;
+
+        _roadTypeStyleConfig = Config;
+        _roadTypeStylesValid = Config != null && Config.TryValidateRoadTypeStyles(out _);
+        _roadTypeSelectorAvailable = _roadTypeStylesValid &&
+            _selectedRoadTypeGetter is not null &&
+            _selectedRoadTypeSetter is not null;
+
+        foreach (RoadType roadType in RoadTypeOrder)
+        {
+            if (!_roadTypeButtons.TryGetValue(roadType, out Button? button))
+                continue;
+
+            RoadTypePresentation presentation = ResolveRoadTypePresentation(roadType);
+            button.TooltipText = presentation.DisplayName;
+            ColorRect swatch = button.GetNode<ColorRect>("Swatch");
+            swatch.Color = presentation.Color;
+            Label label = button.GetNode<Label>("Label");
+            label.Text = presentation.DisplayName;
+        }
+
+        ApplyRoadTypeAvailability();
+    }
+
+    private void ApplyRoadTypeAvailability()
+    {
+        if (_roadTypeSelector == null || _roadTypeStatus == null)
+            return;
+
+        foreach (Button button in _roadTypeButtons.Values)
+            button.Disabled = !_roadTypeSelectorAvailable;
+
+        _roadTypeStatus.Visible = !_roadTypeStylesValid || !_roadTypeSelectorAvailable;
+        _roadTypeStatus.Text = !_roadTypeStylesValid
+            ? "道路类型样式不可用，选择已禁用。"
+            : "道路类型控制器不可用，选择已禁用。";
+    }
+
+    private RoadTypePresentation ResolveRoadTypePresentation(RoadType roadType)
+    {
+        if (_roadTypeStylesValid && Config?.RoadTypeStyles is not null)
+        {
+            foreach (RoadTypeStyle? style in Config.RoadTypeStyles)
+            {
+                if (style?.RoadType != roadType)
+                    continue;
+
+                string displayName = string.IsNullOrWhiteSpace(style.DisplayName)
+                    ? FallbackRoadTypePresentations[roadType].DisplayName
+                    : style.DisplayName;
+                return new RoadTypePresentation(displayName, style.Color);
+            }
+        }
+
+        return FallbackRoadTypePresentations[roadType];
+    }
+
+    private void OnRoadTypePressed(RoadType roadType)
+    {
+        if (!_roadTypeSelectorAvailable ||
+            _selectedRoadTypeSetter is null ||
+            !RoadTypeContract.IsDefined(roadType) ||
+            !TrySetSelectedRoadType(roadType))
+        {
+            SyncSelectedRoadTypeButtons();
+            return;
+        }
+
+        SyncSelectedRoadTypeButtons();
+    }
+
+    private bool TrySetSelectedRoadType(RoadType roadType)
+    {
+        if (_selectedRoadTypeSetter is null)
+            return false;
+
+        try
+        {
+            return _selectedRoadTypeSetter(roadType);
+        }
+        catch (ObjectDisposedException)
+        {
+            _roadTypeSelectorAvailable = false;
+            ApplyRoadTypeAvailability();
+            return false;
+        }
+    }
+
+    private void SyncSelectedRoadTypeButtons()
+    {
+        if (_roadTypeButtons.Count == 0)
+            return;
+
+        RoadType selectedRoadType = RoadType.Street;
+        if (_selectedRoadTypeGetter is not null)
+        {
+            try
+            {
+                RoadType candidate = _selectedRoadTypeGetter();
+                if (RoadTypeContract.IsDefined(candidate))
+                    selectedRoadType = candidate;
+            }
+            catch (ObjectDisposedException)
+            {
+                _roadTypeSelectorAvailable = false;
+            }
+        }
+
+        foreach (RoadType roadType in RoadTypeOrder)
+            _roadTypeButtons[roadType].ButtonPressed = roadType == selectedRoadType;
+    }
+
+    private static string GetRoadTypeButtonName(RoadType roadType) => roadType switch
+    {
+        RoadType.Dirt => "DirtButton",
+        RoadType.Street => "StreetButton",
+        RoadType.Arterial => "ArterialButton",
+        RoadType.Highway => "HighwayButton",
+        _ => throw new ArgumentOutOfRangeException(nameof(roadType), roadType, "RoadType is not defined."),
+    };
+
+    private readonly record struct RoadTypePresentation(string DisplayName, Color Color);
 
     private static string ResolveShortcutHint(ToolType toolType, string fallback)
     {

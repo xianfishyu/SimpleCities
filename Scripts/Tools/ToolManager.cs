@@ -79,6 +79,13 @@ public partial class ToolManager : Node2D
 
     public bool CanRedoRoadEdit() => _roadBuilder?.CanRedoLastEdit() == true;
 
+    /// <summary>返回道路上下文面板使用的共享 RoadType 状态；缺少场景依赖时保持 Street 后备值。</summary>
+    public RoadType GetSelectedRoadType() => _roadBuilder?.SelectedRoadType ?? RoadType.Street;
+
+    /// <summary>只委托 RoadBuilder 的类型状态门禁，不直接触碰 RoadGraph。</summary>
+    public bool SetSelectedRoadType(RoadType roadType) =>
+        _loadAdmission is null && _roadBuilder?.SetSelectedRoadType(roadType) == true;
+
     public void CancelRoadSessions()
     {
         if (_loadAdmission is not null)
