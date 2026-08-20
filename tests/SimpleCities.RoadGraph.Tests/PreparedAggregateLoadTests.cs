@@ -219,6 +219,62 @@ public sealed class PreparedAggregateLoadTests
     }
 
     [Fact]
+    public void RealRoadGraphObserverFailure_IsolatedAlongsideOtherParticipantCleanupFailures()
+    {
+        var source = new RoadGraph();
+        Assert.True(source.SubmitPolyline(
+            RoadType.Highway,
+            [Vector2.Zero, new Vector2(8f, 0f)]).Success);
+        var target = new RoadGraph();
+        RoadGraph.RoadGraphLoadAdmission admission = target.BeginLoadAdmission();
+        INonThrowingLoadCommitPlan graphPlan = target.PreflightPreparedLoad(
+            admission,
+            source.CaptureRevision(),
+            out _);
+        target.GraphChanged += _ => throw new InvalidOperationException("graph observer failure");
+
+        var state = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["presentation"] = "old",
+            ["slot"] = "old",
+        };
+        var events = new List<string>();
+        string[] participantIDs = ["presentation", "slot"];
+        var presentation = new FakePlan("presentation", state, events, participantIDs)
+        {
+            ThrowDuringCompletion = true,
+        };
+        var slot = new FakePlan("slot", state, events, participantIDs)
+        {
+            ThrowDuringCompletion = true,
+        };
+        using var aggregate = new PreparedAggregateLoad([
+            graphPlan,
+            presentation,
+            slot]);
+
+        IReadOnlyList<string> warnings = aggregate.Commit(
+            new UncoordinatedStorageOperationLease(SaveOperationKind.Load));
+
+        Assert.Equal(RoadType.Highway, Assert.Single(target.GetAllEdges()).RoadType);
+        Assert.All(participantIDs, id => Assert.Equal("new", state[id]));
+        Assert.Equal(3, warnings.Count);
+        Assert.Contains("RoadGraph observer failed", warnings[0], StringComparison.Ordinal);
+        Assert.Contains("participant 'presentation' cleanup failed", warnings[1], StringComparison.Ordinal);
+        Assert.Contains("participant 'slot' cleanup failed", warnings[2], StringComparison.Ordinal);
+        Assert.Equal(
+            [
+                "commit:presentation",
+                "commit:slot",
+                "notify:presentation",
+                "notify:slot",
+                "complete:presentation",
+                "complete:slot",
+            ],
+            events);
+    }
+
+    [Fact]
     public void CleanupFailure_BecomesWarningAndDoesNotStopRemainingCleanup()
     {
         var state = new Dictionary<string, string>(StringComparer.Ordinal)
