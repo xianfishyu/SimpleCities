@@ -20,7 +20,7 @@
 
 ### 修复方案
 
-当时的修复是将 `ConstructionCategoryDefinition.Tools` 改为 Godot 资源数组形态并在 `TryValidate()` 中 fail closed；`ConstructionDock.BuildToolButtons()` 只在 category 通过验证后按 catalog 的 `SortOrder` 创建 live 按钮。当时新增的 Godot headless integration test 启动 actual `MapTest` / `GameHUD` / `ConstructionDock`，断言当时存在的 live `SelectToolButton`、`RoadToolButton`、`RoadRemoveToolButton` 三个按钮和 `ToolScroll` 路径。当前实现已 superseded：Roads 托盘只保留一个 `RoadToolButton` / “城市道路 R”，Select / RoadRemove 为键盘-only 文案。
+当时的修复是将 `ConstructionCategoryDefinition.Tools` 改为 Godot 资源数组形态并在 `TryValidate()` 中 fail closed；`ConstructionDock.BuildToolButtons()` 只在 category 通过验证后按 catalog 的 `SortOrder` 创建 live 按钮。当时新增的 Godot headless integration test 启动 actual `MapTest` / `GameHUD` / `ConstructionDock`，断言当时存在的 live `SelectToolButton`、`RoadToolButton`、`RoadRemoveToolButton` 三个按钮和 `ToolScroll` 路径。当前实现已再次 superseded：Roads 托盘按 catalog 保留 `RoadToolButton` / “城市道路”和 `RoadUpgradeToolButton` / “道路改造”，Select / RoadRemove 仍为键盘-only 文案。
 
 ### 影响范围
 

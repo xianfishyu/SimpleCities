@@ -77,6 +77,7 @@ public partial class ConstructionDock : Control
     private readonly Dictionary<string, Button> _categoryButtons = new(StringComparer.Ordinal);
     private readonly Dictionary<ToolType, Button> _toolButtons = new();
     private readonly Dictionary<ToolType, ConstructionToolDefinition> _toolDefinitions = new();
+    private readonly List<ToolType> _toolOrder = [];
     private readonly List<Action> _disconnectActions = [];
 
     private ToolManager? _toolManager;
@@ -137,6 +138,7 @@ public partial class ConstructionDock : Control
             ClearToolList();
 
         _categoryButtons.Clear();
+        _toolOrder.Clear();
         _toolManager = null;
         _hasSyncedTool = false;
         _lastSyncedTool = default;
@@ -170,8 +172,9 @@ public partial class ConstructionDock : Control
 
     public Control? GetLastDockFocusControl()
     {
-        if (_toolTray.Visible && TryGetActiveToolButton(out Button? activeToolButton))
-            return activeToolButton;
+        if (_toolTray.Visible && _toolOrder.Count > 0 &&
+            _toolButtons.TryGetValue(_toolOrder[^1], out Button? lastToolButton))
+            return lastToolButton;
 
         return _categoryButtons.TryGetValue(Categories[^1].Id, out Button? lastCategory)
             ? lastCategory
@@ -258,7 +261,7 @@ public partial class ConstructionDock : Control
                 GD.PushWarning("ConstructionDock: Category contains an empty tool reference.");
                 continue;
             }
-            if (tool.ToolType == ToolType.Road)
+            if (tool.ToolType is ToolType.Road or ToolType.RoadUpgrade)
                 tools.Add(tool);
         }
         tools.Sort(static (left, right) => left.SortOrder.CompareTo(right.SortOrder));
@@ -308,6 +311,7 @@ public partial class ConstructionDock : Control
         _toolList.AddChild(button);
         _toolButtons[toolType] = button;
         _toolDefinitions[toolType] = tool;
+        _toolOrder.Add(toolType);
     }
 
     /// <summary>为运行时生成的工具/占位按钮补齐图标、标签和分类选中指示器节点。</summary>
@@ -379,6 +383,7 @@ public partial class ConstructionDock : Control
         }
         _toolButtons.Clear();
         _toolDefinitions.Clear();
+        _toolOrder.Clear();
     }
 
     /// <summary>同类再次点击只切换托盘开关；切换分类则重建工具列表并展开托盘。</summary>
@@ -529,27 +534,33 @@ public partial class ConstructionDock : Control
 
         if (previousCategory == null) return;
 
-        if (_toolTray.Visible && TryGetActiveToolButton(out Button? toolButton))
+        if (_toolTray.Visible && _toolOrder.Count > 0)
         {
-            Button activeToolButton = toolButton!;
-            if (!activeToolButton.IsInsideTree()) return;
-            previousCategory.FocusNext = activeToolButton.GetPath();
-            activeToolButton.FocusPrevious = previousCategory.GetPath();
-            activeToolButton.FocusNext = _contextFocusPath;
+            Button? previousToolButton = null;
+            foreach (ToolType toolType in _toolOrder)
+            {
+                if (!_toolButtons.TryGetValue(toolType, out Button? toolButton) || !toolButton.IsInsideTree())
+                    return;
+
+                toolButton.FocusPrevious = previousToolButton?.GetPath() ?? previousCategory.GetPath();
+                if (previousToolButton != null)
+                {
+                    previousToolButton.FocusNext = toolButton.GetPath();
+                    previousToolButton.FocusNeighborRight = toolButton.GetPath();
+                    toolButton.FocusNeighborLeft = previousToolButton.GetPath();
+                }
+
+                previousToolButton = toolButton;
+            }
+
+            if (previousToolButton == null) return;
+            previousCategory.FocusNext = _toolButtons[_toolOrder[0]].GetPath();
+            previousToolButton.FocusNext = _contextFocusPath;
         }
         else
         {
             previousCategory.FocusNext = _contextFocusPath;
         }
-    }
-
-    private bool TryGetActiveToolButton(out Button? button)
-    {
-        if (_activeCategoryId == RoadsCategoryId && _toolButtons.TryGetValue(ToolType.Road, out button))
-            return true;
-
-        button = null;
-        return false;
     }
 
     private void NotifyContextDisplay()
@@ -590,6 +601,7 @@ public partial class ConstructionDock : Control
     private static string ToolNodeName(ToolType toolType) => toolType switch
     {
         ToolType.Road => "RoadToolButton",
+        ToolType.RoadUpgrade => "RoadUpgradeToolButton",
         _ => $"{toolType}ToolButton",
     };
 }

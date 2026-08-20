@@ -10,7 +10,7 @@
 | ID | 发现 | 当前状态 | 处置方式 |
 |---|---|---|---|
 | 1.1 | 道路上下文没有 RoadType 选择控件 | 已完成 | 四段式名称与颜色 swatch 选择器写入共享 tool state |
-| 1.2 | ConstructionDock 没有道路改造工具呈现 | 开放 | 资源化 RoadUpgrade 工具、选中态和上下文联动 |
+| 1.2 | ConstructionDock 没有道路改造工具呈现 | 已完成 | Road/RoadUpgrade 资源化双工具、T 动作、选中态和稳定焦点链已验证 |
 | 1.3 | DebugPanel 仍把 RoadGroup 数量作为路网指标 | 开放 | 移除 Group 指标，展示 canonical Node/Edge/geometry/self-loop 结构量 |
 | 1.4 | 暂停菜单没有异步 Save/Load/Delete 的独占状态机 | 开放（部分实现） | operation/render token、generation、busy、Escape、退出收敛、indexed 四类 surface 与拆除 admission 已接入；补齐其余工具/命令与结果矩阵 |
 
@@ -19,8 +19,8 @@
 | 设计范围 | 当前事实 | 关联待办 |
 |---|---|---|
 | 命令中心基线 | ConstructionDock、ToolContextPanel、DebugPanel 和 PauseMenu 已有响应式布局、焦点链和运行时契约 | 已解决基线 |
-| V3 类型建造 | `RoadBuilder` 提供默认 `Street` 的 `SelectedRoadType` 与会话冻结；ToolContextPanel 已在 Road/RoadUpgrade 上下文显示四段式样式选择器，通过 ToolManager 委托写回共享状态 | `v3-tool-input:2.1`（选择/冻结基线已完成）；RoadUpgrade 呈现仍见 1.2 |
-| V3 既有道路改造 | `ToolType.RoadUpgrade` 与独立输入生命周期已实现；catalog、图标、按钮、快捷键和上下文联动尚未接入，ConstructionDock 仍只渲染 Road 工具定义 | 1.2、`v3-tool-input:2.2` |
+| V3 类型建造 | `RoadBuilder` 提供默认 `Street` 的 `SelectedRoadType` 与会话冻结；ToolContextPanel 已在 Road/RoadUpgrade 上下文显示四段式样式选择器，通过 ToolManager 委托写回共享状态 | `v3-tool-input:2.1`、1.1～1.2（均已完成） |
+| V3 既有道路改造 | `ToolType.RoadUpgrade` 与独立输入生命周期已实现；Roads catalog 以独立图标和 T 动作呈现 RoadUpgrade，ConstructionDock 与 ToolManager 双向同步选中态和上下文 | 1.2、`v3-tool-input:2.2`（均已完成） |
 | V3 规范存储诊断 | DebugPanel 仍读取 `GetAllGroups()`，无法观察 Edge 压缩、原生几何数量或 self-loop | 1.3、`v3-road-graph:8.2`～`8.5` |
 | V3 异步存档体验 | PauseMenu 已消费结构化 operation state/result，按 token、menu/scene generation 过滤 continuation，busy 时禁用冲突入口并让 Escape 只请求一次取消；退出流程会 drain/shutdown。Load 已联合发布基础 mesh、带 canonical `RoadLocation` 和不可变空间索引的 `EdgeRibbon` + `TerminalCap` + `SemanticJoin` + `JunctionPatch` surface 与 matching `RoadRenderToken` acknowledgment；普通 mutation 的 renderer provider 在 pending/stalled 时拒绝 hit，拆除与 RoadUpgrade 命令已消费该门禁，其余道路命令尚未接入 | 1.4、`v3-save-system:2.3`、`v3-tool-input:2.4`、`v3-grid-rendering:2.2` |
 
@@ -42,13 +42,17 @@
 
 <a id="v3-ui1.2"></a>
 
-- [ ] **1.2 在道路分类中呈现并同步 RoadUpgrade 工具**
-  - 当前问题：输入层已有稳定的 `ToolType.RoadUpgrade = 3` 和独立改造生命周期，但 `ConstructionDock.RenderRoadsMenu` 只接受 `ToolType.Road`，内置展示只覆盖 Select 和 RoadRemove，无法资源化呈现改造工具或同步选中态。
+- [x] **1.2 在道路分类中呈现并同步 RoadUpgrade 工具**
+  - 完成前问题：输入层已有稳定的 `ToolType.RoadUpgrade = 3` 和独立改造生命周期，但 `ConstructionDock.RenderRoadsMenu` 只接受 `ToolType.Road`，内置展示只覆盖 Select 和 RoadRemove，无法资源化呈现改造工具或同步选中态。
   - 修改：扩展道路 catalog 和 dock 渲染规则，使“城市道路”和“道路改造”作为两个稳定工具项显示；改造工具使用独立图标、tooltip、焦点节点和 `ToolType.RoadUpgrade`，与 GameHUD / ToolManager 实际状态双向同步。切出工具时 UI 只触发输入层取消，不自行提交改造。
   - 依赖：`v3-tool-input:2.2`、`v3-ui:1.1`。
   - 集成负责人：`v3-ui`；端到端完成判定由 `v3-road-graph:8.6` 负责。
   - 验证：catalog 唯一 ID、排序、图标资源、选中态、分类展开/折叠、焦点循环、快捷动作显示、工具切换取消预览、场景生命周期和三档视口运行时契约。
   - 验收：玩家可从道路分类进入建造或改造并明确看到目标类型；工具显示、ToolManager 状态和输入会话始终一致。
+  - 完成证据（2026-08-20）：`RoadsConstructionCategory.tres` 按 `SortOrder` 依次资源化 `city-road` 与 `road-upgrade`，后者使用独立 `construction-road-upgrade.svg`、中文标签、说明和 `ToolType.RoadUpgrade`。catalog 运行时校验拒绝重复 ID、ToolType 和 SortOrder；`ConstructionDock` 生成 `RoadToolButton` / `RoadUpgradeToolButton`，保持互斥选中态及“景观分类 -> 城市道路 -> 道路改造 -> 工具上下文”的稳定焦点链。按钮和 HUD 只设置 `ToolManager.CurrentTool`，切出铺路工具由既有输入生命周期取消未提交预览。
+  - 输入兼容（2026-08-20）：`InputBindingManager` 与 `project.godot` 新增默认 T 的 `tool_upgrade`。加载旧 `input_bindings.cfg` 时先保留所有已有绑定；T 未占用才补默认值，若旧动作已占用 T，则保留旧动作并让 RoadUpgrade 暂时显示“未绑定”，不会覆盖玩家配置。
+  - 验证证据（2026-08-20）：相关 C# 契约 25/25、完整 solution 自动化 839/839；Debug 与 `ExportRelease` build 均为 0 警告、0 错误。`roads_construction_category_contract.gd` 和 `command_center_runtime_contract.gd` 均输出 PASS；后者覆盖双工具按钮、鼠标/T 动作切换、选中态、上下文、取消铺路预览、HUD 重入、分类展开/折叠、焦点链，以及 1600x900、640x480、435x480 的边界与不重叠。1600x900 OpenGL 实际截图复核确认双工具居中、互不重叠，独立图标、中文标签、RoadUpgrade 选中态、T 提示和 RoadType 上下文同时可见。
+  - 验证限制：本会话未暴露 Roslyn/Godot MCP 与 DAP 工具，未把这些门禁记为本轮通过；headless editor 仍有既有 main-scene UID 提前解析和 MCP 6550 端口占用环境噪声。
 
 <a id="v3-ui1.3"></a>
 
@@ -72,7 +76,7 @@
   - 阶段进展（2026-08-14）：PauseMenu 已改用 `StartSave/StartSaveAs/StartLoad/StartDeleteSlot`，订阅不可变 state/result，并以 `OperationToken + MenuOpenGeneration + SceneGeneration` 拒绝旧 continuation。操作期间保存控件、确认入口和视图切换被禁用；Escape 在 commit 前只发送一次取消，越界后只消费输入。Load 只有 matching 成功结果才关闭菜单，失败/取消保留原菜单；Delete 继续绑定 UI generation、occupant digest 与确认 token。`AutosaveController` 独立统计 success/failure/canceled/skipped-busy。
   - 退出与焦点进展（2026-08-14）：返回主菜单先进入 exit-convergence 状态、等待当前 scene operation drain，再切换场景；窗口关闭、暂停菜单和 MainMenu 退出统一由 `SaveManager` shutdown。所有 deferred focus 通过执行时有效性门禁，旧菜单离树后不会操作失效控件。对应已验证修复记录见 `save-system:BUG-12` 与 `ui:BUG-16`。
   - 当前证据（2026-08-15）：`PauseMenuContractTests`、`AutosaveContractTests`、`SaveOperationCoordinatorTests`、renderer token/surface/preparer 契约、RoadUpgrade 聚焦组合 17/17、拆除/history 聚焦组合 51/51、类型化建造聚焦组合 60/60 与完整 833/833 自动化通过；scene-style drain 回归继续覆盖等待 gate 的请求与外部取消竞争。四类 surface 与 matching token 可由 Load worker 预建；`road_input_strategy_runtime_contract.gd` 还验证改造目标冻结、连续/矩形选择、NoChanges、旧 token、semantic boundary 合并和 active upgrade 上的 full-reset Load。Debug/`ExportRelease` build 均为 0 错误，各有 1 条既有 `NU1900`；Roslyn/GDScript diagnostics 为 0，editor 无新增错误且 DAP `stderr`/`console` 为空。测试槽、隔离目录和日志已清理，本轮未重跑 10k/100k。
-  - 仍缺（保持开放）：renderer 已具备四类 surface 和 provider 级 stalled/retry 门禁，拆除与 RoadUpgrade 工具也已执行完整 token/graph admission，类型化建造和 RoadType 选择器已有共享状态 UI；RoadUpgrade 的 catalog、图标、按钮、快捷键和上下文联动、排队 continuation、类型化建造的表现门禁与其余道路命令尚未接入，因此仍不能展示最终的 graph/tool/mesh/surface 一次接管语义。observer/cleanup 每类 warning、所有阶段重复激活与真实关键资源故障矩阵也尚未全部验收。
+  - 仍缺（保持开放）：renderer 已具备四类 surface 和 provider 级 stalled/retry 门禁，拆除与 RoadUpgrade 工具也已执行完整 token/graph admission，类型化建造、RoadType 选择器和 RoadUpgrade 双工具入口已有共享状态 UI；排队 continuation、类型化建造的表现门禁与其余道路命令尚未接入，因此仍不能展示最终的 graph/tool/mesh/surface 一次接管语义。observer/cleanup 每类 warning、所有阶段重复激活与真实关键资源故障矩阵也尚未全部验收。
 
 ## 暂不执行
 
@@ -89,6 +93,7 @@
 - [x] **GameHUD 统一路由工具、暂停和撤销重做动作。** 子控件不得绕过 ToolManager 或 RoadEditHistory 写图。
 - [x] **命令中心已验证 1600x900、640x480 和 435x480。** 新 RoadType 控件和第二个道路工具必须保留这些视口门禁。
 - [x] **RoadType 选择器已接入共享工具状态。** `ToolContextPanel` 只通过 `ToolManager.GetSelectedRoadType/SetSelectedRoadType` 读写 `RoadBuilder.SelectedRoadType`；Road/RoadUpgrade 共用选择，切换工具保留选择，新 `MapTest` 实例恢复 `Street`，无效样式不会提交类型。
+- [x] **RoadUpgrade 已作为第二个资源化道路工具接入命令中心。** 独立图标、默认 T 动作、旧配置迁移、互斥选中态、catalog 上下文和稳定焦点链均有 C# 与 Godot 契约；UI 不直接提交道路改造。
 
 ## 完成标准
 

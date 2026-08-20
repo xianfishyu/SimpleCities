@@ -22,6 +22,7 @@ public partial class InputBindingManager : Node
     public const string ToolSelectAction = "tool_select";
     public const string ToolRoadAction = "tool_road";
     public const string ToolRemoveAction = "tool_remove";
+    public const string ToolUpgradeAction = "tool_upgrade";
     public const string EditUndoAction = "edit_undo";
     public const string EditRedoAction = "edit_redo";
     public const string PauseMenuAction = "pause_menu";
@@ -38,6 +39,7 @@ public partial class InputBindingManager : Node
         new(ToolSelectAction, "选择工具", "工具", Key.Q, ToolType.Select),
         new(ToolRoadAction, "铺路工具", "工具", Key.R, ToolType.Road),
         new(ToolRemoveAction, "拆路工具", "工具", Key.E, ToolType.RoadRemove),
+        new(ToolUpgradeAction, "道路改造工具", "工具", Key.T, ToolType.RoadUpgrade),
         new(EditUndoAction, "撤销道路编辑", "编辑", Key.Z),
         new(EditRedoAction, "重做道路编辑", "编辑", Key.Y),
         new(PauseMenuAction, "暂停菜单", "系统", Key.Escape),
@@ -245,18 +247,15 @@ public partial class InputBindingManager : Node
             return;
         }
 
-        var candidateKeys = new Dictionary<string, Key>(StringComparer.Ordinal);
+        var storedKeys = new Dictionary<string, Key>(StringComparer.Ordinal);
         foreach (BindingDefinition definition in BindingCatalog)
         {
-            Key key = definition.DefaultKey;
             if (config.HasSectionKey(ConfigSection, definition.ActionName))
-                key = (Key)config.GetValue(ConfigSection, definition.ActionName).AsInt64();
-            candidateKeys[definition.ActionName] = key;
+                storedKeys[definition.ActionName] =
+                    (Key)config.GetValue(ConfigSection, definition.ActionName).AsInt64();
         }
 
-        bool invalid = candidateKeys.Values.Any(key => !IsBindableKey(key));
-        bool duplicated = candidateKeys.Values.Distinct().Count() != candidateKeys.Count;
-        if (invalid || duplicated)
+        if (!TryResolveStoredBindings(storedKeys, out Dictionary<string, Key> candidateKeys))
         {
             GD.PushWarning("InputBindingManager: saved bindings are invalid or duplicated; defaults remain active.");
             return;
@@ -264,6 +263,38 @@ public partial class InputBindingManager : Node
 
         foreach (BindingDefinition definition in BindingCatalog)
             ApplyBinding(definition, candidateKeys[definition.ActionName]);
+    }
+
+    internal static bool TryResolveStoredBindings(
+        IReadOnlyDictionary<string, Key> storedKeys,
+        out Dictionary<string, Key> candidateKeys)
+    {
+        candidateKeys = new Dictionary<string, Key>(StringComparer.Ordinal);
+        var occupiedKeys = new HashSet<Key>();
+
+        // Resolve persisted actions first so a newly added default never displaces a user's old binding.
+        foreach (BindingDefinition definition in BindingCatalog)
+        {
+            if (!storedKeys.TryGetValue(definition.ActionName, out Key key))
+                continue;
+
+            if (key != Key.None && (!IsBindableKey(key) || !occupiedKeys.Add(key)))
+                return false;
+
+            candidateKeys[definition.ActionName] = key;
+        }
+
+        foreach (BindingDefinition definition in BindingCatalog)
+        {
+            if (candidateKeys.ContainsKey(definition.ActionName))
+                continue;
+
+            candidateKeys[definition.ActionName] = occupiedKeys.Add(definition.DefaultKey)
+                ? definition.DefaultKey
+                : Key.None;
+        }
+
+        return true;
     }
 
     private bool SaveBindings(out string error)

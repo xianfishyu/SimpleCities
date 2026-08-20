@@ -15,12 +15,12 @@ public sealed class ConstructionCategoryDefinitionTests
     }
 
     [Fact]
-    public void TryValidate_CityRoadOnlyCatalog_ReturnsTrue()
+    public void TryValidate_RoadAndUpgradeCatalog_ReturnsTrue()
     {
         Assert.True(ConstructionCategoryDefinition.TryValidate(
             "roads",
             "道路",
-            ["city-road"],
+            ["city-road", "road-upgrade"],
             out string error), error);
     }
 

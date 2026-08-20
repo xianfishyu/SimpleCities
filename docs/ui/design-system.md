@@ -14,7 +14,7 @@ Current live build scope:
 | --- | --- |
 | ConstructionDock | Full-width, bottom-flush K dock with 76px collapsed height and 140px expanded height |
 | Category tabs | Five enabled and focusable tabs: `道路`, `区域`, `公共设施`, `交通`, `景观` |
-| Roads asset | One enabled, focusable asset named `城市道路`, mapped to `ToolType.Road` |
+| Roads assets | Two enabled, focusable assets named `城市道路` and `道路改造`, mapped to `ToolType.Road` and `ToolType.RoadUpgrade` |
 | Future assets | Disabled, non-focusable placeholders only. They show `尚未开放` and have no gameplay side effects |
 | Debug, System, Context | Preserve existing scene ownership, theme boundary, placement, behavior, and command-center amber/shared tokens |
 
@@ -83,7 +83,7 @@ Use at most two font families: one UI sans family and one mono family. The UI sa
 | Caption | 12 | 400 | 16 | DebugPanel labels and timestamps |
 | Mono data | 12 | 500 | 16 | FPS, graph counts, coordinates |
 
-ConstructionDock category labels are exact CJK strings: `道路`, `区域`, `公共设施`, `交通`, `景观`. The Roads asset label is `城市道路`. Future placeholder tooltip text is `尚未开放`. No label may be replaced by an emoji, English enum, or icon-only affordance in the player path. CJK text must not clip at 1600x900, 640x480, or 435x480.
+ConstructionDock category labels are exact CJK strings: `道路`, `区域`, `公共设施`, `交通`, `景观`. The Roads asset labels are `城市道路` and `道路改造`. Future placeholder tooltip text is `尚未开放`. No label may be replaced by an emoji, English enum, or icon-only affordance in the player path. CJK text must not clip at 1600x900, 640x480, or 435x480.
 
 ## 4. Spacing and layout
 
@@ -142,7 +142,7 @@ Lifecycle rules:
 | Moment | Required behavior |
 | --- | --- |
 | `_EnterTree()` | Resolve nodes, validate category resources, build category buttons, render active menu, sync with ToolManager, apply layout |
-| `_Process()` | Sync selected presentation with `ToolManager`, including changes from the dock or configurable Q/R/E actions |
+| `_Process()` | Sync selected presentation with `ToolManager`, including changes from the dock or configurable Q/R/E/T actions |
 | Resize notification | Reapply dock layout and preserve 76/140 height truth |
 | `_ExitTree()` or reentry | Disconnect signals, clear runtime tool buttons, clear dictionaries, reset active state safely |
 
@@ -174,11 +174,12 @@ Five category tabs are always enabled and focusable:
 | Transit | `交通` | `res://Assets/UI/Icons/construction-transit.svg` | Enabled tab, shows future disabled assets |
 | Landscaping | `景观` | `res://Assets/UI/Icons/construction-landscaping.svg` | Enabled tab, shows future disabled assets |
 
-Roads exposes exactly one enabled, focusable asset:
+Roads exposes exactly two enabled, focusable assets in stable catalog order:
 
 | Asset | Label | Production icon | Tool mapping | Description |
 | --- | --- | --- | --- | --- |
 | City road | `城市道路` | `res://Assets/UI/Icons/construction-road.svg` | `ToolType.Road` | `拖拽铺设道路。` |
+| Road upgrade | `道路改造` | `res://Assets/UI/Icons/construction-road-upgrade.svg` | `ToolType.RoadUpgrade` | `选择已有道路并改造类型。` |
 
 Future categories expose disabled, non-focusable placeholders only:
 
@@ -198,12 +199,13 @@ Production SVGs are original 32x32, monochrome, 2px rounded-stroke assets under 
 | Icon | Required geometry semantics |
 | --- | --- |
 | `construction-road.svg` | Vertical two-line road with short center lane marks |
+| `construction-road-upgrade.svg` | Vertical road frame with an upward upgrade arrow and two crossbars |
 | `construction-zoning.svg` | Four staggered parcel rectangles with uneven positions and sizes |
 | `construction-facilities.svg` | Square municipal facility mark with a plus sign |
 | `construction-transit.svg` | Lightweight T network with four identical ordinary stations, each `r=2.0`; the station at `(16,10)` is not a hub, has no inner ring, no larger radius, no special color, and no special line width |
 | `construction-landscaping.svg` | Simple tree crown and trunk mark |
 
-The approved concept K described these semantics, but the concept SVG remains historical and documentation-only. Runtime icon ownership is in scene/resource data: category textures are serialized in `Scenes/UI/ConstructionDock.tscn`, and the `城市道路` asset texture is serialized in `Scenes/UI/RoadsConstructionCategory.tres` through `ConstructionToolDefinition.Icon`.
+The approved concept K described these semantics, but the concept SVG remains historical and documentation-only. Runtime icon ownership is in scene/resource data: category textures are serialized in `Scenes/UI/ConstructionDock.tscn`, and the `城市道路` / `道路改造` asset textures are serialized in `Scenes/UI/RoadsConstructionCategory.tres` through `ConstructionToolDefinition.Icon`.
 
 ### 5.5 ContextPanel, PauseMenu, and DebugPanel boundary
 
@@ -224,8 +226,9 @@ Category behavior:
 | Select inactive category | Switch active category and open the asset strip |
 | Select active category again | Collapse or reopen the asset strip by repeat action |
 | Select `城市道路` | Set `ToolType.Road` |
+| Select `道路改造` | Set `ToolType.RoadUpgrade` |
 | Press the current `pause_menu` binding (default Esc) | Open PauseMenu and preserve the current tool |
-| Press the current `tool_select` / `tool_road` / `tool_remove` binding (default Q/R/E) | Set Select, Road, or RoadRemove while no modal is active |
+| Press the current `tool_select` / `tool_road` / `tool_remove` / `tool_upgrade` binding (default Q/R/E/T) | Set Select, Road, RoadRemove, or RoadUpgrade while no modal is active |
 | Programmatic RoadRemove | Still supported outside the visible Roads asset list |
 
 Focus order starts with the five category buttons, then moves to enabled assets in the current strip, then to ContextPanel and DebugPanel according to configured focus paths. Disabled future placeholders are not focusable and are skipped in forward and reverse focus traversal. PauseMenu temporarily owns focus while modal, then restores the previously focused valid control on close. Focus must remain visible separately from selected, hover, and disabled states.

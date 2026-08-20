@@ -151,7 +151,7 @@
 | 成员 | 签名 | 说明 |
 |---|---|---|
 | `Instance` | `public static InputBindingManager Instance { get; private set; }` | Autoload 单例 |
-| `Definitions` | `public static IReadOnlyList<BindingDefinition> Definitions` | WASD、Q/R/E、Z/Y 编辑和暂停动作目录 |
+| `Definitions` | `public static IReadOnlyList<BindingDefinition> Definitions` | WASD、Q/R/E/T 工具、Z/Y 编辑和暂停动作目录 |
 | `EditUndoAction` / `EditRedoAction` | `"edit_undo"` / `"edit_redo"` | 默认 Z/Y 的道路编辑撤销与重做动作名 |
 | `EventMatchesAction` | `public bool EventMatchesAction(InputEvent inputEvent, string actionName)` | 以当前物理键绑定匹配真实输入 |
 | `TryGetToolForEvent` | `public bool TryGetToolForEvent(InputEvent inputEvent, out ToolType tool)` | 把当前工具动作映射为 `ToolType` |
@@ -369,7 +369,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `Arterial` | `"arterial"` | 主干道 |
 | `Highway` | `"highway"` | 高速道路 |
 
-`RoadTypeContract` 严格校验这四个值并执行大小写敏感 token 映射。不同类型相邻 Edge 保留 semantic-boundary Node；`ChangeRoadType` 可能让边界消失并触发 canonical merge。当前领域、存档和铺路会话已支持四类，类型选择 UI 与 RoadUpgrade 工具仍属 Phase 7。
+`RoadTypeContract` 严格校验这四个值并执行大小写敏感 token 映射。不同类型相邻 Edge 保留 semantic-boundary Node；`ChangeRoadType` 可能让边界消失并触发 canonical merge。当前领域、存档、铺路会话、RoadUpgrade 工具和 Road/RoadUpgrade 共用的类型选择 UI 均已支持四类。
 
 ### SpatialIndex
 
@@ -704,6 +704,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 | `Select` | 选择/空工具 |
 | `Road` | 铺路工具 |
 | `RoadRemove` | 拆路工具 |
+| `RoadUpgrade` | 既有道路类型改造工具 |
 
 ### ToolManager
 
@@ -721,7 +722,7 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 
 | 输入 | 行为 |
 |---|---|
-| 当前 `tool_select` / `tool_road` / `tool_remove` 绑定（默认 Q/R/E） | `GameHUD` 切换 `CurrentTool`；`ToolManager` 不解析按键 |
+| 当前 `tool_select` / `tool_road` / `tool_remove` / `tool_upgrade` 绑定（默认 Q/R/E/T） | `GameHUD` 切换 `CurrentTool`；`ToolManager` 不解析按键 |
 | 当前 `edit_undo` / `edit_redo` 绑定（默认 Z/Y） | `GameHUD` 调用 `ToolManager.UndoRoadEdit()` / `RedoRoadEdit()`；工具选择不变 |
 | 当前 `pause_menu` 绑定（默认 Escape） | 不改变工具；由 `GameHUD` 打开暂停菜单 |
 | 当前工具为 `Road` | 转发到 `RoadBuilder.HandlePlaceInput(@event)` |
@@ -747,8 +748,9 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 |---|---|---|
 | 当前暂停绑定 / 默认 Esc | `GameHUD._Input()` 打开 `PauseMenu` | 暂停场景树且保留当前工具；再次按当前绑定或“继续游戏”恢复 |
 | 当前编辑绑定 / 默认 Z/Y | `GameHUD._Input()` 调用 `ToolManager.UndoRoadEdit()` / `RedoRoadEdit()` | 仅在暂停菜单和模态 UI 关闭时处理；不切换当前工具 |
-| 当前工具绑定 / 默认 Q/R/E | `GameHUD._Input()` 设置 `ToolManager.CurrentTool` | 模态菜单关闭时切换选择、铺路或拆路 |
+| 当前工具绑定 / 默认 Q/R/E/T | `GameHUD._Input()` 设置 `ToolManager.CurrentTool` | 模态菜单关闭时切换选择、铺路、拆路或道路改造 |
 | 铺路按钮 | `ConstructionDock` 的 `RoadToolButton` 调用 `ToolManager.CurrentTool = ToolType.Road` | 切换铺路工具，按钮来自 Roads catalog |
+| 道路改造按钮 | `ConstructionDock` 的 `RoadUpgradeToolButton` 调用 `ToolManager.CurrentTool = ToolType.RoadUpgrade` | 切换既有道路改造工具，按钮与独立图标来自 Roads catalog |
 | 拆路 | `tool_remove` 动作或程序设置 `ToolManager.CurrentTool = ToolType.RoadRemove` | UI 显示内建中文文案和当前绑定；仍不提供 Roads 子菜单按钮 |
 | 存档后端注入 | `PauseMenu.ConfigureSaveManager(...)` | HUD 组合根提供当前 `SaveManager`；暂停菜单负责命名槽交互 |
 
@@ -767,8 +769,8 @@ Shader 的 `fragment()` 将 `UV` 转成世界坐标，减去 `grid_offset` 后�
 
 | 组件 | 说明 |
 |---|---|
-| `ConstructionDock` | 底部全宽五分类 CategoryBar 和 ToolTray；折叠高度 76px，展开高度 140px，由 64px 资产条加 76px 分类栏组成；Roads catalog 创建一个 `城市道路` 按钮；重复当前分类折叠/重开，不同分类切换内容并保持打开；没有当前工具标签或桌面宽度上限 |
-| `ToolContextPanel` | 右侧只读上下文，Road 读取 catalog；Select / RoadRemove 使用内建玩家文案但不要求 submenu/catalog 资源 |
+| `ConstructionDock` | 底部全宽五分类 CategoryBar 和 ToolTray；折叠高度 76px，展开高度 140px，由 64px 资产条加 76px 分类栏组成；Roads catalog 按顺序创建 `城市道路` 与 `道路改造` 两个按钮；重复当前分类折叠/重开，不同分类切换内容并保持打开；没有当前工具标签或桌面宽度上限 |
+| `ToolContextPanel` | 右侧只读上下文，Road / RoadUpgrade 读取 catalog 并共用 RoadType 选择状态；Select / RoadRemove 使用内建玩家文案但不要求 submenu/catalog 资源 |
 | `DebugPanel` | 默认折叠，拥有 FPS、鼠标格点、GraphEdge 与 GraphNode 指标显示 |
 | `PauseMenu` | 当前暂停动作打开的全屏模态菜单；可列举有效及损坏存档、另存为独立命名槽，并经目标摘要确认覆盖、加载或删除；损坏槽禁用覆盖/加载。另可继续游戏、调整会话音频、持久化键位，或经确认返回主菜单/退出桌面 |
 

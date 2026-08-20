@@ -27,6 +27,8 @@ public partial class ConstructionCategoryDefinition : Resource
         }
 
         var toolIds = new List<string>(Tools.Count);
+        var toolTypes = new HashSet<ToolType>();
+        var sortOrders = new HashSet<int>();
         foreach (ConstructionToolDefinition? tool in Tools)
         {
             if (tool is null)
@@ -36,6 +38,21 @@ public partial class ConstructionCategoryDefinition : Resource
             }
 
             if (!tool.TryValidate(out error)) return false;
+            if (!Enum.IsDefined(tool.ToolType))
+            {
+                error = $"Category '{Id}' contains undefined tool type '{tool.ToolType}'.";
+                return false;
+            }
+            if (!toolTypes.Add(tool.ToolType))
+            {
+                error = $"Category '{Id}' contains duplicate tool type '{tool.ToolType}'.";
+                return false;
+            }
+            if (!sortOrders.Add(tool.SortOrder))
+            {
+                error = $"Category '{Id}' contains duplicate sort order '{tool.SortOrder}'.";
+                return false;
+            }
             toolIds.Add(tool.Id);
         }
 
