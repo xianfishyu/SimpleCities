@@ -69,6 +69,58 @@ public sealed class PreparedAggregateLoadTests
     }
 
     [Fact]
+    public void RealParticipantGenerationMismatchAtCommitBoundary_ReleasesEveryPlanWithoutSwapping()
+    {
+        var source = new RoadGraph();
+        Assert.True(source.SubmitPolyline(
+            RoadType.Highway,
+            [Vector2.Zero, new Vector2(8f, 0f)]).Success);
+
+        var target = new RoadGraph();
+        Assert.True(target.SubmitPolyline(
+            RoadType.Dirt,
+            [Vector2.Zero, new Vector2(0f, 4f)]).Success);
+        RoadGraphRevision before = target.CaptureRevision();
+        RoadGraph.RoadGraphLoadAdmission admission = target.BeginLoadAdmission();
+        INonThrowingLoadCommitPlan graphPlan = target.PreflightPreparedLoad(
+            admission,
+            source.CaptureRevision(),
+            out _);
+
+        var state = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["road-presentation"] = "old",
+            ["slot-target"] = "old",
+        };
+        var presentationPlan = new TrackingPlan("road-presentation", state);
+        var slotPlan = new TrackingPlan("slot-target", state);
+        var lease = new BoundaryInvalidatingLease(SaveOperationKind.Load, admission.Dispose);
+
+        using (var aggregate = new PreparedAggregateLoad([
+            graphPlan,
+            presentationPlan,
+            slotPlan]))
+        {
+            LoadPreflightInvalidException exception = Assert.Throws<LoadPreflightInvalidException>(
+                () => aggregate.Commit(lease));
+
+            Assert.Contains("while entering commit", exception.Message, StringComparison.Ordinal);
+            Assert.Equal(1, lease.InvalidationCount);
+            Assert.Same(before, target.CaptureRevision());
+            Assert.Equal("old", state["road-presentation"]);
+            Assert.Equal("old", state["slot-target"]);
+            Assert.Equal(0, presentationPlan.CommitCount);
+            Assert.Equal(0, slotPlan.CommitCount);
+        }
+
+        Assert.Equal(1, presentationPlan.DisposeCount);
+        Assert.Equal(1, slotPlan.DisposeCount);
+        Assert.True(target.SubmitPolyline(
+            RoadType.Street,
+            [new Vector2(0f, 8f), new Vector2(8f, 8f)]).Success);
+    }
+
+    [Fact]
     public async Task CancellationBeforeCommit_LeavesEveryParticipantUnchanged()
     {
         var state = new Dictionary<string, string>(StringComparer.Ordinal)
@@ -280,5 +332,75 @@ public sealed class PreparedAggregateLoadTests
         }
 
         public void Dispose() { }
+    }
+
+    private sealed class TrackingPlan : INonThrowingLoadCommitPlan
+    {
+        private readonly Dictionary<string, string> _state;
+        private bool _disposed;
+
+        internal TrackingPlan(string participantID, Dictionary<string, string> state)
+        {
+            ParticipantID = participantID;
+            _state = state;
+        }
+
+        public string ParticipantID { get; }
+        public bool IsGenerationCurrent => !_disposed;
+        internal int CommitCount { get; private set; }
+        internal int DisposeCount { get; private set; }
+
+        public void CommitReferences()
+        {
+            CommitCount++;
+            _state[ParticipantID] = "new";
+        }
+
+        public IReadOnlyList<string> PublishNotifications() => [];
+        public void CompleteCommit() { }
+
+        public void Dispose()
+        {
+            if (_disposed)
+                return;
+            _disposed = true;
+            DisposeCount++;
+        }
+    }
+
+    private sealed class BoundaryInvalidatingLease : IStorageOperationLease
+    {
+        private readonly Action _invalidate;
+
+        internal BoundaryInvalidatingLease(
+            SaveOperationKind kind,
+            Action invalidate)
+        {
+            Kind = kind;
+            _invalidate = invalidate;
+        }
+
+        public string OperationToken { get; } = "generation-mismatch";
+        public SaveOperationKind Kind { get; }
+        internal int InvalidationCount { get; private set; }
+
+        public void ThrowIfCancellationRequested() { }
+        public void AcquireCommitLease() { }
+
+        public void CrossCommitBoundary(Action boundaryAction)
+        {
+            InvalidationCount++;
+            _invalidate();
+            boundaryAction();
+        }
+
+        public void MarkCommitted() { }
+
+        public void EnterCommitBoundary()
+        {
+            AcquireCommitLease();
+            CrossCommitBoundary(static () => { });
+            MarkCommitted();
+        }
     }
 }
