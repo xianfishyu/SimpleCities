@@ -190,6 +190,44 @@ public sealed class RoadRendererLifecycleContractTests
         Assert.Contains("GetPresentedRoadSurface()?.FindClosest", source, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void DeferredOrdinaryRebuildIsGenerationGuardedAcrossSynchronousReset()
+    {
+        string source = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.cs"));
+        string loadSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.LoadCommit.cs"));
+        string scheduling = ExtractMethod(
+            source,
+            "private void ScheduleStaticBatchRebuild",
+            "private void RebuildStaticBatches");
+
+        Assert.Contains(
+            "long continuationGeneration = _staticBatchRebuildContinuationGeneration;",
+            scheduling,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "FlushScheduledStaticBatchRebuild(continuationGeneration)",
+            scheduling,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "continuationGeneration != _staticBatchRebuildContinuationGeneration",
+            scheduling,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "InvalidateScheduledStaticBatchRebuildContinuation();",
+            scheduling,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_owner.InvalidateScheduledStaticBatchRebuildContinuation();",
+            loadSource,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "_owner._staticBatchRebuildScheduled = false;",
+            loadSource,
+            StringComparison.Ordinal);
+    }
+
     private static string ExtractMethod(string source, string startMarker, string endMarker)
     {
         int start = source.IndexOf(startMarker, StringComparison.Ordinal);

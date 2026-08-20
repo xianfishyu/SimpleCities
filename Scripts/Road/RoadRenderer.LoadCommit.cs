@@ -300,7 +300,7 @@ public partial class RoadRenderer
 
         public void CommitReferences()
         {
-            _owner._staticBatchRebuildScheduled = false;
+            _owner.InvalidateScheduledStaticBatchRebuildContinuation();
             _owner._edgePoints = _prepared.EdgePoints;
             _owner._edgeDisplaySpans = _prepared.EdgeDisplaySpans;
             _owner._invalidatedDisplayEdgeIDs.Clear();

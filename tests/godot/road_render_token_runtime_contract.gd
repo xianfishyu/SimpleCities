@@ -114,12 +114,44 @@ func run() -> void:
 		"Render token fixture payload and manifest could not be published"):
 		return
 	if not require(
-		await V3_SAVE_FIXTURE.load_slot(save_manager, slot_id),
+		builder.BeginPlace(Vector2(0.0, -200.0)),
+		"Queued-continuation mutation did not begin"):
+		return
+	builder.UpdatePlace(Vector2(100.0, -200.0))
+	if not require(
+		builder.CommitPlace(Vector2(100.0, -200.0)),
+		"Queued-continuation mutation did not commit"):
+		return
+	var queued_state: Dictionary = renderer.GetPresentationState()
+	var queued_desired: Dictionary = queued_state.get("desired", {})
+	if not require(
+		queued_state.get("phase", "") == "pending" and
+		not bool(queued_state.get("isReady", true)) and
+		queued_state.get("presented", {}) == styled and
+		queued_desired != styled,
+		"Ordinary mutation did not leave a deferred presentation continuation"):
+		return
+	if not require_ordinary_change(styled, queued_desired):
+		return
+
+	var load_operation_token := str(save_manager.StartLoad(slot_id))
+	if not require(
+		not load_operation_token.is_empty(),
+		"Queued-continuation Load did not return an operation token"):
+		return
+	var admitted := presentation_token(renderer, "Queued-continuation Load admission")
+	if admitted.is_empty() or not require(
+		admitted == queued_desired,
+		"Load admission did not synchronously consume the queued current presentation"):
+		return
+	if not require(
+		await V3_SAVE_FIXTURE.operation_succeeded(save_manager, load_operation_token),
 		"Render token fixture did not load"):
 		return
 	await process_frame
+	await process_frame
 	var loaded := presentation_token(renderer, "Aggregate Load")
-	if loaded.is_empty() or not require_load_change(styled, loaded):
+	if loaded.is_empty() or not require_load_change(admitted, loaded):
 		return
 	if not require_surface_hit(renderer, Vector2(-50.0, 100.0), loaded, "Aggregate Load"):
 		return

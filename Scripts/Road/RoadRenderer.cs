@@ -19,6 +19,7 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
     private MultiMeshInstance2D _nodeBatchLayer = null!;
     private int _roadMeshVertexCount;
     private bool _staticBatchRebuildScheduled;
+    private long _staticBatchRebuildContinuationGeneration;
     private bool _graphEventsSubscribed;
     private RoadRendererLoadAdmission? _loadAdmission;
     private long _loadAdmissionGeneration;
@@ -279,7 +280,7 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
     {
         _loadAdmission?.Dispose();
         UnsubscribeGraphEvents();
-        _staticBatchRebuildScheduled = false;
+        InvalidateScheduledStaticBatchRebuildContinuation();
     }
 
     public void SetGraph(RoadGraph graph)
@@ -291,7 +292,7 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
         UnsubscribeGraphEvents();
         _network = graph;
         _committedLoadGraphToken = null;
-        _staticBatchRebuildScheduled = false;
+        InvalidateScheduledStaticBatchRebuildContinuation();
         _invalidatedDisplayEdgeIDs.Clear();
         _rebuildAllDisplayPaths = true;
         if (facadeChanged)
@@ -344,7 +345,7 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
                 QueueRedraw();
                 return;
             }
-            _staticBatchRebuildScheduled = false;
+            InvalidateScheduledStaticBatchRebuildContinuation();
             _invalidatedDisplayEdgeIDs.Clear();
             _rebuildAllDisplayPaths = true;
             _presentationTokens.RequestGraphChange(
@@ -375,17 +376,33 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
             return;
 
         _staticBatchRebuildScheduled = true;
-        Callable.From(FlushScheduledStaticBatchRebuild).CallDeferred();
+        long continuationGeneration = _staticBatchRebuildContinuationGeneration;
+        Callable.From(() => FlushScheduledStaticBatchRebuild(continuationGeneration)).CallDeferred();
     }
 
-    private void FlushScheduledStaticBatchRebuild()
-    {
-        if (!_staticBatchRebuildScheduled)
-            return;
+    private void FlushScheduledStaticBatchRebuild() =>
+        FlushScheduledStaticBatchRebuild(_staticBatchRebuildContinuationGeneration);
 
-        _staticBatchRebuildScheduled = false;
+    private void FlushScheduledStaticBatchRebuild(long continuationGeneration)
+    {
+        if (!_staticBatchRebuildScheduled ||
+            continuationGeneration != _staticBatchRebuildContinuationGeneration)
+        {
+            return;
+        }
+
+        InvalidateScheduledStaticBatchRebuildContinuation();
         if (IsInsideTree())
             RebuildStaticBatches();
+    }
+
+    private void InvalidateScheduledStaticBatchRebuildContinuation()
+    {
+        _staticBatchRebuildScheduled = false;
+        _staticBatchRebuildContinuationGeneration =
+            _staticBatchRebuildContinuationGeneration == long.MaxValue
+                ? 1
+                : _staticBatchRebuildContinuationGeneration + 1;
     }
 
     private void RebuildStaticBatches() => _ = TryRebuildStaticBatches();
