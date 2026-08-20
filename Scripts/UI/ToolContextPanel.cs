@@ -323,9 +323,15 @@ public partial class ToolContextPanel : PanelContainer
         {
             Button button = _roadTypeButtons[RoadTypeOrder[index]];
             if (index > 0)
+            {
                 button.FocusNeighborLeft = _roadTypeButtons[RoadTypeOrder[index - 1]].GetPath();
+                button.FocusPrevious = _roadTypeButtons[RoadTypeOrder[index - 1]].GetPath();
+            }
             if (index + 1 < RoadTypeOrder.Length)
+            {
                 button.FocusNeighborRight = _roadTypeButtons[RoadTypeOrder[index + 1]].GetPath();
+                button.FocusNext = _roadTypeButtons[RoadTypeOrder[index + 1]].GetPath();
+            }
         }
     }
 
