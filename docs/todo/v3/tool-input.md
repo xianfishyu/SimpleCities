@@ -13,7 +13,7 @@
 | 2.1 | `RoadBuilder` 没有与网格策略解耦的类型选择状态 | 已完成 | `SelectedRoadType` 在会话开始冻结并显式提交 |
 | 2.2 | 既有道路没有先选择后提交的类型改造工作流 | 已完成 | 独立 RoadUpgrade 会话、同代 surface 批量选择、取消和单次撤销重做已验证 |
 | 2.3 | 64 项历史曾为每项保留 before/after 完整 JSON | 已完成 | delta/双预算已替换全图字符串，真实 V3 Load 会换 lineage 并清空旧历史/token |
-| 2.4 | 外部 Load 可能让旧图工具状态或旧画面继续接受输入 | 开放（部分实现） | placement/removal/upgrade/history 与 matching indexed 四类 surface/token 已加入 full-reset aggregate，现有玩家道路事务、deferred 表现 continuation 及未提交表现资源均服从失效/清理边界；真实 `RoadGraph` participant 的 commit-boundary generation 失配和 fake participant observer/cleanup 组合已验证，仍需 renderer/tool/slot 真实失配、真实参与者组合与联合故障矩阵 |
+| 2.4 | 外部 Load 可能让旧图工具状态或旧画面继续接受输入 | 开放（部分实现） | placement/removal/upgrade/history 与 matching indexed 四类 surface/token 已加入 full-reset aggregate，现有玩家道路事务、deferred 表现 continuation 及未提交表现资源均服从失效/清理边界；真实 `RoadGraph` participant 的 commit-boundary generation 失配、fake participant observer/cleanup 组合和真实 `RoadGraph` observer/fake companion cleanup 组合已验证，仍需 renderer/tool/slot 真实失配、真实 renderer/tool/slot observer/cleanup 组合与联合故障矩阵 |
 
 ### 设计覆盖矩阵
 
@@ -21,7 +21,7 @@
 |---|---|---|
 | V3 闭环与类型化编辑 | 三种策略共享闭环草稿和取消生命周期；`RoadBuilder.SelectedRoadType` 默认 `Street`，placement 与独立 RoadUpgrade 会话分别冻结建造/目标类型。RoadUpgrade 的连续与矩形选择消费 current presented surface，并以一条历史提交批量改造 | 2.1～2.2、`v3-road-graph:8.4`～`8.5`、`v3-grid-rendering:2.0`～`2.2`、`v3-ui:1.1`～`1.2` |
 | V3 操作历史存储 | `RoadEditHistory` 只保留可逆 delta 与完整 state token，以 entry/估算字节双预算在提交前 admission；真实 V3 Load 创建新 lineage，full reset 立即清空 undo/redo 并让旧 token 失效 | 2.3、`v3-road-graph:8.5`、`v3-save-system:2.1` |
-| V3 加载生命周期 | `ToolManager` / `RoadBuilder` 已提供 generation-guarded full-reset plan；成功 aggregate 清空 placement/removal/upgrade/history、保留 `CurrentTool` 与 `SelectedRoadType`，并与基础 mesh、带 canonical `RoadLocation` 和不可变空间索引的同源 `EdgeRibbon` + `TerminalCap` + `SemanticJoin` + `JunctionPatch` surface、matching desired/presented render token 一次交换，失败 Load 保留旧会话并释放未转交隐藏表现资源。placement、拆除、改造与 undo/redo 均复核 current token；renderer deferred 普通重建也由 continuation generation 在同步 flush/reset 后失效。联合故障矩阵尚未完成 | 2.4、`v3-save-system:2.3`、`v3-grid-rendering:2.2`、`v3-road-graph:8.5` |
+| V3 加载生命周期 | `ToolManager` / `RoadBuilder` 已提供 generation-guarded full-reset plan；成功 aggregate 清空 placement/removal/upgrade/history、保留 `CurrentTool` 与 `SelectedRoadType`，并与基础 mesh、带 canonical `RoadLocation` 和不可变空间索引的同源 `EdgeRibbon` + `TerminalCap` + `SemanticJoin` + `JunctionPatch` surface、matching desired/presented render token 一次交换，失败 Load 保留旧会话并释放未转交隐藏表现资源。placement、拆除、改造与 undo/redo 均复核 current token；renderer deferred 普通重建也由 continuation generation 在同步 flush/reset 后失效。fake participant 及真实 `RoadGraph` observer/fake companion cleanup 组合已有 CLR warning 聚合证据，但联合故障矩阵尚未完成 | 2.4、`v3-save-system:2.3`、`v3-grid-rendering:2.2`、`v3-road-graph:8.5` |
 
 ## 执行顺序
 
@@ -101,7 +101,8 @@
   - Preflight 资源清理协作证据（2026-08-20）：renderer 创建中的 `ArrayMesh`/`MultiMesh`、Preflight 在 plan 接管前的异常路径和未提交 plan 均会确定性释放隐藏资源；成功 commit 后 cleanup 不销毁已挂载资源。renderer 生命周期契约 10/10、完整自动化 846/846、双配置 build 0 警告/0 错误，两个隔离道路运行时契约均 PASS；见 `save-system:BUG-14`。该证据只固化协作资源所有权，不替代工具状态组合。
   - 真实 generation 失配协作证据（2026-08-20）：`PreparedAggregateLoadTests` 9/9 以受控 lease 让真实 `RoadGraph` participant 在 commit boundary 失效，确认 `LoadPreflightInvalidException` 发生在任何 reference swap 前，graph revision、测试中的 presentation/slot 状态和工具计划均保持不变，未提交辅助计划各清理一次，admission 释放后 graph 可继续 mutation；完整自动化为 847/847，Debug 与 `ExportRelease` build 均为 0 警告、0 错误。xUnit 宿主无法初始化 Godot native Resource，本证据不覆盖原生 `ArrayMesh`/`MultiMesh` 生命周期。
   - Observer/cleanup 组合协作证据（2026-08-20）：三个 fake participant 同时注入 observer 与两个 cleanup 异常，`PreparedAggregateLoadTests` 10/10 验证三方引用先交换、warning 全部聚合且最后一个 participant 仍执行 cleanup；完整自动化为 848/848，Debug 与 `ExportRelease` build 均为 0 警告、0 错误。该证据只覆盖 CLR fake participant，不证明真实 renderer/tool/slot participant 的 observer/cleanup 组合、逐关键 Resource 故障或 native `ArrayMesh`/`MultiMesh` 生命周期。
-  - 仍缺（保持开放）：平行 Edge 完整工具矩阵、每类工具状态、renderer/tool/slot 的真实 generation 失配、真实参与者 observer/cleanup 组合以及每个关键 renderer Preflight Resource 故障点仍未完成，因此 `v3-tool-input:2.4` 继续开放。
+  - 真实 RoadGraph observer/cleanup 组合协作证据（2026-08-20）：`RealRoadGraphObserverFailure_IsolatedAlongsideOtherParticipantCleanupFailures` 让真实 `RoadGraph` 的 `GraphChanged` observer 与 fake `presentation`/`slot` cleanup 同时抛错；三方引用先交换，graph observer、presentation cleanup、slot cleanup warning 按顺序聚合，两个 fake companion cleanup 仍继续执行，新的 graph root 可查询且 Edge 类型为 `Highway`。`PreparedAggregateLoadTests` 11/11，完整自动化 849/849，Debug build 0 警告、0 错误。该证据覆盖真实 RoadGraph CLR observer 路径与 fake companion cleanup，不证明真实 renderer/tool/slot participant 的 observer/cleanup 组合、逐关键 Resource 故障或 native `ArrayMesh`/`MultiMesh` 生命周期。
+  - 仍缺（保持开放）：平行 Edge 完整工具矩阵、每类工具状态、renderer/tool/slot 的真实 generation 失配、真实 renderer/tool/slot observer/cleanup 组合以及每个关键 renderer Preflight Resource 故障点仍未完成，因此 `v3-tool-input:2.4` 继续开放。
 
 ## 暂不执行
 
