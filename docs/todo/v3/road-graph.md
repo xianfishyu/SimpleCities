@@ -108,7 +108,8 @@
   - 验证：串行运行完整自动化和构建；执行真实 `MapTest` 的连续折线、跨提交延伸、精确 full-turn、简单环/棒棒糖/两路口环/八字形、支路删除重归一化、四类型建造与改造、token 防护 delta 撤销重做、不可变 root 结构共享/释放、V3 family/version format v1 有界往返、V2 根 canary 隔离、跨进程并发/自动存档、损坏/超限/ENOSPC 拒绝、publish/delete 中断恢复、成功/提交前失败/observer warning 且不存在提交后关键表现失败结果的 Load 生命周期、共享表面命中、混合 junction patch、presentation barrier、Vulkan 视觉、junction-dense/geometry-dense 存储与运行性能和 Windows 导出边界。
   - 验收：全部硬门禁有持久证据；TrafficGraph、A*、拥堵、高程道路和其他 V3 排除项不参与完成判定，也不得被宣称已实现。
   - 阶段证据（2026-08-14）：两路口环、八字形和删除支路后的 seam 重定位已进入领域/renderer 回归，真实 `MapTest` 的两路口环从 `4 Edge / 20 vertices / 4 markers` 收敛为 `2 Edge / 12 vertices / 2 markers`；完整自动化为 727/727，双配置构建及 Roslyn diagnostics 为 0。该证据只完成 Phase 7 的复杂 closed-ribbon 子矩阵；`v3-grid-rendering:2.0` 的缩放/重建与平行 Edge 表面命中、`2.1`～`2.3`、`v3-save-system:2.3`、`v3-tool-input:2.1`～`2.2`/`2.4` 和 `v3-ui:1.1`～`1.4` 尚未全部验收，因此 8.6 保持开放，附录 D 继续为空。
-  - UI 集成进展（2026-08-20）：`v3-ui:1.1`～`1.2` 已完成 RoadType 四段式选择器与 Road/RoadUpgrade 双工具入口；相关 C# 契约 25/25、完整自动化 839/839、双配置 build 0 警告/0 错误，两项 Godot 运行时契约 PASS，并完成三档视口和 1600x900 OpenGL 截图复核。该证据只关闭所属 UI 条目；类型化建造表现门禁、排队 continuation、其余命令 admission、完整表现/存档故障矩阵与 `v3-ui:1.3`～`1.4` 仍未完成，因此 8.6 保持开放。
+  - UI 集成进展（2026-08-20）：`v3-ui:1.1`～`1.2` 已完成 RoadType 四段式选择器与 Road/RoadUpgrade 双工具入口；相关 C# 契约 25/25、完整自动化 839/839、双配置 build 0 警告/0 错误，两项 Godot 运行时契约 PASS，并完成三档视口和 1600x900 OpenGL 截图复核。该证据只关闭所属 UI 条目；placement 的后续表现门禁由下一条单独记录，排队 continuation、其余命令 admission、完整表现/存档故障矩阵与 `v3-ui:1.3`～`1.4` 仍未完成，因此 8.6 保持开放。
+  - Placement 门禁进展（2026-08-20）：类型化建造会话现冻结并持续复核完整 `RoadRenderToken`；pending、stalled、superseded 与成功 full reset 均不会留下可提交旧草稿或 preview。`RoadInputStrategyTests` 20/20、完整自动化 840/840、双配置 build 0 警告/0 错误，`road_render_token_runtime_contract.gd` 与 `road_input_strategy_runtime_contract.gd` 均 PASS。当前会话未暴露 Roslyn/Godot MCP 与 DAP，未刷新对应通道；排队 continuation、其余命令 admission、完整表现/存档故障矩阵与 `v3-ui:1.3`～`1.4` 仍未完成，因此 8.6 保持开放。
 
 ## 暂不执行
 

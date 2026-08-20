@@ -126,6 +126,33 @@ public sealed class RoadInputStrategyTests
     }
 
     [Fact]
+    public void RoadBuilderPlacementFreezesAndRevalidatesPresentedSurfaceToken()
+    {
+        string source = File.ReadAllText(Path.Combine(ProjectRoot, "Scripts", "Road", "RoadBuilder.cs"));
+        string loadCommitSource = File.ReadAllText(Path.Combine(
+            ProjectRoot,
+            "Scripts",
+            "Road",
+            "RoadBuilder.LoadCommit.cs"));
+
+        Assert.Contains("private RoadRenderToken? _placementRenderToken;", source, StringComparison.Ordinal);
+        Assert.Contains(
+            "!TryCaptureCurrentRoadSurfaceToken(surfaceProvider, out RoadRenderToken renderToken)",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains("_placementRenderToken = renderToken;", source, StringComparison.Ordinal);
+
+        string beginPlace = ExtractMethod(source, "public bool BeginPlace", "public void UpdatePlace");
+        Assert.True(
+            beginPlace.IndexOf("if (_loadAdmission is not null)", StringComparison.Ordinal) <
+            beginPlace.IndexOf("GetAdmittedPlacementSession()", StringComparison.Ordinal));
+        string confirmPlace = ExtractMethod(source, "public bool ConfirmPlace", "public bool CommitPlace");
+        Assert.Contains("GetAdmittedPlacementSession()", confirmPlace, StringComparison.Ordinal);
+        Assert.Contains("_placementRenderToken = null;", source, StringComparison.Ordinal);
+        Assert.Contains("_owner._placementRenderToken = null;", loadCommitSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void InputStrategyAndPathDraftRemainGeometryOnly()
     {
         string inputDirectory = Path.Combine(ProjectRoot, "Scripts", "Road", "Input");
@@ -155,6 +182,15 @@ public sealed class RoadInputStrategyTests
             Assert.Equal(draft.PreviewPoints[index], line.Start);
             Assert.Equal(draft.PreviewPoints[index + 1], line.End);
         }
+    }
+
+    private static string ExtractMethod(string source, string startMarker, string endMarker)
+    {
+        int start = source.IndexOf(startMarker, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Missing source marker: {startMarker}");
+        int end = source.IndexOf(endMarker, start, StringComparison.Ordinal);
+        Assert.True(end > start, $"Missing source marker after {startMarker}: {endMarker}");
+        return source[start..end];
     }
 
     private sealed class ArbitraryAngleStrategy : IRoadInputStrategy

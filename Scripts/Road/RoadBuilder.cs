@@ -11,6 +11,7 @@ public partial class RoadBuilder : Node2D
     private IRoadInputStrategy? _inputStrategy;
     private RoadEditHistory? _editHistory;
     private RoadPlacementSession? _placementSession;
+    private RoadRenderToken? _placementRenderToken;
     private bool _leftPressStartedSession;
     private bool _ignoreNextLeftRelease;
     private Vector2 _lastPlacePointerPosition;
@@ -117,6 +118,8 @@ public partial class RoadBuilder : Node2D
     {
         if (_loadAdmission is not null)
             return;
+        if (_placementSession is not null)
+            _ = GetAdmittedPlacementSession();
         if (@event is InputEventKey keyEvent &&
             keyEvent.Pressed &&
             !keyEvent.Echo &&
@@ -185,6 +188,8 @@ public partial class RoadBuilder : Node2D
         if (_graph == null || _renderer == null || _loadAdmission is not null)
             return;
 
+        if (_placementSession is not null)
+            _ = GetAdmittedPlacementSession();
         if (_removalSession is not null && !_removalSession.IsCurrent)
             EndRemoveSession();
         if (_upgradeSession is not null && !_upgradeSession.IsCurrent)
@@ -195,12 +200,17 @@ public partial class RoadBuilder : Node2D
 
     public bool BeginPlace(Vector2 pointerPosition)
     {
-        if (_loadAdmission is not null ||
-            _graph == null ||
+        if (_loadAdmission is not null)
+            return false;
+        if (_placementSession is not null && GetAdmittedPlacementSession() is not null)
+            return false;
+
+        if (_graph == null ||
+            _renderer is not IRoadSurfaceSelectionProvider surfaceProvider ||
             _inputStrategy == null ||
-            IsPlacing ||
             IsRemoving ||
-            IsUpgrading)
+            IsUpgrading ||
+            !TryCaptureCurrentRoadSurfaceToken(surfaceProvider, out RoadRenderToken renderToken))
             return false;
 
         _lastPlacePointerPosition = pointerPosition;
@@ -224,47 +234,59 @@ public partial class RoadBuilder : Node2D
             _inputStrategy,
             startPosition,
             SelectedRoadType);
+        _placementRenderToken = renderToken;
         ApplyPreview(_placementSession.CurrentDraft);
         return true;
     }
 
     public void UpdatePlace(Vector2 pointerPosition)
     {
-        if (_loadAdmission is not null || _placementSession == null)
+        if (_loadAdmission is not null)
+            return;
+        RoadPlacementSession? session = GetAdmittedPlacementSession();
+        if (session == null)
             return;
 
         _lastPlacePointerPosition = pointerPosition;
-        ApplyPreview(_placementSession.Update(pointerPosition));
+        ApplyPreview(session.Update(pointerPosition));
     }
 
     public bool AddPlacePoint(Vector2 pointerPosition)
     {
-        if (_loadAdmission is not null || _placementSession == null)
+        if (_loadAdmission is not null)
+            return false;
+        RoadPlacementSession? session = GetAdmittedPlacementSession();
+        if (session == null)
             return false;
 
         _lastPlacePointerPosition = pointerPosition;
-        bool added = _placementSession.TryAddPoint(pointerPosition);
-        ApplyPreview(_placementSession.CurrentDraft);
+        bool added = session.TryAddPoint(pointerPosition);
+        ApplyPreview(session.CurrentDraft);
         return added;
     }
 
     public bool RemoveLastPlacePoint(Vector2 pointerPosition)
     {
-        if (_loadAdmission is not null || _placementSession == null)
+        if (_loadAdmission is not null)
+            return false;
+        RoadPlacementSession? session = GetAdmittedPlacementSession();
+        if (session == null)
             return false;
 
         _lastPlacePointerPosition = pointerPosition;
-        bool removed = _placementSession.TryRemoveLastPoint(pointerPosition);
-        ApplyPreview(_placementSession.CurrentDraft);
+        bool removed = session.TryRemoveLastPoint(pointerPosition);
+        ApplyPreview(session.CurrentDraft);
         return removed;
     }
 
     public bool ConfirmPlace(Vector2 pointerPosition)
     {
-        if (_loadAdmission is not null || _placementSession == null || _graph == null)
+        if (_loadAdmission is not null || _graph == null)
+            return false;
+        RoadPlacementSession? session = GetAdmittedPlacementSession();
+        if (session == null)
             return false;
 
-        RoadPlacementSession session = _placementSession;
         _lastPlacePointerPosition = pointerPosition;
         RoadPathDraft draft = session.Update(pointerPosition);
         ApplyPreview(draft);
@@ -588,6 +610,7 @@ public partial class RoadBuilder : Node2D
     private void EndPlaceSession()
     {
         _placementSession = null;
+        _placementRenderToken = null;
         _leftPressStartedSession = false;
         _ignoreNextLeftRelease = false;
         ClearPreview();
@@ -676,8 +699,7 @@ public partial class RoadBuilder : Node2D
             return false;
         }
 
-        if (captured.GraphFacadeID != graph.FacadeID ||
-            captured.ChangeSequence != graph.CurrentStateToken.ChangeSequence)
+        if (!IsCurrentRoadPresentation(surfaceProvider, captured, graph))
         {
             return false;
         }
@@ -685,6 +707,30 @@ public partial class RoadBuilder : Node2D
         renderToken = captured;
         return true;
     }
+
+    private RoadPlacementSession? GetAdmittedPlacementSession()
+    {
+        if (_placementSession is not RoadPlacementSession session)
+            return null;
+        if (_placementRenderToken is RoadRenderToken renderToken &&
+            _renderer is IRoadSurfaceSelectionProvider surfaceProvider &&
+            _graph is RoadGraph graph &&
+            IsCurrentRoadPresentation(surfaceProvider, renderToken, graph))
+        {
+            return session;
+        }
+
+        EndPlaceSession();
+        return null;
+    }
+
+    private static bool IsCurrentRoadPresentation(
+        IRoadSurfaceSelectionProvider surfaceProvider,
+        RoadRenderToken renderToken,
+        RoadGraph graph) =>
+        surfaceProvider.IsCurrent(renderToken) &&
+        renderToken.GraphFacadeID == graph.FacadeID &&
+        renderToken.ChangeSequence == graph.CurrentStateToken.ChangeSequence;
 
     private bool IsRemovalCommandAdmitted(RoadRemovalSession session)
     {

@@ -51,6 +51,12 @@ func run() -> void:
 	builder.UpdatePlace(Vector2(100.0, 0.0))
 	if not require(builder.CommitPlace(Vector2(100.0, 0.0)), "Normal mutation did not commit"):
 		return
+	if not require(
+		not builder.BeginPlace(Vector2(0.0, 100.0)) and
+		not builder.HasActivePlaceSession() and
+		renderer.GetPreviewPointCount() == 0,
+		"Pending presentation admitted a new placement session"):
+		return
 	await process_frame
 	await process_frame
 	var mutated := presentation_token(renderer, "Normal mutation")
@@ -219,6 +225,12 @@ func require_stalled_retry(
 		not builder.HasActiveRemoveSession(),
 		"Stalled presentation admitted a removal session"):
 		return {}
+	if not require(
+		not builder.BeginPlace(Vector2(0.0, 300.0)) and
+		not builder.HasActivePlaceSession() and
+		renderer.GetPreviewPointCount() == 0,
+		"Stalled presentation admitted a placement session"):
+		return {}
 
 	if not require(
 		not renderer.RetryRoadPresentation(),
@@ -253,7 +265,34 @@ func require_stalled_retry(
 		not renderer.RetryRoadPresentation(),
 		"Ready presentation accepted a redundant retry"):
 		return {}
-	return recovered
+
+	var admitted_edge_count: int = renderer.GetRenderedEdgeCount()
+	var admitted_history_count: int = builder.GetUndoEditCount()
+	if not require(
+		builder.BeginPlace(Vector2(0.0, 400.0)),
+		"Current presentation did not admit the token-supersession placement"):
+		return {}
+	builder.UpdatePlace(Vector2(100.0, 400.0))
+	if not require(
+		builder.HasActivePlaceSession() and renderer.GetPreviewPointCount() > 0,
+		"Admitted placement did not retain its preview"):
+		return {}
+	if not require(
+		renderer.RefreshRoadStyles(),
+		"Valid style refresh did not publish a replacement token"):
+		return {}
+	if not require(
+		not builder.ConfirmPlace(Vector2(100.0, 400.0)) and
+		not builder.HasActivePlaceSession() and
+		renderer.GetPreviewPointCount() == 0 and
+		renderer.GetRenderedEdgeCount() == admitted_edge_count and
+		builder.GetUndoEditCount() == admitted_history_count,
+		"A placement captured from the previous render token mutated the graph"):
+		return {}
+	var refreshed := presentation_token(renderer, "Placement token supersession")
+	if refreshed.is_empty() or not require_style_change(recovered, refreshed):
+		return {}
+	return refreshed
 
 func restore_mutated_style() -> void:
 	if mutated_style == null:

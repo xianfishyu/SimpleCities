@@ -104,6 +104,7 @@ public partial class RoadBuilder
         {
             _oldHistory?.Dispose();
             _owner._placementSession = null;
+            _owner._placementRenderToken = null;
             _owner._removalSession = null;
             _owner._upgradeSession = null;
             _owner._editHistory = _replacementHistory;
