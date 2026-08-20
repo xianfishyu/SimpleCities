@@ -19,6 +19,7 @@ var test_map: Node
 var save_manager: Node
 var slot_id := ""
 var enforce_budget := false
+var measure_type_change_latency := false
 var failed_budget_scenarios: Array[String] = []
 var failure_cleanup_started := false
 var dataset_kind := "grid"
@@ -28,8 +29,11 @@ func _initialize() -> void:
 
 func run() -> void:
 	enforce_budget = OS.get_cmdline_user_args().has("--enforce-budget")
+	measure_type_change_latency = OS.get_cmdline_user_args().has("--measure-type-change")
 	dataset_kind = read_requested_dataset_kind()
 	if not require(DATASET_KINDS.has(dataset_kind), "Unknown rendering performance dataset kind: %s" % dataset_kind):
+		return
+	if not require(not measure_type_change_latency or dataset_kind == "grid", "Type-change latency requires the grid dataset"):
 		return
 	var requested_dataset_size := read_requested_dataset_size()
 	var dataset_sizes: Array[int] = DATASET_SIZES.duplicate()
@@ -57,6 +61,7 @@ func run() -> void:
 	camera.process_mode = Node.PROCESS_MODE_DISABLED
 	camera.zoom = Vector2(0.125, 0.125)
 	var renderer: Node = test_map.get_node("RoadSystem/RoadRenderer")
+	var builder: Node = test_map.get_node("RoadSystem/RoadBuilder")
 
 	save_manager = root.get_node("SaveManager")
 	if not require(await V3_SAVE_FIXTURE.save_as(save_manager, TEST_SLOT_NAME), "Performance fixture slot was not created"):
@@ -102,6 +107,13 @@ func run() -> void:
 		print_result(edge_count, "camera", camera_samples, rebuild_ms, camera_metrics)
 		print_result(edge_count, "preview", preview_samples, rebuild_ms, preview_metrics)
 		print_result(edge_count, "highlight", highlight_samples, rebuild_ms, highlight_metrics)
+		if measure_type_change_latency and not await measure_type_change_latencies(
+			builder,
+			renderer,
+			edge_count,
+			columns,
+			rows):
+			return
 
 	if enforce_budget and not failed_budget_scenarios.is_empty():
 		fail("10k rendering frame budget exceeded: %s" % "、".join(failed_budget_scenarios))
@@ -152,6 +164,138 @@ func sample_highlight_frames(renderer: Node, first_edge_id: int) -> Array[float]
 		await wait_rendered_frame()
 		samples.append(float(Time.get_ticks_usec() - start_us) / 1000.0)
 	return samples
+
+func measure_type_change_latencies(
+	builder: Node,
+	renderer: Node,
+	edge_count: int,
+	columns: int,
+	rows: int) -> bool:
+	if not require(edge_count >= 1000, "Type-change latency requires at least 1000 Edge"):
+		return false
+	if int(builder.GetSelectedRoadType()) != 3 and not require(
+		builder.SetSelectedRoadType(3),
+		"Type-change latency could not select Highway"):
+		return false
+
+	var cases: Array[Dictionary] = [
+		{"edges": 1, "column": 0, "row": 0, "columns": 1, "rows": 1},
+		{"edges": 100, "column": 20, "row": 0, "columns": 100, "rows": 1},
+		{"edges": 1000, "column": 0, "row": 1, "columns": 20, "rows": 50},
+	]
+	for case_index in range(cases.size()):
+		var test_case: Dictionary = cases[case_index]
+		var selected_edges := int(test_case.edges)
+		var bounds := type_change_selection_bounds(test_case, columns, rows)
+		var end := bounds.position + bounds.size
+		if not require(
+			builder.BeginUpgrade(bounds.position, true),
+			"Type-change latency could not begin the %d-Edge selection" % selected_edges):
+			return false
+		builder.UpdateUpgrade(end)
+		if not require(
+			builder.GetUpgradeSelectionCount() == selected_edges,
+			"Type-change latency selected %d instead of %d Edge" % [builder.GetUpgradeSelectionCount(), selected_edges]):
+			return false
+
+		var before_upgrade_sequence := presented_change_sequence(renderer)
+		var upgrade_started_us := Time.get_ticks_usec()
+		if not require(
+			builder.ConfirmUpgrade(end),
+			"Type-change latency could not confirm the %d-Edge batch" % selected_edges):
+			return false
+		var upgrade_ms := await wait_for_current_presentation(
+			renderer,
+			upgrade_started_us,
+			"%d-Edge type change" % selected_edges)
+		if upgrade_ms < 0.0:
+			return false
+		if not require(
+			presented_change_sequence(renderer) == before_upgrade_sequence + 1 and
+			builder.GetUndoEditCount() == case_index + 1 and
+			builder.GetRedoEditCount() == 0,
+			"%d-Edge type change did not publish one history boundary" % selected_edges):
+			return false
+
+		var before_undo_sequence := presented_change_sequence(renderer)
+		var undo_started_us := Time.get_ticks_usec()
+		if not require(
+			builder.UndoLastEdit(),
+			"Type-change latency could not undo the %d-Edge batch" % selected_edges):
+			return false
+		var undo_ms := await wait_for_current_presentation(
+			renderer,
+			undo_started_us,
+			"%d-Edge type-change undo" % selected_edges)
+		if undo_ms < 0.0:
+			return false
+		if not require(
+			presented_change_sequence(renderer) == before_undo_sequence + 1 and
+			builder.GetUndoEditCount() == case_index and
+			builder.GetRedoEditCount() == 1,
+			"%d-Edge type-change undo did not restore one history boundary" % selected_edges):
+			return false
+
+		var before_redo_sequence := presented_change_sequence(renderer)
+		var redo_started_us := Time.get_ticks_usec()
+		if not require(
+			builder.RedoLastEdit(),
+			"Type-change latency could not redo the %d-Edge batch" % selected_edges):
+			return false
+		var redo_ms := await wait_for_current_presentation(
+			renderer,
+			redo_started_us,
+			"%d-Edge type-change redo" % selected_edges)
+		if redo_ms < 0.0:
+			return false
+		if not require(
+			presented_change_sequence(renderer) == before_redo_sequence + 1 and
+			builder.GetUndoEditCount() == case_index + 1 and
+			builder.GetRedoEditCount() == 0 and
+			renderer.GetRenderedEdgeCount() == edge_count,
+			"%d-Edge type-change redo did not republish the exact history boundary" % selected_edges):
+			return false
+
+		print("TYPE_CHANGE_RESULT %s" % JSON.stringify({
+			"dataset": dataset_kind,
+			"edges": edge_count,
+			"changed_edges": selected_edges,
+			"upgrade_ms": snappedf(upgrade_ms, 0.001),
+			"undo_ms": snappedf(undo_ms, 0.001),
+			"redo_ms": snappedf(redo_ms, 0.001),
+			"render_nodes": renderer.GetStaticRenderNodeCount(),
+			"surface_primitives": int(renderer.GetPresentationState().get("surfacePrimitiveCount", -1)),
+		}))
+	return true
+
+func presented_change_sequence(renderer: Node) -> int:
+	var presented: Dictionary = renderer.GetPresentationState().get("presented", {})
+	return int(presented.get("changeSequence", -1))
+
+func type_change_selection_bounds(test_case: Dictionary, columns: int, rows: int) -> Rect2:
+	var start_index := int(test_case.row) * columns + int(test_case.column)
+	var end_index := (
+		(int(test_case.row) + int(test_case.rows) - 1) * columns +
+		int(test_case.column) + int(test_case.columns) - 1)
+	var width := float(columns - 1) * EDGE_SPACING
+	var height := float(rows - 1) * EDGE_SPACING
+	var first := fixture_position(start_index, columns, width, height)
+	var last := fixture_position(end_index, columns, width, height)
+	var minimum := first - Vector2(12.0, 12.0)
+	var maximum := last + Vector2(EDGE_LENGTH + 12.0, 12.0)
+	return Rect2(minimum, maximum - minimum)
+
+func wait_for_current_presentation(
+	renderer: Node,
+	started_us: int,
+	source: String) -> float:
+	for _frame in range(600):
+		var state: Dictionary = renderer.GetPresentationState()
+		if bool(state.get("isReady", false)) and state.get("desired", {}) == state.get("presented", {}):
+			return float(Time.get_ticks_usec() - started_us) / 1000.0
+		await wait_rendered_frame()
+	fail("%s did not publish a matching presentation" % source)
+	return -1.0
 
 func capture_render_metrics(renderer: Node) -> Dictionary:
 	return {
