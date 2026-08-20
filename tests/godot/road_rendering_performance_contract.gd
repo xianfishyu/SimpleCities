@@ -4,9 +4,13 @@ const MAP_SCENE := "res://Scenes/MapTest.tscn"
 const TEST_SLOT_NAME := "Road rendering performance contract"
 const V3_SAVE_FIXTURE := preload("res://tests/godot/v3_save_fixture.gd")
 const DATASET_SIZES: Array[int] = [10_000, 100_000]
-const DATASET_KINDS: Array[String] = ["grid", "junction-dense"]
+const DATASET_KINDS: Array[String] = ["grid", "junction-dense", "geometry-dense"]
 const EDGE_LENGTH := 8.0
 const EDGE_SPACING := 32.0
+const GEOMETRY_DENSE_EDGE_SPACING := 320.0
+const GEOMETRY_DENSE_SEGMENT_LENGTH := 32.0
+const GEOMETRY_DENSE_SEGMENT_COUNT := 8
+const GEOMETRY_DENSE_WAVE_HEIGHT := 12.0
 const FRAME_BUDGET_MS := 16.67
 const CAMERA_SAMPLE_COUNT := 120
 const DYNAMIC_SAMPLE_COUNT := 60
@@ -63,7 +67,7 @@ func run() -> void:
 	for edge_count: int in dataset_sizes:
 		var columns: int = ceili(sqrt(float(edge_count) * 16.0 / 9.0))
 		var rows: int = ceili(float(edge_count) / float(columns))
-		camera.position = Vector2.ZERO if dataset_kind == "junction-dense" else Vector2(EDGE_LENGTH * 0.5, 0.0)
+		camera.position = Vector2.ZERO if dataset_kind != "grid" else Vector2(EDGE_LENGTH * 0.5, 0.0)
 		print("STAGE fixture-write-start edges=%d" % edge_count)
 		if not require(write_fixture(road_path, edge_count, columns, rows), "Performance fixture could not be written"):
 			return
@@ -195,6 +199,8 @@ func wait_rendered_frame() -> void:
 func write_fixture(path: String, edge_count: int, columns: int, rows: int) -> bool:
 	if dataset_kind == "junction-dense":
 		return write_junction_dense_fixture(path, edge_count)
+	if dataset_kind == "geometry-dense":
+		return write_geometry_dense_fixture(path, edge_count)
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
 		return false
@@ -306,6 +312,63 @@ func first_edge_id_for_dataset(edge_count: int) -> int:
 	if dataset_kind == "junction-dense":
 		return (edge_count / 4) * 5 + 1
 	return edge_count * 2 + 1
+
+func write_geometry_dense_fixture(path: String, edge_count: int) -> bool:
+	if edge_count <= 0:
+		return false
+	var columns := ceili(sqrt(float(edge_count) * 16.0 / 9.0))
+	var rows := ceili(float(edge_count) / float(columns))
+	var node_count := edge_count * 2
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		return false
+	file.store_string('{"formatFamily":"simple-cities-v3","payloadType":"road-network","schemaVersion":1,"nextID":%d,"nodes":[' % (node_count + edge_count + 1))
+	for index in range(edge_count):
+		var start := geometry_dense_start(index, columns, rows)
+		var end := start + Vector2(GEOMETRY_DENSE_SEGMENT_LENGTH * GEOMETRY_DENSE_SEGMENT_COUNT, 0.0)
+		write_item(file, {"id": index * 2 + 1, "x": start.x, "y": start.y}, index > 0)
+		write_item(file, {"id": index * 2 + 2, "x": end.x, "y": end.y}, true)
+	file.store_string('],"edges":[')
+	var road_types: Array[String] = ["dirt", "street", "arterial", "highway"]
+	for index in range(edge_count):
+		var start := geometry_dense_start(index, columns, rows)
+		var geometry: Array[Dictionary] = []
+		for segment_index in range(GEOMETRY_DENSE_SEGMENT_COUNT):
+			geometry.append({
+				"version": 1,
+				"kind": "line",
+				"start": geometry_dense_point(start, segment_index),
+				"end": geometry_dense_point(start, segment_index + 1),
+			})
+		write_item(file, {
+			"id": node_count + index + 1,
+			"nodeAID": index * 2 + 1,
+			"nodeBID": index * 2 + 2,
+			"roadType": road_types[index % road_types.size()],
+			"geometry": geometry,
+		}, index > 0)
+	file.store_string(']}')
+	file.close()
+	print("STAGE manifest-hash-start edges=%d dataset=%s geometry_segments=%d" % [edge_count, dataset_kind, GEOMETRY_DENSE_SEGMENT_COUNT])
+	var refreshed: bool = V3_SAVE_FIXTURE.refresh_manifest_payload(slot_id)
+	print("STAGE manifest-hash-done edges=%d dataset=%s geometry_segments=%d" % [edge_count, dataset_kind, GEOMETRY_DENSE_SEGMENT_COUNT])
+	return refreshed
+
+func geometry_dense_start(index: int, columns: int, rows: int) -> Vector2:
+	var width := float(columns - 1) * GEOMETRY_DENSE_EDGE_SPACING
+	var height := float(rows - 1) * GEOMETRY_DENSE_EDGE_SPACING
+	return Vector2(
+		float(index % columns) * GEOMETRY_DENSE_EDGE_SPACING - width * 0.5,
+		float(index / columns) * GEOMETRY_DENSE_EDGE_SPACING - height * 0.5)
+
+func geometry_dense_point(start: Vector2, point_index: int) -> Dictionary:
+	var y_offset := 0.0
+	if point_index > 0 and point_index < GEOMETRY_DENSE_SEGMENT_COUNT:
+		y_offset = GEOMETRY_DENSE_WAVE_HEIGHT if point_index % 2 == 0 else -GEOMETRY_DENSE_WAVE_HEIGHT
+	return {
+		"x": start.x + float(point_index) * GEOMETRY_DENSE_SEGMENT_LENGTH,
+		"y": start.y + y_offset,
+	}
 
 func read_requested_dataset_size() -> int:
 	for argument: String in OS.get_cmdline_user_args():
