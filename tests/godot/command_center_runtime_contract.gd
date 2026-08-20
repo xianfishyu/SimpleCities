@@ -87,6 +87,7 @@ func run() -> void:
 	assert_true(context.get_node("PanelMargin/Rows/ContextContentScroll/ContextContent/OperationRow/OperationValue").text.contains("拖拽铺设道路"), "Context did not read Road catalog description")
 	assert_true(context.get_node("PanelMargin/Rows/ContextContentScroll/ContextContent/ShortcutRow").visible, "Road context should show its current binding")
 	assert_true(context.get_node("PanelMargin/Rows/ContextContentScroll/ContextContent/ShortcutRow/ShortcutValue").text == "R", "Road context should show the default R binding")
+	await assert_road_type_selector(map, hud, manager, context, dock, debug_panel)
 	await assert_pause_menu(hud, manager)
 	await assert_removed_shortcuts_are_no_op(manager, dock, context)
 
@@ -175,6 +176,132 @@ func run() -> void:
 
 	print("PASS command center runtime contract")
 	quit(0)
+
+func assert_road_type_selector(
+	map: Node,
+	hud: CanvasLayer,
+	manager: Node,
+	context: Control,
+	dock: Control,
+	debug_panel: Control) -> void:
+	var builder: Node = map.get_node("RoadSystem/RoadBuilder")
+	var row: Control = context.get_node("PanelMargin/Rows/ContextContentScroll/ContextContent/RoadTypeRow")
+	var selector: HBoxContainer = row.get_node("RoadTypeSelector")
+	var buttons: Array[Button] = [
+		selector.get_node("DirtButton"),
+		selector.get_node("StreetButton"),
+		selector.get_node("ArterialButton"),
+		selector.get_node("HighwayButton"),
+	]
+	var expected_names := ["土路", "街道", "主干道", "高速道路"]
+	var expected_colors := [Color("#8A6652"), Color("#60727C"), Color("#D7A928"), Color("#C84B3A")]
+
+	assert_true(row.visible, "Road context did not show the RoadType selector")
+	assert_true(selector.get_child_count() == 4, "RoadType selector is not four-segment")
+	assert_true(int(builder.GetSelectedRoadType()) == 1, "RoadType selector did not start at Street")
+	for index in buttons.size():
+		var button := buttons[index]
+		assert_true(button.focus_mode == Control.FOCUS_ALL, "%s RoadType button is not focusable" % expected_names[index])
+		assert_true(button.get_node("Label").text == expected_names[index], "%s RoadType label mismatch" % expected_names[index])
+		assert_true((button.get_node("Swatch") as ColorRect).color.is_equal_approx(expected_colors[index]), "%s RoadType swatch mismatch" % expected_names[index])
+		assert_true(button.button_group != null, "%s RoadType button has no ButtonGroup" % expected_names[index])
+		if index > 0:
+			assert_true(button.focus_neighbor_left == buttons[index - 1].get_path(), "%s left focus neighbor mismatch" % expected_names[index])
+		if index + 1 < buttons.size():
+			assert_true(button.focus_neighbor_right == buttons[index + 1].get_path(), "%s right focus neighbor mismatch" % expected_names[index])
+	assert_true(buttons[1].button_pressed and count_pressed(buttons) == 1, "Street is not the unique initial selection")
+
+	await click_button_with_mouse(buttons[0])
+	assert_true(int(builder.GetSelectedRoadType()) == 0, "Mouse activation did not select Dirt")
+	assert_true(buttons[0].button_pressed and count_pressed(buttons) == 1, "Dirt selection is not unique")
+	buttons[0].grab_focus()
+	Input.parse_input_event(action_event("ui_focus_next"))
+	await process_frame
+	assert_true(root.gui_get_focus_owner() == buttons[1], "Keyboard focus did not move Dirt -> Street")
+
+	buttons[2].emit_signal("pressed")
+	await process_frame
+	assert_true(int(builder.GetSelectedRoadType()) == 2, "Arterial activation did not update RoadBuilder state")
+	manager.set("CurrentTool", 3)
+	await process_frame
+	assert_true(row.visible and buttons[2].button_pressed, "RoadUpgrade did not share the selected RoadType")
+	manager.set("CurrentTool", 2)
+	await process_frame
+	assert_true(not row.visible, "RoadType selector remained visible for RoadRemove")
+	manager.set("CurrentTool", 1)
+	await process_frame
+	assert_true(row.visible and buttons[2].button_pressed, "RoadType selection was lost after tool switching")
+
+	var valid_config: Resource = builder.get("Config")
+	var invalid_config: Resource = valid_config.duplicate(true)
+	invalid_config.RoadTypeStyles.remove_at(0)
+	context.UpdateContext(1, invalid_config)
+	assert_true(row.visible, "Invalid RoadConfig hid the selector instead of degrading")
+
+	# Invalid styles keep the four fallback swatches visible but disable every mutation path.
+	var all_disabled := true
+	for button in buttons:
+		all_disabled = all_disabled and button.disabled
+	assert_true(all_disabled, "Invalid RoadType styles did not disable all selector buttons")
+	assert_true(row.get_node("RoadTypeStatus").visible, "Invalid RoadType styles did not expose degradation status")
+	buttons[0].emit_signal("pressed")
+	await process_frame
+	assert_true(int(builder.GetSelectedRoadType()) == 2, "Disabled RoadType selector changed RoadBuilder state")
+
+	context.UpdateContext(1, valid_config)
+	assert_true(not buttons[0].disabled, "Valid RoadType styles did not restore selector availability")
+	builder.SetSelectedRoadType(1)
+	context.UpdateContext(1, valid_config)
+	assert_true(buttons[1].button_pressed and count_pressed(buttons) == 1, "RoadType selector did not restore Street")
+	assert_rect_in_viewport(context.get_global_rect(), PRIMARY_VIEWPORT, "RoadType selector default context")
+	assert_rect_non_overlapping(context.get_global_rect(), dock.get_global_rect(), "RoadType selector overlaps dock")
+	assert_rect_non_overlapping(context.get_global_rect(), debug_panel.get_global_rect(), "RoadType selector overlaps debug panel")
+	await assert_road_type_selector_small_viewport()
+
+func assert_road_type_selector_small_viewport() -> void:
+	var hud_scene: PackedScene = load(HUD_SCENE)
+	var sub_viewport := SubViewport.new()
+	var hud: CanvasLayer = hud_scene.instantiate()
+	sub_viewport.size = SMALL_VIEWPORT
+	root.add_child(sub_viewport)
+	sub_viewport.add_child(hud)
+	await process_frame
+	await process_frame
+	var context: Control = hud.get_node("ToolContextPanel")
+	var dock: Control = hud.get_node("ConstructionDock")
+	var debug_panel: Control = hud.get_node("DebugPanel")
+	var context_scroll: ScrollContainer = context.get_node("PanelMargin/Rows/ContextContentScroll")
+	var row: Control = context.get_node("PanelMargin/Rows/ContextContentScroll/ContextContent/RoadTypeRow")
+	for viewport_size in [Vector2i(640, 480), Vector2i(435, 480)]:
+		sub_viewport.size = viewport_size
+		await process_frame
+		await process_frame
+		context.UpdateContext(1, RoadConfig.new())
+		if not context_scroll.visible:
+			context.ToggleCompactExpandedForViewport(Vector2(viewport_size))
+		context.ApplyResponsiveLayoutForViewport(Vector2(viewport_size))
+		assert_true(row.visible, "RoadType selector disappeared at %s" % viewport_size)
+		assert_rect_in_viewport(context.get_global_rect(), Vector2(viewport_size), "RoadType context %s" % viewport_size)
+		assert_rect_non_overlapping(context.get_global_rect(), dock.get_global_rect(), "RoadType context overlaps dock at %s" % viewport_size)
+		assert_rect_non_overlapping(context.get_global_rect(), debug_panel.get_global_rect(), "RoadType context overlaps debug panel at %s" % viewport_size)
+		for button in row.get_node("RoadTypeSelector").get_children():
+			assert_rect_in_viewport(button.get_global_rect(), Vector2(viewport_size), "%s RoadType button" % viewport_size)
+	sub_viewport.queue_free()
+	await process_frame
+
+func click_button_with_mouse(button: Button) -> void:
+	var position := button.get_global_rect().get_center()
+	Input.parse_input_event(mouse_button_event(true, position))
+	await process_frame
+	Input.parse_input_event(mouse_button_event(false, position))
+	await process_frame
+
+func count_pressed(buttons: Array[Button]) -> int:
+	var count := 0
+	for button in buttons:
+		if button.button_pressed:
+			count += 1
+	return count
 
 func test_missing_dependencies() -> void:
 	var hud_scene: PackedScene = load(HUD_SCENE)
