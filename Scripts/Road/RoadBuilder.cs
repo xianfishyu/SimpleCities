@@ -63,9 +63,9 @@ public partial class RoadBuilder : Node2D
     public RoadType GetUpgradeTargetRoadType() =>
         _upgradeSession?.TargetRoadType ?? SelectedRoadType;
 
-    public bool CanUndoLastEdit() => CanUndo;
+    public bool CanUndoLastEdit() => CanUndo && IsRoadCommandAdmitted();
 
-    public bool CanRedoLastEdit() => CanRedo;
+    public bool CanRedoLastEdit() => CanRedo && IsRoadCommandAdmitted();
 
     public int GetUndoEditCount() => _editHistory?.UndoCount ?? 0;
 
@@ -530,7 +530,7 @@ public partial class RoadBuilder : Node2D
 
     public bool UndoLastEdit()
     {
-        if (_loadAdmission is not null)
+        if (!IsRoadCommandAdmitted())
             return false;
         CancelPlaceSession();
         CancelRemoveSession();
@@ -540,7 +540,7 @@ public partial class RoadBuilder : Node2D
 
     public bool RedoLastEdit()
     {
-        if (_loadAdmission is not null)
+        if (!IsRoadCommandAdmitted())
             return false;
         CancelPlaceSession();
         CancelRemoveSession();
@@ -707,6 +707,11 @@ public partial class RoadBuilder : Node2D
         renderToken = captured;
         return true;
     }
+
+    private bool IsRoadCommandAdmitted() =>
+        _loadAdmission is null &&
+        _renderer is IRoadSurfaceSelectionProvider surfaceProvider &&
+        TryCaptureCurrentRoadSurfaceToken(surfaceProvider, out _);
 
     private RoadPlacementSession? GetAdmittedPlacementSession()
     {

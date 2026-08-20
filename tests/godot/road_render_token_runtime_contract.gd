@@ -51,6 +51,15 @@ func run() -> void:
 	builder.UpdatePlace(Vector2(100.0, 0.0))
 	if not require(builder.CommitPlace(Vector2(100.0, 0.0)), "Normal mutation did not commit"):
 		return
+	var pending_undo_count: int = builder.GetUndoEditCount()
+	var pending_redo_count: int = builder.GetRedoEditCount()
+	if not require(
+		not builder.CanUndoLastEdit() and
+		not builder.UndoLastEdit() and
+		builder.GetUndoEditCount() == pending_undo_count and
+		builder.GetRedoEditCount() == pending_redo_count,
+		"Pending presentation admitted an undo command"):
+		return
 	if not require(
 		not builder.BeginPlace(Vector2(0.0, 100.0)) and
 		not builder.HasActivePlaceSession() and
@@ -231,6 +240,16 @@ func require_stalled_retry(
 		renderer.GetPreviewPointCount() == 0,
 		"Stalled presentation admitted a placement session"):
 		return {}
+	var stalled_undo_count: int = builder.GetUndoEditCount()
+	var stalled_redo_count: int = builder.GetRedoEditCount()
+	if not require(
+		not builder.CanUndoLastEdit() and
+		not builder.UndoLastEdit() and
+		builder.GetUndoEditCount() == stalled_undo_count and
+		builder.GetRedoEditCount() == stalled_redo_count and
+		renderer.GetPresentationState().get("desired", {}) == desired,
+		"Stalled presentation admitted an undo command"):
+		return {}
 
 	if not require(
 		not renderer.RetryRoadPresentation(),
@@ -265,6 +284,50 @@ func require_stalled_retry(
 		not renderer.RetryRoadPresentation(),
 		"Ready presentation accepted a redundant retry"):
 		return {}
+
+	var replay_edge_count: int = renderer.GetRenderedEdgeCount()
+	var replay_undo_count: int = builder.GetUndoEditCount()
+	var replay_redo_count: int = builder.GetRedoEditCount()
+	if not require(
+		builder.CanUndoLastEdit() and builder.UndoLastEdit(),
+		"Current presentation did not admit undo"):
+		return {}
+	if not require(
+		not builder.CanRedoLastEdit() and
+		not builder.RedoLastEdit() and
+		builder.GetUndoEditCount() == replay_undo_count - 1 and
+		builder.GetRedoEditCount() == replay_redo_count + 1 and
+		renderer.GetRenderedEdgeCount() == replay_edge_count,
+		"Pending undo presentation admitted redo or changed retained rendering"):
+		return {}
+	await process_frame
+	await process_frame
+	var undone := presentation_token(renderer, "Undo presentation")
+	if undone.is_empty() or not require_ordinary_change(recovered, undone):
+		return {}
+	if not require(
+		renderer.GetRenderedEdgeCount() == replay_edge_count - 1 and
+		builder.CanRedoLastEdit() and builder.RedoLastEdit(),
+		"Presented undo did not admit redo"):
+		return {}
+	if not require(
+		not builder.CanUndoLastEdit() and
+		not builder.UndoLastEdit() and
+		builder.GetUndoEditCount() == replay_undo_count and
+		builder.GetRedoEditCount() == replay_redo_count and
+		renderer.GetRenderedEdgeCount() == replay_edge_count - 1,
+		"Pending redo presentation admitted undo or changed retained rendering"):
+		return {}
+	await process_frame
+	await process_frame
+	var replayed := presentation_token(renderer, "Redo presentation")
+	if replayed.is_empty() or not require_ordinary_change(undone, replayed):
+		return {}
+	if not require(
+		renderer.GetRenderedEdgeCount() == replay_edge_count,
+		"Presented redo did not restore the rendered graph"):
+		return {}
+	recovered = replayed
 
 	var admitted_edge_count: int = renderer.GetRenderedEdgeCount()
 	var admitted_history_count: int = builder.GetUndoEditCount()

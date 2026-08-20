@@ -153,6 +153,30 @@ public sealed class RoadInputStrategyTests
     }
 
     [Fact]
+    public void RoadBuilderHistoryCommandsRequireCurrentPresentation()
+    {
+        string source = File.ReadAllText(Path.Combine(ProjectRoot, "Scripts", "Road", "RoadBuilder.cs"));
+
+        Assert.Contains(
+            "public bool CanUndoLastEdit() => CanUndo && IsRoadCommandAdmitted();",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "public bool CanRedoLastEdit() => CanRedo && IsRoadCommandAdmitted();",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "TryCaptureCurrentRoadSurfaceToken(surfaceProvider, out _)",
+            source,
+            StringComparison.Ordinal);
+
+        string undo = ExtractMethod(source, "public bool UndoLastEdit", "public bool RedoLastEdit");
+        string redo = ExtractMethod(source, "public bool RedoLastEdit", "public void CancelPlaceSession");
+        Assert.Contains("if (!IsRoadCommandAdmitted())", undo, StringComparison.Ordinal);
+        Assert.Contains("if (!IsRoadCommandAdmitted())", redo, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void InputStrategyAndPathDraftRemainGeometryOnly()
     {
         string inputDirectory = Path.Combine(ProjectRoot, "Scripts", "Road", "Input");

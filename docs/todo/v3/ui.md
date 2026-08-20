@@ -22,7 +22,7 @@
 | V3 类型建造 | `RoadBuilder` 提供默认 `Street` 的 `SelectedRoadType` 与会话冻结；ToolContextPanel 已在 Road/RoadUpgrade 上下文显示四段式样式选择器，通过 ToolManager 委托写回共享状态 | `v3-tool-input:2.1`、1.1～1.2（均已完成） |
 | V3 既有道路改造 | `ToolType.RoadUpgrade` 与独立输入生命周期已实现；Roads catalog 以独立图标和 T 动作呈现 RoadUpgrade，ConstructionDock 与 ToolManager 双向同步选中态和上下文 | 1.2、`v3-tool-input:2.2`（均已完成） |
 | V3 规范存储诊断 | DebugPanel 仍读取 `GetAllGroups()`，无法观察 Edge 压缩、原生几何数量或 self-loop | 1.3、`v3-road-graph:8.2`～`8.5` |
-| V3 异步存档体验 | PauseMenu 已消费结构化 operation state/result，按 token、menu/scene generation 过滤 continuation，busy 时禁用冲突入口并让 Escape 只请求一次取消；退出流程会 drain/shutdown。Load 已联合发布基础 mesh、带 canonical `RoadLocation` 和不可变空间索引的 `EdgeRibbon` + `TerminalCap` + `SemanticJoin` + `JunctionPatch` surface 与 matching `RoadRenderToken` acknowledgment；普通 mutation 的 renderer provider 在 pending/stalled 时拒绝 hit，placement、拆除与 RoadUpgrade 命令已消费该门禁，其余道路命令尚未接入 | 1.4、`v3-save-system:2.3`、`v3-tool-input:2.4`、`v3-grid-rendering:2.2` |
+| V3 异步存档体验 | PauseMenu 已消费结构化 operation state/result，按 token、menu/scene generation 过滤 continuation，busy 时禁用冲突入口并让 Escape 只请求一次取消；退出流程会 drain/shutdown。Load 已联合发布基础 mesh、带 canonical `RoadLocation` 和不可变空间索引的 `EdgeRibbon` + `TerminalCap` + `SemanticJoin` + `JunctionPatch` surface 与 matching `RoadRenderToken` acknowledgment；普通 mutation 的 renderer provider 在 pending/stalled 时拒绝 hit，placement、拆除、RoadUpgrade 与 undo/redo 命令已消费该门禁，其余道路命令尚未接入 | 1.4、`v3-save-system:2.3`、`v3-tool-input:2.4`、`v3-grid-rendering:2.2` |
 
 ## 执行顺序
 
@@ -77,7 +77,8 @@
   - 退出与焦点进展（2026-08-14）：返回主菜单先进入 exit-convergence 状态、等待当前 scene operation drain，再切换场景；窗口关闭、暂停菜单和 MainMenu 退出统一由 `SaveManager` shutdown。所有 deferred focus 通过执行时有效性门禁，旧菜单离树后不会操作失效控件。对应已验证修复记录见 `save-system:BUG-12` 与 `ui:BUG-16`。
   - 当前证据（2026-08-15）：`PauseMenuContractTests`、`AutosaveContractTests`、`SaveOperationCoordinatorTests`、renderer token/surface/preparer 契约、RoadUpgrade 聚焦组合 17/17、拆除/history 聚焦组合 51/51、类型化建造聚焦组合 60/60 与完整 833/833 自动化通过；scene-style drain 回归继续覆盖等待 gate 的请求与外部取消竞争。四类 surface 与 matching token 可由 Load worker 预建；`road_input_strategy_runtime_contract.gd` 还验证改造目标冻结、连续/矩形选择、NoChanges、旧 token、semantic boundary 合并和 active upgrade 上的 full-reset Load。Debug/`ExportRelease` build 均为 0 错误，各有 1 条既有 `NU1900`；Roslyn/GDScript diagnostics 为 0，editor 无新增错误且 DAP `stderr`/`console` 为空。测试槽、隔离目录和日志已清理，本轮未重跑 10k/100k。
   - 工具门禁进展（2026-08-20）：类型化建造现与拆除、RoadUpgrade 一样冻结完整表现 token；pending、stalled 或 superseded 时不会开始/继续/提交旧 placement，Load admission 期间也只拒绝新命令而不提前破坏当前 UI/工具状态。完整自动化 840/840、双配置 build 0 警告/0 错误，两项隔离道路运行时契约均 PASS；当前会话未暴露 Roslyn/Godot MCP 与 DAP，未刷新对应通道。
-  - 仍缺（保持开放）：renderer 已具备四类 surface 和 provider 级 stalled/retry 门禁，placement、拆除与 RoadUpgrade 工具也已执行完整 token/graph admission，RoadType 选择器和 RoadUpgrade 双工具入口已有共享状态 UI；排队 continuation 与其余道路命令尚未接入，因此仍不能展示最终的 graph/tool/mesh/surface 一次接管语义。observer/cleanup 每类 warning、所有阶段重复激活与真实关键资源故障矩阵也尚未全部验收。
+  - 历史命令门禁进展（2026-08-20）：HUD 查询的 undo/redo 可用性与实际回放入口均要求 provider desired/presented/surface token 和 graph current；普通 mutation pending/stalled 与回放后的反向 pending 窗口会保持按钮命令不可用，不清栈或修改图，matching presentation 发布后恢复。`RoadInputStrategyTests` 21/21、完整自动化 841/841、双配置 build 0 警告/0 错误，两项隔离道路运行时契约均 PASS；当前会话未暴露 Roslyn/Godot MCP 与 DAP，未刷新对应通道。
+  - 仍缺（保持开放）：renderer 已具备四类 surface 和 provider 级 stalled/retry 门禁，placement、拆除、RoadUpgrade 与 undo/redo 也已执行完整 token/graph admission，RoadType 选择器和 RoadUpgrade 双工具入口已有共享状态 UI；排队 continuation 与其余道路命令尚未接入，因此仍不能展示最终的 graph/tool/mesh/surface 一次接管语义。observer/cleanup 每类 warning、所有阶段重复激活与真实关键资源故障矩阵也尚未全部验收。
 
 ## 暂不执行
 
