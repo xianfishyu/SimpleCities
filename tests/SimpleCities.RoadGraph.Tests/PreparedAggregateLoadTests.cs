@@ -122,6 +122,34 @@ public sealed class PreparedAggregateLoadTests
     }
 
     [Fact]
+    public void CleanupFailure_BecomesWarningAndDoesNotStopRemainingCleanup()
+    {
+        var state = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["graph"] = "old",
+            ["presentation"] = "old",
+        };
+        var events = new List<string>();
+        string[] participantIDs = ["graph", "presentation"];
+        var graph = new FakePlan("graph", state, events, participantIDs)
+        {
+            ThrowDuringCompletion = true,
+        };
+        var presentation = new FakePlan("presentation", state, events, participantIDs);
+        using var aggregate = new PreparedAggregateLoad([graph, presentation]);
+
+        IReadOnlyList<string> warnings = aggregate.Commit(
+            new UncoordinatedStorageOperationLease(SaveOperationKind.Load));
+
+        Assert.Equal("new", state["graph"]);
+        Assert.Equal("new", state["presentation"]);
+        Assert.Single(warnings);
+        Assert.Contains("participant 'graph' cleanup failed", warnings[0], StringComparison.Ordinal);
+        Assert.Contains("complete:graph", events);
+        Assert.Contains("complete:presentation", events);
+    }
+
+    [Fact]
     public void RoadGraphPreflightFailure_ReleasesAdmissionWithoutChangingGraph()
     {
         var graph = new RoadGraph();
@@ -227,6 +255,7 @@ public sealed class PreparedAggregateLoadTests
         public string ParticipantID { get; }
         public bool IsGenerationCurrent { get; set; } = true;
         internal bool ThrowDuringNotification { get; init; }
+        internal bool ThrowDuringCompletion { get; init; }
 
         public void CommitReferences()
         {
@@ -243,7 +272,12 @@ public sealed class PreparedAggregateLoadTests
             return [];
         }
 
-        public void CompleteCommit() => _events.Add($"complete:{ParticipantID}");
+        public void CompleteCommit()
+        {
+            _events.Add($"complete:{ParticipantID}");
+            if (ThrowDuringCompletion)
+                throw new InvalidOperationException("cleanup failure");
+        }
 
         public void Dispose() { }
     }
