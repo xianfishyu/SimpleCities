@@ -90,7 +90,8 @@
   - 历史回放门禁证据（2026-08-20）：undo/redo 的可用性查询与实际执行均要求 provider desired/presented/surface token 和 graph facade/change sequence current；pending/stalled 时两栈与图保持不变，undo/redo 各自产生的普通 mutation pending 窗口会拒绝相反方向回放，matching presentation 发布后恢复。`RoadInputStrategyTests` 21/21、完整自动化 841/841、双配置 build 0 警告/0 错误；两个隔离道路运行时契约均 PASS。当前会话未暴露 Roslyn/Godot MCP 与 DAP，未把对应诊断、editor 或 DAP 门禁记为本轮通过。
   - Deferred continuation 进展（2026-08-20）：`ScheduleStaticBatchRebuild()` 为实际排队的普通表现回调捕获 `_staticBatchRebuildContinuationGeneration`；同帧图事件仍只保留一项工作，而 Load admission 同步 flush、普通 full reset、`SetGraph()`、`_ExitTree()` 与 aggregate commit 都推进 generation。旧 callable 即使稍后抵达，也不能清除或执行新 generation 的重建。
   - Deferred continuation 证据（2026-08-20）：`RoadGeometryDisplaySamplerTests + RoadRendererLifecycleContractTests` 16/16、完整自动化 842/842、双配置 build 0 警告/0 错误；隔离 token 契约在 pending mutation 后同栈启动 Load，验证 admission 先同步发布当前代，Load 后额外两帧仍保持新 lineage 的 matching mesh/surface/token。输入契约继续 PASS；隔离目录已清理，原有 Godot 进程未受影响。当前会话未暴露 Roslyn/Godot MCP 与 DAP，未刷新对应通道。
-  - 仍缺（保持开放）：平行 Edge 仍缺覆盖拆除与改造的完整独立工具矩阵，更新 token 的 renderer 级故障矩阵、连续 Load 及每个关键 Load Preflight 故障点也仍需协作验证。
+  - 连续 Load 证据（2026-08-20）：隔离 token 契约在同一真实场景和槽上背靠背完成两次 aggregate Load；第二次 graph facade generation、change sequence 与 render request ID 各精确推进一次，四类 surface primitive 的 hit token 全部等于第二次 desired/presented token。完整自动化保持 843/843、双配置 build 0 警告/0 错误；隔离目录和日志已清理，原有 Godot 进程未受影响。
+  - 仍缺（保持开放）：平行 Edge 仍缺覆盖拆除与改造的完整独立工具矩阵，更新 token 的 renderer 级故障矩阵及每个关键 Load Preflight 故障点也仍需协作验证。
 
 <a id="v3-grid-rendering2.3"></a>
 

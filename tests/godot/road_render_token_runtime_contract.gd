@@ -162,6 +162,45 @@ func run() -> void:
 	if not require_junction_patch_hit(renderer, Vector2(300.0, 100.0), loaded, "Aggregate Load"):
 		return
 
+	var consecutive_load_token := str(save_manager.StartLoad(slot_id))
+	if not require(
+		not consecutive_load_token.is_empty() and consecutive_load_token != load_operation_token,
+		"Consecutive Load did not return a distinct operation token"):
+		return
+	if not require(
+		await V3_SAVE_FIXTURE.operation_succeeded(save_manager, consecutive_load_token),
+		"Consecutive render token fixture Load did not complete"):
+		return
+	await process_frame
+	await process_frame
+	var consecutively_loaded := presentation_token(renderer, "Consecutive aggregate Load")
+	if consecutively_loaded.is_empty() or not require_load_change(loaded, consecutively_loaded):
+		return
+	if not require_surface_hit(
+		renderer,
+		Vector2(-50.0, 100.0),
+		consecutively_loaded,
+		"Consecutive aggregate Load"):
+		return
+	if not require_terminal_cap_hit(
+		renderer,
+		Vector2(-108.0, 100.0),
+		consecutively_loaded,
+		"Consecutive aggregate Load"):
+		return
+	if not require_semantic_join_hit(
+		renderer,
+		Vector2(5.0, 95.0),
+		consecutively_loaded,
+		"Consecutive aggregate Load"):
+		return
+	if not require_junction_patch_hit(
+		renderer,
+		Vector2(300.0, 100.0),
+		consecutively_loaded,
+		"Consecutive aggregate Load"):
+		return
+
 	if not require(
 		await V3_SAVE_FIXTURE.delete_slot(save_manager, slot_id),
 		"Render token fixture slot cleanup failed"):

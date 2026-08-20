@@ -97,7 +97,8 @@
   - 历史回放门禁证据（2026-08-20）：`RoadInputStrategyTests` 21/21，完整 `dotnet test SimpleCities.sln --no-restore` 841/841；Debug 与 `ExportRelease` build 均为 0 警告、0 错误。隔离 `APPDATA` 的 `road_render_token_runtime_contract.gd` 覆盖 pending、stalled 以及 undo/redo 各自产生的反向命令拒绝窗口，`road_input_strategy_runtime_contract.gd` 保持 PASS；隔离目录已清理，未新增 Godot 进程。当前会话未暴露 Roslyn/Godot MCP 与 DAP，focused semantic diagnostics、editor bridge 和 DAP console 未记为本轮通过；headless stderr 只有既有 `ConstructionDock` 缺 `ToolManager.Instance` 与契约主动触发的非法配置回退 warning。
   - 排队 continuation 进展（2026-08-20）：源码复核确认当前生产输入层没有道路事务命令队列，现有玩家图事务入口为 placement、removal、RoadUpgrade 与 undo/redo，均已接管同代 provider/graph 门禁。`RoadRenderer` 的 `CallDeferred` 普通批次重建是唯一真实排队表现 continuation；它现在捕获 `_staticBatchRebuildContinuationGeneration`，同帧 mutation 仍合并，但 Load admission 的同步 flush、full reset、换图、退树和 aggregate commit 都推进 generation，旧 callable 不会消费后续新请求。
   - 排队 continuation 证据（2026-08-20）：renderer/sampler 聚焦组合 16/16、完整自动化 842/842，Debug 与 `ExportRelease` build 均为 0 警告、0 错误。隔离 `APPDATA` 的 `road_render_token_runtime_contract.gd` 在普通 mutation 留下 pending 后同调用栈立即 `StartLoad`，确认 admission 同步发布 current presentation，Load 完成并多经过两帧后旧 callable 未覆盖新 lineage 的 mesh/surface/token；`road_input_strategy_runtime_contract.gd` 继续 PASS。隔离目录已清理，原有 Godot PID 未受影响；当前会话未暴露 Roslyn/Godot MCP 与 DAP，未刷新对应门禁。
-  - 仍缺（保持开放）：平行 Edge 完整工具矩阵、每类工具状态与每个关键 renderer Preflight 故障点的联合矩阵，以及连续 Load、generation 失配和 observer/cleanup 组合仍未完成，因此 `v3-tool-input:2.4` 继续开放。
+  - 连续 Load 证据（2026-08-20）：隔离 token 契约在同一场景和同一槽上连续完成两次 aggregate Load；第二次使用独立 operation token，graph facade generation、change sequence 和 render request ID 再各推进一次，四类 surface 命中均绑定第二次 presented token。完整自动化 843/843、双配置 build 0 警告/0 错误，隔离目录和日志已清理且原有 Godot PID 未受影响；该证据证明 tool/renderer admission 在成功 commit 后可再次建立，不替代各工具状态与故障注入组合。
+  - 仍缺（保持开放）：平行 Edge 完整工具矩阵、每类工具状态与每个关键 renderer Preflight 故障点的联合矩阵，以及 generation 失配和 observer/cleanup 组合仍未完成，因此 `v3-tool-input:2.4` 继续开放。
 
 ## 暂不执行
 
