@@ -4,6 +4,7 @@ const MAP_SCENE := "res://Scenes/MapTest.tscn"
 const TEST_SLOT_NAME := "Road rendering performance contract"
 const V3_SAVE_FIXTURE := preload("res://tests/godot/v3_save_fixture.gd")
 const DATASET_SIZES: Array[int] = [10_000, 100_000]
+const DATASET_KINDS: Array[String] = ["grid", "junction-dense"]
 const EDGE_LENGTH := 8.0
 const EDGE_SPACING := 32.0
 const FRAME_BUDGET_MS := 16.67
@@ -16,12 +17,16 @@ var slot_id := ""
 var enforce_budget := false
 var failed_budget_scenarios: Array[String] = []
 var failure_cleanup_started := false
+var dataset_kind := "grid"
 
 func _initialize() -> void:
 	run.call_deferred()
 
 func run() -> void:
 	enforce_budget = OS.get_cmdline_user_args().has("--enforce-budget")
+	dataset_kind = read_requested_dataset_kind()
+	if not require(DATASET_KINDS.has(dataset_kind), "Unknown rendering performance dataset kind: %s" % dataset_kind):
+		return
 	var requested_dataset_size := read_requested_dataset_size()
 	var dataset_sizes: Array[int] = DATASET_SIZES.duplicate()
 	if requested_dataset_size > 0:
@@ -58,7 +63,7 @@ func run() -> void:
 	for edge_count: int in dataset_sizes:
 		var columns: int = ceili(sqrt(float(edge_count) * 16.0 / 9.0))
 		var rows: int = ceili(float(edge_count) / float(columns))
-		camera.position = Vector2(EDGE_LENGTH * 0.5, 0.0)
+		camera.position = Vector2.ZERO if dataset_kind == "junction-dense" else Vector2(EDGE_LENGTH * 0.5, 0.0)
 		print("STAGE fixture-write-start edges=%d" % edge_count)
 		if not require(write_fixture(road_path, edge_count, columns, rows), "Performance fixture could not be written"):
 			return
@@ -84,7 +89,7 @@ func run() -> void:
 		renderer.set("PreviewPoints", PackedVector2Array())
 		renderer.queue_redraw()
 		await wait_rendered_frame()
-		var highlight_samples: Array[float] = await sample_highlight_frames(renderer, edge_count * 2 + 1)
+		var highlight_samples: Array[float] = await sample_highlight_frames(renderer, first_edge_id_for_dataset(edge_count))
 		var highlight_metrics := capture_render_metrics(renderer)
 		renderer.set("HoveredEdgeID", null)
 		renderer.queue_redraw()
@@ -107,7 +112,7 @@ func run() -> void:
 	if not require(save_manager.get("RegisteredSaveableCount") == 0, "Performance cleanup retained saveables"):
 		return
 
-	print("PASS road rendering performance contract")
+	print("PASS road rendering performance contract dataset=%s" % dataset_kind)
 	quit(0)
 
 func sample_camera_frames(camera: Camera2D) -> Array[float]:
@@ -156,6 +161,7 @@ func print_result(edge_count: int, scenario: String, samples: Array[float], rebu
 	var mean_ms := mean(samples)
 	var p95_ms := percentile95(samples)
 	var result := {
+		"dataset": dataset_kind,
 		"edges": edge_count,
 		"scenario": scenario,
 		"mean_ms": snappedf(mean_ms, 0.001),
@@ -187,6 +193,8 @@ func wait_rendered_frame() -> void:
 	await RenderingServer.frame_post_draw
 
 func write_fixture(path: String, edge_count: int, columns: int, rows: int) -> bool:
+	if dataset_kind == "junction-dense":
+		return write_junction_dense_fixture(path, edge_count)
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
 		return false
@@ -228,11 +236,88 @@ func write_fixture(path: String, edge_count: int, columns: int, rows: int) -> bo
 	print("STAGE manifest-hash-done edges=%d" % edge_count)
 	return refreshed
 
+func write_junction_dense_fixture(path: String, edge_count: int) -> bool:
+	if edge_count <= 0 or edge_count % 4 != 0:
+		return false
+	var cluster_count := edge_count / 4
+	var columns := ceili(sqrt(float(cluster_count) * 16.0 / 9.0))
+	var rows := ceili(float(cluster_count) / float(columns))
+	var node_count := cluster_count * 5
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		return false
+	file.store_string('{"formatFamily":"simple-cities-v3","payloadType":"road-network","schemaVersion":1,"nextID":%d,"nodes":[' % (node_count + edge_count + 1))
+	for cluster in range(cluster_count):
+		var center := junction_cluster_position(cluster, columns, rows)
+		var center_id := cluster * 5 + 1
+		write_item(file, {"id": center_id, "x": center.x, "y": center.y}, cluster > 0)
+		for arm in range(4):
+			var endpoint := center + junction_arm_offset(arm)
+			write_item(file, {
+				"id": center_id + arm + 1,
+				"x": endpoint.x,
+				"y": endpoint.y,
+			}, true)
+	file.store_string('],"edges":[')
+	var road_types: Array[String] = ["dirt", "street", "arterial", "highway"]
+	for cluster in range(cluster_count):
+		var center := junction_cluster_position(cluster, columns, rows)
+		var center_id := cluster * 5 + 1
+		for arm in range(4):
+			var edge_index := cluster * 4 + arm
+			var edge_id := node_count + edge_index + 1
+			var endpoint := center + junction_arm_offset(arm)
+			write_item(file, {
+				"id": edge_id,
+				"nodeAID": center_id,
+				"nodeBID": center_id + arm + 1,
+				"roadType": road_types[arm],
+				"geometry": [{
+					"version": 1,
+					"kind": "line",
+					"start": {"x": center.x, "y": center.y},
+					"end": {"x": endpoint.x, "y": endpoint.y},
+				}],
+			}, edge_index > 0)
+	file.store_string(']}')
+	file.close()
+	print("STAGE manifest-hash-start edges=%d dataset=%s" % [edge_count, dataset_kind])
+	var refreshed: bool = V3_SAVE_FIXTURE.refresh_manifest_payload(slot_id)
+	print("STAGE manifest-hash-done edges=%d dataset=%s" % [edge_count, dataset_kind])
+	return refreshed
+
+func junction_cluster_position(cluster: int, columns: int, rows: int) -> Vector2:
+	var spacing := EDGE_SPACING * 3.0
+	var width := float(columns - 1) * spacing
+	var height := float(rows - 1) * spacing
+	return Vector2(
+		float(cluster % columns) * spacing - width * 0.5,
+		float(cluster / columns) * spacing - height * 0.5)
+
+func junction_arm_offset(arm: int) -> Vector2:
+	return [
+		Vector2(0.0, -EDGE_LENGTH),
+		Vector2(EDGE_LENGTH, 0.0),
+		Vector2(0.0, EDGE_LENGTH),
+		Vector2(-EDGE_LENGTH, 0.0),
+	][arm]
+
+func first_edge_id_for_dataset(edge_count: int) -> int:
+	if dataset_kind == "junction-dense":
+		return (edge_count / 4) * 5 + 1
+	return edge_count * 2 + 1
+
 func read_requested_dataset_size() -> int:
 	for argument: String in OS.get_cmdline_user_args():
 		if argument.begins_with("--dataset-size="):
 			return argument.trim_prefix("--dataset-size=").to_int()
 	return 0
+
+func read_requested_dataset_kind() -> String:
+	for argument: String in OS.get_cmdline_user_args():
+		if argument.begins_with("--dataset-kind="):
+			return argument.trim_prefix("--dataset-kind=")
+	return "grid"
 
 func fixture_position(index: int, columns: int, width: float, height: float) -> Vector2:
 	var column := index % columns
