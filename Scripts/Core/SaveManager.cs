@@ -660,10 +660,12 @@ public partial class SaveManager : Node
                     rendererAdmission,
                     prepared.Presentation,
                     targetRevision.StateToken));
+                long slotTargetGeneration = _currentSlotGeneration;
                 preflightPlans.Add(new SlotTargetLoadCommitPlan(
-                    this,
-                    sceneRequest,
-                    slotID));
+                    slotID,
+                    () => IsSceneContextCurrent(sceneRequest) &&
+                        slotTargetGeneration == _currentSlotGeneration,
+                    SetCurrentSlot));
 
                 using var aggregate = new PreparedAggregateLoad(preflightPlans);
                 aggregateOwnsPlans = true;
@@ -1128,30 +1130,32 @@ public partial class SaveManager : Node
         IPreparedSaveState GraphState,
         RoadRendererPreparedLoad Presentation);
 
-    private sealed class SlotTargetLoadCommitPlan : INonThrowingLoadCommitPlan
+    internal sealed class SlotTargetLoadCommitPlan : INonThrowingLoadCommitPlan
     {
-        private readonly SaveManager _owner;
-        private readonly SceneRequest _sceneRequest;
         private readonly string _slotID;
+        private readonly Func<bool> _isGenerationCurrent;
+        private readonly Action<string> _setCurrentSlot;
         private bool _committed;
 
         internal SlotTargetLoadCommitPlan(
-            SaveManager owner,
-            SceneRequest sceneRequest,
-            string slotID)
+            string slotID,
+            Func<bool> isGenerationCurrent,
+            Action<string> setCurrentSlot)
         {
-            _owner = owner;
-            _sceneRequest = sceneRequest;
+            ArgumentException.ThrowIfNullOrWhiteSpace(slotID);
+            ArgumentNullException.ThrowIfNull(isGenerationCurrent);
+            ArgumentNullException.ThrowIfNull(setCurrentSlot);
             _slotID = slotID;
+            _isGenerationCurrent = isGenerationCurrent;
+            _setCurrentSlot = setCurrentSlot;
         }
 
         public string ParticipantID => "slot-target";
-        public bool IsGenerationCurrent =>
-            !_committed && _owner.IsSceneContextCurrent(_sceneRequest);
+        public bool IsGenerationCurrent => !_committed && _isGenerationCurrent();
 
         public void CommitReferences()
         {
-            _owner.SetCurrentSlot(_slotID);
+            _setCurrentSlot(_slotID);
             _committed = true;
         }
 

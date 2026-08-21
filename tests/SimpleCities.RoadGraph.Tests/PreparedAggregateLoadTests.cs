@@ -179,6 +179,43 @@ public sealed class PreparedAggregateLoadTests
     }
 
     [Fact]
+    public void RealSlotTargetGenerationMismatchAtCommitBoundary_RejectsEveryReferenceSwap()
+    {
+        var state = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["graph"] = "old",
+            ["tool"] = "old",
+            ["presentation"] = "old",
+        };
+        var events = new List<string>();
+        string[] participantIDs = ["graph", "tool", "presentation"];
+        FakePlan[] companionPlans = participantIDs
+            .Select(id => new FakePlan(id, state, events, participantIDs))
+            .ToArray();
+        long slotTargetGeneration = 7;
+        string currentSlotID = "old-slot";
+        var slotPlan = new SaveManager.SlotTargetLoadCommitPlan(
+            "new-slot",
+            () => slotTargetGeneration == 7,
+            slotID => currentSlotID = slotID);
+        using var aggregate = new PreparedAggregateLoad(
+            [.. companionPlans, slotPlan]);
+        var operation = new BoundaryInvalidatingLease(
+            SaveOperationKind.Load,
+            () => slotTargetGeneration++);
+
+        LoadPreflightInvalidException exception = Assert.Throws<LoadPreflightInvalidException>(
+            () => aggregate.Commit(operation));
+
+        Assert.Contains("while entering commit", exception.Message, StringComparison.Ordinal);
+        Assert.Equal(1, operation.InvalidationCount);
+        Assert.Equal("old-slot", currentSlotID);
+        Assert.All(participantIDs, id => Assert.Equal("old", state[id]));
+        Assert.All(companionPlans, plan => Assert.Equal(0, plan.CommitCount));
+        Assert.Empty(events);
+    }
+
+    [Fact]
     public async Task CancellationBeforeCommit_LeavesEveryParticipantUnchanged()
     {
         var state = new Dictionary<string, string>(StringComparer.Ordinal)
