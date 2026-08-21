@@ -44,6 +44,49 @@ public sealed class PreparedAggregateLoadTests
     }
 
     [Fact]
+    public void SecondSaveable_UsesTheSameAggregateCommitAndCleanupBoundary()
+    {
+        var state = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["graph"] = "old",
+            ["tool"] = "old",
+            ["presentation"] = "old",
+            ["second-saveable"] = "old",
+            ["slot"] = "old",
+        };
+        var events = new List<string>();
+        string[] participantIDs = ["graph", "tool", "presentation", "second-saveable", "slot"];
+        INonThrowingLoadCommitPlan[] plans = participantIDs.Select(id =>
+            new FakePlan(id, state, events, participantIDs)).ToArray();
+        using var aggregate = new PreparedAggregateLoad(plans);
+
+        IReadOnlyList<string> warnings = aggregate.Commit(
+            new UncoordinatedStorageOperationLease(SaveOperationKind.Load));
+
+        Assert.Empty(warnings);
+        Assert.All(participantIDs, id => Assert.Equal("new", state[id]));
+        Assert.Equal(
+            [
+                "commit:graph",
+                "commit:tool",
+                "commit:presentation",
+                "commit:second-saveable",
+                "commit:slot",
+                "notify:graph",
+                "notify:tool",
+                "notify:presentation",
+                "notify:second-saveable",
+                "notify:slot",
+                "complete:graph",
+                "complete:tool",
+                "complete:presentation",
+                "complete:second-saveable",
+                "complete:slot",
+            ],
+            events);
+    }
+
+    [Fact]
     public void GenerationMismatch_RejectsBeforeAnyReferenceSwap()
     {
         var state = new Dictionary<string, string>(StringComparer.Ordinal)
