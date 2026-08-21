@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 internal interface INonThrowingLoadCommitPlan : IDisposable
@@ -14,6 +15,7 @@ internal interface INonThrowingLoadCommitPlan : IDisposable
 internal sealed class PreparedAggregateLoad : IDisposable
 {
     private readonly INonThrowingLoadCommitPlan[] _plans;
+    private TimeSpan? _referenceCommitDuration;
     private bool _committed;
     private bool _disposed;
 
@@ -38,6 +40,7 @@ internal sealed class PreparedAggregateLoad : IDisposable
     }
 
     internal bool IsGenerationCurrent => _plans.All(plan => plan.IsGenerationCurrent);
+    internal TimeSpan? ReferenceCommitDuration => _referenceCommitDuration;
 
     internal IReadOnlyList<string> Commit(IStorageOperationLease operationLease)
     {
@@ -54,11 +57,19 @@ internal sealed class PreparedAggregateLoad : IDisposable
         operationLease.AcquireCommitLease();
         operationLease.CrossCommitBoundary(() =>
         {
-            if (!IsGenerationCurrent)
-                throw new LoadPreflightInvalidException(
-                    "A load participant generation changed while entering commit.");
-            foreach (INonThrowingLoadCommitPlan plan in _plans)
-                plan.CommitReferences();
+            long referenceCommitStarted = Stopwatch.GetTimestamp();
+            try
+            {
+                if (!IsGenerationCurrent)
+                    throw new LoadPreflightInvalidException(
+                        "A load participant generation changed while entering commit.");
+                foreach (INonThrowingLoadCommitPlan plan in _plans)
+                    plan.CommitReferences();
+            }
+            finally
+            {
+                _referenceCommitDuration = Stopwatch.GetElapsedTime(referenceCommitStarted);
+            }
         });
         operationLease.MarkCommitted();
         _committed = true;

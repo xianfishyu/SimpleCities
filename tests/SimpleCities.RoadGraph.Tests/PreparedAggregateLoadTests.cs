@@ -44,6 +44,26 @@ public sealed class PreparedAggregateLoadTests
     }
 
     [Fact]
+    public void Commit_RecordsReferenceCommitBoundaryDuration()
+    {
+        var state = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["graph"] = "old",
+        };
+        var events = new List<string>();
+        using var aggregate = new PreparedAggregateLoad(
+            [new FakePlan("graph", state, events, ["graph"])]);
+
+        Assert.Null(aggregate.ReferenceCommitDuration);
+
+        aggregate.Commit(new UncoordinatedStorageOperationLease(SaveOperationKind.Load));
+
+        TimeSpan? duration = aggregate.ReferenceCommitDuration;
+        Assert.True(duration.HasValue);
+        Assert.True(duration.Value >= TimeSpan.Zero);
+    }
+
+    [Fact]
     public void SecondSaveable_UsesTheSameAggregateCommitAndCleanupBoundary()
     {
         var state = new Dictionary<string, string>(StringComparer.Ordinal)

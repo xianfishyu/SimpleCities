@@ -97,10 +97,26 @@ func run() -> void:
 
 		var rebuild_start_us: int = Time.get_ticks_usec()
 		print("STAGE load-start edges=%d" % edge_count)
-		if not require(await V3_SAVE_FIXTURE.load_slot(save_manager, slot_id), "Performance fixture did not load"):
+		var load_operation_token := str(save_manager.StartLoad(slot_id))
+		var load_result := await V3_SAVE_FIXTURE.wait_for_operation(save_manager, load_operation_token)
+		if not require(await V3_SAVE_FIXTURE.wait_for_idle(save_manager), "Performance fixture Load did not become idle"):
+			return
+		var load_result_kind := int(load_result.get("resultKind", -1))
+		if not require(
+			load_result_kind == V3_SAVE_FIXTURE.RESULT_SUCCEEDED or \
+			load_result_kind == V3_SAVE_FIXTURE.RESULT_SUCCEEDED_WITH_WARNINGS,
+			"Performance fixture did not load: %s" % JSON.stringify(load_result)):
 			return
 		print("STAGE load-done edges=%d" % edge_count)
 		var rebuild_ms: float = float(Time.get_ticks_usec() - rebuild_start_us) / 1000.0
+		var load_phase_metrics: Dictionary = save_manager.GetLastLoadPerformanceMetrics()
+		if not validate_load_phase_metrics(
+			load_phase_metrics,
+			load_operation_token,
+			slot_id,
+			edge_count,
+			rebuild_ms):
+			return
 		print("STAGE renderer-count-start edges=%d" % edge_count)
 		if not require(renderer.GetRenderedEdgeCount() == edge_count, "Renderer did not rebuild the requested Edge count"):
 			return
@@ -151,6 +167,41 @@ func run() -> void:
 
 	print("PASS road rendering performance contract dataset=%s" % dataset_kind)
 	quit(0)
+
+func validate_load_phase_metrics(
+	metrics: Dictionary,
+	operation_token: String,
+	target_slot_id: String,
+	edge_count: int,
+	observed_load_ms: float) -> bool:
+	if not require(not metrics.is_empty(), "Load performance metrics were not recorded"):
+		return false
+	if not require(str(metrics.get("operationToken", "")) == operation_token, "Load performance metrics used a stale operation token"):
+		return false
+	if not require(str(metrics.get("targetSlotID", "")) == target_slot_id, "Load performance metrics used a stale target slot"):
+		return false
+
+	var worker_prepare_ms := float(metrics.get("workerPrepareMs", -1.0))
+	var preflight_ms := float(metrics.get("preflightMs", -1.0))
+	var reference_commit_ms := float(metrics.get("referenceCommitMs", -1.0))
+	var aggregate_commit_ms := float(metrics.get("aggregateCommitMs", -1.0))
+	var total_ms := float(metrics.get("totalMs", -1.0))
+	if not require(
+		worker_prepare_ms >= 0.0 and preflight_ms >= 0.0 and reference_commit_ms >= 0.0 \
+		and aggregate_commit_ms >= 0.0 and total_ms >= 0.0,
+		"Load performance metrics contained a negative duration"):
+		return false
+	if not require(reference_commit_ms <= aggregate_commit_ms, "Reference commit exceeded aggregate commit duration"):
+		return false
+	if not require(aggregate_commit_ms <= total_ms, "Aggregate commit exceeded total Load duration"):
+		return false
+
+	var phase_result := metrics.duplicate()
+	phase_result["dataset"] = dataset_kind
+	phase_result["edges"] = edge_count
+	phase_result["observedLoadMs"] = observed_load_ms
+	print("LOAD_PHASE_RESULT %s" % JSON.stringify(phase_result))
+	return true
 
 func sample_camera_frames(camera: Camera2D) -> Array[float]:
 	var samples: Array[float] = []

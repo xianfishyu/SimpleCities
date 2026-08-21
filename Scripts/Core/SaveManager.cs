@@ -2,6 +2,7 @@ using Godot;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -35,6 +36,7 @@ public partial class SaveManager : Node
     private long _sceneGeneration;
     private SceneLoadContext? _sceneContext;
     private CancellationTokenSource _sceneCancellation = new();
+    private LoadPerformanceMetrics? _lastLoadPerformanceMetrics;
     private long _currentSlotGeneration;
     private int _mainThreadID;
     private int _pendingAutosaveWakeup;
@@ -438,6 +440,25 @@ public partial class SaveManager : Node
         };
     }
 
+    public Godot.Collections.Dictionary GetLastLoadPerformanceMetrics()
+    {
+        LoadPerformanceMetrics? metrics;
+        lock (_operationSync)
+            metrics = _lastLoadPerformanceMetrics;
+        if (metrics is null)
+            return new Godot.Collections.Dictionary();
+        return new Godot.Collections.Dictionary
+        {
+            ["operationToken"] = metrics.OperationToken,
+            ["targetSlotID"] = metrics.TargetSlotID,
+            ["workerPrepareMs"] = metrics.WorkerPrepareDuration.TotalMilliseconds,
+            ["preflightMs"] = metrics.PreflightDuration.TotalMilliseconds,
+            ["referenceCommitMs"] = metrics.ReferenceCommitDuration.TotalMilliseconds,
+            ["aggregateCommitMs"] = metrics.AggregateCommitDuration.TotalMilliseconds,
+            ["totalMs"] = metrics.TotalDuration.TotalMilliseconds,
+        };
+    }
+
     public bool SaveSlotExists(string slotID)
     {
         try
@@ -603,6 +624,7 @@ public partial class SaveManager : Node
         string operationToken,
         string slotID)
     {
+        long loadStarted = Stopwatch.GetTimestamp();
         SceneRequest sceneRequest = CaptureSceneRequest();
         using CancellationTokenSource cancellation = CreateOperationCancellation(
             operationToken,
@@ -634,6 +656,7 @@ public partial class SaveManager : Node
                 lease.AdvanceTo(SaveOperationPhase.Prepare);
                 PreparedLoadWork prepared = await Task.Run(() =>
                 {
+                    long workerPrepareStarted = Stopwatch.GetTimestamp();
                     PreparedSaveSlot slot = CreateSlotStore().PrepareLoad(
                         slotID,
                         loadParticipants,
@@ -644,12 +667,17 @@ public partial class SaveManager : Node
                             "RoadGraph load reader did not produce a revision.");
                     RoadRendererPreparedLoad presentation =
                         rendererAdmission.Preparer.Prepare(graphRevision);
-                    return new PreparedLoadWork(slot, graphState, presentation);
+                    return new PreparedLoadWork(
+                        slot,
+                        graphState,
+                        presentation,
+                        Stopwatch.GetElapsedTime(workerPrepareStarted));
                 });
 
                 EnsureSceneRequestCurrent(sceneRequest);
                 lease.ThrowIfCancellationRequested();
                 lease.AdvanceTo(SaveOperationPhase.Preflight);
+                long preflightStarted = Stopwatch.GetTimestamp();
                 INonThrowingLoadCommitPlan graphPlan = context.Graph.PreflightPreparedLoad(
                     graphAdmission,
                     prepared.GraphState,
@@ -669,8 +697,24 @@ public partial class SaveManager : Node
 
                 using var aggregate = new PreparedAggregateLoad(preflightPlans);
                 aggregateOwnsPlans = true;
+                TimeSpan preflightDuration = Stopwatch.GetElapsedTime(preflightStarted);
+                long aggregateCommitStarted = Stopwatch.GetTimestamp();
                 IReadOnlyList<string> warnings = aggregate.Commit(lease);
+                TimeSpan aggregateCommitDuration = Stopwatch.GetElapsedTime(aggregateCommitStarted);
+                TimeSpan referenceCommitDuration = aggregate.ReferenceCommitDuration
+                    ?? throw new InvalidOperationException(
+                        "A successful aggregate load did not record its reference commit duration.");
                 InvalidateSlotListing();
+                var metrics = new LoadPerformanceMetrics(
+                    operationToken,
+                    slotID,
+                    prepared.WorkerPrepareDuration,
+                    preflightDuration,
+                    referenceCommitDuration,
+                    aggregateCommitDuration,
+                    Stopwatch.GetElapsedTime(loadStarted));
+                lock (_operationSync)
+                    _lastLoadPerformanceMetrics = metrics;
                 return lease.Complete(
                     warnings.Count == 0
                         ? SaveOperationResultKind.Succeeded
@@ -1128,7 +1172,17 @@ public partial class SaveManager : Node
     private sealed record PreparedLoadWork(
         PreparedSaveSlot Slot,
         IPreparedSaveState GraphState,
-        RoadRendererPreparedLoad Presentation);
+        RoadRendererPreparedLoad Presentation,
+        TimeSpan WorkerPrepareDuration);
+
+    private sealed record LoadPerformanceMetrics(
+        string OperationToken,
+        string TargetSlotID,
+        TimeSpan WorkerPrepareDuration,
+        TimeSpan PreflightDuration,
+        TimeSpan ReferenceCommitDuration,
+        TimeSpan AggregateCommitDuration,
+        TimeSpan TotalDuration);
 
     internal sealed class SlotTargetLoadCommitPlan : INonThrowingLoadCommitPlan
     {
