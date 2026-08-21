@@ -48,6 +48,8 @@ RoadGraph Load 线性恢复追加复验（2026-08-21）：完整自动化为 `86
 
 Aggregate 提交边界失配追加复验（2026-08-21）：`PreparedAggregateLoadTests` 聚焦 `13/13`，完整自动化为 `865/865`；graph、tool、presentation、slot 任一 fake participant 在 commit boundary 失效时均不会发生引用交换或通知。该 CLR 证据不改变 `v3-save-system:2.3`、`v3-grid-rendering:2.2`、`v3-tool-input:2.4` 或 `v3-road-graph:8.6` 的开放状态。
 
+真实 Godot generation 失配追加验证（2026-08-21）：新增 `road_load_generation_runtime_contract.gd`，用 10k Edge worker Prepare 分别使真实 `RoadRenderer` admission 失效，以及通过真实 `ToolManager._ExitTree()` 推进 scene generation 并取消 Load。两条路径均在 commit 前结束，旧 graph payload、slot、renderer token/surface/mesh、工具、placement 和 history 保持；两个独立 APPDATA 运行均 PASS，完整自动化 `865/865`、双配置 build 0 警告/0 错误，GDScript/Roslyn、Godot editor 与 DAP 门通过。该证据把此前“renderer/tool/slot 真实 generation 失配”的下一入口收窄为 slot-target commit plan 的真实 commit-boundary 失配；真实 renderer/tool/slot observer/cleanup、逐关键 Resource、其余工具状态和完整 Phase 7/8 矩阵仍开放，最终集成负责人继续为 `v3-road-graph:8.6`。
+
 各 Phase 是实现分支中的可编译检查点，不是玩家可选的运行模式。V3 可以完全重写现有架构，但产品装配始终只有一套新 runtime/API/event/format；不得用 feature gate、兼容适配器、双事件或双 writer 保留 V2 生产路径。V2 存档根只作为未触碰的历史数据保留。
 
 ## 最终集成归属

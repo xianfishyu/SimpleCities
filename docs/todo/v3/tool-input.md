@@ -1,7 +1,7 @@
 # 第三代工具输入系统待办清单
 
 > 系统 key：`v3-tool-input`
-> 整理日期：2026-08-20
+> 整理日期：2026-08-21
 > 证据：当前 `RoadBuilder`、`RoadPlacementSession`、`RoadRemovalSession`、`RoadEditHistory`、工具路由、相关自动化与 `docs/manuals/road-system-v3-gen.md`。
 > 主导原则：输入策略只负责生成几何草稿；第三代工具层负责闭环手势、显式类型状态、基于已呈现路面的选择、有界历史和 full-reset 失效边界，但不定义拓扑、样式或磁盘事务。
 
@@ -13,7 +13,7 @@
 | 2.1 | `RoadBuilder` 没有与网格策略解耦的类型选择状态 | 已完成 | `SelectedRoadType` 在会话开始冻结并显式提交 |
 | 2.2 | 既有道路没有先选择后提交的类型改造工作流 | 已完成 | 独立 RoadUpgrade 会话、同代 surface 批量选择、取消和单次撤销重做已验证 |
 | 2.3 | 64 项历史曾为每项保留 before/after 完整 JSON | 已完成 | delta/双预算已替换全图字符串，真实 V3 Load 会换 lineage 并清空旧历史/token |
-| 2.4 | 外部 Load 可能让旧图工具状态或旧画面继续接受输入 | 开放（部分实现） | placement/removal/upgrade/history 与 matching indexed 四类 surface/token 已加入 full-reset aggregate，现有玩家道路事务、deferred 表现 continuation 及未提交表现资源均服从失效/清理边界；真实 `RoadGraph` participant 的 commit-boundary generation 失配、fake participant observer/cleanup 组合和真实 `RoadGraph` observer/fake companion cleanup 组合已验证，仍需 renderer/tool/slot 真实失配、真实 renderer/tool/slot observer/cleanup 组合与联合故障矩阵 |
+| 2.4 | 外部 Load 可能让旧图工具状态或旧画面继续接受输入 | 开放（部分实现） | placement/removal/upgrade/history 与 matching indexed 四类 surface/token 已加入 full-reset aggregate，现有玩家道路事务、deferred 表现 continuation 及未提交表现资源均服从失效/清理边界；真实 `RoadGraph` commit-boundary generation、`RoadRenderer` admission 及 ToolManager scene-generation 失配、fake participant observer/cleanup 组合和真实 `RoadGraph` observer/fake companion cleanup 组合已验证，仍需 slot-target 真实 commit-boundary generation、其余工具状态、真实 renderer/tool/slot observer/cleanup 组合与联合故障矩阵 |
 
 ### 设计覆盖矩阵
 
@@ -104,7 +104,8 @@
   - 提交边界逐参与者失配协作证据（2026-08-21）：`CommitBoundaryGenerationMismatchForAnyParticipant_RejectsBeforeAnyReferenceSwap` 依次让 graph、tool、presentation、slot 任一 fake participant 在 commit boundary 失效；每个位置均断言四方旧状态、事件序列和 reference swap 计数保持不变。`PreparedAggregateLoadTests` 聚焦 13/13，完整自动化为 865/865；该证据仍不替代真实 renderer/tool/slot generation 失配或关键 Resource 故障。
   - Observer/cleanup 组合协作证据（2026-08-20）：三个 fake participant 同时注入 observer 与两个 cleanup 异常，`PreparedAggregateLoadTests` 10/10 验证三方引用先交换、warning 全部聚合且最后一个 participant 仍执行 cleanup；完整自动化为 848/848，Debug 与 `ExportRelease` build 均为 0 警告、0 错误。该证据只覆盖 CLR fake participant，不证明真实 renderer/tool/slot participant 的 observer/cleanup 组合、逐关键 Resource 故障或 native `ArrayMesh`/`MultiMesh` 生命周期。
   - 真实 RoadGraph observer/cleanup 组合协作证据（2026-08-20）：`RealRoadGraphObserverFailure_IsolatedAlongsideOtherParticipantCleanupFailures` 让真实 `RoadGraph` 的 `GraphChanged` observer 与 fake `presentation`/`slot` cleanup 同时抛错；三方引用先交换，graph observer、presentation cleanup、slot cleanup warning 按顺序聚合，两个 fake companion cleanup 仍继续执行，新的 graph root 可查询且 Edge 类型为 `Highway`。`PreparedAggregateLoadTests` 11/11，完整自动化 849/849，Debug build 0 警告、0 错误。该证据覆盖真实 RoadGraph CLR observer 路径与 fake companion cleanup，不证明真实 renderer/tool/slot participant 的 observer/cleanup 组合、逐关键 Resource 故障或 native `ArrayMesh`/`MultiMesh` 生命周期。
-  - 仍缺（保持开放）：平行 Edge 完整工具矩阵、每类工具状态、renderer/tool/slot 的真实 generation 失配、真实 renderer/tool/slot observer/cleanup 组合以及每个关键 renderer Preflight Resource 故障点仍未完成，因此 `v3-tool-input:2.4` 继续开放。
+  - 真实 ToolManager scene-generation 失配证据（2026-08-21）：`road_load_generation_runtime_contract.gd` 在 10k Edge worker Prepare 期间移除真实 `ToolManager`；其 `_ExitTree()` 调用 `UnregisterSceneParticipants()`，使真实 ToolManager/Builder admission 与 scene generation 同时失效并取消 Load。结果固定为 Prepare 阶段 `Canceled`、`committed=false`，且 `CurrentTool=Road`、带一个固定拐点的 placement、undo/redo、renderer token/surface/mesh、活动 graph payload 和 `CurrentSlotID` 均保持旧值；ToolManager 重新入树注册后可再次保存并逐字节确认 graph。契约在两个独立 APPDATA 下连续 PASS，完整自动化为 865/865，双配置 build、GDScript/Roslyn diagnostics、Godot editor 与 DAP 错误通道均通过。该路径在构造 tool/slot commit plan 前由 scene cancellation 终止，因此不冒充 slot-target commit-boundary 证据。
+  - 仍缺（保持开放）：平行 Edge 完整工具矩阵、removal/upgrade/hover/selection bounds 等其余工具状态的真实 scene-generation 组合、slot-target 计划的真实 commit-boundary generation、真实 renderer/tool/slot observer/cleanup 组合以及每个关键 renderer Preflight Resource 故障点仍未完成，因此 `v3-tool-input:2.4` 继续开放。
 
 ## 暂不执行
 
