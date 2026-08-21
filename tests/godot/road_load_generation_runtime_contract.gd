@@ -80,17 +80,11 @@ func run() -> void:
 		return
 	if not require(builder.AddPlacePoint(Vector2(900.0, 300.0)), "Preserved placement corner was not fixed"):
 		return
-	var undo_count_before: int = builder.GetUndoEditCount()
-	var tool_before: int = int(tool_manager.get("CurrentTool"))
-	var render_state_before: Dictionary = renderer.GetPresentationState().duplicate(true)
-	var rendered_edges_before: int = renderer.GetRenderedEdgeCount()
-	var mesh_vertices_before: int = renderer.GetRoadMeshVertexCount()
-	var marker_count_before: int = renderer.GetNodeMarkerCount()
 
 	if not require(write_large_fixture(source_slot_id), "Could not publish the 10k source fixture"):
 		return
 
-	if not await run_renderer_invalidation(renderer, builder, active_payload_before):
+	if not await run_renderer_invalidation(tool_manager, renderer, builder, active_payload_before):
 		return
 
 	if not await run_scene_invalidation(
@@ -98,13 +92,66 @@ func run() -> void:
 		renderer,
 		builder,
 		active_payload_before,
-		tool_before,
-		render_state_before,
-		rendered_edges_before,
-		mesh_vertices_before,
-		marker_count_before,
-		undo_count_before):
+		"Placement scene-stale Load"):
 		return
+
+	var builder_process_mode_before: int = builder.process_mode
+	builder.process_mode = Node.PROCESS_MODE_DISABLED
+	builder.CancelPlaceSession()
+	tool_manager.set("CurrentTool", 2)
+	var removal_edge_hit: Dictionary = renderer.FindRoadSurfaceHit(Vector2(400.0, 400.0), 0.0)
+	if not require(
+		builder.BeginRemove(Vector2(180.0, 380.0), true),
+		"Removal state did not begin before scene-stale Load"):
+		return
+	builder.UpdateRemove(Vector2(620.0, 420.0))
+	if not require(
+		builder.HasActiveRemoveSession() and
+		builder.GetRemovalSelectionCount() == 1 and
+		renderer.GetRemovalPreviewEdgeCount() == 1 and
+		renderer.HasRemovalSelectionBounds(),
+		"Removal state did not retain a rectangle selection before scene-stale Load"):
+		return
+	if not removal_edge_hit.is_empty():
+		renderer.SetHoveredEdgeID(int(removal_edge_hit.get("edgeID", -1)))
+	if not await run_scene_invalidation(
+		tool_manager,
+		renderer,
+		builder,
+		active_payload_before,
+		"Removal scene-stale Load"):
+		return
+
+	builder.CancelRemoveSession()
+	tool_manager.set("CurrentTool", 3)
+	if not require(builder.SetSelectedRoadType(2), "RoadUpgrade target type could not be selected"):
+		return
+	if not require(
+		builder.BeginUpgrade(Vector2(180.0, 380.0), true),
+		"RoadUpgrade state did not begin before scene-stale Load"):
+		return
+	builder.UpdateUpgrade(Vector2(620.0, 420.0))
+	if not require(
+		builder.HasActiveUpgradeSession() and
+		builder.GetUpgradeTargetRoadType() == 2 and
+		builder.GetUpgradeSelectionCount() == 1 and
+		renderer.GetUpgradePreviewEdgeCount() == 1 and
+		renderer.HasUpgradeSelectionBounds(),
+		"RoadUpgrade state did not retain a rectangle selection before scene-stale Load"):
+		return
+	if not removal_edge_hit.is_empty():
+		renderer.SetHoveredEdgeID(int(removal_edge_hit.get("edgeID", -1)))
+	if not await run_scene_invalidation(
+		tool_manager,
+		renderer,
+		builder,
+		active_payload_before,
+		"RoadUpgrade scene-stale Load"):
+		return
+
+	builder.CancelUpgradeSession()
+	tool_manager.set("CurrentTool", 0)
+	builder.process_mode = builder_process_mode_before
 
 	await cleanup()
 	await process_frame
@@ -115,6 +162,7 @@ func run() -> void:
 	quit(0)
 
 func run_renderer_invalidation(
+	tool_manager: Node,
 	renderer: Node,
 	builder: Node,
 	active_payload_before: String) -> bool:
@@ -122,7 +170,7 @@ func run_renderer_invalidation(
 	var rendered_edges_before: int = renderer.GetRenderedEdgeCount()
 	var mesh_vertices_before: int = renderer.GetRoadMeshVertexCount()
 	var marker_count_before: int = renderer.GetNodeMarkerCount()
-	var undo_count_before: int = builder.GetUndoEditCount()
+	var tool_state_before: Dictionary = capture_tool_state(tool_manager, renderer, builder)
 	var builder_process_mode_before: int = int(builder.process_mode)
 	builder.process_mode = Node.PROCESS_MODE_DISABLED
 
@@ -147,11 +195,12 @@ func run_renderer_invalidation(
 	if not require_preserved_state(
 		renderer,
 		builder,
+		tool_manager,
 		render_state_before,
 		rendered_edges_before,
 		mesh_vertices_before,
 		marker_count_before,
-		undo_count_before,
+		tool_state_before,
 		"Renderer-stale Load"):
 		return false
 
@@ -172,12 +221,12 @@ func run_scene_invalidation(
 	renderer: Node,
 	builder: Node,
 	active_payload_before: String,
-	tool_before: int,
-	render_state_before: Dictionary,
-	rendered_edges_before: int,
-	mesh_vertices_before: int,
-	marker_count_before: int,
-	undo_count_before: int) -> bool:
+	label: String) -> bool:
+	var render_state_before: Dictionary = renderer.GetPresentationState().duplicate(true)
+	var rendered_edges_before: int = renderer.GetRenderedEdgeCount()
+	var mesh_vertices_before: int = renderer.GetRoadMeshVertexCount()
+	var marker_count_before: int = renderer.GetNodeMarkerCount()
+	var tool_state_before: Dictionary = capture_tool_state(tool_manager, renderer, builder)
 	var scene_generation_before: int = int(save_manager.get("SceneGeneration"))
 	arm_prepare_invalidation(tool_manager)
 	active_load_token = str(save_manager.StartLoad(source_slot_id))
@@ -185,29 +234,28 @@ func run_scene_invalidation(
 		save_manager,
 		active_load_token)
 	active_load_token = ""
-	if not require(await V3_SAVE_FIXTURE.wait_for_idle(save_manager), "Scene-stale Load did not become idle"):
+	if not require(await V3_SAVE_FIXTURE.wait_for_idle(save_manager), "%s did not become idle" % label):
 		return false
-	if not require(invalidation_count == 1, "Tool/slot admission was not invalidated exactly once"):
+	if not require(invalidation_count == 1, "%s was not invalidated exactly once" % label):
 		return false
-	if not require(tool_manager.get_parent() == null, "ToolManager remained inside the scene tree"):
+	if not require(tool_manager.get_parent() == null, "%s left ToolManager inside the scene tree" % label):
 		return false
-	if not require_failure_before_commit(result, RESULT_CANCELED, "Scene-stale Load"):
+	if not require_failure_before_commit(result, RESULT_CANCELED, label):
 		return false
 	if not require(
 		int(save_manager.get("SceneGeneration")) != scene_generation_before,
-		"ToolManager exit did not advance scene generation"):
-		return false
-	if not require(int(tool_manager.get("CurrentTool")) == tool_before, "Scene-stale Load changed CurrentTool"):
+		"%s did not advance scene generation" % label):
 		return false
 	if not require_preserved_state(
 		renderer,
 		builder,
+		tool_manager,
 		render_state_before,
 		rendered_edges_before,
 		mesh_vertices_before,
 		marker_count_before,
-		undo_count_before,
-		"Scene-stale Load"):
+		tool_state_before,
+		label):
 		return false
 
 	tool_manager.request_ready()
@@ -218,9 +266,9 @@ func run_scene_invalidation(
 	await process_frame
 	if not require(
 		await V3_SAVE_FIXTURE.save(save_manager, active_slot_id),
-		"Could not recapture the graph after scene invalidation"):
+		"Could not recapture the graph after %s" % label):
 		return false
-	return require_active_payload_unchanged(active_payload_before, "Scene-stale Load")
+	return require_active_payload_unchanged(active_payload_before, label)
 
 func arm_prepare_invalidation(target: Node) -> void:
 	invalidation_target = target
@@ -256,11 +304,12 @@ func require_failure_before_commit(result: Dictionary, result_kind: int, label: 
 func require_preserved_state(
 	renderer: Node,
 	builder: Node,
+	tool_manager: Node,
 	render_state_before: Dictionary,
 	rendered_edges_before: int,
 	mesh_vertices_before: int,
 	marker_count_before: int,
-	undo_count_before: int,
+	tool_state_before: Dictionary,
 	label: String) -> bool:
 	return require(
 		presentation_references_match(renderer.GetPresentationState(), render_state_before),
@@ -269,10 +318,31 @@ func require_preserved_state(
 		renderer.GetRoadMeshVertexCount() == mesh_vertices_before and
 		renderer.GetNodeMarkerCount() == marker_count_before,
 		"%s changed renderer resources" % label) and require(
-		builder.HasActivePlaceSession() and builder.GetFixedCornerCount() == 1,
-		"%s changed the active placement session" % label) and require(
-		builder.GetUndoEditCount() == undo_count_before and builder.GetRedoEditCount() == 0,
-		"%s changed road edit history" % label)
+		capture_tool_state(tool_manager, renderer, builder) == tool_state_before,
+		"%s changed tool-owned session, hover, selection, or history state" % label)
+
+func capture_tool_state(tool_manager: Node, renderer: Node, builder: Node) -> Dictionary:
+	return {
+		"currentTool": int(tool_manager.get("CurrentTool")),
+		"selectedRoadType": int(builder.GetSelectedRoadType()),
+		"hasPlace": builder.HasActivePlaceSession(),
+		"fixedCorners": builder.GetFixedCornerCount(),
+		"previewPointCount": renderer.GetPreviewPointCount(),
+		"hasRemove": builder.HasActiveRemoveSession(),
+		"removeSelectionCount": builder.GetRemovalSelectionCount(),
+		"removePreviewCount": renderer.GetRemovalPreviewEdgeCount(),
+		"removeHasBounds": renderer.HasRemovalSelectionBounds(),
+		"removeBounds": renderer.GetRemovalSelectionBounds() if renderer.HasRemovalSelectionBounds() else null,
+		"hasUpgrade": builder.HasActiveUpgradeSession(),
+		"upgradeSelectionCount": builder.GetUpgradeSelectionCount(),
+		"upgradeTarget": int(builder.GetUpgradeTargetRoadType()),
+		"upgradePreviewCount": renderer.GetUpgradePreviewEdgeCount(),
+		"upgradeHasBounds": renderer.HasUpgradeSelectionBounds(),
+		"upgradeBounds": renderer.GetUpgradeSelectionBounds() if renderer.HasUpgradeSelectionBounds() else null,
+		"hoveredEdgeID": renderer.get("HoveredEdgeID"),
+		"undoCount": builder.GetUndoEditCount(),
+		"redoCount": builder.GetRedoEditCount(),
+	}
 
 func presentation_references_match(current: Dictionary, before: Dictionary) -> bool:
 	var stable_keys: Array[String] = [

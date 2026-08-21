@@ -51,6 +51,10 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
 
     public Rect2? RemovalSelectionBounds { get; set; }
 
+    public bool HasRemovalSelectionBounds() => RemovalSelectionBounds.HasValue;
+
+    public Rect2 GetRemovalSelectionBounds() => RemovalSelectionBounds ?? default;
+
     public int GetRemovalPreviewEdgeCount() => _removalPreviewEdgeIDs.Length;
 
     private int[] _upgradePreviewEdgeIDs = [];
@@ -61,6 +65,10 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
     }
 
     public Rect2? UpgradeSelectionBounds { get; set; }
+
+    public bool HasUpgradeSelectionBounds() => UpgradeSelectionBounds.HasValue;
+
+    public Rect2 GetUpgradeSelectionBounds() => UpgradeSelectionBounds ?? default;
 
     public int GetUpgradePreviewEdgeCount() => _upgradePreviewEdgeIDs.Length;
 
