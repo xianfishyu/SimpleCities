@@ -88,6 +88,24 @@ func run() -> void:
 		renderer.GetRenderedEdgeCount() == 2,
 		"Parallel Edge removal undo did not restore both arcs"):
 		return
+	if not require(builder.RedoLastEdit(), "Parallel Edge removal redo did not start"):
+		return
+	if not await wait_for_presentation(renderer, "Parallel Edge removal redo"):
+		return
+	var redo_removed_first: Dictionary = renderer.FindRoadSurfaceHit(first_position, 0.0)
+	var redo_retained_second: Dictionary = renderer.FindRoadSurfaceHit(second_position, 0.0)
+	if not require(
+		renderer.GetRenderedEdgeCount() == 1 and
+		redo_removed_first.is_empty() and
+		int(redo_retained_second.get("edgeID", -1)) == second_edge_id,
+		"Parallel Edge removal redo changed the wrong owner"):
+		return
+	if not require(
+		await V3_SAVE_FIXTURE.load_slot(save_manager, slot_id),
+		"Parallel Edge point removal fixture did not restore"):
+		return
+	if not await wait_for_presentation(renderer, "Parallel Edge point removal restore"):
+		return
 
 	if not require(builder.SetSelectedRoadType(2), "Parallel Edge upgrade could not select Arterial"):
 		return
@@ -101,9 +119,51 @@ func run() -> void:
 		return
 	if not await wait_for_presentation(renderer, "Parallel Edge upgrade"):
 		return
+	if not require(
+		await V3_SAVE_FIXTURE.save(save_manager, slot_id),
+		"Parallel Edge point upgrade save failed"):
+		return
+	if not require(
+		read_edge_road_type(slot_id, first_edge_id) == "street" and
+		read_edge_road_type(slot_id, second_edge_id) == "arterial",
+		"Parallel Edge point upgrade changed the wrong owner"):
+		return
 	if not require(builder.UndoLastEdit(), "Parallel Edge upgrade undo did not start"):
 		return
 	if not await wait_for_presentation(renderer, "Parallel Edge upgrade undo"):
+		return
+	if not require(
+		await V3_SAVE_FIXTURE.save(save_manager, slot_id),
+		"Parallel Edge point upgrade undo save failed"):
+		return
+	if not require(
+		read_edge_road_type(slot_id, first_edge_id) == "street" and
+		read_edge_road_type(slot_id, second_edge_id) == "highway",
+		"Parallel Edge point upgrade undo did not restore the lower owner"):
+		return
+	if not require(builder.RedoLastEdit(), "Parallel Edge upgrade redo did not start"):
+		return
+	if not await wait_for_presentation(renderer, "Parallel Edge upgrade redo"):
+		return
+	if not require(
+		await V3_SAVE_FIXTURE.save(save_manager, slot_id),
+		"Parallel Edge point upgrade redo save failed"):
+		return
+	if not require(
+		read_edge_road_type(slot_id, first_edge_id) == "street" and
+		read_edge_road_type(slot_id, second_edge_id) == "arterial",
+		"Parallel Edge point upgrade redo changed the wrong owner"):
+		return
+	var reset_payload: Dictionary = build_fixture()
+	if not require(
+		V3_SAVE_FIXTURE.publish_payload(slot_id, reset_payload),
+		"Parallel Edge point upgrade fixture reset failed"):
+		return
+	if not require(
+		await V3_SAVE_FIXTURE.load_slot(save_manager, slot_id),
+		"Parallel Edge point upgrade fixture did not restore"):
+		return
+	if not await wait_for_presentation(renderer, "Parallel Edge point upgrade restore"):
 		return
 	if not require(
 		renderer.GetRenderedEdgeCount() == 2,
