@@ -830,7 +830,9 @@ Phase 7 当前已有三十三个可验证切片。其一，普通 mutation 与 `
 
 其三十四，`road_rendering_performance_contract.gd` 将 10k `grid --measure-type-change --enforce-budget` 固定为离散改造门禁：1/100/1000 Edge 的 upgrade/undo/redo 预算分别为 `350/250/250 ms`、`400/300/300 ms`、`500/400/400 ms`。真实 Vulkan Forward+ 的 10k 实测为 `231.976/117.160/118.457 ms`、`181.826/119.210/112.865 ms`、`230.531/152.095/156.811 ms`，camera/preview/highlight P95 为 `0.566/0.552/0.542 ms`，Load/renderer rebuild 为 `686.841 ms`，三批均输出 `PASS`。100k 继续作为不套用 10k 离散门的压力记录：三批为 `1619.649/999.881/1050.825 ms`、`1462.646/994.870/978.441 ms`、`1462.799/994.955/987.573 ms`，camera/preview/highlight P95 为 `0.694/0.721/0.699 ms`，Load/renderer rebuild 为 `5402.321 ms`，同样输出 `PASS`。headless 尝试在场景挂载前提前结束，未计入通过证据；非 headless Vulkan 的唯一 warning 仍为既有 `ConstructionDock: ToolManager.Instance is missing`。该切片只关闭固定离散改造门的建立，不关闭主线程 snapshot/commit 分段、完整 token 扰动性能、逐关键故障注入或平行 Edge 工具矩阵。
 
-> 计数修订（2026-08-21）：本轮新增固定离散改造门禁后，Phase 7 可验证切片由三十三个更新为三十四个；上方旧切片叙述保留历史编号，新增内容为“其三十四”。
+其三十五，新增 `road_parallel_edge_runtime_contract.gd`，以独立 V3 payload 构造同一端点对、两条非重叠多段平行 Edge。真实 Vulkan aggregate Load 后，两处中心线查询均返回 `EdgeRibbon` 且 Edge ID 不同；拆除点选、确认和 undo 只减少/恢复一条 Edge，RoadUpgrade 点选、确认和 undo 同样只作用于另一条 Edge，最终两个 surface owner 仍可独立命中。契约输出 `PASS`，唯一 warning 为既有 `ConstructionDock: ToolManager.Instance is missing`；此前 `road_closed_ribbon_runtime_contract.gd` 旧夹具在第二支路提交处失败，未作为本切片证据。该切片只覆盖平行 Edge 的 surface/拆除/改造，缩放/重建视觉、高亮和完整平行 Edge 工具矩阵仍开放。
+
+> 计数修订（2026-08-21）：本轮先后新增固定离散改造门禁和平行 Edge 工具切片后，Phase 7 可验证切片由三十三个更新为三十五个；上方旧切片叙述保留历史编号，新增内容为“其三十四”和“其三十五”。
 
 ### Phase 8：最终组合验收
 
