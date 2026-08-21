@@ -239,6 +239,18 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
     /// <summary>道路拆除或改造工具悬停的 Edge ID（null = 未命中）。</summary>
     public int? HoveredEdgeID { get; set; }
 
+    public void SetHoveredEdgeID(int edgeID)
+    {
+        HoveredEdgeID = edgeID;
+        QueueRedraw();
+    }
+
+    public void ClearHoveredEdgeID()
+    {
+        HoveredEdgeID = null;
+        QueueRedraw();
+    }
+
     public override void _Ready()
     {
         if (Config == null)
@@ -257,7 +269,8 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
 
         _roadBatchLayer = new MeshInstance2D
         {
-            ZIndex = 0,
+            // Parent _Draw() owns previews and highlights; the static mesh must stay beneath it.
+            ZIndex = -1,
             Modulate = Colors.White,
             Material = CreateRoadMaterial(),
         };

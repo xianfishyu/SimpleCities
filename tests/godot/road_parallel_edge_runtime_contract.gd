@@ -2,6 +2,7 @@ extends SceneTree
 
 const MAP_SCENE := "res://Scenes/MapTest.tscn"
 const TEST_SLOT_NAME := "Road parallel edge runtime contract"
+const SCREENSHOT_PATH := "res://.godot/qa-road-parallel-edge-visual.png"
 const V3_SAVE_FIXTURE := preload("res://tests/godot/v3_save_fixture.gd")
 
 var test_map: Node
@@ -27,6 +28,8 @@ func run() -> void:
 	save_manager = root.get_node("SaveManager")
 	var renderer: Node = test_map.get_node("RoadSystem/RoadRenderer")
 	var builder: Node = test_map.get_node("RoadSystem/RoadBuilder")
+	var camera: Camera2D = test_map.get_node("Camera2D")
+	camera.process_mode = Node.PROCESS_MODE_DISABLED
 	if not require(
 		await V3_SAVE_FIXTURE.save_as(save_manager, TEST_SLOT_NAME),
 		"Parallel Edge fixture slot was not created"):
@@ -117,6 +120,16 @@ func run() -> void:
 		"Parallel Edge undo did not preserve independent surface owners"):
 		return
 
+	if not await verify_parallel_edge_visual_matrix(
+		renderer,
+		camera,
+		first_edge_id,
+		second_edge_id,
+		first_position,
+		second_position,
+		slot_id):
+		return
+
 	if not require(
 		await V3_SAVE_FIXTURE.delete_slot(save_manager, slot_id),
 		"Parallel Edge fixture slot cleanup failed"):
@@ -131,6 +144,163 @@ func run() -> void:
 		return
 	print("PASS road parallel edge runtime contract")
 	quit(0)
+
+func verify_parallel_edge_visual_matrix(
+	renderer: Node,
+	camera: Camera2D,
+	first_edge_id: int,
+	second_edge_id: int,
+	first_position: Vector2,
+	second_position: Vector2,
+	fixture_slot_id: String) -> bool:
+	camera.position = Vector2(50.0, 0.0)
+	camera.zoom = Vector2.ONE
+	await RenderingServer.frame_post_draw
+	var original_points := snapshot_edge_points(renderer, [first_edge_id, second_edge_id])
+	var original_vertices: int = renderer.GetRoadMeshVertexCount()
+	var original_first_hit: Dictionary = renderer.FindRoadSurfaceHit(first_position, 0.0)
+	var original_second_hit: Dictionary = renderer.FindRoadSurfaceHit(second_position, 0.0)
+	if not require(
+		original_vertices > 0 and
+		int(original_first_hit.get("edgeID", -1)) == first_edge_id and
+		int(original_second_hit.get("edgeID", -1)) == second_edge_id,
+		"Parallel Edge visual matrix did not start from two stable owners"):
+		return false
+
+	for zoom_value in [0.25, 4.0, 1.0]:
+		camera.zoom = Vector2(zoom_value, zoom_value)
+		await RenderingServer.frame_post_draw
+		if not require(
+			rendered_points_match(renderer, original_points) and
+			renderer.GetRoadMeshVertexCount() == original_vertices,
+			"Camera zoom %s changed the parallel Edge world geometry or mesh size" % zoom_value):
+			return false
+		var zoom_first_hit: Dictionary = renderer.FindRoadSurfaceHit(first_position, 0.0)
+		var zoom_second_hit: Dictionary = renderer.FindRoadSurfaceHit(second_position, 0.0)
+		if not require(
+			int(zoom_first_hit.get("edgeID", -1)) == first_edge_id and
+			int(zoom_second_hit.get("edgeID", -1)) == second_edge_id,
+			"Camera zoom %s changed parallel Edge surface ownership" % zoom_value):
+			return false
+
+	var base_image := await capture_visual_frame(renderer, null)
+	var first_highlight_image := await capture_visual_frame(renderer, first_edge_id)
+	var second_highlight_image := await capture_visual_frame(renderer, second_edge_id)
+	base_image.save_png("res://.godot/qa-road-parallel-edge-base.png")
+	first_highlight_image.save_png("res://.godot/qa-road-parallel-edge-first.png")
+	second_highlight_image.save_png("res://.godot/qa-road-parallel-edge-second.png")
+	var first_activation := image_region_difference(
+		base_image,
+		first_highlight_image,
+		first_position,
+		camera,
+		8.0)
+	var first_cross_activation := image_region_difference(
+		base_image,
+		first_highlight_image,
+		second_position,
+		camera,
+		8.0)
+	var second_activation := image_region_difference(
+		base_image,
+		second_highlight_image,
+		second_position,
+		camera,
+		8.0)
+	var second_cross_activation := image_region_difference(
+		base_image,
+		second_highlight_image,
+		first_position,
+		camera,
+		8.0)
+	print("HIGHLIGHT_METRICS first=%f firstCross=%f second=%f secondCross=%f" % [
+		first_activation,
+		first_cross_activation,
+		second_activation,
+		second_cross_activation])
+	if not require(
+		first_activation > 10.0 and
+		second_activation > 10.0 and
+		first_cross_activation < first_activation * 0.35 and
+		second_cross_activation < second_activation * 0.35,
+		"Parallel Edge highlight was not isolated to the selected owner"):
+		return false
+
+	var screenshot: Image = second_highlight_image
+	if not require(
+		screenshot != null and screenshot.save_png(SCREENSHOT_PATH) == OK,
+		"Parallel Edge visual matrix screenshot was not written"):
+		return false
+
+	if not require(
+		await V3_SAVE_FIXTURE.load_slot(save_manager, fixture_slot_id),
+		"Parallel Edge visual rebuild fixture did not reload"):
+		return false
+	if not await wait_for_presentation(renderer, "Parallel Edge visual rebuild"):
+		return false
+	if not require(
+		rendered_points_match(renderer, original_points) and
+		renderer.GetRoadMeshVertexCount() == original_vertices,
+		"Parallel Edge rebuild changed world geometry or mesh size"):
+		return false
+	var rebuilt_first_hit: Dictionary = renderer.FindRoadSurfaceHit(first_position, 0.0)
+	var rebuilt_second_hit: Dictionary = renderer.FindRoadSurfaceHit(second_position, 0.0)
+	return require(
+		int(rebuilt_first_hit.get("edgeID", -1)) == first_edge_id and
+		int(rebuilt_second_hit.get("edgeID", -1)) == second_edge_id,
+		"Parallel Edge rebuild changed surface ownership")
+
+func capture_visual_frame(renderer: Node, hovered_edge_id: Variant) -> Image:
+	if hovered_edge_id == null:
+		renderer.ClearHoveredEdgeID()
+	else:
+		renderer.SetHoveredEdgeID(int(hovered_edge_id))
+	await process_frame
+	await RenderingServer.frame_post_draw
+	return root.get_texture().get_image()
+
+func snapshot_edge_points(renderer: Node, edge_ids: Array) -> Dictionary:
+	var snapshot := {}
+	for edge_id: int in edge_ids:
+		var points: Array[Vector2] = []
+		for point_index in range(renderer.GetRenderedPointCount(edge_id)):
+			points.append(renderer.GetRenderedPoint(edge_id, point_index))
+		snapshot[edge_id] = points
+	return snapshot
+
+func rendered_points_match(renderer: Node, expected: Dictionary) -> bool:
+	for edge_id: int in expected:
+		var points: Array = expected[edge_id]
+		if renderer.GetRenderedPointCount(edge_id) != points.size():
+			return false
+		for point_index in range(points.size()):
+			if renderer.GetRenderedPoint(edge_id, point_index).distance_to(points[point_index]) > 0.001:
+				return false
+	return true
+
+func image_region_difference(
+	before: Image,
+	after: Image,
+	world_position: Vector2,
+	camera: Camera2D,
+	radius_world: float) -> float:
+	var center := Vector2(
+		float(before.get_width()) * 0.5 + (world_position.x - camera.position.x) * camera.zoom.x,
+		float(before.get_height()) * 0.5 + (world_position.y - camera.position.y) * camera.zoom.y)
+	var radius: float = max(4.0, radius_world * max(abs(camera.zoom.x), abs(camera.zoom.y)))
+	var left := maxi(0, floori(center.x - radius))
+	var right := mini(before.get_width() - 1, ceili(center.x + radius))
+	var top := maxi(0, floori(center.y - radius))
+	var bottom := mini(before.get_height() - 1, ceili(center.y + radius))
+	var difference := 0.0
+	for y in range(top, bottom + 1, 2):
+		for x in range(left, right + 1, 2):
+			var before_color := before.get_pixel(x, y)
+			var after_color := after.get_pixel(x, y)
+			difference += abs(before_color.r - after_color.r)
+			difference += abs(before_color.g - after_color.g)
+			difference += abs(before_color.b - after_color.b)
+	return difference
 
 func wait_for_presentation(renderer: Node, source: String) -> bool:
 	for _frame in range(600):

@@ -179,3 +179,36 @@ owner-dense 10k Vulkan 契约已经完成 Load、EdgeRibbon、TerminalCap 和 Se
 - 首次 10k 运行在三个 owner kind 完成后于 JunctionPatch 探针失败；修正后真实 Vulkan Forward+ 10k 输出 PASS，camera/preview/highlight P95 为 0.482/0.467/0.468 ms，四类 owner 均完成 20 批 × 1,000 次查询，JunctionPatch P95 为 0.065123 ms。
 - 真实 Vulkan Forward+ 100k 输出 PASS，camera/preview/highlight P95 为 0.573/0.625/0.561 ms，Load/renderer rebuild 为 6135.119 ms；JunctionPatch P95 为 0.040361 ms，surface primitive 为 412,500，静态 renderer 节点为 2。
 - mcp__godot_minimal__get_diagnostics 对该 GDScript 返回 0 diagnostics；Godot editor 为 Godot 4.7、MapTest.tscn、未运行，editor error 日志为 0。日志中唯一 warning 是既有 ConstructionDock: ToolManager.Instance is missing，未归因于本修复。
+
+---
+
+<a id="road-rendering-bug-8"></a>
+## BUG-8：道路高亮被静态 mesh 覆盖且 GDScript 无法绑定 nullable hover 属性
+
+> 修复日期：2026-08-21
+> 影响文件：`Scripts/Road/RoadRenderer.cs`、`tests/godot/road_parallel_edge_runtime_contract.gd`
+> 关联事项：`v3-grid-rendering:2.0`
+
+### 症状
+
+平行 Edge 契约可以通过 surface owner、拆除和改造验证，但给 `RoadRenderer.HoveredEdgeID` 设置 Edge ID 后 Vulkan 截图没有任何高亮变化。原契约通过 `set("HoveredEdgeID", edgeID)` 设置 C# `int?` 属性时，读回值仍为 `null`，即使绕过该绑定问题，高亮也会被静态道路 mesh 覆盖。
+
+### 根因分析
+
+`RoadRenderer._Draw()` 在父节点绘制预览和高亮，`_roadBatchLayer` 却以相同的 `ZIndex` 作为子节点随后绘制，静态 ribbon 因而覆盖父级 overlay。与此同时，Godot GDScript 对 public C# nullable 属性的 Variant setter 没有把整数稳定转换回 `int?`，测试脚本和外部脚本不能可靠驱动悬停状态。
+
+### 修复方案
+
+将静态道路 mesh 的相对 `ZIndex` 调为 `-1`，使父节点 `_Draw()` 的预览/高亮位于 mesh 上方，节点 marker 继续保留更高层级。新增 `SetHoveredEdgeID(int)` 和 `ClearHoveredEdgeID()` 作为可绑定入口，并在入口内统一触发 `QueueRedraw()`；生产 `RoadBuilder` 的直接属性路径保持不变。
+
+### 影响范围
+
+影响道路悬停、拆除和改造预览的可见层级以及 GDScript 驱动的高亮测试入口。道路 mesh 几何、surface owner、命中 token、保存格式和普通/Load 接管协议不变。
+
+## BUG-8 验证状态
+
+- 修复前的真实 Vulkan 复现：平行 Edge base/first/second 三张图字节大小相同，区域差值均为 `0`；契约在高亮隔离断言处失败。
+- `dotnet build SimpleCities.sln --no-restore`：成功，0 个警告，0 个错误。
+- `godot --headless --path . --check-only --script tests/godot/road_parallel_edge_runtime_contract.gd`：脚本检查通过。
+- 隔离 `APPDATA` 的真实 Vulkan `godot --path . --script tests/godot/road_parallel_edge_runtime_contract.gd`：输出 `PASS road parallel edge runtime contract`；高亮区域差值为 first `62.125491`、second `36.211765`，两侧交叉区域均为 `0`；缩放 `0.25/4.0/1.0`、同槽 Load 重建后的 geometry、mesh vertex count 和 surface owner 均保持稳定，并写出 `.godot/qa-road-parallel-edge-visual.png`。
+- 运行日志唯一 warning 为既有 `ConstructionDock: ToolManager.Instance is missing`，未归因于本修复；本轮未暴露 Roslyn CodeLens、Godot editor MCP 或 DAP 工具，未将这些门禁声称为通过。
