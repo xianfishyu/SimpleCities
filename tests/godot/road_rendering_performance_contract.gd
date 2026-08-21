@@ -17,6 +17,14 @@ const OWNER_DENSE_CELL_SPACING := 320.0
 const OWNER_HIT_BATCH_COUNT := 20
 const OWNER_HIT_QUERIES_PER_BATCH := 1000
 const FRAME_BUDGET_MS := 16.67
+# These one-shot 10k budgets are intentionally separate from the continuous
+# frame budget. They leave room for cold-start variance while keeping a fixed
+# regression gate for the three supported batch sizes.
+const TYPE_CHANGE_10K_BUDGET_MS := {
+	1: {"upgrade": 350.0, "undo": 250.0, "redo": 250.0},
+	100: {"upgrade": 400.0, "undo": 300.0, "redo": 300.0},
+	1000: {"upgrade": 500.0, "undo": 400.0, "redo": 400.0},
+}
 const CAMERA_SAMPLE_COUNT := 120
 const DYNAMIC_SAMPLE_COUNT := 60
 
@@ -269,6 +277,11 @@ func measure_type_change_latencies(
 			"%d-Edge type-change redo did not republish the exact history boundary" % selected_edges):
 			return false
 
+		var budget: Dictionary = TYPE_CHANGE_10K_BUDGET_MS.get(selected_edges, {})
+		var gate_passed := budget.is_empty() or (
+			upgrade_ms <= float(budget["upgrade"]) and
+			undo_ms <= float(budget["undo"]) and
+			redo_ms <= float(budget["redo"]))
 		print("TYPE_CHANGE_RESULT %s" % JSON.stringify({
 			"dataset": dataset_kind,
 			"edges": edge_count,
@@ -276,9 +289,23 @@ func measure_type_change_latencies(
 			"upgrade_ms": snappedf(upgrade_ms, 0.001),
 			"undo_ms": snappedf(undo_ms, 0.001),
 			"redo_ms": snappedf(redo_ms, 0.001),
+			"budget_ms": budget,
+			"gate": "PASS" if gate_passed or not enforce_budget or edge_count != 10_000 else "FAIL",
 			"render_nodes": renderer.GetStaticRenderNodeCount(),
 			"surface_primitives": int(renderer.GetPresentationState().get("surfacePrimitiveCount", -1)),
 		}))
+		if enforce_budget and edge_count == 10_000 and not require(
+			gate_passed,
+			"%d-Edge type-change latency exceeded its fixed 10k budget: upgrade=%.3f/%.3f ms, undo=%.3f/%.3f ms, redo=%.3f/%.3f ms" % [
+				selected_edges,
+				upgrade_ms,
+				float(budget.get("upgrade", -1.0)),
+				undo_ms,
+				float(budget.get("undo", -1.0)),
+				redo_ms,
+				float(budget.get("redo", -1.0)),
+			]):
+			return false
 	return true
 
 func presented_change_sequence(renderer: Node) -> int:
