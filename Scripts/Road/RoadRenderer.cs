@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
@@ -26,6 +27,8 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
     private GraphStateToken? _committedLoadGraphToken;
     private readonly RoadPresentationTokenTracker _presentationTokens = new();
     private RoadSurfaceSnapshot? _presentedSurface;
+    private RoadPresentationPerformanceRequest? _pendingPresentationPerformanceRequest;
+    private RoadPresentationPerformanceMetrics? _lastPresentationPerformanceMetrics;
 
     internal event Action<RoadRenderToken>? PresentationReady;
     internal event Action<RoadPresentationFailure>? PresentationStalled;
@@ -103,6 +106,25 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
                 ? _presentedSurface!.PrimitiveCount
                 : 0,
             ["retainedSurfacePrimitiveCount"] = _presentedSurface?.PrimitiveCount ?? 0,
+        };
+    }
+
+    public Godot.Collections.Dictionary GetLastPresentationPerformanceMetrics()
+    {
+        if (_lastPresentationPerformanceMetrics is not RoadPresentationPerformanceMetrics metrics)
+            return new Godot.Collections.Dictionary();
+
+        return new Godot.Collections.Dictionary
+        {
+            ["snapshotCaptureMs"] = metrics.SnapshotCaptureDuration.TotalMilliseconds,
+            ["prepareMs"] = metrics.PrepareDuration.TotalMilliseconds,
+            ["resourcePreflightMs"] = metrics.ResourcePreflightDuration.TotalMilliseconds,
+            ["presentationCommitMs"] = metrics.PresentationCommitDuration.TotalMilliseconds,
+            ["rebuildTotalMs"] = metrics.RebuildTotalDuration.TotalMilliseconds,
+            ["requestToReadyMs"] = metrics.RequestToReadyDuration.TotalMilliseconds,
+            ["attemptNumber"] = metrics.AttemptNumber,
+            ["isFullReset"] = metrics.IsFullReset,
+            ["renderToken"] = ToTokenDictionary(metrics.RenderToken),
         };
     }
 
@@ -357,6 +379,7 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
     {
         if (_network == null)
             return;
+        long requestStarted = Stopwatch.GetTimestamp();
         if (change.Changes.IsFullReset)
         {
             if (_committedLoadGraphToken is GraphStateToken committed &&
@@ -369,9 +392,13 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
             InvalidateScheduledStaticBatchRebuildContinuation();
             _invalidatedDisplayEdgeIDs.Clear();
             _rebuildAllDisplayPaths = true;
-            _presentationTokens.RequestGraphChange(
+            RoadRenderToken resetRequest = _presentationTokens.RequestGraphChange(
                 change.StateToken.ChangeSequence,
                 isFullReset: true);
+            _pendingPresentationPerformanceRequest = new(
+                resetRequest,
+                requestStarted,
+                IsFullReset: true);
             QueueRedraw();
             RebuildStaticBatches();
             return;
@@ -382,9 +409,13 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
         {
             _invalidatedDisplayEdgeIDs.Add(edgeID);
         }
-        _presentationTokens.RequestGraphChange(
+        RoadRenderToken mutationRequest = _presentationTokens.RequestGraphChange(
             change.StateToken.ChangeSequence,
             isFullReset: false);
+        _pendingPresentationPerformanceRequest = new(
+            mutationRequest,
+            requestStarted,
+            IsFullReset: false);
         QueueRedraw();
         ScheduleStaticBatchRebuild();
     }
@@ -437,17 +468,22 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
             return false;
         }
 
+        long rebuildStarted = Stopwatch.GetTimestamp();
         int attemptNumber = _presentationTokens.BeginBuildAttempt(targetToken);
         ArrayMesh? roadMesh = null;
         MultiMesh? nodeBatch = null;
         bool presentationResourcesTransferred = false;
         try
         {
+            long snapshotCaptureStarted = Stopwatch.GetTimestamp();
             var settings = new RoadRendererLoadSettings(
                 Config.CurveDisplayTolerance,
                 Config.CaptureRoadTypeStyleSnapshot());
             settings.Validate();
             RoadGraphRevision revision = graph.CaptureRevision();
+            TimeSpan snapshotCaptureDuration = Stopwatch.GetElapsedTime(snapshotCaptureStarted);
+
+            long prepareStarted = Stopwatch.GetTimestamp();
             var preparer = new RoadRendererLoadPreparer(settings);
             RoadRendererPreparedLoad prepared = _rebuildAllDisplayPaths
                 ? preparer.Prepare(revision)
@@ -456,6 +492,9 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
                     _edgePoints,
                     _edgeDisplaySpans,
                     _invalidatedDisplayEdgeIDs);
+            TimeSpan prepareDuration = Stopwatch.GetElapsedTime(prepareStarted);
+
+            long resourcePreflightStarted = Stopwatch.GetTimestamp();
             roadMesh = CreateRoadMesh(
                 prepared.RoadVertices,
                 prepared.RoadUvs,
@@ -465,6 +504,8 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
             var surfaceSnapshot = new RoadSurfaceSnapshot(
                 targetToken,
                 prepared.RoadSurface);
+            TimeSpan resourcePreflightDuration = Stopwatch.GetElapsedTime(
+                resourcePreflightStarted);
 
             if (!ReferenceEquals(_network, graph) ||
                 _presentationTokens.DesiredToken != targetToken ||
@@ -473,6 +514,7 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
                 return false;
             }
 
+            long presentationCommitStarted = Stopwatch.GetTimestamp();
             _edgePoints = prepared.EdgePoints;
             _edgeDisplaySpans = prepared.EdgeDisplaySpans;
             _invalidatedDisplayEdgeIDs.Clear();
@@ -483,6 +525,23 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
             presentationResourcesTransferred = true;
             _presentedSurface = surfaceSnapshot;
             _presentationTokens.CommitDesired(targetToken);
+            TimeSpan presentationCommitDuration = Stopwatch.GetElapsedTime(
+                presentationCommitStarted);
+            if (_pendingPresentationPerformanceRequest is
+                    RoadPresentationPerformanceRequest request &&
+                request.RenderToken == targetToken)
+            {
+                _lastPresentationPerformanceMetrics = new(
+                    targetToken,
+                    snapshotCaptureDuration,
+                    prepareDuration,
+                    resourcePreflightDuration,
+                    presentationCommitDuration,
+                    Stopwatch.GetElapsedTime(rebuildStarted),
+                    Stopwatch.GetElapsedTime(request.StartTimestamp),
+                    attemptNumber,
+                    request.IsFullReset);
+            }
             QueueRedraw();
             return true;
         }
@@ -574,6 +633,22 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
             ["renderRequestID"] = token.RenderRequestID,
         };
     }
+
+    private readonly record struct RoadPresentationPerformanceRequest(
+        RoadRenderToken RenderToken,
+        long StartTimestamp,
+        bool IsFullReset);
+
+    private sealed record RoadPresentationPerformanceMetrics(
+        RoadRenderToken RenderToken,
+        TimeSpan SnapshotCaptureDuration,
+        TimeSpan PrepareDuration,
+        TimeSpan ResourcePreflightDuration,
+        TimeSpan PresentationCommitDuration,
+        TimeSpan RebuildTotalDuration,
+        TimeSpan RequestToReadyDuration,
+        int AttemptNumber,
+        bool IsFullReset);
 
     private static void AppendRoadRibbon(
         int edgeID,

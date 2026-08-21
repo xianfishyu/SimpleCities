@@ -191,6 +191,60 @@ public sealed class RoadRendererLifecycleContractTests
     }
 
     [Fact]
+    public void OrdinaryRebuildPublishesTokenBoundPhaseMetricsOnlyAfterCommit()
+    {
+        string source = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.cs"));
+        string graphChanged = ExtractMethod(
+            source,
+            "private void OnGraphChanged",
+            "private void ScheduleStaticBatchRebuild");
+        string rebuild = ExtractMethod(
+            source,
+            "private bool TryRebuildStaticBatches",
+            "private void PublishPresentationStalled");
+
+        int requestStarted = graphChanged.IndexOf(
+            "long requestStarted = Stopwatch.GetTimestamp()",
+            StringComparison.Ordinal);
+        int tokenRequest = graphChanged.LastIndexOf(
+            "RoadRenderToken mutationRequest = _presentationTokens.RequestGraphChange(",
+            StringComparison.Ordinal);
+        int requestMetrics = graphChanged.LastIndexOf(
+            "_pendingPresentationPerformanceRequest = new(",
+            StringComparison.Ordinal);
+        int schedule = graphChanged.IndexOf(
+            "ScheduleStaticBatchRebuild()",
+            StringComparison.Ordinal);
+
+        int snapshot = rebuild.IndexOf(
+            "Config.CaptureRoadTypeStyleSnapshot()",
+            StringComparison.Ordinal);
+        int revision = rebuild.IndexOf("graph.CaptureRevision()", StringComparison.Ordinal);
+        int prepare = rebuild.IndexOf("preparer.Prepare(revision)", StringComparison.Ordinal);
+        int resourcePreflight = rebuild.IndexOf("CreateRoadMesh(", StringComparison.Ordinal);
+        int currentCheck = rebuild.IndexOf(
+            "_presentationTokens.DesiredToken != targetToken",
+            StringComparison.Ordinal);
+        int tokenCommit = rebuild.IndexOf(
+            "_presentationTokens.CommitDesired(targetToken)",
+            StringComparison.Ordinal);
+        int metricsCommit = rebuild.IndexOf(
+            "_lastPresentationPerformanceMetrics = new(",
+            StringComparison.Ordinal);
+
+        Assert.True(requestStarted >= 0 && requestStarted < tokenRequest);
+        Assert.True(tokenRequest < requestMetrics && requestMetrics < schedule);
+        Assert.True(snapshot >= 0 && snapshot < revision);
+        Assert.True(revision < prepare && prepare < resourcePreflight);
+        Assert.True(resourcePreflight < currentCheck && currentCheck < tokenCommit);
+        Assert.True(tokenCommit < metricsCommit);
+        Assert.Contains("request.RenderToken == targetToken", rebuild, StringComparison.Ordinal);
+        Assert.Contains("Stopwatch.GetElapsedTime(request.StartTimestamp)", rebuild, StringComparison.Ordinal);
+        Assert.Contains("GetLastPresentationPerformanceMetrics()", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void DeferredOrdinaryRebuildIsGenerationGuardedAcrossSynchronousReset()
     {
         string source = File.ReadAllText(

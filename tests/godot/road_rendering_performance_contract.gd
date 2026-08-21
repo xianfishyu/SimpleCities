@@ -282,6 +282,14 @@ func measure_type_change_latencies(
 			"%d-Edge type change" % selected_edges)
 		if upgrade_ms < 0.0:
 			return false
+		if not validate_presentation_phase_metrics(
+			renderer,
+			before_upgrade_sequence + 1,
+			edge_count,
+			selected_edges,
+			"upgrade",
+			upgrade_ms):
+			return false
 		if not require(
 			presented_change_sequence(renderer) == before_upgrade_sequence + 1 and
 			builder.GetUndoEditCount() == case_index + 1 and
@@ -301,6 +309,14 @@ func measure_type_change_latencies(
 			"%d-Edge type-change undo" % selected_edges)
 		if undo_ms < 0.0:
 			return false
+		if not validate_presentation_phase_metrics(
+			renderer,
+			before_undo_sequence + 1,
+			edge_count,
+			selected_edges,
+			"undo",
+			undo_ms):
+			return false
 		if not require(
 			presented_change_sequence(renderer) == before_undo_sequence + 1 and
 			builder.GetUndoEditCount() == case_index and
@@ -319,6 +335,14 @@ func measure_type_change_latencies(
 			redo_started_us,
 			"%d-Edge type-change redo" % selected_edges)
 		if redo_ms < 0.0:
+			return false
+		if not validate_presentation_phase_metrics(
+			renderer,
+			before_redo_sequence + 1,
+			edge_count,
+			selected_edges,
+			"redo",
+			redo_ms):
 			return false
 		if not require(
 			presented_change_sequence(renderer) == before_redo_sequence + 1 and
@@ -357,6 +381,66 @@ func measure_type_change_latencies(
 				float(budget.get("redo", -1.0)),
 			]):
 			return false
+	return true
+
+func validate_presentation_phase_metrics(
+	renderer: Node,
+	expected_change_sequence: int,
+	edge_count: int,
+	changed_edges: int,
+	operation: String,
+	observed_ms: float) -> bool:
+	var metrics: Dictionary = renderer.GetLastPresentationPerformanceMetrics()
+	if not require(not metrics.is_empty(), "%s presentation phase metrics were not recorded" % operation):
+		return false
+	var render_token: Dictionary = metrics.get("renderToken", {})
+	var presented_token: Dictionary = renderer.GetPresentationState().get("presented", {})
+	if not require(
+		render_token == presented_token and
+		int(render_token.get("changeSequence", -1)) == expected_change_sequence,
+		"%s presentation phase metrics used a stale render token" % operation):
+		return false
+	if not require(not bool(metrics.get("isFullReset", true)), "%s was misclassified as a full reset" % operation):
+		return false
+	if not require(int(metrics.get("attemptNumber", 0)) > 0, "%s presentation attempt number was not recorded" % operation):
+		return false
+
+	var snapshot_capture_ms := float(metrics.get("snapshotCaptureMs", -1.0))
+	var prepare_ms := float(metrics.get("prepareMs", -1.0))
+	var resource_preflight_ms := float(metrics.get("resourcePreflightMs", -1.0))
+	var presentation_commit_ms := float(metrics.get("presentationCommitMs", -1.0))
+	var rebuild_total_ms := float(metrics.get("rebuildTotalMs", -1.0))
+	var request_to_ready_ms := float(metrics.get("requestToReadyMs", -1.0))
+	var phase_sum_ms := (
+		snapshot_capture_ms +
+		prepare_ms +
+		resource_preflight_ms +
+		presentation_commit_ms)
+	if not require(
+		snapshot_capture_ms >= 0.0 and
+		prepare_ms >= 0.0 and
+		resource_preflight_ms >= 0.0 and
+		presentation_commit_ms >= 0.0 and
+		phase_sum_ms <= rebuild_total_ms and
+		rebuild_total_ms <= request_to_ready_ms,
+		"%s presentation phase timing was inconsistent: %s" % [operation, JSON.stringify(metrics)]):
+		return false
+
+	print("PRESENTATION_PHASE_RESULT %s" % JSON.stringify({
+		"dataset": dataset_kind,
+		"edges": edge_count,
+		"changed_edges": changed_edges,
+		"operation": operation,
+		"snapshot_capture_ms": snappedf(snapshot_capture_ms, 0.001),
+		"prepare_ms": snappedf(prepare_ms, 0.001),
+		"resource_preflight_ms": snappedf(resource_preflight_ms, 0.001),
+		"presentation_commit_ms": snappedf(presentation_commit_ms, 0.001),
+		"rebuild_total_ms": snappedf(rebuild_total_ms, 0.001),
+		"request_to_ready_ms": snappedf(request_to_ready_ms, 0.001),
+		"observed_ms": snappedf(observed_ms, 0.001),
+		"attempt_number": int(metrics.get("attemptNumber", 0)),
+		"render_token": render_token,
+	}))
 	return true
 
 func presented_change_sequence(renderer: Node) -> int:
