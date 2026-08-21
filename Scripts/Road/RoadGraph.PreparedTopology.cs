@@ -99,6 +99,8 @@ public partial class RoadGraph
             }
 
             graph._edges.Add(edge.ID, edge);
+            if (edge.NodeA == edge.NodeB)
+                graph._selfLoopCount++;
         }
 
         if (allIDs.Count > 0 && topology.NextID <= allIDs.Max())

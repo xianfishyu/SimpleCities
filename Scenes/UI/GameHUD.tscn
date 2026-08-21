@@ -324,33 +324,78 @@ size_flags_horizontal = 3
 layout_mode = 2
 text = "--"
 
-[node name="GraphEdgeRow" type="HBoxContainer" parent="DebugPanel/PanelMargin/Rows/DebugContent" unique_id=1572964922]
+[node name="NodeRow" type="HBoxContainer" parent="DebugPanel/PanelMargin/Rows/DebugContent" unique_id=1572964922]
 layout_mode = 2
 
-[node name="GraphEdgeLabel" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/GraphEdgeRow" unique_id=1073372280]
+[node name="NodeLabel" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/NodeRow" unique_id=1073372280]
 layout_mode = 2
-text = "GraphEdge"
+text = "Node（拓扑）"
 
-[node name="GraphEdgeSpacer" type="Control" parent="DebugPanel/PanelMargin/Rows/DebugContent/GraphEdgeRow" unique_id=1825124213]
+[node name="NodeSpacer" type="Control" parent="DebugPanel/PanelMargin/Rows/DebugContent/NodeRow" unique_id=1825124213]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="GraphEdgeValue" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/GraphEdgeRow" unique_id=1052712644]
+[node name="NodeValue" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/NodeRow" unique_id=1052712644]
 layout_mode = 2
 text = "--"
 
-[node name="GraphNodeRow" type="HBoxContainer" parent="DebugPanel/PanelMargin/Rows/DebugContent" unique_id=255176414]
+[node name="CanonicalEdgeRow" type="HBoxContainer" parent="DebugPanel/PanelMargin/Rows/DebugContent" unique_id=255176414]
 layout_mode = 2
 
-[node name="GraphNodeLabel" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/GraphNodeRow" unique_id=623556262]
+[node name="CanonicalEdgeLabel" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/CanonicalEdgeRow" unique_id=623556262]
 layout_mode = 2
-text = "GraphNode"
+text = "Edge（规范）"
 
-[node name="GraphNodeSpacer" type="Control" parent="DebugPanel/PanelMargin/Rows/DebugContent/GraphNodeRow" unique_id=952541169]
+[node name="CanonicalEdgeSpacer" type="Control" parent="DebugPanel/PanelMargin/Rows/DebugContent/CanonicalEdgeRow" unique_id=952541169]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="GraphNodeValue" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/GraphNodeRow" unique_id=1384781546]
+[node name="CanonicalEdgeValue" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/CanonicalEdgeRow" unique_id=1384781546]
+layout_mode = 2
+text = "--"
+
+[node name="GeometrySegmentRow" type="HBoxContainer" parent="DebugPanel/PanelMargin/Rows/DebugContent"]
+layout_mode = 2
+
+[node name="GeometrySegmentLabel" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/GeometrySegmentRow"]
+layout_mode = 2
+text = "Geometry（原生）"
+
+[node name="GeometrySegmentSpacer" type="Control" parent="DebugPanel/PanelMargin/Rows/DebugContent/GeometrySegmentRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="GeometrySegmentValue" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/GeometrySegmentRow"]
+layout_mode = 2
+text = "--"
+
+[node name="QueryFragmentRow" type="HBoxContainer" parent="DebugPanel/PanelMargin/Rows/DebugContent"]
+layout_mode = 2
+
+[node name="QueryFragmentLabel" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/QueryFragmentRow"]
+layout_mode = 2
+text = "Query（派生）"
+
+[node name="QueryFragmentSpacer" type="Control" parent="DebugPanel/PanelMargin/Rows/DebugContent/QueryFragmentRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="QueryFragmentValue" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/QueryFragmentRow"]
+layout_mode = 2
+text = "--"
+
+[node name="SelfLoopRow" type="HBoxContainer" parent="DebugPanel/PanelMargin/Rows/DebugContent"]
+layout_mode = 2
+
+[node name="SelfLoopLabel" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/SelfLoopRow"]
+layout_mode = 2
+text = "Self-loop（拓扑）"
+
+[node name="SelfLoopSpacer" type="Control" parent="DebugPanel/PanelMargin/Rows/DebugContent/SelfLoopRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="SelfLoopValue" type="Label" parent="DebugPanel/PanelMargin/Rows/DebugContent/SelfLoopRow"]
 layout_mode = 2
 text = "--"
 

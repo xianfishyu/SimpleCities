@@ -221,6 +221,7 @@ public partial class RoadGraph
 
         _revision = after;
         _nextDomainRevisionID = nextDomainRevisionID;
+        PublishDiagnosticsSnapshot(after);
 
         var committed = new MutationCommit(delta, summary, CurrentStateToken);
         try
@@ -278,6 +279,7 @@ public partial class RoadGraph
                 nextSequence);
 
             _revision = after;
+            PublishDiagnosticsSnapshot(after);
             var committed = new MutationCommit(appliedDelta, summary, CurrentStateToken);
             try
             {
@@ -339,6 +341,8 @@ public partial class RoadGraph
             if (_edges.TryGetValue(change.ID, out GraphEdge? current))
             {
                 RemoveEdgeSpatialRefs(change.ID);
+                if (current.NodeA == current.NodeB)
+                    _selfLoopCount--;
                 _geometrySegmentCount -= current.GeometrySegments.Count;
                 AdjustTotalGeometryLength(-SumGeometryLength(current));
             }
@@ -370,6 +374,8 @@ public partial class RoadGraph
             if (target is null)
                 continue;
             _edges.Add(target.ID, target);
+            if (target.NodeA == target.NodeB)
+                _selfLoopCount++;
             _geometrySegmentCount += target.GeometrySegments.Count;
             AdjustTotalGeometryLength(SumGeometryLength(target));
             InsertEdgeSpatialRefs(target);
@@ -433,6 +439,7 @@ public partial class RoadGraph
         _nextID = revision.NextIDWatermark;
         _geometrySegmentCount = revision.ResourceCounts.GeometrySegments;
         _queryFragmentCount = revision.ResourceCounts.QueryFragments;
+        _selfLoopCount = revision.Edges.Values.Count(edge => edge.NodeA == edge.NodeB);
         _totalGeometryLength = revision.TotalGeometryLength;
     }
 
@@ -492,6 +499,7 @@ public partial class RoadGraph
         AssertCommittedInvariants();
         _revision = CaptureWorkingRevision(_revision.LineageID, 0, 0);
         _nextDomainRevisionID = 1;
+        PublishDiagnosticsSnapshot(_revision);
     }
 
     private void EndMutation()

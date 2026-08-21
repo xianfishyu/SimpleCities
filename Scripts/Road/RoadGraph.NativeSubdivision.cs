@@ -253,6 +253,8 @@ public partial class RoadGraph
         if (!_edges.Remove(edge.ID))
             return;
         TrackEdgeChange(edge.ID);
+        if (edge.NodeA == edge.NodeB)
+            _selfLoopCount--;
         _geometrySegmentCount -= edge.GeometrySegments.Count;
         AdjustTotalGeometryLength(-SumGeometryLength(edge));
         RemoveEdgeSpatialRefs(edge.ID);

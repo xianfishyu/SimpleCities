@@ -307,6 +307,8 @@ public partial class RoadGraph
     {
         _edges.Add(edge.ID, edge);
         TrackEdgeChange(edge.ID);
+        if (edge.NodeA == edge.NodeB)
+            _selfLoopCount++;
         _geometrySegmentCount += edge.GeometrySegments.Count;
         AdjustTotalGeometryLength(SumGeometryLength(edge));
         AttachEdgeIncidences(edge);

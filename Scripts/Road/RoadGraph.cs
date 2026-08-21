@@ -26,6 +26,7 @@ public partial class RoadGraph : IStreamingSaveable
     private long _loadAdmissionGeneration;
     private long _geometrySegmentCount;
     private long _queryFragmentCount;
+    private int _selfLoopCount;
     private double _totalGeometryLength;
 
     public long FacadeID { get; }
@@ -61,6 +62,7 @@ public partial class RoadGraph : IStreamingSaveable
         GraphLineageID lineageID = AllocateLineageID();
         _revision = CaptureWorkingRevision(lineageID, 0, 0);
         _nextDomainRevisionID = 1;
+        PublishDiagnosticsSnapshot(_revision);
     }
 
     private int NextID()
@@ -782,6 +784,7 @@ public partial class RoadGraph : IStreamingSaveable
         _nodeRefs.Clear();
         _edgeRefs.Clear();
         _geometrySegmentCount = _edges.Values.Sum(edge => (long)edge.GeometrySegments.Count);
+        _selfLoopCount = _edges.Values.Count(edge => edge.NodeA == edge.NodeB);
         _totalGeometryLength = _edges.Values
             .SelectMany(edge => edge.GeometrySegments)
             .Sum(geometry => (double)geometry.Length);
@@ -802,6 +805,7 @@ public partial class RoadGraph : IStreamingSaveable
         _spatialIndex.Clear();
         _geometrySegmentCount = 0;
         _queryFragmentCount = 0;
+        _selfLoopCount = 0;
         _totalGeometryLength = 0d;
     }
 

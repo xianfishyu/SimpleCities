@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 
 public partial class RoadGraph
 {
@@ -153,9 +154,11 @@ public partial class RoadGraph
             _owner._nextID = _after.NextIDWatermark;
             _owner._geometrySegmentCount = _after.ResourceCounts.GeometrySegments;
             _owner._queryFragmentCount = _after.ResourceCounts.QueryFragments;
+            _owner._selfLoopCount = _after.Edges.Values.Count(edge => edge.NodeA == edge.NodeB);
             _owner._totalGeometryLength = _after.TotalGeometryLength;
             _owner._revision = _after;
             _owner._nextDomainRevisionID = 1;
+            _owner.PublishDiagnosticsSnapshot(_after);
             _referencesCommitted = true;
         }
 

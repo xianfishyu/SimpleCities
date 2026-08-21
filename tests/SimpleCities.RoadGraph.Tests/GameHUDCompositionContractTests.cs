@@ -13,6 +13,7 @@ public sealed class GameHUDCompositionContractTests
         ".."));
     private static readonly string HudScenePath = Path.Combine(ProjectRoot, "Scenes", "UI", "GameHUD.tscn");
     private static readonly string HudScriptPath = Path.Combine(ProjectRoot, "Scripts", "UI", "GameHUD.cs");
+    private static readonly string DebugPanelScriptPath = Path.Combine(ProjectRoot, "Scripts", "UI", "DebugPanel.cs");
 
     [Fact]
     public void GameHUDScene_ComposesRemainingPanelsAndPauseMenuWithoutSystemControls()
@@ -79,6 +80,33 @@ public sealed class GameHUDCompositionContractTests
         Assert.Contains("new Vector2(PanelMargin, PanelMargin)", script, StringComparison.Ordinal);
         Assert.DoesNotContain("PlaceRightAligned(_debugPanel", script, StringComparison.Ordinal);
         Assert.DoesNotContain("_debugPanel.Position = new Vector2(_toolContextPanel.Position.X", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DebugPanelUsesCanonicalSnapshotMetricsWithoutPerFrameGraphCopies()
+    {
+        string scene = File.ReadAllText(HudScenePath);
+        string script = File.ReadAllText(DebugPanelScriptPath);
+
+        Assert.Contains("name=\"NodeRow\"", scene, StringComparison.Ordinal);
+        Assert.Contains("name=\"CanonicalEdgeRow\"", scene, StringComparison.Ordinal);
+        Assert.Contains("name=\"GeometrySegmentRow\"", scene, StringComparison.Ordinal);
+        Assert.Contains("name=\"QueryFragmentRow\"", scene, StringComparison.Ordinal);
+        Assert.Contains("name=\"SelfLoopRow\"", scene, StringComparison.Ordinal);
+        Assert.Contains("Node（拓扑）", scene, StringComparison.Ordinal);
+        Assert.Contains("Edge（规范）", scene, StringComparison.Ordinal);
+        Assert.Contains("Geometry（原生）", scene, StringComparison.Ordinal);
+        Assert.Contains("Query（派生）", scene, StringComparison.Ordinal);
+        Assert.Contains("Self-loop（拓扑）", scene, StringComparison.Ordinal);
+
+        Assert.Contains("if (!_debugContent.Visible)", script, StringComparison.Ordinal);
+        Assert.Contains("CaptureDiagnosticsSnapshot()", script, StringComparison.Ordinal);
+        Assert.Contains("snapshot.ChangeSequence == _lastDiagnosticsSequence", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("CaptureRevision", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetAllNodes", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetAllEdges", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("RoadGroup", scene, StringComparison.Ordinal);
+        Assert.DoesNotContain("RoadGroup", script, StringComparison.Ordinal);
     }
 
     private static string ExtractNodeBlock(string scene, string nodeName)

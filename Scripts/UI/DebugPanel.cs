@@ -11,10 +11,14 @@ public partial class DebugPanel : PanelContainer
     private VBoxContainer _debugContent = null!;
     private Label _fpsValue = null!;
     private Label _gridValue = null!;
-    private Label _graphEdgeValue = null!;
-    private Label _graphNodeValue = null!;
+    private Label _nodeValue = null!;
+    private Label _canonicalEdgeValue = null!;
+    private Label _geometrySegmentValue = null!;
+    private Label _queryFragmentValue = null!;
+    private Label _selfLoopValue = null!;
 
     private RoadGraph? _network;
+    private long _lastDiagnosticsSequence = -1;
 
     public NodePath ToggleFocusPath => _toggleButton.GetPath();
 
@@ -24,8 +28,11 @@ public partial class DebugPanel : PanelContainer
         _debugContent = GetNode<VBoxContainer>("PanelMargin/Rows/DebugContent");
         _fpsValue = GetNode<Label>("PanelMargin/Rows/DebugContent/FpsRow/FpsValue");
         _gridValue = GetNode<Label>("PanelMargin/Rows/DebugContent/GridRow/GridValue");
-        _graphEdgeValue = GetNode<Label>("PanelMargin/Rows/DebugContent/GraphEdgeRow/GraphEdgeValue");
-        _graphNodeValue = GetNode<Label>("PanelMargin/Rows/DebugContent/GraphNodeRow/GraphNodeValue");
+        _nodeValue = GetNode<Label>("PanelMargin/Rows/DebugContent/NodeRow/NodeValue");
+        _canonicalEdgeValue = GetNode<Label>("PanelMargin/Rows/DebugContent/CanonicalEdgeRow/CanonicalEdgeValue");
+        _geometrySegmentValue = GetNode<Label>("PanelMargin/Rows/DebugContent/GeometrySegmentRow/GeometrySegmentValue");
+        _queryFragmentValue = GetNode<Label>("PanelMargin/Rows/DebugContent/QueryFragmentRow/QueryFragmentValue");
+        _selfLoopValue = GetNode<Label>("PanelMargin/Rows/DebugContent/SelfLoopRow/SelfLoopValue");
 
         _debugContent.Visible = false;
         _toggleButton.FocusMode = FocusModeEnum.All;
@@ -43,6 +50,7 @@ public partial class DebugPanel : PanelContainer
     {
         _network = network;
         Config = config;
+        _lastDiagnosticsSequence = -1;
     }
 
     public void ConfigureFocus(NodePath previousPath, NodePath nextPath)
@@ -51,28 +59,57 @@ public partial class DebugPanel : PanelContainer
         _toggleButton.FocusNext = nextPath;
     }
 
-    /// <summary>由 GameHUD 每帧调用，刷新轻量且可直接读取的调试指标。</summary>
+    /// <summary>由 GameHUD 每帧调用；图指标只读取已提交的不可变快照。</summary>
     public void UpdateMetrics()
     {
         _fpsValue.Text = Engine.GetFramesPerSecond().ToString();
-        _gridValue.Text = GridText();
 
-        if (_network == null)
-        {
-            _graphEdgeValue.Text = "--";
-            _graphNodeValue.Text = "--";
+        if (!_debugContent.Visible)
             return;
-        }
 
-        RoadGraphRevision revision = _network.CaptureRevision();
-        _graphEdgeValue.Text = revision.Edges.Count.ToString();
-        _graphNodeValue.Text = revision.Nodes.Count.ToString();
+        _gridValue.Text = GridText();
+        RefreshDiagnostics();
     }
 
     private void ToggleDebugContent()
     {
         _debugContent.Visible = !_debugContent.Visible;
         _toggleButton.Text = _debugContent.Visible ? "Debug ▲" : "Debug ▼";
+        if (_debugContent.Visible)
+        {
+            _lastDiagnosticsSequence = -1;
+            RefreshDiagnostics();
+        }
+    }
+
+    private void RefreshDiagnostics()
+    {
+        RoadGraphDiagnosticsSnapshot? snapshot = _network?.CaptureDiagnosticsSnapshot();
+        if (snapshot == null)
+        {
+            SetDiagnosticsUnavailable();
+            return;
+        }
+
+        if (snapshot.ChangeSequence == _lastDiagnosticsSequence)
+            return;
+
+        _lastDiagnosticsSequence = snapshot.ChangeSequence;
+        _nodeValue.Text = snapshot.NodeCount.ToString();
+        _canonicalEdgeValue.Text = snapshot.CanonicalEdgeCount.ToString();
+        _geometrySegmentValue.Text = snapshot.GeometrySegmentCount.ToString();
+        _queryFragmentValue.Text = snapshot.QueryFragmentCount.ToString();
+        _selfLoopValue.Text = snapshot.SelfLoopCount.ToString();
+    }
+
+    private void SetDiagnosticsUnavailable()
+    {
+        _lastDiagnosticsSequence = -1;
+        _nodeValue.Text = "--";
+        _canonicalEdgeValue.Text = "--";
+        _geometrySegmentValue.Text = "--";
+        _queryFragmentValue.Text = "--";
+        _selfLoopValue.Text = "--";
     }
 
     /// <summary>将鼠标世界坐标吸附到网格，并标记该位置是否已有路口节点。</summary>

@@ -14,6 +14,26 @@ internal readonly record struct RoadGraphOperationMetrics(
 
 public partial class RoadGraph
 {
+    private RoadGraphDiagnosticsSnapshot _diagnosticsSnapshot = null!;
+
+    /// <summary>
+    /// 返回最近一次已提交图状态的诊断快照，不复制节点、边或空间索引。
+    /// </summary>
+    public RoadGraphDiagnosticsSnapshot DiagnosticsSnapshot => _diagnosticsSnapshot;
+
+    public RoadGraphDiagnosticsSnapshot CaptureDiagnosticsSnapshot() => _diagnosticsSnapshot;
+
+    private void PublishDiagnosticsSnapshot(RoadGraphRevision revision)
+    {
+        _diagnosticsSnapshot = new RoadGraphDiagnosticsSnapshot(
+            revision.StateToken,
+            revision.Nodes.Count,
+            revision.Edges.Count,
+            revision.ResourceCounts.GeometrySegments,
+            revision.ResourceCounts.QueryFragments,
+            _selfLoopCount);
+    }
+
     private int _spatialCandidateEdgeCount;
     private int _queryFragmentCandidateCount;
     private long _exactGeometryTestCount;
@@ -200,6 +220,8 @@ public partial class RoadGraph
             "Spatial index coverage does not exactly match registered references.");
         Require(_capacity.Validate(CaptureResourceCounts()) == RoadGraphCapacityError.None,
             "RoadGraph committed resources exceed the configured capacity.");
+        Require(_selfLoopCount == _edges.Values.Count(edge => edge.NodeA == edge.NodeB),
+            "RoadGraph self-loop count does not match its committed edges.");
         double measuredLength = _edges.Values.Sum(edge => SumGeometryLength(edge));
         double lengthTolerance = Math.Max(1e-6d, measuredLength * 1e-12d);
         Require(Math.Abs(measuredLength - _totalGeometryLength) <= lengthTolerance,

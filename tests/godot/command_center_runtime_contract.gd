@@ -547,10 +547,24 @@ func test_malformed_dock() -> void:
 
 func assert_debug_metrics_continuity(map: Node, debug_panel: Control) -> void:
 	var manager: Node = map.get_node("ToolManager")
-	var edges: Label = debug_panel.get_node("PanelMargin/Rows/DebugContent/GraphEdgeRow/GraphEdgeValue")
-	var nodes: Label = debug_panel.get_node("PanelMargin/Rows/DebugContent/GraphNodeRow/GraphNodeValue")
+	var nodes: Label = debug_panel.get_node("PanelMargin/Rows/DebugContent/NodeRow/NodeValue")
+	var edges: Label = debug_panel.get_node("PanelMargin/Rows/DebugContent/CanonicalEdgeRow/CanonicalEdgeValue")
+	var geometry: Label = debug_panel.get_node("PanelMargin/Rows/DebugContent/GeometrySegmentRow/GeometrySegmentValue")
+	var fragments: Label = debug_panel.get_node("PanelMargin/Rows/DebugContent/QueryFragmentRow/QueryFragmentValue")
+	var self_loops: Label = debug_panel.get_node("PanelMargin/Rows/DebugContent/SelfLoopRow/SelfLoopValue")
+	assert_true(debug_panel.get_node("PanelMargin/Rows/DebugContent/NodeRow/NodeLabel").text == "Node（拓扑）", "Debug Node label does not identify topology")
+	assert_true(debug_panel.get_node("PanelMargin/Rows/DebugContent/CanonicalEdgeRow/CanonicalEdgeLabel").text == "Edge（规范）", "Debug Edge label does not identify canonical storage")
+	assert_true(debug_panel.get_node("PanelMargin/Rows/DebugContent/GeometrySegmentRow/GeometrySegmentLabel").text == "Geometry（原生）", "Debug geometry label does not identify native geometry")
+	assert_true(debug_panel.get_node("PanelMargin/Rows/DebugContent/QueryFragmentRow/QueryFragmentLabel").text == "Query（派生）", "Debug fragment label does not identify derived data")
+	assert_true(debug_panel.get_node("PanelMargin/Rows/DebugContent/SelfLoopRow/SelfLoopLabel").text == "Self-loop（拓扑）", "Debug self-loop label does not identify topology")
 	debug_panel.UpdateMetrics()
-	var before := Vector2i(int(edges.text), int(nodes.text))
+	var before := PackedInt64Array([
+		int(nodes.text),
+		int(edges.text),
+		int(geometry.text),
+		int(fragments.text),
+		int(self_loops.text),
+	])
 	manager.set("CurrentTool", 1)
 	await process_frame
 	var start_motion := mouse_motion_event(Vector2(320, 320))
@@ -566,9 +580,48 @@ func assert_debug_metrics_continuity(map: Node, debug_panel: Control) -> void:
 	manager._Input(mouse_button_event(false, Vector2(384, 320)))
 	await process_frame
 	debug_panel.UpdateMetrics()
-	var after := Vector2i(int(edges.text), int(nodes.text))
-	assert_true(after.x > before.x, "Debug GraphEdge metric did not continue after graph mutation: %s -> %s" % [before, after])
-	assert_true(after.y > before.y, "Debug GraphNode metric did not continue after graph mutation: %s -> %s" % [before, after])
+	var after := PackedInt64Array([
+		int(nodes.text),
+		int(edges.text),
+		int(geometry.text),
+		int(fragments.text),
+		int(self_loops.text),
+	])
+	assert_true(after[0] > before[0], "Debug Node metric did not continue after graph mutation: %s -> %s" % [before, after])
+	assert_true(after[1] > before[1], "Debug canonical Edge metric did not continue after graph mutation: %s -> %s" % [before, after])
+	assert_true(after[2] > before[2], "Debug native geometry metric did not continue after graph mutation: %s -> %s" % [before, after])
+	assert_true(after[3] > before[3], "Debug query fragment metric did not continue after graph mutation: %s -> %s" % [before, after])
+	assert_true(after[4] == before[4], "Open road unexpectedly changed Debug self-loop metric: %s -> %s" % [before, after])
+
+	var debug_button: Button = debug_panel.get_node("PanelMargin/Rows/DebugToggleButton")
+	debug_button.emit_signal("pressed")
+	await process_frame
+	assert_true(not debug_panel.get_node("PanelMargin/Rows/DebugContent").visible, "Debug metrics setup could not collapse the panel")
+	var builder: Node = map.get_node("RoadSystem/RoadBuilder")
+	assert_true(builder.BeginPlace(Vector2(320, 384)), "Hidden Debug setup could not begin a second road")
+	builder.UpdatePlace(Vector2(384, 384))
+	assert_true(builder.ConfirmPlace(Vector2(384, 384)), "Hidden Debug setup could not commit a second road")
+	debug_panel.UpdateMetrics()
+	var hidden := PackedInt64Array([
+		int(nodes.text),
+		int(edges.text),
+		int(geometry.text),
+		int(fragments.text),
+		int(self_loops.text),
+	])
+	assert_true(hidden == after, "Collapsed Debug panel refreshed graph text: %s -> %s" % [after, hidden])
+
+	debug_button.emit_signal("pressed")
+	await process_frame
+	debug_panel.UpdateMetrics()
+	var revealed := PackedInt64Array([
+		int(nodes.text),
+		int(edges.text),
+		int(geometry.text),
+		int(fragments.text),
+		int(self_loops.text),
+	])
+	assert_true(revealed[0] > hidden[0] and revealed[1] > hidden[1], "Reopened Debug panel did not consume the newer sequence: %s -> %s" % [hidden, revealed])
 
 func assert_k_runtime_contract(hud: CanvasLayer) -> void:
 	var dock: Control = hud.get_node("ConstructionDock")

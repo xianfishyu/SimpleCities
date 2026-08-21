@@ -77,15 +77,23 @@ Console.WriteLine("100k 结果仅用于压力观察，不参与退出码判定�
 Console.WriteLine();
 Console.WriteLine("## 不可变 root 局部 mutation");
 Console.WriteLine();
-Console.WriteLine("> 口径：互不相连的单 geometry Edge 数据集；图恢复和 GC 不计时，只改造中间一条 Edge。提交后再统计跨 revision 的引用共享，统计遍历不计入提交耗时；旧 root 释放在独立 no-inline 边界后强制 GC 观察。capture 对同一已发布 root 调用 100,000 次。");
+Console.WriteLine("> 口径：互不相连的单 geometry Edge 数据集；图恢复和 GC 不计时，只改造中间一条 Edge。提交后再统计跨 revision 的引用共享，统计遍历不计入提交耗时；旧 root 释放在独立 no-inline 边界后强制 GC 观察。revision 与 diagnostics capture 分别对同一已发布实例调用 100,000 次。");
 Console.WriteLine();
-Console.WriteLine("| Geometry | 提交 ms | 分配 KiB | delta Node | delta Edge | 复制 Node | 复制 Edge | 复制 bucket 页 | 共享 Entity | 共享 bucket 页 | capture ms | capture bytes | 旧 root 释放 |");
-Console.WriteLine("|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|");
-foreach (ImmutableMutationBenchmarkResult result in RunImmutableMutationBenchmarks(sizes))
+Console.WriteLine("| Geometry | 提交 ms | 分配 KiB | delta Node | delta Edge | 复制 Node | 复制 Edge | 复制 bucket 页 | 共享 Entity | 共享 bucket 页 | revision capture ms | revision bytes | diagnostics capture ms | diagnostics bytes | 旧 root 释放 |");
+Console.WriteLine("|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|");
+ImmutableMutationBenchmarkResult[] immutableMutationResults =
+    RunImmutableMutationBenchmarks(sizes).ToArray();
+foreach (ImmutableMutationBenchmarkResult result in immutableMutationResults)
 {
     Console.WriteLine(FormattableString.Invariant(
-        $"| {result.GeometryCount} | {result.CommitMilliseconds:F3} | {result.AllocatedBytes / 1024d:F1} | {result.DeltaNodes} | {result.DeltaEdges} | {result.CopiedNodes} | {result.CopiedEdges} | {result.CopiedBucketPages} | {result.SharedEntities} | {result.SharedBucketPages} | {result.CaptureMilliseconds:F3} | {result.CaptureAllocatedBytes} | {(result.OldRootReleased ? "是" : "否")} |"));
+        $"| {result.GeometryCount} | {result.CommitMilliseconds:F3} | {result.AllocatedBytes / 1024d:F1} | {result.DeltaNodes} | {result.DeltaEdges} | {result.CopiedNodes} | {result.CopiedEdges} | {result.CopiedBucketPages} | {result.SharedEntities} | {result.SharedBucketPages} | {result.CaptureMilliseconds:F3} | {result.CaptureAllocatedBytes} | {result.DiagnosticsCaptureMilliseconds:F3} | {result.DiagnosticsCaptureAllocatedBytes} | {(result.OldRootReleased ? "是" : "否")} |"));
 }
+ImmutableMutationBenchmarkResult[] diagnosticsAllocationFailures = immutableMutationResults
+    .Where(result => result.DiagnosticsCaptureAllocatedBytes != 0)
+    .ToArray();
+Console.WriteLine(diagnosticsAllocationFailures.Length == 0
+    ? "diagnostics capture 门禁：1k/10k/100k 均为 0 bytes。"
+    : $"diagnostics capture 门禁：{diagnosticsAllocationFailures.Length} 个规模发生分配。");
 
 HistoryBenchmarkResult historyResult = RunHistoryBenchmark();
 Console.WriteLine();
@@ -98,7 +106,7 @@ Console.WriteLine("|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|");
 Console.WriteLine(FormattableString.Invariant(
     $"| {historyResult.EditCount} | {historyResult.DeltaRetainedBytes / 1024d:F1} | {historyResult.JsonBaselineBytes / 1024d:F1} | {historyResult.EditAllocatedBytes / 1024d:F1} | {historyResult.UndoMilliseconds:F3} | {historyResult.UndoAllocatedBytes / 1024d:F1} | {historyResult.RedoMilliseconds:F3} | {historyResult.RedoAllocatedBytes / 1024d:F1} | {historyResult.EventCount} | {historyResult.FullResetEventCount} |"));
 
-return enforceBudget && failed10k.Length > 0 ? 2 : 0;
+return enforceBudget && (failed10k.Length > 0 || diagnosticsAllocationFailures.Length > 0) ? 2 : 0;
 
 static HistoryBenchmarkResult RunHistoryBenchmark()
 {
@@ -204,6 +212,19 @@ static IReadOnlyList<ImmutableMutationBenchmarkResult> RunImmutableMutationBench
         double captureMilliseconds = Stopwatch.GetElapsedTime(captureStarted).TotalMilliseconds;
         long captureAllocated = GC.GetAllocatedBytesForCurrentThread() - captureAllocatedBefore;
 
+        RoadGraphDiagnosticsSnapshot diagnostics = graph.CaptureDiagnosticsSnapshot();
+        long diagnosticsAllocatedBefore = GC.GetAllocatedBytesForCurrentThread();
+        long diagnosticsStarted = Stopwatch.GetTimestamp();
+        for (int index = 0; index < 100_000; index++)
+        {
+            if (!ReferenceEquals(diagnostics, graph.CaptureDiagnosticsSnapshot()))
+                throw new InvalidOperationException(
+                    "CaptureDiagnosticsSnapshot changed without a graph commit.");
+        }
+        double diagnosticsMilliseconds = Stopwatch.GetElapsedTime(diagnosticsStarted).TotalMilliseconds;
+        long diagnosticsAllocated =
+            GC.GetAllocatedBytesForCurrentThread() - diagnosticsAllocatedBefore;
+
         results.Add(new ImmutableMutationBenchmarkResult(
             geometryCount,
             measurement.CommitMilliseconds,
@@ -217,6 +238,8 @@ static IReadOnlyList<ImmutableMutationBenchmarkResult> RunImmutableMutationBench
             measurement.SharedBucketPages,
             captureMilliseconds,
             captureAllocated,
+            diagnosticsMilliseconds,
+            diagnosticsAllocated,
             oldRootReleased));
     }
     return results;
@@ -546,6 +569,8 @@ internal readonly record struct ImmutableMutationBenchmarkResult(
     int SharedBucketPages,
     double CaptureMilliseconds,
     long CaptureAllocatedBytes,
+    double DiagnosticsCaptureMilliseconds,
+    long DiagnosticsCaptureAllocatedBytes,
     bool OldRootReleased);
 
 internal readonly record struct HistoryBenchmarkResult(
