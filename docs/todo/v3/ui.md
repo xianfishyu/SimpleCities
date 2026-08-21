@@ -1,8 +1,8 @@
 # 第三代 UI 系统待办清单
 
 > 系统 key：`v3-ui`
-> 整理日期：2026-08-20
-> 证据：`Scripts/UI/ConstructionDock.cs`、`Scripts/UI/ToolContextPanel.cs`、`Scripts/UI/GameHUD.cs`、`Scripts/Tools/ToolManager.cs`、`Scenes/UI/GameHUD.tscn`、`tests/SimpleCities.RoadGraph.Tests/RoadTypeSelectorContractTests.cs`、`tests/godot/command_center_runtime_contract.gd` 与 `docs/manuals/road-system-v3-gen.md`。
+> 整理日期：2026-08-21
+> 证据：`Scripts/UI/ConstructionDock.cs`、`Scripts/UI/ToolContextPanel.cs`、`Scripts/UI/GameHUD.cs`、`Scripts/UI/DebugPanel.cs`、`Scripts/Tools/ToolManager.cs`、`Scripts/Road/RoadGraphDiagnosticsSnapshot.cs`、`Scripts/Road/RoadGraph.Diagnostics.cs`、`Scenes/UI/GameHUD.tscn`、`tests/SimpleCities.RoadGraph.Tests/RoadTypeSelectorContractTests.cs`、`tests/SimpleCities.RoadGraph.Tests/RoadGraphDiagnosticsSnapshotTests.cs`、`tests/SimpleCities.RoadGraph.Performance/Program.cs`、`tests/godot/command_center_runtime_contract.gd` 与 `docs/manuals/road-system-v3-gen.md`。
 > 主导原则：UI 只呈现和编辑工具/操作状态，不直接修改 RoadGraph 或磁盘；桌面、窄屏、键盘焦点和场景重复进入必须共享同一行为契约。
 
 ## 状态总览
@@ -11,7 +11,7 @@
 |---|---|---|---|
 | 1.1 | 道路上下文没有 RoadType 选择控件 | 已完成 | 四段式名称与颜色 swatch 选择器写入共享 tool state |
 | 1.2 | ConstructionDock 没有道路改造工具呈现 | 已完成 | Road/RoadUpgrade 资源化双工具、T 动作、选中态和稳定焦点链已验证 |
-| 1.3 | DebugPanel 仍把 RoadGroup 数量作为路网指标 | 开放 | 移除 Group 指标，展示 canonical Node/Edge/geometry/self-loop 结构量 |
+| 1.3 | DebugPanel 仍把 RoadGroup 数量作为路网指标 | 已完成 | 以不可变 diagnostics snapshot 展示 canonical Node/Edge/geometry/query/self-loop 结构量，并通过可见性与 sequence 门禁避免逐帧全图读取 |
 | 1.4 | 暂停菜单没有异步 Save/Load/Delete 的独占状态机 | 开放（部分实现） | operation/render token、generation、busy、Escape、退出收敛、indexed 四类 surface、现有道路事务 admission 与 deferred continuation 失效已接入；补齐结果矩阵 |
 
 ### 设计覆盖矩阵
@@ -21,7 +21,7 @@
 | 命令中心基线 | ConstructionDock、ToolContextPanel、DebugPanel 和 PauseMenu 已有响应式布局、焦点链和运行时契约 | 已解决基线 |
 | V3 类型建造 | `RoadBuilder` 提供默认 `Street` 的 `SelectedRoadType` 与会话冻结；ToolContextPanel 已在 Road/RoadUpgrade 上下文显示四段式样式选择器，通过 ToolManager 委托写回共享状态 | `v3-tool-input:2.1`、1.1～1.2（均已完成） |
 | V3 既有道路改造 | `ToolType.RoadUpgrade` 与独立输入生命周期已实现；Roads catalog 以独立图标和 T 动作呈现 RoadUpgrade，ConstructionDock 与 ToolManager 双向同步选中态和上下文 | 1.2、`v3-tool-input:2.2`（均已完成） |
-| V3 规范存储诊断 | DebugPanel 仍读取 `GetAllGroups()`，无法观察 Edge 压缩、原生几何数量或 self-loop | 1.3、`v3-road-graph:8.2`～`8.5` |
+| V3 规范存储诊断 | `RoadGraphDiagnosticsSnapshot` 已发布 Node、canonical Edge、原生 geometry segment、query fragment 与 self-loop；DebugPanel 只在展开且 `ChangeSequence` 改变时刷新 | 1.3、`v3-road-graph:8.2`～`8.5`（1.3 已完成） |
 | V3 异步存档体验 | PauseMenu 已消费结构化 operation state/result，按 token、menu/scene generation 过滤 continuation，busy 时禁用冲突入口并让 Escape 只请求一次取消；退出流程会 drain/shutdown。Load 已联合发布基础 mesh、带 canonical `RoadLocation` 和不可变空间索引的 `EdgeRibbon` + `TerminalCap` + `SemanticJoin` + `JunctionPatch` surface 与 matching `RoadRenderToken` acknowledgment；普通 mutation 的 renderer provider 在 pending/stalled 时拒绝 hit，placement、拆除、RoadUpgrade 与 undo/redo 已覆盖当前玩家道路事务入口。deferred 普通表现回调也会在 Load admission 同步 flush，并以 generation 拒绝旧 callable | 1.4、`v3-save-system:2.3`、`v3-tool-input:2.4`、`v3-grid-rendering:2.2` |
 
 ## 执行顺序
@@ -56,13 +56,15 @@
 
 <a id="v3-ui1.3"></a>
 
-- [ ] **1.3 将 DebugPanel 改用 canonical RoadGraph 指标**
-  - 当前问题：`DebugPanel` 和 `command_center_runtime_contract.gd` 通过 `GetAllGroups()` 显示/断言 RoadGroup 数；V3 移除 Group 后该指标既无法编译，也不能说明连续存储是否生效。若直接在 `_Process` 中调用 `GetAllNodes/Edges` 统计新指标，会每帧复制全图并让 geometry-dense 长 Edge 产生额外扫描/分配。
+- [x] **1.3 将 DebugPanel 改用 canonical RoadGraph 指标**
+  - 完成前问题：`DebugPanel` 和 `command_center_runtime_contract.gd` 通过 `GetAllGroups()` 显示/断言 RoadGroup 数；V3 移除 Group 后该指标既无法编译，也不能说明连续存储是否生效。若直接在 `_Process` 中调用 `GetAllNodes/Edges` 统计新指标，会每帧复制全图并让 geometry-dense 长 Edge 产生额外扫描/分配。
   - 修改：删除 RoadGroup 行和相关场景节点/引用，改为显示 Node、canonical Edge、原生 geometry segment、query fragment 和 self-loop 数；标签明确区分拓扑量、权威几何量与派生索引量，不把 parallel Edge 按邻居去重。只读取 `v3-road-graph:8.5` 随事务维护的不可变 diagnostics snapshot；面板可见且 sequence 改变时刷新文本，隐藏时不轮询/复制全图。
   - 依赖：`v3-road-graph:8.2`、`v3-road-graph:8.3`、`v3-road-graph:8.5`。
   - 集成负责人：`v3-ui`；端到端完成判定由 `v3-road-graph:8.6` 负责。
   - 验证：直路、非共线多段、简单环、两路口环、交叉和删除重归一化后的指标；面板隐藏/显示、普通 delta/full reset、sequence 连跳、10k/100k 和单 Edge N geometry 下每帧分配；命令中心宽/窄屏和场景重复进入契约。
   - 验收：N 段无分支道路显示 2 Node / 1 Edge / N geometry segment；简单环显示 1 Node / 1 Edge / 1 self-loop；面板无失效 Group 文案或引用，隐藏或图未变化时无逐帧全图枚举/分配。
+  - 完成证据（2026-08-21）：新增不可变 `RoadGraphDiagnosticsSnapshot`，以 `StateToken` 绑定提交状态并发布 Node、canonical Edge、geometry segment、query fragment、self-loop 五项指标；构造、普通 mutation、delta/undo/redo、prepared topology 和 full-reset Load commit 均在提交边界发布快照，`CaptureDiagnosticsSnapshot()` 对同一图状态返回同一引用。`DebugPanel` 折叠时不访问 RoadGraph，展开后仅在 `ChangeSequence` 改变时刷新五项文本；场景和命令中心契约已移除 `GetAllGroups()`/RoadGroup 断言。
+  - 验证证据（2026-08-21）：聚焦 `RoadGraphDiagnosticsSnapshotTests` + `GameHUDCompositionContractTests` 为 11/11；完整 `dotnet test SimpleCities.sln --no-restore` 为 863/863；Roslyn compiler/analyzer 为 0 diagnostics；Debug 与 `ExportRelease` build 均为 0 警告、0 错误。Release 性能程序的 1k/10k/100k diagnostics capture 读取均为 0 bytes 分配（约 0.018/0.019/0.019 ms）；单 Edge 4,096 geometry 的 100,000 次读取同样为 0 bytes。Godot MCP 主场景真实提交后显示 `Node=2 / Edge=1 / Geometry=1 / Query=2 / Self-loop=0`，editor 新增 error 为 0，DAP `stderr` 与 `console` 为空。
 
 <a id="v3-ui1.4"></a>
 
@@ -97,6 +99,7 @@
 - [x] **命令中心已验证 1600x900、640x480 和 435x480。** 新 RoadType 控件和第二个道路工具必须保留这些视口门禁。
 - [x] **RoadType 选择器已接入共享工具状态。** `ToolContextPanel` 只通过 `ToolManager.GetSelectedRoadType/SetSelectedRoadType` 读写 `RoadBuilder.SelectedRoadType`；Road/RoadUpgrade 共用选择，切换工具保留选择，新 `MapTest` 实例恢复 `Street`，无效样式不会提交类型。
 - [x] **RoadUpgrade 已作为第二个资源化道路工具接入命令中心。** 独立图标、默认 T 动作、旧配置迁移、互斥选中态、catalog 上下文和稳定焦点链均有 C# 与 Godot 契约；UI 不直接提交道路改造。
+- [x] **DebugPanel 已改用 canonical diagnostics snapshot。** 面板展示 Node、canonical Edge、原生 geometry、query fragment 和 self-loop；折叠时不读取图，展开后按 `ChangeSequence` 增量刷新，五项读取不复制节点、边或索引。
 
 ## 完成标准
 
