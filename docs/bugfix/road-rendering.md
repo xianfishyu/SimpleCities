@@ -148,3 +148,34 @@
 - 隔离 `APPDATA` 的 `road_render_token_runtime_contract.gd` 输出 `PASS road render token runtime contract`。Godot MCP 在真实 `MapTest` 中验证普通 mutation、样式刷新与 aggregate Load 后 desired/presented/hit token 完全匹配；Load 命中为 `Edge 2 / geometry 0 / parameter 0.5`，`surfacePrimitiveCount=2`，旧 surface 已失效。
 - GDScript workspace scan 为 0 diagnostics；Godot editor 没有新增错误，DAP `stderr` 为空。测试槽、动态探针、隔离用户目录和临时日志均已清理。headless 输出的 Windows root certificate store 错误与独立夹具缺少 `ToolManager.Instance` warning 为既有环境/夹具信息。
 - 本修复验证了线程分工、查询局部性和 Load 行为，没有重跑 10k/100k Vulkan 性能契约，因此不更新既有规模数据，也不据此关闭仍缺完整 owner/工具/UI/故障矩阵的协作事项。
+
+---
+
+<a id="road-rendering-bug-7"></a>
+## BUG-7：owner-dense 夹具的 JunctionPatch 查询点不可命中
+
+> 修复日期：2026-08-21
+> 影响文件：tests/godot/road_rendering_performance_contract.gd
+> 关联事项：v3-grid-rendering:2.3
+
+### 症状
+
+owner-dense 10k Vulkan 契约已经完成 Load、EdgeRibbon、TerminalCap 和 SemanticJoin 查询，但在 JunctionPatch 探针附近报告 No JunctionPatch hit was found near (-7520.0, -4240.0)，因此脚本未输出 PASS。失败发生在查询阶段，不是 fixture 写入或 RoadGraph Load 阶段。
+
+### 根因分析
+
+夹具第一单元的三条锐角 junction Edge 使用 Dirt/Street/Arterial 宽度组合。相同的锐角几何在既有 junction runtime 契约中使用 Dirt/Highway/Street；较窄的浅东边使 patch 在该查询窗口内无法与相邻 ribbon 的表面命中区分，导致四类 owner 矩阵少一类。生产 RoadJunctionTessellator、surface tie-break 和 Load 路径均未发生变化。
+
+### 修复方案
+
+将 owner-dense 夹具的浅东 junction Edge RoadType 从 street 调整为 highway，保留 8 Edge/13 Node 单元拓扑、其余 Edge 类型和查询批次不变，使 JunctionPatch 保留可命中的暴露区域。
+
+### 影响范围
+
+只影响性能契约 fixture 的 RoadType 宽度分布；不改变生产道路图、渲染器、surface owner 或存档格式。owner-dense 10k/100k 的四类 owner 查询现在都能执行完整矩阵。
+
+## BUG-7 验证状态
+
+- 首次 10k 运行在三个 owner kind 完成后于 JunctionPatch 探针失败；修正后真实 Vulkan Forward+ 10k 输出 PASS，camera/preview/highlight P95 为 0.482/0.467/0.468 ms，四类 owner 均完成 20 批 × 1,000 次查询，JunctionPatch P95 为 0.065123 ms。
+- 真实 Vulkan Forward+ 100k 输出 PASS，camera/preview/highlight P95 为 0.573/0.625/0.561 ms，Load/renderer rebuild 为 6135.119 ms；JunctionPatch P95 为 0.040361 ms，surface primitive 为 412,500，静态 renderer 节点为 2。
+- mcp__godot_minimal__get_diagnostics 对该 GDScript 返回 0 diagnostics；Godot editor 为 Godot 4.7、MapTest.tscn、未运行，editor error 日志为 0。日志中唯一 warning 是既有 ConstructionDock: ToolManager.Instance is missing，未归因于本修复。

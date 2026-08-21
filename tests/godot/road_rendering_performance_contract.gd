@@ -662,7 +662,7 @@ func write_owner_dense_fixture(path: String, edge_count: int) -> bool:
 	]
 	var road_types: Array[String] = [
 		"dirt",
-		"street",
+		"highway",
 		"arterial",
 		"dirt",
 		"highway",
