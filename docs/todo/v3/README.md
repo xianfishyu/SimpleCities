@@ -46,6 +46,8 @@ RoadGraph Load 线性恢复收口（2026-08-20）：`AssertInvariants()` 的批�
 
 RoadGraph Load 线性恢复追加复验（2026-08-21）：完整自动化为 `864/864`，Debug/`ExportRelease` build 为 0 警告/0 错误；Release `--enforce-budget` 多交叉 P95 为 `7.247 ms`（10k）与 `7.431 ms`（100k），10k 全场景低于 `16.67 ms` 硬门槛。该证据不改变 `v3-road-graph:8.6` 的开放状态，junction-dense/geometry-dense、真实参与者 generation 失配和完整 Phase 7/8 故障矩阵仍由各自路线图负责。
 
+Aggregate 提交边界失配追加复验（2026-08-21）：`PreparedAggregateLoadTests` 聚焦 `13/13`，完整自动化为 `865/865`；graph、tool、presentation、slot 任一 fake participant 在 commit boundary 失效时均不会发生引用交换或通知。该 CLR 证据不改变 `v3-save-system:2.3`、`v3-grid-rendering:2.2`、`v3-tool-input:2.4` 或 `v3-road-graph:8.6` 的开放状态。
+
 各 Phase 是实现分支中的可编译检查点，不是玩家可选的运行模式。V3 可以完全重写现有架构，但产品装配始终只有一套新 runtime/API/event/format；不得用 feature gate、兼容适配器、双事件或双 writer 保留 V2 生产路径。V2 存档根只作为未触碰的历史数据保留。
 
 ## 最终集成归属

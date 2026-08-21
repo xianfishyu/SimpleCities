@@ -94,6 +94,39 @@ public sealed class PreparedAggregateLoadTests
     }
 
     [Fact]
+    public void CommitBoundaryGenerationMismatchForAnyParticipant_RejectsBeforeAnyReferenceSwap()
+    {
+        string[] participantIDs = ["graph", "tool", "presentation", "slot"];
+
+        foreach (string invalidParticipantID in participantIDs)
+        {
+            var state = participantIDs.ToDictionary(
+                id => id,
+                static _ => "old",
+                StringComparer.Ordinal);
+            var events = new List<string>();
+            FakePlan[] plans = participantIDs
+                .Select(id => new FakePlan(id, state, events, participantIDs))
+                .ToArray();
+            FakePlan invalidParticipant = Assert.Single(
+                plans,
+                plan => plan.ParticipantID == invalidParticipantID);
+
+            using var aggregate = new PreparedAggregateLoad(plans);
+            var operation = new BoundaryInvalidatingLease(
+                SaveOperationKind.Load,
+                () => invalidParticipant.IsGenerationCurrent = false);
+
+            Assert.Throws<LoadPreflightInvalidException>(() => aggregate.Commit(operation));
+
+            Assert.All(participantIDs, id => Assert.Equal("old", state[id]));
+            Assert.All(plans, plan => Assert.Equal(0, plan.CommitCount));
+            Assert.Empty(events);
+            Assert.Equal(1, operation.InvalidationCount);
+        }
+    }
+
+    [Fact]
     public void RealParticipantGenerationMismatchAtCommitBoundary_ReleasesEveryPlanWithoutSwapping()
     {
         var source = new RoadGraph();
@@ -434,9 +467,11 @@ public sealed class PreparedAggregateLoadTests
         public bool IsGenerationCurrent { get; set; } = true;
         internal bool ThrowDuringNotification { get; init; }
         internal bool ThrowDuringCompletion { get; init; }
+        internal int CommitCount { get; private set; }
 
         public void CommitReferences()
         {
+            CommitCount++;
             _state[ParticipantID] = "new";
             _events.Add($"commit:{ParticipantID}");
         }
