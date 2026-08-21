@@ -120,6 +120,16 @@ func run() -> void:
 		"Parallel Edge undo did not preserve independent surface owners"):
 		return
 
+	if not await verify_parallel_edge_rectangle_tools(
+		renderer,
+		builder,
+		first_edge_id,
+		second_edge_id,
+		first_position,
+		second_position,
+		slot_id):
+		return
+
 	if not await verify_parallel_edge_visual_matrix(
 		renderer,
 		camera,
@@ -144,6 +154,153 @@ func run() -> void:
 		return
 	print("PASS road parallel edge runtime contract")
 	quit(0)
+
+func verify_parallel_edge_rectangle_tools(
+	renderer: Node,
+	builder: Node,
+	first_edge_id: int,
+	second_edge_id: int,
+	first_position: Vector2,
+	second_position: Vector2,
+	fixture_slot_id: String) -> bool:
+	var upper_start := Vector2(35.0, -28.0)
+	var upper_end := Vector2(65.0, -5.0)
+	if not require(
+		builder.BeginRemove(upper_start, true),
+		"Parallel Edge rectangle removal did not begin"):
+		return false
+	builder.UpdateRemove(upper_end)
+	if not require(
+		builder.GetRemovalSelectionCount() == 1 and
+		renderer.GetRemovalPreviewEdgeCount() == 1,
+		"Parallel Edge rectangle removal did not isolate one Edge"):
+		return false
+	if not require(
+		builder.ConfirmRemove(upper_end),
+		"Parallel Edge rectangle removal did not commit"):
+		return false
+	if not await wait_for_presentation(renderer, "Parallel Edge rectangle removal"):
+		return false
+	var removed_upper: Dictionary = renderer.FindRoadSurfaceHit(first_position, 0.0)
+	var retained_lower: Dictionary = renderer.FindRoadSurfaceHit(second_position, 0.0)
+	if not require(
+		renderer.GetRenderedEdgeCount() == 1 and
+		removed_upper.is_empty() and
+		int(retained_lower.get("edgeID", -1)) == second_edge_id,
+		"Parallel Edge rectangle removal changed the wrong owner"):
+		return false
+
+	if not require(builder.UndoLastEdit(), "Parallel Edge rectangle removal undo did not start"):
+		return false
+	if not await wait_for_presentation(renderer, "Parallel Edge rectangle removal undo"):
+		return false
+	if not require(
+		renderer.GetRenderedEdgeCount() == 2 and
+		int(renderer.FindRoadSurfaceHit(first_position, 0.0).get("edgeID", -1)) == first_edge_id and
+		int(renderer.FindRoadSurfaceHit(second_position, 0.0).get("edgeID", -1)) == second_edge_id,
+		"Parallel Edge rectangle removal undo did not restore both owners"):
+		return false
+
+	if not require(builder.RedoLastEdit(), "Parallel Edge rectangle removal redo did not start"):
+		return false
+	if not await wait_for_presentation(renderer, "Parallel Edge rectangle removal redo"):
+		return false
+	if not require(
+		renderer.GetRenderedEdgeCount() == 1 and
+		renderer.FindRoadSurfaceHit(first_position, 0.0).is_empty() and
+		int(renderer.FindRoadSurfaceHit(second_position, 0.0).get("edgeID", -1)) == second_edge_id,
+		"Parallel Edge rectangle removal redo changed the wrong owner"):
+		return false
+
+	if not require(
+		await V3_SAVE_FIXTURE.load_slot(save_manager, fixture_slot_id),
+		"Parallel Edge rectangle tool fixture did not restore after removal"):
+		return false
+	if not await wait_for_presentation(renderer, "Parallel Edge rectangle tool restore"):
+		return false
+	if not require(renderer.GetRenderedEdgeCount() == 2, "Parallel Edge rectangle tool restore lost an Edge"):
+		return false
+	var lower_start := Vector2(35.0, 5.0)
+	var lower_end := Vector2(65.0, 28.0)
+	if not require(builder.SetSelectedRoadType(2), "Parallel Edge rectangle upgrade could not select Arterial"):
+		return false
+	if not require(
+		builder.BeginUpgrade(lower_start, true),
+		"Parallel Edge rectangle upgrade did not begin"):
+		return false
+	builder.UpdateUpgrade(lower_end)
+	if not require(
+		builder.GetUpgradeSelectionCount() == 1 and
+		renderer.GetUpgradePreviewEdgeCount() == 1,
+		"Parallel Edge rectangle upgrade did not isolate one Edge"):
+		return false
+	if not require(
+		builder.ConfirmUpgrade(lower_end),
+		"Parallel Edge rectangle upgrade did not commit"):
+		return false
+	if not await wait_for_presentation(renderer, "Parallel Edge rectangle upgrade"):
+		return false
+	if not require(
+		await V3_SAVE_FIXTURE.save(save_manager, fixture_slot_id),
+		"Parallel Edge rectangle upgrade save failed"):
+		return false
+	if not require(
+		read_edge_road_type(fixture_slot_id, first_edge_id) == "street" and
+		read_edge_road_type(fixture_slot_id, second_edge_id) == "arterial",
+		"Parallel Edge rectangle upgrade changed the wrong RoadType owner"):
+		return false
+
+	if not require(builder.UndoLastEdit(), "Parallel Edge rectangle upgrade undo did not start"):
+		return false
+	if not await wait_for_presentation(renderer, "Parallel Edge rectangle upgrade undo"):
+		return false
+	if not require(
+		await V3_SAVE_FIXTURE.save(save_manager, fixture_slot_id),
+		"Parallel Edge rectangle upgrade undo save failed"):
+		return false
+	if not require(
+		read_edge_road_type(fixture_slot_id, first_edge_id) == "street" and
+		read_edge_road_type(fixture_slot_id, second_edge_id) == "highway",
+		"Parallel Edge rectangle upgrade undo did not restore the lower owner"):
+		return false
+
+	if not require(builder.RedoLastEdit(), "Parallel Edge rectangle upgrade redo did not start"):
+		return false
+	if not await wait_for_presentation(renderer, "Parallel Edge rectangle upgrade redo"):
+		return false
+	if not require(
+		await V3_SAVE_FIXTURE.save(save_manager, fixture_slot_id),
+		"Parallel Edge rectangle upgrade redo save failed"):
+		return false
+	if not require(
+		read_edge_road_type(fixture_slot_id, first_edge_id) == "street" and
+		read_edge_road_type(fixture_slot_id, second_edge_id) == "arterial",
+		"Parallel Edge rectangle upgrade redo changed the wrong RoadType owner"):
+		return false
+
+	return await restore_parallel_edge_fixture(
+		renderer,
+		fixture_slot_id,
+		"Parallel Edge rectangle tool final restore")
+
+func restore_parallel_edge_fixture(renderer: Node, fixture_slot_id: String, source: String) -> bool:
+	if not require(
+		await V3_SAVE_FIXTURE.load_slot(save_manager, fixture_slot_id),
+		"%s did not load" % source):
+		return false
+	if not await wait_for_presentation(renderer, source):
+		return false
+	return require(renderer.GetRenderedEdgeCount() == 2, "%s lost an Edge" % source)
+
+func read_edge_road_type(fixture_slot_id: String, edge_id: int) -> String:
+	var payload: Variant = JSON.parse_string(
+		FileAccess.get_file_as_string(V3_SAVE_FIXTURE.slot_path(fixture_slot_id, "road_network.json")))
+	if not payload is Dictionary:
+		return ""
+	for edge: Dictionary in payload.get("edges", []):
+		if int(edge.get("id", -1)) == edge_id:
+			return str(edge.get("roadType", ""))
+	return ""
 
 func verify_parallel_edge_visual_matrix(
 	renderer: Node,
