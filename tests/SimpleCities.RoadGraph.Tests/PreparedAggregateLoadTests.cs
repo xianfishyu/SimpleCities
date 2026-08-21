@@ -69,6 +69,31 @@ public sealed class PreparedAggregateLoadTests
     }
 
     [Fact]
+    public void AllParticipantGenerationMismatch_RejectsBeforeAnyReferenceSwap()
+    {
+        var state = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["graph"] = "old",
+            ["tool"] = "old",
+            ["presentation"] = "old",
+            ["slot"] = "old",
+        };
+        var events = new List<string>();
+        string[] participantIDs = ["graph", "tool", "presentation", "slot"];
+        FakePlan[] plans = participantIDs
+            .Select(id => new FakePlan(id, state, events, participantIDs))
+            .ToArray();
+        plans[^1].IsGenerationCurrent = false;
+        using var aggregate = new PreparedAggregateLoad(plans);
+        var operation = new UncoordinatedStorageOperationLease(SaveOperationKind.Load);
+
+        Assert.Throws<LoadPreflightInvalidException>(() => aggregate.Commit(operation));
+
+        Assert.All(participantIDs, id => Assert.Equal("old", state[id]));
+        Assert.Empty(events);
+    }
+
+    [Fact]
     public void RealParticipantGenerationMismatchAtCommitBoundary_ReleasesEveryPlanWithoutSwapping()
     {
         var source = new RoadGraph();
