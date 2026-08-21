@@ -9,7 +9,7 @@
 
 | ID | 发现 | 当前状态 | 处置方式 |
 |---|---|---|---|
-| 2.0 | V2 renderer 不理解 self-loop incidence 与固定 loop seam | 开放（部分实现） | closed ribbon、复杂环路与 seam 重定位已验证；平行 Edge 独立命中、拆除、改造、高亮、缩放和同槽重建已建立；继续覆盖完整平行 Edge 工具矩阵 |
+| 2.0 | V2 renderer 不理解 self-loop incidence 与固定 loop seam | 已完成 | closed ribbon、复杂环路与 seam 重定位，以及平行 Edge 独立命中、拆除、改造、高亮、缩放、同槽重建和完整点选/框选回放矩阵均已验证 |
 | 2.1 | `RoadConfig` 没有完整且可验证的四类 RoadType 样式 | 已完成 | 四类 `RoadTypeStyle`、唯一覆盖、严格查询和运行时校验已验证 |
 | 2.2 | 单一全局样式的开放 ribbon 不能形成可命中的混合宽度完整路面 | 开放（部分实现） | 分级批次、六分量 token、同代四类 surface、canonical `RoadLocation`、基础空间索引、Junction Patch、普通 mutation stalled/retry、现有道路事务 admission、deferred continuation 代际失效、真实 `RoadGraph`/slot-target commit-boundary generation、`RoadRenderer` admission 失配、ToolManager scene-generation 取消、fake participant observer/cleanup 组合、真实 `RoadGraph` observer/fake companion cleanup 组合与预提交资源清理已建立；真实 renderer/tool/slot observer/cleanup 组合、逐关键 Resource 故障与完整故障/性能矩阵仍开放 |
 | 2.3 | 混合类型、full reset 和批量改造没有 V3 性能与视觉门禁 | 开放 | 10k 连续帧与离散改造门禁已建立；继续完成 snapshot/commit 分段、token 性能扰动、关键故障注入和 100k 完整压力矩阵 |
@@ -18,7 +18,7 @@
 
 | 设计范围 | 当前事实 | 关联待办 |
 |---|---|---|
-| canonical Edge、self-loop 与平行 Edge | 普通与 Load mesh 已按 `NodeA == NodeB` 生成 closed ribbon，并以 A/B incidence 隐藏纯 loop seam；两路口环、八字形和支路删除后 seam 重定位已有回归，独立 payload 已验证平行 Edge 的不同 surface owner、拆除/改造和 undo；高亮已置于静态 mesh 之上，缩放与同槽重建保持 geometry/owner 稳定，完整工具矩阵仍未完成 | 2.0、`v3-road-graph:8.1`～`8.3` |
+| canonical Edge、self-loop 与平行 Edge | 普通与 Load mesh 已按 `NodeA == NodeB` 生成 closed ribbon，并以 A/B incidence 隐藏纯 loop seam；两路口环、八字形和支路删除后 seam 重定位已有回归，独立 payload 已验证平行 Edge 的不同 surface owner、拆除/改造、高亮、缩放、同槽重建及点选/框选 undo/redo 回放均保持 owner 独立 | 2.0、`v3-road-graph:8.1`～`8.3` |
 | RoadType 与完整道路表面 | 普通 rebuild 与 Load preparer 已从同一不可变 `RoadTypeStyleSnapshot` 为每条 Edge 写入宽度和 vertex color，并生成同源 `EdgeRibbon`、degree-1 `TerminalCap`、degree-2 `SemanticJoin` 与 degree≥3 `JunctionPatch`。四类 primitive 共用不可变 AABB 索引并返回 canonical `RoadLocation`；Junction Patch 使用固定量化、确定 incidence sector 与 Clipper2 union/triangulation | 2.1～2.2、`v3-road-graph:8.4`～`8.5` |
 | 表现事务与 Load 原子接管 | 普通 mutation 复用 Load preparer，只为 created/updated Edge 重采样，并在完整 mesh/node batch/四类 surface/index 交换后推进 matching presented token；失败时保留上一代完整表现、以同一 desired token 进入可诊断 stalled 并允许重试，provider 在 pending/stalled 时拒绝 hit。Load worker 预建 `RoadSurfaceSnapshot.PreparedData`，Preflight 创建 `ArrayMesh`/`MultiMesh` 并只绑定 reserved token；未转交资源会在创建异常、Preflight 失败或 plan 放弃时确定性释放，aggregate commit 后则由表现层持有。placement、拆除与改造会话均冻结并复核 provider token，undo/redo 在执行前即时复核同一门禁。普通 mutation 的 deferred 批次重建捕获独立 continuation generation，同步 flush/reset 后旧 callable 失效；fake participant 的 observer/cleanup 组合以及真实 `RoadGraph` observer/fake companion cleanup 组合已验证 warning 聚合与后续 cleanup，但真实 renderer/tool/slot 组合仍开放 | 2.2、`v3-save-system:2.3`、`v3-tool-input:2.4` |
 | V2 显示与规模基线 | 六类原生几何已有统一只读显示采样；统一样式的 10k Edge 已通过 60 FPS 门槛并记录 100k 压测 | `grid-rendering:1.1`～`1.2`（V2 已完成）、2.3 |
@@ -29,8 +29,8 @@
 
 <a id="v3-grid-rendering2.0"></a>
 
-- [ ] **2.0 正确渲染 canonical Edge、self-loop 与平行 Edge**
-  - 当前问题：基础 closed ribbon、纯 seam 标记、两路口环、八字形和支路删除后的 seam 重定位已实现并验证；独立 payload 已证明平行 Edge 可分别命中、拆除和改造，高亮、缩放/重建视觉矩阵也已有直接 Vulkan 证据，但完整工具矩阵仍缺，不能仅凭当前统一样式 mesh 关闭本项。
+- [x] **2.0 正确渲染 canonical Edge、self-loop 与平行 Edge**
+  - 完成前问题：基础 closed ribbon、纯 seam 标记、两路口环、八字形和支路删除后的 seam 重定位需要与平行 Edge 的独立命中和工具接管同时成立；早期证据还缺完整点选/框选回放矩阵。
   - 修改：消费 `EdgeIncidence.Endpoint`；self-loop 使用循环相邻方向生成无裂缝 closed ribbon，seam 不绘制 endpoint/junction 标记；degree 1 绘制 endpoint，degree 大于等于 3 的最终表面由 2.2 junction patch 负责，degree 2 的 seam/semantic boundary 不画伪节点。高亮、矩形选择和中心线命中不得按端点对去重平行 Edge。
   - 依赖：`v3-road-graph:8.1`～`8.3`。
   - 集成负责人：`v3-grid-rendering`；端到端完成判定由 `v3-road-graph:8.6` 负责。
@@ -38,8 +38,9 @@
   - 验收：闭环首尾无裂缝、端帽或伪节点；junction/endpoint 数与 incidence 拓扑一致；同端点平行 Edge 均可见且可独立命中。
   - 阶段进展（2026-08-14）：`AppendRoadRibbon` 现在显式消费 Edge 的闭合拓扑，保留首尾重复的显示点列供中心线/高亮使用，但 mesh 只为唯一逻辑点生成顶点；首点用循环前后方向计算 miter，最后一段索引回连首点。普通 mutation 与 `RoadRendererLoadPreparer` 共用该实现；只有同一 self-loop Edge 的 A/B 两个 incidence 才视为纯 seam 并隐藏，self-loop 加支路仍是 junction。
   - 当前证据（2026-08-15）：`RoadRendererLoadPrepareTests` 继续覆盖方形 rooted loop、`+Tau` 全圆弧、棒棒糖、两路口环、八字形、删除支路后的 seam 重定位、开放 ribbon 布局和 worker/direct 确定性；`RoadGraphClosedPathV3Tests.RemoveEdge_TwoJunctionLoopRelocatesSeamToRemainingJunction` 直接锁定领域 seam 重定位。完整自动化为 813/813。真实 `MapTest` 的普通提交和 aggregate Load 都得到 `1 Edge / 8 mesh vertices / 0 node markers`；两路口环在普通与 Load 中均为 `4 Edge / 38 vertices / 2 markers / 20 surface primitives`，删除 seam 侧支路后为 `2 Edge / 21 vertices / 1 marker / 14 surface primitives`。`road_input_strategy_runtime_contract.gd` 与 `road_closed_ribbon_runtime_contract.gd` 均输出 PASS；截图显示原 seam 无伪标记，degree≥3 结点由 patch 覆盖而不再绘制圆形 marker。
-  - 仍缺（保持开放）：完整平行 Edge 工具矩阵仍未完成；此前高亮不可见的层级与 nullable 属性绑定缺陷已修复并由同一契约回归覆盖。
+  - 验收结果：闭环首尾无裂缝且不产生伪节点；junction/endpoint 数与 incidence 拓扑一致；同端点平行 Edge 均可见、可独立命中，并在点选/框选拆除与 RoadUpgrade 后通过 undo/redo 保持各自 owner 与 RoadType。
   - 阶段进展（2026-08-21）：`RoadRenderer` 将静态 `_roadBatchLayer` 放到父级 `_Draw()` overlay 之下，并提供 `SetHoveredEdgeID/ClearHoveredEdgeID` 绑定入口。真实 Vulkan 平行 Edge 契约先复现 base/first/second 高亮图区域差值全为 `0`，修复后 first/second 选中区域差值分别为 `62.125491/36.211765`，交叉区域均为 `0`；`camera.zoom = 0.25/4.0/1.0` 不改变两条 Edge 的显示点列、mesh vertex count 或 surface owner，同槽 Load 重建后仍保持相同 geometry/owner，并写出 `.godot/qa-road-parallel-edge-visual.png`。契约输出 `PASS`，唯一 warning 为既有 `ConstructionDock: ToolManager.Instance is missing`；该切片只收敛高亮、缩放和重建视觉缺口，不关闭完整工具矩阵。
+  - 平行 Edge 完整工具矩阵（2026-08-21）：隔离 Vulkan `road_parallel_edge_runtime_contract.gd` 在同一端点对的两条非重叠多段 Edge 上，依次验证中心线命中、点选/框选拆除、undo/redo、点选/框选 RoadUpgrade、保存/undo/redo RoadType 往返，以及高亮、缩放和同槽 Load 重建后的 geometry/owner 稳定性；契约输出 `PASS`，只保留既有 `ConstructionDock: ToolManager.Instance is missing` warning。该证据关闭 2.0 的平行 Edge 工具矩阵，不替代 2.2/2.3 的资源故障、observer/cleanup 和完整性能矩阵。
 
 <a id="v3-grid-rendering2.1"></a>
 
@@ -101,7 +102,7 @@
   - 真实 renderer admission 失配证据（2026-08-21）：`road_load_generation_runtime_contract.gd` 以 10k Edge worker Prepare 固定注入窗口，在真实 `RoadRenderer` admission 建立后将 renderer 移出场景树但保留实例；`_ExitTree()` 使 reservation/admission 失效，Load 在 renderer Preflight 返回 `Failed` 且 `committed=false`。旧 desired/presented token、retained surface primitive、道路 mesh 顶点、marker、graph payload、placement/history 与 `CurrentSlotID` 均保持，renderer 重新入树后可再次保存旧图。契约在两个独立 APPDATA 下连续 PASS；GDScript diagnostics、`--check-only`、Roslyn、Debug/`ExportRelease`、完整 865/865 自动化、editor error 和 DAP stderr/console 门均通过。该切片证明真实 renderer 的 Preflight 拒绝与未转交状态保持，不直接覆盖 slot-target commit-boundary、真实 observer/cleanup 或逐关键 Resource 故障。
   - 真实 slot-target 提交边界证据（2026-08-21）：`SaveManager.SlotTargetLoadCommitPlan` 同时冻结 scene 与 `_currentSlotGeneration`；直接契约在 `CrossCommitBoundary` 内只推进槽目标代际，aggregate 在所有 reference swap 和 notification 前拒绝，旧 graph/tool/presentation 与 `CurrentSlotID` 保持。`PreparedAggregateLoadTests` 14/14、完整自动化 866/866、双配置 build 与 Roslyn diagnostics 为 0，隔离 APPDATA 的真实 Load 契约和 `MapTest` smoke 通过。该 CLR 计划级证据不替代真实 renderer observer/cleanup 或 Resource 故障。
   - 真实工具状态快照可观测性补强（2026-08-21）：C# `Rect2?` 的 removal/upgrade selection bounds 不通过 GDScript `get()` 暴露，`RoadRenderer` 新增 `HasRemovalSelectionBounds()`/`GetRemovalSelectionBounds()` 与对应 upgrade getter；真实 Load 代际契约使用这些接口逐值比较矩形 bounds，并同时保留 preview、hover、mesh、surface 与 token。该 API 只增加测试/运行时状态观察，不改变渲染资源或提交语义。
-  - 仍缺（保持开放）：平行 Edge 仍缺覆盖拆除与改造的完整独立工具矩阵；真实 renderer/tool/slot observer/cleanup 组合、逐关键 Load Preflight Resource 故障及更新 token 的 renderer 级故障矩阵仍需协作验证。
+  - 仍缺（保持开放）：真实 renderer/tool/slot observer/cleanup 组合、逐关键 Load Preflight Resource 故障及更新 token 的 renderer 级故障矩阵仍需协作验证。
 
 <a id="v3-grid-rendering2.3"></a>
 
