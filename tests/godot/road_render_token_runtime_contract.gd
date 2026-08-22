@@ -111,6 +111,14 @@ func run() -> void:
 	if precommit_recovered.is_empty():
 		return
 	recovered = precommit_recovered
+	var precommit_style_recovered: Dictionary = \
+		await require_update_token_precommit_road_style_supersession(
+			renderer,
+			builder,
+			recovered)
+	if precommit_style_recovered.is_empty():
+		return
+	recovered = precommit_style_recovered
 
 	var removal_edge_count: int = renderer.GetRenderedEdgeCount()
 	var removal_history_count: int = builder.GetUndoEditCount()
@@ -1008,6 +1016,126 @@ func require_update_token_precommit_supersession(
 			resource_count_before,
 			int(probe.GetObjectResourceCount()),
 			int(probe.GetPreCommitTokenSupersessionCount()),
+		])
+	return recovered
+
+func require_update_token_precommit_road_style_supersession(
+	renderer: Node,
+	builder: Node,
+	before: Dictionary
+) -> Dictionary:
+	var probe_script: Script = load(UPDATE_TOKEN_FAILURE_PROBE_PATH)
+	if not require(probe_script != null, "Debug pre-commit road-style probe did not load"):
+		return {}
+	var probe: RefCounted = probe_script.new()
+	if not require(probe != null, "Debug pre-commit road-style probe did not instantiate"):
+		return {}
+
+	var retained_edge_count: int = renderer.GetRenderedEdgeCount()
+	var retained_vertex_count: int = renderer.GetRoadMeshVertexCount()
+	var retained_marker_count: int = renderer.GetNodeMarkerCount()
+	var retained_state: Dictionary = renderer.GetPresentationState()
+	var retained_primitive_count := int(retained_state.get("surfacePrimitiveCount", 0))
+	var resource_count_before := int(probe.GetObjectResourceCount())
+	probe.ArmPreCommitRoadStyleSupersession(renderer)
+	var trigger_count_before := int(probe.GetPreCommitTokenSupersessionCount())
+	if not require(
+		bool(probe.IsPreCommitTokenSupersessionArmed()),
+		"Update-token pre-commit road-style supersession probe did not arm"):
+		return {}
+
+	if not require(
+		builder.BeginPlace(Vector2(0.0, 1000.0)),
+		"Pre-commit road-style supersession mutation did not begin"):
+		return {}
+	builder.UpdatePlace(Vector2(100.0, 1000.0))
+	if not require(
+		builder.CommitPlace(Vector2(100.0, 1000.0)),
+		"Pre-commit road-style supersession mutation did not commit"):
+		return {}
+	await process_frame
+	await process_frame
+
+	var pending: Dictionary = renderer.GetPresentationState()
+	var desired: Dictionary = pending.get("desired", {})
+	var superseded: Dictionary = probe.GetPreCommitSupersededToken()
+	var replacement: Dictionary = probe.GetPreCommitReplacementToken()
+	if not require(
+		pending.get("phase", "") == "pending" and
+		not bool(pending.get("isStalled", true)) and
+		not bool(pending.get("isReady", true)) and
+		desired == replacement and
+		pending.get("presented", {}) == before and
+		pending.get("stalledToken", {}).is_empty() and
+		str(pending.get("failureType", "")).is_empty() and
+		str(pending.get("failureMessage", "")).is_empty(),
+		"Pre-commit road-style supersession did not retain the old presentation as pending"):
+		return {}
+	if not require_ordinary_change(before, superseded):
+		return {}
+	if not require(
+		require_same(superseded, replacement, [
+			"sceneGeneration",
+			"graphFacadeID",
+			"graphFacadeGeneration",
+			"changeSequence",
+		], "Pre-commit road-style supersession") and
+		int(replacement.roadStyleRevision) == int(superseded.roadStyleRevision) + 1 and
+		int(replacement.renderRequestID) == int(superseded.renderRequestID) + 1,
+		"Pre-commit road-style supersession did not advance style and request identities"):
+		return {}
+	if not require(
+		int(pending.get("attemptCount", -1)) == 0 and
+		int(probe.GetPreCommitTokenSupersessionCount()) == trigger_count_before + 1 and
+		int(probe.GetPreCommitSupersededAttemptNumber()) == 1 and
+		not bool(probe.IsPreCommitTokenSupersessionArmed()),
+		"Pre-commit road-style supersession was not raised inside the first target attempt"):
+		return {}
+	if not require(
+		int(probe.GetObjectResourceCount()) == resource_count_before and
+		int(pending.get("surfacePrimitiveCount", -1)) == 0 and
+		int(pending.get("retainedSurfacePrimitiveCount", -1)) == retained_primitive_count and
+		renderer.GetRenderedEdgeCount() == retained_edge_count and
+		renderer.GetRoadMeshVertexCount() == retained_vertex_count and
+		renderer.GetNodeMarkerCount() == retained_marker_count,
+		"Pre-commit road-style supersession leaked resources or replaced retained presentation"):
+		return {}
+	if not require(
+		renderer.FindRoadSurfaceHit(Vector2(50.0, 0.0), 0.0).is_empty(),
+		"Pre-commit road-style supersession still exposed its retained surface"):
+		return {}
+
+	if not require(
+		probe.CompletePreCommitTokenSupersession(),
+		"Pre-commit road-style replacement token did not publish"):
+		return {}
+	var recovered := presentation_token(renderer, "Pre-commit road-style replacement")
+	if recovered.is_empty():
+		return {}
+	if not require(
+		recovered == replacement and
+		int(renderer.GetPresentationState().get("attemptCount", 0)) == 1 and
+		int(probe.GetPreCommitTokenSupersessionCount()) == trigger_count_before + 1 and
+		renderer.GetRenderedEdgeCount() == retained_edge_count + 1 and
+		renderer.GetRoadMeshVertexCount() > retained_vertex_count and
+		renderer.GetNodeMarkerCount() > retained_marker_count,
+		"Pre-commit road-style replacement did not atomically publish its first attempt"):
+		return {}
+	if not require_surface_hit(
+		renderer,
+		Vector2(50.0, 1000.0),
+		recovered,
+		"Pre-commit road-style replacement"):
+		return {}
+	print(
+		(
+			"UPDATE_TOKEN_PRECOMMIT_STYLE_SUPERSESSION_RESULT " +
+			"resource_before=%d resource_after=%d trigger_count=%d " +
+			"superseded_attempt=1 replacement_attempt=1"
+		) % [
+			resource_count_before,
+			int(probe.GetObjectResourceCount()),
+			int(probe.GetPreCommitTokenSupersessionCount()) - trigger_count_before,
 		])
 	return recovered
 

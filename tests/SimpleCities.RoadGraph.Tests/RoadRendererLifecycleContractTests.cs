@@ -667,6 +667,42 @@ public sealed class RoadRendererLifecycleContractTests
     }
 
     [Fact]
+    public void OrdinaryPreCommitRoadStyleSupersessionUsesStyleRefreshRequest()
+    {
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadRendererUpdateTokenFailureProbe.cs"));
+        string supersessionProbe = ExtractMethod(
+            probeSource,
+            "partial void ProbeOrdinaryPreCommitTokenSupersession(",
+            "internal void ArmNextOrdinaryPresentationResourcePreflightFailure()");
+        string styleArm = ExtractMethod(
+            probeSource,
+            "internal void ArmNextOrdinaryPreCommitRoadStyleSupersession()",
+            "private void ArmNextOrdinaryPreCommitTokenSupersession(");
+
+        Assert.Contains(
+            "advanceRoadStyleRevision: true",
+            styleArm,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_ordinaryPreCommitAdvancesRoadStyleRevision",
+            supersessionProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_presentationTokens.RequestStyleRefresh(targetToken.ChangeSequence)",
+            supersessionProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_presentationTokens.RequestRebuild(targetToken.ChangeSequence)",
+            supersessionProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_ordinaryPreCommitAdvancesRoadStyleRevision = false;",
+            supersessionProbe,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void OrdinaryNodeBatchFactoryFailureRunsInsideTheOwnedUpdateAttempt()
     {
         string rendererSource = File.ReadAllText(
