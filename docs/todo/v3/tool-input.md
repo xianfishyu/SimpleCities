@@ -1,7 +1,7 @@
 # 第三代工具输入系统待办清单
 
 > 系统 key：`v3-tool-input`
-> 整理日期：2026-08-21
+> 整理日期：2026-08-22
 > 证据：当前 `RoadBuilder`、`RoadPlacementSession`、`RoadRemovalSession`、`RoadEditHistory`、工具路由、相关自动化与 `docs/manuals/road-system-v3-gen.md`。
 > 主导原则：输入策略只负责生成几何草稿；第三代工具层负责闭环手势、显式类型状态、基于已呈现路面的选择、有界历史和 full-reset 失效边界，但不定义拓扑、样式或磁盘事务。
 
@@ -13,7 +13,7 @@
 | 2.1 | `RoadBuilder` 没有与网格策略解耦的类型选择状态 | 已完成 | `SelectedRoadType` 在会话开始冻结并显式提交 |
 | 2.2 | 既有道路没有先选择后提交的类型改造工作流 | 已完成 | 独立 RoadUpgrade 会话、同代 surface 批量选择、取消和单次撤销重做已验证 |
 | 2.3 | 64 项历史曾为每项保留 before/after 完整 JSON | 已完成 | delta/双预算已替换全图字符串，真实 V3 Load 会换 lineage 并清空旧历史/token |
-| 2.4 | 外部 Load 可能让旧图工具状态或旧画面继续接受输入 | 开放（部分实现） | placement/removal/upgrade/history、平行 Edge 点选/框选回放与 matching indexed 四类 surface/token 已加入 full-reset aggregate，现有玩家道路事务、deferred 表现 continuation 及未提交表现资源均服从失效/清理边界；真实 `RoadGraph`/slot-target commit-boundary generation、`RoadRenderer` admission、ToolManager scene-generation 下的 placement/removal/RoadUpgrade/hover/bounds 快照、fake participant observer/cleanup 组合和真实 `RoadGraph` observer/fake companion cleanup 组合已验证，仍需真实 renderer/tool/slot observer/cleanup 组合与联合故障矩阵 |
+| 2.4 | 外部 Load 可能让旧图工具状态或旧画面继续接受输入 | 开放（部分实现） | placement/removal/upgrade/history、平行 Edge 点选/框选回放与 matching indexed 四类 surface/token 已加入 full-reset aggregate，现有玩家道路事务、deferred 表现 continuation 及未提交表现资源均服从失效/清理边界；真实 `RoadGraph`/slot-target commit-boundary generation、`RoadRenderer` admission、ToolManager scene-generation 下的 placement/removal/RoadUpgrade/hover/bounds 快照，以及真实 `ToolLoadCommitPlan` 的 commit-boundary generation 原子拒绝已验证，fake participant observer/cleanup 组合和真实 `RoadGraph` observer/fake companion cleanup 组合也有证据，仍需完整真实 `StartLoad()` 组合、真实 renderer/tool/slot observer/cleanup 组合与联合故障矩阵 |
 
 ### 设计覆盖矩阵
 
@@ -21,7 +21,7 @@
 |---|---|---|
 | V3 闭环与类型化编辑 | 三种策略共享闭环草稿和取消生命周期；`RoadBuilder.SelectedRoadType` 默认 `Street`，placement 与独立 RoadUpgrade 会话分别冻结建造/目标类型。RoadUpgrade 的连续与矩形选择消费 current presented surface，并以一条历史提交批量改造 | 2.1～2.2、`v3-road-graph:8.4`～`8.5`、`v3-grid-rendering:2.0`～`2.2`、`v3-ui:1.1`～`1.2` |
 | V3 操作历史存储 | `RoadEditHistory` 只保留可逆 delta 与完整 state token，以 entry/估算字节双预算在提交前 admission；真实 V3 Load 创建新 lineage，full reset 立即清空 undo/redo 并让旧 token 失效 | 2.3、`v3-road-graph:8.5`、`v3-save-system:2.1` |
-| V3 加载生命周期 | `ToolManager` / `RoadBuilder` 已提供 generation-guarded full-reset plan；成功 aggregate 清空 placement/removal/upgrade/history、保留 `CurrentTool` 与 `SelectedRoadType`，并与基础 mesh、带 canonical `RoadLocation` 和不可变空间索引的同源 `EdgeRibbon` + `TerminalCap` + `SemanticJoin` + `JunctionPatch` surface、matching desired/presented render token 一次交换，失败 Load 保留旧会话并释放未转交隐藏表现资源。placement、拆除、改造、平行 Edge 点选/框选回放与 undo/redo 均复核 current token；renderer deferred 普通重建也由 continuation generation 在同步 flush/reset 后失效。fake participant 及真实 `RoadGraph` observer/fake companion cleanup 组合已有 CLR warning 聚合证据，但联合故障矩阵尚未完成 | 2.4、`v3-save-system:2.3`、`v3-grid-rendering:2.2`、`v3-road-graph:8.5` |
+| V3 加载生命周期 | `ToolManager` / `RoadBuilder` 已提供 generation-guarded full-reset plan；成功 aggregate 清空 placement/removal/upgrade/history、保留 `CurrentTool` 与 `SelectedRoadType`，并与基础 mesh、带 canonical `RoadLocation` 和不可变空间索引的同源 `EdgeRibbon` + `TerminalCap` + `SemanticJoin` + `JunctionPatch` surface、matching desired/presented render token 一次交换，失败 Load 保留旧会话并释放未转交隐藏表现资源。placement、拆除、改造、平行 Edge 点选/框选回放与 undo/redo 均复核 current token；renderer deferred 普通重建也由 continuation generation 在同步 flush/reset 后失效。直接 aggregate probe 已证明真实 `ToolLoadCommitPlan` 在 commit boundary 失效时零引用交换并保留工具、placement 与 history，且 tool/builder admission 可重新取得；其余三个 participants 均为 `ToolTrackingLoadCommitPlan`。fake participant 及真实 `RoadGraph` observer/fake companion cleanup 组合已有 CLR warning 聚合证据，但完整真实 `StartLoad()` 与联合故障矩阵尚未完成 | 2.4、`v3-save-system:2.3`、`v3-grid-rendering:2.2`、`v3-road-graph:8.5` |
 
 ## 执行顺序
 
@@ -107,6 +107,7 @@
   - 真实 ToolManager scene-generation 失配证据（2026-08-21）：`road_load_generation_runtime_contract.gd` 在 10k Edge worker Prepare 期间移除真实 `ToolManager`；其 `_ExitTree()` 调用 `UnregisterSceneParticipants()`，使真实 ToolManager/Builder admission 与 scene generation 同时失效并取消 Load。结果固定为 Prepare 阶段 `Canceled`、`committed=false`，且 `CurrentTool=Road`、带一个固定拐点的 placement、undo/redo、renderer token/surface/mesh、活动 graph payload 和 `CurrentSlotID` 均保持旧值；ToolManager 重新入树注册后可再次保存并逐字节确认 graph。契约在两个独立 APPDATA 下连续 PASS，完整自动化为 865/865，双配置 build、GDScript/Roslyn diagnostics、Godot editor 与 DAP 错误通道均通过。该路径在构造 tool/slot commit plan 前由 scene cancellation 终止，因此不冒充 slot-target commit-boundary 证据。
   - 真实 slot-target 提交边界协作证据（2026-08-21）：`SlotTargetLoadCommitPlan` 冻结 scene/current-slot 代际；直接契约只让该真实计划在 `CrossCommitBoundary` 内失效，graph/tool/presentation/`CurrentSlotID` 均保持旧值。`PreparedAggregateLoadTests` 14/14、完整自动化 866/866，双配置 build、Roslyn、隔离 Load 契约、`MapTest` smoke、editor 与 DAP 门均通过。该证据补齐槽目标原子拒绝，不扩大其余工具状态或 observer/cleanup 覆盖。
   - 真实工具状态快照扩展证据（2026-08-21）：在 `road_load_generation_runtime_contract.gd` 的真实 `MapTest` 中，先完成 10k Edge `RoadRenderer` admission 失配，再分别建立 placement、矩形 removal 与矩形 `RoadUpgrade` 状态；每次通过真实 `ToolManager._ExitTree()` 推进 scene generation 并在 commit 前取消 Load。契约逐值保留 `CurrentTool`、`SelectedRoadType`、placement 拐点、removal/upgrade session、selection count/bounds、preview、hover、undo/redo、renderer token/surface/mesh/marker、活动 graph payload 与 `CurrentSlotID`，每次结果均为 `Canceled` 且 `committed=false`；`RoadRenderer` 以显式 bounds getter 使 C# `Rect2?` 状态可被 GDScript 可靠观察。直接 CLI 输出 `PASS road load generation runtime contract`；`dotnet test SimpleCities.sln --no-restore` 为 866/866，Debug build 为 0 警告/0 错误，Roslyn 与 GDScript `--check-only` diagnostics 为 0。本次直接 CLI 只记录既有 `ConstructionDock` 缺依赖和旧 QA 槽时间戳 warning，未刷新 editor/DAP 门禁。
+  - 真实 ToolManager commit-boundary generation 失配证据（2026-08-22）：Debug-only `RoadLoadPreflightResourceFailureProbe` 通过真实 `ToolManager.BeginLoadAdmission()` / `PreflightFullReset()` 构造包含 `RoadBuilderLoadCommitPlan` 的 `ToolLoadCommitPlan`，再与 graph/presentation/slot 三个 `ToolTrackingLoadCommitPlan` 组成 `PreparedAggregateLoad`。`ToolBoundaryInvalidatingLease` 在 `CrossCommitBoundary` 内释放 tool admission，并同步释放 builder admission；第二次 generation 复核抛出 `LoadPreflightInvalidException`，四方引用交换与 `MarkCommitted()` 均为 0，三个 companion plans 各清理一次。`CurrentTool=Road`、`SelectedRoadType=Arterial`、带一个固定拐点的 placement/draft 和 undo/redo 逐值保持，aggregate disposal 后 tool admission 与独立 builder admission 均可重新取得。结构化结果为 `tool_boundary_exception_type=LoadPreflightInvalidException`、`tool_boundary_count=1`、`tool_boundary_mark_committed_count=0`、两个 admission reacquired 均为 `true`。`RoadRendererLifecycleContractTests` 15/15、生命周期与 QA export 聚焦 16/16、完整自动化 873/873，双配置 build、Roslyn production/test compiler/analyzer 与目标 GDScript diagnostics 均为 0；Vulkan 1.4 Forward+ 契约 PASS，editor/DAP 错误通道为空，release DLL 不含 probe 类型、方法、lease、`ToolTrackingLoadCommitPlan` 或注入 token。该证据只覆盖真实 tool plan 与 `ToolTrackingLoadCommitPlan` companions 的直接 aggregate，不是完整真实 `StartLoad()` 四参与者 operation，2.4 继续开放。
   - 仍缺（保持开放）：真实 renderer/tool/slot observer/cleanup 组合、逐关键 Load Preflight Resource 故障及完整故障矩阵仍需协作验证。
 
 ## 暂不执行
