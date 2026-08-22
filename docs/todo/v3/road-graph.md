@@ -1,7 +1,7 @@
 # 第三代 RoadGraph 系统待办清单
 
 > 系统 key：`v3-road-graph`
-> 整理日期：2026-08-21
+> 整理日期：2026-08-22
 > 证据：当前工作区源码、RoadGraph 自动化测试、`docs/manuals/road-system-v2-gen.md` 附录 D 及 `docs/manuals/road-system-v3-gen.md`。
 > 主导原则：负责第三代道路的数值与容量边界、连续拓扑存储、原生几何、自环/平行边、空间索引、RoadType、不可变事务以及最终跨系统集成验收；不负责交通模拟。
 
@@ -124,6 +124,7 @@
   - 100k grid Vulkan Load 复验（2026-08-21）：隔离 APPDATA 的 `road_rendering_performance_contract.gd --dataset-kind=grid --dataset-size=100000 --enforce-budget` 退出码为 0 并输出 `PASS`；camera/preview/highlight P95 为 `0.635/0.664/0.669 ms`，Load/renderer rebuild 为 `4980.748 ms`，draw call 为 `4/5/4`、objects 为 `4/56/4`、静态 renderer 节点为 `2`。stderr 仅有既有 `ConstructionDock: ToolManager.Instance is missing` warning。该证据确认 BUG-21 的批量 coverage 修复在当前 100k grid 路径未回归，但不替代真实 renderer/tool/slot observer/cleanup、关键 Resource 故障和完整 junction/geometry/performance 矩阵；Roslyn CodeLens 与 Godot MCP/DAP 当前未暴露，8.6 保持开放。
   - Load 分段性能协作进展（2026-08-21）：成功 Load 现在发布带 token/slot 的 worker Prepare、主线程 Preflight、reference commit、aggregate commit 与端到端不可变快照；真实 Vulkan grid 1k/10k/100k 分段分别为 `113.216/9.839/0.713/1.949/126.841 ms`、`622.155/24.648/1.769/2.997/651.217 ms`、`4770.893/151.645/4.168/5.621/4929.850 ms`，外部观测 Load 为 `132.327/657.366/4938.626 ms`，三档均 PASS。完整自动化 868/868、双配置 build、Roslyn compiler/GDScript 目标诊断为 0，编辑器 `MapTest` 与 DAP 错误通道通过；唯一 Vulkan warning 为既有 `ConstructionDock` 缺少 `ToolManager.Instance`，analyzer 未获信任授权而未运行。该证据建立 Phase 7 的 Load 分段定位入口，但普通 mutation snapshot/presentation/full-reset 分段、完整 token 性能扰动、逐关键 Resource 与真实 observer/cleanup 矩阵仍开放，因此 8.6 不关闭。
   - 普通表现分段协作进展（2026-08-21）：`RoadRenderer` 将普通 graph mutation 的请求起点绑定完整 `RoadRenderToken`，并只在 matching presentation commit 后发布 snapshot capture、纯 CLR Prepare、Godot Resource Preflight、presentation commit、rebuild total 与 request-to-ready。真实 Vulkan grid 10k/100k 对 1/100/1000 Edge 的 upgrade/undo/redo 各输出九条 `PRESENTATION_PHASE_RESULT` 并全部 PASS；10k 的六段范围为 `0.033～0.043/42.916～67.472/3.368～4.845/0.023～0.035/47.465～72.010/48.042～72.638 ms`，100k 为 `0.030～0.090/498.725～561.087/36.216～44.828/0.040～0.052/537.191～606.009/539.680～606.375 ms`。完整自动化 869/869、双配置 build、compiler/GDScript diagnostics 为 0；编辑器与 DAP 只读门通过，唯一 Vulkan warning 为既有 `ConstructionDock` 缺少 `ToolManager.Instance`。该切片建立普通 mutation 的分段定位入口，但 non-aggregate full-reset barrier、完整 token 性能扰动、逐关键 Resource 与真实 observer/cleanup 矩阵仍开放，因此 8.6 不关闭。
+  - Non-aggregate full-reset barrier 协作进展（2026-08-22）：Debug-only probe 以当前 O(1) graph snapshot 走既有单参与者 `CommitPreparedLoad()`，真实 `MapTest` 的同步 full reset 在方法返回前完成新 lineage、`ChangeSequence + 1`、facade generation/request ID 推进和 matching mesh/surface/presented token 发布，Edge/mesh/marker/surface 数保持。隔离 APPDATA 的 Vulkan Forward+ grid 1k/10k/100k 均以退出码 0 PASS，barrier 总时长为 `7.036/84.139/733.651 ms`，renderer request-to-ready 为 `5.493/71.468/647.488 ms`；10k camera/preview/highlight P95 为 `0.532/0.488/0.442 ms`，100k 为 `0.664/0.705/0.657 ms`。生命周期聚焦 12/12、完整自动化 870/870、双配置 build、Roslyn compiler 与 GDScript diagnostics 为 0；probe 只进入 Debug 且被 QA export 排除。该切片建立 Phase 7 的 non-aggregate barrier 基线，但不固定单轮阈值，也不替代完整 token 扰动、逐关键 Resource、真实 observer/cleanup 和 Phase 8 组合矩阵，因此 8.6 不关闭。
 
 ## 暂不执行
 
