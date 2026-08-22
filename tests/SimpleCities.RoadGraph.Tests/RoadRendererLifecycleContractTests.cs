@@ -783,6 +783,63 @@ public sealed class RoadRendererLifecycleContractTests
     }
 
     [Fact]
+    public void AggregateCommitPlanConstructionFailureRunsBeforeOwnershipTransfer()
+    {
+        string loadSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.LoadCommit.cs"));
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadLoadPreflightResourceFailureProbe.cs"));
+        string loadPreflight = ExtractMethod(
+            loadSource,
+            "internal INonThrowingLoadCommitPlan PreflightPreparedLoad",
+            "private bool IsLoadAdmissionCurrent");
+        string planConstructor = ExtractMethod(
+            loadSource,
+            "internal RoadRendererLoadCommitPlan(",
+            "public string ParticipantID");
+        string constructionProbe = ExtractMethod(
+            probeSource,
+            "partial void ProbeAggregateLoadCommitPlanConstructionFailure()",
+            "internal void ArmNextAggregateLoadCommitPlanConstructionFailure()");
+
+        int snapshotCreation = loadPreflight.IndexOf(
+            "var surfaceSnapshot = new RoadSurfaceSnapshot(",
+            StringComparison.Ordinal);
+        int planCreation = loadPreflight.IndexOf(
+            "return new RoadRendererLoadCommitPlan(",
+            StringComparison.Ordinal);
+        int resourceCleanup = loadPreflight.LastIndexOf(
+            "DisposePreparedPresentationResources(roadMesh, nodeBatch);",
+            StringComparison.Ordinal);
+        int surfaceAssignment = planConstructor.IndexOf(
+            "_targetSurfaceSnapshot = targetSurfaceSnapshot;",
+            StringComparison.Ordinal);
+        int failureProbe = planConstructor.IndexOf(
+            "owner.ProbeAggregateLoadCommitPlanConstructionFailure();",
+            StringComparison.Ordinal);
+
+        Assert.True(snapshotCreation >= 0 && snapshotCreation < planCreation);
+        Assert.True(planCreation < resourceCleanup);
+        Assert.True(surfaceAssignment >= 0 && surfaceAssignment < failureProbe);
+        Assert.Contains(
+            "partial void ProbeAggregateLoadCommitPlanConstructionFailure();",
+            loadSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadCommitPlanConstructionFailureArmed = false;",
+            constructionProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadCommitPlanConstructionFailureCount++;",
+            constructionProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "AggregateLoadCommitPlanConstructionFailureMessage);",
+            constructionProbe,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void OrdinaryRoadMeshFactoryFailureRunsInsideTheOwnedUpdateAttempt()
     {
         string rendererSource = File.ReadAllText(

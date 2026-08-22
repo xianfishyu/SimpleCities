@@ -491,6 +491,64 @@ func run() -> void:
 		"Aggregate snapshot construction failure changed RoadGraph"):
 		return
 
+	var aggregate_commit_plan_resource_count_before := int(probe.GetObjectResourceCount())
+	var aggregate_commit_plan_failure_message := str(
+		probe.GetAggregateLoadCommitPlanConstructionFailureMessage())
+	probe.ArmAggregateLoadCommitPlanConstructionFailure(renderer)
+	if not require(
+		bool(probe.IsAggregateLoadCommitPlanConstructionFailureArmed()),
+		"Aggregate Load commit-plan construction failure probe did not arm"):
+		return
+	var aggregate_commit_plan_failed_load_result := await run_load(active_slot_id)
+	if not require(
+		int(aggregate_commit_plan_failed_load_result.get("resultKind", -1)) == RESULT_FAILED and
+		not bool(aggregate_commit_plan_failed_load_result.get("committed", true)) and
+		str(aggregate_commit_plan_failed_load_result.get("warnings", "")).is_empty() and
+		str(aggregate_commit_plan_failed_load_result.get("error", "")) ==
+			aggregate_commit_plan_failure_message,
+		"Aggregate Load did not fail inside renderer commit-plan construction: %s" %
+		JSON.stringify(aggregate_commit_plan_failed_load_result)):
+		return
+	var aggregate_commit_plan_resource_count_after := int(probe.GetObjectResourceCount())
+	if not require(
+		not bool(probe.IsAggregateLoadCommitPlanConstructionFailureArmed()) and
+		int(probe.GetAggregateLoadCommitPlanConstructionFailureCount()) == 1 and
+		aggregate_commit_plan_resource_count_after ==
+			aggregate_commit_plan_resource_count_before,
+		"Aggregate commit-plan construction failure did not release both preflight resources: %s" %
+		JSON.stringify({
+			"armed": bool(probe.IsAggregateLoadCommitPlanConstructionFailureArmed()),
+			"triggerCount": int(probe.GetAggregateLoadCommitPlanConstructionFailureCount()),
+			"resourceCountBefore": aggregate_commit_plan_resource_count_before,
+			"resourceCountAfter": aggregate_commit_plan_resource_count_after,
+		})):
+		return
+	if not require(
+		str(save_manager.get("CurrentSlotID")) == active_slot_id and
+		int(tool_manager.get("CurrentTool")) == TOOL_ROAD and
+		builder.HasActivePlaceSession() and
+		builder.GetFixedCornerCount() == 1 and
+		builder.GetUndoEditCount() == undo_count_before and
+		builder.GetRedoEditCount() == redo_count_before and
+		renderer.GetRenderedEdgeCount() == edge_count_before and
+		renderer.GetRoadMeshVertexCount() == vertex_count_before and
+		renderer.GetNodeMarkerCount() == marker_count_before and
+		renderer.GetPresentationState() == presentation_before and
+		renderer.FindRoadSurfaceHit(Vector2(400.0, 300.0), 0.0) == hit_before,
+		"Aggregate commit-plan construction failure changed graph, tool, presentation, surface, token, or slot state"):
+		return
+
+	if not require(
+		await V3_SAVE_FIXTURE.save(save_manager, active_slot_id),
+		"Could not recapture the active graph after aggregate commit-plan construction failure"):
+		return
+	var aggregate_commit_plan_payload_after := FileAccess.get_file_as_string(
+		V3_SAVE_FIXTURE.slot_path(active_slot_id, V3_SAVE_FIXTURE.PAYLOAD_FILE_NAME))
+	if not require(
+		aggregate_commit_plan_payload_after == active_payload_before,
+		"Aggregate commit-plan construction failure changed RoadGraph"):
+		return
+
 	var aggregate_resource_count_before := int(probe.GetObjectResourceCount())
 	var aggregate_failure_message := str(
 		probe.GetAggregateLoadResourcePreflightFailureMessage())
@@ -828,6 +886,16 @@ func run() -> void:
 			aggregate_snapshot_resource_count_before,
 		"aggregate_snapshot_resource_count_after":
 			aggregate_snapshot_resource_count_after,
+		"aggregate_commit_plan_failure_result_kind": int(
+			aggregate_commit_plan_failed_load_result.get("resultKind", -1)),
+		"aggregate_commit_plan_failure_committed": bool(
+			aggregate_commit_plan_failed_load_result.get("committed", true)),
+		"aggregate_commit_plan_failure_trigger_count": int(
+			probe.GetAggregateLoadCommitPlanConstructionFailureCount()),
+		"aggregate_commit_plan_resource_count_before":
+			aggregate_commit_plan_resource_count_before,
+		"aggregate_commit_plan_resource_count_after":
+			aggregate_commit_plan_resource_count_after,
 		"aggregate_failure_result_kind": int(failed_load_result.get("resultKind", -1)),
 		"aggregate_failure_committed": bool(failed_load_result.get("committed", true)),
 		"aggregate_failure_trigger_count": int(

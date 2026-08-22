@@ -14,6 +14,7 @@ public partial class RoadRenderer
         ref RoadRenderLoadReservation renderReservation);
     partial void ProbeAggregateLoadRoadSurfaceSnapshotFailure(
         ref RoadSurfaceSnapshot.PreparedData roadSurface);
+    partial void ProbeAggregateLoadCommitPlanConstructionFailure();
     partial void ProbeLoadCompleteCommitFailure();
 
     internal RoadRendererLoadAdmission BeginLoadAdmission()
@@ -326,6 +327,7 @@ public partial class RoadRenderer
             _targetGraphToken = targetGraphToken;
             _targetRenderToken = targetRenderToken;
             _targetSurfaceSnapshot = targetSurfaceSnapshot;
+            owner.ProbeAggregateLoadCommitPlanConstructionFailure();
         }
 
         public string ParticipantID => "road-presentation";
