@@ -1773,6 +1773,67 @@ func run() -> void:
 		"Post-prepared-work return failure changed RoadGraph"):
 		return
 
+	var post_scene_request_validation_resource_count_before := int(
+		probe.GetObjectResourceCount())
+	var post_scene_request_validation_failure_message := str(
+		probe.GetAggregateLoadPostSceneRequestValidationFailureMessage())
+	probe.ArmAggregateLoadPostSceneRequestValidationFailure(save_manager)
+	if not require(
+		bool(probe.IsAggregateLoadPostSceneRequestValidationFailureArmed()),
+		"Aggregate Load post-scene-request validation failure probe did not arm"):
+		return
+	var post_scene_request_validation_failed_load_result := await run_load(source_slot_id)
+	var post_scene_request_validation_resource_count_after := int(
+		probe.GetObjectResourceCount())
+	if not require(
+		int(post_scene_request_validation_failed_load_result.get("resultKind", -1)) ==
+			RESULT_FAILED and
+		int(post_scene_request_validation_failed_load_result.get("finalPhase", -1)) ==
+			PHASE_PREPARE and
+		not bool(post_scene_request_validation_failed_load_result.get("committed", true)) and
+		str(post_scene_request_validation_failed_load_result.get("warnings", "")).is_empty() and
+		str(post_scene_request_validation_failed_load_result.get("error", "")) ==
+			post_scene_request_validation_failure_message,
+		"Real StartLoad did not fail after scene request validation and before cancellation: %s" %
+		JSON.stringify(post_scene_request_validation_failed_load_result)):
+		return
+	if not require(
+		not bool(probe.IsAggregateLoadPostSceneRequestValidationFailureArmed()) and
+		int(probe.GetAggregateLoadPostSceneRequestValidationFailureCount()) == 1 and
+		bool(probe.DidAggregateLoadPostSceneRequestValidationFailureRunOnMainThread()) and
+		str(probe.GetAggregateLoadPostSceneRequestValidationObservedSlotID()) == source_slot_id and
+		int(probe.GetAggregateLoadPostSceneRequestValidationParticipantCount()) == 1 and
+		int(probe.GetAggregateLoadPostSceneRequestValidationRoadVertexCount()) == 0 and
+		int(probe.GetAggregateLoadPostSceneRequestValidationSurfacePrimitiveCount()) == 0 and
+		int(probe.GetAggregateLoadPostSceneRequestValidationNodeMarkerCount()) == 0 and
+		post_scene_request_validation_resource_count_after ==
+			post_scene_request_validation_resource_count_before and
+		str(save_manager.get("CurrentSlotID")) == active_slot_id and
+		int(tool_manager.get("CurrentTool")) == TOOL_ROAD and
+		int(tool_manager.GetSelectedRoadType()) == selected_road_type_before and
+		builder.HasActivePlaceSession() and
+		builder.GetFixedCornerCount() == 1 and
+		builder.GetUndoEditCount() == undo_count_before and
+		builder.GetRedoEditCount() == redo_count_before and
+		renderer.GetRenderedEdgeCount() == edge_count_before and
+		renderer.GetRoadMeshVertexCount() == vertex_count_before and
+		renderer.GetNodeMarkerCount() == marker_count_before and
+		renderer.GetPresentationState() == presentation_before and
+		renderer.FindRoadSurfaceHit(Vector2(400.0, 300.0), 0.0) == hit_before,
+		"Post-scene-request validation failure changed resources, graph, tool, placement, history, presentation, surface, token, or slot state"):
+		return
+
+	if not require(
+		await V3_SAVE_FIXTURE.save(save_manager, active_slot_id),
+		"Could not recapture the active graph after post-scene-request validation failure"):
+		return
+	var post_scene_request_validation_payload_after := FileAccess.get_file_as_string(
+		V3_SAVE_FIXTURE.slot_path(active_slot_id, V3_SAVE_FIXTURE.PAYLOAD_FILE_NAME))
+	if not require(
+		post_scene_request_validation_payload_after == active_payload_before,
+		"Post-scene-request validation failure changed RoadGraph"):
+		return
+
 	var load_result := await run_load(source_slot_id)
 	if not require(
 		int(load_result.get("resultKind", -1)) == RESULT_SUCCEEDED and
@@ -2068,6 +2129,30 @@ func run() -> void:
 			post_prepared_work_return_resource_count_before,
 		"post_prepared_work_return_resource_count_after":
 			post_prepared_work_return_resource_count_after,
+		"post_scene_request_validation_failure_result_kind": int(
+			post_scene_request_validation_failed_load_result.get("resultKind", -1)),
+		"post_scene_request_validation_failure_final_phase": int(
+			post_scene_request_validation_failed_load_result.get("finalPhase", -1)),
+		"post_scene_request_validation_failure_committed": bool(
+			post_scene_request_validation_failed_load_result.get("committed", true)),
+		"post_scene_request_validation_failure_trigger_count": int(
+			probe.GetAggregateLoadPostSceneRequestValidationFailureCount()),
+		"post_scene_request_validation_failure_on_main_thread": bool(
+			probe.DidAggregateLoadPostSceneRequestValidationFailureRunOnMainThread()),
+		"post_scene_request_validation_observed_slot_id": str(
+			probe.GetAggregateLoadPostSceneRequestValidationObservedSlotID()),
+		"post_scene_request_validation_participant_count": int(
+			probe.GetAggregateLoadPostSceneRequestValidationParticipantCount()),
+		"post_scene_request_validation_road_vertex_count": int(
+			probe.GetAggregateLoadPostSceneRequestValidationRoadVertexCount()),
+		"post_scene_request_validation_surface_primitive_count": int(
+			probe.GetAggregateLoadPostSceneRequestValidationSurfacePrimitiveCount()),
+		"post_scene_request_validation_node_marker_count": int(
+			probe.GetAggregateLoadPostSceneRequestValidationNodeMarkerCount()),
+		"post_scene_request_validation_resource_count_before":
+			post_scene_request_validation_resource_count_before,
+		"post_scene_request_validation_resource_count_after":
+			post_scene_request_validation_resource_count_after,
 		"aggregate_failure_result_kind": int(failed_load_result.get("resultKind", -1)),
 		"aggregate_failure_committed": bool(failed_load_result.get("committed", true)),
 		"aggregate_failure_trigger_count": int(

@@ -387,6 +387,40 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
     public string GetAggregateLoadPostPreparedWorkReturnFailureMessage() =>
         SaveManager.AggregateLoadPostPreparedWorkReturnFailureMessage;
 
+    public void ArmAggregateLoadPostSceneRequestValidationFailure(SaveManager saveManager)
+    {
+        ArgumentNullException.ThrowIfNull(saveManager);
+        saveManager.ArmNextAggregateLoadPostSceneRequestValidationFailure();
+        _saveManager = saveManager;
+    }
+
+    public bool IsAggregateLoadPostSceneRequestValidationFailureArmed() =>
+        _saveManager?.IsAggregateLoadPostSceneRequestValidationFailureArmed() ?? false;
+
+    public int GetAggregateLoadPostSceneRequestValidationFailureCount() =>
+        _saveManager?.GetAggregateLoadPostSceneRequestValidationFailureCount() ?? 0;
+
+    public bool DidAggregateLoadPostSceneRequestValidationFailureRunOnMainThread() =>
+        _saveManager?.DidAggregateLoadPostSceneRequestValidationFailureRunOnMainThread() ?? false;
+
+    public string GetAggregateLoadPostSceneRequestValidationObservedSlotID() =>
+        _saveManager?.GetAggregateLoadPostSceneRequestValidationObservedSlotID() ?? string.Empty;
+
+    public int GetAggregateLoadPostSceneRequestValidationParticipantCount() =>
+        _saveManager?.GetAggregateLoadPostSceneRequestValidationParticipantCount() ?? -1;
+
+    public int GetAggregateLoadPostSceneRequestValidationRoadVertexCount() =>
+        _saveManager?.GetAggregateLoadPostSceneRequestValidationRoadVertexCount() ?? -1;
+
+    public int GetAggregateLoadPostSceneRequestValidationSurfacePrimitiveCount() =>
+        _saveManager?.GetAggregateLoadPostSceneRequestValidationSurfacePrimitiveCount() ?? -1;
+
+    public int GetAggregateLoadPostSceneRequestValidationNodeMarkerCount() =>
+        _saveManager?.GetAggregateLoadPostSceneRequestValidationNodeMarkerCount() ?? -1;
+
+    public string GetAggregateLoadPostSceneRequestValidationFailureMessage() =>
+        SaveManager.AggregateLoadPostSceneRequestValidationFailureMessage;
+
     public void ArmAggregateLoadPostRendererPreflightFailure(SaveManager saveManager)
     {
         ArgumentNullException.ThrowIfNull(saveManager);
@@ -555,6 +589,8 @@ public partial class SaveManager
         "Injected aggregate Load failure after renderer worker preparation.";
     internal const string AggregateLoadPostPreparedWorkReturnFailureMessage =
         "Injected aggregate Load failure after the preparation worker returned.";
+    internal const string AggregateLoadPostSceneRequestValidationFailureMessage =
+        "Injected aggregate Load failure after scene request validation.";
     internal const string AggregateLoadPostRendererPreflightFailureMessage =
         "Injected aggregate Load failure after road presentation preflight.";
     internal const string AggregateLoadPostSlotPreflightFailureMessage =
@@ -606,6 +642,14 @@ public partial class SaveManager
     private int _aggregateLoadPostPreparedWorkReturnRoadVertexCount = -1;
     private int _aggregateLoadPostPreparedWorkReturnSurfacePrimitiveCount = -1;
     private int _aggregateLoadPostPreparedWorkReturnNodeMarkerCount = -1;
+    private bool _aggregateLoadPostSceneRequestValidationFailureArmed;
+    private int _aggregateLoadPostSceneRequestValidationFailureCount;
+    private bool _aggregateLoadPostSceneRequestValidationFailureRanOnMainThread;
+    private string _aggregateLoadPostSceneRequestValidationObservedSlotID = string.Empty;
+    private int _aggregateLoadPostSceneRequestValidationParticipantCount = -1;
+    private int _aggregateLoadPostSceneRequestValidationRoadVertexCount = -1;
+    private int _aggregateLoadPostSceneRequestValidationSurfacePrimitiveCount = -1;
+    private int _aggregateLoadPostSceneRequestValidationNodeMarkerCount = -1;
     private bool _aggregateLoadPostRendererPreflightFailureArmed;
     private int _aggregateLoadPostRendererPreflightFailureCount;
     private bool _aggregateLoadPostSlotPreflightFailureArmed;
@@ -1034,6 +1078,76 @@ public partial class SaveManager
 
     internal int GetAggregateLoadPostPreparedWorkReturnNodeMarkerCount() =>
         _aggregateLoadPostPreparedWorkReturnNodeMarkerCount;
+
+    partial void ProbeAggregateLoadPostSceneRequestValidationFailure(
+        PreparedLoadWork prepared)
+    {
+        if (!_aggregateLoadPostSceneRequestValidationFailureArmed)
+            return;
+
+        ArgumentNullException.ThrowIfNull(prepared);
+        _aggregateLoadPostSceneRequestValidationFailureArmed = false;
+        _aggregateLoadPostSceneRequestValidationFailureCount++;
+        _aggregateLoadPostSceneRequestValidationFailureRanOnMainThread =
+            _mainThreadID != 0 && System.Environment.CurrentManagedThreadId == _mainThreadID;
+        _aggregateLoadPostSceneRequestValidationObservedSlotID = prepared.Slot.SlotID;
+        _aggregateLoadPostSceneRequestValidationParticipantCount =
+            prepared.Slot.Participants.Count;
+        _aggregateLoadPostSceneRequestValidationRoadVertexCount =
+            prepared.Presentation.RoadVertices.Length;
+        _aggregateLoadPostSceneRequestValidationSurfacePrimitiveCount =
+            prepared.Presentation.RoadSurface.PrimitiveCount;
+        _aggregateLoadPostSceneRequestValidationNodeMarkerCount =
+            prepared.Presentation.NodeMarkers.Length;
+        throw new InvalidOperationException(
+            AggregateLoadPostSceneRequestValidationFailureMessage);
+    }
+
+    internal void ArmNextAggregateLoadPostSceneRequestValidationFailure()
+    {
+        if (IsOperationBusy)
+        {
+            throw new InvalidOperationException(
+                "SaveManager must be idle before arming its aggregate Load failure probe.");
+        }
+        if (_aggregateLoadPostSceneRequestValidationFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load post-scene-request validation failure probe is already armed.");
+        }
+
+        _aggregateLoadPostSceneRequestValidationFailureRanOnMainThread = false;
+        _aggregateLoadPostSceneRequestValidationObservedSlotID = string.Empty;
+        _aggregateLoadPostSceneRequestValidationParticipantCount = -1;
+        _aggregateLoadPostSceneRequestValidationRoadVertexCount = -1;
+        _aggregateLoadPostSceneRequestValidationSurfacePrimitiveCount = -1;
+        _aggregateLoadPostSceneRequestValidationNodeMarkerCount = -1;
+        _aggregateLoadPostSceneRequestValidationFailureArmed = true;
+    }
+
+    internal bool IsAggregateLoadPostSceneRequestValidationFailureArmed() =>
+        _aggregateLoadPostSceneRequestValidationFailureArmed;
+
+    internal int GetAggregateLoadPostSceneRequestValidationFailureCount() =>
+        _aggregateLoadPostSceneRequestValidationFailureCount;
+
+    internal bool DidAggregateLoadPostSceneRequestValidationFailureRunOnMainThread() =>
+        _aggregateLoadPostSceneRequestValidationFailureRanOnMainThread;
+
+    internal string GetAggregateLoadPostSceneRequestValidationObservedSlotID() =>
+        _aggregateLoadPostSceneRequestValidationObservedSlotID;
+
+    internal int GetAggregateLoadPostSceneRequestValidationParticipantCount() =>
+        _aggregateLoadPostSceneRequestValidationParticipantCount;
+
+    internal int GetAggregateLoadPostSceneRequestValidationRoadVertexCount() =>
+        _aggregateLoadPostSceneRequestValidationRoadVertexCount;
+
+    internal int GetAggregateLoadPostSceneRequestValidationSurfacePrimitiveCount() =>
+        _aggregateLoadPostSceneRequestValidationSurfacePrimitiveCount;
+
+    internal int GetAggregateLoadPostSceneRequestValidationNodeMarkerCount() =>
+        _aggregateLoadPostSceneRequestValidationNodeMarkerCount;
 
     partial void ProbeAggregateLoadPostRendererPreflightFailure()
     {
