@@ -649,6 +649,54 @@ public sealed class RoadRendererLifecycleContractTests
         Assert.Contains("public void CompleteCommit() { }", saveManagerSource, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ToolCleanupFailureProbeRunsAfterRealAdmissionRelease()
+    {
+        string toolSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Tools", "ToolManager.LoadCommit.cs"));
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadLoadObserverFailureProbe.cs"));
+        string completion = ExtractMethod(
+            toolSource,
+            "public void CompleteCommit()",
+            "public void Dispose()");
+
+        int builderCompletion = completion.IndexOf(
+            "_builderPlan.CompleteCommit();",
+            StringComparison.Ordinal);
+        int toolAdmissionRelease = completion.IndexOf(
+            "_owner.AbandonLoadAdmission(_admission);",
+            StringComparison.Ordinal);
+        int markCompleted = completion.IndexOf("_completed = true;", StringComparison.Ordinal);
+        int cleanupFailureProbe = completion.IndexOf(
+            "_owner.ProbeLoadCompleteCommitFailure();",
+            StringComparison.Ordinal);
+
+        Assert.True(builderCompletion >= 0 && builderCompletion < toolAdmissionRelease);
+        Assert.True(toolAdmissionRelease < markCompleted);
+        Assert.True(markCompleted < cleanupFailureProbe);
+        Assert.Contains(
+            "partial void ProbeLoadCompleteCommitFailure();",
+            toolSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "partial void ProbeLoadCompleteCommitFailure()",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_loadCompleteCommitFailureArmed = false;",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_loadCompleteCommitFailureCount++;",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "throw new InvalidOperationException(LoadCompleteCommitFailureMessage);",
+            probeSource,
+            StringComparison.Ordinal);
+    }
+
     private static string ExtractMethod(string source, string startMarker, string endMarker)
     {
         int start = source.IndexOf(startMarker, StringComparison.Ordinal);

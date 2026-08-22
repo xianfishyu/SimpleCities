@@ -71,6 +71,7 @@ func run() -> void:
 	if not require(probe != null, "Debug observer failure probe did not instantiate"):
 		return
 	probe.Arm(renderer)
+	probe.ArmToolCleanupFailure(tool_manager)
 
 	var warned_result := await run_load(source_slot_id)
 	if not require(
@@ -84,7 +85,17 @@ func run() -> void:
 			"Road presentation observer failed: Injected RoadRenderer presentation observer failure."),
 		"Observer warning did not identify the real renderer participant"):
 		return
-	if not require(probe.GetTriggerCount() == 1, "Observer failure probe did not trigger exactly once"):
+	if not require(
+		str(warned_result.get("warnings", "")).contains(
+			"Load participant 'road-tools' cleanup failed: " +
+			"Injected ToolManager load cleanup failure."),
+		"Cleanup warning did not identify the real tool participant"):
+		return
+	if not require(
+		probe.GetTriggerCount() == 1 and
+		probe.GetToolCleanupFailureCount() == 1 and
+		not probe.IsToolCleanupFailureArmed(),
+		"Observer and tool cleanup failure probes did not each trigger exactly once"):
 		return
 	if not require(
 		str(save_manager.get("CurrentSlotID")) == source_slot_id and
@@ -111,6 +122,7 @@ func run() -> void:
 		return
 	if not require(
 		probe.GetTriggerCount() == 1 and
+		probe.GetToolCleanupFailureCount() == 1 and
 		str(save_manager.get("CurrentSlotID")) == active_slot_id and
 		renderer.GetRenderedEdgeCount() == 1 and
 		matching_presentation_is_ready(renderer),
@@ -126,7 +138,8 @@ func run() -> void:
 	print("ROAD_LOAD_OBSERVER_CLEANUP_RESULT %s" % JSON.stringify({
 		"warning_result_kind": int(warned_result.get("resultKind", -1)),
 		"clean_result_kind": int(clean_result.get("resultKind", -1)),
-		"probe_trigger_count": probe.GetTriggerCount(),
+		"observer_trigger_count": probe.GetTriggerCount(),
+		"tool_cleanup_trigger_count": probe.GetToolCleanupFailureCount(),
 		"rendered_edges": renderer.GetRenderedEdgeCount(),
 		"current_tool": int(tool_manager.get("CurrentTool")),
 	}))

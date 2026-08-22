@@ -3,6 +3,8 @@ using System.Collections.Generic;
 
 public partial class ToolManager
 {
+    partial void ProbeLoadCompleteCommitFailure();
+
     internal ToolLoadAdmission BeginLoadAdmission()
     {
         if (_loadAdmission is not null || _roadBuilder is null)
@@ -110,6 +112,7 @@ public partial class ToolManager
             _builderPlan.CompleteCommit();
             _owner.AbandonLoadAdmission(_admission);
             _completed = true;
+            _owner.ProbeLoadCompleteCommitFailure();
         }
 
         public void Dispose()
