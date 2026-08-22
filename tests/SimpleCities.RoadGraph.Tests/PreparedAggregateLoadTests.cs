@@ -260,7 +260,8 @@ public sealed class PreparedAggregateLoadTests
         var slotPlan = new SaveManager.SlotTargetLoadCommitPlan(
             "new-slot",
             () => slotTargetGeneration == 7,
-            slotID => currentSlotID = slotID);
+            slotID => currentSlotID = slotID,
+            static () => { });
         using var aggregate = new PreparedAggregateLoad(
             [.. companionPlans, slotPlan]);
         var operation = new BoundaryInvalidatingLease(

@@ -269,10 +269,87 @@ func run() -> void:
 		probe.GetToolCleanupFailureCount() == 1 and
 		probe.GetRendererCleanupFailureCount() == 1 and
 		probe.GetGraphCleanupFailureCount() == 1 and
+		probe.GetSlotCleanupFailureCount() == 0 and
 		str(save_manager.get("CurrentSlotID")) == active_slot_id and
 		renderer.GetRenderedEdgeCount() == 1 and
 		matching_presentation_is_ready(renderer),
 		"Graph-cleanup recovery Load did not restore one matching presentation"):
+		return
+
+	tool_manager.set("CurrentTool", TOOL_ROAD)
+	if not require(builder.BeginPlace(Vector2(700.0, 700.0)), "Fourth transient road did not begin"):
+		return
+	if not require(
+		builder.AddPlacePoint(Vector2(800.0, 700.0)),
+		"Fourth transient placement point was not added"):
+		return
+	probe.Arm(renderer)
+	probe.ArmSlotCleanupFailure(save_manager)
+
+	var slot_warned_result := await run_load(source_slot_id)
+	if not require(
+		int(slot_warned_result.get("resultKind", -1)) == RESULT_SUCCEEDED_WITH_WARNINGS and
+		bool(slot_warned_result.get("committed", false)),
+		"Slot cleanup failure did not produce a committed warning result: %s" %
+		JSON.stringify(slot_warned_result)):
+		return
+	if not require(
+		str(slot_warned_result.get("warnings", "")).contains(
+			"Road presentation observer failed: Injected RoadRenderer presentation observer failure."),
+		"Fourth observer warning did not identify the real renderer participant"):
+		return
+	if not require(
+		str(slot_warned_result.get("warnings", "")).contains(
+			"Load participant 'slot-target' cleanup failed: " +
+			"Injected slot target load cleanup failure."),
+		"Cleanup warning did not identify the real slot participant"):
+		return
+	if not require(
+		probe.GetTriggerCount() == 4 and
+		probe.GetToolCleanupFailureCount() == 1 and
+		probe.GetRendererCleanupFailureCount() == 1 and
+		probe.GetGraphCleanupFailureCount() == 1 and
+		probe.GetSlotCleanupFailureCount() == 1 and
+		not probe.IsToolCleanupFailureArmed() and
+		not probe.IsRendererCleanupFailureArmed() and
+		not probe.IsGraphCleanupFailureArmed() and
+		not probe.IsSlotCleanupFailureArmed(),
+		"Observer and slot cleanup failure probes did not reach their exact counts"):
+		return
+	if not require(
+		str(save_manager.get("CurrentSlotID")) == source_slot_id and
+		renderer.GetRenderedEdgeCount() == 0 and
+		not builder.HasActivePlaceSession() and
+		builder.GetUndoEditCount() == 0 and
+		builder.GetRedoEditCount() == 0 and
+		matching_presentation_is_ready(renderer),
+		"Slot-cleanup warned Load did not leave all real participants committed"):
+		return
+
+	tool_manager.set("CurrentTool", TOOL_ROAD_UPGRADE)
+	if not require(
+		int(tool_manager.get("CurrentTool")) == TOOL_ROAD_UPGRADE,
+		"Slot cleanup failure prevented later tool use"):
+		return
+
+	var slot_clean_result := await run_load(active_slot_id)
+	if not require(
+		int(slot_clean_result.get("resultKind", -1)) == RESULT_SUCCEEDED and
+		bool(slot_clean_result.get("committed", false)) and
+		str(slot_clean_result.get("warnings", "")).is_empty(),
+		"Load after slot cleanup failure did not re-admit every participant: %s" %
+		JSON.stringify(slot_clean_result)):
+		return
+	if not require(
+		probe.GetTriggerCount() == 4 and
+		probe.GetToolCleanupFailureCount() == 1 and
+		probe.GetRendererCleanupFailureCount() == 1 and
+		probe.GetGraphCleanupFailureCount() == 1 and
+		probe.GetSlotCleanupFailureCount() == 1 and
+		str(save_manager.get("CurrentSlotID")) == active_slot_id and
+		renderer.GetRenderedEdgeCount() == 1 and
+		matching_presentation_is_ready(renderer),
+		"Slot-cleanup recovery Load did not restore one matching presentation"):
 		return
 
 	tool_manager.set("CurrentTool", TOOL_ROAD_REMOVE)
@@ -288,10 +365,13 @@ func run() -> void:
 		"renderer_clean_result_kind": int(renderer_clean_result.get("resultKind", -1)),
 		"graph_warning_result_kind": int(graph_warned_result.get("resultKind", -1)),
 		"graph_clean_result_kind": int(graph_clean_result.get("resultKind", -1)),
+		"slot_warning_result_kind": int(slot_warned_result.get("resultKind", -1)),
+		"slot_clean_result_kind": int(slot_clean_result.get("resultKind", -1)),
 		"observer_trigger_count": probe.GetTriggerCount(),
 		"tool_cleanup_trigger_count": probe.GetToolCleanupFailureCount(),
 		"renderer_cleanup_trigger_count": probe.GetRendererCleanupFailureCount(),
 		"graph_cleanup_trigger_count": probe.GetGraphCleanupFailureCount(),
+		"slot_cleanup_trigger_count": probe.GetSlotCleanupFailureCount(),
 		"rendered_edges": renderer.GetRenderedEdgeCount(),
 		"current_tool": int(tool_manager.get("CurrentTool")),
 	}))

@@ -654,7 +654,10 @@ public sealed class RoadRendererLifecycleContractTests
             "public IReadOnlyList<string> PublishNotifications() => [];",
             saveManagerSource,
             StringComparison.Ordinal);
-        Assert.Contains("public void CompleteCommit() { }", saveManagerSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "public void CompleteCommit() => _completeCommit();",
+            saveManagerSource,
+            StringComparison.Ordinal);
     }
 
     [Fact]
@@ -808,6 +811,64 @@ public sealed class RoadRendererLifecycleContractTests
             StringComparison.Ordinal);
         Assert.Contains(
             "throw new InvalidOperationException(LoadCompleteCommitFailureMessage);",
+            probeSource,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SlotTargetCleanupFailureProbeRunsAfterCurrentSlotCommit()
+    {
+        string saveManagerSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Core", "SaveManager.cs"));
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadLoadObserverFailureProbe.cs"));
+        string referenceCommit = ExtractMethod(
+            saveManagerSource,
+            "public void CommitReferences()",
+            "public IReadOnlyList<string> PublishNotifications()");
+        string completion = ExtractMethod(
+            saveManagerSource,
+            "public void CompleteCommit()",
+            "public void Dispose()");
+        string completionBridge = ExtractMethod(
+            saveManagerSource,
+            "private void CompleteSlotTargetLoadCommit()",
+            "private sealed record SceneRequest");
+
+        int setCurrentSlot = referenceCommit.IndexOf(
+            "_setCurrentSlot(_slotID);",
+            StringComparison.Ordinal);
+        int markCommitted = referenceCommit.IndexOf("_committed = true;", StringComparison.Ordinal);
+
+        Assert.True(setCurrentSlot >= 0 && setCurrentSlot < markCommitted);
+        Assert.Contains("_completeCommit();", completion, StringComparison.Ordinal);
+        Assert.Contains(
+            "ProbeSlotTargetLoadCompleteCommitFailure();",
+            completionBridge,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "partial void ProbeSlotTargetLoadCompleteCommitFailure();",
+            saveManagerSource,
+            StringComparison.Ordinal);
+        Assert.Contains("public partial class SaveManager", probeSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "public void ArmSlotCleanupFailure(SaveManager saveManager)",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "partial void ProbeSlotTargetLoadCompleteCommitFailure()",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_slotTargetLoadCompleteCommitFailureArmed = false;",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_slotTargetLoadCompleteCommitFailureCount++;",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "throw new InvalidOperationException(SlotTargetLoadCompleteCommitFailureMessage);",
             probeSource,
             StringComparison.Ordinal);
     }

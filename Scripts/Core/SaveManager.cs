@@ -13,6 +13,7 @@ public partial class SaveManager : Node
     partial void ProbeAggregateLoadPostRendererPreflightFailure();
     partial void ProbeAggregateLoadPostSlotPreflightFailure();
     partial void ProbeAggregateLoadPostOwnershipPreCommitFailure();
+    partial void ProbeSlotTargetLoadCompleteCommitFailure();
 
     public static SaveManager Instance { get; private set; } = null!;
 
@@ -698,7 +699,8 @@ public partial class SaveManager : Node
                     slotID,
                     () => IsSceneContextCurrent(sceneRequest) &&
                         slotTargetGeneration == _currentSlotGeneration,
-                    SetCurrentSlot));
+                    SetCurrentSlot,
+                    CompleteSlotTargetLoadCommit));
                 ProbeAggregateLoadPostSlotPreflightFailure();
 
                 using var aggregate = new PreparedAggregateLoad(preflightPlans);
@@ -1166,6 +1168,11 @@ public partial class SaveManager : Node
             throw new InvalidOperationException("SaveManager scene state must be accessed on the main thread.");
     }
 
+    private void CompleteSlotTargetLoadCommit()
+    {
+        ProbeSlotTargetLoadCompleteCommitFailure();
+    }
+
     private sealed record SceneRequest(long Generation, CancellationToken CancellationToken);
 
     private sealed record TrackedOperation(long SceneGeneration, Task Completion);
@@ -1196,19 +1203,23 @@ public partial class SaveManager : Node
         private readonly string _slotID;
         private readonly Func<bool> _isGenerationCurrent;
         private readonly Action<string> _setCurrentSlot;
+        private readonly Action _completeCommit;
         private bool _committed;
 
         internal SlotTargetLoadCommitPlan(
             string slotID,
             Func<bool> isGenerationCurrent,
-            Action<string> setCurrentSlot)
+            Action<string> setCurrentSlot,
+            Action completeCommit)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(slotID);
             ArgumentNullException.ThrowIfNull(isGenerationCurrent);
             ArgumentNullException.ThrowIfNull(setCurrentSlot);
+            ArgumentNullException.ThrowIfNull(completeCommit);
             _slotID = slotID;
             _isGenerationCurrent = isGenerationCurrent;
             _setCurrentSlot = setCurrentSlot;
+            _completeCommit = completeCommit;
         }
 
         public string ParticipantID => "slot-target";
@@ -1221,7 +1232,7 @@ public partial class SaveManager : Node
         }
 
         public IReadOnlyList<string> PublishNotifications() => [];
-        public void CompleteCommit() { }
+        public void CompleteCommit() => _completeCommit();
         public void Dispose() { }
     }
 }

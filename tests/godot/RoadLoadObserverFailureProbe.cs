@@ -9,6 +9,7 @@ public partial class RoadLoadObserverFailureProbe : Godot.RefCounted
     private RoadRenderer? _rendererCleanupOwner;
     private RoadGraph? _graphCleanupOwner;
     private ToolManager? _toolManager;
+    private SaveManager? _slotCleanupOwner;
     private Action<RoadRenderToken>? _handler;
     private int _triggerCount;
 
@@ -47,6 +48,14 @@ public partial class RoadLoadObserverFailureProbe : Godot.RefCounted
         graph.ArmNextLoadCompleteCommitFailure();
     }
 
+    public void ArmSlotCleanupFailure(SaveManager saveManager)
+    {
+        ArgumentNullException.ThrowIfNull(saveManager);
+        _slotCleanupOwner?.DisarmSlotTargetLoadCompleteCommitFailure();
+        _slotCleanupOwner = saveManager;
+        saveManager.ArmNextSlotTargetLoadCompleteCommitFailure();
+    }
+
     public void Disarm()
     {
         DisarmObserver();
@@ -56,6 +65,8 @@ public partial class RoadLoadObserverFailureProbe : Godot.RefCounted
         _graphCleanupOwner = null;
         _toolManager?.DisarmLoadCompleteCommitFailure();
         _toolManager = null;
+        _slotCleanupOwner?.DisarmSlotTargetLoadCompleteCommitFailure();
+        _slotCleanupOwner = null;
     }
 
     private void DisarmObserver()
@@ -79,6 +90,10 @@ public partial class RoadLoadObserverFailureProbe : Godot.RefCounted
         _graphCleanupOwner?.GetLoadCompleteCommitFailureCount() ?? 0;
     public bool IsGraphCleanupFailureArmed() =>
         _graphCleanupOwner?.IsLoadCompleteCommitFailureArmed() ?? false;
+    public int GetSlotCleanupFailureCount() =>
+        _slotCleanupOwner?.GetSlotTargetLoadCompleteCommitFailureCount() ?? 0;
+    public bool IsSlotCleanupFailureArmed() =>
+        _slotCleanupOwner?.IsSlotTargetLoadCompleteCommitFailureArmed() ?? false;
 
     private void OnPresentationReady(RoadRenderToken _)
     {
@@ -218,4 +233,48 @@ public partial class ToolManager
 
     internal int GetLoadCompleteCommitFailureCount() =>
         _loadCompleteCommitFailureCount;
+}
+
+public partial class SaveManager
+{
+    internal const string SlotTargetLoadCompleteCommitFailureMessage =
+        "Injected slot target load cleanup failure.";
+
+    private bool _slotTargetLoadCompleteCommitFailureArmed;
+    private int _slotTargetLoadCompleteCommitFailureCount;
+
+    partial void ProbeSlotTargetLoadCompleteCommitFailure()
+    {
+        if (!_slotTargetLoadCompleteCommitFailureArmed)
+            return;
+
+        _slotTargetLoadCompleteCommitFailureArmed = false;
+        _slotTargetLoadCompleteCommitFailureCount++;
+        throw new InvalidOperationException(SlotTargetLoadCompleteCommitFailureMessage);
+    }
+
+    internal void ArmNextSlotTargetLoadCompleteCommitFailure()
+    {
+        if (IsOperationBusy)
+        {
+            throw new InvalidOperationException(
+                "SaveManager must be idle before arming its slot cleanup failure probe.");
+        }
+        if (_slotTargetLoadCompleteCommitFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Slot target load cleanup failure probe is already armed.");
+        }
+
+        _slotTargetLoadCompleteCommitFailureArmed = true;
+    }
+
+    internal void DisarmSlotTargetLoadCompleteCommitFailure() =>
+        _slotTargetLoadCompleteCommitFailureArmed = false;
+
+    internal bool IsSlotTargetLoadCompleteCommitFailureArmed() =>
+        _slotTargetLoadCompleteCommitFailureArmed;
+
+    internal int GetSlotTargetLoadCompleteCommitFailureCount() =>
+        _slotTargetLoadCompleteCommitFailureCount;
 }
