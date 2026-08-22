@@ -5,6 +5,8 @@ using System.Linq;
 
 public partial class RoadRenderer
 {
+    partial void ProbeAggregateLoadResourcePreflightFailure();
+
     internal RoadRendererLoadAdmission BeginLoadAdmission()
     {
         if (_loadAdmission is not null || _network is null || Config is null)
@@ -63,6 +65,7 @@ public partial class RoadRenderer
                 prepared.RoadColors,
                 prepared.RoadIndices);
             nodeBatch = CreateNodeBatch(prepared.NodeMarkers);
+            ProbeAggregateLoadResourcePreflightFailure();
             RoadRenderToken renderToken = _presentationTokens.CreateReservedLoadToken(
                 admission.RenderReservation,
                 targetToken.ChangeSequence);

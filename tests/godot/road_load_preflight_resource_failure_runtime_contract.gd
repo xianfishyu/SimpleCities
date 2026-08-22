@@ -6,6 +6,7 @@ const SOURCE_SLOT_NAME := "Road preflight resource source"
 const ACTIVE_SLOT_NAME := "Road preflight resource active"
 const V3_SAVE_FIXTURE := preload("res://tests/godot/v3_save_fixture.gd")
 const RESULT_SUCCEEDED := 0
+const RESULT_FAILED := 2
 const TOOL_ROAD := 1
 
 var failed := false
@@ -162,6 +163,36 @@ func run() -> void:
 		"Road mesh initialization failure leaked its ArrayMesh or replaced retained references: %s" %
 		JSON.stringify(road_mesh_failure_result)):
 		return
+
+	var aggregate_resource_count_before := int(probe.GetObjectResourceCount())
+	var aggregate_failure_message := str(
+		probe.GetAggregateLoadResourcePreflightFailureMessage())
+	probe.ArmAggregateLoadResourcePreflightFailure(renderer)
+	if not require(
+		bool(probe.IsAggregateLoadResourcePreflightFailureArmed()),
+		"Aggregate Load resource preflight failure probe did not arm"):
+		return
+	var failed_load_result := await run_load(source_slot_id)
+	if not require(
+		int(failed_load_result.get("resultKind", -1)) == RESULT_FAILED and
+		not bool(failed_load_result.get("committed", true)) and
+		str(failed_load_result.get("warnings", "")).is_empty() and
+		str(failed_load_result.get("error", "")) == aggregate_failure_message,
+		"Aggregate Load did not fail before commit at renderer resource preflight: %s" %
+		JSON.stringify(failed_load_result)):
+		return
+	if not require(
+		not bool(probe.IsAggregateLoadResourcePreflightFailureArmed()) and
+		int(probe.GetAggregateLoadResourcePreflightFailureCount()) == 1 and
+		int(probe.GetObjectResourceCount()) == aggregate_resource_count_before,
+		"Failed aggregate Load did not release its resources and one-shot probe: %s" %
+		JSON.stringify({
+			"armed": bool(probe.IsAggregateLoadResourcePreflightFailureArmed()),
+			"triggerCount": int(probe.GetAggregateLoadResourcePreflightFailureCount()),
+			"resourceCountBefore": aggregate_resource_count_before,
+			"resourceCountAfter": int(probe.GetObjectResourceCount()),
+		})):
+		return
 	if not require(
 		str(save_manager.get("CurrentSlotID")) == active_slot_id and
 		int(tool_manager.get("CurrentTool")) == TOOL_ROAD and
@@ -174,7 +205,7 @@ func run() -> void:
 		renderer.GetNodeMarkerCount() == marker_count_before and
 		renderer.GetPresentationState() == presentation_before and
 		renderer.FindRoadSurfaceHit(Vector2(400.0, 300.0), 0.0) == hit_before,
-		"Failed preflight changed graph, tool, presentation, surface, token, or slot state"):
+		"Pre-commit resource failure changed graph, tool, presentation, surface, token, or slot state"):
 		return
 
 	if not require(
@@ -237,6 +268,12 @@ func run() -> void:
 			road_mesh_failure_result.get("resourceCountBefore", -1)),
 		"road_mesh_resource_count_after": int(
 			road_mesh_failure_result.get("resourceCountAfter", -1)),
+		"aggregate_failure_result_kind": int(failed_load_result.get("resultKind", -1)),
+		"aggregate_failure_committed": bool(failed_load_result.get("committed", true)),
+		"aggregate_failure_trigger_count": int(
+			probe.GetAggregateLoadResourcePreflightFailureCount()),
+		"aggregate_resource_count_before": aggregate_resource_count_before,
+		"aggregate_resource_count_after": int(probe.GetObjectResourceCount()),
 		"load_result_kind": int(load_result.get("resultKind", -1)),
 	}))
 	await cleanup()

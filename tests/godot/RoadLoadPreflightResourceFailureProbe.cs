@@ -5,6 +5,8 @@ using System.Collections.Generic;
 
 public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
 {
+    private RoadRenderer? _renderer;
+
     public Godot.Collections.Dictionary Run(RoadRenderer renderer)
     {
         ArgumentNullException.ThrowIfNull(renderer);
@@ -28,10 +30,68 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
         ArgumentNullException.ThrowIfNull(renderer);
         return renderer.ProbeRoadMeshOwnershipFailure();
     }
+
+    public void ArmAggregateLoadResourcePreflightFailure(RoadRenderer renderer)
+    {
+        ArgumentNullException.ThrowIfNull(renderer);
+        renderer.ArmNextAggregateLoadResourcePreflightFailure();
+        _renderer = renderer;
+    }
+
+    public bool IsAggregateLoadResourcePreflightFailureArmed() =>
+        _renderer?.IsAggregateLoadResourcePreflightFailureArmed() ?? false;
+
+    public int GetAggregateLoadResourcePreflightFailureCount() =>
+        _renderer?.GetAggregateLoadResourcePreflightFailureCount() ?? 0;
+
+    public string GetAggregateLoadResourcePreflightFailureMessage() =>
+        RoadRenderer.AggregateLoadResourcePreflightFailureMessage;
+
+    public long GetObjectResourceCount() => Convert.ToInt64(
+        Performance.GetMonitor(Performance.Monitor.ObjectResourceCount));
 }
 
 public partial class RoadRenderer
 {
+    internal const string AggregateLoadResourcePreflightFailureMessage =
+        "Injected aggregate Load road presentation resource preflight failure.";
+
+    private bool _aggregateLoadResourcePreflightFailureArmed;
+    private int _aggregateLoadResourcePreflightFailureCount;
+
+    partial void ProbeAggregateLoadResourcePreflightFailure()
+    {
+        if (!_aggregateLoadResourcePreflightFailureArmed)
+            return;
+
+        _aggregateLoadResourcePreflightFailureArmed = false;
+        _aggregateLoadResourcePreflightFailureCount++;
+        throw new InvalidOperationException(
+            AggregateLoadResourcePreflightFailureMessage);
+    }
+
+    internal void ArmNextAggregateLoadResourcePreflightFailure()
+    {
+        if (!IsPresentationReady() || _loadAdmission is not null)
+        {
+            throw new InvalidOperationException(
+                "Road presentation must be ready and idle before arming its aggregate Load failure probe.");
+        }
+        if (_aggregateLoadResourcePreflightFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load resource preflight failure probe is already armed.");
+        }
+
+        _aggregateLoadResourcePreflightFailureArmed = true;
+    }
+
+    internal bool IsAggregateLoadResourcePreflightFailureArmed() =>
+        _aggregateLoadResourcePreflightFailureArmed;
+
+    internal int GetAggregateLoadResourcePreflightFailureCount() =>
+        _aggregateLoadResourcePreflightFailureCount;
+
     internal Godot.Collections.Dictionary ProbeRoadSurfaceSnapshotPreflightFailure()
     {
         RoadGraph graph = _network ?? throw new InvalidOperationException(
