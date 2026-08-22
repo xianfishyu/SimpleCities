@@ -4,14 +4,19 @@ public partial class RoadLoadObserverFailureProbe : Godot.RefCounted
 {
     private const string ObserverFailureMessage =
         "Injected RoadRenderer presentation observer failure.";
+    private const string GraphObserverFailureMessage =
+        "Injected RoadGraph observer failure.";
 
     private RoadRenderer? _renderer;
+    private RoadGraph? _graphObserverOwner;
     private RoadRenderer? _rendererCleanupOwner;
     private RoadGraph? _graphCleanupOwner;
     private ToolManager? _toolManager;
     private SaveManager? _slotCleanupOwner;
     private Action<RoadRenderToken>? _handler;
+    private Action<RoadGraphChangedEvent>? _graphHandler;
     private int _triggerCount;
+    private int _graphObserverTriggerCount;
 
     public void Arm(RoadRenderer renderer)
     {
@@ -20,6 +25,17 @@ public partial class RoadLoadObserverFailureProbe : Godot.RefCounted
         _renderer = renderer;
         _handler = OnPresentationReady;
         renderer.PresentationReady += _handler;
+    }
+
+    public void ArmGraphObserverFailure(RoadSystem roadSystem)
+    {
+        ArgumentNullException.ThrowIfNull(roadSystem);
+        RoadGraph graph = roadSystem.Graph;
+        ArgumentNullException.ThrowIfNull(graph);
+        DisarmGraphObserver();
+        _graphObserverOwner = graph;
+        _graphHandler = OnGraphChanged;
+        graph.GraphChanged += _graphHandler;
     }
 
     public void ArmToolCleanupFailure(ToolManager toolManager)
@@ -59,6 +75,7 @@ public partial class RoadLoadObserverFailureProbe : Godot.RefCounted
     public void Disarm()
     {
         DisarmObserver();
+        DisarmGraphObserver();
         _rendererCleanupOwner?.DisarmLoadCompleteCommitFailure();
         _rendererCleanupOwner = null;
         _graphCleanupOwner?.DisarmLoadCompleteCommitFailure();
@@ -77,7 +94,18 @@ public partial class RoadLoadObserverFailureProbe : Godot.RefCounted
         _handler = null;
     }
 
+    private void DisarmGraphObserver()
+    {
+        if (_graphObserverOwner is not null && _graphHandler is not null)
+            _graphObserverOwner.GraphChanged -= _graphHandler;
+        _graphObserverOwner = null;
+        _graphHandler = null;
+    }
+
     public int GetTriggerCount() => _triggerCount;
+    public int GetGraphObserverTriggerCount() => _graphObserverTriggerCount;
+    public bool IsGraphObserverFailureArmed() =>
+        _graphObserverOwner is not null && _graphHandler is not null;
     public int GetToolCleanupFailureCount() =>
         _toolManager?.GetLoadCompleteCommitFailureCount() ?? 0;
     public bool IsToolCleanupFailureArmed() =>
@@ -100,6 +128,13 @@ public partial class RoadLoadObserverFailureProbe : Godot.RefCounted
         _triggerCount++;
         DisarmObserver();
         throw new InvalidOperationException(ObserverFailureMessage);
+    }
+
+    private void OnGraphChanged(RoadGraphChangedEvent _)
+    {
+        _graphObserverTriggerCount++;
+        DisarmGraphObserver();
+        throw new InvalidOperationException(GraphObserverFailureMessage);
     }
 }
 
