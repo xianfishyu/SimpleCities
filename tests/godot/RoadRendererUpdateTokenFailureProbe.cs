@@ -56,6 +56,13 @@ public partial class RoadRendererUpdateTokenFailureProbe : RefCounted
         _renderer = renderer;
     }
 
+    public void ArmPreCommitGraphFacadeGenerationSupersession(RoadRenderer renderer)
+    {
+        ArgumentNullException.ThrowIfNull(renderer);
+        renderer.ArmNextOrdinaryPreCommitGraphFacadeGenerationSupersession();
+        _renderer = renderer;
+    }
+
     public bool IsArmed() =>
         _renderer?.IsOrdinaryPresentationResourcePreflightFailureArmed() ?? false;
 
@@ -127,6 +134,7 @@ public partial class RoadRenderer
         RenderRequest,
         RoadStyleRevision,
         SceneGeneration,
+        GraphFacadeGeneration,
     }
 
     internal const string OrdinaryPresentationResourcePreflightFailureMessage =
@@ -252,6 +260,8 @@ public partial class RoadRenderer
                 _presentationTokens.RequestStyleRefresh(targetToken.ChangeSequence),
             OrdinaryPreCommitSupersessionKind.SceneGeneration =>
                 RequestOrdinaryPreCommitSceneGenerationSupersession(targetToken),
+            OrdinaryPreCommitSupersessionKind.GraphFacadeGeneration =>
+                RequestOrdinaryPreCommitGraphFacadeGenerationSupersession(targetToken),
             _ => _presentationTokens.RequestRebuild(targetToken.ChangeSequence),
         };
     }
@@ -270,6 +280,22 @@ public partial class RoadRenderer
         }
 
         return replacementToken;
+    }
+
+    private RoadRenderToken RequestOrdinaryPreCommitGraphFacadeGenerationSupersession(
+        RoadRenderToken targetToken)
+    {
+        if (_network is not RoadGraph graph ||
+            graph.FacadeID != targetToken.GraphFacadeID ||
+            graph.CurrentStateToken.ChangeSequence != targetToken.ChangeSequence)
+        {
+            throw new InvalidOperationException(
+                "Road presentation graph facade is not current for a full-reset request.");
+        }
+
+        return _presentationTokens.RequestGraphChange(
+            targetToken.ChangeSequence,
+            isFullReset: true);
     }
 
     internal void ArmNextOrdinaryPresentationResourcePreflightFailure()
@@ -465,6 +491,10 @@ public partial class RoadRenderer
     internal void ArmNextOrdinaryPreCommitSceneGenerationSupersession() =>
         ArmNextOrdinaryPreCommitTokenSupersession(
             OrdinaryPreCommitSupersessionKind.SceneGeneration);
+
+    internal void ArmNextOrdinaryPreCommitGraphFacadeGenerationSupersession() =>
+        ArmNextOrdinaryPreCommitTokenSupersession(
+            OrdinaryPreCommitSupersessionKind.GraphFacadeGeneration);
 
     private void ArmNextOrdinaryPreCommitTokenSupersession(
         OrdinaryPreCommitSupersessionKind supersessionKind)

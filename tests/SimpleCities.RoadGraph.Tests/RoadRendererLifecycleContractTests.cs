@@ -718,7 +718,7 @@ public sealed class RoadRendererLifecycleContractTests
         string sceneGenerationRequest = ExtractMethod(
             probeSource,
             "private RoadRenderToken RequestOrdinaryPreCommitSceneGenerationSupersession(",
-            "internal void ArmNextOrdinaryPresentationResourcePreflightFailure()");
+            "private RoadRenderToken RequestOrdinaryPreCommitGraphFacadeGenerationSupersession(");
 
         Assert.Contains(
             "OrdinaryPreCommitSupersessionKind.SceneGeneration",
@@ -741,6 +741,48 @@ public sealed class RoadRendererLifecycleContractTests
             sceneGenerationRequest,
             StringComparison.Ordinal);
         Assert.Contains("return replacementToken;", sceneGenerationRequest, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OrdinaryPreCommitGraphFacadeGenerationSupersessionUsesCurrentFullResetRequest()
+    {
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadRendererUpdateTokenFailureProbe.cs"));
+        string supersessionProbe = ExtractMethod(
+            probeSource,
+            "partial void ProbeOrdinaryPreCommitTokenSupersession(",
+            "internal void ArmNextOrdinaryPresentationResourcePreflightFailure()");
+        string graphFacadeGenerationArm = ExtractMethod(
+            probeSource,
+            "internal void ArmNextOrdinaryPreCommitGraphFacadeGenerationSupersession()",
+            "private void ArmNextOrdinaryPreCommitTokenSupersession(");
+        string graphFacadeGenerationRequest = ExtractMethod(
+            probeSource,
+            "private RoadRenderToken RequestOrdinaryPreCommitGraphFacadeGenerationSupersession(",
+            "internal void ArmNextOrdinaryPresentationResourcePreflightFailure()");
+
+        Assert.Contains(
+            "OrdinaryPreCommitSupersessionKind.GraphFacadeGeneration",
+            graphFacadeGenerationArm,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "RequestOrdinaryPreCommitGraphFacadeGenerationSupersession(targetToken)",
+            supersessionProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "graph.FacadeID != targetToken.GraphFacadeID",
+            graphFacadeGenerationRequest,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "graph.CurrentStateToken.ChangeSequence != targetToken.ChangeSequence",
+            graphFacadeGenerationRequest,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_presentationTokens.RequestGraphChange(",
+            graphFacadeGenerationRequest,
+            StringComparison.Ordinal);
+        Assert.Contains("targetToken.ChangeSequence", graphFacadeGenerationRequest, StringComparison.Ordinal);
+        Assert.Contains("isFullReset: true", graphFacadeGenerationRequest, StringComparison.Ordinal);
     }
 
     [Fact]
