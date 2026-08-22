@@ -13,6 +13,7 @@ const TOKEN_PERTURBATION_KINDS: Array[String] = [
 	"scene-generation",
 	"graph-facade-id",
 	"graph-facade-generation",
+	"change-sequence",
 ]
 const EDGE_LENGTH := 8.0
 const EDGE_SPACING := 32.0
@@ -233,6 +234,15 @@ func measure_token_perturbation(
 		"%s perturbation did not start from the loaded current presentation" % perturbation_label):
 		return false
 
+	var fixture_width := float(columns - 1) * EDGE_SPACING
+	var fixture_height := float(rows - 1) * EDGE_SPACING
+	var mutation_start := Vector2(
+		fixture_width * 0.5 + EDGE_SPACING * 4.0,
+		fixture_height * 0.5 + EDGE_SPACING * 4.0)
+	var mutation_end := mutation_start + Vector2(100.0, 0.0)
+	var replacement_mutation_start := mutation_start + Vector2(0.0, EDGE_SPACING * 4.0)
+	var replacement_mutation_end := replacement_mutation_start + Vector2(100.0, 0.0)
+
 	match token_perturbation_kind:
 		"render-request":
 			probe.ArmPreCommitTokenSupersession(renderer)
@@ -244,18 +254,17 @@ func measure_token_perturbation(
 			probe.ArmPreCommitGraphFacadeIDSupersession(renderer)
 		"graph-facade-generation":
 			probe.ArmPreCommitGraphFacadeGenerationSupersession(renderer)
+		"change-sequence":
+			probe.ArmPreCommitChangeSequenceSupersession(
+				renderer,
+				replacement_mutation_start,
+				replacement_mutation_end)
 	var trigger_count_before := int(probe.GetPreCommitTokenSupersessionCount())
 	if not require(
 		bool(probe.IsPreCommitTokenSupersessionArmed()),
 		"%s perturbation probe did not arm" % perturbation_label):
 		return false
 
-	var fixture_width := float(columns - 1) * EDGE_SPACING
-	var fixture_height := float(rows - 1) * EDGE_SPACING
-	var mutation_start := Vector2(
-		fixture_width * 0.5 + EDGE_SPACING * 4.0,
-		fixture_height * 0.5 + EDGE_SPACING * 4.0)
-	var mutation_end := mutation_start + Vector2(100.0, 0.0)
 	var perturbation_started_us := Time.get_ticks_usec()
 	if not require(
 		builder.BeginPlace(mutation_start),
@@ -354,6 +363,12 @@ func measure_token_perturbation(
 		not bool(probe.IsPreCommitTokenSupersessionArmed()),
 		"%s perturbation did not retain the old presentation behind the replacement token" % perturbation_label):
 		return false
+	var pending_target_hit: Dictionary = renderer.FindRoadSurfaceHit(
+		(mutation_start + mutation_end) * 0.5,
+		EDGE_SPACING * 0.5)
+	var pending_replacement_hit: Dictionary = renderer.FindRoadSurfaceHit(
+		(replacement_mutation_start + replacement_mutation_end) * 0.5,
+		EDGE_SPACING * 0.5)
 	if not require(
 		int(probe.GetObjectResourceCount()) == resource_count_before and
 		int(post_supersession.get("surfacePrimitiveCount", -1)) == 0 and
@@ -361,9 +376,8 @@ func measure_token_perturbation(
 		renderer.GetRenderedEdgeCount() == retained_edge_count and
 		renderer.GetRoadMeshVertexCount() == retained_vertex_count and
 		renderer.GetNodeMarkerCount() == retained_marker_count and
-		renderer.FindRoadSurfaceHit(
-			(mutation_start + mutation_end) * 0.5,
-			EDGE_SPACING * 0.5).is_empty(),
+		pending_target_hit.is_empty() and
+		pending_replacement_hit.is_empty(),
 		"%s perturbation leaked resources, swapped presentation, or exposed a mixed-token surface" % perturbation_label):
 		return false
 
@@ -377,6 +391,10 @@ func measure_token_perturbation(
 	var recovered_hit: Dictionary = renderer.FindRoadSurfaceHit(
 		(mutation_start + mutation_end) * 0.5,
 		EDGE_SPACING * 0.5)
+	var recovered_replacement_hit: Dictionary = renderer.FindRoadSurfaceHit(
+		(replacement_mutation_start + replacement_mutation_end) * 0.5,
+		EDGE_SPACING * 0.5)
+	var expected_added_edges := 2 if token_perturbation_kind == "change-sequence" else 1
 	var recovered_evidence := {
 		"is_ready": bool(recovered.get("isReady", false)),
 		"desired_matches": recovered.get("desired", {}) == replacement,
@@ -393,18 +411,23 @@ func measure_token_perturbation(
 		"resource_count": int(probe.GetObjectResourceCount()),
 		"resource_count_before": resource_count_before,
 		"hit_found": not recovered_hit.is_empty(),
+		"replacement_hit_found": not recovered_replacement_hit.is_empty(),
 	}
 	if not require(
 		bool(recovered.get("isReady", false)) and
 		recovered.get("desired", {}) == replacement and
 		recovered.get("presented", {}) == replacement and
 		int(recovered.get("attemptCount", 0)) == 1 and
-		renderer.GetRenderedEdgeCount() == retained_edge_count + 1 and
+		renderer.GetRenderedEdgeCount() == retained_edge_count + expected_added_edges and
 		renderer.GetRoadMeshVertexCount() > retained_vertex_count and
 		renderer.GetNodeMarkerCount() > retained_marker_count and
 		int(recovered.get("surfacePrimitiveCount", 0)) > retained_primitive_count and
 		int(probe.GetObjectResourceCount()) == resource_count_before and
-		not recovered_hit.is_empty(),
+		not recovered_hit.is_empty() and
+		recovered_hit.get("renderToken", {}) == replacement and
+		(token_perturbation_kind != "change-sequence" or (
+			not recovered_replacement_hit.is_empty() and
+			recovered_replacement_hit.get("renderToken", {}) == replacement)),
 		"%s perturbation replacement did not publish one complete current presentation: %s" % [
 			perturbation_label,
 			JSON.stringify(recovered_evidence),
@@ -478,6 +501,8 @@ func token_perturbation_tokens_are_sequential(
 		"graph-facade-id":
 			replacement_changed_dimensions.append("graphFacadeID")
 			replacement_changed_dimensions.append("graphFacadeGeneration")
+		"change-sequence":
+			replacement_changed_dimensions.append("changeSequence")
 	for dimension: String in token_dimensions:
 		if replacement_changed_dimensions.has(dimension):
 			continue
@@ -500,6 +525,8 @@ func token_perturbation_tokens_are_sequential(
 				replacement.get("graphFacadeID") != superseded.get("graphFacadeID") and
 				int(replacement.get("graphFacadeGeneration", -1)) == int(superseded.get("graphFacadeGeneration", -2)) + 1
 			)
+		"change-sequence":
+			return int(replacement.get("changeSequence", -1)) == int(superseded.get("changeSequence", -2)) + 1
 	return false
 
 func token_perturbation_label() -> String:
@@ -514,6 +541,8 @@ func token_perturbation_label() -> String:
 			return "Graph-facade-ID"
 		"graph-facade-generation":
 			return "Graph-facade-generation"
+		"change-sequence":
+			return "Change-sequence"
 	return "Unknown token"
 
 func token_perturbation_dimension() -> String:
@@ -528,6 +557,8 @@ func token_perturbation_dimension() -> String:
 			return "graphFacadeID"
 		"graph-facade-generation":
 			return "graphFacadeGeneration"
+		"change-sequence":
+			return "changeSequence"
 	return "unknown"
 
 func validate_load_phase_metrics(
