@@ -269,6 +269,29 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
     public string GetAggregateLoadToolCommitBoundaryGenerationMismatchMessage() =>
         SaveManager.AggregateLoadToolCommitBoundaryGenerationMismatchMessage;
 
+    public void ArmAggregateLoadSlotTargetCommitBoundaryGenerationMismatch(
+        SaveManager saveManager)
+    {
+        ArgumentNullException.ThrowIfNull(saveManager);
+        saveManager.ArmNextAggregateLoadSlotTargetCommitBoundaryGenerationMismatch();
+        _saveManager = saveManager;
+    }
+
+    public bool IsAggregateLoadSlotTargetCommitBoundaryGenerationMismatchArmed() =>
+        _saveManager?.IsAggregateLoadSlotTargetCommitBoundaryGenerationMismatchArmed() ?? false;
+
+    public int GetAggregateLoadSlotTargetCommitBoundaryGenerationMismatchCount() =>
+        _saveManager?.GetAggregateLoadSlotTargetCommitBoundaryGenerationMismatchCount() ?? 0;
+
+    public int GetAggregateLoadSlotTargetCommitBoundaryCount() =>
+        _saveManager?.GetAggregateLoadSlotTargetCommitBoundaryCount() ?? 0;
+
+    public int GetAggregateLoadSlotTargetMarkCommittedCount() =>
+        _saveManager?.GetAggregateLoadSlotTargetMarkCommittedCount() ?? 0;
+
+    public string GetAggregateLoadSlotTargetCommitBoundaryGenerationMismatchMessage() =>
+        SaveManager.AggregateLoadSlotTargetCommitBoundaryGenerationMismatchMessage;
+
     public long GetObjectResourceCount() => Convert.ToInt64(
         Performance.GetMonitor(Performance.Monitor.ObjectResourceCount));
 }
@@ -286,6 +309,8 @@ public partial class SaveManager
     internal const string AggregateLoadRendererCommitBoundaryGenerationMismatchMessage =
         "A load participant generation changed while entering commit.";
     internal const string AggregateLoadToolCommitBoundaryGenerationMismatchMessage =
+        "A load participant generation changed while entering commit.";
+    internal const string AggregateLoadSlotTargetCommitBoundaryGenerationMismatchMessage =
         "A load participant generation changed while entering commit.";
 
     private bool _aggregateLoadPostRendererPreflightFailureArmed;
@@ -306,6 +331,9 @@ public partial class SaveManager
     private int _aggregateLoadToolCommitBoundaryGenerationMismatchCount;
     private ToolManager? _aggregateLoadToolCommitBoundaryOwner;
     private AggregateLoadToolBoundaryInvalidatingLease? _aggregateLoadToolBoundaryLease;
+    private bool _aggregateLoadSlotTargetCommitBoundaryGenerationMismatchArmed;
+    private int _aggregateLoadSlotTargetCommitBoundaryGenerationMismatchCount;
+    private AggregateLoadSlotTargetBoundaryInvalidatingLease? _aggregateLoadSlotTargetBoundaryLease;
 
     partial void ProbeAggregateLoadPostRendererPreflightFailure()
     {
@@ -566,6 +594,53 @@ public partial class SaveManager
     internal int GetAggregateLoadToolMarkCommittedCount() =>
         _aggregateLoadToolBoundaryLease?.MarkCommittedCount ?? 0;
 
+    partial void ProbeAggregateLoadSlotTargetCommitBoundaryGenerationMismatch(
+        ref IStorageOperationLease operationLease)
+    {
+        if (!_aggregateLoadSlotTargetCommitBoundaryGenerationMismatchArmed)
+            return;
+
+        _aggregateLoadSlotTargetCommitBoundaryGenerationMismatchArmed = false;
+        _aggregateLoadSlotTargetCommitBoundaryGenerationMismatchCount++;
+        var wrapper = new AggregateLoadSlotTargetBoundaryInvalidatingLease(
+            operationLease,
+            this);
+        _aggregateLoadSlotTargetBoundaryLease = wrapper;
+        operationLease = wrapper;
+    }
+
+    internal void ArmNextAggregateLoadSlotTargetCommitBoundaryGenerationMismatch()
+    {
+        if (IsOperationBusy)
+        {
+            throw new InvalidOperationException(
+                "SaveManager must be idle before arming its aggregate Load failure probe.");
+        }
+        if (_aggregateLoadSlotTargetCommitBoundaryGenerationMismatchArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load slot-target commit-boundary generation mismatch probe is already armed.");
+        }
+
+        _aggregateLoadSlotTargetCommitBoundaryGenerationMismatchArmed = true;
+        _aggregateLoadSlotTargetBoundaryLease = null;
+    }
+
+    internal bool IsAggregateLoadSlotTargetCommitBoundaryGenerationMismatchArmed() =>
+        _aggregateLoadSlotTargetCommitBoundaryGenerationMismatchArmed;
+
+    internal int GetAggregateLoadSlotTargetCommitBoundaryGenerationMismatchCount() =>
+        _aggregateLoadSlotTargetCommitBoundaryGenerationMismatchCount;
+
+    internal int GetAggregateLoadSlotTargetCommitBoundaryCount() =>
+        _aggregateLoadSlotTargetBoundaryLease?.BoundaryCount ?? 0;
+
+    internal int GetAggregateLoadSlotTargetMarkCommittedCount() =>
+        _aggregateLoadSlotTargetBoundaryLease?.MarkCommittedCount ?? 0;
+
+    internal void InvalidateCurrentSlotTargetGenerationForAggregateBoundaryProbe() =>
+        _currentSlotGeneration = NextGeneration(_currentSlotGeneration);
+
     private sealed class AggregateLoadGraphBoundaryInvalidatingLease(
         IStorageOperationLease inner,
         RoadGraph graph) : IStorageOperationLease
@@ -662,6 +737,44 @@ public partial class SaveManager
             inner.CrossCommitBoundary(() =>
             {
                 toolManager.InvalidateCurrentToolLoadAdmissionForAggregateBoundaryProbe();
+                boundaryAction();
+            });
+        }
+
+        public void MarkCommitted()
+        {
+            MarkCommittedCount++;
+            inner.MarkCommitted();
+        }
+
+        public void EnterCommitBoundary()
+        {
+            AcquireCommitLease();
+            CrossCommitBoundary(static () => { });
+            MarkCommitted();
+        }
+    }
+
+    private sealed class AggregateLoadSlotTargetBoundaryInvalidatingLease(
+        IStorageOperationLease inner,
+        SaveManager saveManager) : IStorageOperationLease
+    {
+        public string OperationToken => inner.OperationToken;
+        public SaveOperationKind Kind => inner.Kind;
+        internal int BoundaryCount { get; private set; }
+        internal int MarkCommittedCount { get; private set; }
+
+        public void ThrowIfCancellationRequested() => inner.ThrowIfCancellationRequested();
+
+        public void AcquireCommitLease() => inner.AcquireCommitLease();
+
+        public void CrossCommitBoundary(Action boundaryAction)
+        {
+            ArgumentNullException.ThrowIfNull(boundaryAction);
+            BoundaryCount++;
+            inner.CrossCommitBoundary(() =>
+            {
+                saveManager.InvalidateCurrentSlotTargetGenerationForAggregateBoundaryProbe();
                 boundaryAction();
             });
         }

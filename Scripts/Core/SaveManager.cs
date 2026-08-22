@@ -22,6 +22,8 @@ public partial class SaveManager : Node
     partial void ProbeAggregateLoadToolCommitBoundaryGenerationMismatch(
         ToolManager toolManager,
         ref IStorageOperationLease operationLease);
+    partial void ProbeAggregateLoadSlotTargetCommitBoundaryGenerationMismatch(
+        ref IStorageOperationLease operationLease);
     partial void ProbeSlotTargetLoadCompleteCommitFailure();
 
     public static SaveManager Instance { get; private set; } = null!;
@@ -726,6 +728,8 @@ public partial class SaveManager : Node
                     ref aggregateOperationLease);
                 ProbeAggregateLoadToolCommitBoundaryGenerationMismatch(
                     context.ToolManager,
+                    ref aggregateOperationLease);
+                ProbeAggregateLoadSlotTargetCommitBoundaryGenerationMismatch(
                     ref aggregateOperationLease);
                 IReadOnlyList<string> warnings = aggregate.Commit(aggregateOperationLease);
                 TimeSpan aggregateCommitDuration = Stopwatch.GetElapsedTime(aggregateCommitStarted);
