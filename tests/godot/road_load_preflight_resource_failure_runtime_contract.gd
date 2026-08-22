@@ -1315,6 +1315,58 @@ func run() -> void:
 		"Post-renderer admission failure changed RoadGraph"):
 		return
 
+	var post_participant_capture_resource_count_before := int(probe.GetObjectResourceCount())
+	var post_participant_capture_failure_message := str(
+		probe.GetAggregateLoadPostParticipantCaptureFailureMessage())
+	probe.ArmAggregateLoadPostParticipantCaptureFailure(save_manager)
+	if not require(
+		bool(probe.IsAggregateLoadPostParticipantCaptureFailureArmed()),
+		"Aggregate Load post-participant capture failure probe did not arm"):
+		return
+	var post_participant_capture_failed_load_result := await run_load(source_slot_id)
+	var post_participant_capture_resource_count_after := int(probe.GetObjectResourceCount())
+	if not require(
+		int(post_participant_capture_failed_load_result.get("resultKind", -1)) ==
+			RESULT_FAILED and
+		not bool(post_participant_capture_failed_load_result.get("committed", true)) and
+		str(post_participant_capture_failed_load_result.get("warnings", "")).is_empty() and
+		str(post_participant_capture_failed_load_result.get("error", "")) ==
+			post_participant_capture_failure_message,
+		"Real StartLoad did not fail after participant capture and before Prepare phase: %s" %
+		JSON.stringify(post_participant_capture_failed_load_result)):
+		return
+	if not require(
+		not bool(probe.IsAggregateLoadPostParticipantCaptureFailureArmed()) and
+		int(probe.GetAggregateLoadPostParticipantCaptureFailureCount()) == 1 and
+		int(probe.GetAggregateLoadPostParticipantCaptureParticipantCount()) == 1 and
+		post_participant_capture_resource_count_after ==
+			post_participant_capture_resource_count_before and
+		str(save_manager.get("CurrentSlotID")) == active_slot_id and
+		int(tool_manager.get("CurrentTool")) == TOOL_ROAD and
+		int(tool_manager.GetSelectedRoadType()) == selected_road_type_before and
+		builder.HasActivePlaceSession() and
+		builder.GetFixedCornerCount() == 1 and
+		builder.GetUndoEditCount() == undo_count_before and
+		builder.GetRedoEditCount() == redo_count_before and
+		renderer.GetRenderedEdgeCount() == edge_count_before and
+		renderer.GetRoadMeshVertexCount() == vertex_count_before and
+		renderer.GetNodeMarkerCount() == marker_count_before and
+		renderer.GetPresentationState() == presentation_before and
+		renderer.FindRoadSurfaceHit(Vector2(400.0, 300.0), 0.0) == hit_before,
+		"Post-participant capture failure changed resources, graph, tool, placement, history, presentation, surface, token, or slot state"):
+		return
+
+	if not require(
+		await V3_SAVE_FIXTURE.save(save_manager, active_slot_id),
+		"Could not recapture the active graph after post-participant capture failure"):
+		return
+	var post_participant_capture_payload_after := FileAccess.get_file_as_string(
+		V3_SAVE_FIXTURE.slot_path(active_slot_id, V3_SAVE_FIXTURE.PAYLOAD_FILE_NAME))
+	if not require(
+		post_participant_capture_payload_after == active_payload_before,
+		"Post-participant capture failure changed RoadGraph"):
+		return
+
 	var renderer_worker_prepare_resource_count_before := int(probe.GetObjectResourceCount())
 	var renderer_worker_prepare_failure_message := str(
 		probe.GetAggregateLoadRendererWorkerPrepareFailureMessage())
@@ -1545,6 +1597,18 @@ func run() -> void:
 			post_renderer_admission_resource_count_before,
 		"post_renderer_admission_resource_count_after":
 			post_renderer_admission_resource_count_after,
+		"post_participant_capture_failure_result_kind": int(
+			post_participant_capture_failed_load_result.get("resultKind", -1)),
+		"post_participant_capture_failure_committed": bool(
+			post_participant_capture_failed_load_result.get("committed", true)),
+		"post_participant_capture_failure_trigger_count": int(
+			probe.GetAggregateLoadPostParticipantCaptureFailureCount()),
+		"post_participant_capture_participant_count": int(
+			probe.GetAggregateLoadPostParticipantCaptureParticipantCount()),
+		"post_participant_capture_resource_count_before":
+			post_participant_capture_resource_count_before,
+		"post_participant_capture_resource_count_after":
+			post_participant_capture_resource_count_after,
 		"renderer_worker_prepare_failure_result_kind": int(
 			renderer_worker_prepare_failed_load_result.get("resultKind", -1)),
 		"renderer_worker_prepare_failure_committed": bool(

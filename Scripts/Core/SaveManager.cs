@@ -11,6 +11,8 @@ using System.Threading.Tasks;
 public partial class SaveManager : Node
 {
     partial void ProbeAggregateLoadPostRendererAdmissionFailure();
+    partial void ProbeAggregateLoadPostParticipantCaptureFailure(
+        IReadOnlyList<CapturedLoadParticipant> loadParticipants);
     partial void ProbeAggregateLoadRendererWorkerPrepareFailure();
     partial void ProbeAggregateLoadPostRendererPreflightFailure();
     partial void ProbeAggregateLoadPostSlotPreflightFailure();
@@ -672,6 +674,7 @@ public partial class SaveManager : Node
                 ProbeAggregateLoadPostRendererAdmissionFailure();
                 IReadOnlyList<CapturedLoadParticipant> loadParticipants =
                     SaveSlotStore.CaptureLoadParticipants(GetRequiredSaveables());
+                ProbeAggregateLoadPostParticipantCaptureFailure(loadParticipants);
                 lease.AdvanceTo(SaveOperationPhase.Prepare);
                 PreparedLoadWork prepared = await Task.Run(() =>
                 {

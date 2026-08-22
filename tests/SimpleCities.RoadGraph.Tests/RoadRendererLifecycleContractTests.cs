@@ -712,6 +712,71 @@ public sealed class RoadRendererLifecycleContractTests
     }
 
     [Fact]
+    public void RealStartLoadPostParticipantCaptureFailureRunsBeforePreparePhaseAndWorker()
+    {
+        string saveManagerSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Core", "SaveManager.cs"));
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadLoadPreflightResourceFailureProbe.cs"));
+        string loadOrchestration = ExtractMethod(
+            saveManagerSource,
+            "private async Task<SaveOperationResult> RunLoadAsync",
+            "private async Task<SaveOperationResult> RunDeleteAsync");
+        string failureProbe = ExtractMethod(
+            probeSource,
+            "partial void ProbeAggregateLoadPostParticipantCaptureFailure(",
+            "internal void ArmNextAggregateLoadPostParticipantCaptureFailure()");
+
+        int postRendererAdmissionFailure = loadOrchestration.IndexOf(
+            "ProbeAggregateLoadPostRendererAdmissionFailure();",
+            StringComparison.Ordinal);
+        int participantCapture = loadOrchestration.IndexOf(
+            "SaveSlotStore.CaptureLoadParticipants(GetRequiredSaveables());",
+            StringComparison.Ordinal);
+        int failure = loadOrchestration.IndexOf(
+            "ProbeAggregateLoadPostParticipantCaptureFailure(loadParticipants);",
+            StringComparison.Ordinal);
+        int preparePhase = loadOrchestration.IndexOf(
+            "lease.AdvanceTo(SaveOperationPhase.Prepare);",
+            StringComparison.Ordinal);
+        int workerStart = loadOrchestration.IndexOf(
+            "PreparedLoadWork prepared = await Task.Run(() =>",
+            StringComparison.Ordinal);
+        int rendererAdmissionDispose = loadOrchestration.IndexOf(
+            "rendererAdmission?.Dispose();",
+            StringComparison.Ordinal);
+
+        Assert.True(postRendererAdmissionFailure >= 0 &&
+            postRendererAdmissionFailure < participantCapture);
+        Assert.True(participantCapture < failure && failure < preparePhase);
+        Assert.True(preparePhase < workerStart && workerStart < rendererAdmissionDispose);
+        Assert.Contains(
+            "partial void ProbeAggregateLoadPostParticipantCaptureFailure(",
+            saveManagerSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "public void ArmAggregateLoadPostParticipantCaptureFailure(SaveManager saveManager)",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadPostParticipantCaptureFailureArmed = false;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadPostParticipantCaptureFailureCount++;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadPostParticipantCaptureParticipantCount = loadParticipants.Count;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "AggregateLoadPostParticipantCaptureFailureMessage",
+            failureProbe,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void RealStartLoadRendererWorkerPrepareFailureRunsBeforePresentationPreparation()
     {
         string saveManagerSource = File.ReadAllText(

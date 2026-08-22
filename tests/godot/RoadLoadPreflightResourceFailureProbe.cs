@@ -196,6 +196,25 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
     public string GetAggregateLoadPostRendererAdmissionFailureMessage() =>
         SaveManager.AggregateLoadPostRendererAdmissionFailureMessage;
 
+    public void ArmAggregateLoadPostParticipantCaptureFailure(SaveManager saveManager)
+    {
+        ArgumentNullException.ThrowIfNull(saveManager);
+        saveManager.ArmNextAggregateLoadPostParticipantCaptureFailure();
+        _saveManager = saveManager;
+    }
+
+    public bool IsAggregateLoadPostParticipantCaptureFailureArmed() =>
+        _saveManager?.IsAggregateLoadPostParticipantCaptureFailureArmed() ?? false;
+
+    public int GetAggregateLoadPostParticipantCaptureFailureCount() =>
+        _saveManager?.GetAggregateLoadPostParticipantCaptureFailureCount() ?? 0;
+
+    public int GetAggregateLoadPostParticipantCaptureParticipantCount() =>
+        _saveManager?.GetAggregateLoadPostParticipantCaptureParticipantCount() ?? 0;
+
+    public string GetAggregateLoadPostParticipantCaptureFailureMessage() =>
+        SaveManager.AggregateLoadPostParticipantCaptureFailureMessage;
+
     public void ArmAggregateLoadRendererWorkerPrepareFailure(SaveManager saveManager)
     {
         ArgumentNullException.ThrowIfNull(saveManager);
@@ -364,6 +383,8 @@ public partial class SaveManager
 {
     internal const string AggregateLoadPostRendererAdmissionFailureMessage =
         "Injected aggregate Load failure after renderer admission publication.";
+    internal const string AggregateLoadPostParticipantCaptureFailureMessage =
+        "Injected aggregate Load failure after participant capture.";
     internal const string AggregateLoadRendererWorkerPrepareFailureMessage =
         "Injected aggregate Load renderer worker-prepare failure.";
     internal const string AggregateLoadPostRendererPreflightFailureMessage =
@@ -383,6 +404,9 @@ public partial class SaveManager
 
     private bool _aggregateLoadPostRendererAdmissionFailureArmed;
     private int _aggregateLoadPostRendererAdmissionFailureCount;
+    private bool _aggregateLoadPostParticipantCaptureFailureArmed;
+    private int _aggregateLoadPostParticipantCaptureFailureCount;
+    private int _aggregateLoadPostParticipantCaptureParticipantCount;
     private bool _aggregateLoadRendererWorkerPrepareFailureArmed;
     private int _aggregateLoadRendererWorkerPrepareFailureCount;
     private bool _aggregateLoadPostRendererPreflightFailureArmed;
@@ -439,6 +463,45 @@ public partial class SaveManager
 
     internal int GetAggregateLoadPostRendererAdmissionFailureCount() =>
         _aggregateLoadPostRendererAdmissionFailureCount;
+
+    partial void ProbeAggregateLoadPostParticipantCaptureFailure(
+        IReadOnlyList<CapturedLoadParticipant> loadParticipants)
+    {
+        if (!_aggregateLoadPostParticipantCaptureFailureArmed)
+            return;
+
+        ArgumentNullException.ThrowIfNull(loadParticipants);
+        _aggregateLoadPostParticipantCaptureFailureArmed = false;
+        _aggregateLoadPostParticipantCaptureFailureCount++;
+        _aggregateLoadPostParticipantCaptureParticipantCount = loadParticipants.Count;
+        throw new InvalidOperationException(
+            AggregateLoadPostParticipantCaptureFailureMessage);
+    }
+
+    internal void ArmNextAggregateLoadPostParticipantCaptureFailure()
+    {
+        if (IsOperationBusy)
+        {
+            throw new InvalidOperationException(
+                "SaveManager must be idle before arming its aggregate Load failure probe.");
+        }
+        if (_aggregateLoadPostParticipantCaptureFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load post-participant capture failure probe is already armed.");
+        }
+
+        _aggregateLoadPostParticipantCaptureFailureArmed = true;
+    }
+
+    internal bool IsAggregateLoadPostParticipantCaptureFailureArmed() =>
+        _aggregateLoadPostParticipantCaptureFailureArmed;
+
+    internal int GetAggregateLoadPostParticipantCaptureFailureCount() =>
+        _aggregateLoadPostParticipantCaptureFailureCount;
+
+    internal int GetAggregateLoadPostParticipantCaptureParticipantCount() =>
+        _aggregateLoadPostParticipantCaptureParticipantCount;
 
     partial void ProbeAggregateLoadRendererWorkerPrepareFailure()
     {
