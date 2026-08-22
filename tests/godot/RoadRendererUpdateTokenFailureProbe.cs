@@ -7,6 +7,13 @@ public partial class RoadRendererUpdateTokenFailureProbe : RefCounted
 {
     private RoadRenderer? _renderer;
 
+    public void ArmPrepareFailure(RoadRenderer renderer)
+    {
+        ArgumentNullException.ThrowIfNull(renderer);
+        renderer.ArmNextOrdinaryPrepareFailure();
+        _renderer = renderer;
+    }
+
     public void Arm(RoadRenderer renderer)
     {
         ArgumentNullException.ThrowIfNull(renderer);
@@ -88,6 +95,15 @@ public partial class RoadRendererUpdateTokenFailureProbe : RefCounted
             mutationEnd);
         _renderer = renderer;
     }
+
+    public bool IsPrepareFailureArmed() =>
+        _renderer?.IsOrdinaryPrepareFailureArmed() ?? false;
+
+    public int GetPrepareFailureCount() =>
+        _renderer?.GetOrdinaryPrepareFailureCount() ?? 0;
+
+    public string GetPrepareFailureMessage() =>
+        RoadRenderer.OrdinaryPrepareFailureMessage;
 
     public bool IsArmed() =>
         _renderer?.IsOrdinaryPresentationResourcePreflightFailureArmed() ?? false;
@@ -177,6 +193,8 @@ public partial class RoadRenderer
         ChangeSequence,
     }
 
+    internal const string OrdinaryPrepareFailureMessage =
+        "Injected ordinary road presentation prepare failure.";
     internal const string OrdinaryPresentationResourcePreflightFailureMessage =
         "Injected ordinary road presentation resource preflight failure.";
     internal const string OrdinaryNodeBatchFactoryFailureMessage =
@@ -186,6 +204,9 @@ public partial class RoadRenderer
     internal const string OrdinaryPresentationStalledObserverFailureMessage =
         "Injected ordinary road presentation stalled observer failure.";
 
+    private bool _ordinaryPrepareFailureArmed;
+    private RoadRenderToken? _ordinaryPrepareFailureArmToken;
+    private int _ordinaryPrepareFailureCount;
     private bool _ordinaryPresentationResourcePreflightFailureArmed;
     private RoadRenderToken? _ordinaryPresentationResourcePreflightFailureArmToken;
     private int _ordinaryPresentationResourcePreflightFailureCount;
@@ -214,6 +235,21 @@ public partial class RoadRenderer
     private OrdinaryPreCommitSupersessionKind _ordinaryPreCommitSupersessionKind;
     private Vector2 _ordinaryPreCommitChangeSequenceMutationStart;
     private Vector2 _ordinaryPreCommitChangeSequenceMutationEnd;
+
+    partial void ProbeOrdinaryPrepareFailure(RoadRenderToken targetToken)
+    {
+        if (!_ordinaryPrepareFailureArmed ||
+            _ordinaryPrepareFailureArmToken is not RoadRenderToken armedToken ||
+            targetToken == armedToken)
+        {
+            return;
+        }
+
+        _ordinaryPrepareFailureArmed = false;
+        _ordinaryPrepareFailureArmToken = null;
+        _ordinaryPrepareFailureCount++;
+        throw new InvalidOperationException(OrdinaryPrepareFailureMessage);
+    }
 
     partial void ProbeOrdinaryPresentationResourcePreflightFailure(
         RoadRenderToken targetToken)
@@ -427,6 +463,55 @@ public partial class RoadRenderer
         return replacementToken;
     }
 
+    internal void ArmNextOrdinaryPrepareFailure()
+    {
+        if (!IsPresentationReady() ||
+            _presentationTokens.PresentedToken is not RoadRenderToken currentToken)
+        {
+            throw new InvalidOperationException(
+                "Road presentation must be ready before arming its failure probe.");
+        }
+        if (_ordinaryPrepareFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Road presentation prepare failure probe is already armed.");
+        }
+        if (_ordinaryPresentationResourcePreflightFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Road presentation resource preflight failure probe is already armed.");
+        }
+        if (_ordinaryNodeBatchFactoryFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Road presentation node-batch factory failure probe is already armed.");
+        }
+        if (_ordinaryRoadMeshFactoryFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Road presentation road-mesh factory failure probe is already armed.");
+        }
+        if (_ordinaryRoadSurfaceSnapshotFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Road presentation surface-snapshot failure probe is already armed.");
+        }
+        if (_ordinaryPreCommitTokenSupersessionArmed)
+        {
+            throw new InvalidOperationException(
+                "Road presentation pre-commit supersession probe is already armed.");
+        }
+
+        _ordinaryPrepareFailureArmed = true;
+        _ordinaryPrepareFailureArmToken = currentToken;
+    }
+
+    internal bool IsOrdinaryPrepareFailureArmed() =>
+        _ordinaryPrepareFailureArmed;
+
+    internal int GetOrdinaryPrepareFailureCount() =>
+        _ordinaryPrepareFailureCount;
+
     internal void ArmNextOrdinaryPresentationResourcePreflightFailure()
     {
         if (!IsPresentationReady() ||
@@ -439,6 +524,11 @@ public partial class RoadRenderer
         {
             throw new InvalidOperationException(
                 "Road presentation resource preflight failure probe is already armed.");
+        }
+        if (_ordinaryPrepareFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Road presentation prepare failure probe is already armed.");
         }
         if (_ordinaryNodeBatchFactoryFailureArmed)
         {
@@ -483,6 +573,11 @@ public partial class RoadRenderer
         {
             throw new InvalidOperationException(
                 "Road presentation node-batch factory failure probe is already armed.");
+        }
+        if (_ordinaryPrepareFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Road presentation prepare failure probe is already armed.");
         }
         if (_ordinaryPresentationResourcePreflightFailureArmed)
         {
@@ -531,6 +626,11 @@ public partial class RoadRenderer
             throw new InvalidOperationException(
                 "Road presentation road-mesh factory failure probe is already armed.");
         }
+        if (_ordinaryPrepareFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Road presentation prepare failure probe is already armed.");
+        }
         if (_ordinaryPresentationResourcePreflightFailureArmed)
         {
             throw new InvalidOperationException(
@@ -577,6 +677,11 @@ public partial class RoadRenderer
         {
             throw new InvalidOperationException(
                 "Road presentation surface-snapshot failure probe is already armed.");
+        }
+        if (_ordinaryPrepareFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Road presentation prepare failure probe is already armed.");
         }
         if (_ordinaryPresentationResourcePreflightFailureArmed)
         {
@@ -725,6 +830,11 @@ public partial class RoadRenderer
         {
             throw new InvalidOperationException(
                 "Road presentation pre-commit supersession probe is already armed.");
+        }
+        if (_ordinaryPrepareFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Road presentation prepare failure probe is already armed.");
         }
         if (_ordinaryPresentationResourcePreflightFailureArmed)
         {

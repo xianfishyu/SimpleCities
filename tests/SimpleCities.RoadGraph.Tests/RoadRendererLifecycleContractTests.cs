@@ -164,6 +164,71 @@ public sealed class RoadRendererLifecycleContractTests
     }
 
     [Fact]
+    public void OrdinaryPrepareFailureRunsAfterSnapshotCaptureAndBeforeResourcePreflight()
+    {
+        string rendererSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.cs"));
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadRendererUpdateTokenFailureProbe.cs"));
+        string ordinaryBuild = ExtractMethod(
+            rendererSource,
+            "private bool TryRebuildStaticBatches",
+            "private void PublishPresentationStalled");
+        string prepareProbe = ExtractMethod(
+            probeSource,
+            "partial void ProbeOrdinaryPrepareFailure(",
+            "partial void ProbeOrdinaryPresentationResourcePreflightFailure(");
+        string prepareArming = ExtractMethod(
+            probeSource,
+            "internal void ArmNextOrdinaryPrepareFailure()",
+            "internal bool IsOrdinaryPrepareFailureArmed()");
+
+        int settingsSnapshot = ordinaryBuild.IndexOf(
+            "Config.CaptureRoadTypeStyleSnapshot()",
+            StringComparison.Ordinal);
+        int revisionSnapshot = ordinaryBuild.IndexOf(
+            "RoadGraphRevision revision = graph.CaptureRevision();",
+            StringComparison.Ordinal);
+        int preparerCreation = ordinaryBuild.IndexOf(
+            "var preparer = new RoadRendererLoadPreparer(settings);",
+            StringComparison.Ordinal);
+        int prepareFailureProbe = ordinaryBuild.IndexOf(
+            "ProbeOrdinaryPrepareFailure(targetToken);",
+            StringComparison.Ordinal);
+        int prepare = ordinaryBuild.IndexOf("preparer.Prepare(revision)", StringComparison.Ordinal);
+        int roadMeshCreation = ordinaryBuild.IndexOf(
+            "roadMesh = CreateRoadMesh(",
+            StringComparison.Ordinal);
+
+        Assert.True(settingsSnapshot >= 0 && settingsSnapshot < revisionSnapshot);
+        Assert.True(revisionSnapshot < preparerCreation);
+        Assert.True(preparerCreation < prepareFailureProbe && prepareFailureProbe < prepare);
+        Assert.True(prepare < roadMeshCreation);
+        Assert.Contains(
+            "partial void ProbeOrdinaryPrepareFailure(",
+            rendererSource,
+            StringComparison.Ordinal);
+        Assert.Contains("targetToken == armedToken", prepareProbe, StringComparison.Ordinal);
+        Assert.Contains("_ordinaryPrepareFailureArmed = false;", prepareProbe, StringComparison.Ordinal);
+        Assert.Contains("_ordinaryPrepareFailureArmToken = null;", prepareProbe, StringComparison.Ordinal);
+        Assert.Contains("_ordinaryPrepareFailureCount++;", prepareProbe, StringComparison.Ordinal);
+        Assert.Contains("OrdinaryPrepareFailureMessage", prepareProbe, StringComparison.Ordinal);
+        Assert.Contains(
+            "_ordinaryPresentationResourcePreflightFailureArmed",
+            prepareArming,
+            StringComparison.Ordinal);
+        Assert.Contains("_ordinaryNodeBatchFactoryFailureArmed", prepareArming, StringComparison.Ordinal);
+        Assert.Contains("_ordinaryRoadMeshFactoryFailureArmed", prepareArming, StringComparison.Ordinal);
+        Assert.Contains("_ordinaryRoadSurfaceSnapshotFailureArmed", prepareArming, StringComparison.Ordinal);
+        Assert.Contains("_ordinaryPreCommitTokenSupersessionArmed", prepareArming, StringComparison.Ordinal);
+        Assert.Equal(
+            6,
+            probeSource.Split(
+                "if (_ordinaryPrepareFailureArmed)",
+                StringSplitOptions.None).Length - 1);
+    }
+
+    [Fact]
     public void OrdinaryFailureKeepsPreparedStateUnpublishedAndExposesRetry()
     {
         string source = File.ReadAllText(

@@ -33,6 +33,8 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
     internal event Action<RoadRenderToken>? PresentationReady;
     internal event Action<RoadPresentationFailure>? PresentationStalled;
 
+    partial void ProbeOrdinaryPrepareFailure(
+        RoadRenderToken targetToken);
     partial void ProbeOrdinaryPresentationResourcePreflightFailure(
         RoadRenderToken targetToken);
     partial void ProbeOrdinaryRoadMeshFactoryFailure(
@@ -499,6 +501,7 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
 
             long prepareStarted = Stopwatch.GetTimestamp();
             var preparer = new RoadRendererLoadPreparer(settings);
+            ProbeOrdinaryPrepareFailure(targetToken);
             RoadRendererPreparedLoad prepared = _rebuildAllDisplayPaths
                 ? preparer.Prepare(revision)
                 : preparer.Prepare(
