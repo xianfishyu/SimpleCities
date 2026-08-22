@@ -1,5 +1,7 @@
 using Godot;
 using System;
+using System.Collections;
+using System.Collections.Generic;
 
 public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
 {
@@ -13,6 +15,12 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
     {
         ArgumentNullException.ThrowIfNull(renderer);
         return renderer.ProbeUncommittedLoadPlanDisposal();
+    }
+
+    public Godot.Collections.Dictionary RunNodeBatchFactoryFailure(RoadRenderer renderer)
+    {
+        ArgumentNullException.ThrowIfNull(renderer);
+        return renderer.ProbeNodeBatchFactoryFailure();
     }
 }
 
@@ -119,5 +127,72 @@ public partial class RoadRenderer
             ["nodeBatchPreserved"] = ReferenceEquals(retainedNodeBatch, _nodeBatchLayer.Multimesh),
             ["surfacePreserved"] = ReferenceEquals(retainedSurface, _presentedSurface),
         };
+    }
+
+    internal Godot.Collections.Dictionary ProbeNodeBatchFactoryFailure()
+    {
+        Mesh? retainedRoadMesh = _roadBatchLayer.Mesh;
+        MultiMesh retainedNodeBatch = _nodeBatchLayer.Multimesh;
+        RoadSurfaceSnapshot? retainedSurface = _presentedSurface;
+        long resourceCountBefore = Convert.ToInt64(
+            Performance.GetMonitor(Performance.Monitor.ObjectResourceCount));
+        var markers = new ThrowingNodeMarkerList();
+        bool failedInsideFactory = false;
+        string exceptionType = string.Empty;
+        string exceptionMessage = string.Empty;
+
+        try
+        {
+            using MultiMesh batch = CreateNodeBatch(markers);
+        }
+        catch (Exception exception)
+        {
+            exceptionType = exception.GetType().Name;
+            exceptionMessage = exception.Message;
+            failedInsideFactory = exception is InvalidOperationException &&
+                string.Equals(
+                    exception.Message,
+                    ThrowingNodeMarkerList.InjectedMessage,
+                    StringComparison.Ordinal);
+        }
+
+        long resourceCountAfter = Convert.ToInt64(
+            Performance.GetMonitor(Performance.Monitor.ObjectResourceCount));
+        return new Godot.Collections.Dictionary
+        {
+            ["failedInsideFactory"] = failedInsideFactory,
+            ["markerIndexerRead"] = markers.IndexerRead,
+            ["exceptionType"] = exceptionType,
+            ["exceptionMessage"] = exceptionMessage,
+            ["resourceCountBefore"] = resourceCountBefore,
+            ["resourceCountAfter"] = resourceCountAfter,
+            ["roadMeshPreserved"] = ReferenceEquals(retainedRoadMesh, _roadBatchLayer.Mesh),
+            ["nodeBatchPreserved"] = ReferenceEquals(retainedNodeBatch, _nodeBatchLayer.Multimesh),
+            ["surfacePreserved"] = ReferenceEquals(retainedSurface, _presentedSurface),
+        };
+    }
+
+    private sealed class ThrowingNodeMarkerList : IReadOnlyList<RoadRendererNodeMarker>
+    {
+        internal const string InjectedMessage = "Injected CreateNodeBatch marker read failure.";
+
+        internal bool IndexerRead { get; private set; }
+
+        public int Count => 1;
+
+        public RoadRendererNodeMarker this[int index]
+        {
+            get
+            {
+                IndexerRead = true;
+                throw new InvalidOperationException(InjectedMessage);
+            }
+        }
+
+        public IEnumerator<RoadRendererNodeMarker> GetEnumerator() =>
+            ((IEnumerable<RoadRendererNodeMarker>)Array.Empty<RoadRendererNodeMarker>())
+                .GetEnumerator();
+
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
 }

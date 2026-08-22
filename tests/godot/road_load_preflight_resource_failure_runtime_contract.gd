@@ -124,6 +124,25 @@ func run() -> void:
 		"Uncommitted load plan disposal leaked resources or replaced retained references: %s" %
 		JSON.stringify(plan_disposal_result)):
 		return
+
+	var node_batch_failure_result: Dictionary = probe.RunNodeBatchFactoryFailure(renderer)
+	if not require(
+		bool(node_batch_failure_result.get("failedInsideFactory", false)) and
+		bool(node_batch_failure_result.get("markerIndexerRead", false)) and
+		str(node_batch_failure_result.get("exceptionType", "")) ==
+			"InvalidOperationException",
+		"CreateNodeBatch did not fail from its marker loop: %s" %
+		JSON.stringify(node_batch_failure_result)):
+		return
+	if not require(
+		int(node_batch_failure_result.get("resourceCountAfter", -1)) ==
+		int(node_batch_failure_result.get("resourceCountBefore", -2)) and
+		bool(node_batch_failure_result.get("roadMeshPreserved", false)) and
+		bool(node_batch_failure_result.get("nodeBatchPreserved", false)) and
+		bool(node_batch_failure_result.get("surfacePreserved", false)),
+		"CreateNodeBatch failure leaked its MultiMesh or replaced retained references: %s" %
+		JSON.stringify(node_batch_failure_result)):
+		return
 	if not require(
 		str(save_manager.get("CurrentSlotID")) == active_slot_id and
 		int(tool_manager.get("CurrentTool")) == TOOL_ROAD and
@@ -187,6 +206,12 @@ func run() -> void:
 		"plan_resource_count_after": int(
 			plan_disposal_result.get("resourceCountAfter", -1)),
 		"plan_became_stale": bool(plan_disposal_result.get("planBecameStale", false)),
+		"node_batch_exception_type": str(
+			node_batch_failure_result.get("exceptionType", "")),
+		"node_batch_resource_count_before": int(
+			node_batch_failure_result.get("resourceCountBefore", -1)),
+		"node_batch_resource_count_after": int(
+			node_batch_failure_result.get("resourceCountAfter", -1)),
 		"load_result_kind": int(load_result.get("resultKind", -1)),
 	}))
 	await cleanup()
