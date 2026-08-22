@@ -53,6 +53,25 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
         _renderer = renderer;
     }
 
+    public void ArmAggregateLoadRoadMeshFactoryFailure(RoadRenderer renderer)
+    {
+        ArgumentNullException.ThrowIfNull(renderer);
+        renderer.ArmNextAggregateLoadRoadMeshFactoryFailure();
+        _renderer = renderer;
+    }
+
+    public bool IsAggregateLoadRoadMeshFactoryFailureArmed() =>
+        _renderer?.IsAggregateLoadRoadMeshFactoryFailureArmed() ?? false;
+
+    public int GetAggregateLoadRoadMeshFactoryFailureCount() =>
+        _renderer?.GetAggregateLoadRoadMeshFactoryFailureCount() ?? 0;
+
+    public int GetAggregateLoadRoadMeshFactoryIndexEnumerationCount() =>
+        _renderer?.GetAggregateLoadRoadMeshFactoryIndexEnumerationCount() ?? 0;
+
+    public string GetAggregateLoadRoadMeshFactoryFailureMessage() =>
+        RoadRenderer.AggregateLoadRoadMeshFactoryFailureMessage;
+
     public void ArmAggregateLoadNodeBatchFactoryFailure(RoadRenderer renderer)
     {
         ArgumentNullException.ThrowIfNull(renderer);
@@ -420,16 +439,67 @@ public partial class ToolManager
 
 public partial class RoadRenderer
 {
+    internal const string AggregateLoadRoadMeshFactoryFailureMessage =
+        "Injected aggregate Load CreateRoadMesh index enumeration failure.";
     internal const string AggregateLoadNodeBatchFactoryFailureMessage =
         "Injected aggregate Load CreateNodeBatch marker read failure.";
     internal const string AggregateLoadResourcePreflightFailureMessage =
         "Injected aggregate Load road presentation resource preflight failure.";
 
+    private bool _aggregateLoadRoadMeshFactoryFailureArmed;
+    private int _aggregateLoadRoadMeshFactoryFailureCount;
+    private int _aggregateLoadRoadMeshFactoryIndexEnumerationCount;
     private bool _aggregateLoadNodeBatchFactoryFailureArmed;
     private int _aggregateLoadNodeBatchFactoryFailureCount;
     private int _aggregateLoadNodeBatchFactoryMarkerReadCount;
     private bool _aggregateLoadResourcePreflightFailureArmed;
     private int _aggregateLoadResourcePreflightFailureCount;
+
+    partial void ProbeAggregateLoadRoadMeshFactoryFailure(
+        ref IReadOnlyCollection<int> roadIndices)
+    {
+        if (!_aggregateLoadRoadMeshFactoryFailureArmed)
+            return;
+
+        _aggregateLoadRoadMeshFactoryFailureArmed = false;
+        _aggregateLoadRoadMeshFactoryFailureCount++;
+        roadIndices = new AggregateLoadRoadMeshFactoryFailureIndices(this);
+    }
+
+    internal void ArmNextAggregateLoadRoadMeshFactoryFailure()
+    {
+        if (!IsPresentationReady() || _loadAdmission is not null)
+        {
+            throw new InvalidOperationException(
+                "Road presentation must be ready and idle before arming its aggregate Load failure probe.");
+        }
+        if (_aggregateLoadRoadMeshFactoryFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load road-mesh factory failure probe is already armed.");
+        }
+        if (_aggregateLoadNodeBatchFactoryFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load node-batch factory failure probe is already armed.");
+        }
+        if (_aggregateLoadResourcePreflightFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load resource preflight failure probe is already armed.");
+        }
+
+        _aggregateLoadRoadMeshFactoryFailureArmed = true;
+    }
+
+    internal bool IsAggregateLoadRoadMeshFactoryFailureArmed() =>
+        _aggregateLoadRoadMeshFactoryFailureArmed;
+
+    internal int GetAggregateLoadRoadMeshFactoryFailureCount() =>
+        _aggregateLoadRoadMeshFactoryFailureCount;
+
+    internal int GetAggregateLoadRoadMeshFactoryIndexEnumerationCount() =>
+        _aggregateLoadRoadMeshFactoryIndexEnumerationCount;
 
     partial void ProbeAggregateLoadNodeBatchFactoryFailure(
         ref IReadOnlyList<RoadRendererNodeMarker> nodeMarkers)
@@ -458,6 +528,11 @@ public partial class RoadRenderer
         {
             throw new InvalidOperationException(
                 "Aggregate Load resource preflight failure probe is already armed.");
+        }
+        if (_aggregateLoadRoadMeshFactoryFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load road-mesh factory failure probe is already armed.");
         }
 
         _aggregateLoadNodeBatchFactoryFailureArmed = true;
@@ -500,6 +575,11 @@ public partial class RoadRenderer
             throw new InvalidOperationException(
                 "Aggregate Load node-batch factory failure probe is already armed.");
         }
+        if (_aggregateLoadRoadMeshFactoryFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load road-mesh factory failure probe is already armed.");
+        }
 
         _aggregateLoadResourcePreflightFailureArmed = true;
     }
@@ -509,6 +589,21 @@ public partial class RoadRenderer
 
     internal int GetAggregateLoadResourcePreflightFailureCount() =>
         _aggregateLoadResourcePreflightFailureCount;
+
+    private sealed class AggregateLoadRoadMeshFactoryFailureIndices(RoadRenderer owner)
+        : IReadOnlyCollection<int>
+    {
+        public int Count => 1;
+
+        public IEnumerator<int> GetEnumerator()
+        {
+            owner._aggregateLoadRoadMeshFactoryIndexEnumerationCount++;
+            throw new InvalidOperationException(
+                AggregateLoadRoadMeshFactoryFailureMessage);
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+    }
 
     private sealed class AggregateLoadNodeBatchFactoryFailureMarkers(RoadRenderer owner)
         : IReadOnlyList<RoadRendererNodeMarker>

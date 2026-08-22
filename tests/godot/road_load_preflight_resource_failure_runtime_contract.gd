@@ -254,6 +254,67 @@ func run() -> void:
 		JSON.stringify(road_mesh_failure_result)):
 		return
 
+	var aggregate_road_mesh_resource_count_before := int(probe.GetObjectResourceCount())
+	var aggregate_road_mesh_failure_message := str(
+		probe.GetAggregateLoadRoadMeshFactoryFailureMessage())
+	probe.ArmAggregateLoadRoadMeshFactoryFailure(renderer)
+	if not require(
+		bool(probe.IsAggregateLoadRoadMeshFactoryFailureArmed()),
+		"Aggregate Load road-mesh factory failure probe did not arm"):
+		return
+	var aggregate_road_mesh_failed_load_result := await run_load(active_slot_id)
+	if not require(
+		int(aggregate_road_mesh_failed_load_result.get("resultKind", -1)) == RESULT_FAILED and
+		not bool(aggregate_road_mesh_failed_load_result.get("committed", true)) and
+		str(aggregate_road_mesh_failed_load_result.get("warnings", "")).is_empty() and
+		str(aggregate_road_mesh_failed_load_result.get("error", "")) ==
+			aggregate_road_mesh_failure_message,
+		"Aggregate Load did not fail inside CreateRoadMesh before commit: %s" %
+		JSON.stringify(aggregate_road_mesh_failed_load_result)):
+		return
+	var aggregate_road_mesh_resource_count_after := int(probe.GetObjectResourceCount())
+	if not require(
+		not bool(probe.IsAggregateLoadRoadMeshFactoryFailureArmed()) and
+		int(probe.GetAggregateLoadRoadMeshFactoryFailureCount()) == 1 and
+		int(probe.GetAggregateLoadRoadMeshFactoryIndexEnumerationCount()) == 1 and
+		aggregate_road_mesh_resource_count_after ==
+			aggregate_road_mesh_resource_count_before,
+		"Aggregate road-mesh factory failure did not release its preflight resource: %s" %
+		JSON.stringify({
+			"armed": bool(probe.IsAggregateLoadRoadMeshFactoryFailureArmed()),
+			"triggerCount": int(probe.GetAggregateLoadRoadMeshFactoryFailureCount()),
+			"indexEnumerationCount": int(
+				probe.GetAggregateLoadRoadMeshFactoryIndexEnumerationCount()),
+			"resourceCountBefore": aggregate_road_mesh_resource_count_before,
+			"resourceCountAfter": aggregate_road_mesh_resource_count_after,
+		})):
+		return
+	if not require(
+		str(save_manager.get("CurrentSlotID")) == active_slot_id and
+		int(tool_manager.get("CurrentTool")) == TOOL_ROAD and
+		builder.HasActivePlaceSession() and
+		builder.GetFixedCornerCount() == 1 and
+		builder.GetUndoEditCount() == undo_count_before and
+		builder.GetRedoEditCount() == redo_count_before and
+		renderer.GetRenderedEdgeCount() == edge_count_before and
+		renderer.GetRoadMeshVertexCount() == vertex_count_before and
+		renderer.GetNodeMarkerCount() == marker_count_before and
+		renderer.GetPresentationState() == presentation_before and
+		renderer.FindRoadSurfaceHit(Vector2(400.0, 300.0), 0.0) == hit_before,
+		"Aggregate road-mesh factory failure changed graph, tool, presentation, surface, token, or slot state"):
+		return
+
+	if not require(
+		await V3_SAVE_FIXTURE.save(save_manager, active_slot_id),
+		"Could not recapture the active graph after aggregate road-mesh factory failure"):
+		return
+	var aggregate_road_mesh_payload_after := FileAccess.get_file_as_string(
+		V3_SAVE_FIXTURE.slot_path(active_slot_id, V3_SAVE_FIXTURE.PAYLOAD_FILE_NAME))
+	if not require(
+		aggregate_road_mesh_payload_after == active_payload_before,
+		"Aggregate road-mesh factory failure changed RoadGraph"):
+		return
+
 	var aggregate_node_batch_resource_count_before := int(probe.GetObjectResourceCount())
 	var aggregate_node_batch_failure_message := str(
 		probe.GetAggregateLoadNodeBatchFactoryFailureMessage())
@@ -607,6 +668,18 @@ func run() -> void:
 			road_mesh_failure_result.get("resourceCountBefore", -1)),
 		"road_mesh_resource_count_after": int(
 			road_mesh_failure_result.get("resourceCountAfter", -1)),
+		"aggregate_road_mesh_failure_result_kind": int(
+			aggregate_road_mesh_failed_load_result.get("resultKind", -1)),
+		"aggregate_road_mesh_failure_committed": bool(
+			aggregate_road_mesh_failed_load_result.get("committed", true)),
+		"aggregate_road_mesh_failure_trigger_count": int(
+			probe.GetAggregateLoadRoadMeshFactoryFailureCount()),
+		"aggregate_road_mesh_index_enumeration_count": int(
+			probe.GetAggregateLoadRoadMeshFactoryIndexEnumerationCount()),
+		"aggregate_road_mesh_resource_count_before":
+			aggregate_road_mesh_resource_count_before,
+		"aggregate_road_mesh_resource_count_after":
+			aggregate_road_mesh_resource_count_after,
 		"aggregate_node_batch_failure_result_kind": int(
 			aggregate_node_batch_failed_load_result.get("resultKind", -1)),
 		"aggregate_node_batch_failure_committed": bool(

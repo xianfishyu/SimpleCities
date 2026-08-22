@@ -5,6 +5,8 @@ using System.Linq;
 
 public partial class RoadRenderer
 {
+    partial void ProbeAggregateLoadRoadMeshFactoryFailure(
+        ref IReadOnlyCollection<int> roadIndices);
     partial void ProbeAggregateLoadNodeBatchFactoryFailure(
         ref IReadOnlyList<RoadRendererNodeMarker> nodeMarkers);
     partial void ProbeAggregateLoadResourcePreflightFailure();
@@ -62,11 +64,13 @@ public partial class RoadRenderer
         MultiMesh? nodeBatch = null;
         try
         {
+            IReadOnlyCollection<int> roadIndices = prepared.RoadIndices;
+            ProbeAggregateLoadRoadMeshFactoryFailure(ref roadIndices);
             roadMesh = CreateRoadMesh(
                 prepared.RoadVertices,
                 prepared.RoadUvs,
                 prepared.RoadColors,
-                prepared.RoadIndices);
+                roadIndices);
             IReadOnlyList<RoadRendererNodeMarker> nodeMarkers = prepared.NodeMarkers;
             ProbeAggregateLoadNodeBatchFactoryFailure(ref nodeMarkers);
             nodeBatch = CreateNodeBatch(nodeMarkers);

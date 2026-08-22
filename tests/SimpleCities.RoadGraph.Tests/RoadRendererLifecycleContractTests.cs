@@ -530,6 +530,77 @@ public sealed class RoadRendererLifecycleContractTests
     }
 
     [Fact]
+    public void AggregateRoadMeshFactoryFailureRunsInsideOwnedLoadPreflight()
+    {
+        string loadSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.LoadCommit.cs"));
+        string rendererSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.cs"));
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadLoadPreflightResourceFailureProbe.cs"));
+        string loadPreflight = ExtractMethod(
+            loadSource,
+            "internal INonThrowingLoadCommitPlan PreflightPreparedLoad",
+            "private bool IsLoadAdmissionCurrent");
+        string roadMeshFactory = ExtractMethod(
+            rendererSource,
+            "private static ArrayMesh? CreateRoadMesh",
+            "private static TResource InitializeOwnedResource");
+        string factoryProbe = ExtractMethod(
+            probeSource,
+            "partial void ProbeAggregateLoadRoadMeshFactoryFailure(",
+            "internal void ArmNextAggregateLoadRoadMeshFactoryFailure()");
+
+        int roadIndexCapture = loadPreflight.IndexOf(
+            "IReadOnlyCollection<int> roadIndices = prepared.RoadIndices;",
+            StringComparison.Ordinal);
+        int roadMeshFailureProbe = loadPreflight.IndexOf(
+            "ProbeAggregateLoadRoadMeshFactoryFailure(ref roadIndices);",
+            StringComparison.Ordinal);
+        int roadMeshCreation = loadPreflight.IndexOf(
+            "roadMesh = CreateRoadMesh(",
+            StringComparison.Ordinal);
+        int nodeMarkerCapture = loadPreflight.IndexOf(
+            "IReadOnlyList<RoadRendererNodeMarker> nodeMarkers = prepared.NodeMarkers;",
+            StringComparison.Ordinal);
+        int resourceCreation = roadMeshFactory.IndexOf(
+            "new ArrayMesh()",
+            StringComparison.Ordinal);
+        int indexEnumeration = roadMeshFactory.IndexOf(
+            "state.Indices.ToArray()",
+            StringComparison.Ordinal);
+        int surfaceInitialization = roadMeshFactory.IndexOf(
+            "mesh.AddSurfaceFromArrays(",
+            StringComparison.Ordinal);
+
+        Assert.True(roadIndexCapture >= 0 && roadIndexCapture < roadMeshFailureProbe);
+        Assert.True(roadMeshFailureProbe < roadMeshCreation);
+        Assert.True(roadMeshCreation < nodeMarkerCapture);
+        Assert.True(resourceCreation >= 0 && resourceCreation < indexEnumeration);
+        Assert.True(indexEnumeration < surfaceInitialization);
+        Assert.Contains(
+            "ref IReadOnlyCollection<int> roadIndices",
+            loadSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadRoadMeshFactoryFailureArmed = false;",
+            factoryProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "roadIndices = new AggregateLoadRoadMeshFactoryFailureIndices(this);",
+            factoryProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "owner._aggregateLoadRoadMeshFactoryIndexEnumerationCount++;",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "AggregateLoadRoadMeshFactoryFailureMessage);",
+            probeSource,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AggregateNodeBatchFactoryFailureRunsInsideOwnedLoadPreflight()
     {
         string loadSource = File.ReadAllText(
