@@ -399,8 +399,17 @@ public sealed class RoadRendererLifecycleContractTests
         int postSlotFailureProbe = loadOrchestration.IndexOf(
             "ProbeAggregateLoadPostSlotPreflightFailure();",
             StringComparison.Ordinal);
+        int aggregateCreation = loadOrchestration.IndexOf(
+            "using var aggregate = new PreparedAggregateLoad(preflightPlans);",
+            StringComparison.Ordinal);
         int aggregateOwnership = loadOrchestration.IndexOf(
             "aggregateOwnsPlans = true;",
+            StringComparison.Ordinal);
+        int postOwnershipFailureProbe = loadOrchestration.IndexOf(
+            "ProbeAggregateLoadPostOwnershipPreCommitFailure();",
+            StringComparison.Ordinal);
+        int aggregateCommit = loadOrchestration.IndexOf(
+            "IReadOnlyList<string> warnings = aggregate.Commit(lease);",
             StringComparison.Ordinal);
         int fallbackPlanDisposal = loadOrchestration.LastIndexOf(
             "foreach (INonThrowingLoadCommitPlan plan in preflightPlans)",
@@ -408,8 +417,11 @@ public sealed class RoadRendererLifecycleContractTests
 
         Assert.True(rendererPlan >= 0 && rendererPlan < postRendererFailureProbe);
         Assert.True(postRendererFailureProbe < slotPlan && slotPlan < postSlotFailureProbe);
-        Assert.True(postSlotFailureProbe < aggregateOwnership);
-        Assert.True(aggregateOwnership < fallbackPlanDisposal);
+        Assert.True(postSlotFailureProbe < aggregateCreation);
+        Assert.True(aggregateCreation < aggregateOwnership);
+        Assert.True(aggregateOwnership < postOwnershipFailureProbe);
+        Assert.True(postOwnershipFailureProbe < aggregateCommit);
+        Assert.True(aggregateCommit < fallbackPlanDisposal);
         Assert.Contains("plan.Dispose();", loadOrchestration[fallbackPlanDisposal..]);
     }
 

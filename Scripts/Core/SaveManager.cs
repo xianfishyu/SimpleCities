@@ -12,6 +12,7 @@ public partial class SaveManager : Node
 {
     partial void ProbeAggregateLoadPostRendererPreflightFailure();
     partial void ProbeAggregateLoadPostSlotPreflightFailure();
+    partial void ProbeAggregateLoadPostOwnershipPreCommitFailure();
 
     public static SaveManager Instance { get; private set; } = null!;
 
@@ -702,6 +703,7 @@ public partial class SaveManager : Node
 
                 using var aggregate = new PreparedAggregateLoad(preflightPlans);
                 aggregateOwnsPlans = true;
+                ProbeAggregateLoadPostOwnershipPreCommitFailure();
                 TimeSpan preflightDuration = Stopwatch.GetElapsedTime(preflightStarted);
                 long aggregateCommitStarted = Stopwatch.GetTimestamp();
                 IReadOnlyList<string> warnings = aggregate.Commit(lease);

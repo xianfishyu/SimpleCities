@@ -330,6 +330,64 @@ func run() -> void:
 		"Post-slot aggregate failure changed RoadGraph"):
 		return
 
+	var post_ownership_resource_count_before := int(probe.GetObjectResourceCount())
+	var post_ownership_failure_message := str(
+		probe.GetAggregateLoadPostOwnershipPreCommitFailureMessage())
+	probe.ArmAggregateLoadPostOwnershipPreCommitFailure(save_manager)
+	if not require(
+		bool(probe.IsAggregateLoadPostOwnershipPreCommitFailureArmed()),
+		"Post-ownership aggregate Load failure probe did not arm"):
+		return
+	var post_ownership_failed_load_result := await run_load(source_slot_id)
+	if not require(
+		int(post_ownership_failed_load_result.get("resultKind", -1)) == RESULT_FAILED and
+		not bool(post_ownership_failed_load_result.get("committed", true)) and
+		str(post_ownership_failed_load_result.get("warnings", "")).is_empty() and
+		str(post_ownership_failed_load_result.get("error", "")) ==
+			post_ownership_failure_message,
+		"Aggregate Load did not fail after ownership transfer and before commit: %s" %
+		JSON.stringify(post_ownership_failed_load_result)):
+		return
+	var post_ownership_resource_count_after := int(probe.GetObjectResourceCount())
+	if not require(
+		not bool(probe.IsAggregateLoadPostOwnershipPreCommitFailureArmed()) and
+		int(probe.GetAggregateLoadPostOwnershipPreCommitFailureCount()) == 1 and
+		post_ownership_resource_count_after == post_ownership_resource_count_before,
+		"Post-ownership aggregate failure did not dispose every owned plan and resource: %s" %
+		JSON.stringify({
+			"armed": bool(probe.IsAggregateLoadPostOwnershipPreCommitFailureArmed()),
+			"triggerCount": int(
+				probe.GetAggregateLoadPostOwnershipPreCommitFailureCount()),
+			"resourceCountBefore": post_ownership_resource_count_before,
+			"resourceCountAfter": post_ownership_resource_count_after,
+		})):
+		return
+	if not require(
+		str(save_manager.get("CurrentSlotID")) == active_slot_id and
+		int(tool_manager.get("CurrentTool")) == TOOL_ROAD and
+		builder.HasActivePlaceSession() and
+		builder.GetFixedCornerCount() == 1 and
+		builder.GetUndoEditCount() == undo_count_before and
+		builder.GetRedoEditCount() == redo_count_before and
+		renderer.GetRenderedEdgeCount() == edge_count_before and
+		renderer.GetRoadMeshVertexCount() == vertex_count_before and
+		renderer.GetNodeMarkerCount() == marker_count_before and
+		renderer.GetPresentationState() == presentation_before and
+		renderer.FindRoadSurfaceHit(Vector2(400.0, 300.0), 0.0) == hit_before,
+		"Post-ownership aggregate failure changed graph, tool, presentation, surface, token, or slot state"):
+		return
+
+	if not require(
+		await V3_SAVE_FIXTURE.save(save_manager, active_slot_id),
+		"Could not recapture the active graph after post-ownership aggregate failure"):
+		return
+	var post_ownership_payload_after := FileAccess.get_file_as_string(
+		V3_SAVE_FIXTURE.slot_path(active_slot_id, V3_SAVE_FIXTURE.PAYLOAD_FILE_NAME))
+	if not require(
+		post_ownership_payload_after == active_payload_before,
+		"Post-ownership aggregate failure changed RoadGraph"):
+		return
+
 	var load_result := await run_load(source_slot_id)
 	if not require(
 		int(load_result.get("resultKind", -1)) == RESULT_SUCCEEDED and
@@ -403,6 +461,14 @@ func run() -> void:
 			probe.GetAggregateLoadPostSlotPreflightFailureCount()),
 		"post_slot_resource_count_before": post_slot_resource_count_before,
 		"post_slot_resource_count_after": post_slot_resource_count_after,
+		"post_ownership_failure_result_kind": int(
+			post_ownership_failed_load_result.get("resultKind", -1)),
+		"post_ownership_failure_committed": bool(
+			post_ownership_failed_load_result.get("committed", true)),
+		"post_ownership_failure_trigger_count": int(
+			probe.GetAggregateLoadPostOwnershipPreCommitFailureCount()),
+		"post_ownership_resource_count_before": post_ownership_resource_count_before,
+		"post_ownership_resource_count_after": post_ownership_resource_count_after,
 		"load_result_kind": int(load_result.get("resultKind", -1)),
 	}))
 	await cleanup()

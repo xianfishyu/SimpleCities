@@ -80,6 +80,22 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
     public string GetAggregateLoadPostSlotPreflightFailureMessage() =>
         SaveManager.AggregateLoadPostSlotPreflightFailureMessage;
 
+    public void ArmAggregateLoadPostOwnershipPreCommitFailure(SaveManager saveManager)
+    {
+        ArgumentNullException.ThrowIfNull(saveManager);
+        saveManager.ArmNextAggregateLoadPostOwnershipPreCommitFailure();
+        _saveManager = saveManager;
+    }
+
+    public bool IsAggregateLoadPostOwnershipPreCommitFailureArmed() =>
+        _saveManager?.IsAggregateLoadPostOwnershipPreCommitFailureArmed() ?? false;
+
+    public int GetAggregateLoadPostOwnershipPreCommitFailureCount() =>
+        _saveManager?.GetAggregateLoadPostOwnershipPreCommitFailureCount() ?? 0;
+
+    public string GetAggregateLoadPostOwnershipPreCommitFailureMessage() =>
+        SaveManager.AggregateLoadPostOwnershipPreCommitFailureMessage;
+
     public long GetObjectResourceCount() => Convert.ToInt64(
         Performance.GetMonitor(Performance.Monitor.ObjectResourceCount));
 }
@@ -90,11 +106,15 @@ public partial class SaveManager
         "Injected aggregate Load failure after road presentation preflight.";
     internal const string AggregateLoadPostSlotPreflightFailureMessage =
         "Injected aggregate Load failure after slot-target preflight.";
+    internal const string AggregateLoadPostOwnershipPreCommitFailureMessage =
+        "Injected aggregate Load failure after ownership transfer and before commit.";
 
     private bool _aggregateLoadPostRendererPreflightFailureArmed;
     private int _aggregateLoadPostRendererPreflightFailureCount;
     private bool _aggregateLoadPostSlotPreflightFailureArmed;
     private int _aggregateLoadPostSlotPreflightFailureCount;
+    private bool _aggregateLoadPostOwnershipPreCommitFailureArmed;
+    private int _aggregateLoadPostOwnershipPreCommitFailureCount;
 
     partial void ProbeAggregateLoadPostRendererPreflightFailure()
     {
@@ -161,6 +181,39 @@ public partial class SaveManager
 
     internal int GetAggregateLoadPostSlotPreflightFailureCount() =>
         _aggregateLoadPostSlotPreflightFailureCount;
+
+    partial void ProbeAggregateLoadPostOwnershipPreCommitFailure()
+    {
+        if (!_aggregateLoadPostOwnershipPreCommitFailureArmed)
+            return;
+
+        _aggregateLoadPostOwnershipPreCommitFailureArmed = false;
+        _aggregateLoadPostOwnershipPreCommitFailureCount++;
+        throw new InvalidOperationException(
+            AggregateLoadPostOwnershipPreCommitFailureMessage);
+    }
+
+    internal void ArmNextAggregateLoadPostOwnershipPreCommitFailure()
+    {
+        if (IsOperationBusy)
+        {
+            throw new InvalidOperationException(
+                "SaveManager must be idle before arming its aggregate Load failure probe.");
+        }
+        if (_aggregateLoadPostOwnershipPreCommitFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load post-ownership pre-commit failure probe is already armed.");
+        }
+
+        _aggregateLoadPostOwnershipPreCommitFailureArmed = true;
+    }
+
+    internal bool IsAggregateLoadPostOwnershipPreCommitFailureArmed() =>
+        _aggregateLoadPostOwnershipPreCommitFailureArmed;
+
+    internal int GetAggregateLoadPostOwnershipPreCommitFailureCount() =>
+        _aggregateLoadPostOwnershipPreCommitFailureCount;
 }
 
 public partial class RoadRenderer
