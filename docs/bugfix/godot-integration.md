@@ -64,3 +64,35 @@ QA 预设依赖逐项 `exclude_filter`，新增测试入口后没有任何自动
 - `ExportPresetContractTests.WindowsDesktopQa_ExportsOnlyTheDedicatedSaveContractResourcesFromTests` 通过，候选集合重新精确收敛为 5 个 exported-save contract/fixture 文件。
 - `dotnet test SimpleCities.sln --no-restore`：727/727 通过；Debug 与 `ExportRelease` build 均为 0 警告、0 错误；Roslyn compiler/analyzer 为 0 diagnostics。
 - `road_closed_ribbon_runtime_contract.gd` 仍可在本地独立运行并输出 `PASS`；本条没有把 `ExportRelease` build 等同于重新生成并执行 Windows QA 导出包。
+
+---
+
+<a id="godot-integration-bug-3"></a>
+## BUG-3：道路 Load 故障契约在打印 PASS 后于托管终结阶段崩溃
+
+> 修复日期：2026-08-23
+> 影响文件：`tests/godot/RoadLoadPreflightResourceFailureProbe.cs`、`tests/godot/road_load_preflight_resource_failure_runtime_contract.gd`
+> 关联事项：第三代道路系统 Phase 7 真实 `Load` 故障边界契约
+
+### 症状
+
+`road_load_preflight_resource_failure_runtime_contract.gd` 已完成全部断言并打印 `PASS road load preflight resource failure runtime contract`，但 Godot CLI 随后在退出阶段以 `0xC0000005` 结束；堆栈落在 `Godot.Collections.Array.Finalize()`。契约内容已经通过，但进程退出码仍把正式运行判为失败。
+
+### 根因分析
+
+契约清理原先只把 `RoadLoadPreflightResourceFailureProbe` 引用设为 `null`，没有在 Godot 托管绑定仍有效时等待其持有的 Godot 集合包装器完成终结。相关终结器因而可能延迟到引擎退出、原生绑定开始拆卸之后运行，`Godot.Collections.Array.Finalize()` 再访问已经失效的原生状态并触发访问冲突。
+
+### 修复方案
+
+在测试专用 probe 中增加 `FlushPendingManagedFinalizers()`，依次执行 `GC.Collect()`、`GC.WaitForPendingFinalizers()` 和第二次 `GC.Collect()`。GDScript 清理流程先删除测试槽、释放测试场景并等待一帧，再调用该入口，最后才释放 probe 引用并执行 `quit()`，从而把托管终结阶段约束在 Godot 互操作运行时仍有效的窗口内。该入口只存在于测试 partial，不改变生产 `ExportRelease` 行为。
+
+### 影响范围
+
+只影响道路 Load 故障运行时契约的 CLI 清理顺序；生产存档流程、RoadGraph、renderer、工具状态和正式导出程序集不变。故障契约仍会在成功与失败退出路径中删除临时槽和测试场景。
+
+## BUG-3 验证状态
+
+- 正式 Vulkan 1.4.341 Forward+ 运行 `road_load_preflight_resource_failure_runtime_contract.gd`：打印 `PASS`、退出码为 0，minimal stderr/console 均为空，未再出现 `Godot.Collections.Array.Finalize()` 访问冲突。
+- Debug 与 `ExportRelease` build 均为 0 警告、0 错误；Debug 反射确认 `FlushPendingManagedFinalizers()` 存在，`ExportRelease` 中测试 probe 类型不存在。
+- `RoadRendererLifecycleContractTests` 48/48、生命周期与 QA export 聚焦测试 49/49、完整自动化 906/906 通过；Roslyn production/test compiler/analyzer 与目标 GDScript 均为 0 diagnostics。
+- Godot editor 游标 1989 后无新增 error；唯一输出 warning 是与本修复无关的既有 `ConstructionDock: ToolManager.Instance is missing`。

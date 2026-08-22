@@ -8,6 +8,13 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
     private RoadRenderer? _renderer;
     private SaveManager? _saveManager;
 
+    public void FlushPendingManagedFinalizers()
+    {
+        System.GC.Collect();
+        System.GC.WaitForPendingFinalizers();
+        System.GC.Collect();
+    }
+
     public Godot.Collections.Dictionary Run(RoadRenderer renderer)
     {
         ArgumentNullException.ThrowIfNull(renderer);
@@ -234,6 +241,25 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
     public string GetAggregateLoadPostPreparePhaseFailureMessage() =>
         SaveManager.AggregateLoadPostPreparePhaseFailureMessage;
 
+    public void ArmAggregateLoadWorkerEntryFailure(SaveManager saveManager)
+    {
+        ArgumentNullException.ThrowIfNull(saveManager);
+        saveManager.ArmNextAggregateLoadWorkerEntryFailure();
+        _saveManager = saveManager;
+    }
+
+    public bool IsAggregateLoadWorkerEntryFailureArmed() =>
+        _saveManager?.IsAggregateLoadWorkerEntryFailureArmed() ?? false;
+
+    public int GetAggregateLoadWorkerEntryFailureCount() =>
+        _saveManager?.GetAggregateLoadWorkerEntryFailureCount() ?? 0;
+
+    public bool DidAggregateLoadWorkerEntryFailureRunOffMainThread() =>
+        _saveManager?.DidAggregateLoadWorkerEntryFailureRunOffMainThread() ?? false;
+
+    public string GetAggregateLoadWorkerEntryFailureMessage() =>
+        SaveManager.AggregateLoadWorkerEntryFailureMessage;
+
     public void ArmAggregateLoadRendererWorkerPrepareFailure(SaveManager saveManager)
     {
         ArgumentNullException.ThrowIfNull(saveManager);
@@ -406,6 +432,8 @@ public partial class SaveManager
         "Injected aggregate Load failure after participant capture.";
     internal const string AggregateLoadPostPreparePhaseFailureMessage =
         "Injected aggregate Load failure after entering the Prepare phase.";
+    internal const string AggregateLoadWorkerEntryFailureMessage =
+        "Injected aggregate Load failure after entering the preparation worker.";
     internal const string AggregateLoadRendererWorkerPrepareFailureMessage =
         "Injected aggregate Load renderer worker-prepare failure.";
     internal const string AggregateLoadPostRendererPreflightFailureMessage =
@@ -431,6 +459,9 @@ public partial class SaveManager
     private bool _aggregateLoadPostPreparePhaseFailureArmed;
     private int _aggregateLoadPostPreparePhaseFailureCount;
     private int _aggregateLoadPostPreparePhaseObservedPhase = -1;
+    private bool _aggregateLoadWorkerEntryFailureArmed;
+    private int _aggregateLoadWorkerEntryFailureCount;
+    private bool _aggregateLoadWorkerEntryFailureRanOffMainThread;
     private bool _aggregateLoadRendererWorkerPrepareFailureArmed;
     private int _aggregateLoadRendererWorkerPrepareFailureCount;
     private bool _aggregateLoadPostRendererPreflightFailureArmed;
@@ -564,6 +595,45 @@ public partial class SaveManager
 
     internal int GetAggregateLoadPostPreparePhaseObservedPhase() =>
         _aggregateLoadPostPreparePhaseObservedPhase;
+
+    partial void ProbeAggregateLoadWorkerEntryFailure()
+    {
+        if (!_aggregateLoadWorkerEntryFailureArmed)
+            return;
+
+        _aggregateLoadWorkerEntryFailureArmed = false;
+        _aggregateLoadWorkerEntryFailureCount++;
+        _aggregateLoadWorkerEntryFailureRanOffMainThread =
+            _mainThreadID != 0 && System.Environment.CurrentManagedThreadId != _mainThreadID;
+        throw new InvalidOperationException(
+            AggregateLoadWorkerEntryFailureMessage);
+    }
+
+    internal void ArmNextAggregateLoadWorkerEntryFailure()
+    {
+        if (IsOperationBusy)
+        {
+            throw new InvalidOperationException(
+                "SaveManager must be idle before arming its aggregate Load failure probe.");
+        }
+        if (_aggregateLoadWorkerEntryFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load worker-entry failure probe is already armed.");
+        }
+
+        _aggregateLoadWorkerEntryFailureRanOffMainThread = false;
+        _aggregateLoadWorkerEntryFailureArmed = true;
+    }
+
+    internal bool IsAggregateLoadWorkerEntryFailureArmed() =>
+        _aggregateLoadWorkerEntryFailureArmed;
+
+    internal int GetAggregateLoadWorkerEntryFailureCount() =>
+        _aggregateLoadWorkerEntryFailureCount;
+
+    internal bool DidAggregateLoadWorkerEntryFailureRunOffMainThread() =>
+        _aggregateLoadWorkerEntryFailureRanOffMainThread;
 
     partial void ProbeAggregateLoadRendererWorkerPrepareFailure()
     {

@@ -1422,6 +1422,57 @@ func run() -> void:
 		"Post-Prepare phase failure changed RoadGraph"):
 		return
 
+	var worker_entry_resource_count_before := int(probe.GetObjectResourceCount())
+	var worker_entry_failure_message := str(
+		probe.GetAggregateLoadWorkerEntryFailureMessage())
+	probe.ArmAggregateLoadWorkerEntryFailure(save_manager)
+	if not require(
+		bool(probe.IsAggregateLoadWorkerEntryFailureArmed()),
+		"Aggregate Load worker-entry failure probe did not arm"):
+		return
+	var worker_entry_failed_load_result := await run_load(source_slot_id)
+	var worker_entry_resource_count_after := int(probe.GetObjectResourceCount())
+	if not require(
+		int(worker_entry_failed_load_result.get("resultKind", -1)) == RESULT_FAILED and
+		int(worker_entry_failed_load_result.get("finalPhase", -1)) == PHASE_PREPARE and
+		not bool(worker_entry_failed_load_result.get("committed", true)) and
+		str(worker_entry_failed_load_result.get("warnings", "")).is_empty() and
+		str(worker_entry_failed_load_result.get("error", "")) ==
+			worker_entry_failure_message,
+		"Real StartLoad did not fail inside the worker before slot preparation: %s" %
+		JSON.stringify(worker_entry_failed_load_result)):
+		return
+	if not require(
+		not bool(probe.IsAggregateLoadWorkerEntryFailureArmed()) and
+		int(probe.GetAggregateLoadWorkerEntryFailureCount()) == 1 and
+		bool(probe.DidAggregateLoadWorkerEntryFailureRunOffMainThread()) and
+		worker_entry_resource_count_after == worker_entry_resource_count_before and
+		str(save_manager.get("CurrentSlotID")) == active_slot_id and
+		int(tool_manager.get("CurrentTool")) == TOOL_ROAD and
+		int(tool_manager.GetSelectedRoadType()) == selected_road_type_before and
+		builder.HasActivePlaceSession() and
+		builder.GetFixedCornerCount() == 1 and
+		builder.GetUndoEditCount() == undo_count_before and
+		builder.GetRedoEditCount() == redo_count_before and
+		renderer.GetRenderedEdgeCount() == edge_count_before and
+		renderer.GetRoadMeshVertexCount() == vertex_count_before and
+		renderer.GetNodeMarkerCount() == marker_count_before and
+		renderer.GetPresentationState() == presentation_before and
+		renderer.FindRoadSurfaceHit(Vector2(400.0, 300.0), 0.0) == hit_before,
+		"Worker-entry failure changed resources, graph, tool, placement, history, presentation, surface, token, or slot state"):
+		return
+
+	if not require(
+		await V3_SAVE_FIXTURE.save(save_manager, active_slot_id),
+		"Could not recapture the active graph after worker-entry failure"):
+		return
+	var worker_entry_payload_after := FileAccess.get_file_as_string(
+		V3_SAVE_FIXTURE.slot_path(active_slot_id, V3_SAVE_FIXTURE.PAYLOAD_FILE_NAME))
+	if not require(
+		worker_entry_payload_after == active_payload_before,
+		"Worker-entry failure changed RoadGraph"):
+		return
+
 	var renderer_worker_prepare_resource_count_before := int(probe.GetObjectResourceCount())
 	var renderer_worker_prepare_failure_message := str(
 		probe.GetAggregateLoadRendererWorkerPrepareFailureMessage())
@@ -1678,6 +1729,18 @@ func run() -> void:
 			post_prepare_phase_resource_count_before,
 		"post_prepare_phase_resource_count_after":
 			post_prepare_phase_resource_count_after,
+		"worker_entry_failure_result_kind": int(
+			worker_entry_failed_load_result.get("resultKind", -1)),
+		"worker_entry_failure_final_phase": int(
+			worker_entry_failed_load_result.get("finalPhase", -1)),
+		"worker_entry_failure_committed": bool(
+			worker_entry_failed_load_result.get("committed", true)),
+		"worker_entry_failure_trigger_count": int(
+			probe.GetAggregateLoadWorkerEntryFailureCount()),
+		"worker_entry_failure_off_main_thread": bool(
+			probe.DidAggregateLoadWorkerEntryFailureRunOffMainThread()),
+		"worker_entry_resource_count_before": worker_entry_resource_count_before,
+		"worker_entry_resource_count_after": worker_entry_resource_count_after,
 		"renderer_worker_prepare_failure_result_kind": int(
 			renderer_worker_prepare_failed_load_result.get("resultKind", -1)),
 		"renderer_worker_prepare_failure_committed": bool(
@@ -1798,7 +1861,6 @@ func matching_presentation_is_ready(renderer: Node) -> bool:
 		state.get("desired", {}) == state.get("presented", {}))
 
 func cleanup() -> void:
-	probe = null
 	if save_manager != null and not source_slot_id.is_empty():
 		await V3_SAVE_FIXTURE.delete_slot(save_manager, source_slot_id)
 		source_slot_id = ""
@@ -1808,6 +1870,9 @@ func cleanup() -> void:
 	if test_map != null and is_instance_valid(test_map):
 		test_map.queue_free()
 		await process_frame
+	if probe != null:
+		probe.FlushPendingManagedFinalizers()
+		probe = null
 
 func require(condition: bool, message: String) -> bool:
 	if condition:
