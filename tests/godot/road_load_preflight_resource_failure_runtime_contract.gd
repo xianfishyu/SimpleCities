@@ -1158,6 +1158,59 @@ func run() -> void:
 		"Renderer admission settings failure changed RoadGraph"):
 		return
 
+	var renderer_admission_construction_resource_count_before := int(
+		probe.GetObjectResourceCount())
+	var renderer_admission_construction_failure_message := str(
+		probe.GetAggregateLoadRendererAdmissionConstructionFailureMessage())
+	probe.ArmAggregateLoadRendererAdmissionConstructionFailure(renderer)
+	if not require(
+		bool(probe.IsAggregateLoadRendererAdmissionConstructionFailureArmed()),
+		"Aggregate Load renderer admission construction failure probe did not arm"):
+		return
+	var renderer_admission_construction_failed_load_result := await run_load(source_slot_id)
+	var renderer_admission_construction_resource_count_after := int(
+		probe.GetObjectResourceCount())
+	if not require(
+		int(renderer_admission_construction_failed_load_result.get("resultKind", -1)) ==
+			RESULT_FAILED and
+		not bool(renderer_admission_construction_failed_load_result.get("committed", true)) and
+		str(renderer_admission_construction_failed_load_result.get("warnings", "")).is_empty() and
+		str(renderer_admission_construction_failed_load_result.get("error", "")) ==
+			renderer_admission_construction_failure_message,
+		"Real StartLoad did not fail after reserving renderer presentation and before admission construction: %s" %
+		JSON.stringify(renderer_admission_construction_failed_load_result)):
+		return
+	if not require(
+		not bool(probe.IsAggregateLoadRendererAdmissionConstructionFailureArmed()) and
+		int(probe.GetAggregateLoadRendererAdmissionConstructionFailureCount()) == 1 and
+		renderer_admission_construction_resource_count_after ==
+			renderer_admission_construction_resource_count_before and
+		str(save_manager.get("CurrentSlotID")) == active_slot_id and
+		int(tool_manager.get("CurrentTool")) == TOOL_ROAD and
+		int(tool_manager.GetSelectedRoadType()) == selected_road_type_before and
+		builder.HasActivePlaceSession() and
+		builder.GetFixedCornerCount() == 1 and
+		builder.GetUndoEditCount() == undo_count_before and
+		builder.GetRedoEditCount() == redo_count_before and
+		renderer.GetRenderedEdgeCount() == edge_count_before and
+		renderer.GetRoadMeshVertexCount() == vertex_count_before and
+		renderer.GetNodeMarkerCount() == marker_count_before and
+		renderer.GetPresentationState() == presentation_before and
+		renderer.FindRoadSurfaceHit(Vector2(400.0, 300.0), 0.0) == hit_before,
+		"Renderer admission construction failure changed resources, graph, tool, placement, history, presentation, surface, token, or slot state"):
+		return
+
+	if not require(
+		await V3_SAVE_FIXTURE.save(save_manager, active_slot_id),
+		"Could not recapture the active graph after renderer admission construction failure"):
+		return
+	var renderer_admission_construction_payload_after := FileAccess.get_file_as_string(
+		V3_SAVE_FIXTURE.slot_path(active_slot_id, V3_SAVE_FIXTURE.PAYLOAD_FILE_NAME))
+	if not require(
+		renderer_admission_construction_payload_after == active_payload_before,
+		"Renderer admission construction failure changed RoadGraph"):
+		return
+
 	var renderer_worker_prepare_resource_count_before := int(probe.GetObjectResourceCount())
 	var renderer_worker_prepare_failure_message := str(
 		probe.GetAggregateLoadRendererWorkerPrepareFailureMessage())
@@ -1358,6 +1411,16 @@ func run() -> void:
 			renderer_admission_settings_resource_count_before,
 		"renderer_admission_settings_resource_count_after":
 			renderer_admission_settings_resource_count_after,
+		"renderer_admission_construction_failure_result_kind": int(
+			renderer_admission_construction_failed_load_result.get("resultKind", -1)),
+		"renderer_admission_construction_failure_committed": bool(
+			renderer_admission_construction_failed_load_result.get("committed", true)),
+		"renderer_admission_construction_failure_trigger_count": int(
+			probe.GetAggregateLoadRendererAdmissionConstructionFailureCount()),
+		"renderer_admission_construction_resource_count_before":
+			renderer_admission_construction_resource_count_before,
+		"renderer_admission_construction_resource_count_after":
+			renderer_admission_construction_resource_count_after,
 		"renderer_worker_prepare_failure_result_kind": int(
 			renderer_worker_prepare_failed_load_result.get("resultKind", -1)),
 		"renderer_worker_prepare_failure_committed": bool(

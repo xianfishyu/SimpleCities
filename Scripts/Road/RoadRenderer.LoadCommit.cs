@@ -9,6 +9,7 @@ public partial class RoadRenderer
         ref IReadOnlyCollection<int> roadIndices);
     partial void ProbeAggregateLoadNodeBatchFactoryFailure(
         ref IReadOnlyList<RoadRendererNodeMarker> nodeMarkers);
+    partial void ProbeAggregateLoadRendererAdmissionConstructionFailure();
     partial void ProbeAggregateLoadResourcePreflightFailure();
     partial void ProbeAggregateLoadReservedRenderTokenFailure(
         ref RoadRenderLoadReservation renderReservation);
@@ -39,6 +40,7 @@ public partial class RoadRenderer
             roadTypeStyles);
         settings.Validate();
         RoadRenderLoadReservation renderReservation = _presentationTokens.ReserveLoad();
+        ProbeAggregateLoadRendererAdmissionConstructionFailure();
         var admission = new RoadRendererLoadAdmission(
             this,
             _loadAdmissionGeneration,
