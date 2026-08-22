@@ -105,6 +105,25 @@ func run() -> void:
 		"Failed preflight leaked resources or replaced retained presentation references: %s" %
 		JSON.stringify(probe_result)):
 		return
+
+	var plan_disposal_result: Dictionary = probe.RunUncommittedPlanDisposal(renderer)
+	if not require(
+		bool(plan_disposal_result.get("planWasCurrent", false)) and
+		bool(plan_disposal_result.get("planBecameStale", false)) and
+		int(plan_disposal_result.get("roadVertexCount", 0)) > 0 and
+		int(plan_disposal_result.get("nodeMarkerCount", 0)) > 0,
+		"Uncommitted load plan was not created with both presentation resources: %s" %
+		JSON.stringify(plan_disposal_result)):
+		return
+	if not require(
+		int(plan_disposal_result.get("resourceCountAfter", -1)) ==
+		int(plan_disposal_result.get("resourceCountBefore", -2)) and
+		bool(plan_disposal_result.get("roadMeshPreserved", false)) and
+		bool(plan_disposal_result.get("nodeBatchPreserved", false)) and
+		bool(plan_disposal_result.get("surfacePreserved", false)),
+		"Uncommitted load plan disposal leaked resources or replaced retained references: %s" %
+		JSON.stringify(plan_disposal_result)):
+		return
 	if not require(
 		str(save_manager.get("CurrentSlotID")) == active_slot_id and
 		int(tool_manager.get("CurrentTool")) == TOOL_ROAD and
@@ -163,6 +182,11 @@ func run() -> void:
 		"resource_count_after": int(probe_result.get("resourceCountAfter", -1)),
 		"road_vertices": int(probe_result.get("roadVertexCount", -1)),
 		"node_markers": int(probe_result.get("nodeMarkerCount", -1)),
+		"plan_resource_count_before": int(
+			plan_disposal_result.get("resourceCountBefore", -1)),
+		"plan_resource_count_after": int(
+			plan_disposal_result.get("resourceCountAfter", -1)),
+		"plan_became_stale": bool(plan_disposal_result.get("planBecameStale", false)),
 		"load_result_kind": int(load_result.get("resultKind", -1)),
 	}))
 	await cleanup()
