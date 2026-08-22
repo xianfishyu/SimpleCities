@@ -344,6 +344,18 @@ public sealed class RoadRendererLifecycleContractTests
         Assert.Contains(
             "DisposePreparedPresentationResources(roadMesh, nodeBatch);",
             loadPreflight);
+
+        int roadMeshCreation = loadPreflight.IndexOf("roadMesh = CreateRoadMesh(", StringComparison.Ordinal);
+        int nodeBatchCreation = loadPreflight.IndexOf("nodeBatch = CreateNodeBatch(", StringComparison.Ordinal);
+        int surfaceCreation = loadPreflight.IndexOf("var surfaceSnapshot = new RoadSurfaceSnapshot(", StringComparison.Ordinal);
+        int planCreation = loadPreflight.IndexOf("return new RoadRendererLoadCommitPlan(", StringComparison.Ordinal);
+        int cleanup = loadPreflight.LastIndexOf(
+            "DisposePreparedPresentationResources(roadMesh, nodeBatch);",
+            StringComparison.Ordinal);
+
+        Assert.True(roadMeshCreation >= 0 && roadMeshCreation < nodeBatchCreation);
+        Assert.True(nodeBatchCreation < surfaceCreation && surfaceCreation < planCreation);
+        Assert.True(planCreation < cleanup);
     }
 
     [Fact]
