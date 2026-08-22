@@ -35,6 +35,13 @@ public partial class RoadRendererUpdateTokenFailureProbe : RefCounted
         _renderer = renderer;
     }
 
+    public void ArmPresentationStalledObserverFailure(RoadRenderer renderer)
+    {
+        ArgumentNullException.ThrowIfNull(renderer);
+        renderer.ArmNextOrdinaryPresentationStalledObserverFailure();
+        _renderer = renderer;
+    }
+
     public void ArmPreCommitTokenSupersession(RoadRenderer renderer)
     {
         ArgumentNullException.ThrowIfNull(renderer);
@@ -124,6 +131,18 @@ public partial class RoadRendererUpdateTokenFailureProbe : RefCounted
     public string GetRoadSurfaceSnapshotFailureMessage() =>
         new ArgumentNullException("prepared").Message;
 
+    public bool IsPresentationStalledObserverFailureArmed() =>
+        _renderer?.IsOrdinaryPresentationStalledObserverFailureArmed() ?? false;
+
+    public int GetPresentationStalledObserverFailureCount() =>
+        _renderer?.GetOrdinaryPresentationStalledObserverFailureCount() ?? 0;
+
+    public int GetPresentationStalledObserverContinuationCount() =>
+        _renderer?.GetOrdinaryPresentationStalledObserverContinuationCount() ?? 0;
+
+    public string GetPresentationStalledObserverFailureMessage() =>
+        RoadRenderer.OrdinaryPresentationStalledObserverFailureMessage;
+
     public bool IsPreCommitTokenSupersessionArmed() =>
         _renderer?.IsOrdinaryPreCommitTokenSupersessionArmed() ?? false;
 
@@ -164,6 +183,8 @@ public partial class RoadRenderer
         "Injected ordinary CreateNodeBatch marker read failure.";
     internal const string OrdinaryRoadMeshFactoryFailureMessage =
         "Injected ordinary CreateRoadMesh index enumeration failure.";
+    internal const string OrdinaryPresentationStalledObserverFailureMessage =
+        "Injected ordinary road presentation stalled observer failure.";
 
     private bool _ordinaryPresentationResourcePreflightFailureArmed;
     private RoadRenderToken? _ordinaryPresentationResourcePreflightFailureArmToken;
@@ -179,6 +200,11 @@ public partial class RoadRenderer
     private bool _ordinaryRoadSurfaceSnapshotFailureArmed;
     private RoadRenderToken? _ordinaryRoadSurfaceSnapshotFailureArmToken;
     private int _ordinaryRoadSurfaceSnapshotFailureCount;
+    private bool _ordinaryPresentationStalledObserverFailureArmed;
+    private bool _ordinaryPresentationStalledObserverContinuationArmed;
+    private RoadRenderToken? _ordinaryPresentationStalledObserverArmToken;
+    private int _ordinaryPresentationStalledObserverFailureCount;
+    private int _ordinaryPresentationStalledObserverContinuationCount;
     private bool _ordinaryPreCommitTokenSupersessionArmed;
     private RoadRenderToken? _ordinaryPreCommitTokenSupersessionArmToken;
     private int _ordinaryPreCommitTokenSupersessionCount;
@@ -582,6 +608,71 @@ public partial class RoadRenderer
 
     internal int GetOrdinaryRoadSurfaceSnapshotFailureCount() =>
         _ordinaryRoadSurfaceSnapshotFailureCount;
+
+    internal void ArmNextOrdinaryPresentationStalledObserverFailure()
+    {
+        if (!IsPresentationReady() ||
+            _presentationTokens.PresentedToken is not RoadRenderToken currentToken)
+        {
+            throw new InvalidOperationException(
+                "Road presentation must be ready before arming its stalled observer probe.");
+        }
+        if (_ordinaryPresentationStalledObserverFailureArmed ||
+            _ordinaryPresentationStalledObserverContinuationArmed)
+        {
+            throw new InvalidOperationException(
+                "Road presentation stalled observer failure probe is already armed.");
+        }
+
+        _ordinaryPresentationStalledObserverFailureArmed = true;
+        _ordinaryPresentationStalledObserverContinuationArmed = true;
+        _ordinaryPresentationStalledObserverArmToken = currentToken;
+        PresentationStalled += ThrowOrdinaryPresentationStalledObserverFailure;
+        PresentationStalled += RecordOrdinaryPresentationStalledObserverContinuation;
+    }
+
+    private void ThrowOrdinaryPresentationStalledObserverFailure(
+        RoadPresentationFailure failure)
+    {
+        if (!_ordinaryPresentationStalledObserverFailureArmed ||
+            _ordinaryPresentationStalledObserverArmToken is not RoadRenderToken armedToken ||
+            failure.RenderToken == armedToken)
+        {
+            return;
+        }
+
+        PresentationStalled -= ThrowOrdinaryPresentationStalledObserverFailure;
+        _ordinaryPresentationStalledObserverFailureArmed = false;
+        _ordinaryPresentationStalledObserverFailureCount++;
+        throw new InvalidOperationException(
+            OrdinaryPresentationStalledObserverFailureMessage);
+    }
+
+    private void RecordOrdinaryPresentationStalledObserverContinuation(
+        RoadPresentationFailure failure)
+    {
+        if (!_ordinaryPresentationStalledObserverContinuationArmed ||
+            _ordinaryPresentationStalledObserverArmToken is not RoadRenderToken armedToken ||
+            failure.RenderToken == armedToken)
+        {
+            return;
+        }
+
+        PresentationStalled -= RecordOrdinaryPresentationStalledObserverContinuation;
+        _ordinaryPresentationStalledObserverContinuationArmed = false;
+        _ordinaryPresentationStalledObserverArmToken = null;
+        _ordinaryPresentationStalledObserverContinuationCount++;
+    }
+
+    internal bool IsOrdinaryPresentationStalledObserverFailureArmed() =>
+        _ordinaryPresentationStalledObserverFailureArmed ||
+        _ordinaryPresentationStalledObserverContinuationArmed;
+
+    internal int GetOrdinaryPresentationStalledObserverFailureCount() =>
+        _ordinaryPresentationStalledObserverFailureCount;
+
+    internal int GetOrdinaryPresentationStalledObserverContinuationCount() =>
+        _ordinaryPresentationStalledObserverContinuationCount;
 
     internal void ArmNextOrdinaryPreCommitTokenSupersession() =>
         ArmNextOrdinaryPreCommitTokenSupersession(

@@ -191,6 +191,69 @@ public sealed class RoadRendererLifecycleContractTests
     }
 
     [Fact]
+    public void OrdinaryPresentationStalledObserversAreIsolatedInSubscriptionOrder()
+    {
+        string rendererSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.cs"));
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadRendererUpdateTokenFailureProbe.cs"));
+        string publication = ExtractMethod(
+            rendererSource,
+            "private void PublishPresentationStalled",
+            "private bool PresentationResourcesAreReady");
+        string arming = ExtractMethod(
+            probeSource,
+            "internal void ArmNextOrdinaryPresentationStalledObserverFailure()",
+            "private void ThrowOrdinaryPresentationStalledObserverFailure(");
+        string throwingObserver = ExtractMethod(
+            probeSource,
+            "private void ThrowOrdinaryPresentationStalledObserverFailure(",
+            "private void RecordOrdinaryPresentationStalledObserverContinuation(");
+        string continuingObserver = ExtractMethod(
+            probeSource,
+            "private void RecordOrdinaryPresentationStalledObserverContinuation(",
+            "internal bool IsOrdinaryPresentationStalledObserverFailureArmed()");
+
+        int invocationList = publication.IndexOf("GetInvocationList()", StringComparison.Ordinal);
+        int handlerCall = publication.IndexOf("handler(failure);", StringComparison.Ordinal);
+        int warning = publication.IndexOf(
+            "GD.PushWarning(",
+            StringComparison.Ordinal);
+        int throwingSubscription = arming.IndexOf(
+            "PresentationStalled += ThrowOrdinaryPresentationStalledObserverFailure;",
+            StringComparison.Ordinal);
+        int continuingSubscription = arming.IndexOf(
+            "PresentationStalled += RecordOrdinaryPresentationStalledObserverContinuation;",
+            StringComparison.Ordinal);
+
+        Assert.True(invocationList >= 0 && invocationList < handlerCall);
+        Assert.True(handlerCall < warning);
+        Assert.Contains("catch (Exception exception)", publication, StringComparison.Ordinal);
+        Assert.Contains(
+            "$\"Road presentation stalled observer failed: {exception.Message}\"",
+            publication,
+            StringComparison.Ordinal);
+        Assert.True(
+            throwingSubscription >= 0 && throwingSubscription < continuingSubscription);
+        Assert.Contains(
+            "PresentationStalled -= ThrowOrdinaryPresentationStalledObserverFailure;",
+            throwingObserver,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "OrdinaryPresentationStalledObserverFailureMessage",
+            throwingObserver,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "PresentationStalled -= RecordOrdinaryPresentationStalledObserverContinuation;",
+            continuingObserver,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_ordinaryPresentationStalledObserverContinuationCount++;",
+            continuingObserver,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void OrdinaryRebuildPublishesTokenBoundPhaseMetricsOnlyAfterCommit()
     {
         string source = File.ReadAllText(

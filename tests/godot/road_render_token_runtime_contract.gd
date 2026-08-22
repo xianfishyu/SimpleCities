@@ -87,6 +87,11 @@ func run() -> void:
 	if resource_recovered.is_empty():
 		return
 	recovered = resource_recovered
+	var stalled_observer_recovered: Dictionary = \
+		await require_update_token_stalled_observer_failure(renderer, builder, recovered)
+	if stalled_observer_recovered.is_empty():
+		return
+	recovered = stalled_observer_recovered
 	var node_batch_recovered: Dictionary = await require_update_token_node_batch_factory_failure(
 		renderer,
 		builder,
@@ -602,6 +607,132 @@ func require_update_token_resource_failure(
 			resource_count_before,
 			int(probe.GetObjectResourceCount()),
 			int(probe.GetTriggerCount()),
+		])
+	return recovered
+
+func require_update_token_stalled_observer_failure(
+	renderer: Node,
+	builder: Node,
+	before: Dictionary
+) -> Dictionary:
+	var probe_script: Script = load(UPDATE_TOKEN_FAILURE_PROBE_PATH)
+	if not require(probe_script != null, "Debug stalled-observer probe did not load"):
+		return {}
+	var probe: RefCounted = probe_script.new()
+	if not require(probe != null, "Debug stalled-observer probe did not instantiate"):
+		return {}
+
+	var retained_edge_count: int = renderer.GetRenderedEdgeCount()
+	var retained_vertex_count: int = renderer.GetRoadMeshVertexCount()
+	var retained_marker_count: int = renderer.GetNodeMarkerCount()
+	var retained_state: Dictionary = renderer.GetPresentationState()
+	var retained_primitive_count := int(retained_state.get("surfacePrimitiveCount", 0))
+	var resource_count_before := int(probe.GetObjectResourceCount())
+	var failure_message := str(probe.GetFailureMessage())
+	var observer_failure_message := str(probe.GetPresentationStalledObserverFailureMessage())
+	probe.Arm(renderer)
+	probe.ArmPresentationStalledObserverFailure(renderer)
+	var failure_count_before := int(probe.GetTriggerCount())
+	var throwing_count_before := int(probe.GetPresentationStalledObserverFailureCount())
+	var continuing_count_before := int(probe.GetPresentationStalledObserverContinuationCount())
+	if not require(
+		bool(probe.IsArmed()) and
+		bool(probe.IsPresentationStalledObserverFailureArmed()),
+		"Update-token stalled-observer probes did not arm"):
+		return {}
+
+	if not require(
+		builder.BeginPlace(Vector2(0.0, 1800.0)),
+		"Stalled-observer failure mutation did not begin"):
+		return {}
+	builder.UpdatePlace(Vector2(100.0, 1800.0))
+	if not require(
+		builder.CommitPlace(Vector2(100.0, 1800.0)),
+		"Stalled-observer failure mutation did not commit"):
+		return {}
+	await process_frame
+	await process_frame
+
+	var stalled: Dictionary = renderer.GetPresentationState()
+	var desired: Dictionary = stalled.get("desired", {})
+	if not require(
+		stalled.get("phase", "") == "stalled" and
+		bool(stalled.get("isStalled", false)) and
+		not bool(stalled.get("isReady", true)) and
+		desired != before and
+		stalled.get("presented", {}) == before and
+		stalled.get("stalledToken", {}) == desired,
+		"Throwing stalled observer changed the underlying stalled state"):
+		return {}
+	if not require_ordinary_change(before, desired):
+		return {}
+	if not require(
+		int(stalled.get("attemptCount", 0)) == 1 and
+		str(stalled.get("failureType", "")) == "System.InvalidOperationException" and
+		str(stalled.get("failureMessage", "")) == failure_message and
+		int(probe.GetTriggerCount()) == failure_count_before + 1 and
+		int(probe.GetPresentationStalledObserverFailureCount()) ==
+			throwing_count_before + 1 and
+		int(probe.GetPresentationStalledObserverContinuationCount()) ==
+			continuing_count_before + 1 and
+		not bool(probe.IsArmed()) and
+		not bool(probe.IsPresentationStalledObserverFailureArmed()),
+		"Stalled observer failure was not isolated before the following observer"):
+		return {}
+	if not require(
+		int(probe.GetObjectResourceCount()) == resource_count_before and
+		int(stalled.get("surfacePrimitiveCount", -1)) == 0 and
+		int(stalled.get("retainedSurfacePrimitiveCount", -1)) == retained_primitive_count and
+		renderer.GetRenderedEdgeCount() == retained_edge_count and
+		renderer.GetRoadMeshVertexCount() == retained_vertex_count and
+		renderer.GetNodeMarkerCount() == retained_marker_count,
+		"Stalled observer failure leaked resources or replaced retained presentation"):
+		return {}
+	if not require(
+		renderer.FindRoadSurfaceHit(Vector2(50.0, 0.0), 0.0).is_empty() and
+		renderer.FindRoadSurfaceHit(Vector2(50.0, 1800.0), 0.0).is_empty(),
+		"Stalled observer failure exposed old or unpresented surface data"):
+		return {}
+
+	if not require(
+		renderer.RetryRoadPresentation(),
+		"Stalled observer failure retry did not publish the same desired token"):
+		return {}
+	var recovered := presentation_token(renderer, "Stalled observer failure retry")
+	if recovered.is_empty():
+		return {}
+	if not require(
+		recovered == desired and
+		int(renderer.GetPresentationState().get("attemptCount", 0)) == 2 and
+		int(probe.GetTriggerCount()) == failure_count_before + 1 and
+		int(probe.GetPresentationStalledObserverFailureCount()) ==
+			throwing_count_before + 1 and
+		int(probe.GetPresentationStalledObserverContinuationCount()) ==
+			continuing_count_before + 1 and
+		renderer.GetRenderedEdgeCount() == retained_edge_count + 1 and
+		renderer.GetRoadMeshVertexCount() > retained_vertex_count and
+		renderer.GetNodeMarkerCount() > retained_marker_count,
+		"Stalled observer failure retry did not atomically publish attempt two"):
+		return {}
+	if not require_surface_hit(
+		renderer,
+		Vector2(50.0, 1800.0),
+		recovered,
+		"Stalled observer failure retry"):
+		return {}
+	print(
+		(
+			"UPDATE_TOKEN_STALLED_OBSERVER_FAILURE_RESULT " +
+			"resource_before=%d resource_after=%d failure_trigger_count=%d " +
+			"throwing_observer_count=%d continuing_observer_count=%d " +
+			"stalled_attempt=1 recovered_attempt=2 observer_message=%s"
+		) % [
+			resource_count_before,
+			int(probe.GetObjectResourceCount()),
+			int(probe.GetTriggerCount()) - failure_count_before,
+			int(probe.GetPresentationStalledObserverFailureCount()) - throwing_count_before,
+			int(probe.GetPresentationStalledObserverContinuationCount()) - continuing_count_before,
+			observer_failure_message,
 		])
 	return recovered
 
