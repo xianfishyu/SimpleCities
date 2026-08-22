@@ -3,6 +3,7 @@ extends SceneTree
 const MAP_SCENE := "res://Scenes/MapTest.tscn"
 const TEST_SLOT_NAME := "Road rendering performance contract"
 const V3_SAVE_FIXTURE := preload("res://tests/godot/v3_save_fixture.gd")
+const FULL_RESET_PROBE_PATH := "res://tests/godot/RoadFullResetPerformanceProbe.cs"
 const DATASET_SIZES: Array[int] = [10_000, 100_000]
 const DATASET_KINDS: Array[String] = ["grid", "junction-dense", "geometry-dense", "owner-dense"]
 const EDGE_LENGTH := 8.0
@@ -34,6 +35,7 @@ var slot_id := ""
 var enforce_budget := false
 var measure_type_change_latency := false
 var measure_owner_hit_latency := false
+var measure_full_reset_barrier := false
 var failed_budget_scenarios: Array[String] = []
 var failure_cleanup_started := false
 var dataset_kind := "grid"
@@ -45,6 +47,7 @@ func run() -> void:
 	enforce_budget = OS.get_cmdline_user_args().has("--enforce-budget")
 	measure_type_change_latency = OS.get_cmdline_user_args().has("--measure-type-change")
 	measure_owner_hit_latency = OS.get_cmdline_user_args().has("--measure-owner-hits")
+	measure_full_reset_barrier = OS.get_cmdline_user_args().has("--measure-full-reset")
 	dataset_kind = read_requested_dataset_kind()
 	if not require(DATASET_KINDS.has(dataset_kind), "Unknown rendering performance dataset kind: %s" % dataset_kind):
 		return
@@ -79,6 +82,7 @@ func run() -> void:
 	camera.zoom = Vector2(0.125, 0.125)
 	var renderer: Node = test_map.get_node("RoadSystem/RoadRenderer")
 	var builder: Node = test_map.get_node("RoadSystem/RoadBuilder")
+	var road_system: Node = test_map.get_node("RoadSystem")
 
 	save_manager = root.get_node("SaveManager")
 	if not require(await V3_SAVE_FIXTURE.save_as(save_manager, TEST_SLOT_NAME), "Performance fixture slot was not created"):
@@ -121,6 +125,11 @@ func run() -> void:
 		if not require(renderer.GetRenderedEdgeCount() == edge_count, "Renderer did not rebuild the requested Edge count"):
 			return
 		print("STAGE renderer-count-done edges=%d" % edge_count)
+		if measure_full_reset_barrier and not measure_non_aggregate_full_reset(
+			road_system,
+			renderer,
+			edge_count):
+			return
 		for _warmup in range(10):
 			await wait_rendered_frame()
 
@@ -201,6 +210,116 @@ func validate_load_phase_metrics(
 	phase_result["edges"] = edge_count
 	phase_result["observedLoadMs"] = observed_load_ms
 	print("LOAD_PHASE_RESULT %s" % JSON.stringify(phase_result))
+	return true
+
+func measure_non_aggregate_full_reset(
+	road_system: Node,
+	renderer: Node,
+	edge_count: int) -> bool:
+	var before_state: Dictionary = renderer.GetPresentationState()
+	var before_token: Dictionary = before_state.get("presented", {})
+	var before_surface_primitives := int(before_state.get("surfacePrimitiveCount", -1))
+	var before_mesh_vertices := int(renderer.GetRoadMeshVertexCount())
+	var before_markers := int(renderer.GetNodeMarkerCount())
+	if not require(
+		bool(before_state.get("isReady", false)) and
+		before_token == before_state.get("desired", {}),
+		"Non-aggregate full reset requires a ready matching presentation"):
+		return false
+
+	var probe_script: Script = load(FULL_RESET_PROBE_PATH)
+	if not require(probe_script != null, "Debug full-reset performance probe did not load"):
+		return false
+	var probe = probe_script.new()
+	if not require(probe != null, "Debug full-reset performance probe did not instantiate"):
+		return false
+	var barrier_result: Dictionary = probe.CommitCurrentSnapshot(road_system)
+	var barrier_ms := float(barrier_result.get("barrierMs", -1.0))
+	var after_state: Dictionary = renderer.GetPresentationState()
+	var after_token: Dictionary = after_state.get("presented", {})
+	var metrics: Dictionary = renderer.GetLastPresentationPerformanceMetrics()
+	var metrics_token: Dictionary = metrics.get("renderToken", {})
+
+	if not require(
+		bool(after_state.get("isReady", false)) and
+		not bool(after_state.get("isStalled", true)) and
+		after_token == after_state.get("desired", {}) and
+		metrics_token == after_token,
+		"Non-aggregate full reset did not synchronously publish one matching presentation"):
+		return false
+	if not require(
+		int(barrier_result.get("graphFacadeID", -1)) == int(before_token.get("graphFacadeID", -2)) and
+		int(barrier_result.get("beforeChangeSequence", -1)) == int(before_token.get("changeSequence", -2)) and
+		int(barrier_result.get("afterChangeSequence", -1)) == int(after_token.get("changeSequence", -2)) and
+		int(barrier_result.get("afterChangeSequence", -1)) == int(barrier_result.get("beforeChangeSequence", -2)) + 1 and
+		int(barrier_result.get("beforeLineageID", -1)) != int(barrier_result.get("afterLineageID", -1)) and
+		int(barrier_result.get("afterDomainRevisionID", -1)) == 0,
+		"Non-aggregate full reset did not advance graph lineage and sequence exactly once"):
+		return false
+	if not require(
+		int(after_token.get("sceneGeneration", -1)) == int(before_token.get("sceneGeneration", -2)) and
+		int(after_token.get("graphFacadeID", -1)) == int(before_token.get("graphFacadeID", -2)) and
+		int(after_token.get("graphFacadeGeneration", -1)) == int(before_token.get("graphFacadeGeneration", -2)) + 1 and
+		int(after_token.get("changeSequence", -1)) == int(before_token.get("changeSequence", -2)) + 1 and
+		int(after_token.get("roadStyleRevision", -1)) == int(before_token.get("roadStyleRevision", -2)) and
+		int(after_token.get("renderRequestID", -1)) == int(before_token.get("renderRequestID", -2)) + 1,
+		"Non-aggregate full reset did not advance the expected render-token dimensions"):
+		return false
+	if not require(
+		bool(metrics.get("isFullReset", false)) and
+		int(metrics.get("attemptNumber", 0)) > 0,
+		"Non-aggregate full reset metrics were not classified as a build attempt"):
+		return false
+
+	var snapshot_capture_ms := float(metrics.get("snapshotCaptureMs", -1.0))
+	var prepare_ms := float(metrics.get("prepareMs", -1.0))
+	var resource_preflight_ms := float(metrics.get("resourcePreflightMs", -1.0))
+	var presentation_commit_ms := float(metrics.get("presentationCommitMs", -1.0))
+	var rebuild_total_ms := float(metrics.get("rebuildTotalMs", -1.0))
+	var request_to_ready_ms := float(metrics.get("requestToReadyMs", -1.0))
+	var phase_sum_ms := (
+		snapshot_capture_ms +
+		prepare_ms +
+		resource_preflight_ms +
+		presentation_commit_ms)
+	if not require(
+		barrier_ms >= 0.0 and
+		snapshot_capture_ms >= 0.0 and
+		prepare_ms >= 0.0 and
+		resource_preflight_ms >= 0.0 and
+		presentation_commit_ms >= 0.0 and
+		phase_sum_ms <= rebuild_total_ms and
+		rebuild_total_ms <= request_to_ready_ms and
+		request_to_ready_ms <= barrier_ms,
+		"Non-aggregate full-reset barrier timing was inconsistent: barrier=%s metrics=%s" % [
+			barrier_ms,
+			JSON.stringify(metrics),
+		]):
+		return false
+	if not require(
+		renderer.GetRenderedEdgeCount() == edge_count and
+		int(after_state.get("surfacePrimitiveCount", -1)) == before_surface_primitives and
+		int(renderer.GetRoadMeshVertexCount()) == before_mesh_vertices and
+		int(renderer.GetNodeMarkerCount()) == before_markers,
+		"Non-aggregate full reset changed the rendered graph payload"):
+		return false
+
+	print("FULL_RESET_BARRIER_RESULT %s" % JSON.stringify({
+		"dataset": dataset_kind,
+		"edges": edge_count,
+		"barrier_ms": snappedf(barrier_ms, 0.001),
+		"snapshot_capture_ms": snappedf(snapshot_capture_ms, 0.001),
+		"prepare_ms": snappedf(prepare_ms, 0.001),
+		"resource_preflight_ms": snappedf(resource_preflight_ms, 0.001),
+		"presentation_commit_ms": snappedf(presentation_commit_ms, 0.001),
+		"rebuild_total_ms": snappedf(rebuild_total_ms, 0.001),
+		"request_to_ready_ms": snappedf(request_to_ready_ms, 0.001),
+		"attempt_number": int(metrics.get("attemptNumber", 0)),
+		"before_render_token": before_token,
+		"render_token": after_token,
+		"surface_primitives": int(after_state.get("surfacePrimitiveCount", -1)),
+		"render_nodes": renderer.GetStaticRenderNodeCount(),
+	}))
 	return true
 
 func sample_camera_frames(camera: Camera2D) -> Array[float]:

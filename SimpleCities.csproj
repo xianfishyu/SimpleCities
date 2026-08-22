@@ -13,4 +13,7 @@
   <ItemGroup>
     <Compile Remove="tests/**/*.cs" />
   </ItemGroup>
+  <ItemGroup Condition="'$(Configuration)' == 'Debug'">
+    <Compile Include="tests/godot/RoadFullResetPerformanceProbe.cs" />
+  </ItemGroup>
 </Project>

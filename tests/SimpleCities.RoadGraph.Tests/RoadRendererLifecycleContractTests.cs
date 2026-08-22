@@ -245,6 +245,39 @@ public sealed class RoadRendererLifecycleContractTests
     }
 
     [Fact]
+    public void NonAggregateFullResetUsesTheSynchronousMeasuredRebuildPath()
+    {
+        string source = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.cs"));
+        string graphChanged = ExtractMethod(
+            source,
+            "private void OnGraphChanged",
+            "private void ScheduleStaticBatchRebuild");
+
+        int fullResetBranch = graphChanged.IndexOf(
+            "if (change.Changes.IsFullReset)",
+            StringComparison.Ordinal);
+        int requestStarted = graphChanged.IndexOf(
+            "long requestStarted = Stopwatch.GetTimestamp()",
+            StringComparison.Ordinal);
+        int tokenRequest = graphChanged.IndexOf(
+            "RoadRenderToken resetRequest = _presentationTokens.RequestGraphChange(",
+            StringComparison.Ordinal);
+        int requestMetrics = graphChanged.IndexOf(
+            "_pendingPresentationPerformanceRequest = new(",
+            StringComparison.Ordinal);
+        int synchronousRebuild = graphChanged.IndexOf(
+            "RebuildStaticBatches();",
+            StringComparison.Ordinal);
+
+        Assert.True(requestStarted >= 0 && requestStarted < fullResetBranch);
+        Assert.True(fullResetBranch < tokenRequest && tokenRequest < requestMetrics);
+        Assert.True(requestMetrics < synchronousRebuild);
+        Assert.Contains("IsFullReset: true", graphChanged, StringComparison.Ordinal);
+        Assert.DoesNotContain("ScheduleStaticBatchRebuild();", graphChanged[..synchronousRebuild], StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void DeferredOrdinaryRebuildIsGenerationGuardedAcrossSynchronousReset()
     {
         string source = File.ReadAllText(
