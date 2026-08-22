@@ -7,7 +7,12 @@ const FULL_RESET_PROBE_PATH := "res://tests/godot/RoadFullResetPerformanceProbe.
 const UPDATE_TOKEN_FAILURE_PROBE_PATH := "res://tests/godot/RoadRendererUpdateTokenFailureProbe.cs"
 const DATASET_SIZES: Array[int] = [10_000, 100_000]
 const DATASET_KINDS: Array[String] = ["grid", "junction-dense", "geometry-dense", "owner-dense"]
-const TOKEN_PERTURBATION_KINDS: Array[String] = ["render-request", "road-style", "scene-generation"]
+const TOKEN_PERTURBATION_KINDS: Array[String] = [
+	"render-request",
+	"road-style",
+	"scene-generation",
+	"graph-facade-id",
+]
 const EDGE_LENGTH := 8.0
 const EDGE_SPACING := 32.0
 const GEOMETRY_DENSE_EDGE_SPACING := 320.0
@@ -66,6 +71,10 @@ func run() -> void:
 	if not require(token_perturbation_kind.is_empty() or dataset_kind == "grid", "Token perturbation requires the grid dataset"):
 		return
 	var requested_dataset_size := read_requested_dataset_size()
+	if not require(
+		token_perturbation_kind != "graph-facade-id" or requested_dataset_size > 0,
+		"Graph-facade-ID perturbation requires one explicit dataset size"):
+		return
 	var dataset_sizes: Array[int] = DATASET_SIZES.duplicate()
 	if requested_dataset_size > 0:
 		dataset_sizes.clear()
@@ -230,6 +239,8 @@ func measure_token_perturbation(
 			probe.ArmPreCommitRoadStyleSupersession(renderer)
 		"scene-generation":
 			probe.ArmPreCommitSceneGenerationSupersession(renderer)
+		"graph-facade-id":
+			probe.ArmPreCommitGraphFacadeIDSupersession(renderer)
 	var trigger_count_before := int(probe.GetPreCommitTokenSupersessionCount())
 	if not require(
 		bool(probe.IsPreCommitTokenSupersessionArmed()),
@@ -265,20 +276,9 @@ func measure_token_perturbation(
 		return false
 	var rejection_ms := float(Time.get_ticks_usec() - perturbation_started_us) / 1000.0
 
-	var pending: Dictionary = renderer.GetPresentationState()
+	var post_supersession: Dictionary = renderer.GetPresentationState()
 	var superseded: Dictionary = probe.GetPreCommitSupersededToken()
 	var replacement: Dictionary = probe.GetPreCommitReplacementToken()
-	if not require(
-		pending.get("phase", "") == "pending" and
-		not bool(pending.get("isReady", true)) and
-		not bool(pending.get("isStalled", true)) and
-		pending.get("presented", {}) == retained_token and
-		pending.get("desired", {}) == replacement and
-		int(pending.get("attemptCount", -1)) == 0 and
-		int(probe.GetPreCommitSupersededAttemptNumber()) == 1 and
-		not bool(probe.IsPreCommitTokenSupersessionArmed()),
-		"%s perturbation did not retain the old presentation behind the replacement token" % perturbation_label):
-		return false
 	if not require(
 		token_perturbation_tokens_are_sequential(
 			token_perturbation_kind,
@@ -287,10 +287,74 @@ func measure_token_perturbation(
 			replacement),
 		"%s perturbation changed an unexpected token dimension" % perturbation_label):
 		return false
+	if token_perturbation_kind == "graph-facade-id":
+		var synchronous_hit: Dictionary = renderer.FindRoadSurfaceHit(
+			(mutation_start + mutation_end) * 0.5,
+			EDGE_SPACING * 0.5)
+		var synchronous_evidence := {
+			"phase": post_supersession.get("phase", ""),
+			"is_ready": bool(post_supersession.get("isReady", false)),
+			"desired_matches": post_supersession.get("desired", {}) == replacement,
+			"presented_matches": post_supersession.get("presented", {}) == replacement,
+			"attempt_count": int(post_supersession.get("attemptCount", 0)),
+			"edge_count": renderer.GetRenderedEdgeCount(),
+			"retained_edge_count": retained_edge_count,
+			"resource_count": int(probe.GetObjectResourceCount()),
+			"resource_count_before": resource_count_before,
+			"hit_found": not synchronous_hit.is_empty(),
+		}
+		if not require(
+			post_supersession.get("phase", "") == "ready" and
+			bool(post_supersession.get("isReady", false)) and
+			not bool(post_supersession.get("isStalled", true)) and
+			post_supersession.get("desired", {}) == replacement and
+			post_supersession.get("presented", {}) == replacement and
+			post_supersession.get("stalledToken", {}).is_empty() and
+			str(post_supersession.get("failureType", "")).is_empty() and
+			str(post_supersession.get("failureMessage", "")).is_empty() and
+			int(post_supersession.get("attemptCount", 0)) == 1 and
+			int(probe.GetPreCommitSupersededAttemptNumber()) == 1 and
+			not bool(probe.IsPreCommitTokenSupersessionArmed()) and
+			int(probe.GetObjectResourceCount()) == resource_count_before and
+			renderer.GetRenderedEdgeCount() == retained_edge_count + 1 and
+			renderer.GetRoadMeshVertexCount() > retained_vertex_count and
+			renderer.GetNodeMarkerCount() > retained_marker_count and
+			int(post_supersession.get("surfacePrimitiveCount", 0)) > retained_primitive_count and
+			not synchronous_hit.is_empty() and
+			synchronous_hit.get("renderToken", {}) == replacement and
+			not probe.CompletePreCommitTokenSupersession(),
+			"%s perturbation did not synchronously publish one complete replacement: %s" % [
+				perturbation_label,
+				JSON.stringify(synchronous_evidence),
+			]):
+			return false
+		print_token_perturbation_result(
+			renderer,
+			probe,
+			edge_count,
+			resource_count_before,
+			superseded,
+			replacement,
+			rejection_ms,
+			0.0,
+			"synchronous")
+		return true
+
+	if not require(
+		post_supersession.get("phase", "") == "pending" and
+		not bool(post_supersession.get("isReady", true)) and
+		not bool(post_supersession.get("isStalled", true)) and
+		post_supersession.get("presented", {}) == retained_token and
+		post_supersession.get("desired", {}) == replacement and
+		int(post_supersession.get("attemptCount", -1)) == 0 and
+		int(probe.GetPreCommitSupersededAttemptNumber()) == 1 and
+		not bool(probe.IsPreCommitTokenSupersessionArmed()),
+		"%s perturbation did not retain the old presentation behind the replacement token" % perturbation_label):
+		return false
 	if not require(
 		int(probe.GetObjectResourceCount()) == resource_count_before and
-		int(pending.get("surfacePrimitiveCount", -1)) == 0 and
-		int(pending.get("retainedSurfacePrimitiveCount", -1)) == retained_primitive_count and
+		int(post_supersession.get("surfacePrimitiveCount", -1)) == 0 and
+		int(post_supersession.get("retainedSurfacePrimitiveCount", -1)) == retained_primitive_count and
 		renderer.GetRenderedEdgeCount() == retained_edge_count and
 		renderer.GetRoadMeshVertexCount() == retained_vertex_count and
 		renderer.GetNodeMarkerCount() == retained_marker_count and
@@ -344,22 +408,45 @@ func measure_token_perturbation(
 		]):
 		return false
 
+	print_token_perturbation_result(
+		renderer,
+		probe,
+		edge_count,
+		resource_count_before,
+		superseded,
+		replacement,
+		rejection_ms,
+		recovery_ms,
+		"deferred")
+	return true
+
+func print_token_perturbation_result(
+	renderer: Node,
+	probe: RefCounted,
+	edge_count: int,
+	resource_count_before: int,
+	superseded: Dictionary,
+	replacement: Dictionary,
+	rejection_ms: float,
+	recovery_ms: float,
+	replacement_mode: String
+) -> void:
 	print("TOKEN_PERTURBATION_RESULT %s" % JSON.stringify({
 		"dataset": dataset_kind,
 		"edges_before": edge_count,
 		"edges_after": renderer.GetRenderedEdgeCount(),
 		"dimension": token_perturbation_dimension(),
+		"replacement_mode": replacement_mode,
 		"rejection_ms": snappedf(rejection_ms, 0.001),
 		"recovery_ms": snappedf(recovery_ms, 0.001),
 		"total_ms": snappedf(rejection_ms + recovery_ms, 0.001),
 		"resource_count_before": resource_count_before,
 		"resource_count_after": int(probe.GetObjectResourceCount()),
 		"superseded_attempt": int(probe.GetPreCommitSupersededAttemptNumber()),
-		"replacement_attempt": int(recovered.get("attemptCount", 0)),
+		"replacement_attempt": int(renderer.GetPresentationState().get("attemptCount", 0)),
 		"superseded_token": superseded,
 		"replacement_token": replacement,
 	}))
-	return true
 
 func token_perturbation_tokens_are_sequential(
 	perturbation_kind: String,
@@ -381,8 +468,15 @@ func token_perturbation_tokens_are_sequential(
 		if retained.get(dimension) != superseded.get(dimension):
 			return false
 	var perturbation_dimension := token_perturbation_dimension()
+	var replacement_changed_dimensions: Array[String] = ["renderRequestID"]
+	match perturbation_kind:
+		"road-style", "scene-generation":
+			replacement_changed_dimensions.append(perturbation_dimension)
+		"graph-facade-id":
+			replacement_changed_dimensions.append("graphFacadeID")
+			replacement_changed_dimensions.append("graphFacadeGeneration")
 	for dimension: String in token_dimensions:
-		if dimension == "renderRequestID" or dimension == perturbation_dimension:
+		if replacement_changed_dimensions.has(dimension):
 			continue
 		if superseded.get(dimension) != replacement.get(dimension):
 			return false
@@ -392,10 +486,18 @@ func token_perturbation_tokens_are_sequential(
 		int(replacement.get("renderRequestID", -1)) != int(superseded.get("renderRequestID", -2)) + 1
 	):
 		return false
-	return (
-		perturbation_kind == "render-request" or
-		int(replacement.get(perturbation_dimension, -1)) == int(superseded.get(perturbation_dimension, -2)) + 1
-	)
+	match perturbation_kind:
+		"render-request":
+			return true
+		"road-style", "scene-generation":
+			return int(replacement.get(perturbation_dimension, -1)) == int(superseded.get(perturbation_dimension, -2)) + 1
+		"graph-facade-id":
+			return (
+				int(replacement.get("graphFacadeID", 0)) > 0 and
+				replacement.get("graphFacadeID") != superseded.get("graphFacadeID") and
+				int(replacement.get("graphFacadeGeneration", -1)) == int(superseded.get("graphFacadeGeneration", -2)) + 1
+			)
+	return false
 
 func token_perturbation_label() -> String:
 	match token_perturbation_kind:
@@ -405,6 +507,8 @@ func token_perturbation_label() -> String:
 			return "Road-style"
 		"scene-generation":
 			return "Scene-generation"
+		"graph-facade-id":
+			return "Graph-facade-ID"
 	return "Unknown token"
 
 func token_perturbation_dimension() -> String:
@@ -415,6 +519,8 @@ func token_perturbation_dimension() -> String:
 			return "roadStyleRevision"
 		"scene-generation":
 			return "sceneGeneration"
+		"graph-facade-id":
+			return "graphFacadeID"
 	return "unknown"
 
 func validate_load_phase_metrics(
