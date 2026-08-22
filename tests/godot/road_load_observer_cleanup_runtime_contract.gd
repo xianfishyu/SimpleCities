@@ -123,10 +123,81 @@ func run() -> void:
 	if not require(
 		probe.GetTriggerCount() == 1 and
 		probe.GetToolCleanupFailureCount() == 1 and
+		probe.GetRendererCleanupFailureCount() == 0 and
 		str(save_manager.get("CurrentSlotID")) == active_slot_id and
 		renderer.GetRenderedEdgeCount() == 1 and
 		matching_presentation_is_ready(renderer),
 		"Second Load did not restore one matching presentation without re-triggering the probe"):
+		return
+
+	tool_manager.set("CurrentTool", TOOL_ROAD)
+	if not require(builder.BeginPlace(Vector2(700.0, 500.0)), "Second transient road did not begin"):
+		return
+	if not require(
+		builder.AddPlacePoint(Vector2(800.0, 500.0)),
+		"Second transient placement point was not added"):
+		return
+	probe.Arm(renderer)
+	probe.ArmRendererCleanupFailure(renderer)
+
+	var renderer_warned_result := await run_load(source_slot_id)
+	if not require(
+		int(renderer_warned_result.get("resultKind", -1)) == RESULT_SUCCEEDED_WITH_WARNINGS and
+		bool(renderer_warned_result.get("committed", false)),
+		"Renderer cleanup failure did not produce a committed warning result: %s" %
+		JSON.stringify(renderer_warned_result)):
+		return
+	if not require(
+		str(renderer_warned_result.get("warnings", "")).contains(
+			"Road presentation observer failed: Injected RoadRenderer presentation observer failure."),
+		"Second observer warning did not identify the real renderer participant"):
+		return
+	if not require(
+		str(renderer_warned_result.get("warnings", "")).contains(
+			"Load participant 'road-presentation' cleanup failed: " +
+			"Injected RoadRenderer load cleanup failure."),
+		"Cleanup warning did not identify the real renderer participant"):
+		return
+	if not require(
+		probe.GetTriggerCount() == 2 and
+		probe.GetToolCleanupFailureCount() == 1 and
+		probe.GetRendererCleanupFailureCount() == 1 and
+		not probe.IsToolCleanupFailureArmed() and
+		not probe.IsRendererCleanupFailureArmed(),
+		"Observer and renderer cleanup failure probes did not reach their exact counts"):
+		return
+	if not require(
+		str(save_manager.get("CurrentSlotID")) == source_slot_id and
+		renderer.GetRenderedEdgeCount() == 0 and
+		not builder.HasActivePlaceSession() and
+		builder.GetUndoEditCount() == 0 and
+		builder.GetRedoEditCount() == 0 and
+		matching_presentation_is_ready(renderer),
+		"Renderer-cleanup warned Load did not leave all real participants committed"):
+		return
+
+	tool_manager.set("CurrentTool", TOOL_ROAD_UPGRADE)
+	if not require(
+		int(tool_manager.get("CurrentTool")) == TOOL_ROAD_UPGRADE,
+		"Renderer cleanup failure prevented later tool use"):
+		return
+
+	var renderer_clean_result := await run_load(active_slot_id)
+	if not require(
+		int(renderer_clean_result.get("resultKind", -1)) == RESULT_SUCCEEDED and
+		bool(renderer_clean_result.get("committed", false)) and
+		str(renderer_clean_result.get("warnings", "")).is_empty(),
+		"Load after renderer cleanup failure did not re-admit every participant: %s" %
+		JSON.stringify(renderer_clean_result)):
+		return
+	if not require(
+		probe.GetTriggerCount() == 2 and
+		probe.GetToolCleanupFailureCount() == 1 and
+		probe.GetRendererCleanupFailureCount() == 1 and
+		str(save_manager.get("CurrentSlotID")) == active_slot_id and
+		renderer.GetRenderedEdgeCount() == 1 and
+		matching_presentation_is_ready(renderer),
+		"Final Load did not restore one matching presentation without re-triggering probes"):
 		return
 
 	tool_manager.set("CurrentTool", TOOL_ROAD_REMOVE)
@@ -138,8 +209,11 @@ func run() -> void:
 	print("ROAD_LOAD_OBSERVER_CLEANUP_RESULT %s" % JSON.stringify({
 		"warning_result_kind": int(warned_result.get("resultKind", -1)),
 		"clean_result_kind": int(clean_result.get("resultKind", -1)),
+		"renderer_warning_result_kind": int(renderer_warned_result.get("resultKind", -1)),
+		"renderer_clean_result_kind": int(renderer_clean_result.get("resultKind", -1)),
 		"observer_trigger_count": probe.GetTriggerCount(),
 		"tool_cleanup_trigger_count": probe.GetToolCleanupFailureCount(),
+		"renderer_cleanup_trigger_count": probe.GetRendererCleanupFailureCount(),
 		"rendered_edges": renderer.GetRenderedEdgeCount(),
 		"current_tool": int(tool_manager.get("CurrentTool")),
 	}))

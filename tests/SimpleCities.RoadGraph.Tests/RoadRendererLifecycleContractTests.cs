@@ -622,6 +622,9 @@ public sealed class RoadRendererLifecycleContractTests
             StringComparison.Ordinal);
         int markCompleted = completion.IndexOf("_completed = true;", StringComparison.Ordinal);
         int redraw = completion.IndexOf("_owner.QueueRedraw();", StringComparison.Ordinal);
+        int cleanupFailureProbe = completion.IndexOf(
+            "_owner.ProbeLoadCompleteCommitFailure();",
+            StringComparison.Ordinal);
 
         Assert.True(invocationList >= 0 && invocationList < handlerCall);
         Assert.True(handlerCall < warning);
@@ -629,6 +632,11 @@ public sealed class RoadRendererLifecycleContractTests
         Assert.Contains("return warnings;", notifications, StringComparison.Ordinal);
         Assert.True(abandonAdmission >= 0 && abandonAdmission < markCompleted);
         Assert.True(markCompleted < redraw);
+        Assert.True(redraw < cleanupFailureProbe);
+        Assert.Contains(
+            "partial void ProbeLoadCompleteCommitFailure();",
+            loadSource,
+            StringComparison.Ordinal);
         Assert.Contains(
             "public IReadOnlyList<string> PublishNotifications() => [];",
             toolSource,
@@ -678,6 +686,56 @@ public sealed class RoadRendererLifecycleContractTests
         Assert.Contains(
             "partial void ProbeLoadCompleteCommitFailure();",
             toolSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "partial void ProbeLoadCompleteCommitFailure()",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_loadCompleteCommitFailureArmed = false;",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_loadCompleteCommitFailureCount++;",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "throw new InvalidOperationException(LoadCompleteCommitFailureMessage);",
+            probeSource,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RendererCleanupFailureProbeRunsAfterRealAdmissionRelease()
+    {
+        string rendererSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.LoadCommit.cs"));
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadLoadObserverFailureProbe.cs"));
+        string completion = ExtractMethod(
+            rendererSource,
+            "public void CompleteCommit()",
+            "public void Dispose()");
+
+        int rendererAdmissionRelease = completion.IndexOf(
+            "_owner.AbandonLoadAdmission(_admission);",
+            StringComparison.Ordinal);
+        int markCompleted = completion.IndexOf("_completed = true;", StringComparison.Ordinal);
+        int redraw = completion.IndexOf("_owner.QueueRedraw();", StringComparison.Ordinal);
+        int cleanupFailureProbe = completion.IndexOf(
+            "_owner.ProbeLoadCompleteCommitFailure();",
+            StringComparison.Ordinal);
+
+        Assert.True(rendererAdmissionRelease >= 0 && rendererAdmissionRelease < markCompleted);
+        Assert.True(markCompleted < redraw);
+        Assert.True(redraw < cleanupFailureProbe);
+        Assert.Contains(
+            "partial void ProbeLoadCompleteCommitFailure();",
+            rendererSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "public partial class RoadRenderer",
+            probeSource,
             StringComparison.Ordinal);
         Assert.Contains(
             "partial void ProbeLoadCompleteCommitFailure()",

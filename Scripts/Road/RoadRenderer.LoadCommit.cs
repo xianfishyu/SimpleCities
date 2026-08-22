@@ -6,6 +6,7 @@ using System.Linq;
 public partial class RoadRenderer
 {
     partial void ProbeAggregateLoadResourcePreflightFailure();
+    partial void ProbeLoadCompleteCommitFailure();
 
     internal RoadRendererLoadAdmission BeginLoadAdmission()
     {
@@ -366,6 +367,7 @@ public partial class RoadRenderer
             _owner.AbandonLoadAdmission(_admission);
             _completed = true;
             _owner.QueueRedraw();
+            _owner.ProbeLoadCompleteCommitFailure();
         }
 
         public void Dispose()
