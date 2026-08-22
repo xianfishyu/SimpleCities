@@ -7,6 +7,7 @@ const ACTIVE_SLOT_NAME := "Road preflight resource active"
 const V3_SAVE_FIXTURE := preload("res://tests/godot/v3_save_fixture.gd")
 const RESULT_SUCCEEDED := 0
 const RESULT_FAILED := 2
+const PHASE_PREPARE := 3
 const TOOL_ROAD := 1
 const ROAD_TYPE_ARTERIAL := 2
 
@@ -1367,6 +1368,60 @@ func run() -> void:
 		"Post-participant capture failure changed RoadGraph"):
 		return
 
+	var post_prepare_phase_resource_count_before := int(probe.GetObjectResourceCount())
+	var post_prepare_phase_failure_message := str(
+		probe.GetAggregateLoadPostPreparePhaseFailureMessage())
+	probe.ArmAggregateLoadPostPreparePhaseFailure(save_manager)
+	if not require(
+		bool(probe.IsAggregateLoadPostPreparePhaseFailureArmed()),
+		"Aggregate Load post-Prepare phase failure probe did not arm"):
+		return
+	var post_prepare_phase_failed_load_result := await run_load(source_slot_id)
+	var post_prepare_phase_resource_count_after := int(probe.GetObjectResourceCount())
+	if not require(
+		int(post_prepare_phase_failed_load_result.get("resultKind", -1)) ==
+			RESULT_FAILED and
+		int(post_prepare_phase_failed_load_result.get("finalPhase", -1)) ==
+			PHASE_PREPARE and
+		not bool(post_prepare_phase_failed_load_result.get("committed", true)) and
+		str(post_prepare_phase_failed_load_result.get("warnings", "")).is_empty() and
+		str(post_prepare_phase_failed_load_result.get("error", "")) ==
+			post_prepare_phase_failure_message,
+		"Real StartLoad did not fail after entering Prepare phase and before worker start: %s" %
+		JSON.stringify(post_prepare_phase_failed_load_result)):
+		return
+	if not require(
+		not bool(probe.IsAggregateLoadPostPreparePhaseFailureArmed()) and
+		int(probe.GetAggregateLoadPostPreparePhaseFailureCount()) == 1 and
+		int(probe.GetAggregateLoadPostPreparePhaseObservedPhase()) == PHASE_PREPARE and
+		post_prepare_phase_resource_count_after ==
+			post_prepare_phase_resource_count_before and
+		str(save_manager.get("CurrentSlotID")) == active_slot_id and
+		int(tool_manager.get("CurrentTool")) == TOOL_ROAD and
+		int(tool_manager.GetSelectedRoadType()) == selected_road_type_before and
+		builder.HasActivePlaceSession() and
+		builder.GetFixedCornerCount() == 1 and
+		builder.GetUndoEditCount() == undo_count_before and
+		builder.GetRedoEditCount() == redo_count_before and
+		renderer.GetRenderedEdgeCount() == edge_count_before and
+		renderer.GetRoadMeshVertexCount() == vertex_count_before and
+		renderer.GetNodeMarkerCount() == marker_count_before and
+		renderer.GetPresentationState() == presentation_before and
+		renderer.FindRoadSurfaceHit(Vector2(400.0, 300.0), 0.0) == hit_before,
+		"Post-Prepare phase failure changed resources, graph, tool, placement, history, presentation, surface, token, or slot state"):
+		return
+
+	if not require(
+		await V3_SAVE_FIXTURE.save(save_manager, active_slot_id),
+		"Could not recapture the active graph after post-Prepare phase failure"):
+		return
+	var post_prepare_phase_payload_after := FileAccess.get_file_as_string(
+		V3_SAVE_FIXTURE.slot_path(active_slot_id, V3_SAVE_FIXTURE.PAYLOAD_FILE_NAME))
+	if not require(
+		post_prepare_phase_payload_after == active_payload_before,
+		"Post-Prepare phase failure changed RoadGraph"):
+		return
+
 	var renderer_worker_prepare_resource_count_before := int(probe.GetObjectResourceCount())
 	var renderer_worker_prepare_failure_message := str(
 		probe.GetAggregateLoadRendererWorkerPrepareFailureMessage())
@@ -1609,6 +1664,20 @@ func run() -> void:
 			post_participant_capture_resource_count_before,
 		"post_participant_capture_resource_count_after":
 			post_participant_capture_resource_count_after,
+		"post_prepare_phase_failure_result_kind": int(
+			post_prepare_phase_failed_load_result.get("resultKind", -1)),
+		"post_prepare_phase_failure_final_phase": int(
+			post_prepare_phase_failed_load_result.get("finalPhase", -1)),
+		"post_prepare_phase_failure_committed": bool(
+			post_prepare_phase_failed_load_result.get("committed", true)),
+		"post_prepare_phase_failure_trigger_count": int(
+			probe.GetAggregateLoadPostPreparePhaseFailureCount()),
+		"post_prepare_phase_observed_phase": int(
+			probe.GetAggregateLoadPostPreparePhaseObservedPhase()),
+		"post_prepare_phase_resource_count_before":
+			post_prepare_phase_resource_count_before,
+		"post_prepare_phase_resource_count_after":
+			post_prepare_phase_resource_count_after,
 		"renderer_worker_prepare_failure_result_kind": int(
 			renderer_worker_prepare_failed_load_result.get("resultKind", -1)),
 		"renderer_worker_prepare_failure_committed": bool(

@@ -215,6 +215,25 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
     public string GetAggregateLoadPostParticipantCaptureFailureMessage() =>
         SaveManager.AggregateLoadPostParticipantCaptureFailureMessage;
 
+    public void ArmAggregateLoadPostPreparePhaseFailure(SaveManager saveManager)
+    {
+        ArgumentNullException.ThrowIfNull(saveManager);
+        saveManager.ArmNextAggregateLoadPostPreparePhaseFailure();
+        _saveManager = saveManager;
+    }
+
+    public bool IsAggregateLoadPostPreparePhaseFailureArmed() =>
+        _saveManager?.IsAggregateLoadPostPreparePhaseFailureArmed() ?? false;
+
+    public int GetAggregateLoadPostPreparePhaseFailureCount() =>
+        _saveManager?.GetAggregateLoadPostPreparePhaseFailureCount() ?? 0;
+
+    public int GetAggregateLoadPostPreparePhaseObservedPhase() =>
+        _saveManager?.GetAggregateLoadPostPreparePhaseObservedPhase() ?? -1;
+
+    public string GetAggregateLoadPostPreparePhaseFailureMessage() =>
+        SaveManager.AggregateLoadPostPreparePhaseFailureMessage;
+
     public void ArmAggregateLoadRendererWorkerPrepareFailure(SaveManager saveManager)
     {
         ArgumentNullException.ThrowIfNull(saveManager);
@@ -385,6 +404,8 @@ public partial class SaveManager
         "Injected aggregate Load failure after renderer admission publication.";
     internal const string AggregateLoadPostParticipantCaptureFailureMessage =
         "Injected aggregate Load failure after participant capture.";
+    internal const string AggregateLoadPostPreparePhaseFailureMessage =
+        "Injected aggregate Load failure after entering the Prepare phase.";
     internal const string AggregateLoadRendererWorkerPrepareFailureMessage =
         "Injected aggregate Load renderer worker-prepare failure.";
     internal const string AggregateLoadPostRendererPreflightFailureMessage =
@@ -407,6 +428,9 @@ public partial class SaveManager
     private bool _aggregateLoadPostParticipantCaptureFailureArmed;
     private int _aggregateLoadPostParticipantCaptureFailureCount;
     private int _aggregateLoadPostParticipantCaptureParticipantCount;
+    private bool _aggregateLoadPostPreparePhaseFailureArmed;
+    private int _aggregateLoadPostPreparePhaseFailureCount;
+    private int _aggregateLoadPostPreparePhaseObservedPhase = -1;
     private bool _aggregateLoadRendererWorkerPrepareFailureArmed;
     private int _aggregateLoadRendererWorkerPrepareFailureCount;
     private bool _aggregateLoadPostRendererPreflightFailureArmed;
@@ -502,6 +526,44 @@ public partial class SaveManager
 
     internal int GetAggregateLoadPostParticipantCaptureParticipantCount() =>
         _aggregateLoadPostParticipantCaptureParticipantCount;
+
+    partial void ProbeAggregateLoadPostPreparePhaseFailure(SaveOperationPhase phase)
+    {
+        if (!_aggregateLoadPostPreparePhaseFailureArmed)
+            return;
+
+        _aggregateLoadPostPreparePhaseFailureArmed = false;
+        _aggregateLoadPostPreparePhaseFailureCount++;
+        _aggregateLoadPostPreparePhaseObservedPhase = (int)phase;
+        throw new InvalidOperationException(
+            AggregateLoadPostPreparePhaseFailureMessage);
+    }
+
+    internal void ArmNextAggregateLoadPostPreparePhaseFailure()
+    {
+        if (IsOperationBusy)
+        {
+            throw new InvalidOperationException(
+                "SaveManager must be idle before arming its aggregate Load failure probe.");
+        }
+        if (_aggregateLoadPostPreparePhaseFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load post-Prepare phase failure probe is already armed.");
+        }
+
+        _aggregateLoadPostPreparePhaseObservedPhase = -1;
+        _aggregateLoadPostPreparePhaseFailureArmed = true;
+    }
+
+    internal bool IsAggregateLoadPostPreparePhaseFailureArmed() =>
+        _aggregateLoadPostPreparePhaseFailureArmed;
+
+    internal int GetAggregateLoadPostPreparePhaseFailureCount() =>
+        _aggregateLoadPostPreparePhaseFailureCount;
+
+    internal int GetAggregateLoadPostPreparePhaseObservedPhase() =>
+        _aggregateLoadPostPreparePhaseObservedPhase;
 
     partial void ProbeAggregateLoadRendererWorkerPrepareFailure()
     {

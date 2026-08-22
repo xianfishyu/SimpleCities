@@ -13,6 +13,7 @@ public partial class SaveManager : Node
     partial void ProbeAggregateLoadPostRendererAdmissionFailure();
     partial void ProbeAggregateLoadPostParticipantCaptureFailure(
         IReadOnlyList<CapturedLoadParticipant> loadParticipants);
+    partial void ProbeAggregateLoadPostPreparePhaseFailure(SaveOperationPhase phase);
     partial void ProbeAggregateLoadRendererWorkerPrepareFailure();
     partial void ProbeAggregateLoadPostRendererPreflightFailure();
     partial void ProbeAggregateLoadPostSlotPreflightFailure();
@@ -676,6 +677,7 @@ public partial class SaveManager : Node
                     SaveSlotStore.CaptureLoadParticipants(GetRequiredSaveables());
                 ProbeAggregateLoadPostParticipantCaptureFailure(loadParticipants);
                 lease.AdvanceTo(SaveOperationPhase.Prepare);
+                ProbeAggregateLoadPostPreparePhaseFailure(lease.State.Phase);
                 PreparedLoadWork prepared = await Task.Run(() =>
                 {
                     long workerPrepareStarted = Stopwatch.GetTimestamp();
