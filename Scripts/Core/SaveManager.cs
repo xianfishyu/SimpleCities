@@ -10,6 +10,8 @@ using System.Threading.Tasks;
 /// <summary>V3 存档管理器 Autoload。</summary>
 public partial class SaveManager : Node
 {
+    partial void ProbeAggregateLoadPostRendererPreflightFailure();
+
     public static SaveManager Instance { get; private set; } = null!;
 
     private const string SaveBaseDir = "user://saves-v3";
@@ -688,6 +690,7 @@ public partial class SaveManager : Node
                     rendererAdmission,
                     prepared.Presentation,
                     targetRevision.StateToken));
+                ProbeAggregateLoadPostRendererPreflightFailure();
                 long slotTargetGeneration = _currentSlotGeneration;
                 preflightPlans.Add(new SlotTargetLoadCommitPlan(
                     slotID,

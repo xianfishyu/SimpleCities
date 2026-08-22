@@ -322,6 +322,8 @@ public sealed class RoadRendererLifecycleContractTests
             Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.cs"));
         string loadSource = File.ReadAllText(
             Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.LoadCommit.cs"));
+        string saveManagerSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Core", "SaveManager.cs"));
         string ordinaryBuild = ExtractMethod(
             rendererSource,
             "private bool TryRebuildStaticBatches",
@@ -330,6 +332,10 @@ public sealed class RoadRendererLifecycleContractTests
             loadSource,
             "internal INonThrowingLoadCommitPlan PreflightPreparedLoad",
             "private bool IsLoadAdmissionCurrent");
+        string loadOrchestration = ExtractMethod(
+            saveManagerSource,
+            "private async Task<SaveOperationResult> RunLoadAsync",
+            "private async Task<SaveOperationResult> RunDeleteAsync");
 
         Assert.Contains("bool presentationResourcesTransferred = false;", ordinaryBuild);
         Assert.Contains("finally", ordinaryBuild);
@@ -380,6 +386,27 @@ public sealed class RoadRendererLifecycleContractTests
             aggregateLoadFailureProbe < surfaceCreation &&
             surfaceCreation < planCreation);
         Assert.True(planCreation < cleanup);
+
+        int rendererPlan = loadOrchestration.IndexOf(
+            "preflightPlans.Add(context.Renderer.PreflightPreparedLoad(",
+            StringComparison.Ordinal);
+        int postRendererFailureProbe = loadOrchestration.IndexOf(
+            "ProbeAggregateLoadPostRendererPreflightFailure();",
+            StringComparison.Ordinal);
+        int slotPlan = loadOrchestration.IndexOf(
+            "preflightPlans.Add(new SlotTargetLoadCommitPlan(",
+            StringComparison.Ordinal);
+        int aggregateOwnership = loadOrchestration.IndexOf(
+            "aggregateOwnsPlans = true;",
+            StringComparison.Ordinal);
+        int fallbackPlanDisposal = loadOrchestration.LastIndexOf(
+            "foreach (INonThrowingLoadCommitPlan plan in preflightPlans)",
+            StringComparison.Ordinal);
+
+        Assert.True(rendererPlan >= 0 && rendererPlan < postRendererFailureProbe);
+        Assert.True(postRendererFailureProbe < slotPlan && slotPlan < aggregateOwnership);
+        Assert.True(aggregateOwnership < fallbackPlanDisposal);
+        Assert.Contains("plan.Dispose();", loadOrchestration[fallbackPlanDisposal..]);
     }
 
     [Fact]

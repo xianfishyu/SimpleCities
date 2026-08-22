@@ -6,6 +6,7 @@ using System.Collections.Generic;
 public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
 {
     private RoadRenderer? _renderer;
+    private SaveManager? _saveManager;
 
     public Godot.Collections.Dictionary Run(RoadRenderer renderer)
     {
@@ -47,8 +48,66 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
     public string GetAggregateLoadResourcePreflightFailureMessage() =>
         RoadRenderer.AggregateLoadResourcePreflightFailureMessage;
 
+    public void ArmAggregateLoadPostRendererPreflightFailure(SaveManager saveManager)
+    {
+        ArgumentNullException.ThrowIfNull(saveManager);
+        saveManager.ArmNextAggregateLoadPostRendererPreflightFailure();
+        _saveManager = saveManager;
+    }
+
+    public bool IsAggregateLoadPostRendererPreflightFailureArmed() =>
+        _saveManager?.IsAggregateLoadPostRendererPreflightFailureArmed() ?? false;
+
+    public int GetAggregateLoadPostRendererPreflightFailureCount() =>
+        _saveManager?.GetAggregateLoadPostRendererPreflightFailureCount() ?? 0;
+
+    public string GetAggregateLoadPostRendererPreflightFailureMessage() =>
+        SaveManager.AggregateLoadPostRendererPreflightFailureMessage;
+
     public long GetObjectResourceCount() => Convert.ToInt64(
         Performance.GetMonitor(Performance.Monitor.ObjectResourceCount));
+}
+
+public partial class SaveManager
+{
+    internal const string AggregateLoadPostRendererPreflightFailureMessage =
+        "Injected aggregate Load failure after road presentation preflight.";
+
+    private bool _aggregateLoadPostRendererPreflightFailureArmed;
+    private int _aggregateLoadPostRendererPreflightFailureCount;
+
+    partial void ProbeAggregateLoadPostRendererPreflightFailure()
+    {
+        if (!_aggregateLoadPostRendererPreflightFailureArmed)
+            return;
+
+        _aggregateLoadPostRendererPreflightFailureArmed = false;
+        _aggregateLoadPostRendererPreflightFailureCount++;
+        throw new InvalidOperationException(
+            AggregateLoadPostRendererPreflightFailureMessage);
+    }
+
+    internal void ArmNextAggregateLoadPostRendererPreflightFailure()
+    {
+        if (IsOperationBusy)
+        {
+            throw new InvalidOperationException(
+                "SaveManager must be idle before arming its aggregate Load failure probe.");
+        }
+        if (_aggregateLoadPostRendererPreflightFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load post-renderer preflight failure probe is already armed.");
+        }
+
+        _aggregateLoadPostRendererPreflightFailureArmed = true;
+    }
+
+    internal bool IsAggregateLoadPostRendererPreflightFailureArmed() =>
+        _aggregateLoadPostRendererPreflightFailureArmed;
+
+    internal int GetAggregateLoadPostRendererPreflightFailureCount() =>
+        _aggregateLoadPostRendererPreflightFailureCount;
 }
 
 public partial class RoadRenderer
