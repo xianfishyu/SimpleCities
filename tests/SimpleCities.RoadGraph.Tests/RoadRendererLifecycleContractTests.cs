@@ -759,7 +759,7 @@ public sealed class RoadRendererLifecycleContractTests
         string graphFacadeGenerationRequest = ExtractMethod(
             probeSource,
             "private RoadRenderToken RequestOrdinaryPreCommitGraphFacadeGenerationSupersession(",
-            "internal void ArmNextOrdinaryPresentationResourcePreflightFailure()");
+            "private RoadRenderToken RequestOrdinaryPreCommitChangeSequenceSupersession(");
 
         Assert.Contains(
             "OrdinaryPreCommitSupersessionKind.GraphFacadeGeneration",
@@ -783,6 +783,50 @@ public sealed class RoadRendererLifecycleContractTests
             StringComparison.Ordinal);
         Assert.Contains("targetToken.ChangeSequence", graphFacadeGenerationRequest, StringComparison.Ordinal);
         Assert.Contains("isFullReset: true", graphFacadeGenerationRequest, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OrdinaryPreCommitChangeSequenceSupersessionUsesSecondRealGraphMutation()
+    {
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadRendererUpdateTokenFailureProbe.cs"));
+        string supersessionProbe = ExtractMethod(
+            probeSource,
+            "partial void ProbeOrdinaryPreCommitTokenSupersession(",
+            "internal void ArmNextOrdinaryPresentationResourcePreflightFailure()");
+        string changeSequenceArm = ExtractMethod(
+            probeSource,
+            "internal void ArmNextOrdinaryPreCommitChangeSequenceSupersession(",
+            "private void ArmNextOrdinaryPreCommitTokenSupersession(");
+        string changeSequenceRequest = ExtractMethod(
+            probeSource,
+            "private RoadRenderToken RequestOrdinaryPreCommitChangeSequenceSupersession(",
+            "internal void ArmNextOrdinaryPresentationResourcePreflightFailure()");
+
+        Assert.Contains(
+            "OrdinaryPreCommitSupersessionKind.ChangeSequence",
+            changeSequenceArm,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "RequestOrdinaryPreCommitChangeSequenceSupersession(targetToken)",
+            supersessionProbe,
+            StringComparison.Ordinal);
+        Assert.Contains("graph.SubmitPolyline(", changeSequenceRequest, StringComparison.Ordinal);
+        Assert.Contains("RoadType.Street", changeSequenceRequest, StringComparison.Ordinal);
+        Assert.Contains("result.Success", changeSequenceRequest, StringComparison.Ordinal);
+        Assert.Contains("result.Changes.IsFullReset", changeSequenceRequest, StringComparison.Ordinal);
+        Assert.Contains(
+            "result.Changes.ChangeSequence != replacementChangeSequence",
+            changeSequenceRequest,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_presentationTokens.DesiredToken is not RoadRenderToken replacementToken",
+            changeSequenceRequest,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "InvalidateScheduledStaticBatchRebuildContinuation();",
+            changeSequenceRequest,
+            StringComparison.Ordinal);
     }
 
     [Fact]

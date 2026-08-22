@@ -63,6 +63,18 @@ public partial class RoadRendererUpdateTokenFailureProbe : RefCounted
         _renderer = renderer;
     }
 
+    public void ArmPreCommitChangeSequenceSupersession(
+        RoadRenderer renderer,
+        Vector2 mutationStart,
+        Vector2 mutationEnd)
+    {
+        ArgumentNullException.ThrowIfNull(renderer);
+        renderer.ArmNextOrdinaryPreCommitChangeSequenceSupersession(
+            mutationStart,
+            mutationEnd);
+        _renderer = renderer;
+    }
+
     public bool IsArmed() =>
         _renderer?.IsOrdinaryPresentationResourcePreflightFailureArmed() ?? false;
 
@@ -135,6 +147,7 @@ public partial class RoadRenderer
         RoadStyleRevision,
         SceneGeneration,
         GraphFacadeGeneration,
+        ChangeSequence,
     }
 
     internal const string OrdinaryPresentationResourcePreflightFailureMessage =
@@ -165,6 +178,8 @@ public partial class RoadRenderer
     private RoadRenderToken? _ordinaryPreCommitSupersededToken;
     private RoadRenderToken? _ordinaryPreCommitReplacementToken;
     private OrdinaryPreCommitSupersessionKind _ordinaryPreCommitSupersessionKind;
+    private Vector2 _ordinaryPreCommitChangeSequenceMutationStart;
+    private Vector2 _ordinaryPreCommitChangeSequenceMutationEnd;
 
     partial void ProbeOrdinaryPresentationResourcePreflightFailure(
         RoadRenderToken targetToken)
@@ -262,6 +277,8 @@ public partial class RoadRenderer
                 RequestOrdinaryPreCommitSceneGenerationSupersession(targetToken),
             OrdinaryPreCommitSupersessionKind.GraphFacadeGeneration =>
                 RequestOrdinaryPreCommitGraphFacadeGenerationSupersession(targetToken),
+            OrdinaryPreCommitSupersessionKind.ChangeSequence =>
+                RequestOrdinaryPreCommitChangeSequenceSupersession(targetToken),
             _ => _presentationTokens.RequestRebuild(targetToken.ChangeSequence),
         };
     }
@@ -296,6 +313,44 @@ public partial class RoadRenderer
         return _presentationTokens.RequestGraphChange(
             targetToken.ChangeSequence,
             isFullReset: true);
+    }
+
+    private RoadRenderToken RequestOrdinaryPreCommitChangeSequenceSupersession(
+        RoadRenderToken targetToken)
+    {
+        if (_network is not RoadGraph graph ||
+            graph.FacadeID != targetToken.GraphFacadeID ||
+            graph.CurrentStateToken.ChangeSequence != targetToken.ChangeSequence)
+        {
+            throw new InvalidOperationException(
+                "Road presentation graph facade is not current for a second mutation.");
+        }
+
+        RoadPathSubmissionResult result = graph.SubmitPolyline(
+            RoadType.Street,
+            [
+                _ordinaryPreCommitChangeSequenceMutationStart,
+                _ordinaryPreCommitChangeSequenceMutationEnd,
+            ]);
+        if (!result.Success)
+        {
+            throw new InvalidOperationException(
+                $"Road presentation second mutation was rejected: {result.Error}.");
+        }
+
+        InvalidateScheduledStaticBatchRebuildContinuation();
+        long replacementChangeSequence = checked(targetToken.ChangeSequence + 1);
+        if (result.Changes.IsFullReset ||
+            result.Changes.ChangeSequence != replacementChangeSequence ||
+            graph.CurrentStateToken.ChangeSequence != replacementChangeSequence ||
+            _presentationTokens.DesiredToken is not RoadRenderToken replacementToken ||
+            replacementToken.ChangeSequence != replacementChangeSequence)
+        {
+            throw new InvalidOperationException(
+                "Road presentation second mutation did not produce the current replacement token.");
+        }
+
+        return replacementToken;
     }
 
     internal void ArmNextOrdinaryPresentationResourcePreflightFailure()
@@ -495,6 +550,24 @@ public partial class RoadRenderer
     internal void ArmNextOrdinaryPreCommitGraphFacadeGenerationSupersession() =>
         ArmNextOrdinaryPreCommitTokenSupersession(
             OrdinaryPreCommitSupersessionKind.GraphFacadeGeneration);
+
+    internal void ArmNextOrdinaryPreCommitChangeSequenceSupersession(
+        Vector2 mutationStart,
+        Vector2 mutationEnd)
+    {
+        if (!RoadNumericPolicy.IsWithinCoordinateRange(mutationStart) ||
+            !RoadNumericPolicy.IsWithinCoordinateRange(mutationEnd) ||
+            mutationStart == mutationEnd)
+        {
+            throw new ArgumentException(
+                "Road presentation second-mutation endpoints must be distinct valid coordinates.");
+        }
+
+        ArmNextOrdinaryPreCommitTokenSupersession(
+            OrdinaryPreCommitSupersessionKind.ChangeSequence);
+        _ordinaryPreCommitChangeSequenceMutationStart = mutationStart;
+        _ordinaryPreCommitChangeSequenceMutationEnd = mutationEnd;
+    }
 
     private void ArmNextOrdinaryPreCommitTokenSupersession(
         OrdinaryPreCommitSupersessionKind supersessionKind)
