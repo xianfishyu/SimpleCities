@@ -13,6 +13,9 @@ public partial class SaveManager : Node
     partial void ProbeAggregateLoadPostRendererPreflightFailure();
     partial void ProbeAggregateLoadPostSlotPreflightFailure();
     partial void ProbeAggregateLoadPostOwnershipPreCommitFailure();
+    partial void ProbeAggregateLoadGraphCommitBoundaryGenerationMismatch(
+        RoadGraph graph,
+        ref IStorageOperationLease operationLease);
     partial void ProbeAggregateLoadRendererCommitBoundaryGenerationMismatch(
         RoadRenderer renderer,
         ref IStorageOperationLease operationLease);
@@ -715,6 +718,9 @@ public partial class SaveManager : Node
                 TimeSpan preflightDuration = Stopwatch.GetElapsedTime(preflightStarted);
                 long aggregateCommitStarted = Stopwatch.GetTimestamp();
                 IStorageOperationLease aggregateOperationLease = lease;
+                ProbeAggregateLoadGraphCommitBoundaryGenerationMismatch(
+                    context.Graph,
+                    ref aggregateOperationLease);
                 ProbeAggregateLoadRendererCommitBoundaryGenerationMismatch(
                     context.Renderer,
                     ref aggregateOperationLease);

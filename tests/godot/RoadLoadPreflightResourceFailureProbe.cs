@@ -196,6 +196,29 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
     public string GetAggregateLoadPostOwnershipPreCommitFailureMessage() =>
         SaveManager.AggregateLoadPostOwnershipPreCommitFailureMessage;
 
+    public void ArmAggregateLoadGraphCommitBoundaryGenerationMismatch(
+        SaveManager saveManager)
+    {
+        ArgumentNullException.ThrowIfNull(saveManager);
+        saveManager.ArmNextAggregateLoadGraphCommitBoundaryGenerationMismatch();
+        _saveManager = saveManager;
+    }
+
+    public bool IsAggregateLoadGraphCommitBoundaryGenerationMismatchArmed() =>
+        _saveManager?.IsAggregateLoadGraphCommitBoundaryGenerationMismatchArmed() ?? false;
+
+    public int GetAggregateLoadGraphCommitBoundaryGenerationMismatchCount() =>
+        _saveManager?.GetAggregateLoadGraphCommitBoundaryGenerationMismatchCount() ?? 0;
+
+    public int GetAggregateLoadGraphCommitBoundaryCount() =>
+        _saveManager?.GetAggregateLoadGraphCommitBoundaryCount() ?? 0;
+
+    public int GetAggregateLoadGraphMarkCommittedCount() =>
+        _saveManager?.GetAggregateLoadGraphMarkCommittedCount() ?? 0;
+
+    public string GetAggregateLoadGraphCommitBoundaryGenerationMismatchMessage() =>
+        SaveManager.AggregateLoadGraphCommitBoundaryGenerationMismatchMessage;
+
     public void ArmAggregateLoadRendererCommitBoundaryGenerationMismatch(
         SaveManager saveManager,
         RoadRenderer renderer)
@@ -258,6 +281,8 @@ public partial class SaveManager
         "Injected aggregate Load failure after slot-target preflight.";
     internal const string AggregateLoadPostOwnershipPreCommitFailureMessage =
         "Injected aggregate Load failure after ownership transfer and before commit.";
+    internal const string AggregateLoadGraphCommitBoundaryGenerationMismatchMessage =
+        "A load participant generation changed while entering commit.";
     internal const string AggregateLoadRendererCommitBoundaryGenerationMismatchMessage =
         "A load participant generation changed while entering commit.";
     internal const string AggregateLoadToolCommitBoundaryGenerationMismatchMessage =
@@ -269,6 +294,10 @@ public partial class SaveManager
     private int _aggregateLoadPostSlotPreflightFailureCount;
     private bool _aggregateLoadPostOwnershipPreCommitFailureArmed;
     private int _aggregateLoadPostOwnershipPreCommitFailureCount;
+    private bool _aggregateLoadGraphCommitBoundaryGenerationMismatchArmed;
+    private int _aggregateLoadGraphCommitBoundaryGenerationMismatchCount;
+    private RoadGraph? _aggregateLoadGraphCommitBoundaryOwner;
+    private AggregateLoadGraphBoundaryInvalidatingLease? _aggregateLoadGraphBoundaryLease;
     private bool _aggregateLoadRendererCommitBoundaryGenerationMismatchArmed;
     private int _aggregateLoadRendererCommitBoundaryGenerationMismatchCount;
     private RoadRenderer? _aggregateLoadRendererCommitBoundaryOwner;
@@ -377,6 +406,60 @@ public partial class SaveManager
     internal int GetAggregateLoadPostOwnershipPreCommitFailureCount() =>
         _aggregateLoadPostOwnershipPreCommitFailureCount;
 
+    partial void ProbeAggregateLoadGraphCommitBoundaryGenerationMismatch(
+        RoadGraph graph,
+        ref IStorageOperationLease operationLease)
+    {
+        if (!_aggregateLoadGraphCommitBoundaryGenerationMismatchArmed)
+            return;
+        if (!ReferenceEquals(graph, _aggregateLoadGraphCommitBoundaryOwner))
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load graph commit-boundary probe targeted a different RoadGraph.");
+        }
+
+        _aggregateLoadGraphCommitBoundaryGenerationMismatchArmed = false;
+        _aggregateLoadGraphCommitBoundaryGenerationMismatchCount++;
+        _aggregateLoadGraphCommitBoundaryOwner = null;
+        var wrapper = new AggregateLoadGraphBoundaryInvalidatingLease(
+            operationLease,
+            graph);
+        _aggregateLoadGraphBoundaryLease = wrapper;
+        operationLease = wrapper;
+    }
+
+    internal void ArmNextAggregateLoadGraphCommitBoundaryGenerationMismatch()
+    {
+        if (IsOperationBusy)
+        {
+            throw new InvalidOperationException(
+                "SaveManager must be idle before arming its aggregate Load failure probe.");
+        }
+        if (_aggregateLoadGraphCommitBoundaryGenerationMismatchArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load graph commit-boundary generation mismatch probe is already armed.");
+        }
+        RoadGraph graph = _sceneContext?.Graph ?? throw new InvalidOperationException(
+            "SaveManager must have a current RoadGraph before arming its aggregate Load graph probe.");
+
+        _aggregateLoadGraphCommitBoundaryGenerationMismatchArmed = true;
+        _aggregateLoadGraphCommitBoundaryOwner = graph;
+        _aggregateLoadGraphBoundaryLease = null;
+    }
+
+    internal bool IsAggregateLoadGraphCommitBoundaryGenerationMismatchArmed() =>
+        _aggregateLoadGraphCommitBoundaryGenerationMismatchArmed;
+
+    internal int GetAggregateLoadGraphCommitBoundaryGenerationMismatchCount() =>
+        _aggregateLoadGraphCommitBoundaryGenerationMismatchCount;
+
+    internal int GetAggregateLoadGraphCommitBoundaryCount() =>
+        _aggregateLoadGraphBoundaryLease?.BoundaryCount ?? 0;
+
+    internal int GetAggregateLoadGraphMarkCommittedCount() =>
+        _aggregateLoadGraphBoundaryLease?.MarkCommittedCount ?? 0;
+
     partial void ProbeAggregateLoadRendererCommitBoundaryGenerationMismatch(
         RoadRenderer renderer,
         ref IStorageOperationLease operationLease)
@@ -483,6 +566,44 @@ public partial class SaveManager
     internal int GetAggregateLoadToolMarkCommittedCount() =>
         _aggregateLoadToolBoundaryLease?.MarkCommittedCount ?? 0;
 
+    private sealed class AggregateLoadGraphBoundaryInvalidatingLease(
+        IStorageOperationLease inner,
+        RoadGraph graph) : IStorageOperationLease
+    {
+        public string OperationToken => inner.OperationToken;
+        public SaveOperationKind Kind => inner.Kind;
+        internal int BoundaryCount { get; private set; }
+        internal int MarkCommittedCount { get; private set; }
+
+        public void ThrowIfCancellationRequested() => inner.ThrowIfCancellationRequested();
+
+        public void AcquireCommitLease() => inner.AcquireCommitLease();
+
+        public void CrossCommitBoundary(Action boundaryAction)
+        {
+            ArgumentNullException.ThrowIfNull(boundaryAction);
+            BoundaryCount++;
+            inner.CrossCommitBoundary(() =>
+            {
+                graph.InvalidateCurrentGraphLoadAdmissionForAggregateBoundaryProbe();
+                boundaryAction();
+            });
+        }
+
+        public void MarkCommitted()
+        {
+            MarkCommittedCount++;
+            inner.MarkCommitted();
+        }
+
+        public void EnterCommitBoundary()
+        {
+            AcquireCommitLease();
+            CrossCommitBoundary(static () => { });
+            MarkCommitted();
+        }
+    }
+
     private sealed class AggregateLoadRendererBoundaryInvalidatingLease(
         IStorageOperationLease inner,
         RoadRenderer renderer) : IStorageOperationLease
@@ -557,6 +678,17 @@ public partial class SaveManager
             CrossCommitBoundary(static () => { });
             MarkCommitted();
         }
+    }
+}
+
+public partial class RoadGraph
+{
+    internal void InvalidateCurrentGraphLoadAdmissionForAggregateBoundaryProbe()
+    {
+        RoadGraphLoadAdmission admission = _loadAdmission ??
+            throw new InvalidOperationException(
+                "RoadGraph must have a current Load admission at the aggregate commit boundary.");
+        admission.Dispose();
     }
 }
 

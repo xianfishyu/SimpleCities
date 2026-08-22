@@ -773,6 +773,72 @@ func run() -> void:
 		"Post-ownership aggregate failure changed RoadGraph"):
 		return
 
+	var graph_boundary_operation_resource_count_before := int(probe.GetObjectResourceCount())
+	var graph_boundary_operation_failure_message := str(
+		probe.GetAggregateLoadGraphCommitBoundaryGenerationMismatchMessage())
+	probe.ArmAggregateLoadGraphCommitBoundaryGenerationMismatch(save_manager)
+	if not require(
+		bool(probe.IsAggregateLoadGraphCommitBoundaryGenerationMismatchArmed()),
+		"Real StartLoad graph commit-boundary generation mismatch probe did not arm"):
+		return
+	var graph_boundary_operation_failed_load_result := await run_load(active_slot_id)
+	if not require(
+		int(graph_boundary_operation_failed_load_result.get("resultKind", -1)) ==
+			RESULT_FAILED and
+		not bool(graph_boundary_operation_failed_load_result.get("committed", true)) and
+		str(graph_boundary_operation_failed_load_result.get("warnings", "")).is_empty() and
+		str(graph_boundary_operation_failed_load_result.get("error", "")) ==
+			graph_boundary_operation_failure_message,
+		"Real StartLoad did not reject the stale graph inside the commit boundary: %s" %
+		JSON.stringify(graph_boundary_operation_failed_load_result)):
+		return
+	var graph_boundary_operation_resource_count_after := int(probe.GetObjectResourceCount())
+	if not require(
+		not bool(probe.IsAggregateLoadGraphCommitBoundaryGenerationMismatchArmed()) and
+		int(probe.GetAggregateLoadGraphCommitBoundaryGenerationMismatchCount()) == 1 and
+		int(probe.GetAggregateLoadGraphCommitBoundaryCount()) == 1 and
+		int(probe.GetAggregateLoadGraphMarkCommittedCount()) == 0 and
+		graph_boundary_operation_resource_count_after ==
+			graph_boundary_operation_resource_count_before,
+		"Real StartLoad graph boundary rejection did not release owned resources exactly once: %s" %
+		JSON.stringify({
+			"armed": bool(
+				probe.IsAggregateLoadGraphCommitBoundaryGenerationMismatchArmed()),
+			"triggerCount": int(
+				probe.GetAggregateLoadGraphCommitBoundaryGenerationMismatchCount()),
+			"boundaryCount": int(probe.GetAggregateLoadGraphCommitBoundaryCount()),
+			"markCommittedCount": int(probe.GetAggregateLoadGraphMarkCommittedCount()),
+			"resourceCountBefore": graph_boundary_operation_resource_count_before,
+			"resourceCountAfter": graph_boundary_operation_resource_count_after,
+		})):
+		return
+	if not require(
+		str(save_manager.get("CurrentSlotID")) == active_slot_id and
+		int(tool_manager.get("CurrentTool")) == TOOL_ROAD and
+		int(tool_manager.GetSelectedRoadType()) == selected_road_type_before and
+		builder.HasActivePlaceSession() and
+		builder.GetFixedCornerCount() == 1 and
+		builder.GetUndoEditCount() == undo_count_before and
+		builder.GetRedoEditCount() == redo_count_before and
+		renderer.GetRenderedEdgeCount() == edge_count_before and
+		renderer.GetRoadMeshVertexCount() == vertex_count_before and
+		renderer.GetNodeMarkerCount() == marker_count_before and
+		renderer.GetPresentationState() == presentation_before and
+		renderer.FindRoadSurfaceHit(Vector2(400.0, 300.0), 0.0) == hit_before,
+		"Real StartLoad graph boundary rejection changed graph, tool, placement, history, presentation, surface, token, or slot state"):
+		return
+
+	if not require(
+		await V3_SAVE_FIXTURE.save(save_manager, active_slot_id),
+		"Could not recapture the active graph after graph boundary rejection"):
+		return
+	var graph_boundary_operation_payload_after := FileAccess.get_file_as_string(
+		V3_SAVE_FIXTURE.slot_path(active_slot_id, V3_SAVE_FIXTURE.PAYLOAD_FILE_NAME))
+	if not require(
+		graph_boundary_operation_payload_after == active_payload_before,
+		"Real StartLoad graph boundary rejection changed RoadGraph"):
+		return
+
 	var renderer_boundary_operation_resource_count_before := int(probe.GetObjectResourceCount())
 	var renderer_boundary_operation_failure_message := str(
 		probe.GetAggregateLoadRendererCommitBoundaryGenerationMismatchMessage())
@@ -1058,6 +1124,20 @@ func run() -> void:
 			probe.GetAggregateLoadPostOwnershipPreCommitFailureCount()),
 		"post_ownership_resource_count_before": post_ownership_resource_count_before,
 		"post_ownership_resource_count_after": post_ownership_resource_count_after,
+		"graph_boundary_operation_failure_result_kind": int(
+			graph_boundary_operation_failed_load_result.get("resultKind", -1)),
+		"graph_boundary_operation_failure_committed": bool(
+			graph_boundary_operation_failed_load_result.get("committed", true)),
+		"graph_boundary_operation_failure_trigger_count": int(
+			probe.GetAggregateLoadGraphCommitBoundaryGenerationMismatchCount()),
+		"graph_boundary_operation_count": int(
+			probe.GetAggregateLoadGraphCommitBoundaryCount()),
+		"graph_boundary_operation_mark_committed_count": int(
+			probe.GetAggregateLoadGraphMarkCommittedCount()),
+		"graph_boundary_operation_resource_count_before":
+			graph_boundary_operation_resource_count_before,
+		"graph_boundary_operation_resource_count_after":
+			graph_boundary_operation_resource_count_after,
 		"renderer_boundary_operation_failure_result_kind": int(
 			renderer_boundary_operation_failed_load_result.get("resultKind", -1)),
 		"renderer_boundary_operation_failure_committed": bool(
