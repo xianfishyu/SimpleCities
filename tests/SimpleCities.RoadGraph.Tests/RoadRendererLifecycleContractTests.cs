@@ -464,6 +464,70 @@ public sealed class RoadRendererLifecycleContractTests
     }
 
     [Fact]
+    public void OrdinaryNodeBatchFactoryFailureRunsInsideTheOwnedUpdateAttempt()
+    {
+        string rendererSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.cs"));
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadRendererUpdateTokenFailureProbe.cs"));
+        string ordinaryBuild = ExtractMethod(
+            rendererSource,
+            "private bool TryRebuildStaticBatches",
+            "private void PublishPresentationStalled");
+        string factoryProbe = ExtractMethod(
+            probeSource,
+            "partial void ProbeOrdinaryNodeBatchFactoryFailure(",
+            "internal void ArmNextOrdinaryPresentationResourcePreflightFailure()");
+
+        int roadMeshCreation = ordinaryBuild.IndexOf(
+            "roadMesh = CreateRoadMesh(",
+            StringComparison.Ordinal);
+        int nodeMarkerCapture = ordinaryBuild.IndexOf(
+            "IReadOnlyList<RoadRendererNodeMarker> nodeMarkers = prepared.NodeMarkers;",
+            StringComparison.Ordinal);
+        int nodeBatchFailureProbe = ordinaryBuild.IndexOf(
+            "ProbeOrdinaryNodeBatchFactoryFailure(targetToken, ref nodeMarkers);",
+            StringComparison.Ordinal);
+        int nodeBatchCreation = ordinaryBuild.IndexOf(
+            "nodeBatch = CreateNodeBatch(nodeMarkers);",
+            StringComparison.Ordinal);
+        int resourcePreflightFailureProbe = ordinaryBuild.IndexOf(
+            "ProbeOrdinaryPresentationResourcePreflightFailure(targetToken);",
+            StringComparison.Ordinal);
+
+        Assert.True(roadMeshCreation >= 0 && roadMeshCreation < nodeMarkerCapture);
+        Assert.True(nodeMarkerCapture < nodeBatchFailureProbe);
+        Assert.True(nodeBatchFailureProbe < nodeBatchCreation);
+        Assert.True(nodeBatchCreation < resourcePreflightFailureProbe);
+        Assert.Contains(
+            "ref IReadOnlyList<RoadRendererNodeMarker> nodeMarkers",
+            rendererSource,
+            StringComparison.Ordinal);
+        Assert.Contains("targetToken == armedToken", factoryProbe, StringComparison.Ordinal);
+        Assert.Contains(
+            "_ordinaryNodeBatchFactoryFailureArmed = false;",
+            factoryProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "nodeMarkers = new OrdinaryNodeBatchFactoryFailureMarkers(this);",
+            factoryProbe,
+            StringComparison.Ordinal);
+        Assert.Contains("public int Count => 1;", probeSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "_ordinaryNodeBatchFactoryFailureMarkerReadCount++;",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "throw new InvalidOperationException(",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "OrdinaryNodeBatchFactoryFailureMessage);",
+            probeSource,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void LoadCommitPlanReleasesOnlyResourcesThatWereNotCommitted()
     {
         string loadSource = File.ReadAllText(
