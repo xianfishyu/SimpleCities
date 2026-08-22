@@ -12,6 +12,7 @@ const TOKEN_PERTURBATION_KINDS: Array[String] = [
 	"road-style",
 	"scene-generation",
 	"graph-facade-id",
+	"graph-facade-generation",
 ]
 const EDGE_LENGTH := 8.0
 const EDGE_SPACING := 32.0
@@ -241,6 +242,8 @@ func measure_token_perturbation(
 			probe.ArmPreCommitSceneGenerationSupersession(renderer)
 		"graph-facade-id":
 			probe.ArmPreCommitGraphFacadeIDSupersession(renderer)
+		"graph-facade-generation":
+			probe.ArmPreCommitGraphFacadeGenerationSupersession(renderer)
 	var trigger_count_before := int(probe.GetPreCommitTokenSupersessionCount())
 	if not require(
 		bool(probe.IsPreCommitTokenSupersessionArmed()),
@@ -470,7 +473,7 @@ func token_perturbation_tokens_are_sequential(
 	var perturbation_dimension := token_perturbation_dimension()
 	var replacement_changed_dimensions: Array[String] = ["renderRequestID"]
 	match perturbation_kind:
-		"road-style", "scene-generation":
+		"road-style", "scene-generation", "graph-facade-generation":
 			replacement_changed_dimensions.append(perturbation_dimension)
 		"graph-facade-id":
 			replacement_changed_dimensions.append("graphFacadeID")
@@ -489,7 +492,7 @@ func token_perturbation_tokens_are_sequential(
 	match perturbation_kind:
 		"render-request":
 			return true
-		"road-style", "scene-generation":
+		"road-style", "scene-generation", "graph-facade-generation":
 			return int(replacement.get(perturbation_dimension, -1)) == int(superseded.get(perturbation_dimension, -2)) + 1
 		"graph-facade-id":
 			return (
@@ -509,6 +512,8 @@ func token_perturbation_label() -> String:
 			return "Scene-generation"
 		"graph-facade-id":
 			return "Graph-facade-ID"
+		"graph-facade-generation":
+			return "Graph-facade-generation"
 	return "Unknown token"
 
 func token_perturbation_dimension() -> String:
@@ -521,6 +526,8 @@ func token_perturbation_dimension() -> String:
 			return "sceneGeneration"
 		"graph-facade-id":
 			return "graphFacadeID"
+		"graph-facade-generation":
+			return "graphFacadeGeneration"
 	return "unknown"
 
 func validate_load_phase_metrics(
