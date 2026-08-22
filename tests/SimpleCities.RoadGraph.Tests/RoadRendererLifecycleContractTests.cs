@@ -406,6 +406,65 @@ public sealed class RoadRendererLifecycleContractTests
         Assert.Contains("_admission.Dispose();", plan[release..]);
     }
 
+    [Fact]
+    public void RealLoadParticipantsIsolateRendererObserversAndExposeCleanupBoundaries()
+    {
+        string loadSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.LoadCommit.cs"));
+        string toolSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Tools", "ToolManager.LoadCommit.cs"));
+        string saveManagerSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Core", "SaveManager.cs"));
+        string plan = ExtractMethod(
+            loadSource,
+            "private sealed class RoadRendererLoadCommitPlan",
+            "private static RoadRendererNodeSurface? CreateNodeSurface");
+        string notifications = ExtractMethod(
+            plan,
+            "public IReadOnlyList<string> PublishNotifications()",
+            "public void CompleteCommit()");
+        string completion = ExtractMethod(
+            plan,
+            "public void CompleteCommit()",
+            "public void Dispose()");
+
+        int invocationList = notifications.IndexOf("GetInvocationList()", StringComparison.Ordinal);
+        int handlerCall = notifications.IndexOf("handler(_targetRenderToken);", StringComparison.Ordinal);
+        int warning = notifications.IndexOf(
+            "warnings.Add($\"Road presentation observer failed: {exception.Message}\")",
+            StringComparison.Ordinal);
+        int abandonAdmission = completion.IndexOf(
+            "_owner.AbandonLoadAdmission(_admission);",
+            StringComparison.Ordinal);
+        int markCompleted = completion.IndexOf("_completed = true;", StringComparison.Ordinal);
+        int redraw = completion.IndexOf("_owner.QueueRedraw();", StringComparison.Ordinal);
+
+        Assert.True(invocationList >= 0 && invocationList < handlerCall);
+        Assert.True(handlerCall < warning);
+        Assert.Contains("catch (Exception exception)", notifications, StringComparison.Ordinal);
+        Assert.Contains("return warnings;", notifications, StringComparison.Ordinal);
+        Assert.True(abandonAdmission >= 0 && abandonAdmission < markCompleted);
+        Assert.True(markCompleted < redraw);
+        Assert.Contains(
+            "public IReadOnlyList<string> PublishNotifications() => [];",
+            toolSource,
+            StringComparison.Ordinal);
+        Assert.Contains("_builderPlan.CompleteCommit();", toolSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "_owner.AbandonLoadAdmission(_admission);",
+            toolSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "public string ParticipantID => \"slot-target\";",
+            saveManagerSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "public IReadOnlyList<string> PublishNotifications() => [];",
+            saveManagerSource,
+            StringComparison.Ordinal);
+        Assert.Contains("public void CompleteCommit() { }", saveManagerSource, StringComparison.Ordinal);
+    }
+
     private static string ExtractMethod(string source, string startMarker, string endMarker)
     {
         int start = source.IndexOf(startMarker, StringComparison.Ordinal);
