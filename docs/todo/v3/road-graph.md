@@ -1,7 +1,7 @@
 # 第三代 RoadGraph 系统待办清单
 
 > 系统 key：`v3-road-graph`
-> 整理日期：2026-08-22
+> 整理日期：2026-08-23
 > 证据：当前工作区源码、RoadGraph 自动化测试、`docs/manuals/road-system-v2-gen.md` 附录 D 及 `docs/manuals/road-system-v3-gen.md`。
 > 主导原则：负责第三代道路的数值与容量边界、连续拓扑存储、原生几何、自环/平行边、空间索引、RoadType、不可变事务以及最终跨系统集成验收；不负责交通模拟。
 
@@ -195,6 +195,8 @@
   - `GraphFacadeGeneration` 分级性能协作进展（2026-08-22）：真实 `MapTest` 的同一契约新增 `--measure-token-perturbation=graph-facade-generation` 并逐级通过 grid 1k/10k/25k/50k/100k；提交前 target attempt 1 不交换引用并释放两个未转交 Resource，replacement 保持 scene/facade/change sequence/style，推进 `GraphFacadeGeneration: 2 -> 3` 与 `RenderRequestID: 3 -> 4`，再以自己的 attempt 1 完整发布 `N+1` Edge，资源计数始终为 `77 -> 77`。五档拒绝/恢复/合计为 `46.989/10.046/57.035 ms`、`226.285/59.298/285.583 ms`、`510.660/155.424/666.084 ms`、`811.079/284.769/1095.848 ms`、`1594.093/570.155/2164.248 ms`；完整自动化 896/896，双配置 build、Roslyn compiler/analyzer、目标与工作区 GDScript diagnostics、隔离 `--check-only` 与 Vulkan 门均通过，相邻 `graph-facade-id` 1k 兼容回归继续 PASS。MCP 确认正确项目、Godot 4.7、`MapTest` 未运行状态和 addon/server 版本匹配，minimal stderr/console 为空，editor 游标 1989 后无新增 error；buffer 中既有 MCP/DAP transport 错误不计作本切片通过。六分量性能矩阵现完成五项；只余 `ChangeSequence`、renderer 故障、其他 aggregate 组合与 Phase 8 仍开放，因此 8.6 不关闭。
 
   - `ChangeSequence` 分级性能协作进展（2026-08-22）：真实 `MapTest` 的同一契约新增 `--measure-token-perturbation=change-sequence` 并逐级通过 grid 1k/10k/25k/50k/100k；第一条真实 builder mutation 令 retained 到 superseded 的 `ChangeSequence` 与 `RenderRequestID` 各推进一位，提交前第二条真实 graph mutation 再令 superseded 到 replacement 的 `ChangeSequence: 2 -> 3` 与 `RenderRequestID: 3 -> 4` 各推进一位，其他四个 token 分量稳定。target attempt 1 不交换引用并释放两个未转交 Resource，pending 期两条道路都不可命中；replacement attempt 1 一次发布 `N+2` Edge 与两处 matching surface hit，资源计数始终为 `77 -> 77`。五档拒绝/恢复/合计为 `64.741/6.024/70.765 ms`、`372.829/55.966/428.795 ms`、`910.134/172.078/1082.212 ms`、`1224.489/296.431/1520.920 ms`、`2537.144/587.846/3124.990 ms`；完整自动化 896/896，双配置 build、Roslyn compiler/analyzer、目标与工作区 GDScript diagnostics、`--check-only` 与 Vulkan 门均通过，相邻 `graph-facade-generation` 1k 兼容回归继续 PASS。MCP 确认正确项目、Godot 4.7、`MapTest` 未运行状态和 addon/server 4.1.0 匹配，minimal stderr/console 为空，editor 游标 1989 后无新增 error；Debug DLL 包含 probe，`ExportRelease` 不包含，隔离 QA 根已清理。六分量性能扰动矩阵已完成；renderer 故障、其他 aggregate 组合与 Phase 8 仍开放，因此 8.6 不关闭。
+
+  - 普通更新 token 纯 `Prepare` 故障协作进展（2026-08-22）：`v3-grid-rendering:2.2` 已在真实 ordinary graph mutation 的样式/revision snapshot 后、`RoadRendererLoadPreparer.Prepare(...)` 与任何 Godot Resource 创建前注入一次性故障。attempt 1 推进 desired/stalled token 但保留旧 presented/mesh/surface/cache，provider 拒绝旧与未呈现 hit，`ObjectResourceCount` 为 `77 -> 77`；attempt 2 以同一 desired token 成功发布新增 Edge/surface。结构化结果为 `UPDATE_TOKEN_PREPARE_FAILURE_RESULT resource_before=77 resource_after=77 trigger_count=1 stalled_attempt=1 recovered_attempt=2`。`RoadRendererLifecycleContractTests` 39/39、生命周期与 QA export 聚焦 40/40、完整自动化 897/897，双配置 build、Roslyn production/test compiler/analyzer、目标与工作区 3 个 GDScript diagnostics、隔离 `--check-only` 和正式 Vulkan 1.4.341 Forward+ 契约均通过；MCP 确认正确项目、addon/server 4.1.0 匹配、`MapTest` 未运行且错误通道无新增。Debug DLL 包含 probe/API，`ExportRelease` 不包含，隔离 QA 根已清理。该切片将普通更新相邻构建故障点由四个扩为五个；其余 renderer 故障、其他真实 aggregate 组合与 Phase 8 组合矩阵仍开放，因此 8.6 不关闭。
 
 ## 暂不执行
 
