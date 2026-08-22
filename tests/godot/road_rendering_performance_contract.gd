@@ -7,7 +7,7 @@ const FULL_RESET_PROBE_PATH := "res://tests/godot/RoadFullResetPerformanceProbe.
 const UPDATE_TOKEN_FAILURE_PROBE_PATH := "res://tests/godot/RoadRendererUpdateTokenFailureProbe.cs"
 const DATASET_SIZES: Array[int] = [10_000, 100_000]
 const DATASET_KINDS: Array[String] = ["grid", "junction-dense", "geometry-dense", "owner-dense"]
-const TOKEN_PERTURBATION_KINDS: Array[String] = ["render-request", "road-style"]
+const TOKEN_PERTURBATION_KINDS: Array[String] = ["render-request", "road-style", "scene-generation"]
 const EDGE_LENGTH := 8.0
 const EDGE_SPACING := 32.0
 const GEOMETRY_DENSE_EDGE_SPACING := 320.0
@@ -228,6 +228,8 @@ func measure_token_perturbation(
 			probe.ArmPreCommitTokenSupersession(renderer)
 		"road-style":
 			probe.ArmPreCommitRoadStyleSupersession(renderer)
+		"scene-generation":
+			probe.ArmPreCommitSceneGenerationSupersession(renderer)
 	var trigger_count_before := int(probe.GetPreCommitTokenSupersessionCount())
 	if not require(
 		bool(probe.IsPreCommitTokenSupersessionArmed()),
@@ -365,22 +367,23 @@ func token_perturbation_tokens_are_sequential(
 	superseded: Dictionary,
 	replacement: Dictionary
 ) -> bool:
-	var stable_target_dimensions: Array[String] = [
-		"sceneGeneration",
-		"graphFacadeID",
-		"graphFacadeGeneration",
-		"roadStyleRevision",
-	]
-	for dimension: String in stable_target_dimensions:
-		if retained.get(dimension) != superseded.get(dimension):
-			return false
-	var stable_replacement_dimensions: Array[String] = [
+	var token_dimensions: Array[String] = [
 		"sceneGeneration",
 		"graphFacadeID",
 		"graphFacadeGeneration",
 		"changeSequence",
+		"roadStyleRevision",
+		"renderRequestID",
 	]
-	for dimension: String in stable_replacement_dimensions:
+	for dimension: String in token_dimensions:
+		if dimension == "changeSequence" or dimension == "renderRequestID":
+			continue
+		if retained.get(dimension) != superseded.get(dimension):
+			return false
+	var perturbation_dimension := token_perturbation_dimension()
+	for dimension: String in token_dimensions:
+		if dimension == "renderRequestID" or dimension == perturbation_dimension:
+			continue
 		if superseded.get(dimension) != replacement.get(dimension):
 			return false
 	if (
@@ -389,12 +392,10 @@ func token_perturbation_tokens_are_sequential(
 		int(replacement.get("renderRequestID", -1)) != int(superseded.get("renderRequestID", -2)) + 1
 	):
 		return false
-	match perturbation_kind:
-		"render-request":
-			return replacement.get("roadStyleRevision") == superseded.get("roadStyleRevision")
-		"road-style":
-			return int(replacement.get("roadStyleRevision", -1)) == int(superseded.get("roadStyleRevision", -2)) + 1
-	return false
+	return (
+		perturbation_kind == "render-request" or
+		int(replacement.get(perturbation_dimension, -1)) == int(superseded.get(perturbation_dimension, -2)) + 1
+	)
 
 func token_perturbation_label() -> String:
 	match token_perturbation_kind:
@@ -402,6 +403,8 @@ func token_perturbation_label() -> String:
 			return "Render-request"
 		"road-style":
 			return "Road-style"
+		"scene-generation":
+			return "Scene-generation"
 	return "Unknown token"
 
 func token_perturbation_dimension() -> String:
@@ -410,6 +413,8 @@ func token_perturbation_dimension() -> String:
 			return "renderRequestID"
 		"road-style":
 			return "roadStyleRevision"
+		"scene-generation":
+			return "sceneGeneration"
 	return "unknown"
 
 func validate_load_phase_metrics(
