@@ -512,6 +512,42 @@ public sealed class RoadRendererLifecycleContractTests
     }
 
     [Fact]
+    public void RealStartLoadRendererSettingsValidationFailureRunsBeforeReservationAndAdmissionPublication()
+    {
+        string rendererLoadSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.LoadCommit.cs"));
+        string rendererAdmission = ExtractMethod(
+            rendererLoadSource,
+            "internal RoadRendererLoadAdmission BeginLoadAdmission()",
+            "internal INonThrowingLoadCommitPlan PreflightPreparedLoad(");
+
+        int styleSnapshotCapture = rendererAdmission.IndexOf(
+            "Config.CaptureRoadTypeStyleSnapshot();",
+            StringComparison.Ordinal);
+        int settingsConstruction = rendererAdmission.IndexOf(
+            "var settings = new RoadRendererLoadSettings(",
+            StringComparison.Ordinal);
+        int settingsValidation = rendererAdmission.IndexOf(
+            "settings.Validate();",
+            StringComparison.Ordinal);
+        int renderReservation = rendererAdmission.IndexOf(
+            "_presentationTokens.ReserveLoad();",
+            StringComparison.Ordinal);
+        int admissionConstruction = rendererAdmission.IndexOf(
+            "new RoadRendererLoadAdmission(",
+            StringComparison.Ordinal);
+        int admissionPublication = rendererAdmission.IndexOf(
+            "_loadAdmission = admission;",
+            StringComparison.Ordinal);
+
+        Assert.True(styleSnapshotCapture >= 0 && styleSnapshotCapture < settingsConstruction);
+        Assert.True(settingsConstruction < settingsValidation);
+        Assert.True(settingsValidation < renderReservation);
+        Assert.True(renderReservation < admissionConstruction);
+        Assert.True(admissionConstruction < admissionPublication);
+    }
+
+    [Fact]
     public void RealStartLoadRendererWorkerPrepareFailureRunsBeforePresentationPreparation()
     {
         string saveManagerSource = File.ReadAllText(

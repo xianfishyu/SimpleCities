@@ -1104,6 +1104,60 @@ func run() -> void:
 		"Renderer admission style-snapshot failure changed RoadGraph"):
 		return
 
+	var renderer_admission_settings_resource_count_before := int(
+		probe.GetObjectResourceCount())
+	var original_curve_display_tolerance := float(
+		renderer_config.get("CurveDisplayTolerance"))
+	if not require(
+		original_curve_display_tolerance > 0.0,
+		"Renderer admission settings fixture began with an invalid curve tolerance"):
+		return
+	renderer_config.set("CurveDisplayTolerance", 0.0)
+	var renderer_admission_settings_failed_load_result := await run_load(source_slot_id)
+	renderer_config.set("CurveDisplayTolerance", original_curve_display_tolerance)
+	var renderer_admission_settings_resource_count_after := int(
+		probe.GetObjectResourceCount())
+	if not require(
+		int(renderer_admission_settings_failed_load_result.get("resultKind", -1)) ==
+			RESULT_FAILED and
+		not bool(renderer_admission_settings_failed_load_result.get("committed", true)) and
+		str(renderer_admission_settings_failed_load_result.get("warnings", "")).is_empty() and
+		str(renderer_admission_settings_failed_load_result.get("error", "")) ==
+			"RoadRenderer curve tolerance is invalid.",
+		"Real StartLoad did not fail while validating renderer admission settings: %s" %
+		JSON.stringify(renderer_admission_settings_failed_load_result)):
+		return
+	if not require(
+		float(renderer_config.get("CurveDisplayTolerance")) ==
+			original_curve_display_tolerance and
+		renderer_admission_settings_resource_count_after ==
+			renderer_admission_settings_resource_count_before and
+		str(save_manager.get("CurrentSlotID")) == active_slot_id and
+		int(tool_manager.get("CurrentTool")) == TOOL_ROAD and
+		int(tool_manager.GetSelectedRoadType()) == selected_road_type_before and
+		builder.HasActivePlaceSession() and
+		builder.GetFixedCornerCount() == 1 and
+		builder.GetUndoEditCount() == undo_count_before and
+		builder.GetRedoEditCount() == redo_count_before and
+		renderer.GetRenderedEdgeCount() == edge_count_before and
+		renderer.GetRoadMeshVertexCount() == vertex_count_before and
+		renderer.GetNodeMarkerCount() == marker_count_before and
+		renderer.GetPresentationState() == presentation_before and
+		renderer.FindRoadSurfaceHit(Vector2(400.0, 300.0), 0.0) == hit_before,
+		"Renderer admission settings failure changed resources, graph, tool, placement, history, presentation, surface, token, or slot state"):
+		return
+
+	if not require(
+		await V3_SAVE_FIXTURE.save(save_manager, active_slot_id),
+		"Could not recapture the active graph after renderer admission settings failure"):
+		return
+	var renderer_admission_settings_payload_after := FileAccess.get_file_as_string(
+		V3_SAVE_FIXTURE.slot_path(active_slot_id, V3_SAVE_FIXTURE.PAYLOAD_FILE_NAME))
+	if not require(
+		renderer_admission_settings_payload_after == active_payload_before,
+		"Renderer admission settings failure changed RoadGraph"):
+		return
+
 	var renderer_worker_prepare_resource_count_before := int(probe.GetObjectResourceCount())
 	var renderer_worker_prepare_failure_message := str(
 		probe.GetAggregateLoadRendererWorkerPrepareFailureMessage())
@@ -1296,6 +1350,14 @@ func run() -> void:
 			renderer_admission_style_snapshot_resource_count_before,
 		"renderer_admission_style_snapshot_resource_count_after":
 			renderer_admission_style_snapshot_resource_count_after,
+		"renderer_admission_settings_failure_result_kind": int(
+			renderer_admission_settings_failed_load_result.get("resultKind", -1)),
+		"renderer_admission_settings_failure_committed": bool(
+			renderer_admission_settings_failed_load_result.get("committed", true)),
+		"renderer_admission_settings_resource_count_before":
+			renderer_admission_settings_resource_count_before,
+		"renderer_admission_settings_resource_count_after":
+			renderer_admission_settings_resource_count_after,
 		"renderer_worker_prepare_failure_result_kind": int(
 			renderer_worker_prepare_failed_load_result.get("resultKind", -1)),
 		"renderer_worker_prepare_failure_committed": bool(
