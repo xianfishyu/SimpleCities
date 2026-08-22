@@ -562,10 +562,124 @@ func run() -> void:
 		"Graph-observer recovery Load did not restore one matching presentation"):
 		return
 
+	tool_manager.set("CurrentTool", TOOL_ROAD)
+	if not require(builder.BeginPlace(Vector2(700.0, 1000.0)), "Seventh transient road did not begin"):
+		return
+	if not require(
+		builder.AddPlacePoint(Vector2(800.0, 1000.0)),
+		"Seventh transient placement point was not added"):
+		return
+	probe.Arm(renderer)
+	probe.ArmGraphObserverFailure(road_system)
+	probe.ArmGraphCleanupFailure(road_system)
+	probe.ArmToolCleanupFailure(tool_manager)
+	probe.ArmRendererCleanupFailure(renderer)
+	probe.ArmSlotCleanupFailure(save_manager)
+
+	var dual_observer_warned_result := await run_load(source_slot_id)
+	if not require(
+		int(dual_observer_warned_result.get("resultKind", -1)) ==
+		RESULT_SUCCEEDED_WITH_WARNINGS and
+		bool(dual_observer_warned_result.get("committed", false)),
+		"Dual observer and cleanup failures did not produce a committed warning result: %s" %
+		JSON.stringify(dual_observer_warned_result)):
+		return
+	var dual_observer_warnings := str(dual_observer_warned_result.get("warnings", ""))
+	if not require(
+		dual_observer_warnings.split("\n", false).size() == 6,
+		"Dual-observer combination did not preserve exactly six warnings: %s" %
+		dual_observer_warnings):
+		return
+	if not require(
+		dual_observer_warnings.contains(
+			"Road presentation observer failed: " +
+			"Injected RoadRenderer presentation observer failure."),
+		"Dual-observer warning did not identify the real renderer participant"):
+		return
+	if not require(
+		dual_observer_warnings.contains(
+			"RoadGraph observer failed: Injected RoadGraph observer failure."),
+		"Dual-observer warning did not identify the real RoadGraph participant"):
+		return
+	if not require(
+		dual_observer_warnings.contains(
+			"Load participant 'road-graph' cleanup failed: " +
+			"Injected RoadGraph load cleanup failure."),
+		"Dual-observer combination did not identify graph cleanup"):
+		return
+	if not require(
+		dual_observer_warnings.contains(
+			"Load participant 'road-tools' cleanup failed: " +
+			"Injected ToolManager load cleanup failure."),
+		"Dual-observer combination did not identify tool cleanup"):
+		return
+	if not require(
+		dual_observer_warnings.contains(
+			"Load participant 'road-presentation' cleanup failed: " +
+			"Injected RoadRenderer load cleanup failure."),
+		"Dual-observer combination did not identify renderer cleanup"):
+		return
+	if not require(
+		dual_observer_warnings.contains(
+			"Load participant 'slot-target' cleanup failed: " +
+			"Injected slot target load cleanup failure."),
+		"Dual-observer combination did not identify slot cleanup"):
+		return
+	if not require(
+		probe.GetTriggerCount() == 6 and
+		probe.GetGraphObserverTriggerCount() == 2 and
+		probe.GetToolCleanupFailureCount() == 4 and
+		probe.GetRendererCleanupFailureCount() == 4 and
+		probe.GetGraphCleanupFailureCount() == 4 and
+		probe.GetSlotCleanupFailureCount() == 4 and
+		not probe.IsGraphObserverFailureArmed() and
+		not probe.IsToolCleanupFailureArmed() and
+		not probe.IsRendererCleanupFailureArmed() and
+		not probe.IsGraphCleanupFailureArmed() and
+		not probe.IsSlotCleanupFailureArmed(),
+		"Dual observer and cleanup probes did not reach their exact counts"):
+		return
+	if not require(
+		str(save_manager.get("CurrentSlotID")) == source_slot_id and
+		renderer.GetRenderedEdgeCount() == 0 and
+		not builder.HasActivePlaceSession() and
+		builder.GetUndoEditCount() == 0 and
+		builder.GetRedoEditCount() == 0 and
+		matching_presentation_is_ready(renderer),
+		"Dual-observer warned Load did not leave all real participants committed"):
+		return
+
+	tool_manager.set("CurrentTool", TOOL_ROAD_UPGRADE)
+	if not require(
+		int(tool_manager.get("CurrentTool")) == TOOL_ROAD_UPGRADE,
+		"Dual observer and cleanup failures prevented later tool use"):
+		return
+
+	var dual_observer_clean_result := await run_load(active_slot_id)
+	if not require(
+		int(dual_observer_clean_result.get("resultKind", -1)) == RESULT_SUCCEEDED and
+		bool(dual_observer_clean_result.get("committed", false)) and
+		str(dual_observer_clean_result.get("warnings", "")).is_empty(),
+		"Load after dual observer and cleanup failures did not re-admit every participant: %s" %
+		JSON.stringify(dual_observer_clean_result)):
+		return
+	if not require(
+		probe.GetTriggerCount() == 6 and
+		probe.GetGraphObserverTriggerCount() == 2 and
+		probe.GetToolCleanupFailureCount() == 4 and
+		probe.GetRendererCleanupFailureCount() == 4 and
+		probe.GetGraphCleanupFailureCount() == 4 and
+		probe.GetSlotCleanupFailureCount() == 4 and
+		str(save_manager.get("CurrentSlotID")) == active_slot_id and
+		renderer.GetRenderedEdgeCount() == 1 and
+		matching_presentation_is_ready(renderer),
+		"Dual-observer recovery Load did not restore one matching presentation"):
+		return
+
 	tool_manager.set("CurrentTool", TOOL_ROAD_REMOVE)
 	if not require(
 		int(tool_manager.get("CurrentTool")) == TOOL_ROAD_REMOVE,
-		"Graph-observer recovery Load left the tool admission active"):
+		"Dual-observer recovery Load left the tool admission active"):
 		return
 
 	print("ROAD_LOAD_OBSERVER_CLEANUP_RESULT %s" % JSON.stringify({
@@ -583,6 +697,10 @@ func run() -> void:
 			graph_observer_warned_result.get("resultKind", -1)),
 		"graph_observer_clean_result_kind": int(
 			graph_observer_clean_result.get("resultKind", -1)),
+		"dual_observer_warning_result_kind": int(
+			dual_observer_warned_result.get("resultKind", -1)),
+		"dual_observer_clean_result_kind": int(
+			dual_observer_clean_result.get("resultKind", -1)),
 		"observer_trigger_count": probe.GetTriggerCount(),
 		"graph_observer_trigger_count": probe.GetGraphObserverTriggerCount(),
 		"tool_cleanup_trigger_count": probe.GetToolCleanupFailureCount(),
