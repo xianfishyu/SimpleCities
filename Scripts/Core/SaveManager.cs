@@ -19,6 +19,8 @@ public partial class SaveManager : Node
     partial void ProbeAggregateLoadPostGraphStateLookupFailure(
         IPreparedSaveState graphState);
     partial void ProbeAggregateLoadRendererWorkerPrepareFailure();
+    partial void ProbeAggregateLoadPostRendererWorkerPreparationFailure(
+        RoadRendererPreparedLoad presentation);
     partial void ProbeAggregateLoadPostRendererPreflightFailure();
     partial void ProbeAggregateLoadPostSlotPreflightFailure();
     partial void ProbeAggregateLoadPostOwnershipPreCommitFailure();
@@ -699,6 +701,7 @@ public partial class SaveManager : Node
                     ProbeAggregateLoadRendererWorkerPrepareFailure();
                     RoadRendererPreparedLoad presentation =
                         rendererAdmission.Preparer.Prepare(graphRevision);
+                    ProbeAggregateLoadPostRendererWorkerPreparationFailure(presentation);
                     return new PreparedLoadWork(
                         slot,
                         graphState,

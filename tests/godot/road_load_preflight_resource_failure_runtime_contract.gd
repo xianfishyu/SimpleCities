@@ -1646,6 +1646,72 @@ func run() -> void:
 		"Renderer worker-prepare failure changed RoadGraph"):
 		return
 
+	var post_renderer_worker_preparation_resource_count_before := int(
+		probe.GetObjectResourceCount())
+	var post_renderer_worker_preparation_failure_message := str(
+		probe.GetAggregateLoadPostRendererWorkerPreparationFailureMessage())
+	probe.ArmAggregateLoadPostRendererWorkerPreparationFailure(save_manager)
+	if not require(
+		bool(probe.IsAggregateLoadPostRendererWorkerPreparationFailureArmed()),
+		"Aggregate Load post-renderer worker preparation failure probe did not arm"):
+		return
+	var post_renderer_worker_preparation_failed_load_result := await run_load(
+		source_slot_id)
+	var post_renderer_worker_preparation_resource_count_after := int(
+		probe.GetObjectResourceCount())
+	if not require(
+		int(post_renderer_worker_preparation_failed_load_result.get("resultKind", -1)) ==
+			RESULT_FAILED and
+		int(post_renderer_worker_preparation_failed_load_result.get("finalPhase", -1)) ==
+			PHASE_PREPARE and
+		not bool(
+			post_renderer_worker_preparation_failed_load_result.get("committed", true)) and
+		str(
+			post_renderer_worker_preparation_failed_load_result.get(
+				"warnings", "")).is_empty() and
+		str(post_renderer_worker_preparation_failed_load_result.get("error", "")) ==
+			post_renderer_worker_preparation_failure_message,
+		"Real StartLoad did not fail after renderer worker preparation and before prepared-work publication: %s" %
+		JSON.stringify(post_renderer_worker_preparation_failed_load_result)):
+		return
+	if not require(
+		not bool(probe.IsAggregateLoadPostRendererWorkerPreparationFailureArmed()) and
+		int(probe.GetAggregateLoadPostRendererWorkerPreparationFailureCount()) == 1 and
+		bool(
+			probe.DidAggregateLoadPostRendererWorkerPreparationFailureRunOffMainThread()) and
+		int(probe.GetAggregateLoadPostRendererWorkerPreparationRoadVertexCount()) == 0 and
+		int(
+			probe.GetAggregateLoadPostRendererWorkerPreparationSurfacePrimitiveCount()) ==
+			0 and
+		int(probe.GetAggregateLoadPostRendererWorkerPreparationNodeMarkerCount()) == 0 and
+		post_renderer_worker_preparation_resource_count_after ==
+			post_renderer_worker_preparation_resource_count_before and
+		str(save_manager.get("CurrentSlotID")) == active_slot_id and
+		int(tool_manager.get("CurrentTool")) == TOOL_ROAD and
+		int(tool_manager.GetSelectedRoadType()) == selected_road_type_before and
+		builder.HasActivePlaceSession() and
+		builder.GetFixedCornerCount() == 1 and
+		builder.GetUndoEditCount() == undo_count_before and
+		builder.GetRedoEditCount() == redo_count_before and
+		renderer.GetRenderedEdgeCount() == edge_count_before and
+		renderer.GetRoadMeshVertexCount() == vertex_count_before and
+		renderer.GetNodeMarkerCount() == marker_count_before and
+		renderer.GetPresentationState() == presentation_before and
+		renderer.FindRoadSurfaceHit(Vector2(400.0, 300.0), 0.0) == hit_before,
+		"Post-renderer worker preparation failure changed resources, graph, tool, placement, history, presentation, surface, token, or slot state"):
+		return
+
+	if not require(
+		await V3_SAVE_FIXTURE.save(save_manager, active_slot_id),
+		"Could not recapture the active graph after post-renderer worker preparation failure"):
+		return
+	var post_renderer_worker_preparation_payload_after := FileAccess.get_file_as_string(
+		V3_SAVE_FIXTURE.slot_path(active_slot_id, V3_SAVE_FIXTURE.PAYLOAD_FILE_NAME))
+	if not require(
+		post_renderer_worker_preparation_payload_after == active_payload_before,
+		"Post-renderer worker preparation failure changed RoadGraph"):
+		return
+
 	var load_result := await run_load(source_slot_id)
 	if not require(
 		int(load_result.get("resultKind", -1)) == RESULT_SUCCEEDED and
@@ -1897,6 +1963,26 @@ func run() -> void:
 			renderer_worker_prepare_resource_count_before,
 		"renderer_worker_prepare_resource_count_after":
 			renderer_worker_prepare_resource_count_after,
+		"post_renderer_worker_preparation_failure_result_kind": int(
+			post_renderer_worker_preparation_failed_load_result.get("resultKind", -1)),
+		"post_renderer_worker_preparation_failure_final_phase": int(
+			post_renderer_worker_preparation_failed_load_result.get("finalPhase", -1)),
+		"post_renderer_worker_preparation_failure_committed": bool(
+			post_renderer_worker_preparation_failed_load_result.get("committed", true)),
+		"post_renderer_worker_preparation_failure_trigger_count": int(
+			probe.GetAggregateLoadPostRendererWorkerPreparationFailureCount()),
+		"post_renderer_worker_preparation_failure_off_main_thread": bool(
+			probe.DidAggregateLoadPostRendererWorkerPreparationFailureRunOffMainThread()),
+		"post_renderer_worker_preparation_road_vertex_count": int(
+			probe.GetAggregateLoadPostRendererWorkerPreparationRoadVertexCount()),
+		"post_renderer_worker_preparation_surface_primitive_count": int(
+			probe.GetAggregateLoadPostRendererWorkerPreparationSurfacePrimitiveCount()),
+		"post_renderer_worker_preparation_node_marker_count": int(
+			probe.GetAggregateLoadPostRendererWorkerPreparationNodeMarkerCount()),
+		"post_renderer_worker_preparation_resource_count_before":
+			post_renderer_worker_preparation_resource_count_before,
+		"post_renderer_worker_preparation_resource_count_after":
+			post_renderer_worker_preparation_resource_count_after,
 		"aggregate_failure_result_kind": int(failed_load_result.get("resultKind", -1)),
 		"aggregate_failure_committed": bool(failed_load_result.get("committed", true)),
 		"aggregate_failure_trigger_count": int(

@@ -323,6 +323,36 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
     public string GetAggregateLoadRendererWorkerPrepareFailureMessage() =>
         SaveManager.AggregateLoadRendererWorkerPrepareFailureMessage;
 
+    public void ArmAggregateLoadPostRendererWorkerPreparationFailure(
+        SaveManager saveManager)
+    {
+        ArgumentNullException.ThrowIfNull(saveManager);
+        saveManager.ArmNextAggregateLoadPostRendererWorkerPreparationFailure();
+        _saveManager = saveManager;
+    }
+
+    public bool IsAggregateLoadPostRendererWorkerPreparationFailureArmed() =>
+        _saveManager?.IsAggregateLoadPostRendererWorkerPreparationFailureArmed() ?? false;
+
+    public int GetAggregateLoadPostRendererWorkerPreparationFailureCount() =>
+        _saveManager?.GetAggregateLoadPostRendererWorkerPreparationFailureCount() ?? 0;
+
+    public bool DidAggregateLoadPostRendererWorkerPreparationFailureRunOffMainThread() =>
+        _saveManager?.DidAggregateLoadPostRendererWorkerPreparationFailureRunOffMainThread() ??
+        false;
+
+    public int GetAggregateLoadPostRendererWorkerPreparationRoadVertexCount() =>
+        _saveManager?.GetAggregateLoadPostRendererWorkerPreparationRoadVertexCount() ?? -1;
+
+    public int GetAggregateLoadPostRendererWorkerPreparationSurfacePrimitiveCount() =>
+        _saveManager?.GetAggregateLoadPostRendererWorkerPreparationSurfacePrimitiveCount() ?? -1;
+
+    public int GetAggregateLoadPostRendererWorkerPreparationNodeMarkerCount() =>
+        _saveManager?.GetAggregateLoadPostRendererWorkerPreparationNodeMarkerCount() ?? -1;
+
+    public string GetAggregateLoadPostRendererWorkerPreparationFailureMessage() =>
+        SaveManager.AggregateLoadPostRendererWorkerPreparationFailureMessage;
+
     public void ArmAggregateLoadPostRendererPreflightFailure(SaveManager saveManager)
     {
         ArgumentNullException.ThrowIfNull(saveManager);
@@ -487,6 +517,8 @@ public partial class SaveManager
         "Injected aggregate Load failure after graph-state lookup.";
     internal const string AggregateLoadRendererWorkerPrepareFailureMessage =
         "Injected aggregate Load renderer worker-prepare failure.";
+    internal const string AggregateLoadPostRendererWorkerPreparationFailureMessage =
+        "Injected aggregate Load failure after renderer worker preparation.";
     internal const string AggregateLoadPostRendererPreflightFailureMessage =
         "Injected aggregate Load failure after road presentation preflight.";
     internal const string AggregateLoadPostSlotPreflightFailureMessage =
@@ -524,6 +556,12 @@ public partial class SaveManager
     private string _aggregateLoadPostGraphStateLookupObservedStateTypeName = string.Empty;
     private bool _aggregateLoadRendererWorkerPrepareFailureArmed;
     private int _aggregateLoadRendererWorkerPrepareFailureCount;
+    private bool _aggregateLoadPostRendererWorkerPreparationFailureArmed;
+    private int _aggregateLoadPostRendererWorkerPreparationFailureCount;
+    private bool _aggregateLoadPostRendererWorkerPreparationFailureRanOffMainThread;
+    private int _aggregateLoadPostRendererWorkerPreparationRoadVertexCount = -1;
+    private int _aggregateLoadPostRendererWorkerPreparationSurfacePrimitiveCount = -1;
+    private int _aggregateLoadPostRendererWorkerPreparationNodeMarkerCount = -1;
     private bool _aggregateLoadPostRendererPreflightFailureArmed;
     private int _aggregateLoadPostRendererPreflightFailureCount;
     private bool _aggregateLoadPostSlotPreflightFailureArmed;
@@ -823,6 +861,65 @@ public partial class SaveManager
 
     internal int GetAggregateLoadRendererWorkerPrepareFailureCount() =>
         _aggregateLoadRendererWorkerPrepareFailureCount;
+
+    partial void ProbeAggregateLoadPostRendererWorkerPreparationFailure(
+        RoadRendererPreparedLoad presentation)
+    {
+        if (!_aggregateLoadPostRendererWorkerPreparationFailureArmed)
+            return;
+
+        ArgumentNullException.ThrowIfNull(presentation);
+        _aggregateLoadPostRendererWorkerPreparationFailureArmed = false;
+        _aggregateLoadPostRendererWorkerPreparationFailureCount++;
+        _aggregateLoadPostRendererWorkerPreparationFailureRanOffMainThread =
+            _mainThreadID != 0 && System.Environment.CurrentManagedThreadId != _mainThreadID;
+        _aggregateLoadPostRendererWorkerPreparationRoadVertexCount =
+            presentation.RoadVertices.Length;
+        _aggregateLoadPostRendererWorkerPreparationSurfacePrimitiveCount =
+            presentation.RoadSurface.PrimitiveCount;
+        _aggregateLoadPostRendererWorkerPreparationNodeMarkerCount =
+            presentation.NodeMarkers.Length;
+        throw new InvalidOperationException(
+            AggregateLoadPostRendererWorkerPreparationFailureMessage);
+    }
+
+    internal void ArmNextAggregateLoadPostRendererWorkerPreparationFailure()
+    {
+        if (IsOperationBusy)
+        {
+            throw new InvalidOperationException(
+                "SaveManager must be idle before arming its aggregate Load failure probe.");
+        }
+        if (_aggregateLoadPostRendererWorkerPreparationFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load post-renderer worker preparation failure probe is already armed.");
+        }
+
+        _aggregateLoadPostRendererWorkerPreparationFailureRanOffMainThread = false;
+        _aggregateLoadPostRendererWorkerPreparationRoadVertexCount = -1;
+        _aggregateLoadPostRendererWorkerPreparationSurfacePrimitiveCount = -1;
+        _aggregateLoadPostRendererWorkerPreparationNodeMarkerCount = -1;
+        _aggregateLoadPostRendererWorkerPreparationFailureArmed = true;
+    }
+
+    internal bool IsAggregateLoadPostRendererWorkerPreparationFailureArmed() =>
+        _aggregateLoadPostRendererWorkerPreparationFailureArmed;
+
+    internal int GetAggregateLoadPostRendererWorkerPreparationFailureCount() =>
+        _aggregateLoadPostRendererWorkerPreparationFailureCount;
+
+    internal bool DidAggregateLoadPostRendererWorkerPreparationFailureRunOffMainThread() =>
+        _aggregateLoadPostRendererWorkerPreparationFailureRanOffMainThread;
+
+    internal int GetAggregateLoadPostRendererWorkerPreparationRoadVertexCount() =>
+        _aggregateLoadPostRendererWorkerPreparationRoadVertexCount;
+
+    internal int GetAggregateLoadPostRendererWorkerPreparationSurfacePrimitiveCount() =>
+        _aggregateLoadPostRendererWorkerPreparationSurfacePrimitiveCount;
+
+    internal int GetAggregateLoadPostRendererWorkerPreparationNodeMarkerCount() =>
+        _aggregateLoadPostRendererWorkerPreparationNodeMarkerCount;
 
     partial void ProbeAggregateLoadPostRendererPreflightFailure()
     {
