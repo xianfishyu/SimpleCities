@@ -143,6 +143,25 @@ func run() -> void:
 		"CreateNodeBatch failure leaked its MultiMesh or replaced retained references: %s" %
 		JSON.stringify(node_batch_failure_result)):
 		return
+
+	var road_mesh_failure_result: Dictionary = probe.RunRoadMeshOwnershipFailure(renderer)
+	if not require(
+		bool(road_mesh_failure_result.get("failedInsideOwnershipBoundary", false)) and
+		bool(road_mesh_failure_result.get("initializerEntered", false)) and
+		str(road_mesh_failure_result.get("exceptionType", "")) ==
+			"InvalidOperationException",
+		"Road mesh ownership boundary did not receive the injected initializer failure: %s" %
+		JSON.stringify(road_mesh_failure_result)):
+		return
+	if not require(
+		int(road_mesh_failure_result.get("resourceCountAfter", -1)) ==
+		int(road_mesh_failure_result.get("resourceCountBefore", -2)) and
+		bool(road_mesh_failure_result.get("roadMeshPreserved", false)) and
+		bool(road_mesh_failure_result.get("nodeBatchPreserved", false)) and
+		bool(road_mesh_failure_result.get("surfacePreserved", false)),
+		"Road mesh initialization failure leaked its ArrayMesh or replaced retained references: %s" %
+		JSON.stringify(road_mesh_failure_result)):
+		return
 	if not require(
 		str(save_manager.get("CurrentSlotID")) == active_slot_id and
 		int(tool_manager.get("CurrentTool")) == TOOL_ROAD and
@@ -212,6 +231,12 @@ func run() -> void:
 			node_batch_failure_result.get("resourceCountBefore", -1)),
 		"node_batch_resource_count_after": int(
 			node_batch_failure_result.get("resourceCountAfter", -1)),
+		"road_mesh_exception_type": str(
+			road_mesh_failure_result.get("exceptionType", "")),
+		"road_mesh_resource_count_before": int(
+			road_mesh_failure_result.get("resourceCountBefore", -1)),
+		"road_mesh_resource_count_after": int(
+			road_mesh_failure_result.get("resourceCountAfter", -1)),
 		"load_result_kind": int(load_result.get("resultKind", -1)),
 	}))
 	await cleanup()

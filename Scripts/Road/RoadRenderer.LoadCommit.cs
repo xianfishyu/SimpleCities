@@ -103,29 +103,25 @@ public partial class RoadRenderer
 
     private static MultiMesh CreateNodeBatch(IReadOnlyList<RoadRendererNodeMarker> markers)
     {
-        var batch = new MultiMesh();
-        try
-        {
-            batch.TransformFormat = MultiMesh.TransformFormatEnum.Transform2D;
-            batch.UseColors = true;
-            using (var markerMesh = new QuadMesh { Size = Vector2.One })
-                batch.Mesh = markerMesh;
-            batch.InstanceCount = markers.Count;
-            for (int index = 0; index < markers.Count; index++)
+        return InitializeOwnedResource(
+            new MultiMesh(),
+            markers,
+            static (batch, nodeMarkers) =>
             {
-                RoadRendererNodeMarker marker = markers[index];
-                var transform = new Transform2D(0f, marker.Position)
-                    .ScaledLocal(new Vector2(marker.Diameter, marker.Diameter));
-                batch.SetInstanceTransform2D(index, transform);
-                batch.SetInstanceColor(index, marker.Color);
-            }
-            return batch;
-        }
-        catch
-        {
-            batch.Dispose();
-            throw;
-        }
+                batch.TransformFormat = MultiMesh.TransformFormatEnum.Transform2D;
+                batch.UseColors = true;
+                using (var markerMesh = new QuadMesh { Size = Vector2.One })
+                    batch.Mesh = markerMesh;
+                batch.InstanceCount = nodeMarkers.Count;
+                for (int index = 0; index < nodeMarkers.Count; index++)
+                {
+                    RoadRendererNodeMarker marker = nodeMarkers[index];
+                    var transform = new Transform2D(0f, marker.Position)
+                        .ScaledLocal(new Vector2(marker.Diameter, marker.Diameter));
+                    batch.SetInstanceTransform2D(index, transform);
+                    batch.SetInstanceColor(index, marker.Color);
+                }
+            });
     }
 
     internal sealed class RoadRendererLoadAdmission : IDisposable

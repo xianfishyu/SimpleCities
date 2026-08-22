@@ -1152,15 +1152,27 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
         arrays[(int)Mesh.ArrayType.TexUV] = uvs.ToArray();
         arrays[(int)Mesh.ArrayType.Color] = colors.ToArray();
         arrays[(int)Mesh.ArrayType.Index] = indices.ToArray();
-        var mesh = new ArrayMesh();
+        return InitializeOwnedResource(
+            new ArrayMesh(),
+            arrays,
+            static (mesh, surfaceArrays) =>
+                mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, surfaceArrays));
+    }
+
+    private static TResource InitializeOwnedResource<TResource, TState>(
+        TResource resource,
+        TState state,
+        Action<TResource, TState> initialize)
+        where TResource : IDisposable
+    {
         try
         {
-            mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
-            return mesh;
+            initialize(resource, state);
+            return resource;
         }
         catch
         {
-            mesh.Dispose();
+            resource.Dispose();
             throw;
         }
     }

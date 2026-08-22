@@ -22,6 +22,12 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
         ArgumentNullException.ThrowIfNull(renderer);
         return renderer.ProbeNodeBatchFactoryFailure();
     }
+
+    public Godot.Collections.Dictionary RunRoadMeshOwnershipFailure(RoadRenderer renderer)
+    {
+        ArgumentNullException.ThrowIfNull(renderer);
+        return renderer.ProbeRoadMeshOwnershipFailure();
+    }
 }
 
 public partial class RoadRenderer
@@ -170,6 +176,65 @@ public partial class RoadRenderer
             ["nodeBatchPreserved"] = ReferenceEquals(retainedNodeBatch, _nodeBatchLayer.Multimesh),
             ["surfacePreserved"] = ReferenceEquals(retainedSurface, _presentedSurface),
         };
+    }
+
+    internal Godot.Collections.Dictionary ProbeRoadMeshOwnershipFailure()
+    {
+        Mesh? retainedRoadMesh = _roadBatchLayer.Mesh;
+        MultiMesh retainedNodeBatch = _nodeBatchLayer.Multimesh;
+        RoadSurfaceSnapshot? retainedSurface = _presentedSurface;
+        long resourceCountBefore = Convert.ToInt64(
+            Performance.GetMonitor(Performance.Monitor.ObjectResourceCount));
+        var initializer = new ThrowingRoadMeshInitializer();
+        bool failedInsideOwnershipBoundary = false;
+        string exceptionType = string.Empty;
+        string exceptionMessage = string.Empty;
+
+        try
+        {
+            using ArrayMesh mesh = InitializeOwnedResource(
+                new ArrayMesh(),
+                initializer,
+                static (_, state) => state.Throw());
+        }
+        catch (Exception exception)
+        {
+            exceptionType = exception.GetType().Name;
+            exceptionMessage = exception.Message;
+            failedInsideOwnershipBoundary = exception is InvalidOperationException &&
+                string.Equals(
+                    exception.Message,
+                    ThrowingRoadMeshInitializer.InjectedMessage,
+                    StringComparison.Ordinal);
+        }
+
+        long resourceCountAfter = Convert.ToInt64(
+            Performance.GetMonitor(Performance.Monitor.ObjectResourceCount));
+        return new Godot.Collections.Dictionary
+        {
+            ["failedInsideOwnershipBoundary"] = failedInsideOwnershipBoundary,
+            ["initializerEntered"] = initializer.Entered,
+            ["exceptionType"] = exceptionType,
+            ["exceptionMessage"] = exceptionMessage,
+            ["resourceCountBefore"] = resourceCountBefore,
+            ["resourceCountAfter"] = resourceCountAfter,
+            ["roadMeshPreserved"] = ReferenceEquals(retainedRoadMesh, _roadBatchLayer.Mesh),
+            ["nodeBatchPreserved"] = ReferenceEquals(retainedNodeBatch, _nodeBatchLayer.Multimesh),
+            ["surfacePreserved"] = ReferenceEquals(retainedSurface, _presentedSurface),
+        };
+    }
+
+    private sealed class ThrowingRoadMeshInitializer
+    {
+        internal const string InjectedMessage = "Injected road mesh initialization failure.";
+
+        internal bool Entered { get; private set; }
+
+        internal void Throw()
+        {
+            Entered = true;
+            throw new InvalidOperationException(InjectedMessage);
+        }
     }
 
     private sealed class ThrowingNodeMarkerList : IReadOnlyList<RoadRendererNodeMarker>

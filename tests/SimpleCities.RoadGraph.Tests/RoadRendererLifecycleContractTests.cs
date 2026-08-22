@@ -368,6 +368,10 @@ public sealed class RoadRendererLifecycleContractTests
         string roadMeshFactory = ExtractMethod(
             rendererSource,
             "private static ArrayMesh? CreateRoadMesh",
+            "private static TResource InitializeOwnedResource");
+        string resourceInitialization = ExtractMethod(
+            rendererSource,
+            "private static TResource InitializeOwnedResource",
             "private static void DisposePreparedPresentationResources");
         string resourceDisposal = ExtractMethod(
             rendererSource,
@@ -378,11 +382,15 @@ public sealed class RoadRendererLifecycleContractTests
             "private static MultiMesh CreateNodeBatch",
             "internal sealed class RoadRendererLoadAdmission");
 
-        Assert.Contains("catch", roadMeshFactory);
-        Assert.Contains("mesh.Dispose();", roadMeshFactory);
-        Assert.Contains("catch", nodeBatchFactory);
-        Assert.Contains("batch.Dispose();", nodeBatchFactory);
+        Assert.Contains("return InitializeOwnedResource(", roadMeshFactory);
+        Assert.Contains("new ArrayMesh()", roadMeshFactory);
+        Assert.Contains("static (mesh, surfaceArrays)", roadMeshFactory);
+        Assert.Contains("return InitializeOwnedResource(", nodeBatchFactory);
+        Assert.Contains("new MultiMesh()", nodeBatchFactory);
+        Assert.Contains("static (batch, nodeMarkers)", nodeBatchFactory);
         Assert.Contains("using (var markerMesh", nodeBatchFactory);
+        Assert.Contains("catch", resourceInitialization);
+        Assert.Contains("resource.Dispose();", resourceInitialization);
         Assert.Contains("finally", resourceDisposal);
         Assert.Contains("nodeBatch?.Dispose();", resourceDisposal);
         Assert.Contains("roadMesh?.Dispose();", resourceDisposal);
