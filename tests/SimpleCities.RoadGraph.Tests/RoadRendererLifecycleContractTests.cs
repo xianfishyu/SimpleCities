@@ -900,6 +900,75 @@ public sealed class RoadRendererLifecycleContractTests
     }
 
     [Fact]
+    public void RealStartLoadPostSlotPreparationFailureRunsOffMainThreadBeforeGraphStateLookup()
+    {
+        string saveManagerSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Core", "SaveManager.cs"));
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadLoadPreflightResourceFailureProbe.cs"));
+        string loadOrchestration = ExtractMethod(
+            saveManagerSource,
+            "private async Task<SaveOperationResult> RunLoadAsync",
+            "private async Task<SaveOperationResult> RunDeleteAsync");
+        string failureProbe = ExtractMethod(
+            probeSource,
+            "partial void ProbeAggregateLoadPostSlotPreparationFailure(PreparedSaveSlot slot)",
+            "internal void ArmNextAggregateLoadPostSlotPreparationFailure()");
+
+        int workerEntryFailure = loadOrchestration.IndexOf(
+            "ProbeAggregateLoadWorkerEntryFailure();",
+            StringComparison.Ordinal);
+        int slotPrepare = loadOrchestration.IndexOf(
+            "PreparedSaveSlot slot = CreateSlotStore().PrepareLoad(",
+            StringComparison.Ordinal);
+        int failure = loadOrchestration.IndexOf(
+            "ProbeAggregateLoadPostSlotPreparationFailure(slot);",
+            StringComparison.Ordinal);
+        int graphState = loadOrchestration.IndexOf(
+            "IPreparedSaveState graphState = slot.GetPreparedState(context.Graph);",
+            StringComparison.Ordinal);
+        int rendererWorkerFailure = loadOrchestration.IndexOf(
+            "ProbeAggregateLoadRendererWorkerPrepareFailure();",
+            StringComparison.Ordinal);
+
+        Assert.True(workerEntryFailure >= 0 && workerEntryFailure < slotPrepare);
+        Assert.True(slotPrepare < failure && failure < graphState);
+        Assert.True(graphState < rendererWorkerFailure);
+        Assert.Contains(
+            "partial void ProbeAggregateLoadPostSlotPreparationFailure(PreparedSaveSlot slot);",
+            saveManagerSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "public void ArmAggregateLoadPostSlotPreparationFailure(SaveManager saveManager)",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadPostSlotPreparationFailureArmed = false;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadPostSlotPreparationFailureCount++;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "System.Environment.CurrentManagedThreadId != _mainThreadID;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadPostSlotPreparationObservedSlotID = slot.SlotID;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadPostSlotPreparationParticipantCount = slot.Participants.Count;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "AggregateLoadPostSlotPreparationFailureMessage",
+            failureProbe,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void RealStartLoadRendererWorkerPrepareFailureRunsBeforePresentationPreparation()
     {
         string saveManagerSource = File.ReadAllText(

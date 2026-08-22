@@ -260,6 +260,31 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
     public string GetAggregateLoadWorkerEntryFailureMessage() =>
         SaveManager.AggregateLoadWorkerEntryFailureMessage;
 
+    public void ArmAggregateLoadPostSlotPreparationFailure(SaveManager saveManager)
+    {
+        ArgumentNullException.ThrowIfNull(saveManager);
+        saveManager.ArmNextAggregateLoadPostSlotPreparationFailure();
+        _saveManager = saveManager;
+    }
+
+    public bool IsAggregateLoadPostSlotPreparationFailureArmed() =>
+        _saveManager?.IsAggregateLoadPostSlotPreparationFailureArmed() ?? false;
+
+    public int GetAggregateLoadPostSlotPreparationFailureCount() =>
+        _saveManager?.GetAggregateLoadPostSlotPreparationFailureCount() ?? 0;
+
+    public bool DidAggregateLoadPostSlotPreparationFailureRunOffMainThread() =>
+        _saveManager?.DidAggregateLoadPostSlotPreparationFailureRunOffMainThread() ?? false;
+
+    public string GetAggregateLoadPostSlotPreparationObservedSlotID() =>
+        _saveManager?.GetAggregateLoadPostSlotPreparationObservedSlotID() ?? string.Empty;
+
+    public int GetAggregateLoadPostSlotPreparationParticipantCount() =>
+        _saveManager?.GetAggregateLoadPostSlotPreparationParticipantCount() ?? -1;
+
+    public string GetAggregateLoadPostSlotPreparationFailureMessage() =>
+        SaveManager.AggregateLoadPostSlotPreparationFailureMessage;
+
     public void ArmAggregateLoadRendererWorkerPrepareFailure(SaveManager saveManager)
     {
         ArgumentNullException.ThrowIfNull(saveManager);
@@ -434,6 +459,8 @@ public partial class SaveManager
         "Injected aggregate Load failure after entering the Prepare phase.";
     internal const string AggregateLoadWorkerEntryFailureMessage =
         "Injected aggregate Load failure after entering the preparation worker.";
+    internal const string AggregateLoadPostSlotPreparationFailureMessage =
+        "Injected aggregate Load failure after slot preparation.";
     internal const string AggregateLoadRendererWorkerPrepareFailureMessage =
         "Injected aggregate Load renderer worker-prepare failure.";
     internal const string AggregateLoadPostRendererPreflightFailureMessage =
@@ -462,6 +489,11 @@ public partial class SaveManager
     private bool _aggregateLoadWorkerEntryFailureArmed;
     private int _aggregateLoadWorkerEntryFailureCount;
     private bool _aggregateLoadWorkerEntryFailureRanOffMainThread;
+    private bool _aggregateLoadPostSlotPreparationFailureArmed;
+    private int _aggregateLoadPostSlotPreparationFailureCount;
+    private bool _aggregateLoadPostSlotPreparationFailureRanOffMainThread;
+    private string _aggregateLoadPostSlotPreparationObservedSlotID = string.Empty;
+    private int _aggregateLoadPostSlotPreparationParticipantCount = -1;
     private bool _aggregateLoadRendererWorkerPrepareFailureArmed;
     private int _aggregateLoadRendererWorkerPrepareFailureCount;
     private bool _aggregateLoadPostRendererPreflightFailureArmed;
@@ -634,6 +666,56 @@ public partial class SaveManager
 
     internal bool DidAggregateLoadWorkerEntryFailureRunOffMainThread() =>
         _aggregateLoadWorkerEntryFailureRanOffMainThread;
+
+    partial void ProbeAggregateLoadPostSlotPreparationFailure(PreparedSaveSlot slot)
+    {
+        if (!_aggregateLoadPostSlotPreparationFailureArmed)
+            return;
+
+        ArgumentNullException.ThrowIfNull(slot);
+        _aggregateLoadPostSlotPreparationFailureArmed = false;
+        _aggregateLoadPostSlotPreparationFailureCount++;
+        _aggregateLoadPostSlotPreparationFailureRanOffMainThread =
+            _mainThreadID != 0 && System.Environment.CurrentManagedThreadId != _mainThreadID;
+        _aggregateLoadPostSlotPreparationObservedSlotID = slot.SlotID;
+        _aggregateLoadPostSlotPreparationParticipantCount = slot.Participants.Count;
+        throw new InvalidOperationException(
+            AggregateLoadPostSlotPreparationFailureMessage);
+    }
+
+    internal void ArmNextAggregateLoadPostSlotPreparationFailure()
+    {
+        if (IsOperationBusy)
+        {
+            throw new InvalidOperationException(
+                "SaveManager must be idle before arming its aggregate Load failure probe.");
+        }
+        if (_aggregateLoadPostSlotPreparationFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load post-slot preparation failure probe is already armed.");
+        }
+
+        _aggregateLoadPostSlotPreparationFailureRanOffMainThread = false;
+        _aggregateLoadPostSlotPreparationObservedSlotID = string.Empty;
+        _aggregateLoadPostSlotPreparationParticipantCount = -1;
+        _aggregateLoadPostSlotPreparationFailureArmed = true;
+    }
+
+    internal bool IsAggregateLoadPostSlotPreparationFailureArmed() =>
+        _aggregateLoadPostSlotPreparationFailureArmed;
+
+    internal int GetAggregateLoadPostSlotPreparationFailureCount() =>
+        _aggregateLoadPostSlotPreparationFailureCount;
+
+    internal bool DidAggregateLoadPostSlotPreparationFailureRunOffMainThread() =>
+        _aggregateLoadPostSlotPreparationFailureRanOffMainThread;
+
+    internal string GetAggregateLoadPostSlotPreparationObservedSlotID() =>
+        _aggregateLoadPostSlotPreparationObservedSlotID;
+
+    internal int GetAggregateLoadPostSlotPreparationParticipantCount() =>
+        _aggregateLoadPostSlotPreparationParticipantCount;
 
     partial void ProbeAggregateLoadRendererWorkerPrepareFailure()
     {

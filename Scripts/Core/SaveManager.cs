@@ -15,6 +15,7 @@ public partial class SaveManager : Node
         IReadOnlyList<CapturedLoadParticipant> loadParticipants);
     partial void ProbeAggregateLoadPostPreparePhaseFailure(SaveOperationPhase phase);
     partial void ProbeAggregateLoadWorkerEntryFailure();
+    partial void ProbeAggregateLoadPostSlotPreparationFailure(PreparedSaveSlot slot);
     partial void ProbeAggregateLoadRendererWorkerPrepareFailure();
     partial void ProbeAggregateLoadPostRendererPreflightFailure();
     partial void ProbeAggregateLoadPostSlotPreflightFailure();
@@ -687,6 +688,7 @@ public partial class SaveManager : Node
                         slotID,
                         loadParticipants,
                         lease);
+                    ProbeAggregateLoadPostSlotPreparationFailure(slot);
                     IPreparedSaveState graphState = slot.GetPreparedState(context.Graph);
                     RoadGraphRevision graphRevision = graphState as RoadGraphRevision
                         ?? throw new InvalidOperationException(

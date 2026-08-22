@@ -1473,6 +1473,62 @@ func run() -> void:
 		"Worker-entry failure changed RoadGraph"):
 		return
 
+	var post_slot_preparation_resource_count_before := int(probe.GetObjectResourceCount())
+	var post_slot_preparation_failure_message := str(
+		probe.GetAggregateLoadPostSlotPreparationFailureMessage())
+	probe.ArmAggregateLoadPostSlotPreparationFailure(save_manager)
+	if not require(
+		bool(probe.IsAggregateLoadPostSlotPreparationFailureArmed()),
+		"Aggregate Load post-slot preparation failure probe did not arm"):
+		return
+	var post_slot_preparation_failed_load_result := await run_load(source_slot_id)
+	var post_slot_preparation_resource_count_after := int(probe.GetObjectResourceCount())
+	if not require(
+		int(post_slot_preparation_failed_load_result.get("resultKind", -1)) ==
+			RESULT_FAILED and
+		int(post_slot_preparation_failed_load_result.get("finalPhase", -1)) ==
+			PHASE_PREPARE and
+		not bool(post_slot_preparation_failed_load_result.get("committed", true)) and
+		str(post_slot_preparation_failed_load_result.get("warnings", "")).is_empty() and
+		str(post_slot_preparation_failed_load_result.get("error", "")) ==
+			post_slot_preparation_failure_message,
+		"Real StartLoad did not fail after slot preparation and before graph-state lookup: %s" %
+		JSON.stringify(post_slot_preparation_failed_load_result)):
+		return
+	if not require(
+		not bool(probe.IsAggregateLoadPostSlotPreparationFailureArmed()) and
+		int(probe.GetAggregateLoadPostSlotPreparationFailureCount()) == 1 and
+		bool(probe.DidAggregateLoadPostSlotPreparationFailureRunOffMainThread()) and
+		str(probe.GetAggregateLoadPostSlotPreparationObservedSlotID()) == source_slot_id and
+		int(probe.GetAggregateLoadPostSlotPreparationParticipantCount()) == 1 and
+		post_slot_preparation_resource_count_after ==
+			post_slot_preparation_resource_count_before and
+		str(save_manager.get("CurrentSlotID")) == active_slot_id and
+		int(tool_manager.get("CurrentTool")) == TOOL_ROAD and
+		int(tool_manager.GetSelectedRoadType()) == selected_road_type_before and
+		builder.HasActivePlaceSession() and
+		builder.GetFixedCornerCount() == 1 and
+		builder.GetUndoEditCount() == undo_count_before and
+		builder.GetRedoEditCount() == redo_count_before and
+		renderer.GetRenderedEdgeCount() == edge_count_before and
+		renderer.GetRoadMeshVertexCount() == vertex_count_before and
+		renderer.GetNodeMarkerCount() == marker_count_before and
+		renderer.GetPresentationState() == presentation_before and
+		renderer.FindRoadSurfaceHit(Vector2(400.0, 300.0), 0.0) == hit_before,
+		"Post-slot preparation failure changed resources, graph, tool, placement, history, presentation, surface, token, or slot state"):
+		return
+
+	if not require(
+		await V3_SAVE_FIXTURE.save(save_manager, active_slot_id),
+		"Could not recapture the active graph after post-slot preparation failure"):
+		return
+	var post_slot_preparation_payload_after := FileAccess.get_file_as_string(
+		V3_SAVE_FIXTURE.slot_path(active_slot_id, V3_SAVE_FIXTURE.PAYLOAD_FILE_NAME))
+	if not require(
+		post_slot_preparation_payload_after == active_payload_before,
+		"Post-slot preparation failure changed RoadGraph"):
+		return
+
 	var renderer_worker_prepare_resource_count_before := int(probe.GetObjectResourceCount())
 	var renderer_worker_prepare_failure_message := str(
 		probe.GetAggregateLoadRendererWorkerPrepareFailureMessage())
@@ -1741,6 +1797,24 @@ func run() -> void:
 			probe.DidAggregateLoadWorkerEntryFailureRunOffMainThread()),
 		"worker_entry_resource_count_before": worker_entry_resource_count_before,
 		"worker_entry_resource_count_after": worker_entry_resource_count_after,
+		"post_slot_preparation_failure_result_kind": int(
+			post_slot_preparation_failed_load_result.get("resultKind", -1)),
+		"post_slot_preparation_failure_final_phase": int(
+			post_slot_preparation_failed_load_result.get("finalPhase", -1)),
+		"post_slot_preparation_failure_committed": bool(
+			post_slot_preparation_failed_load_result.get("committed", true)),
+		"post_slot_preparation_failure_trigger_count": int(
+			probe.GetAggregateLoadPostSlotPreparationFailureCount()),
+		"post_slot_preparation_failure_off_main_thread": bool(
+			probe.DidAggregateLoadPostSlotPreparationFailureRunOffMainThread()),
+		"post_slot_preparation_observed_slot_id": str(
+			probe.GetAggregateLoadPostSlotPreparationObservedSlotID()),
+		"post_slot_preparation_participant_count": int(
+			probe.GetAggregateLoadPostSlotPreparationParticipantCount()),
+		"post_slot_preparation_resource_count_before":
+			post_slot_preparation_resource_count_before,
+		"post_slot_preparation_resource_count_after":
+			post_slot_preparation_resource_count_after,
 		"renderer_worker_prepare_failure_result_kind": int(
 			renderer_worker_prepare_failed_load_result.get("resultKind", -1)),
 		"renderer_worker_prepare_failure_committed": bool(
