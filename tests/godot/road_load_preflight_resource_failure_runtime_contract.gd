@@ -254,6 +254,66 @@ func run() -> void:
 		JSON.stringify(road_mesh_failure_result)):
 		return
 
+	var aggregate_node_batch_resource_count_before := int(probe.GetObjectResourceCount())
+	var aggregate_node_batch_failure_message := str(
+		probe.GetAggregateLoadNodeBatchFactoryFailureMessage())
+	probe.ArmAggregateLoadNodeBatchFactoryFailure(renderer)
+	if not require(
+		bool(probe.IsAggregateLoadNodeBatchFactoryFailureArmed()),
+		"Aggregate Load node-batch factory failure probe did not arm"):
+		return
+	var aggregate_node_batch_failed_load_result := await run_load(active_slot_id)
+	if not require(
+		int(aggregate_node_batch_failed_load_result.get("resultKind", -1)) == RESULT_FAILED and
+		not bool(aggregate_node_batch_failed_load_result.get("committed", true)) and
+		str(aggregate_node_batch_failed_load_result.get("warnings", "")).is_empty() and
+		str(aggregate_node_batch_failed_load_result.get("error", "")) ==
+			aggregate_node_batch_failure_message,
+		"Aggregate Load did not fail inside CreateNodeBatch before commit: %s" %
+		JSON.stringify(aggregate_node_batch_failed_load_result)):
+		return
+	var aggregate_node_batch_resource_count_after := int(probe.GetObjectResourceCount())
+	if not require(
+		not bool(probe.IsAggregateLoadNodeBatchFactoryFailureArmed()) and
+		int(probe.GetAggregateLoadNodeBatchFactoryFailureCount()) == 1 and
+		int(probe.GetAggregateLoadNodeBatchFactoryMarkerReadCount()) == 1 and
+		aggregate_node_batch_resource_count_after ==
+			aggregate_node_batch_resource_count_before,
+		"Aggregate node-batch factory failure did not release both preflight resources: %s" %
+		JSON.stringify({
+			"armed": bool(probe.IsAggregateLoadNodeBatchFactoryFailureArmed()),
+			"triggerCount": int(probe.GetAggregateLoadNodeBatchFactoryFailureCount()),
+			"markerReadCount": int(probe.GetAggregateLoadNodeBatchFactoryMarkerReadCount()),
+			"resourceCountBefore": aggregate_node_batch_resource_count_before,
+			"resourceCountAfter": aggregate_node_batch_resource_count_after,
+		})):
+		return
+	if not require(
+		str(save_manager.get("CurrentSlotID")) == active_slot_id and
+		int(tool_manager.get("CurrentTool")) == TOOL_ROAD and
+		builder.HasActivePlaceSession() and
+		builder.GetFixedCornerCount() == 1 and
+		builder.GetUndoEditCount() == undo_count_before and
+		builder.GetRedoEditCount() == redo_count_before and
+		renderer.GetRenderedEdgeCount() == edge_count_before and
+		renderer.GetRoadMeshVertexCount() == vertex_count_before and
+		renderer.GetNodeMarkerCount() == marker_count_before and
+		renderer.GetPresentationState() == presentation_before and
+		renderer.FindRoadSurfaceHit(Vector2(400.0, 300.0), 0.0) == hit_before,
+		"Aggregate node-batch factory failure changed graph, tool, presentation, surface, token, or slot state"):
+		return
+
+	if not require(
+		await V3_SAVE_FIXTURE.save(save_manager, active_slot_id),
+		"Could not recapture the active graph after aggregate node-batch factory failure"):
+		return
+	var aggregate_node_batch_payload_after := FileAccess.get_file_as_string(
+		V3_SAVE_FIXTURE.slot_path(active_slot_id, V3_SAVE_FIXTURE.PAYLOAD_FILE_NAME))
+	if not require(
+		aggregate_node_batch_payload_after == active_payload_before,
+		"Aggregate node-batch factory failure changed RoadGraph"):
+		return
+
 	var aggregate_resource_count_before := int(probe.GetObjectResourceCount())
 	var aggregate_failure_message := str(
 		probe.GetAggregateLoadResourcePreflightFailureMessage())
@@ -547,6 +607,18 @@ func run() -> void:
 			road_mesh_failure_result.get("resourceCountBefore", -1)),
 		"road_mesh_resource_count_after": int(
 			road_mesh_failure_result.get("resourceCountAfter", -1)),
+		"aggregate_node_batch_failure_result_kind": int(
+			aggregate_node_batch_failed_load_result.get("resultKind", -1)),
+		"aggregate_node_batch_failure_committed": bool(
+			aggregate_node_batch_failed_load_result.get("committed", true)),
+		"aggregate_node_batch_failure_trigger_count": int(
+			probe.GetAggregateLoadNodeBatchFactoryFailureCount()),
+		"aggregate_node_batch_marker_read_count": int(
+			probe.GetAggregateLoadNodeBatchFactoryMarkerReadCount()),
+		"aggregate_node_batch_resource_count_before":
+			aggregate_node_batch_resource_count_before,
+		"aggregate_node_batch_resource_count_after":
+			aggregate_node_batch_resource_count_after,
 		"aggregate_failure_result_kind": int(failed_load_result.get("resultKind", -1)),
 		"aggregate_failure_committed": bool(failed_load_result.get("committed", true)),
 		"aggregate_failure_trigger_count": int(

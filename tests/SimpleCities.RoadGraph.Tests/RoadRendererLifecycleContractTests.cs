@@ -530,6 +530,64 @@ public sealed class RoadRendererLifecycleContractTests
     }
 
     [Fact]
+    public void AggregateNodeBatchFactoryFailureRunsInsideOwnedLoadPreflight()
+    {
+        string loadSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.LoadCommit.cs"));
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadLoadPreflightResourceFailureProbe.cs"));
+        string loadPreflight = ExtractMethod(
+            loadSource,
+            "internal INonThrowingLoadCommitPlan PreflightPreparedLoad",
+            "private bool IsLoadAdmissionCurrent");
+        string factoryProbe = ExtractMethod(
+            probeSource,
+            "partial void ProbeAggregateLoadNodeBatchFactoryFailure(",
+            "internal void ArmNextAggregateLoadNodeBatchFactoryFailure()");
+
+        int roadMeshCreation = loadPreflight.IndexOf(
+            "roadMesh = CreateRoadMesh(",
+            StringComparison.Ordinal);
+        int nodeMarkerCapture = loadPreflight.IndexOf(
+            "IReadOnlyList<RoadRendererNodeMarker> nodeMarkers = prepared.NodeMarkers;",
+            StringComparison.Ordinal);
+        int nodeBatchFailureProbe = loadPreflight.IndexOf(
+            "ProbeAggregateLoadNodeBatchFactoryFailure(ref nodeMarkers);",
+            StringComparison.Ordinal);
+        int nodeBatchCreation = loadPreflight.IndexOf(
+            "nodeBatch = CreateNodeBatch(nodeMarkers);",
+            StringComparison.Ordinal);
+        int resourcePreflightFailureProbe = loadPreflight.IndexOf(
+            "ProbeAggregateLoadResourcePreflightFailure();",
+            StringComparison.Ordinal);
+
+        Assert.True(roadMeshCreation >= 0 && roadMeshCreation < nodeMarkerCapture);
+        Assert.True(nodeMarkerCapture < nodeBatchFailureProbe);
+        Assert.True(nodeBatchFailureProbe < nodeBatchCreation);
+        Assert.True(nodeBatchCreation < resourcePreflightFailureProbe);
+        Assert.Contains(
+            "ref IReadOnlyList<RoadRendererNodeMarker> nodeMarkers",
+            loadSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadNodeBatchFactoryFailureArmed = false;",
+            factoryProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "nodeMarkers = new AggregateLoadNodeBatchFactoryFailureMarkers(this);",
+            factoryProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "owner._aggregateLoadNodeBatchFactoryMarkerReadCount++;",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "AggregateLoadNodeBatchFactoryFailureMessage);",
+            probeSource,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void OrdinaryRoadMeshFactoryFailureRunsInsideTheOwnedUpdateAttempt()
     {
         string rendererSource = File.ReadAllText(

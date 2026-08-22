@@ -5,6 +5,8 @@ using System.Linq;
 
 public partial class RoadRenderer
 {
+    partial void ProbeAggregateLoadNodeBatchFactoryFailure(
+        ref IReadOnlyList<RoadRendererNodeMarker> nodeMarkers);
     partial void ProbeAggregateLoadResourcePreflightFailure();
     partial void ProbeLoadCompleteCommitFailure();
 
@@ -65,7 +67,9 @@ public partial class RoadRenderer
                 prepared.RoadUvs,
                 prepared.RoadColors,
                 prepared.RoadIndices);
-            nodeBatch = CreateNodeBatch(prepared.NodeMarkers);
+            IReadOnlyList<RoadRendererNodeMarker> nodeMarkers = prepared.NodeMarkers;
+            ProbeAggregateLoadNodeBatchFactoryFailure(ref nodeMarkers);
+            nodeBatch = CreateNodeBatch(nodeMarkers);
             ProbeAggregateLoadResourcePreflightFailure();
             RoadRenderToken renderToken = _presentationTokens.CreateReservedLoadToken(
                 admission.RenderReservation,
