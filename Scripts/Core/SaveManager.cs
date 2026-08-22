@@ -21,6 +21,8 @@ public partial class SaveManager : Node
     partial void ProbeAggregateLoadRendererWorkerPrepareFailure();
     partial void ProbeAggregateLoadPostRendererWorkerPreparationFailure(
         RoadRendererPreparedLoad presentation);
+    partial void ProbeAggregateLoadPostPreparedWorkReturnFailure(
+        PreparedLoadWork prepared);
     partial void ProbeAggregateLoadPostRendererPreflightFailure();
     partial void ProbeAggregateLoadPostSlotPreflightFailure();
     partial void ProbeAggregateLoadPostOwnershipPreCommitFailure();
@@ -708,6 +710,7 @@ public partial class SaveManager : Node
                         presentation,
                         Stopwatch.GetElapsedTime(workerPrepareStarted));
                 });
+                ProbeAggregateLoadPostPreparedWorkReturnFailure(prepared);
 
                 EnsureSceneRequestCurrent(sceneRequest);
                 lease.ThrowIfCancellationRequested();

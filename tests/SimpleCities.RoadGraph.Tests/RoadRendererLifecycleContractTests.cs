@@ -1171,6 +1171,80 @@ public sealed class RoadRendererLifecycleContractTests
     }
 
     [Fact]
+    public void RealStartLoadPostPreparedWorkReturnFailureRunsOnMainThreadBeforeRequestValidation()
+    {
+        string saveManagerSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Core", "SaveManager.cs"));
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadLoadPreflightResourceFailureProbe.cs"));
+        string loadOrchestration = ExtractMethod(
+            saveManagerSource,
+            "private async Task<SaveOperationResult> RunLoadAsync",
+            "private async Task<SaveOperationResult> RunDeleteAsync");
+        string failureProbe = ExtractMethod(
+            probeSource,
+            "partial void ProbeAggregateLoadPostPreparedWorkReturnFailure(",
+            "internal void ArmNextAggregateLoadPostPreparedWorkReturnFailure()");
+
+        int workerPreparationFailure = loadOrchestration.IndexOf(
+            "ProbeAggregateLoadPostRendererWorkerPreparationFailure(presentation);",
+            StringComparison.Ordinal);
+        int preparedWork = loadOrchestration.IndexOf(
+            "return new PreparedLoadWork(",
+            StringComparison.Ordinal);
+        int failure = loadOrchestration.IndexOf(
+            "ProbeAggregateLoadPostPreparedWorkReturnFailure(prepared);",
+            StringComparison.Ordinal);
+        int requestValidation = loadOrchestration.IndexOf(
+            "EnsureSceneRequestCurrent(sceneRequest);",
+            StringComparison.Ordinal);
+        int preflightPhase = loadOrchestration.IndexOf(
+            "lease.AdvanceTo(SaveOperationPhase.Preflight);",
+            StringComparison.Ordinal);
+
+        Assert.True(
+            workerPreparationFailure >= 0 && workerPreparationFailure < preparedWork);
+        Assert.True(preparedWork < failure && failure < requestValidation);
+        Assert.True(requestValidation < preflightPhase);
+        Assert.Contains(
+            "partial void ProbeAggregateLoadPostPreparedWorkReturnFailure(",
+            saveManagerSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "public void ArmAggregateLoadPostPreparedWorkReturnFailure(",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadPostPreparedWorkReturnFailureArmed = false;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadPostPreparedWorkReturnFailureCount++;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "System.Environment.CurrentManagedThreadId == _mainThreadID;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "prepared.Slot.SlotID;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "prepared.Slot.Participants.Count;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "prepared.Presentation.RoadSurface.PrimitiveCount;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "AggregateLoadPostPreparedWorkReturnFailureMessage",
+            failureProbe,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void PreparedPresentationResourcesAreReleasedBeforeOwnershipTransfer()
     {
         string rendererSource = File.ReadAllText(
