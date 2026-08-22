@@ -396,6 +396,9 @@ public sealed class RoadRendererLifecycleContractTests
         int slotPlan = loadOrchestration.IndexOf(
             "preflightPlans.Add(new SlotTargetLoadCommitPlan(",
             StringComparison.Ordinal);
+        int postSlotFailureProbe = loadOrchestration.IndexOf(
+            "ProbeAggregateLoadPostSlotPreflightFailure();",
+            StringComparison.Ordinal);
         int aggregateOwnership = loadOrchestration.IndexOf(
             "aggregateOwnsPlans = true;",
             StringComparison.Ordinal);
@@ -404,7 +407,8 @@ public sealed class RoadRendererLifecycleContractTests
             StringComparison.Ordinal);
 
         Assert.True(rendererPlan >= 0 && rendererPlan < postRendererFailureProbe);
-        Assert.True(postRendererFailureProbe < slotPlan && slotPlan < aggregateOwnership);
+        Assert.True(postRendererFailureProbe < slotPlan && slotPlan < postSlotFailureProbe);
+        Assert.True(postSlotFailureProbe < aggregateOwnership);
         Assert.True(aggregateOwnership < fallbackPlanDisposal);
         Assert.Contains("plan.Dispose();", loadOrchestration[fallbackPlanDisposal..]);
     }

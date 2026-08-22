@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 public partial class SaveManager : Node
 {
     partial void ProbeAggregateLoadPostRendererPreflightFailure();
+    partial void ProbeAggregateLoadPostSlotPreflightFailure();
 
     public static SaveManager Instance { get; private set; } = null!;
 
@@ -697,6 +698,7 @@ public partial class SaveManager : Node
                     () => IsSceneContextCurrent(sceneRequest) &&
                         slotTargetGeneration == _currentSlotGeneration,
                     SetCurrentSlot));
+                ProbeAggregateLoadPostSlotPreflightFailure();
 
                 using var aggregate = new PreparedAggregateLoad(preflightPlans);
                 aggregateOwnsPlans = true;

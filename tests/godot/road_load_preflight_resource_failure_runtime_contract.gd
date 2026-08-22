@@ -274,6 +274,62 @@ func run() -> void:
 		"Post-renderer aggregate failure changed RoadGraph"):
 		return
 
+	var post_slot_resource_count_before := int(probe.GetObjectResourceCount())
+	var post_slot_failure_message := str(
+		probe.GetAggregateLoadPostSlotPreflightFailureMessage())
+	probe.ArmAggregateLoadPostSlotPreflightFailure(save_manager)
+	if not require(
+		bool(probe.IsAggregateLoadPostSlotPreflightFailureArmed()),
+		"Post-slot aggregate Load failure probe did not arm"):
+		return
+	var post_slot_failed_load_result := await run_load(source_slot_id)
+	if not require(
+		int(post_slot_failed_load_result.get("resultKind", -1)) == RESULT_FAILED and
+		not bool(post_slot_failed_load_result.get("committed", true)) and
+		str(post_slot_failed_load_result.get("warnings", "")).is_empty() and
+		str(post_slot_failed_load_result.get("error", "")) == post_slot_failure_message,
+		"Aggregate Load did not fail after slot-target plan creation: %s" %
+		JSON.stringify(post_slot_failed_load_result)):
+		return
+	var post_slot_resource_count_after := int(probe.GetObjectResourceCount())
+	if not require(
+		not bool(probe.IsAggregateLoadPostSlotPreflightFailureArmed()) and
+		int(probe.GetAggregateLoadPostSlotPreflightFailureCount()) == 1 and
+		post_slot_resource_count_after == post_slot_resource_count_before,
+		"Post-slot aggregate failure did not dispose every prepared plan and resource: %s" %
+		JSON.stringify({
+			"armed": bool(probe.IsAggregateLoadPostSlotPreflightFailureArmed()),
+			"triggerCount": int(probe.GetAggregateLoadPostSlotPreflightFailureCount()),
+			"resourceCountBefore": post_slot_resource_count_before,
+			"resourceCountAfter": post_slot_resource_count_after,
+		})):
+		return
+	if not require(
+		str(save_manager.get("CurrentSlotID")) == active_slot_id and
+		int(tool_manager.get("CurrentTool")) == TOOL_ROAD and
+		builder.HasActivePlaceSession() and
+		builder.GetFixedCornerCount() == 1 and
+		builder.GetUndoEditCount() == undo_count_before and
+		builder.GetRedoEditCount() == redo_count_before and
+		renderer.GetRenderedEdgeCount() == edge_count_before and
+		renderer.GetRoadMeshVertexCount() == vertex_count_before and
+		renderer.GetNodeMarkerCount() == marker_count_before and
+		renderer.GetPresentationState() == presentation_before and
+		renderer.FindRoadSurfaceHit(Vector2(400.0, 300.0), 0.0) == hit_before,
+		"Post-slot aggregate failure changed graph, tool, presentation, surface, token, or slot state"):
+		return
+
+	if not require(
+		await V3_SAVE_FIXTURE.save(save_manager, active_slot_id),
+		"Could not recapture the active graph after post-slot aggregate failure"):
+		return
+	var post_slot_payload_after := FileAccess.get_file_as_string(
+		V3_SAVE_FIXTURE.slot_path(active_slot_id, V3_SAVE_FIXTURE.PAYLOAD_FILE_NAME))
+	if not require(
+		post_slot_payload_after == active_payload_before,
+		"Post-slot aggregate failure changed RoadGraph"):
+		return
+
 	var load_result := await run_load(source_slot_id)
 	if not require(
 		int(load_result.get("resultKind", -1)) == RESULT_SUCCEEDED and
@@ -339,6 +395,14 @@ func run() -> void:
 			probe.GetAggregateLoadPostRendererPreflightFailureCount()),
 		"post_renderer_resource_count_before": post_renderer_resource_count_before,
 		"post_renderer_resource_count_after": post_renderer_resource_count_after,
+		"post_slot_failure_result_kind": int(
+			post_slot_failed_load_result.get("resultKind", -1)),
+		"post_slot_failure_committed": bool(
+			post_slot_failed_load_result.get("committed", true)),
+		"post_slot_failure_trigger_count": int(
+			probe.GetAggregateLoadPostSlotPreflightFailureCount()),
+		"post_slot_resource_count_before": post_slot_resource_count_before,
+		"post_slot_resource_count_after": post_slot_resource_count_after,
 		"load_result_kind": int(load_result.get("resultKind", -1)),
 	}))
 	await cleanup()
