@@ -7,6 +7,7 @@ public partial class RoadLoadObserverFailureProbe : Godot.RefCounted
 
     private RoadRenderer? _renderer;
     private RoadRenderer? _rendererCleanupOwner;
+    private RoadGraph? _graphCleanupOwner;
     private ToolManager? _toolManager;
     private Action<RoadRenderToken>? _handler;
     private int _triggerCount;
@@ -36,11 +37,23 @@ public partial class RoadLoadObserverFailureProbe : Godot.RefCounted
         renderer.ArmNextLoadCompleteCommitFailure();
     }
 
+    public void ArmGraphCleanupFailure(RoadSystem roadSystem)
+    {
+        ArgumentNullException.ThrowIfNull(roadSystem);
+        RoadGraph graph = roadSystem.Graph;
+        ArgumentNullException.ThrowIfNull(graph);
+        _graphCleanupOwner?.DisarmLoadCompleteCommitFailure();
+        _graphCleanupOwner = graph;
+        graph.ArmNextLoadCompleteCommitFailure();
+    }
+
     public void Disarm()
     {
         DisarmObserver();
         _rendererCleanupOwner?.DisarmLoadCompleteCommitFailure();
         _rendererCleanupOwner = null;
+        _graphCleanupOwner?.DisarmLoadCompleteCommitFailure();
+        _graphCleanupOwner = null;
         _toolManager?.DisarmLoadCompleteCommitFailure();
         _toolManager = null;
     }
@@ -62,6 +75,10 @@ public partial class RoadLoadObserverFailureProbe : Godot.RefCounted
         _rendererCleanupOwner?.GetLoadCompleteCommitFailureCount() ?? 0;
     public bool IsRendererCleanupFailureArmed() =>
         _rendererCleanupOwner?.IsLoadCompleteCommitFailureArmed() ?? false;
+    public int GetGraphCleanupFailureCount() =>
+        _graphCleanupOwner?.GetLoadCompleteCommitFailureCount() ?? 0;
+    public bool IsGraphCleanupFailureArmed() =>
+        _graphCleanupOwner?.IsLoadCompleteCommitFailureArmed() ?? false;
 
     private void OnPresentationReady(RoadRenderToken _)
     {
@@ -69,6 +86,50 @@ public partial class RoadLoadObserverFailureProbe : Godot.RefCounted
         DisarmObserver();
         throw new InvalidOperationException(ObserverFailureMessage);
     }
+}
+
+public partial class RoadGraph
+{
+    internal const string LoadCompleteCommitFailureMessage =
+        "Injected RoadGraph load cleanup failure.";
+
+    private bool _loadCompleteCommitFailureArmed;
+    private int _loadCompleteCommitFailureCount;
+
+    partial void ProbeLoadCompleteCommitFailure()
+    {
+        if (!_loadCompleteCommitFailureArmed)
+            return;
+
+        _loadCompleteCommitFailureArmed = false;
+        _loadCompleteCommitFailureCount++;
+        throw new InvalidOperationException(LoadCompleteCommitFailureMessage);
+    }
+
+    internal void ArmNextLoadCompleteCommitFailure()
+    {
+        if (_loadAdmission is not null)
+        {
+            throw new InvalidOperationException(
+                "RoadGraph must be idle before arming its load cleanup failure probe.");
+        }
+        if (_loadCompleteCommitFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "RoadGraph load cleanup failure probe is already armed.");
+        }
+
+        _loadCompleteCommitFailureArmed = true;
+    }
+
+    internal void DisarmLoadCompleteCommitFailure() =>
+        _loadCompleteCommitFailureArmed = false;
+
+    internal bool IsLoadCompleteCommitFailureArmed() =>
+        _loadCompleteCommitFailureArmed;
+
+    internal int GetLoadCompleteCommitFailureCount() =>
+        _loadCompleteCommitFailureCount;
 }
 
 public partial class RoadRenderer

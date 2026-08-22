@@ -755,6 +755,63 @@ public sealed class RoadRendererLifecycleContractTests
             StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void RoadGraphCleanupFailureProbeRunsAfterRealAdmissionRelease()
+    {
+        string graphSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Road", "RoadGraph.LoadCommit.cs"));
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadLoadObserverFailureProbe.cs"));
+        string completion = ExtractMethod(
+            graphSource,
+            "public void CompleteCommit()",
+            "public void Dispose()");
+
+        int committedGuard = completion.IndexOf(
+            "if (!_referencesCommitted)",
+            StringComparison.Ordinal);
+        int graphAdmissionRelease = completion.IndexOf(
+            "_owner.AbandonLoadAdmission(_admission);",
+            StringComparison.Ordinal);
+        int markCompleted = completion.IndexOf("_completed = true;", StringComparison.Ordinal);
+        int cleanupFailureProbe = completion.IndexOf(
+            "_owner.ProbeLoadCompleteCommitFailure();",
+            StringComparison.Ordinal);
+
+        Assert.True(committedGuard >= 0 && committedGuard < graphAdmissionRelease);
+        Assert.True(graphAdmissionRelease < markCompleted);
+        Assert.True(markCompleted < cleanupFailureProbe);
+        Assert.Contains(
+            "partial void ProbeLoadCompleteCommitFailure();",
+            graphSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "public partial class RoadGraph",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "public void ArmGraphCleanupFailure(RoadSystem roadSystem)",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains("RoadGraph graph = roadSystem.Graph;", probeSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "partial void ProbeLoadCompleteCommitFailure()",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_loadCompleteCommitFailureArmed = false;",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_loadCompleteCommitFailureCount++;",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "throw new InvalidOperationException(LoadCompleteCommitFailureMessage);",
+            probeSource,
+            StringComparison.Ordinal);
+    }
+
     private static string ExtractMethod(string source, string startMarker, string endMarker)
     {
         int start = source.IndexOf(startMarker, StringComparison.Ordinal);

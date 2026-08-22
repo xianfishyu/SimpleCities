@@ -33,6 +33,7 @@ func run() -> void:
 	await process_frame
 
 	save_manager = root.get_node("SaveManager")
+	var road_system: Node = test_map.get_node("RoadSystem")
 	var builder: Node = test_map.get_node("RoadSystem/RoadBuilder")
 	var renderer: Node = test_map.get_node("RoadSystem/RoadRenderer")
 	var tool_manager: Node = test_map.get_node("ToolManager")
@@ -194,10 +195,84 @@ func run() -> void:
 		probe.GetTriggerCount() == 2 and
 		probe.GetToolCleanupFailureCount() == 1 and
 		probe.GetRendererCleanupFailureCount() == 1 and
+		probe.GetGraphCleanupFailureCount() == 0 and
 		str(save_manager.get("CurrentSlotID")) == active_slot_id and
 		renderer.GetRenderedEdgeCount() == 1 and
 		matching_presentation_is_ready(renderer),
 		"Final Load did not restore one matching presentation without re-triggering probes"):
+		return
+
+	tool_manager.set("CurrentTool", TOOL_ROAD)
+	if not require(builder.BeginPlace(Vector2(700.0, 600.0)), "Third transient road did not begin"):
+		return
+	if not require(
+		builder.AddPlacePoint(Vector2(800.0, 600.0)),
+		"Third transient placement point was not added"):
+		return
+	probe.Arm(renderer)
+	probe.ArmGraphCleanupFailure(road_system)
+
+	var graph_warned_result := await run_load(source_slot_id)
+	if not require(
+		int(graph_warned_result.get("resultKind", -1)) == RESULT_SUCCEEDED_WITH_WARNINGS and
+		bool(graph_warned_result.get("committed", false)),
+		"Graph cleanup failure did not produce a committed warning result: %s" %
+		JSON.stringify(graph_warned_result)):
+		return
+	if not require(
+		str(graph_warned_result.get("warnings", "")).contains(
+			"Road presentation observer failed: Injected RoadRenderer presentation observer failure."),
+		"Third observer warning did not identify the real renderer participant"):
+		return
+	if not require(
+		str(graph_warned_result.get("warnings", "")).contains(
+			"Load participant 'road-graph' cleanup failed: " +
+			"Injected RoadGraph load cleanup failure."),
+		"Cleanup warning did not identify the real graph participant"):
+		return
+	if not require(
+		probe.GetTriggerCount() == 3 and
+		probe.GetToolCleanupFailureCount() == 1 and
+		probe.GetRendererCleanupFailureCount() == 1 and
+		probe.GetGraphCleanupFailureCount() == 1 and
+		not probe.IsToolCleanupFailureArmed() and
+		not probe.IsRendererCleanupFailureArmed() and
+		not probe.IsGraphCleanupFailureArmed(),
+		"Observer and graph cleanup failure probes did not reach their exact counts"):
+		return
+	if not require(
+		str(save_manager.get("CurrentSlotID")) == source_slot_id and
+		renderer.GetRenderedEdgeCount() == 0 and
+		not builder.HasActivePlaceSession() and
+		builder.GetUndoEditCount() == 0 and
+		builder.GetRedoEditCount() == 0 and
+		matching_presentation_is_ready(renderer),
+		"Graph-cleanup warned Load did not leave all real participants committed"):
+		return
+
+	tool_manager.set("CurrentTool", TOOL_ROAD_UPGRADE)
+	if not require(
+		int(tool_manager.get("CurrentTool")) == TOOL_ROAD_UPGRADE,
+		"Graph cleanup failure prevented later tool use"):
+		return
+
+	var graph_clean_result := await run_load(active_slot_id)
+	if not require(
+		int(graph_clean_result.get("resultKind", -1)) == RESULT_SUCCEEDED and
+		bool(graph_clean_result.get("committed", false)) and
+		str(graph_clean_result.get("warnings", "")).is_empty(),
+		"Load after graph cleanup failure did not re-admit every participant: %s" %
+		JSON.stringify(graph_clean_result)):
+		return
+	if not require(
+		probe.GetTriggerCount() == 3 and
+		probe.GetToolCleanupFailureCount() == 1 and
+		probe.GetRendererCleanupFailureCount() == 1 and
+		probe.GetGraphCleanupFailureCount() == 1 and
+		str(save_manager.get("CurrentSlotID")) == active_slot_id and
+		renderer.GetRenderedEdgeCount() == 1 and
+		matching_presentation_is_ready(renderer),
+		"Graph-cleanup recovery Load did not restore one matching presentation"):
 		return
 
 	tool_manager.set("CurrentTool", TOOL_ROAD_REMOVE)
@@ -211,9 +286,12 @@ func run() -> void:
 		"clean_result_kind": int(clean_result.get("resultKind", -1)),
 		"renderer_warning_result_kind": int(renderer_warned_result.get("resultKind", -1)),
 		"renderer_clean_result_kind": int(renderer_clean_result.get("resultKind", -1)),
+		"graph_warning_result_kind": int(graph_warned_result.get("resultKind", -1)),
+		"graph_clean_result_kind": int(graph_clean_result.get("resultKind", -1)),
 		"observer_trigger_count": probe.GetTriggerCount(),
 		"tool_cleanup_trigger_count": probe.GetToolCleanupFailureCount(),
 		"renderer_cleanup_trigger_count": probe.GetRendererCleanupFailureCount(),
+		"graph_cleanup_trigger_count": probe.GetGraphCleanupFailureCount(),
 		"rendered_edges": renderer.GetRenderedEdgeCount(),
 		"current_tool": int(tool_manager.get("CurrentTool")),
 	}))

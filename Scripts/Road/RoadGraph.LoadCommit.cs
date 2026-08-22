@@ -5,6 +5,8 @@ using System.Linq;
 
 public partial class RoadGraph
 {
+    partial void ProbeLoadCompleteCommitFailure();
+
     internal RoadGraphLoadAdmission BeginLoadAdmission()
     {
         if (_mutationInProgress || _publishingChanges || _loadAdmission is not null)
@@ -175,6 +177,7 @@ public partial class RoadGraph
                 throw new InvalidOperationException("RoadGraph references were not committed.");
             _owner.AbandonLoadAdmission(_admission);
             _completed = true;
+            _owner.ProbeLoadCompleteCommitFailure();
         }
 
         public void Dispose()
