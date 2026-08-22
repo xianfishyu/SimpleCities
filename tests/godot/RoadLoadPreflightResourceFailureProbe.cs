@@ -20,6 +20,13 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
         return renderer.ProbeUncommittedLoadPlanDisposal();
     }
 
+    public Godot.Collections.Dictionary RunRendererCommitBoundaryGenerationMismatch(
+        RoadRenderer renderer)
+    {
+        ArgumentNullException.ThrowIfNull(renderer);
+        return renderer.ProbeLoadCommitBoundaryGenerationMismatch();
+    }
+
     public Godot.Collections.Dictionary RunNodeBatchFactoryFailure(RoadRenderer renderer)
     {
         ArgumentNullException.ThrowIfNull(renderer);
@@ -358,6 +365,170 @@ public partial class RoadRenderer
             ["nodeBatchPreserved"] = ReferenceEquals(retainedNodeBatch, _nodeBatchLayer.Multimesh),
             ["surfacePreserved"] = ReferenceEquals(retainedSurface, _presentedSurface),
         };
+    }
+
+    internal Godot.Collections.Dictionary ProbeLoadCommitBoundaryGenerationMismatch()
+    {
+        const string ExpectedFailureMessage =
+            "A load participant generation changed while entering commit.";
+        RoadGraph graph = _network ?? throw new InvalidOperationException(
+            "RoadRenderer must have a graph before probing the load commit boundary.");
+        RoadGraphRevision revision = graph.CaptureRevision();
+        Mesh? retainedRoadMesh = _roadBatchLayer.Mesh;
+        MultiMesh retainedNodeBatch = _nodeBatchLayer.Multimesh;
+        RoadSurfaceSnapshot? retainedSurface = _presentedSurface;
+        RoadRenderToken? retainedDesiredToken = _presentationTokens.DesiredToken;
+        RoadRenderToken? retainedPresentedToken = _presentationTokens.PresentedToken;
+        long resourceCountBefore = Convert.ToInt64(
+            Performance.GetMonitor(Performance.Monitor.ObjectResourceCount));
+        var graphPlan = new TrackingLoadCommitPlan("road-graph");
+        var toolPlan = new TrackingLoadCommitPlan("road-tools");
+        var slotPlan = new TrackingLoadCommitPlan("slot-target");
+        bool planWasCurrent = false;
+        bool planBecameStale = false;
+        bool failedWhileEnteringCommit = false;
+        bool admissionReacquired = false;
+        string exceptionType = string.Empty;
+        string exceptionMessage = string.Empty;
+        int roadVertexCount = 0;
+        int nodeMarkerCount = 0;
+        int commitLeaseCount = 0;
+        int boundaryCount = 0;
+        int markCommittedCount = 0;
+
+        using (RoadRendererLoadAdmission admission = BeginLoadAdmission())
+        {
+            RoadRendererPreparedLoad prepared = admission.Preparer.Prepare(revision);
+            roadVertexCount = prepared.RoadVertices.Length;
+            nodeMarkerCount = prepared.NodeMarkers.Length;
+            INonThrowingLoadCommitPlan rendererPlan = PreflightPreparedLoad(
+                admission,
+                prepared,
+                revision.StateToken);
+            planWasCurrent = rendererPlan.IsGenerationCurrent;
+            var operation = new BoundaryInvalidatingLease(admission.Dispose);
+            using (var aggregate = new PreparedAggregateLoad([
+                graphPlan,
+                toolPlan,
+                rendererPlan,
+                slotPlan]))
+            {
+                try
+                {
+                    aggregate.Commit(operation);
+                }
+                catch (Exception exception)
+                {
+                    exceptionType = exception.GetType().Name;
+                    exceptionMessage = exception.Message;
+                    failedWhileEnteringCommit = exception is LoadPreflightInvalidException &&
+                        string.Equals(
+                            exception.Message,
+                            ExpectedFailureMessage,
+                            StringComparison.Ordinal);
+                }
+
+                planBecameStale = !rendererPlan.IsGenerationCurrent;
+                commitLeaseCount = operation.CommitLeaseCount;
+                boundaryCount = operation.BoundaryCount;
+                markCommittedCount = operation.MarkCommittedCount;
+            }
+        }
+
+        using (RoadRendererLoadAdmission reacquired = BeginLoadAdmission())
+            admissionReacquired = true;
+
+        long resourceCountAfter = Convert.ToInt64(
+            Performance.GetMonitor(Performance.Monitor.ObjectResourceCount));
+        return new Godot.Collections.Dictionary
+        {
+            ["failedWhileEnteringCommit"] = failedWhileEnteringCommit,
+            ["exceptionType"] = exceptionType,
+            ["exceptionMessage"] = exceptionMessage,
+            ["planWasCurrent"] = planWasCurrent,
+            ["planBecameStale"] = planBecameStale,
+            ["roadVertexCount"] = roadVertexCount,
+            ["nodeMarkerCount"] = nodeMarkerCount,
+            ["commitLeaseCount"] = commitLeaseCount,
+            ["boundaryCount"] = boundaryCount,
+            ["markCommittedCount"] = markCommittedCount,
+            ["graphCommitCount"] = graphPlan.CommitCount,
+            ["toolCommitCount"] = toolPlan.CommitCount,
+            ["slotCommitCount"] = slotPlan.CommitCount,
+            ["graphDisposeCount"] = graphPlan.DisposeCount,
+            ["toolDisposeCount"] = toolPlan.DisposeCount,
+            ["slotDisposeCount"] = slotPlan.DisposeCount,
+            ["admissionReacquired"] = admissionReacquired,
+            ["resourceCountBefore"] = resourceCountBefore,
+            ["resourceCountAfter"] = resourceCountAfter,
+            ["roadMeshPreserved"] = ReferenceEquals(retainedRoadMesh, _roadBatchLayer.Mesh),
+            ["nodeBatchPreserved"] = ReferenceEquals(retainedNodeBatch, _nodeBatchLayer.Multimesh),
+            ["surfacePreserved"] = ReferenceEquals(retainedSurface, _presentedSurface),
+            ["tokensPreserved"] =
+                retainedDesiredToken == _presentationTokens.DesiredToken &&
+                retainedPresentedToken == _presentationTokens.PresentedToken,
+        };
+    }
+
+    private sealed class BoundaryInvalidatingLease(Action invalidate) : IStorageOperationLease
+    {
+        public string OperationToken => "renderer-generation-mismatch";
+        public SaveOperationKind Kind => SaveOperationKind.Load;
+        internal int CommitLeaseCount { get; private set; }
+        internal int BoundaryCount { get; private set; }
+        internal int MarkCommittedCount { get; private set; }
+
+        public void ThrowIfCancellationRequested() { }
+
+        public void AcquireCommitLease()
+        {
+            CommitLeaseCount++;
+        }
+
+        public void CrossCommitBoundary(Action boundaryAction)
+        {
+            BoundaryCount++;
+            invalidate();
+            boundaryAction();
+        }
+
+        public void MarkCommitted()
+        {
+            MarkCommittedCount++;
+        }
+
+        public void EnterCommitBoundary()
+        {
+            AcquireCommitLease();
+            CrossCommitBoundary(static () => { });
+            MarkCommitted();
+        }
+    }
+
+    private sealed class TrackingLoadCommitPlan(string participantID) : INonThrowingLoadCommitPlan
+    {
+        private bool _disposed;
+
+        public string ParticipantID { get; } = participantID;
+        public bool IsGenerationCurrent => !_disposed && CommitCount == 0;
+        internal int CommitCount { get; private set; }
+        internal int DisposeCount { get; private set; }
+
+        public void CommitReferences()
+        {
+            CommitCount++;
+        }
+
+        public IReadOnlyList<string> PublishNotifications() => [];
+        public void CompleteCommit() { }
+
+        public void Dispose()
+        {
+            if (_disposed)
+                return;
+            _disposed = true;
+            DisposeCount++;
+        }
     }
 
     internal Godot.Collections.Dictionary ProbeNodeBatchFactoryFailure()

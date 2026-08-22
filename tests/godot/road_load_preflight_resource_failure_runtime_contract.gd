@@ -126,6 +126,46 @@ func run() -> void:
 		JSON.stringify(plan_disposal_result)):
 		return
 
+	var renderer_boundary_result: Dictionary = (
+		probe.RunRendererCommitBoundaryGenerationMismatch(renderer))
+	if not require(
+		bool(renderer_boundary_result.get("failedWhileEnteringCommit", false)) and
+		str(renderer_boundary_result.get("exceptionType", "")) ==
+			"LoadPreflightInvalidException" and
+		str(renderer_boundary_result.get("exceptionMessage", "")) ==
+			"A load participant generation changed while entering commit." and
+		bool(renderer_boundary_result.get("planWasCurrent", false)) and
+		bool(renderer_boundary_result.get("planBecameStale", false)) and
+		int(renderer_boundary_result.get("roadVertexCount", 0)) > 0 and
+		int(renderer_boundary_result.get("nodeMarkerCount", 0)) > 0 and
+		int(renderer_boundary_result.get("commitLeaseCount", -1)) == 1 and
+		int(renderer_boundary_result.get("boundaryCount", -1)) == 1 and
+		int(renderer_boundary_result.get("markCommittedCount", -1)) == 0,
+		"Real renderer plan did not fail at the aggregate commit boundary: %s" %
+		JSON.stringify(renderer_boundary_result)):
+		return
+	if not require(
+		int(renderer_boundary_result.get("graphCommitCount", -1)) == 0 and
+		int(renderer_boundary_result.get("toolCommitCount", -1)) == 0 and
+		int(renderer_boundary_result.get("slotCommitCount", -1)) == 0 and
+		int(renderer_boundary_result.get("graphDisposeCount", -1)) == 1 and
+		int(renderer_boundary_result.get("toolDisposeCount", -1)) == 1 and
+		int(renderer_boundary_result.get("slotDisposeCount", -1)) == 1 and
+		bool(renderer_boundary_result.get("admissionReacquired", false)),
+		"Renderer generation mismatch swapped or retained an aggregate companion plan: %s" %
+		JSON.stringify(renderer_boundary_result)):
+		return
+	if not require(
+		int(renderer_boundary_result.get("resourceCountAfter", -1)) ==
+		int(renderer_boundary_result.get("resourceCountBefore", -2)) and
+		bool(renderer_boundary_result.get("roadMeshPreserved", false)) and
+		bool(renderer_boundary_result.get("nodeBatchPreserved", false)) and
+		bool(renderer_boundary_result.get("surfacePreserved", false)) and
+		bool(renderer_boundary_result.get("tokensPreserved", false)),
+		"Renderer commit-boundary mismatch leaked resources or replaced presentation state: %s" %
+		JSON.stringify(renderer_boundary_result)):
+		return
+
 	var node_batch_failure_result: Dictionary = probe.RunNodeBatchFactoryFailure(renderer)
 	if not require(
 		bool(node_batch_failure_result.get("failedInsideFactory", false)) and
@@ -427,6 +467,15 @@ func run() -> void:
 		"plan_resource_count_after": int(
 			plan_disposal_result.get("resourceCountAfter", -1)),
 		"plan_became_stale": bool(plan_disposal_result.get("planBecameStale", false)),
+		"renderer_boundary_exception_type": str(
+			renderer_boundary_result.get("exceptionType", "")),
+		"renderer_boundary_count": int(renderer_boundary_result.get("boundaryCount", -1)),
+		"renderer_boundary_mark_committed_count": int(
+			renderer_boundary_result.get("markCommittedCount", -1)),
+		"renderer_boundary_resource_count_before": int(
+			renderer_boundary_result.get("resourceCountBefore", -1)),
+		"renderer_boundary_resource_count_after": int(
+			renderer_boundary_result.get("resourceCountAfter", -1)),
 		"node_batch_exception_type": str(
 			node_batch_failure_result.get("exceptionType", "")),
 		"node_batch_resource_count_before": int(

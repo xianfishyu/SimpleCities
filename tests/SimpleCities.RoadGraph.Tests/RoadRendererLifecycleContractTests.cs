@@ -494,6 +494,49 @@ public sealed class RoadRendererLifecycleContractTests
     }
 
     [Fact]
+    public void RendererCommitBoundaryProbeInvalidatesTheRealPlanBeforeReferenceSwap()
+    {
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadLoadPreflightResourceFailureProbe.cs"));
+        string probe = ExtractMethod(
+            probeSource,
+            "internal Godot.Collections.Dictionary ProbeLoadCommitBoundaryGenerationMismatch()",
+            "private sealed class BoundaryInvalidatingLease");
+
+        int rendererPlan = probe.IndexOf(
+            "INonThrowingLoadCommitPlan rendererPlan = PreflightPreparedLoad(",
+            StringComparison.Ordinal);
+        int invalidatingLease = probe.IndexOf(
+            "new BoundaryInvalidatingLease(admission.Dispose)",
+            StringComparison.Ordinal);
+        int aggregate = probe.IndexOf(
+            "new PreparedAggregateLoad([",
+            StringComparison.Ordinal);
+        int commit = probe.IndexOf("aggregate.Commit(operation);", StringComparison.Ordinal);
+        int staleCheck = probe.IndexOf(
+            "planBecameStale = !rendererPlan.IsGenerationCurrent;",
+            StringComparison.Ordinal);
+        int reacquire = probe.IndexOf(
+            "using (RoadRendererLoadAdmission reacquired = BeginLoadAdmission())",
+            StringComparison.Ordinal);
+
+        Assert.True(rendererPlan >= 0 && rendererPlan < invalidatingLease);
+        Assert.True(invalidatingLease < aggregate && aggregate < commit);
+        Assert.True(commit < staleCheck && staleCheck < reacquire);
+        Assert.Contains("graphPlan,", probe, StringComparison.Ordinal);
+        Assert.Contains("toolPlan,", probe, StringComparison.Ordinal);
+        Assert.Contains("rendererPlan,", probe, StringComparison.Ordinal);
+        Assert.Contains("slotPlan])", probe, StringComparison.Ordinal);
+        Assert.Contains("exception is LoadPreflightInvalidException", probe, StringComparison.Ordinal);
+        Assert.Contains("ExpectedFailureMessage", probe, StringComparison.Ordinal);
+        Assert.Contains("graphPlan.CommitCount", probe, StringComparison.Ordinal);
+        Assert.Contains("toolPlan.CommitCount", probe, StringComparison.Ordinal);
+        Assert.Contains("slotPlan.CommitCount", probe, StringComparison.Ordinal);
+        Assert.Contains("retainedDesiredToken == _presentationTokens.DesiredToken", probe);
+        Assert.Contains("retainedPresentedToken == _presentationTokens.PresentedToken", probe);
+    }
+
+    [Fact]
     public void RealLoadParticipantsIsolateRendererObserversAndExposeCleanupBoundaries()
     {
         string loadSource = File.ReadAllText(
