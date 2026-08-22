@@ -10,6 +10,8 @@ public partial class RoadRenderer
     partial void ProbeAggregateLoadNodeBatchFactoryFailure(
         ref IReadOnlyList<RoadRendererNodeMarker> nodeMarkers);
     partial void ProbeAggregateLoadResourcePreflightFailure();
+    partial void ProbeAggregateLoadReservedRenderTokenFailure(
+        ref RoadRenderLoadReservation renderReservation);
     partial void ProbeAggregateLoadRoadSurfaceSnapshotFailure(
         ref RoadSurfaceSnapshot.PreparedData roadSurface);
     partial void ProbeLoadCompleteCommitFailure();
@@ -77,8 +79,10 @@ public partial class RoadRenderer
             ProbeAggregateLoadNodeBatchFactoryFailure(ref nodeMarkers);
             nodeBatch = CreateNodeBatch(nodeMarkers);
             ProbeAggregateLoadResourcePreflightFailure();
+            RoadRenderLoadReservation renderReservation = admission.RenderReservation;
+            ProbeAggregateLoadReservedRenderTokenFailure(ref renderReservation);
             RoadRenderToken renderToken = _presentationTokens.CreateReservedLoadToken(
-                admission.RenderReservation,
+                renderReservation,
                 targetToken.ChangeSequence);
             RoadSurfaceSnapshot.PreparedData roadSurface = prepared.RoadSurface;
             ProbeAggregateLoadRoadSurfaceSnapshotFailure(ref roadSurface);

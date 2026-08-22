@@ -659,6 +659,71 @@ public sealed class RoadRendererLifecycleContractTests
     }
 
     [Fact]
+    public void AggregateReservedRenderTokenFailureRunsBeforeSnapshotConstruction()
+    {
+        string loadSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.LoadCommit.cs"));
+        string tokenSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderToken.cs"));
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadLoadPreflightResourceFailureProbe.cs"));
+        string loadPreflight = ExtractMethod(
+            loadSource,
+            "internal INonThrowingLoadCommitPlan PreflightPreparedLoad",
+            "private bool IsLoadAdmissionCurrent");
+        string tokenProbe = ExtractMethod(
+            probeSource,
+            "partial void ProbeAggregateLoadReservedRenderTokenFailure(",
+            "internal void ArmNextAggregateLoadReservedRenderTokenFailure()");
+
+        int nodeBatchCreation = loadPreflight.IndexOf(
+            "nodeBatch = CreateNodeBatch(nodeMarkers);",
+            StringComparison.Ordinal);
+        int resourcePreflightFailureProbe = loadPreflight.IndexOf(
+            "ProbeAggregateLoadResourcePreflightFailure();",
+            StringComparison.Ordinal);
+        int reservationCapture = loadPreflight.IndexOf(
+            "RoadRenderLoadReservation renderReservation = admission.RenderReservation;",
+            StringComparison.Ordinal);
+        int reservedTokenFailureProbe = loadPreflight.IndexOf(
+            "ProbeAggregateLoadReservedRenderTokenFailure(ref renderReservation);",
+            StringComparison.Ordinal);
+        int reservedTokenCreation = loadPreflight.IndexOf(
+            "RoadRenderToken renderToken = _presentationTokens.CreateReservedLoadToken(",
+            StringComparison.Ordinal);
+        int roadSurfaceCapture = loadPreflight.IndexOf(
+            "RoadSurfaceSnapshot.PreparedData roadSurface = prepared.RoadSurface;",
+            StringComparison.Ordinal);
+
+        Assert.True(nodeBatchCreation >= 0 && nodeBatchCreation < resourcePreflightFailureProbe);
+        Assert.True(resourcePreflightFailureProbe < reservationCapture);
+        Assert.True(reservationCapture < reservedTokenFailureProbe);
+        Assert.True(reservedTokenFailureProbe < reservedTokenCreation);
+        Assert.True(reservedTokenCreation < roadSurfaceCapture);
+        Assert.Contains(
+            "ref RoadRenderLoadReservation renderReservation",
+            loadSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadReservedRenderTokenFailureArmed = false;",
+            tokenProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadReservedRenderTokenFailureCount++;",
+            tokenProbe,
+            StringComparison.Ordinal);
+        Assert.Contains("renderReservation = default;", tokenProbe, StringComparison.Ordinal);
+        Assert.Contains(
+            "if (!IsReservationCurrent(reservation))",
+            tokenSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "throw new InvalidOperationException(\"Road render load reservation is stale.\");",
+            tokenSource,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AggregateRoadSurfaceSnapshotFailureRunsAfterResourcePreflight()
     {
         string loadSource = File.ReadAllText(

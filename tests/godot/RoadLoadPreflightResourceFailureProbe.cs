@@ -91,6 +91,22 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
     public string GetAggregateLoadNodeBatchFactoryFailureMessage() =>
         RoadRenderer.AggregateLoadNodeBatchFactoryFailureMessage;
 
+    public void ArmAggregateLoadReservedRenderTokenFailure(RoadRenderer renderer)
+    {
+        ArgumentNullException.ThrowIfNull(renderer);
+        renderer.ArmNextAggregateLoadReservedRenderTokenFailure();
+        _renderer = renderer;
+    }
+
+    public bool IsAggregateLoadReservedRenderTokenFailureArmed() =>
+        _renderer?.IsAggregateLoadReservedRenderTokenFailureArmed() ?? false;
+
+    public int GetAggregateLoadReservedRenderTokenFailureCount() =>
+        _renderer?.GetAggregateLoadReservedRenderTokenFailureCount() ?? 0;
+
+    public string GetAggregateLoadReservedRenderTokenFailureMessage() =>
+        RoadRenderer.AggregateLoadReservedRenderTokenFailureMessage;
+
     public void ArmAggregateLoadRoadSurfaceSnapshotFailure(RoadRenderer renderer)
     {
         ArgumentNullException.ThrowIfNull(renderer);
@@ -461,6 +477,8 @@ public partial class RoadRenderer
         "Injected aggregate Load CreateNodeBatch marker read failure.";
     internal const string AggregateLoadResourcePreflightFailureMessage =
         "Injected aggregate Load road presentation resource preflight failure.";
+    internal const string AggregateLoadReservedRenderTokenFailureMessage =
+        "Road render load reservation is stale.";
 
     private bool _aggregateLoadRoadMeshFactoryFailureArmed;
     private int _aggregateLoadRoadMeshFactoryFailureCount;
@@ -470,6 +488,8 @@ public partial class RoadRenderer
     private int _aggregateLoadNodeBatchFactoryMarkerReadCount;
     private bool _aggregateLoadResourcePreflightFailureArmed;
     private int _aggregateLoadResourcePreflightFailureCount;
+    private bool _aggregateLoadReservedRenderTokenFailureArmed;
+    private int _aggregateLoadReservedRenderTokenFailureCount;
     private bool _aggregateLoadRoadSurfaceSnapshotFailureArmed;
     private int _aggregateLoadRoadSurfaceSnapshotFailureCount;
 
@@ -510,6 +530,11 @@ public partial class RoadRenderer
         {
             throw new InvalidOperationException(
                 "Aggregate Load road-surface snapshot failure probe is already armed.");
+        }
+        if (_aggregateLoadReservedRenderTokenFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load reserved render-token failure probe is already armed.");
         }
 
         _aggregateLoadRoadMeshFactoryFailureArmed = true;
@@ -562,6 +587,11 @@ public partial class RoadRenderer
             throw new InvalidOperationException(
                 "Aggregate Load road-surface snapshot failure probe is already armed.");
         }
+        if (_aggregateLoadReservedRenderTokenFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load reserved render-token failure probe is already armed.");
+        }
 
         _aggregateLoadNodeBatchFactoryFailureArmed = true;
     }
@@ -613,6 +643,11 @@ public partial class RoadRenderer
             throw new InvalidOperationException(
                 "Aggregate Load road-surface snapshot failure probe is already armed.");
         }
+        if (_aggregateLoadReservedRenderTokenFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load reserved render-token failure probe is already armed.");
+        }
 
         _aggregateLoadResourcePreflightFailureArmed = true;
     }
@@ -622,6 +657,59 @@ public partial class RoadRenderer
 
     internal int GetAggregateLoadResourcePreflightFailureCount() =>
         _aggregateLoadResourcePreflightFailureCount;
+
+    partial void ProbeAggregateLoadReservedRenderTokenFailure(
+        ref RoadRenderLoadReservation renderReservation)
+    {
+        if (!_aggregateLoadReservedRenderTokenFailureArmed)
+            return;
+
+        _aggregateLoadReservedRenderTokenFailureArmed = false;
+        _aggregateLoadReservedRenderTokenFailureCount++;
+        renderReservation = default;
+    }
+
+    internal void ArmNextAggregateLoadReservedRenderTokenFailure()
+    {
+        if (!IsPresentationReady() || _loadAdmission is not null)
+        {
+            throw new InvalidOperationException(
+                "Road presentation must be ready and idle before arming its aggregate Load failure probe.");
+        }
+        if (_aggregateLoadReservedRenderTokenFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load reserved render-token failure probe is already armed.");
+        }
+        if (_aggregateLoadResourcePreflightFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load resource preflight failure probe is already armed.");
+        }
+        if (_aggregateLoadNodeBatchFactoryFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load node-batch factory failure probe is already armed.");
+        }
+        if (_aggregateLoadRoadMeshFactoryFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load road-mesh factory failure probe is already armed.");
+        }
+        if (_aggregateLoadRoadSurfaceSnapshotFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load road-surface snapshot failure probe is already armed.");
+        }
+
+        _aggregateLoadReservedRenderTokenFailureArmed = true;
+    }
+
+    internal bool IsAggregateLoadReservedRenderTokenFailureArmed() =>
+        _aggregateLoadReservedRenderTokenFailureArmed;
+
+    internal int GetAggregateLoadReservedRenderTokenFailureCount() =>
+        _aggregateLoadReservedRenderTokenFailureCount;
 
     partial void ProbeAggregateLoadRoadSurfaceSnapshotFailure(
         ref RoadSurfaceSnapshot.PreparedData roadSurface)
@@ -660,6 +748,11 @@ public partial class RoadRenderer
         {
             throw new InvalidOperationException(
                 "Aggregate Load road-mesh factory failure probe is already armed.");
+        }
+        if (_aggregateLoadReservedRenderTokenFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load reserved render-token failure probe is already armed.");
         }
 
         _aggregateLoadRoadSurfaceSnapshotFailureArmed = true;
