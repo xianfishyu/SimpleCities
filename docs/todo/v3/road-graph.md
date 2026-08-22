@@ -186,6 +186,8 @@
 
   - `RenderRequestID` 分级性能协作进展（2026-08-22）：真实 `MapTest` 的 `road_rendering_performance_contract.gd --measure-token-perturbation=render-request` 已逐级通过 grid 1k/10k/25k/50k/100k；提交前 superseded attempt 不交换引用并释放两个未转交 Resource，replacement 与 superseded 仅 `RenderRequestID: 3 -> 4`，replacement attempt 1 完整发布 `N+1` Edge，资源计数始终为 `77 -> 77`。五档拒绝/恢复/合计为 `45.680/9.888/55.568 ms`、`232.832/59.794/292.626 ms`、`532.356/155.228/687.584 ms`、`787.032/294.867/1081.899 ms`、`1612.186/579.119/2191.305 ms`；完整自动化 896/896、双配置 build、Roslyn/GDScript diagnostics、隔离 `--check-only` 与 Vulkan 门均通过。MCP 项目/Vulkan/game bridge/minimal console 门通过，但 game-time、运行树与 runtime-state RPC 超时，未计作通过。该切片只关闭六分量性能扰动矩阵中的 `RenderRequestID`；其余五分量、renderer 故障、其他 aggregate 组合与 Phase 8 仍开放，因此 8.6 不关闭。
 
+  - `RoadStyleRevision` 分级性能协作进展（2026-08-22）：真实 `MapTest` 的同一契约新增 `--measure-token-perturbation=road-style` 并逐级通过 grid 1k/10k/25k/50k/100k；提交前 target attempt 1 不交换引用并释放两个未转交 Resource，replacement 保持 scene/facade/facade generation/change sequence，推进 `RoadStyleRevision: 1 -> 2` 与 `RenderRequestID: 3 -> 4`，再以自己的 attempt 1 完整发布 `N+1` Edge，资源计数始终为 `77 -> 77`。五档拒绝/恢复/合计为 `46.001/9.939/55.940 ms`、`221.569/58.811/280.380 ms`、`572.255/175.426/747.681 ms`、`830.529/298.035/1128.564 ms`、`1568.166/568.939/2137.105 ms`；完整自动化 896/896、双配置 build、Roslyn compiler/analyzer、目标与工作区 GDScript diagnostics、隔离 `--check-only` 与 Vulkan 门均通过。MCP 项目/Vulkan/game bridge/minimal console 门通过，但 game-time 与 runtime-state RPC 超时，未计作通过。六分量性能矩阵现完成 `RenderRequestID` 与 `RoadStyleRevision`；其余四分量、renderer 故障、其他 aggregate 组合与 Phase 8 仍开放，因此 8.6 不关闭。
+
 ## 暂不执行
 
 ### 交通模拟
