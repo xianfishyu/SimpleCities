@@ -35,6 +35,13 @@ public partial class RoadRendererUpdateTokenFailureProbe : RefCounted
         _renderer = renderer;
     }
 
+    public void ArmPreCommitTokenSupersession(RoadRenderer renderer)
+    {
+        ArgumentNullException.ThrowIfNull(renderer);
+        renderer.ArmNextOrdinaryPreCommitTokenSupersession();
+        _renderer = renderer;
+    }
+
     public bool IsArmed() =>
         _renderer?.IsOrdinaryPresentationResourcePreflightFailureArmed() ?? false;
 
@@ -77,6 +84,24 @@ public partial class RoadRendererUpdateTokenFailureProbe : RefCounted
     public string GetRoadSurfaceSnapshotFailureMessage() =>
         new ArgumentNullException("prepared").Message;
 
+    public bool IsPreCommitTokenSupersessionArmed() =>
+        _renderer?.IsOrdinaryPreCommitTokenSupersessionArmed() ?? false;
+
+    public int GetPreCommitTokenSupersessionCount() =>
+        _renderer?.GetOrdinaryPreCommitTokenSupersessionCount() ?? 0;
+
+    public int GetPreCommitSupersededAttemptNumber() =>
+        _renderer?.GetOrdinaryPreCommitSupersededAttemptNumber() ?? 0;
+
+    public Godot.Collections.Dictionary GetPreCommitSupersededToken() =>
+        _renderer?.GetOrdinaryPreCommitSupersededToken() ?? new();
+
+    public Godot.Collections.Dictionary GetPreCommitReplacementToken() =>
+        _renderer?.GetOrdinaryPreCommitReplacementToken() ?? new();
+
+    public bool CompletePreCommitTokenSupersession() =>
+        _renderer?.CompleteOrdinaryPreCommitTokenSupersession() ?? false;
+
     public long GetObjectResourceCount() => Convert.ToInt64(
         Performance.GetMonitor(Performance.Monitor.ObjectResourceCount));
 }
@@ -104,6 +129,12 @@ public partial class RoadRenderer
     private bool _ordinaryRoadSurfaceSnapshotFailureArmed;
     private RoadRenderToken? _ordinaryRoadSurfaceSnapshotFailureArmToken;
     private int _ordinaryRoadSurfaceSnapshotFailureCount;
+    private bool _ordinaryPreCommitTokenSupersessionArmed;
+    private RoadRenderToken? _ordinaryPreCommitTokenSupersessionArmToken;
+    private int _ordinaryPreCommitTokenSupersessionCount;
+    private int _ordinaryPreCommitSupersededAttemptNumber;
+    private RoadRenderToken? _ordinaryPreCommitSupersededToken;
+    private RoadRenderToken? _ordinaryPreCommitReplacementToken;
 
     partial void ProbeOrdinaryPresentationResourcePreflightFailure(
         RoadRenderToken targetToken)
@@ -174,6 +205,25 @@ public partial class RoadRenderer
         roadSurface = null!;
     }
 
+    partial void ProbeOrdinaryPreCommitTokenSupersession(
+        RoadRenderToken targetToken)
+    {
+        if (!_ordinaryPreCommitTokenSupersessionArmed ||
+            _ordinaryPreCommitTokenSupersessionArmToken is not RoadRenderToken armedToken ||
+            targetToken == armedToken)
+        {
+            return;
+        }
+
+        _ordinaryPreCommitTokenSupersessionArmed = false;
+        _ordinaryPreCommitTokenSupersessionArmToken = null;
+        _ordinaryPreCommitTokenSupersessionCount++;
+        _ordinaryPreCommitSupersededAttemptNumber = _presentationTokens.AttemptCount;
+        _ordinaryPreCommitSupersededToken = targetToken;
+        _ordinaryPreCommitReplacementToken =
+            _presentationTokens.RequestRebuild(targetToken.ChangeSequence);
+    }
+
     internal void ArmNextOrdinaryPresentationResourcePreflightFailure()
     {
         if (!IsPresentationReady() ||
@@ -201,6 +251,11 @@ public partial class RoadRenderer
         {
             throw new InvalidOperationException(
                 "Road presentation surface-snapshot failure probe is already armed.");
+        }
+        if (_ordinaryPreCommitTokenSupersessionArmed)
+        {
+            throw new InvalidOperationException(
+                "Road presentation pre-commit supersession probe is already armed.");
         }
 
         _ordinaryPresentationResourcePreflightFailureArmed = true;
@@ -240,6 +295,11 @@ public partial class RoadRenderer
         {
             throw new InvalidOperationException(
                 "Road presentation surface-snapshot failure probe is already armed.");
+        }
+        if (_ordinaryPreCommitTokenSupersessionArmed)
+        {
+            throw new InvalidOperationException(
+                "Road presentation pre-commit supersession probe is already armed.");
         }
 
         _ordinaryNodeBatchFactoryFailureArmed = true;
@@ -283,6 +343,11 @@ public partial class RoadRenderer
             throw new InvalidOperationException(
                 "Road presentation surface-snapshot failure probe is already armed.");
         }
+        if (_ordinaryPreCommitTokenSupersessionArmed)
+        {
+            throw new InvalidOperationException(
+                "Road presentation pre-commit supersession probe is already armed.");
+        }
 
         _ordinaryRoadMeshFactoryFailureArmed = true;
         _ordinaryRoadMeshFactoryFailureArmToken = currentToken;
@@ -325,6 +390,11 @@ public partial class RoadRenderer
             throw new InvalidOperationException(
                 "Road presentation node-batch factory failure probe is already armed.");
         }
+        if (_ordinaryPreCommitTokenSupersessionArmed)
+        {
+            throw new InvalidOperationException(
+                "Road presentation pre-commit supersession probe is already armed.");
+        }
 
         _ordinaryRoadSurfaceSnapshotFailureArmed = true;
         _ordinaryRoadSurfaceSnapshotFailureArmToken = currentToken;
@@ -335,6 +405,76 @@ public partial class RoadRenderer
 
     internal int GetOrdinaryRoadSurfaceSnapshotFailureCount() =>
         _ordinaryRoadSurfaceSnapshotFailureCount;
+
+    internal void ArmNextOrdinaryPreCommitTokenSupersession()
+    {
+        if (!IsPresentationReady() ||
+            _presentationTokens.PresentedToken is not RoadRenderToken currentToken)
+        {
+            throw new InvalidOperationException(
+                "Road presentation must be ready before arming its failure probe.");
+        }
+        if (_ordinaryPreCommitTokenSupersessionArmed)
+        {
+            throw new InvalidOperationException(
+                "Road presentation pre-commit supersession probe is already armed.");
+        }
+        if (_ordinaryPresentationResourcePreflightFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Road presentation resource preflight failure probe is already armed.");
+        }
+        if (_ordinaryRoadMeshFactoryFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Road presentation road-mesh factory failure probe is already armed.");
+        }
+        if (_ordinaryNodeBatchFactoryFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Road presentation node-batch factory failure probe is already armed.");
+        }
+        if (_ordinaryRoadSurfaceSnapshotFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Road presentation surface-snapshot failure probe is already armed.");
+        }
+
+        _ordinaryPreCommitTokenSupersessionArmed = true;
+        _ordinaryPreCommitTokenSupersessionArmToken = currentToken;
+        _ordinaryPreCommitSupersededAttemptNumber = 0;
+        _ordinaryPreCommitSupersededToken = null;
+        _ordinaryPreCommitReplacementToken = null;
+    }
+
+    internal bool IsOrdinaryPreCommitTokenSupersessionArmed() =>
+        _ordinaryPreCommitTokenSupersessionArmed;
+
+    internal int GetOrdinaryPreCommitTokenSupersessionCount() =>
+        _ordinaryPreCommitTokenSupersessionCount;
+
+    internal int GetOrdinaryPreCommitSupersededAttemptNumber() =>
+        _ordinaryPreCommitSupersededAttemptNumber;
+
+    internal Godot.Collections.Dictionary GetOrdinaryPreCommitSupersededToken() =>
+        ToTokenDictionary(_ordinaryPreCommitSupersededToken);
+
+    internal Godot.Collections.Dictionary GetOrdinaryPreCommitReplacementToken() =>
+        ToTokenDictionary(_ordinaryPreCommitReplacementToken);
+
+    internal bool CompleteOrdinaryPreCommitTokenSupersession()
+    {
+        if (_ordinaryPreCommitTokenSupersessionArmed ||
+            _ordinaryPreCommitReplacementToken is not RoadRenderToken replacementToken ||
+            _presentationTokens.DesiredToken != replacementToken ||
+            _presentationTokens.PresentedToken == replacementToken)
+        {
+            return false;
+        }
+
+        return TryRebuildStaticBatches() &&
+               _presentationTokens.PresentedToken == replacementToken;
+    }
 
     private sealed class OrdinaryRoadMeshFactoryFailureIndices(RoadRenderer owner)
         : IReadOnlyCollection<int>

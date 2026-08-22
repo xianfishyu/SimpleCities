@@ -44,6 +44,8 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
     partial void ProbeOrdinaryRoadSurfaceSnapshotFailure(
         RoadRenderToken targetToken,
         ref RoadSurfaceSnapshot.PreparedData roadSurface);
+    partial void ProbeOrdinaryPreCommitTokenSupersession(
+        RoadRenderToken targetToken);
 
     // 施工预览
     private Vector2[] _previewPoints = [];
@@ -523,6 +525,7 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
             var surfaceSnapshot = new RoadSurfaceSnapshot(
                 targetToken,
                 roadSurface);
+            ProbeOrdinaryPreCommitTokenSupersession(targetToken);
             TimeSpan resourcePreflightDuration = Stopwatch.GetElapsedTime(
                 resourcePreflightStarted);
 

@@ -607,6 +607,66 @@ public sealed class RoadRendererLifecycleContractTests
     }
 
     [Fact]
+    public void OrdinaryPreCommitSupersessionDiscardsPreparedResourcesBeforeTransfer()
+    {
+        string rendererSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.cs"));
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadRendererUpdateTokenFailureProbe.cs"));
+        string ordinaryBuild = ExtractMethod(
+            rendererSource,
+            "private bool TryRebuildStaticBatches",
+            "private void PublishPresentationStalled");
+        string supersessionProbe = ExtractMethod(
+            probeSource,
+            "partial void ProbeOrdinaryPreCommitTokenSupersession(",
+            "internal void ArmNextOrdinaryPresentationResourcePreflightFailure()");
+        string completion = ExtractMethod(
+            probeSource,
+            "internal bool CompleteOrdinaryPreCommitTokenSupersession()",
+            "private sealed class OrdinaryRoadMeshFactoryFailureIndices");
+
+        int snapshotCreation = ordinaryBuild.IndexOf(
+            "var surfaceSnapshot = new RoadSurfaceSnapshot(",
+            StringComparison.Ordinal);
+        int supersession = ordinaryBuild.IndexOf(
+            "ProbeOrdinaryPreCommitTokenSupersession(targetToken);",
+            StringComparison.Ordinal);
+        int desiredValidation = ordinaryBuild.IndexOf(
+            "_presentationTokens.DesiredToken != targetToken",
+            StringComparison.Ordinal);
+        int resourceTransfer = ordinaryBuild.IndexOf(
+            "_roadBatchLayer.Mesh = roadMesh;",
+            StringComparison.Ordinal);
+        int fallbackDisposal = ordinaryBuild.IndexOf(
+            "DisposePreparedPresentationResources(roadMesh, nodeBatch);",
+            StringComparison.Ordinal);
+
+        Assert.True(snapshotCreation >= 0 && snapshotCreation < supersession);
+        Assert.True(supersession < desiredValidation);
+        Assert.True(desiredValidation < resourceTransfer);
+        Assert.True(resourceTransfer < fallbackDisposal);
+        Assert.Contains("targetToken == armedToken", supersessionProbe, StringComparison.Ordinal);
+        Assert.Contains(
+            "_ordinaryPreCommitSupersededAttemptNumber = _presentationTokens.AttemptCount;",
+            supersessionProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_ordinaryPreCommitSupersededToken = targetToken;",
+            supersessionProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_presentationTokens.RequestRebuild(targetToken.ChangeSequence);",
+            supersessionProbe,
+            StringComparison.Ordinal);
+        Assert.Contains("TryRebuildStaticBatches()", completion, StringComparison.Ordinal);
+        Assert.Contains(
+            "_presentationTokens.PresentedToken == replacementToken",
+            completion,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void OrdinaryNodeBatchFactoryFailureRunsInsideTheOwnedUpdateAttempt()
     {
         string rendererSource = File.ReadAllText(
