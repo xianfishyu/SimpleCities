@@ -537,6 +537,76 @@ public sealed class RoadRendererLifecycleContractTests
     }
 
     [Fact]
+    public void OrdinaryRoadSurfaceSnapshotFailureRunsAfterBothResourcesAreCreated()
+    {
+        string rendererSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.cs"));
+        string surfaceSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Road", "RoadSurfaceSnapshot.cs"));
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadRendererUpdateTokenFailureProbe.cs"));
+        string ordinaryBuild = ExtractMethod(
+            rendererSource,
+            "private bool TryRebuildStaticBatches",
+            "private void PublishPresentationStalled");
+        string snapshotProbe = ExtractMethod(
+            probeSource,
+            "partial void ProbeOrdinaryRoadSurfaceSnapshotFailure(",
+            "internal void ArmNextOrdinaryPresentationResourcePreflightFailure()");
+
+        int roadMeshCreation = ordinaryBuild.IndexOf(
+            "roadMesh = CreateRoadMesh(",
+            StringComparison.Ordinal);
+        int nodeBatchCreation = ordinaryBuild.IndexOf(
+            "nodeBatch = CreateNodeBatch(nodeMarkers);",
+            StringComparison.Ordinal);
+        int resourcePreflightFailureProbe = ordinaryBuild.IndexOf(
+            "ProbeOrdinaryPresentationResourcePreflightFailure(targetToken);",
+            StringComparison.Ordinal);
+        int roadSurfaceCapture = ordinaryBuild.IndexOf(
+            "RoadSurfaceSnapshot.PreparedData roadSurface = prepared.RoadSurface;",
+            StringComparison.Ordinal);
+        int snapshotFailureProbe = ordinaryBuild.IndexOf(
+            "ProbeOrdinaryRoadSurfaceSnapshotFailure(targetToken, ref roadSurface);",
+            StringComparison.Ordinal);
+        int snapshotCreation = ordinaryBuild.IndexOf(
+            "var surfaceSnapshot = new RoadSurfaceSnapshot(",
+            StringComparison.Ordinal);
+        int resourceTransfer = ordinaryBuild.IndexOf(
+            "_roadBatchLayer.Mesh = roadMesh;",
+            StringComparison.Ordinal);
+
+        Assert.True(roadMeshCreation >= 0 && roadMeshCreation < nodeBatchCreation);
+        Assert.True(nodeBatchCreation < resourcePreflightFailureProbe);
+        Assert.True(resourcePreflightFailureProbe < roadSurfaceCapture);
+        Assert.True(roadSurfaceCapture < snapshotFailureProbe);
+        Assert.True(snapshotFailureProbe < snapshotCreation);
+        Assert.True(snapshotCreation < resourceTransfer);
+        Assert.Contains(
+            "ref RoadSurfaceSnapshot.PreparedData roadSurface",
+            rendererSource,
+            StringComparison.Ordinal);
+        Assert.Contains("targetToken == armedToken", snapshotProbe, StringComparison.Ordinal);
+        Assert.Contains(
+            "_ordinaryRoadSurfaceSnapshotFailureArmed = false;",
+            snapshotProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_ordinaryRoadSurfaceSnapshotFailureCount++;",
+            snapshotProbe,
+            StringComparison.Ordinal);
+        Assert.Contains("roadSurface = null!;", snapshotProbe, StringComparison.Ordinal);
+        Assert.Contains(
+            "ArgumentNullException.ThrowIfNull(prepared);",
+            surfaceSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "new ArgumentNullException(\"prepared\").Message;",
+            probeSource,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void OrdinaryNodeBatchFactoryFailureRunsInsideTheOwnedUpdateAttempt()
     {
         string rendererSource = File.ReadAllText(

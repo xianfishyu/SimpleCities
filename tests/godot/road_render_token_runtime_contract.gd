@@ -101,6 +101,11 @@ func run() -> void:
 	if road_mesh_recovered.is_empty():
 		return
 	recovered = road_mesh_recovered
+	var surface_snapshot_recovered: Dictionary = \
+		await require_update_token_surface_snapshot_failure(renderer, builder, recovered)
+	if surface_snapshot_recovered.is_empty():
+		return
+	recovered = surface_snapshot_recovered
 
 	var removal_edge_count: int = renderer.GetRenderedEdgeCount()
 	var removal_history_count: int = builder.GetUndoEditCount()
@@ -773,6 +778,112 @@ func require_update_token_road_mesh_factory_failure(
 			int(probe.GetObjectResourceCount()),
 			int(probe.GetRoadMeshFactoryFailureCount()),
 			int(probe.GetRoadMeshFactoryIndexEnumerationCount()),
+		])
+	return recovered
+
+func require_update_token_surface_snapshot_failure(
+	renderer: Node,
+	builder: Node,
+	before: Dictionary
+) -> Dictionary:
+	var probe_script: Script = load(UPDATE_TOKEN_FAILURE_PROBE_PATH)
+	if not require(probe_script != null, "Debug surface-snapshot failure probe did not load"):
+		return {}
+	var probe: RefCounted = probe_script.new()
+	if not require(probe != null, "Debug surface-snapshot failure probe did not instantiate"):
+		return {}
+
+	var retained_edge_count: int = renderer.GetRenderedEdgeCount()
+	var retained_vertex_count: int = renderer.GetRoadMeshVertexCount()
+	var retained_marker_count: int = renderer.GetNodeMarkerCount()
+	var retained_state: Dictionary = renderer.GetPresentationState()
+	var retained_primitive_count := int(retained_state.get("surfacePrimitiveCount", 0))
+	var resource_count_before := int(probe.GetObjectResourceCount())
+	var failure_message := str(probe.GetRoadSurfaceSnapshotFailureMessage())
+	probe.ArmRoadSurfaceSnapshotFailure(renderer)
+	if not require(
+		bool(probe.IsRoadSurfaceSnapshotFailureArmed()),
+		"Update-token surface-snapshot failure probe did not arm"):
+		return {}
+
+	if not require(
+		builder.BeginPlace(Vector2(0.0, 800.0)),
+		"Surface-snapshot failure mutation did not begin"):
+		return {}
+	builder.UpdatePlace(Vector2(100.0, 800.0))
+	if not require(
+		builder.CommitPlace(Vector2(100.0, 800.0)),
+		"Surface-snapshot failure mutation did not commit"):
+		return {}
+	await process_frame
+	await process_frame
+
+	var stalled: Dictionary = renderer.GetPresentationState()
+	var desired: Dictionary = stalled.get("desired", {})
+	if not require(
+		stalled.get("phase", "") == "stalled" and
+		bool(stalled.get("isStalled", false)) and
+		not bool(stalled.get("isReady", true)) and
+		desired != before and
+		stalled.get("presented", {}) == before and
+		stalled.get("stalledToken", {}) == desired,
+		"Surface-snapshot failure did not stall the new desired token"):
+		return {}
+	if not require_ordinary_change(before, desired):
+		return {}
+	if not require(
+		int(stalled.get("attemptCount", 0)) == 1 and
+		str(stalled.get("failureType", "")) == "System.ArgumentNullException" and
+		str(stalled.get("failureMessage", "")) == failure_message and
+		int(probe.GetRoadSurfaceSnapshotFailureCount()) == 1 and
+		not bool(probe.IsRoadSurfaceSnapshotFailureArmed()),
+		"Surface-snapshot constructor failure was not raised on the one-shot first attempt"):
+		return {}
+	if not require(
+		int(probe.GetObjectResourceCount()) == resource_count_before and
+		int(stalled.get("surfacePrimitiveCount", -1)) == 0 and
+		int(stalled.get("retainedSurfacePrimitiveCount", -1)) == retained_primitive_count and
+		renderer.GetRenderedEdgeCount() == retained_edge_count and
+		renderer.GetRoadMeshVertexCount() == retained_vertex_count and
+		renderer.GetNodeMarkerCount() == retained_marker_count,
+		"Surface-snapshot failure leaked resources or replaced retained presentation"):
+		return {}
+	if not require(
+		renderer.FindRoadSurfaceHit(Vector2(50.0, 0.0), 0.0).is_empty(),
+		"Surface-snapshot stalled token still exposed its retained surface"):
+		return {}
+
+	if not require(
+		renderer.RetryRoadPresentation(),
+		"Surface-snapshot retry did not publish the same desired token"):
+		return {}
+	var recovered := presentation_token(renderer, "Surface-snapshot retry")
+	if recovered.is_empty():
+		return {}
+	if not require(
+		recovered == desired and
+		int(renderer.GetPresentationState().get("attemptCount", 0)) == 2 and
+		int(probe.GetRoadSurfaceSnapshotFailureCount()) == 1 and
+		renderer.GetRenderedEdgeCount() == retained_edge_count + 1 and
+		renderer.GetRoadMeshVertexCount() > retained_vertex_count and
+		renderer.GetNodeMarkerCount() > retained_marker_count,
+		"Surface-snapshot retry did not atomically publish attempt two"):
+		return {}
+	if not require_surface_hit(
+		renderer,
+		Vector2(50.0, 800.0),
+		recovered,
+		"Surface-snapshot retry"):
+		return {}
+	print(
+		(
+			"UPDATE_TOKEN_SURFACE_SNAPSHOT_FAILURE_RESULT " +
+			"resource_before=%d resource_after=%d trigger_count=%d " +
+			"stalled_attempt=1 recovered_attempt=2"
+		) % [
+			resource_count_before,
+			int(probe.GetObjectResourceCount()),
+			int(probe.GetRoadSurfaceSnapshotFailureCount()),
 		])
 	return recovered
 

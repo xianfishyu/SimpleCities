@@ -28,6 +28,13 @@ public partial class RoadRendererUpdateTokenFailureProbe : RefCounted
         _renderer = renderer;
     }
 
+    public void ArmRoadSurfaceSnapshotFailure(RoadRenderer renderer)
+    {
+        ArgumentNullException.ThrowIfNull(renderer);
+        renderer.ArmNextOrdinaryRoadSurfaceSnapshotFailure();
+        _renderer = renderer;
+    }
+
     public bool IsArmed() =>
         _renderer?.IsOrdinaryPresentationResourcePreflightFailureArmed() ?? false;
 
@@ -61,6 +68,15 @@ public partial class RoadRendererUpdateTokenFailureProbe : RefCounted
     public string GetRoadMeshFactoryFailureMessage() =>
         RoadRenderer.OrdinaryRoadMeshFactoryFailureMessage;
 
+    public bool IsRoadSurfaceSnapshotFailureArmed() =>
+        _renderer?.IsOrdinaryRoadSurfaceSnapshotFailureArmed() ?? false;
+
+    public int GetRoadSurfaceSnapshotFailureCount() =>
+        _renderer?.GetOrdinaryRoadSurfaceSnapshotFailureCount() ?? 0;
+
+    public string GetRoadSurfaceSnapshotFailureMessage() =>
+        new ArgumentNullException("prepared").Message;
+
     public long GetObjectResourceCount() => Convert.ToInt64(
         Performance.GetMonitor(Performance.Monitor.ObjectResourceCount));
 }
@@ -85,6 +101,9 @@ public partial class RoadRenderer
     private RoadRenderToken? _ordinaryRoadMeshFactoryFailureArmToken;
     private int _ordinaryRoadMeshFactoryFailureCount;
     private int _ordinaryRoadMeshFactoryFailureIndexEnumerationCount;
+    private bool _ordinaryRoadSurfaceSnapshotFailureArmed;
+    private RoadRenderToken? _ordinaryRoadSurfaceSnapshotFailureArmToken;
+    private int _ordinaryRoadSurfaceSnapshotFailureCount;
 
     partial void ProbeOrdinaryPresentationResourcePreflightFailure(
         RoadRenderToken targetToken)
@@ -138,6 +157,23 @@ public partial class RoadRenderer
         nodeMarkers = new OrdinaryNodeBatchFactoryFailureMarkers(this);
     }
 
+    partial void ProbeOrdinaryRoadSurfaceSnapshotFailure(
+        RoadRenderToken targetToken,
+        ref RoadSurfaceSnapshot.PreparedData roadSurface)
+    {
+        if (!_ordinaryRoadSurfaceSnapshotFailureArmed ||
+            _ordinaryRoadSurfaceSnapshotFailureArmToken is not RoadRenderToken armedToken ||
+            targetToken == armedToken)
+        {
+            return;
+        }
+
+        _ordinaryRoadSurfaceSnapshotFailureArmed = false;
+        _ordinaryRoadSurfaceSnapshotFailureArmToken = null;
+        _ordinaryRoadSurfaceSnapshotFailureCount++;
+        roadSurface = null!;
+    }
+
     internal void ArmNextOrdinaryPresentationResourcePreflightFailure()
     {
         if (!IsPresentationReady() ||
@@ -160,6 +196,11 @@ public partial class RoadRenderer
         {
             throw new InvalidOperationException(
                 "Road presentation road-mesh factory failure probe is already armed.");
+        }
+        if (_ordinaryRoadSurfaceSnapshotFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Road presentation surface-snapshot failure probe is already armed.");
         }
 
         _ordinaryPresentationResourcePreflightFailureArmed = true;
@@ -194,6 +235,11 @@ public partial class RoadRenderer
         {
             throw new InvalidOperationException(
                 "Road presentation road-mesh factory failure probe is already armed.");
+        }
+        if (_ordinaryRoadSurfaceSnapshotFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Road presentation surface-snapshot failure probe is already armed.");
         }
 
         _ordinaryNodeBatchFactoryFailureArmed = true;
@@ -232,6 +278,11 @@ public partial class RoadRenderer
             throw new InvalidOperationException(
                 "Road presentation node-batch factory failure probe is already armed.");
         }
+        if (_ordinaryRoadSurfaceSnapshotFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Road presentation surface-snapshot failure probe is already armed.");
+        }
 
         _ordinaryRoadMeshFactoryFailureArmed = true;
         _ordinaryRoadMeshFactoryFailureArmToken = currentToken;
@@ -245,6 +296,45 @@ public partial class RoadRenderer
 
     internal int GetOrdinaryRoadMeshFactoryIndexEnumerationCount() =>
         _ordinaryRoadMeshFactoryFailureIndexEnumerationCount;
+
+    internal void ArmNextOrdinaryRoadSurfaceSnapshotFailure()
+    {
+        if (!IsPresentationReady() ||
+            _presentationTokens.PresentedToken is not RoadRenderToken currentToken)
+        {
+            throw new InvalidOperationException(
+                "Road presentation must be ready before arming its failure probe.");
+        }
+        if (_ordinaryRoadSurfaceSnapshotFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Road presentation surface-snapshot failure probe is already armed.");
+        }
+        if (_ordinaryPresentationResourcePreflightFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Road presentation resource preflight failure probe is already armed.");
+        }
+        if (_ordinaryRoadMeshFactoryFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Road presentation road-mesh factory failure probe is already armed.");
+        }
+        if (_ordinaryNodeBatchFactoryFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Road presentation node-batch factory failure probe is already armed.");
+        }
+
+        _ordinaryRoadSurfaceSnapshotFailureArmed = true;
+        _ordinaryRoadSurfaceSnapshotFailureArmToken = currentToken;
+    }
+
+    internal bool IsOrdinaryRoadSurfaceSnapshotFailureArmed() =>
+        _ordinaryRoadSurfaceSnapshotFailureArmed;
+
+    internal int GetOrdinaryRoadSurfaceSnapshotFailureCount() =>
+        _ordinaryRoadSurfaceSnapshotFailureCount;
 
     private sealed class OrdinaryRoadMeshFactoryFailureIndices(RoadRenderer owner)
         : IReadOnlyCollection<int>
