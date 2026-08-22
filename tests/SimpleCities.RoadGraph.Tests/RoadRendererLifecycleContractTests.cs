@@ -605,6 +605,56 @@ public sealed class RoadRendererLifecycleContractTests
     }
 
     [Fact]
+    public void RealStartLoadRendererAdmissionPublicationFailureRunsAfterConstructionBeforePublication()
+    {
+        string rendererLoadSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.LoadCommit.cs"));
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadLoadPreflightResourceFailureProbe.cs"));
+        string rendererAdmission = ExtractMethod(
+            rendererLoadSource,
+            "internal RoadRendererLoadAdmission BeginLoadAdmission()",
+            "internal INonThrowingLoadCommitPlan PreflightPreparedLoad(");
+        string failureProbe = ExtractMethod(
+            probeSource,
+            "partial void ProbeAggregateLoadRendererAdmissionPublicationFailure()",
+            "internal void ArmNextAggregateLoadRendererAdmissionPublicationFailure()");
+
+        int admissionConstruction = rendererAdmission.IndexOf(
+            "new RoadRendererLoadAdmission(",
+            StringComparison.Ordinal);
+        int failure = rendererAdmission.IndexOf(
+            "ProbeAggregateLoadRendererAdmissionPublicationFailure();",
+            StringComparison.Ordinal);
+        int admissionPublication = rendererAdmission.IndexOf(
+            "_loadAdmission = admission;",
+            StringComparison.Ordinal);
+
+        Assert.True(admissionConstruction >= 0 && admissionConstruction < failure);
+        Assert.True(failure < admissionPublication);
+        Assert.Contains(
+            "partial void ProbeAggregateLoadRendererAdmissionPublicationFailure();",
+            rendererLoadSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "public void ArmAggregateLoadRendererAdmissionPublicationFailure(RoadRenderer renderer)",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadRendererAdmissionPublicationFailureArmed = false;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadRendererAdmissionPublicationFailureCount++;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "AggregateLoadRendererAdmissionPublicationFailureMessage",
+            failureProbe,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void RealStartLoadRendererWorkerPrepareFailureRunsBeforePresentationPreparation()
     {
         string saveManagerSource = File.ReadAllText(

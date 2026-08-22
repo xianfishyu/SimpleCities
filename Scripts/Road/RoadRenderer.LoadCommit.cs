@@ -10,6 +10,7 @@ public partial class RoadRenderer
     partial void ProbeAggregateLoadNodeBatchFactoryFailure(
         ref IReadOnlyList<RoadRendererNodeMarker> nodeMarkers);
     partial void ProbeAggregateLoadRendererAdmissionConstructionFailure();
+    partial void ProbeAggregateLoadRendererAdmissionPublicationFailure();
     partial void ProbeAggregateLoadResourcePreflightFailure();
     partial void ProbeAggregateLoadReservedRenderTokenFailure(
         ref RoadRenderLoadReservation renderReservation);
@@ -47,6 +48,7 @@ public partial class RoadRenderer
             _network,
             renderReservation,
             new RoadRendererLoadPreparer(settings));
+        ProbeAggregateLoadRendererAdmissionPublicationFailure();
         _loadAdmission = admission;
         return admission;
     }

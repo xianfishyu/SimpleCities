@@ -62,6 +62,22 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
     public string GetAggregateLoadRendererAdmissionConstructionFailureMessage() =>
         RoadRenderer.AggregateLoadRendererAdmissionConstructionFailureMessage;
 
+    public void ArmAggregateLoadRendererAdmissionPublicationFailure(RoadRenderer renderer)
+    {
+        ArgumentNullException.ThrowIfNull(renderer);
+        renderer.ArmNextAggregateLoadRendererAdmissionPublicationFailure();
+        _renderer = renderer;
+    }
+
+    public bool IsAggregateLoadRendererAdmissionPublicationFailureArmed() =>
+        _renderer?.IsAggregateLoadRendererAdmissionPublicationFailureArmed() ?? false;
+
+    public int GetAggregateLoadRendererAdmissionPublicationFailureCount() =>
+        _renderer?.GetAggregateLoadRendererAdmissionPublicationFailureCount() ?? 0;
+
+    public string GetAggregateLoadRendererAdmissionPublicationFailureMessage() =>
+        RoadRenderer.AggregateLoadRendererAdmissionPublicationFailureMessage;
+
     public void ArmAggregateLoadResourcePreflightFailure(RoadRenderer renderer)
     {
         ArgumentNullException.ThrowIfNull(renderer);
@@ -1055,6 +1071,8 @@ public partial class RoadRenderer
 {
     internal const string AggregateLoadRendererAdmissionConstructionFailureMessage =
         "Injected aggregate Load renderer admission construction failure.";
+    internal const string AggregateLoadRendererAdmissionPublicationFailureMessage =
+        "Injected aggregate Load renderer admission publication failure.";
     internal const string AggregateLoadRoadMeshFactoryFailureMessage =
         "Injected aggregate Load CreateRoadMesh index enumeration failure.";
     internal const string AggregateLoadNodeBatchFactoryFailureMessage =
@@ -1068,6 +1086,8 @@ public partial class RoadRenderer
 
     private bool _aggregateLoadRendererAdmissionConstructionFailureArmed;
     private int _aggregateLoadRendererAdmissionConstructionFailureCount;
+    private bool _aggregateLoadRendererAdmissionPublicationFailureArmed;
+    private int _aggregateLoadRendererAdmissionPublicationFailureCount;
     private bool _aggregateLoadRoadMeshFactoryFailureArmed;
     private int _aggregateLoadRoadMeshFactoryFailureCount;
     private int _aggregateLoadRoadMeshFactoryIndexEnumerationCount;
@@ -1114,6 +1134,11 @@ public partial class RoadRenderer
             throw new InvalidOperationException(
                 "Aggregate Load renderer admission construction failure probe is already armed.");
         }
+        if (_aggregateLoadRendererAdmissionPublicationFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load renderer admission publication failure probe is already armed.");
+        }
         if (_aggregateLoadRoadMeshFactoryFailureArmed)
         {
             throw new InvalidOperationException(
@@ -1154,12 +1179,85 @@ public partial class RoadRenderer
     internal int GetAggregateLoadRendererAdmissionConstructionFailureCount() =>
         _aggregateLoadRendererAdmissionConstructionFailureCount;
 
-    private void EnsureRendererAdmissionConstructionFailureProbeIsNotArmed()
+    partial void ProbeAggregateLoadRendererAdmissionPublicationFailure()
+    {
+        if (!_aggregateLoadRendererAdmissionPublicationFailureArmed)
+            return;
+
+        _aggregateLoadRendererAdmissionPublicationFailureArmed = false;
+        _aggregateLoadRendererAdmissionPublicationFailureCount++;
+        throw new InvalidOperationException(
+            AggregateLoadRendererAdmissionPublicationFailureMessage);
+    }
+
+    internal void ArmNextAggregateLoadRendererAdmissionPublicationFailure()
+    {
+        if (!IsPresentationReady() || _loadAdmission is not null)
+        {
+            throw new InvalidOperationException(
+                "Road presentation must be ready and idle before arming its aggregate Load failure probe.");
+        }
+        if (_aggregateLoadRendererAdmissionPublicationFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load renderer admission publication failure probe is already armed.");
+        }
+        if (_aggregateLoadRendererAdmissionConstructionFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load renderer admission construction failure probe is already armed.");
+        }
+        if (_aggregateLoadRoadMeshFactoryFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load road-mesh factory failure probe is already armed.");
+        }
+        if (_aggregateLoadNodeBatchFactoryFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load node-batch factory failure probe is already armed.");
+        }
+        if (_aggregateLoadResourcePreflightFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load resource preflight failure probe is already armed.");
+        }
+        if (_aggregateLoadRoadSurfaceSnapshotFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load road-surface snapshot failure probe is already armed.");
+        }
+        if (_aggregateLoadReservedRenderTokenFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load reserved render-token failure probe is already armed.");
+        }
+        if (_aggregateLoadCommitPlanConstructionFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load commit-plan construction failure probe is already armed.");
+        }
+
+        _aggregateLoadRendererAdmissionPublicationFailureArmed = true;
+    }
+
+    internal bool IsAggregateLoadRendererAdmissionPublicationFailureArmed() =>
+        _aggregateLoadRendererAdmissionPublicationFailureArmed;
+
+    internal int GetAggregateLoadRendererAdmissionPublicationFailureCount() =>
+        _aggregateLoadRendererAdmissionPublicationFailureCount;
+
+    private void EnsureRendererAdmissionFailureProbeIsNotArmed()
     {
         if (_aggregateLoadRendererAdmissionConstructionFailureArmed)
         {
             throw new InvalidOperationException(
                 "Aggregate Load renderer admission construction failure probe is already armed.");
+        }
+        if (_aggregateLoadRendererAdmissionPublicationFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load renderer admission publication failure probe is already armed.");
         }
     }
 
@@ -1212,7 +1310,7 @@ public partial class RoadRenderer
                 "Aggregate Load commit-plan construction failure probe is already armed.");
         }
 
-        EnsureRendererAdmissionConstructionFailureProbeIsNotArmed();
+        EnsureRendererAdmissionFailureProbeIsNotArmed();
         _aggregateLoadRoadMeshFactoryFailureArmed = true;
     }
 
@@ -1274,7 +1372,7 @@ public partial class RoadRenderer
                 "Aggregate Load commit-plan construction failure probe is already armed.");
         }
 
-        EnsureRendererAdmissionConstructionFailureProbeIsNotArmed();
+        EnsureRendererAdmissionFailureProbeIsNotArmed();
         _aggregateLoadNodeBatchFactoryFailureArmed = true;
     }
 
@@ -1336,7 +1434,7 @@ public partial class RoadRenderer
                 "Aggregate Load commit-plan construction failure probe is already armed.");
         }
 
-        EnsureRendererAdmissionConstructionFailureProbeIsNotArmed();
+        EnsureRendererAdmissionFailureProbeIsNotArmed();
         _aggregateLoadResourcePreflightFailureArmed = true;
     }
 
@@ -1395,7 +1493,7 @@ public partial class RoadRenderer
                 "Aggregate Load commit-plan construction failure probe is already armed.");
         }
 
-        EnsureRendererAdmissionConstructionFailureProbeIsNotArmed();
+        EnsureRendererAdmissionFailureProbeIsNotArmed();
         _aggregateLoadReservedRenderTokenFailureArmed = true;
     }
 
@@ -1454,7 +1552,7 @@ public partial class RoadRenderer
                 "Aggregate Load commit-plan construction failure probe is already armed.");
         }
 
-        EnsureRendererAdmissionConstructionFailureProbeIsNotArmed();
+        EnsureRendererAdmissionFailureProbeIsNotArmed();
         _aggregateLoadRoadSurfaceSnapshotFailureArmed = true;
     }
 
@@ -1513,7 +1611,7 @@ public partial class RoadRenderer
                 "Aggregate Load reserved render-token failure probe is already armed.");
         }
 
-        EnsureRendererAdmissionConstructionFailureProbeIsNotArmed();
+        EnsureRendererAdmissionFailureProbeIsNotArmed();
         _aggregateLoadCommitPlanConstructionFailureArmed = true;
     }
 
