@@ -27,6 +27,13 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
         return renderer.ProbeLoadCommitBoundaryGenerationMismatch();
     }
 
+    public Godot.Collections.Dictionary RunToolCommitBoundaryGenerationMismatch(
+        ToolManager toolManager)
+    {
+        ArgumentNullException.ThrowIfNull(toolManager);
+        return toolManager.ProbeToolLoadCommitBoundaryGenerationMismatch();
+    }
+
     public Godot.Collections.Dictionary RunNodeBatchFactoryFailure(RoadRenderer renderer)
     {
         ArgumentNullException.ThrowIfNull(renderer);
@@ -221,6 +228,175 @@ public partial class SaveManager
 
     internal int GetAggregateLoadPostOwnershipPreCommitFailureCount() =>
         _aggregateLoadPostOwnershipPreCommitFailureCount;
+}
+
+public partial class ToolManager
+{
+    internal Godot.Collections.Dictionary ProbeToolLoadCommitBoundaryGenerationMismatch()
+    {
+        const string ExpectedFailureMessage =
+            "A load participant generation changed while entering commit.";
+        RoadBuilder builder = _roadBuilder ?? throw new InvalidOperationException(
+            "ToolManager must have a RoadBuilder before probing the load commit boundary.");
+        ToolType retainedCurrentTool = _currentTool;
+        RoadType retainedSelectedRoadType = builder.SelectedRoadType;
+        bool retainedIsPlacing = builder.IsPlacing;
+        int retainedFixedCornerCount = builder.FixedCornerCount;
+        RoadPathDraft? retainedDraft = builder.CurrentDraft;
+        int retainedUndoCount = builder.GetUndoEditCount();
+        int retainedRedoCount = builder.GetRedoEditCount();
+        bool retainedCanUndo = builder.CanUndo;
+        bool retainedCanRedo = builder.CanRedo;
+        var graphPlan = new ToolTrackingLoadCommitPlan("road-graph");
+        var rendererPlan = new ToolTrackingLoadCommitPlan("road-presentation");
+        var slotPlan = new ToolTrackingLoadCommitPlan("slot-target");
+        bool planWasCurrent = false;
+        bool planBecameStale = false;
+        bool failedWhileEnteringCommit = false;
+        bool toolAdmissionReacquired = false;
+        bool builderAdmissionReacquired = false;
+        string exceptionType = string.Empty;
+        string exceptionMessage = string.Empty;
+        int commitLeaseCount = 0;
+        int boundaryCount = 0;
+        int markCommittedCount = 0;
+
+        using (ToolLoadAdmission admission = BeginLoadAdmission())
+        {
+            INonThrowingLoadCommitPlan toolPlan = PreflightFullReset(admission);
+            planWasCurrent = toolPlan.IsGenerationCurrent;
+            var operation = new ToolBoundaryInvalidatingLease(admission.Dispose);
+            using (var aggregate = new PreparedAggregateLoad([
+                graphPlan,
+                toolPlan,
+                rendererPlan,
+                slotPlan]))
+            {
+                try
+                {
+                    aggregate.Commit(operation);
+                }
+                catch (Exception exception)
+                {
+                    exceptionType = exception.GetType().Name;
+                    exceptionMessage = exception.Message;
+                    failedWhileEnteringCommit = exception is LoadPreflightInvalidException &&
+                        string.Equals(
+                            exception.Message,
+                            ExpectedFailureMessage,
+                            StringComparison.Ordinal);
+                }
+
+                planBecameStale = !toolPlan.IsGenerationCurrent;
+                commitLeaseCount = operation.CommitLeaseCount;
+                boundaryCount = operation.BoundaryCount;
+                markCommittedCount = operation.MarkCommittedCount;
+            }
+        }
+
+        using (ToolLoadAdmission reacquired = BeginLoadAdmission())
+            toolAdmissionReacquired = true;
+        using (RoadBuilder.RoadBuilderLoadAdmission reacquired =
+            builder.BeginFullResetAdmission())
+        {
+            builderAdmissionReacquired = true;
+        }
+
+        return new Godot.Collections.Dictionary
+        {
+            ["failedWhileEnteringCommit"] = failedWhileEnteringCommit,
+            ["exceptionType"] = exceptionType,
+            ["exceptionMessage"] = exceptionMessage,
+            ["planWasCurrent"] = planWasCurrent,
+            ["planBecameStale"] = planBecameStale,
+            ["commitLeaseCount"] = commitLeaseCount,
+            ["boundaryCount"] = boundaryCount,
+            ["markCommittedCount"] = markCommittedCount,
+            ["graphCommitCount"] = graphPlan.CommitCount,
+            ["rendererCommitCount"] = rendererPlan.CommitCount,
+            ["slotCommitCount"] = slotPlan.CommitCount,
+            ["graphDisposeCount"] = graphPlan.DisposeCount,
+            ["rendererDisposeCount"] = rendererPlan.DisposeCount,
+            ["slotDisposeCount"] = slotPlan.DisposeCount,
+            ["toolAdmissionReacquired"] = toolAdmissionReacquired,
+            ["builderAdmissionReacquired"] = builderAdmissionReacquired,
+            ["currentToolPreserved"] = retainedCurrentTool == _currentTool,
+            ["selectedRoadTypePreserved"] =
+                retainedSelectedRoadType == builder.SelectedRoadType,
+            ["placementPreserved"] =
+                retainedIsPlacing == builder.IsPlacing &&
+                ReferenceEquals(retainedDraft, builder.CurrentDraft),
+            ["fixedCornersPreserved"] =
+                retainedFixedCornerCount == builder.FixedCornerCount,
+            ["historyPreserved"] =
+                retainedUndoCount == builder.GetUndoEditCount() &&
+                retainedRedoCount == builder.GetRedoEditCount() &&
+                retainedCanUndo == builder.CanUndo &&
+                retainedCanRedo == builder.CanRedo,
+        };
+    }
+
+    private sealed class ToolBoundaryInvalidatingLease(Action invalidate) : IStorageOperationLease
+    {
+        public string OperationToken => "tool-generation-mismatch";
+        public SaveOperationKind Kind => SaveOperationKind.Load;
+        internal int CommitLeaseCount { get; private set; }
+        internal int BoundaryCount { get; private set; }
+        internal int MarkCommittedCount { get; private set; }
+
+        public void ThrowIfCancellationRequested() { }
+
+        public void AcquireCommitLease()
+        {
+            CommitLeaseCount++;
+        }
+
+        public void CrossCommitBoundary(Action boundaryAction)
+        {
+            BoundaryCount++;
+            invalidate();
+            boundaryAction();
+        }
+
+        public void MarkCommitted()
+        {
+            MarkCommittedCount++;
+        }
+
+        public void EnterCommitBoundary()
+        {
+            AcquireCommitLease();
+            CrossCommitBoundary(static () => { });
+            MarkCommitted();
+        }
+    }
+
+    private sealed class ToolTrackingLoadCommitPlan(string participantID) :
+        INonThrowingLoadCommitPlan
+    {
+        private bool _disposed;
+
+        public string ParticipantID { get; } = participantID;
+        public bool IsGenerationCurrent => !_disposed && CommitCount == 0;
+        internal int CommitCount { get; private set; }
+        internal int DisposeCount { get; private set; }
+
+        public void CommitReferences()
+        {
+            CommitCount++;
+        }
+
+        public IReadOnlyList<string> PublishNotifications() => [];
+        public void CompleteCommit() { }
+
+        public void Dispose()
+        {
+            if (_disposed)
+                return;
+            _disposed = true;
+            DisposeCount++;
+        }
+    }
 }
 
 public partial class RoadRenderer

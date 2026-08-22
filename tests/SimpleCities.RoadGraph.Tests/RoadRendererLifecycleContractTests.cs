@@ -537,6 +537,60 @@ public sealed class RoadRendererLifecycleContractTests
     }
 
     [Fact]
+    public void ToolCommitBoundaryProbeInvalidatesTheRealPlanBeforeReferenceSwap()
+    {
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadLoadPreflightResourceFailureProbe.cs"));
+        string probe = ExtractMethod(
+            probeSource,
+            "internal Godot.Collections.Dictionary ProbeToolLoadCommitBoundaryGenerationMismatch()",
+            "private sealed class ToolBoundaryInvalidatingLease");
+
+        int toolPlan = probe.IndexOf(
+            "INonThrowingLoadCommitPlan toolPlan = PreflightFullReset(admission);",
+            StringComparison.Ordinal);
+        int invalidatingLease = probe.IndexOf(
+            "new ToolBoundaryInvalidatingLease(admission.Dispose)",
+            StringComparison.Ordinal);
+        int aggregate = probe.IndexOf(
+            "new PreparedAggregateLoad([",
+            StringComparison.Ordinal);
+        int commit = probe.IndexOf("aggregate.Commit(operation);", StringComparison.Ordinal);
+        int staleCheck = probe.IndexOf(
+            "planBecameStale = !toolPlan.IsGenerationCurrent;",
+            StringComparison.Ordinal);
+        int toolReacquire = probe.IndexOf(
+            "using (ToolLoadAdmission reacquired = BeginLoadAdmission())",
+            StringComparison.Ordinal);
+        int builderReacquire = probe.IndexOf(
+            "using (RoadBuilder.RoadBuilderLoadAdmission reacquired =",
+            StringComparison.Ordinal);
+
+        Assert.True(toolPlan >= 0 && toolPlan < invalidatingLease);
+        Assert.True(invalidatingLease < aggregate && aggregate < commit);
+        Assert.True(commit < staleCheck && staleCheck < toolReacquire);
+        Assert.True(toolReacquire < builderReacquire);
+        Assert.Contains("graphPlan,", probe, StringComparison.Ordinal);
+        Assert.Contains("toolPlan,", probe, StringComparison.Ordinal);
+        Assert.Contains("rendererPlan,", probe, StringComparison.Ordinal);
+        Assert.Contains("slotPlan])", probe, StringComparison.Ordinal);
+        Assert.Contains("exception is LoadPreflightInvalidException", probe, StringComparison.Ordinal);
+        Assert.Contains("ExpectedFailureMessage", probe, StringComparison.Ordinal);
+        Assert.Contains("graphPlan.CommitCount", probe, StringComparison.Ordinal);
+        Assert.Contains("rendererPlan.CommitCount", probe, StringComparison.Ordinal);
+        Assert.Contains("slotPlan.CommitCount", probe, StringComparison.Ordinal);
+        Assert.Contains("retainedCurrentTool == _currentTool", probe, StringComparison.Ordinal);
+        Assert.Contains(
+            "retainedSelectedRoadType == builder.SelectedRoadType",
+            probe,
+            StringComparison.Ordinal);
+        Assert.Contains("ReferenceEquals(retainedDraft, builder.CurrentDraft)", probe);
+        Assert.Contains("retainedFixedCornerCount == builder.FixedCornerCount", probe);
+        Assert.Contains("retainedUndoCount == builder.GetUndoEditCount()", probe);
+        Assert.Contains("retainedRedoCount == builder.GetRedoEditCount()", probe);
+    }
+
+    [Fact]
     public void RealLoadParticipantsIsolateRendererObserversAndExposeCleanupBoundaries()
     {
         string loadSource = File.ReadAllText(

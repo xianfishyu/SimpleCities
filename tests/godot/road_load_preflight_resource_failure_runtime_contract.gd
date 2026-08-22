@@ -8,6 +8,7 @@ const V3_SAVE_FIXTURE := preload("res://tests/godot/v3_save_fixture.gd")
 const RESULT_SUCCEEDED := 0
 const RESULT_FAILED := 2
 const TOOL_ROAD := 1
+const ROAD_TYPE_ARTERIAL := 2
 
 var failed := false
 var test_map: Node
@@ -66,6 +67,10 @@ func run() -> void:
 		return
 
 	tool_manager.set("CurrentTool", TOOL_ROAD)
+	if not require(
+		tool_manager.SetSelectedRoadType(ROAD_TYPE_ARTERIAL),
+		"Active RoadType did not change before the preflight probes"):
+		return
 	if not require(builder.BeginPlace(Vector2(700.0, 400.0)), "Transient placement did not begin"):
 		return
 	if not require(
@@ -80,6 +85,7 @@ func run() -> void:
 	var hit_before: Dictionary = renderer.FindRoadSurfaceHit(Vector2(400.0, 300.0), 0.0)
 	var undo_count_before: int = builder.GetUndoEditCount()
 	var redo_count_before: int = builder.GetRedoEditCount()
+	var selected_road_type_before: int = int(tool_manager.GetSelectedRoadType())
 
 	var probe_script: Script = load(PROBE_PATH)
 	if not require(probe_script != null, "Debug resource failure probe did not load"):
@@ -164,6 +170,50 @@ func run() -> void:
 		bool(renderer_boundary_result.get("tokensPreserved", false)),
 		"Renderer commit-boundary mismatch leaked resources or replaced presentation state: %s" %
 		JSON.stringify(renderer_boundary_result)):
+		return
+
+	var tool_boundary_result: Dictionary = (
+		probe.RunToolCommitBoundaryGenerationMismatch(tool_manager))
+	if not require(
+		bool(tool_boundary_result.get("failedWhileEnteringCommit", false)) and
+		str(tool_boundary_result.get("exceptionType", "")) ==
+			"LoadPreflightInvalidException" and
+		str(tool_boundary_result.get("exceptionMessage", "")) ==
+			"A load participant generation changed while entering commit." and
+		bool(tool_boundary_result.get("planWasCurrent", false)) and
+		bool(tool_boundary_result.get("planBecameStale", false)) and
+		int(tool_boundary_result.get("commitLeaseCount", -1)) == 1 and
+		int(tool_boundary_result.get("boundaryCount", -1)) == 1 and
+		int(tool_boundary_result.get("markCommittedCount", -1)) == 0,
+		"Real tool plan did not fail at the aggregate commit boundary: %s" %
+		JSON.stringify(tool_boundary_result)):
+		return
+	if not require(
+		int(tool_boundary_result.get("graphCommitCount", -1)) == 0 and
+		int(tool_boundary_result.get("rendererCommitCount", -1)) == 0 and
+		int(tool_boundary_result.get("slotCommitCount", -1)) == 0 and
+		int(tool_boundary_result.get("graphDisposeCount", -1)) == 1 and
+		int(tool_boundary_result.get("rendererDisposeCount", -1)) == 1 and
+		int(tool_boundary_result.get("slotDisposeCount", -1)) == 1 and
+		bool(tool_boundary_result.get("toolAdmissionReacquired", false)) and
+		bool(tool_boundary_result.get("builderAdmissionReacquired", false)),
+		"Tool generation mismatch swapped or retained an aggregate companion plan: %s" %
+		JSON.stringify(tool_boundary_result)):
+		return
+	if not require(
+		bool(tool_boundary_result.get("currentToolPreserved", false)) and
+		bool(tool_boundary_result.get("selectedRoadTypePreserved", false)) and
+		bool(tool_boundary_result.get("placementPreserved", false)) and
+		bool(tool_boundary_result.get("fixedCornersPreserved", false)) and
+		bool(tool_boundary_result.get("historyPreserved", false)) and
+		int(tool_manager.get("CurrentTool")) == TOOL_ROAD and
+		int(tool_manager.GetSelectedRoadType()) == selected_road_type_before and
+		builder.HasActivePlaceSession() and
+		builder.GetFixedCornerCount() == 1 and
+		builder.GetUndoEditCount() == undo_count_before and
+		builder.GetRedoEditCount() == redo_count_before,
+		"Tool commit-boundary mismatch changed active tool or RoadBuilder state: %s" %
+		JSON.stringify(tool_boundary_result)):
 		return
 
 	var node_batch_failure_result: Dictionary = probe.RunNodeBatchFactoryFailure(renderer)
@@ -476,6 +526,15 @@ func run() -> void:
 			renderer_boundary_result.get("resourceCountBefore", -1)),
 		"renderer_boundary_resource_count_after": int(
 			renderer_boundary_result.get("resourceCountAfter", -1)),
+		"tool_boundary_exception_type": str(
+			tool_boundary_result.get("exceptionType", "")),
+		"tool_boundary_count": int(tool_boundary_result.get("boundaryCount", -1)),
+		"tool_boundary_mark_committed_count": int(
+			tool_boundary_result.get("markCommittedCount", -1)),
+		"tool_boundary_tool_admission_reacquired": bool(
+			tool_boundary_result.get("toolAdmissionReacquired", false)),
+		"tool_boundary_builder_admission_reacquired": bool(
+			tool_boundary_result.get("builderAdmissionReacquired", false)),
 		"node_batch_exception_type": str(
 			node_batch_failure_result.get("exceptionType", "")),
 		"node_batch_resource_count_before": int(
