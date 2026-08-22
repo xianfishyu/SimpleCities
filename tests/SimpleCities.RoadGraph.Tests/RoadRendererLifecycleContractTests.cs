@@ -659,6 +659,65 @@ public sealed class RoadRendererLifecycleContractTests
     }
 
     [Fact]
+    public void AggregateRoadSurfaceSnapshotFailureRunsAfterResourcePreflight()
+    {
+        string loadSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.LoadCommit.cs"));
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadLoadPreflightResourceFailureProbe.cs"));
+        string loadPreflight = ExtractMethod(
+            loadSource,
+            "internal INonThrowingLoadCommitPlan PreflightPreparedLoad",
+            "private bool IsLoadAdmissionCurrent");
+        string snapshotProbe = ExtractMethod(
+            probeSource,
+            "partial void ProbeAggregateLoadRoadSurfaceSnapshotFailure(",
+            "internal void ArmNextAggregateLoadRoadSurfaceSnapshotFailure()");
+
+        int roadMeshCreation = loadPreflight.IndexOf(
+            "roadMesh = CreateRoadMesh(",
+            StringComparison.Ordinal);
+        int nodeBatchCreation = loadPreflight.IndexOf(
+            "nodeBatch = CreateNodeBatch(nodeMarkers);",
+            StringComparison.Ordinal);
+        int resourcePreflightFailureProbe = loadPreflight.IndexOf(
+            "ProbeAggregateLoadResourcePreflightFailure();",
+            StringComparison.Ordinal);
+        int roadSurfaceCapture = loadPreflight.IndexOf(
+            "RoadSurfaceSnapshot.PreparedData roadSurface = prepared.RoadSurface;",
+            StringComparison.Ordinal);
+        int snapshotFailureProbe = loadPreflight.IndexOf(
+            "ProbeAggregateLoadRoadSurfaceSnapshotFailure(ref roadSurface);",
+            StringComparison.Ordinal);
+        int snapshotCreation = loadPreflight.IndexOf(
+            "var surfaceSnapshot = new RoadSurfaceSnapshot(",
+            StringComparison.Ordinal);
+        int planCreation = loadPreflight.IndexOf(
+            "return new RoadRendererLoadCommitPlan(",
+            StringComparison.Ordinal);
+
+        Assert.True(roadMeshCreation >= 0 && roadMeshCreation < nodeBatchCreation);
+        Assert.True(nodeBatchCreation < resourcePreflightFailureProbe);
+        Assert.True(resourcePreflightFailureProbe < roadSurfaceCapture);
+        Assert.True(roadSurfaceCapture < snapshotFailureProbe);
+        Assert.True(snapshotFailureProbe < snapshotCreation);
+        Assert.True(snapshotCreation < planCreation);
+        Assert.Contains(
+            "ref RoadSurfaceSnapshot.PreparedData roadSurface",
+            loadSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadRoadSurfaceSnapshotFailureArmed = false;",
+            snapshotProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadRoadSurfaceSnapshotFailureCount++;",
+            snapshotProbe,
+            StringComparison.Ordinal);
+        Assert.Contains("roadSurface = null!;", snapshotProbe, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void OrdinaryRoadMeshFactoryFailureRunsInsideTheOwnedUpdateAttempt()
     {
         string rendererSource = File.ReadAllText(
