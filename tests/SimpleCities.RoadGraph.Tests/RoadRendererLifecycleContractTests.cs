@@ -451,7 +451,10 @@ public sealed class RoadRendererLifecycleContractTests
 
         Assert.Contains("return InitializeOwnedResource(", roadMeshFactory);
         Assert.Contains("new ArrayMesh()", roadMeshFactory);
-        Assert.Contains("static (mesh, surfaceArrays)", roadMeshFactory);
+        Assert.Contains("static (mesh, state)", roadMeshFactory);
+        Assert.Contains(
+            "state.Arrays[(int)Mesh.ArrayType.Index] = state.Indices.ToArray();",
+            roadMeshFactory);
         Assert.Contains("return InitializeOwnedResource(", nodeBatchFactory);
         Assert.Contains("new MultiMesh()", nodeBatchFactory);
         Assert.Contains("static (batch, nodeMarkers)", nodeBatchFactory);
@@ -461,6 +464,76 @@ public sealed class RoadRendererLifecycleContractTests
         Assert.Contains("finally", resourceDisposal);
         Assert.Contains("nodeBatch?.Dispose();", resourceDisposal);
         Assert.Contains("roadMesh?.Dispose();", resourceDisposal);
+    }
+
+    [Fact]
+    public void OrdinaryRoadMeshFactoryFailureRunsInsideTheOwnedUpdateAttempt()
+    {
+        string rendererSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.cs"));
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadRendererUpdateTokenFailureProbe.cs"));
+        string ordinaryBuild = ExtractMethod(
+            rendererSource,
+            "private bool TryRebuildStaticBatches",
+            "private void PublishPresentationStalled");
+        string roadMeshFactory = ExtractMethod(
+            rendererSource,
+            "private static ArrayMesh? CreateRoadMesh",
+            "private static TResource InitializeOwnedResource");
+        string factoryProbe = ExtractMethod(
+            probeSource,
+            "partial void ProbeOrdinaryRoadMeshFactoryFailure(",
+            "partial void ProbeOrdinaryNodeBatchFactoryFailure(");
+
+        int roadIndexCapture = ordinaryBuild.IndexOf(
+            "IReadOnlyCollection<int> roadIndices = prepared.RoadIndices;",
+            StringComparison.Ordinal);
+        int roadMeshFailureProbe = ordinaryBuild.IndexOf(
+            "ProbeOrdinaryRoadMeshFactoryFailure(targetToken, ref roadIndices);",
+            StringComparison.Ordinal);
+        int roadMeshCreation = ordinaryBuild.IndexOf(
+            "roadMesh = CreateRoadMesh(",
+            StringComparison.Ordinal);
+        int nodeMarkerCapture = ordinaryBuild.IndexOf(
+            "IReadOnlyList<RoadRendererNodeMarker> nodeMarkers = prepared.NodeMarkers;",
+            StringComparison.Ordinal);
+        int resourceCreation = roadMeshFactory.IndexOf(
+            "new ArrayMesh()",
+            StringComparison.Ordinal);
+        int indexEnumeration = roadMeshFactory.IndexOf(
+            "state.Indices.ToArray()",
+            StringComparison.Ordinal);
+        int surfaceInitialization = roadMeshFactory.IndexOf(
+            "mesh.AddSurfaceFromArrays(",
+            StringComparison.Ordinal);
+
+        Assert.True(roadIndexCapture >= 0 && roadIndexCapture < roadMeshFailureProbe);
+        Assert.True(roadMeshFailureProbe < roadMeshCreation);
+        Assert.True(roadMeshCreation < nodeMarkerCapture);
+        Assert.True(resourceCreation >= 0 && resourceCreation < indexEnumeration);
+        Assert.True(indexEnumeration < surfaceInitialization);
+        Assert.Contains(
+            "ref IReadOnlyCollection<int> roadIndices",
+            rendererSource,
+            StringComparison.Ordinal);
+        Assert.Contains("targetToken == armedToken", factoryProbe, StringComparison.Ordinal);
+        Assert.Contains(
+            "_ordinaryRoadMeshFactoryFailureArmed = false;",
+            factoryProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "roadIndices = new OrdinaryRoadMeshFactoryFailureIndices(this);",
+            factoryProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_ordinaryRoadMeshFactoryFailureIndexEnumerationCount++;",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "OrdinaryRoadMeshFactoryFailureMessage);",
+            probeSource,
+            StringComparison.Ordinal);
     }
 
     [Fact]

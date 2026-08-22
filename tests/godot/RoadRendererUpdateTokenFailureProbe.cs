@@ -21,6 +21,13 @@ public partial class RoadRendererUpdateTokenFailureProbe : RefCounted
         _renderer = renderer;
     }
 
+    public void ArmRoadMeshFactoryFailure(RoadRenderer renderer)
+    {
+        ArgumentNullException.ThrowIfNull(renderer);
+        renderer.ArmNextOrdinaryRoadMeshFactoryFailure();
+        _renderer = renderer;
+    }
+
     public bool IsArmed() =>
         _renderer?.IsOrdinaryPresentationResourcePreflightFailureArmed() ?? false;
 
@@ -42,6 +49,18 @@ public partial class RoadRendererUpdateTokenFailureProbe : RefCounted
     public string GetNodeBatchFactoryFailureMessage() =>
         RoadRenderer.OrdinaryNodeBatchFactoryFailureMessage;
 
+    public bool IsRoadMeshFactoryFailureArmed() =>
+        _renderer?.IsOrdinaryRoadMeshFactoryFailureArmed() ?? false;
+
+    public int GetRoadMeshFactoryFailureCount() =>
+        _renderer?.GetOrdinaryRoadMeshFactoryFailureCount() ?? 0;
+
+    public int GetRoadMeshFactoryIndexEnumerationCount() =>
+        _renderer?.GetOrdinaryRoadMeshFactoryIndexEnumerationCount() ?? 0;
+
+    public string GetRoadMeshFactoryFailureMessage() =>
+        RoadRenderer.OrdinaryRoadMeshFactoryFailureMessage;
+
     public long GetObjectResourceCount() => Convert.ToInt64(
         Performance.GetMonitor(Performance.Monitor.ObjectResourceCount));
 }
@@ -52,6 +71,8 @@ public partial class RoadRenderer
         "Injected ordinary road presentation resource preflight failure.";
     internal const string OrdinaryNodeBatchFactoryFailureMessage =
         "Injected ordinary CreateNodeBatch marker read failure.";
+    internal const string OrdinaryRoadMeshFactoryFailureMessage =
+        "Injected ordinary CreateRoadMesh index enumeration failure.";
 
     private bool _ordinaryPresentationResourcePreflightFailureArmed;
     private RoadRenderToken? _ordinaryPresentationResourcePreflightFailureArmToken;
@@ -60,6 +81,10 @@ public partial class RoadRenderer
     private RoadRenderToken? _ordinaryNodeBatchFactoryFailureArmToken;
     private int _ordinaryNodeBatchFactoryFailureCount;
     private int _ordinaryNodeBatchFactoryFailureMarkerReadCount;
+    private bool _ordinaryRoadMeshFactoryFailureArmed;
+    private RoadRenderToken? _ordinaryRoadMeshFactoryFailureArmToken;
+    private int _ordinaryRoadMeshFactoryFailureCount;
+    private int _ordinaryRoadMeshFactoryFailureIndexEnumerationCount;
 
     partial void ProbeOrdinaryPresentationResourcePreflightFailure(
         RoadRenderToken targetToken)
@@ -77,6 +102,23 @@ public partial class RoadRenderer
         _ordinaryPresentationResourcePreflightFailureCount++;
         throw new InvalidOperationException(
             OrdinaryPresentationResourcePreflightFailureMessage);
+    }
+
+    partial void ProbeOrdinaryRoadMeshFactoryFailure(
+        RoadRenderToken targetToken,
+        ref IReadOnlyCollection<int> roadIndices)
+    {
+        if (!_ordinaryRoadMeshFactoryFailureArmed ||
+            _ordinaryRoadMeshFactoryFailureArmToken is not RoadRenderToken armedToken ||
+            targetToken == armedToken)
+        {
+            return;
+        }
+
+        _ordinaryRoadMeshFactoryFailureArmed = false;
+        _ordinaryRoadMeshFactoryFailureArmToken = null;
+        _ordinaryRoadMeshFactoryFailureCount++;
+        roadIndices = new OrdinaryRoadMeshFactoryFailureIndices(this);
     }
 
     partial void ProbeOrdinaryNodeBatchFactoryFailure(
@@ -114,6 +156,11 @@ public partial class RoadRenderer
             throw new InvalidOperationException(
                 "Road presentation node-batch factory failure probe is already armed.");
         }
+        if (_ordinaryRoadMeshFactoryFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Road presentation road-mesh factory failure probe is already armed.");
+        }
 
         _ordinaryPresentationResourcePreflightFailureArmed = true;
         _ordinaryPresentationResourcePreflightFailureArmToken = currentToken;
@@ -143,6 +190,11 @@ public partial class RoadRenderer
             throw new InvalidOperationException(
                 "Road presentation resource preflight failure probe is already armed.");
         }
+        if (_ordinaryRoadMeshFactoryFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Road presentation road-mesh factory failure probe is already armed.");
+        }
 
         _ordinaryNodeBatchFactoryFailureArmed = true;
         _ordinaryNodeBatchFactoryFailureArmToken = currentToken;
@@ -156,6 +208,58 @@ public partial class RoadRenderer
 
     internal int GetOrdinaryNodeBatchFactoryMarkerReadCount() =>
         _ordinaryNodeBatchFactoryFailureMarkerReadCount;
+
+    internal void ArmNextOrdinaryRoadMeshFactoryFailure()
+    {
+        if (!IsPresentationReady() ||
+            _presentationTokens.PresentedToken is not RoadRenderToken currentToken)
+        {
+            throw new InvalidOperationException(
+                "Road presentation must be ready before arming its failure probe.");
+        }
+        if (_ordinaryRoadMeshFactoryFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Road presentation road-mesh factory failure probe is already armed.");
+        }
+        if (_ordinaryPresentationResourcePreflightFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Road presentation resource preflight failure probe is already armed.");
+        }
+        if (_ordinaryNodeBatchFactoryFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Road presentation node-batch factory failure probe is already armed.");
+        }
+
+        _ordinaryRoadMeshFactoryFailureArmed = true;
+        _ordinaryRoadMeshFactoryFailureArmToken = currentToken;
+    }
+
+    internal bool IsOrdinaryRoadMeshFactoryFailureArmed() =>
+        _ordinaryRoadMeshFactoryFailureArmed;
+
+    internal int GetOrdinaryRoadMeshFactoryFailureCount() =>
+        _ordinaryRoadMeshFactoryFailureCount;
+
+    internal int GetOrdinaryRoadMeshFactoryIndexEnumerationCount() =>
+        _ordinaryRoadMeshFactoryFailureIndexEnumerationCount;
+
+    private sealed class OrdinaryRoadMeshFactoryFailureIndices(RoadRenderer owner)
+        : IReadOnlyCollection<int>
+    {
+        public int Count => 1;
+
+        public IEnumerator<int> GetEnumerator()
+        {
+            owner._ordinaryRoadMeshFactoryFailureIndexEnumerationCount++;
+            throw new InvalidOperationException(
+                OrdinaryRoadMeshFactoryFailureMessage);
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+    }
 
     private sealed class OrdinaryNodeBatchFactoryFailureMarkers(RoadRenderer owner)
         : IReadOnlyList<RoadRendererNodeMarker>

@@ -35,6 +35,9 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
 
     partial void ProbeOrdinaryPresentationResourcePreflightFailure(
         RoadRenderToken targetToken);
+    partial void ProbeOrdinaryRoadMeshFactoryFailure(
+        RoadRenderToken targetToken,
+        ref IReadOnlyCollection<int> roadIndices);
     partial void ProbeOrdinaryNodeBatchFactoryFailure(
         RoadRenderToken targetToken,
         ref IReadOnlyList<RoadRendererNodeMarker> nodeMarkers);
@@ -501,11 +504,13 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
             TimeSpan prepareDuration = Stopwatch.GetElapsedTime(prepareStarted);
 
             long resourcePreflightStarted = Stopwatch.GetTimestamp();
+            IReadOnlyCollection<int> roadIndices = prepared.RoadIndices;
+            ProbeOrdinaryRoadMeshFactoryFailure(targetToken, ref roadIndices);
             roadMesh = CreateRoadMesh(
                 prepared.RoadVertices,
                 prepared.RoadUvs,
                 prepared.RoadColors,
-                prepared.RoadIndices);
+                roadIndices);
             IReadOnlyList<RoadRendererNodeMarker> nodeMarkers = prepared.NodeMarkers;
             ProbeOrdinaryNodeBatchFactoryFailure(targetToken, ref nodeMarkers);
             nodeBatch = CreateNodeBatch(nodeMarkers);
@@ -1160,12 +1165,14 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
         arrays[(int)Mesh.ArrayType.Vertex] = vertices.ToArray();
         arrays[(int)Mesh.ArrayType.TexUV] = uvs.ToArray();
         arrays[(int)Mesh.ArrayType.Color] = colors.ToArray();
-        arrays[(int)Mesh.ArrayType.Index] = indices.ToArray();
         return InitializeOwnedResource(
             new ArrayMesh(),
-            arrays,
-            static (mesh, surfaceArrays) =>
-                mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, surfaceArrays));
+            (Arrays: arrays, Indices: indices),
+            static (mesh, state) =>
+            {
+                state.Arrays[(int)Mesh.ArrayType.Index] = state.Indices.ToArray();
+                mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, state.Arrays);
+            });
     }
 
     private static TResource InitializeOwnedResource<TResource, TState>(
