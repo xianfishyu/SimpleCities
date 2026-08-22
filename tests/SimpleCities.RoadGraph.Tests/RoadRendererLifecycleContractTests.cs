@@ -471,8 +471,11 @@ public sealed class RoadRendererLifecycleContractTests
         int postOwnershipFailureProbe = loadOrchestration.IndexOf(
             "ProbeAggregateLoadPostOwnershipPreCommitFailure();",
             StringComparison.Ordinal);
+        int rendererBoundaryGenerationProbe = loadOrchestration.IndexOf(
+            "ProbeAggregateLoadRendererCommitBoundaryGenerationMismatch(",
+            StringComparison.Ordinal);
         int aggregateCommit = loadOrchestration.IndexOf(
-            "IReadOnlyList<string> warnings = aggregate.Commit(lease);",
+            "IReadOnlyList<string> warnings = aggregate.Commit(aggregateOperationLease);",
             StringComparison.Ordinal);
         int fallbackPlanDisposal = loadOrchestration.LastIndexOf(
             "foreach (INonThrowingLoadCommitPlan plan in preflightPlans)",
@@ -483,7 +486,8 @@ public sealed class RoadRendererLifecycleContractTests
         Assert.True(postSlotFailureProbe < aggregateCreation);
         Assert.True(aggregateCreation < aggregateOwnership);
         Assert.True(aggregateOwnership < postOwnershipFailureProbe);
-        Assert.True(postOwnershipFailureProbe < aggregateCommit);
+        Assert.True(postOwnershipFailureProbe < rendererBoundaryGenerationProbe);
+        Assert.True(rendererBoundaryGenerationProbe < aggregateCommit);
         Assert.True(aggregateCommit < fallbackPlanDisposal);
         Assert.Contains("plan.Dispose();", loadOrchestration[fallbackPlanDisposal..]);
     }
@@ -1385,6 +1389,73 @@ public sealed class RoadRendererLifecycleContractTests
         Assert.Contains("slotPlan.CommitCount", probe, StringComparison.Ordinal);
         Assert.Contains("retainedDesiredToken == _presentationTokens.DesiredToken", probe);
         Assert.Contains("retainedPresentedToken == _presentationTokens.PresentedToken", probe);
+    }
+
+    [Fact]
+    public void RealStartLoadRendererCommitBoundaryProbeInvalidatesInsideTheStorageBoundary()
+    {
+        string saveManagerSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Core", "SaveManager.cs"));
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadLoadPreflightResourceFailureProbe.cs"));
+        string loadOrchestration = ExtractMethod(
+            saveManagerSource,
+            "private async Task<SaveOperationResult> RunLoadAsync",
+            "private async Task<SaveOperationResult> RunDeleteAsync");
+        string failureProbe = ExtractMethod(
+            probeSource,
+            "partial void ProbeAggregateLoadRendererCommitBoundaryGenerationMismatch(",
+            "internal void ArmNextAggregateLoadRendererCommitBoundaryGenerationMismatch(");
+        string invalidatingLease = ExtractMethod(
+            probeSource,
+            "private sealed class AggregateLoadRendererBoundaryInvalidatingLease(",
+            "public partial class ToolManager");
+        string rendererInvalidation = ExtractMethod(
+            probeSource,
+            "internal void InvalidateCurrentLoadAdmissionForAggregateBoundaryProbe()",
+            "partial void ProbeAggregateLoadRoadMeshFactoryFailure(");
+
+        int ownershipTransfer = loadOrchestration.IndexOf(
+            "aggregateOwnsPlans = true;",
+            StringComparison.Ordinal);
+        int operationLeaseCapture = loadOrchestration.IndexOf(
+            "IStorageOperationLease aggregateOperationLease = lease;",
+            StringComparison.Ordinal);
+        int boundaryProbe = loadOrchestration.IndexOf(
+            "ProbeAggregateLoadRendererCommitBoundaryGenerationMismatch(",
+            StringComparison.Ordinal);
+        int aggregateCommit = loadOrchestration.IndexOf(
+            "aggregate.Commit(aggregateOperationLease)",
+            StringComparison.Ordinal);
+        int wrapperCreation = failureProbe.IndexOf(
+            "new AggregateLoadRendererBoundaryInvalidatingLease(",
+            StringComparison.Ordinal);
+        int boundaryEntry = invalidatingLease.IndexOf(
+            "inner.CrossCommitBoundary(() =>",
+            StringComparison.Ordinal);
+        int admissionInvalidation = invalidatingLease.IndexOf(
+            "renderer.InvalidateCurrentLoadAdmissionForAggregateBoundaryProbe();",
+            StringComparison.Ordinal);
+        int aggregateBoundaryAction = invalidatingLease.IndexOf(
+            "boundaryAction();",
+            StringComparison.Ordinal);
+
+        Assert.True(ownershipTransfer >= 0 && ownershipTransfer < operationLeaseCapture);
+        Assert.True(operationLeaseCapture < boundaryProbe && boundaryProbe < aggregateCommit);
+        Assert.True(wrapperCreation >= 0);
+        Assert.Contains("operationLease = wrapper;", failureProbe, StringComparison.Ordinal);
+        Assert.True(boundaryEntry >= 0 && boundaryEntry < admissionInvalidation);
+        Assert.True(admissionInvalidation < aggregateBoundaryAction);
+        Assert.Contains("public string OperationToken => inner.OperationToken;", invalidatingLease);
+        Assert.Contains("public SaveOperationKind Kind => inner.Kind;", invalidatingLease);
+        Assert.Contains("inner.AcquireCommitLease();", invalidatingLease);
+        Assert.Contains("inner.MarkCommitted();", invalidatingLease);
+        Assert.Contains("RoadRendererLoadAdmission admission = _loadAdmission ??", rendererInvalidation);
+        Assert.Contains("admission.Dispose();", rendererInvalidation);
+        Assert.Contains(
+            "partial void ProbeAggregateLoadRendererCommitBoundaryGenerationMismatch(",
+            saveManagerSource,
+            StringComparison.Ordinal);
     }
 
     [Fact]

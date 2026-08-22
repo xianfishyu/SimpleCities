@@ -13,6 +13,9 @@ public partial class SaveManager : Node
     partial void ProbeAggregateLoadPostRendererPreflightFailure();
     partial void ProbeAggregateLoadPostSlotPreflightFailure();
     partial void ProbeAggregateLoadPostOwnershipPreCommitFailure();
+    partial void ProbeAggregateLoadRendererCommitBoundaryGenerationMismatch(
+        RoadRenderer renderer,
+        ref IStorageOperationLease operationLease);
     partial void ProbeSlotTargetLoadCompleteCommitFailure();
 
     public static SaveManager Instance { get; private set; } = null!;
@@ -708,7 +711,11 @@ public partial class SaveManager : Node
                 ProbeAggregateLoadPostOwnershipPreCommitFailure();
                 TimeSpan preflightDuration = Stopwatch.GetElapsedTime(preflightStarted);
                 long aggregateCommitStarted = Stopwatch.GetTimestamp();
-                IReadOnlyList<string> warnings = aggregate.Commit(lease);
+                IStorageOperationLease aggregateOperationLease = lease;
+                ProbeAggregateLoadRendererCommitBoundaryGenerationMismatch(
+                    context.Renderer,
+                    ref aggregateOperationLease);
+                IReadOnlyList<string> warnings = aggregate.Commit(aggregateOperationLease);
                 TimeSpan aggregateCommitDuration = Stopwatch.GetElapsedTime(aggregateCommitStarted);
                 TimeSpan referenceCommitDuration = aggregate.ReferenceCommitDuration
                     ?? throw new InvalidOperationException(

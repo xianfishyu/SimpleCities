@@ -773,6 +773,72 @@ func run() -> void:
 		"Post-ownership aggregate failure changed RoadGraph"):
 		return
 
+	var renderer_boundary_operation_resource_count_before := int(probe.GetObjectResourceCount())
+	var renderer_boundary_operation_failure_message := str(
+		probe.GetAggregateLoadRendererCommitBoundaryGenerationMismatchMessage())
+	probe.ArmAggregateLoadRendererCommitBoundaryGenerationMismatch(save_manager, renderer)
+	if not require(
+		bool(probe.IsAggregateLoadRendererCommitBoundaryGenerationMismatchArmed()),
+		"Real StartLoad renderer commit-boundary generation mismatch probe did not arm"):
+		return
+	var renderer_boundary_operation_failed_load_result := await run_load(active_slot_id)
+	if not require(
+		int(renderer_boundary_operation_failed_load_result.get("resultKind", -1)) ==
+			RESULT_FAILED and
+		not bool(renderer_boundary_operation_failed_load_result.get("committed", true)) and
+		str(renderer_boundary_operation_failed_load_result.get("warnings", "")).is_empty() and
+		str(renderer_boundary_operation_failed_load_result.get("error", "")) ==
+			renderer_boundary_operation_failure_message,
+		"Real StartLoad did not reject the stale renderer inside the commit boundary: %s" %
+		JSON.stringify(renderer_boundary_operation_failed_load_result)):
+		return
+	var renderer_boundary_operation_resource_count_after := int(probe.GetObjectResourceCount())
+	if not require(
+		not bool(probe.IsAggregateLoadRendererCommitBoundaryGenerationMismatchArmed()) and
+		int(probe.GetAggregateLoadRendererCommitBoundaryGenerationMismatchCount()) == 1 and
+		int(probe.GetAggregateLoadRendererCommitBoundaryCount()) == 1 and
+		int(probe.GetAggregateLoadRendererMarkCommittedCount()) == 0 and
+		renderer_boundary_operation_resource_count_after ==
+			renderer_boundary_operation_resource_count_before,
+		"Real StartLoad renderer boundary rejection did not release owned resources exactly once: %s" %
+		JSON.stringify({
+			"armed": bool(
+				probe.IsAggregateLoadRendererCommitBoundaryGenerationMismatchArmed()),
+			"triggerCount": int(
+				probe.GetAggregateLoadRendererCommitBoundaryGenerationMismatchCount()),
+			"boundaryCount": int(probe.GetAggregateLoadRendererCommitBoundaryCount()),
+			"markCommittedCount": int(
+				probe.GetAggregateLoadRendererMarkCommittedCount()),
+			"resourceCountBefore": renderer_boundary_operation_resource_count_before,
+			"resourceCountAfter": renderer_boundary_operation_resource_count_after,
+		})):
+		return
+	if not require(
+		str(save_manager.get("CurrentSlotID")) == active_slot_id and
+		int(tool_manager.get("CurrentTool")) == TOOL_ROAD and
+		builder.HasActivePlaceSession() and
+		builder.GetFixedCornerCount() == 1 and
+		builder.GetUndoEditCount() == undo_count_before and
+		builder.GetRedoEditCount() == redo_count_before and
+		renderer.GetRenderedEdgeCount() == edge_count_before and
+		renderer.GetRoadMeshVertexCount() == vertex_count_before and
+		renderer.GetNodeMarkerCount() == marker_count_before and
+		renderer.GetPresentationState() == presentation_before and
+		renderer.FindRoadSurfaceHit(Vector2(400.0, 300.0), 0.0) == hit_before,
+		"Real StartLoad renderer boundary rejection changed graph, tool, presentation, surface, token, or slot state"):
+		return
+
+	if not require(
+		await V3_SAVE_FIXTURE.save(save_manager, active_slot_id),
+		"Could not recapture the active graph after renderer boundary rejection"):
+		return
+	var renderer_boundary_operation_payload_after := FileAccess.get_file_as_string(
+		V3_SAVE_FIXTURE.slot_path(active_slot_id, V3_SAVE_FIXTURE.PAYLOAD_FILE_NAME))
+	if not require(
+		renderer_boundary_operation_payload_after == active_payload_before,
+		"Real StartLoad renderer boundary rejection changed RoadGraph"):
+		return
+
 	var load_result := await run_load(source_slot_id)
 	if not require(
 		int(load_result.get("resultKind", -1)) == RESULT_SUCCEEDED and
@@ -926,6 +992,20 @@ func run() -> void:
 			probe.GetAggregateLoadPostOwnershipPreCommitFailureCount()),
 		"post_ownership_resource_count_before": post_ownership_resource_count_before,
 		"post_ownership_resource_count_after": post_ownership_resource_count_after,
+		"renderer_boundary_operation_failure_result_kind": int(
+			renderer_boundary_operation_failed_load_result.get("resultKind", -1)),
+		"renderer_boundary_operation_failure_committed": bool(
+			renderer_boundary_operation_failed_load_result.get("committed", true)),
+		"renderer_boundary_operation_failure_trigger_count": int(
+			probe.GetAggregateLoadRendererCommitBoundaryGenerationMismatchCount()),
+		"renderer_boundary_operation_count": int(
+			probe.GetAggregateLoadRendererCommitBoundaryCount()),
+		"renderer_boundary_operation_mark_committed_count": int(
+			probe.GetAggregateLoadRendererMarkCommittedCount()),
+		"renderer_boundary_operation_resource_count_before":
+			renderer_boundary_operation_resource_count_before,
+		"renderer_boundary_operation_resource_count_after":
+			renderer_boundary_operation_resource_count_after,
 		"load_result_kind": int(load_result.get("resultKind", -1)),
 	}))
 	await cleanup()
