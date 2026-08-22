@@ -33,6 +33,9 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
     internal event Action<RoadRenderToken>? PresentationReady;
     internal event Action<RoadPresentationFailure>? PresentationStalled;
 
+    partial void ProbeOrdinaryPresentationResourcePreflightFailure(
+        RoadRenderToken targetToken);
+
     // 施工预览
     private Vector2[] _previewPoints = [];
     public Vector2[] PreviewPoints
@@ -501,6 +504,7 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
                 prepared.RoadColors,
                 prepared.RoadIndices);
             nodeBatch = CreateNodeBatch(prepared.NodeMarkers);
+            ProbeOrdinaryPresentationResourcePreflightFailure(targetToken);
             var surfaceSnapshot = new RoadSurfaceSnapshot(
                 targetToken,
                 prepared.RoadSurface);

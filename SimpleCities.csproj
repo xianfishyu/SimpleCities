@@ -17,5 +17,6 @@
     <Compile Include="tests/godot/RoadFullResetPerformanceProbe.cs" />
     <Compile Include="tests/godot/RoadLoadObserverFailureProbe.cs" />
     <Compile Include="tests/godot/RoadLoadPreflightResourceFailureProbe.cs" />
+    <Compile Include="tests/godot/RoadRendererUpdateTokenFailureProbe.cs" />
   </ItemGroup>
 </Project>

@@ -338,6 +338,24 @@ public sealed class RoadRendererLifecycleContractTests
             "DisposePreparedPresentationResources(roadMesh, nodeBatch);",
             ordinaryBuild);
 
+        int ordinaryRoadMeshCreation = ordinaryBuild.IndexOf(
+            "roadMesh = CreateRoadMesh(",
+            StringComparison.Ordinal);
+        int ordinaryNodeBatchCreation = ordinaryBuild.IndexOf(
+            "nodeBatch = CreateNodeBatch(",
+            StringComparison.Ordinal);
+        int ordinaryFailureProbe = ordinaryBuild.IndexOf(
+            "ProbeOrdinaryPresentationResourcePreflightFailure(targetToken);",
+            StringComparison.Ordinal);
+        int ordinarySurfaceCreation = ordinaryBuild.IndexOf(
+            "var surfaceSnapshot = new RoadSurfaceSnapshot(",
+            StringComparison.Ordinal);
+        Assert.True(
+            ordinaryRoadMeshCreation >= 0 &&
+            ordinaryRoadMeshCreation < ordinaryNodeBatchCreation &&
+            ordinaryNodeBatchCreation < ordinaryFailureProbe &&
+            ordinaryFailureProbe < ordinarySurfaceCreation);
+
         Assert.Contains("ArrayMesh? roadMesh = null;", loadPreflight);
         Assert.Contains("MultiMesh? nodeBatch = null;", loadPreflight);
         Assert.Contains("catch", loadPreflight);
