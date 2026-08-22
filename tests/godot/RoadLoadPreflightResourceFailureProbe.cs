@@ -421,6 +421,40 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
     public string GetAggregateLoadPostSceneRequestValidationFailureMessage() =>
         SaveManager.AggregateLoadPostSceneRequestValidationFailureMessage;
 
+    public void ArmAggregateLoadPostCancellationCheckFailure(SaveManager saveManager)
+    {
+        ArgumentNullException.ThrowIfNull(saveManager);
+        saveManager.ArmNextAggregateLoadPostCancellationCheckFailure();
+        _saveManager = saveManager;
+    }
+
+    public bool IsAggregateLoadPostCancellationCheckFailureArmed() =>
+        _saveManager?.IsAggregateLoadPostCancellationCheckFailureArmed() ?? false;
+
+    public int GetAggregateLoadPostCancellationCheckFailureCount() =>
+        _saveManager?.GetAggregateLoadPostCancellationCheckFailureCount() ?? 0;
+
+    public bool DidAggregateLoadPostCancellationCheckFailureRunOnMainThread() =>
+        _saveManager?.DidAggregateLoadPostCancellationCheckFailureRunOnMainThread() ?? false;
+
+    public string GetAggregateLoadPostCancellationCheckObservedSlotID() =>
+        _saveManager?.GetAggregateLoadPostCancellationCheckObservedSlotID() ?? string.Empty;
+
+    public int GetAggregateLoadPostCancellationCheckParticipantCount() =>
+        _saveManager?.GetAggregateLoadPostCancellationCheckParticipantCount() ?? -1;
+
+    public int GetAggregateLoadPostCancellationCheckRoadVertexCount() =>
+        _saveManager?.GetAggregateLoadPostCancellationCheckRoadVertexCount() ?? -1;
+
+    public int GetAggregateLoadPostCancellationCheckSurfacePrimitiveCount() =>
+        _saveManager?.GetAggregateLoadPostCancellationCheckSurfacePrimitiveCount() ?? -1;
+
+    public int GetAggregateLoadPostCancellationCheckNodeMarkerCount() =>
+        _saveManager?.GetAggregateLoadPostCancellationCheckNodeMarkerCount() ?? -1;
+
+    public string GetAggregateLoadPostCancellationCheckFailureMessage() =>
+        SaveManager.AggregateLoadPostCancellationCheckFailureMessage;
+
     public void ArmAggregateLoadPostRendererPreflightFailure(SaveManager saveManager)
     {
         ArgumentNullException.ThrowIfNull(saveManager);
@@ -591,6 +625,8 @@ public partial class SaveManager
         "Injected aggregate Load failure after the preparation worker returned.";
     internal const string AggregateLoadPostSceneRequestValidationFailureMessage =
         "Injected aggregate Load failure after scene request validation.";
+    internal const string AggregateLoadPostCancellationCheckFailureMessage =
+        "Injected aggregate Load failure after cancellation check.";
     internal const string AggregateLoadPostRendererPreflightFailureMessage =
         "Injected aggregate Load failure after road presentation preflight.";
     internal const string AggregateLoadPostSlotPreflightFailureMessage =
@@ -650,6 +686,14 @@ public partial class SaveManager
     private int _aggregateLoadPostSceneRequestValidationRoadVertexCount = -1;
     private int _aggregateLoadPostSceneRequestValidationSurfacePrimitiveCount = -1;
     private int _aggregateLoadPostSceneRequestValidationNodeMarkerCount = -1;
+    private bool _aggregateLoadPostCancellationCheckFailureArmed;
+    private int _aggregateLoadPostCancellationCheckFailureCount;
+    private bool _aggregateLoadPostCancellationCheckFailureRanOnMainThread;
+    private string _aggregateLoadPostCancellationCheckObservedSlotID = string.Empty;
+    private int _aggregateLoadPostCancellationCheckParticipantCount = -1;
+    private int _aggregateLoadPostCancellationCheckRoadVertexCount = -1;
+    private int _aggregateLoadPostCancellationCheckSurfacePrimitiveCount = -1;
+    private int _aggregateLoadPostCancellationCheckNodeMarkerCount = -1;
     private bool _aggregateLoadPostRendererPreflightFailureArmed;
     private int _aggregateLoadPostRendererPreflightFailureCount;
     private bool _aggregateLoadPostSlotPreflightFailureArmed;
@@ -1148,6 +1192,76 @@ public partial class SaveManager
 
     internal int GetAggregateLoadPostSceneRequestValidationNodeMarkerCount() =>
         _aggregateLoadPostSceneRequestValidationNodeMarkerCount;
+
+    partial void ProbeAggregateLoadPostCancellationCheckFailure(
+        PreparedLoadWork prepared)
+    {
+        if (!_aggregateLoadPostCancellationCheckFailureArmed)
+            return;
+
+        ArgumentNullException.ThrowIfNull(prepared);
+        _aggregateLoadPostCancellationCheckFailureArmed = false;
+        _aggregateLoadPostCancellationCheckFailureCount++;
+        _aggregateLoadPostCancellationCheckFailureRanOnMainThread =
+            _mainThreadID != 0 && System.Environment.CurrentManagedThreadId == _mainThreadID;
+        _aggregateLoadPostCancellationCheckObservedSlotID = prepared.Slot.SlotID;
+        _aggregateLoadPostCancellationCheckParticipantCount =
+            prepared.Slot.Participants.Count;
+        _aggregateLoadPostCancellationCheckRoadVertexCount =
+            prepared.Presentation.RoadVertices.Length;
+        _aggregateLoadPostCancellationCheckSurfacePrimitiveCount =
+            prepared.Presentation.RoadSurface.PrimitiveCount;
+        _aggregateLoadPostCancellationCheckNodeMarkerCount =
+            prepared.Presentation.NodeMarkers.Length;
+        throw new InvalidOperationException(
+            AggregateLoadPostCancellationCheckFailureMessage);
+    }
+
+    internal void ArmNextAggregateLoadPostCancellationCheckFailure()
+    {
+        if (IsOperationBusy)
+        {
+            throw new InvalidOperationException(
+                "SaveManager must be idle before arming its aggregate Load failure probe.");
+        }
+        if (_aggregateLoadPostCancellationCheckFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load post-cancellation-check failure probe is already armed.");
+        }
+
+        _aggregateLoadPostCancellationCheckFailureRanOnMainThread = false;
+        _aggregateLoadPostCancellationCheckObservedSlotID = string.Empty;
+        _aggregateLoadPostCancellationCheckParticipantCount = -1;
+        _aggregateLoadPostCancellationCheckRoadVertexCount = -1;
+        _aggregateLoadPostCancellationCheckSurfacePrimitiveCount = -1;
+        _aggregateLoadPostCancellationCheckNodeMarkerCount = -1;
+        _aggregateLoadPostCancellationCheckFailureArmed = true;
+    }
+
+    internal bool IsAggregateLoadPostCancellationCheckFailureArmed() =>
+        _aggregateLoadPostCancellationCheckFailureArmed;
+
+    internal int GetAggregateLoadPostCancellationCheckFailureCount() =>
+        _aggregateLoadPostCancellationCheckFailureCount;
+
+    internal bool DidAggregateLoadPostCancellationCheckFailureRunOnMainThread() =>
+        _aggregateLoadPostCancellationCheckFailureRanOnMainThread;
+
+    internal string GetAggregateLoadPostCancellationCheckObservedSlotID() =>
+        _aggregateLoadPostCancellationCheckObservedSlotID;
+
+    internal int GetAggregateLoadPostCancellationCheckParticipantCount() =>
+        _aggregateLoadPostCancellationCheckParticipantCount;
+
+    internal int GetAggregateLoadPostCancellationCheckRoadVertexCount() =>
+        _aggregateLoadPostCancellationCheckRoadVertexCount;
+
+    internal int GetAggregateLoadPostCancellationCheckSurfacePrimitiveCount() =>
+        _aggregateLoadPostCancellationCheckSurfacePrimitiveCount;
+
+    internal int GetAggregateLoadPostCancellationCheckNodeMarkerCount() =>
+        _aggregateLoadPostCancellationCheckNodeMarkerCount;
 
     partial void ProbeAggregateLoadPostRendererPreflightFailure()
     {

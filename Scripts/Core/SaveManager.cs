@@ -25,6 +25,8 @@ public partial class SaveManager : Node
         PreparedLoadWork prepared);
     partial void ProbeAggregateLoadPostSceneRequestValidationFailure(
         PreparedLoadWork prepared);
+    partial void ProbeAggregateLoadPostCancellationCheckFailure(
+        PreparedLoadWork prepared);
     partial void ProbeAggregateLoadPostRendererPreflightFailure();
     partial void ProbeAggregateLoadPostSlotPreflightFailure();
     partial void ProbeAggregateLoadPostOwnershipPreCommitFailure();
@@ -717,6 +719,7 @@ public partial class SaveManager : Node
                 EnsureSceneRequestCurrent(sceneRequest);
                 ProbeAggregateLoadPostSceneRequestValidationFailure(prepared);
                 lease.ThrowIfCancellationRequested();
+                ProbeAggregateLoadPostCancellationCheckFailure(prepared);
                 lease.AdvanceTo(SaveOperationPhase.Preflight);
                 long preflightStarted = Stopwatch.GetTimestamp();
                 INonThrowingLoadCommitPlan graphPlan = context.Graph.PreflightPreparedLoad(
