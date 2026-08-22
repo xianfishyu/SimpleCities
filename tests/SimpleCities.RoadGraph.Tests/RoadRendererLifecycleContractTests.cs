@@ -744,6 +744,54 @@ public sealed class RoadRendererLifecycleContractTests
     }
 
     [Fact]
+    public void OrdinaryPreCommitGraphFacadeIDSupersessionUsesRealRendererRebind()
+    {
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadRendererUpdateTokenFailureProbe.cs"));
+        string supersessionProbe = ExtractMethod(
+            probeSource,
+            "partial void ProbeOrdinaryPreCommitTokenSupersession(",
+            "internal void ArmNextOrdinaryPresentationResourcePreflightFailure()");
+        string graphFacadeIDArm = ExtractMethod(
+            probeSource,
+            "internal void ArmNextOrdinaryPreCommitGraphFacadeIDSupersession()",
+            "internal void ArmNextOrdinaryPreCommitGraphFacadeGenerationSupersession()");
+        string graphFacadeIDRequest = ExtractMethod(
+            probeSource,
+            "private RoadRenderToken RequestOrdinaryPreCommitGraphFacadeIDSupersession(",
+            "private RoadRenderToken RequestOrdinaryPreCommitGraphFacadeGenerationSupersession(");
+
+        Assert.Contains(
+            "OrdinaryPreCommitSupersessionKind.GraphFacadeID",
+            graphFacadeIDArm,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "RequestOrdinaryPreCommitGraphFacadeIDSupersession(targetToken)",
+            supersessionProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "graph.CaptureSnapshot() is not IPreparedSaveState preparedState",
+            graphFacadeIDRequest,
+            StringComparison.Ordinal);
+        Assert.Contains("var replacementGraph = new RoadGraph();", graphFacadeIDRequest, StringComparison.Ordinal);
+        Assert.Contains(
+            "replacementGraph.CurrentStateToken.ChangeSequence < targetToken.ChangeSequence",
+            graphFacadeIDRequest,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "replacementGraph.CommitPreparedLoad(preparedState);",
+            graphFacadeIDRequest,
+            StringComparison.Ordinal);
+        Assert.Contains("SetGraph(replacementGraph);", graphFacadeIDRequest, StringComparison.Ordinal);
+        Assert.Contains(
+            "_presentationTokens.PresentedToken != replacementToken",
+            graphFacadeIDRequest,
+            StringComparison.Ordinal);
+        Assert.Contains("!IsPresentationReady()", graphFacadeIDRequest, StringComparison.Ordinal);
+        Assert.DoesNotContain("_presentationTokens.BindGraph(", graphFacadeIDRequest, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void OrdinaryPreCommitGraphFacadeGenerationSupersessionUsesCurrentFullResetRequest()
     {
         string probeSource = File.ReadAllText(

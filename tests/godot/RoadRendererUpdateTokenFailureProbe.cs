@@ -56,6 +56,13 @@ public partial class RoadRendererUpdateTokenFailureProbe : RefCounted
         _renderer = renderer;
     }
 
+    public void ArmPreCommitGraphFacadeIDSupersession(RoadRenderer renderer)
+    {
+        ArgumentNullException.ThrowIfNull(renderer);
+        renderer.ArmNextOrdinaryPreCommitGraphFacadeIDSupersession();
+        _renderer = renderer;
+    }
+
     public void ArmPreCommitGraphFacadeGenerationSupersession(RoadRenderer renderer)
     {
         ArgumentNullException.ThrowIfNull(renderer);
@@ -146,6 +153,7 @@ public partial class RoadRenderer
         RenderRequest,
         RoadStyleRevision,
         SceneGeneration,
+        GraphFacadeID,
         GraphFacadeGeneration,
         ChangeSequence,
     }
@@ -275,6 +283,8 @@ public partial class RoadRenderer
                 _presentationTokens.RequestStyleRefresh(targetToken.ChangeSequence),
             OrdinaryPreCommitSupersessionKind.SceneGeneration =>
                 RequestOrdinaryPreCommitSceneGenerationSupersession(targetToken),
+            OrdinaryPreCommitSupersessionKind.GraphFacadeID =>
+                RequestOrdinaryPreCommitGraphFacadeIDSupersession(targetToken),
             OrdinaryPreCommitSupersessionKind.GraphFacadeGeneration =>
                 RequestOrdinaryPreCommitGraphFacadeGenerationSupersession(targetToken),
             OrdinaryPreCommitSupersessionKind.ChangeSequence =>
@@ -294,6 +304,44 @@ public partial class RoadRenderer
         {
             throw new InvalidOperationException(
                 "Road presentation scene generation did not advance.");
+        }
+
+        return replacementToken;
+    }
+
+    private RoadRenderToken RequestOrdinaryPreCommitGraphFacadeIDSupersession(
+        RoadRenderToken targetToken)
+    {
+        if (_network is not RoadGraph graph ||
+            graph.FacadeID != targetToken.GraphFacadeID ||
+            graph.CurrentStateToken.ChangeSequence != targetToken.ChangeSequence ||
+            graph.CaptureSnapshot() is not IPreparedSaveState preparedState)
+        {
+            throw new InvalidOperationException(
+                "Road presentation graph facade is not current for a facade replacement.");
+        }
+
+        var replacementGraph = new RoadGraph();
+        while (replacementGraph.CurrentStateToken.ChangeSequence < targetToken.ChangeSequence)
+            replacementGraph.CommitPreparedLoad(preparedState);
+
+        if (replacementGraph.FacadeID == targetToken.GraphFacadeID ||
+            replacementGraph.CurrentStateToken.ChangeSequence != targetToken.ChangeSequence)
+        {
+            throw new InvalidOperationException(
+                "Road presentation replacement facade did not match the target sequence.");
+        }
+
+        SetGraph(replacementGraph);
+        if (!ReferenceEquals(_network, replacementGraph) ||
+            _presentationTokens.DesiredToken is not RoadRenderToken replacementToken ||
+            replacementToken.GraphFacadeID != replacementGraph.FacadeID ||
+            replacementToken.ChangeSequence != targetToken.ChangeSequence ||
+            _presentationTokens.PresentedToken != replacementToken ||
+            !IsPresentationReady())
+        {
+            throw new InvalidOperationException(
+                "Road presentation replacement facade did not publish synchronously.");
         }
 
         return replacementToken;
@@ -546,6 +594,10 @@ public partial class RoadRenderer
     internal void ArmNextOrdinaryPreCommitSceneGenerationSupersession() =>
         ArmNextOrdinaryPreCommitTokenSupersession(
             OrdinaryPreCommitSupersessionKind.SceneGeneration);
+
+    internal void ArmNextOrdinaryPreCommitGraphFacadeIDSupersession() =>
+        ArmNextOrdinaryPreCommitTokenSupersession(
+            OrdinaryPreCommitSupersessionKind.GraphFacadeID);
 
     internal void ArmNextOrdinaryPreCommitGraphFacadeGenerationSupersession() =>
         ArmNextOrdinaryPreCommitTokenSupersession(

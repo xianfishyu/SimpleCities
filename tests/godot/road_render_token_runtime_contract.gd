@@ -262,6 +262,13 @@ func run() -> void:
 			precommit_graph_generation_recovered)
 	if precommit_change_sequence_recovered.is_empty():
 		return
+	var precommit_graph_facade_id_recovered: Dictionary = \
+		await require_update_token_precommit_graph_facade_id_supersession(
+			renderer,
+			builder,
+			precommit_change_sequence_recovered)
+	if precommit_graph_facade_id_recovered.is_empty():
+		return
 
 	if not require(
 		await V3_SAVE_FIXTURE.delete_slot(save_manager, slot_id),
@@ -1534,6 +1541,115 @@ func require_update_token_precommit_change_sequence_supersession(
 	print(
 		(
 			"UPDATE_TOKEN_PRECOMMIT_CHANGE_SEQUENCE_SUPERSESSION_RESULT " +
+			"resource_before=%d resource_after=%d trigger_count=%d " +
+			"superseded_attempt=1 replacement_attempt=1"
+		) % [
+			resource_count_before,
+			int(probe.GetObjectResourceCount()),
+			int(probe.GetPreCommitTokenSupersessionCount()) - trigger_count_before,
+		])
+	return recovered
+
+func require_update_token_precommit_graph_facade_id_supersession(
+	renderer: Node,
+	builder: Node,
+	before: Dictionary
+) -> Dictionary:
+	var probe_script: Script = load(UPDATE_TOKEN_FAILURE_PROBE_PATH)
+	if not require(
+		probe_script != null,
+		"Debug pre-commit graph-facade-ID probe did not load"):
+		return {}
+	var probe: RefCounted = probe_script.new()
+	if not require(
+		probe != null,
+		"Debug pre-commit graph-facade-ID probe did not instantiate"):
+		return {}
+
+	var retained_edge_count: int = renderer.GetRenderedEdgeCount()
+	var retained_vertex_count: int = renderer.GetRoadMeshVertexCount()
+	var retained_marker_count: int = renderer.GetNodeMarkerCount()
+	var retained_state: Dictionary = renderer.GetPresentationState()
+	var retained_primitive_count := int(retained_state.get("surfacePrimitiveCount", 0))
+	var resource_count_before := int(probe.GetObjectResourceCount())
+	probe.ArmPreCommitGraphFacadeIDSupersession(renderer)
+	var trigger_count_before := int(probe.GetPreCommitTokenSupersessionCount())
+	if not require(
+		bool(probe.IsPreCommitTokenSupersessionArmed()),
+		"Update-token pre-commit graph-facade-ID supersession probe did not arm"):
+		return {}
+
+	if not require(
+		builder.BeginPlace(Vector2(0.0, 1500.0)),
+		"Pre-commit graph-facade-ID supersession target mutation did not begin"):
+		return {}
+	builder.UpdatePlace(Vector2(100.0, 1500.0))
+	if not require(
+		builder.CommitPlace(Vector2(100.0, 1500.0)),
+		"Pre-commit graph-facade-ID supersession target mutation did not commit"):
+		return {}
+	await process_frame
+	await process_frame
+
+	var ready: Dictionary = renderer.GetPresentationState()
+	var superseded: Dictionary = probe.GetPreCommitSupersededToken()
+	var replacement: Dictionary = probe.GetPreCommitReplacementToken()
+	var recovered := presentation_token(renderer, "Pre-commit graph-facade-ID replacement")
+	if recovered.is_empty():
+		return {}
+	if not require_ordinary_change(before, superseded):
+		return {}
+	if not require(
+		require_same(superseded, replacement, [
+			"sceneGeneration",
+			"changeSequence",
+			"roadStyleRevision",
+		], "Pre-commit graph-facade-ID supersession") and
+		int(replacement.graphFacadeID) > 0 and
+		int(replacement.graphFacadeID) != int(superseded.graphFacadeID) and
+		int(replacement.graphFacadeGeneration) ==
+			int(superseded.graphFacadeGeneration) + 1 and
+		int(replacement.renderRequestID) == int(superseded.renderRequestID) + 1,
+		"Pre-commit graph-facade-ID supersession did not replace only the facade identities and request"):
+		return {}
+	if not require(
+		ready.get("phase", "") == "ready" and
+		bool(ready.get("isReady", false)) and
+		not bool(ready.get("isStalled", true)) and
+		ready.get("desired", {}) == replacement and
+		ready.get("presented", {}) == replacement and
+		ready.get("stalledToken", {}).is_empty() and
+		str(ready.get("failureType", "")).is_empty() and
+		str(ready.get("failureMessage", "")).is_empty() and
+		int(ready.get("attemptCount", 0)) == 1 and
+		int(probe.GetPreCommitTokenSupersessionCount()) == trigger_count_before + 1 and
+		int(probe.GetPreCommitSupersededAttemptNumber()) == 1 and
+		not bool(probe.IsPreCommitTokenSupersessionArmed()),
+		"Pre-commit graph-facade-ID replacement did not synchronously publish inside the target attempt"):
+		return {}
+	if not require(
+		int(probe.GetObjectResourceCount()) == resource_count_before and
+		int(ready.get("surfacePrimitiveCount", 0)) > retained_primitive_count and
+		renderer.GetRenderedEdgeCount() == retained_edge_count + 1 and
+		renderer.GetRoadMeshVertexCount() > retained_vertex_count and
+		renderer.GetNodeMarkerCount() > retained_marker_count,
+		"Pre-commit graph-facade-ID replacement leaked resources or failed to replace the presentation"):
+		return {}
+	if not require_surface_hit(
+		renderer,
+		Vector2(50.0, 1500.0),
+		recovered,
+		"Pre-commit graph-facade-ID target mutation"):
+		return {}
+	if not require(
+		not builder.BeginPlace(Vector2(0.0, 1600.0)) and
+		not builder.HasActivePlaceSession() and
+		renderer.GetPreviewPointCount() == 0,
+		"Builder bound to the superseded graph facade admitted a road command"):
+		return {}
+	print(
+		(
+			"UPDATE_TOKEN_PRECOMMIT_GRAPH_FACADE_ID_SUPERSESSION_RESULT " +
 			"resource_before=%d resource_after=%d trigger_count=%d " +
 			"superseded_attempt=1 replacement_attempt=1"
 		) % [
