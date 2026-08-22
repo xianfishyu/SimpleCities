@@ -1040,6 +1040,67 @@ func run() -> void:
 		"Real StartLoad slot-target boundary rejection changed RoadGraph"):
 		return
 
+	var renderer_worker_prepare_resource_count_before := int(probe.GetObjectResourceCount())
+	var renderer_worker_prepare_failure_message := str(
+		probe.GetAggregateLoadRendererWorkerPrepareFailureMessage())
+	probe.ArmAggregateLoadRendererWorkerPrepareFailure(save_manager)
+	if not require(
+		bool(probe.IsAggregateLoadRendererWorkerPrepareFailureArmed()),
+		"Aggregate Load renderer worker-prepare failure probe did not arm"):
+		return
+	var renderer_worker_prepare_failed_load_result := await run_load(source_slot_id)
+	if not require(
+		int(renderer_worker_prepare_failed_load_result.get("resultKind", -1)) ==
+			RESULT_FAILED and
+		not bool(renderer_worker_prepare_failed_load_result.get("committed", true)) and
+		str(renderer_worker_prepare_failed_load_result.get("warnings", "")).is_empty() and
+		str(renderer_worker_prepare_failed_load_result.get("error", "")) ==
+			renderer_worker_prepare_failure_message,
+		"Real StartLoad did not fail before renderer worker preparation: %s" %
+		JSON.stringify(renderer_worker_prepare_failed_load_result)):
+		return
+	var renderer_worker_prepare_resource_count_after := int(probe.GetObjectResourceCount())
+	if not require(
+		not bool(probe.IsAggregateLoadRendererWorkerPrepareFailureArmed()) and
+		int(probe.GetAggregateLoadRendererWorkerPrepareFailureCount()) == 1 and
+		renderer_worker_prepare_resource_count_after ==
+			renderer_worker_prepare_resource_count_before,
+		"Renderer worker-prepare failure allocated resources or kept its probe armed: %s" %
+		JSON.stringify({
+			"armed": bool(probe.IsAggregateLoadRendererWorkerPrepareFailureArmed()),
+			"triggerCount": int(
+				probe.GetAggregateLoadRendererWorkerPrepareFailureCount()),
+			"resourceCountBefore": renderer_worker_prepare_resource_count_before,
+			"resourceCountAfter": renderer_worker_prepare_resource_count_after,
+		})):
+		return
+	if not require(
+		str(save_manager.get("CurrentSlotID")) == active_slot_id and
+		int(tool_manager.get("CurrentTool")) == TOOL_ROAD and
+		int(tool_manager.GetSelectedRoadType()) == selected_road_type_before and
+		builder.HasActivePlaceSession() and
+		builder.GetFixedCornerCount() == 1 and
+		builder.GetUndoEditCount() == undo_count_before and
+		builder.GetRedoEditCount() == redo_count_before and
+		renderer.GetRenderedEdgeCount() == edge_count_before and
+		renderer.GetRoadMeshVertexCount() == vertex_count_before and
+		renderer.GetNodeMarkerCount() == marker_count_before and
+		renderer.GetPresentationState() == presentation_before and
+		renderer.FindRoadSurfaceHit(Vector2(400.0, 300.0), 0.0) == hit_before,
+		"Renderer worker-prepare failure changed graph, tool, placement, history, presentation, surface, token, or slot state"):
+		return
+
+	if not require(
+		await V3_SAVE_FIXTURE.save(save_manager, active_slot_id),
+		"Could not recapture the active graph after renderer worker-prepare failure"):
+		return
+	var renderer_worker_prepare_payload_after := FileAccess.get_file_as_string(
+		V3_SAVE_FIXTURE.slot_path(active_slot_id, V3_SAVE_FIXTURE.PAYLOAD_FILE_NAME))
+	if not require(
+		renderer_worker_prepare_payload_after == active_payload_before,
+		"Renderer worker-prepare failure changed RoadGraph"):
+		return
+
 	var load_result := await run_load(source_slot_id)
 	if not require(
 		int(load_result.get("resultKind", -1)) == RESULT_SUCCEEDED and
@@ -1163,6 +1224,16 @@ func run() -> void:
 			aggregate_commit_plan_resource_count_before,
 		"aggregate_commit_plan_resource_count_after":
 			aggregate_commit_plan_resource_count_after,
+		"renderer_worker_prepare_failure_result_kind": int(
+			renderer_worker_prepare_failed_load_result.get("resultKind", -1)),
+		"renderer_worker_prepare_failure_committed": bool(
+			renderer_worker_prepare_failed_load_result.get("committed", true)),
+		"renderer_worker_prepare_failure_trigger_count": int(
+			probe.GetAggregateLoadRendererWorkerPrepareFailureCount()),
+		"renderer_worker_prepare_resource_count_before":
+			renderer_worker_prepare_resource_count_before,
+		"renderer_worker_prepare_resource_count_after":
+			renderer_worker_prepare_resource_count_after,
 		"aggregate_failure_result_kind": int(failed_load_result.get("resultKind", -1)),
 		"aggregate_failure_committed": bool(failed_load_result.get("committed", true)),
 		"aggregate_failure_trigger_count": int(

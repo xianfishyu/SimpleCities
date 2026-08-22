@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 /// <summary>V3 存档管理器 Autoload。</summary>
 public partial class SaveManager : Node
 {
+    partial void ProbeAggregateLoadRendererWorkerPrepareFailure();
     partial void ProbeAggregateLoadPostRendererPreflightFailure();
     partial void ProbeAggregateLoadPostSlotPreflightFailure();
     partial void ProbeAggregateLoadPostOwnershipPreCommitFailure();
@@ -681,6 +682,7 @@ public partial class SaveManager : Node
                     RoadGraphRevision graphRevision = graphState as RoadGraphRevision
                         ?? throw new InvalidOperationException(
                             "RoadGraph load reader did not produce a revision.");
+                    ProbeAggregateLoadRendererWorkerPrepareFailure();
                     RoadRendererPreparedLoad presentation =
                         rendererAdmission.Preparer.Prepare(graphRevision);
                     return new PreparedLoadWork(
