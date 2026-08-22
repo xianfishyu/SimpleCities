@@ -7,7 +7,7 @@ const FULL_RESET_PROBE_PATH := "res://tests/godot/RoadFullResetPerformanceProbe.
 const UPDATE_TOKEN_FAILURE_PROBE_PATH := "res://tests/godot/RoadRendererUpdateTokenFailureProbe.cs"
 const DATASET_SIZES: Array[int] = [10_000, 100_000]
 const DATASET_KINDS: Array[String] = ["grid", "junction-dense", "geometry-dense", "owner-dense"]
-const TOKEN_PERTURBATION_KINDS: Array[String] = ["render-request"]
+const TOKEN_PERTURBATION_KINDS: Array[String] = ["render-request", "road-style"]
 const EDGE_LENGTH := 8.0
 const EDGE_SPACING := 32.0
 const GEOMETRY_DENSE_EDGE_SPACING := 320.0
@@ -170,7 +170,7 @@ func run() -> void:
 			renderer,
 			edge_count):
 			return
-		if not token_perturbation_kind.is_empty() and not await measure_render_request_token_perturbation(
+		if not token_perturbation_kind.is_empty() and not await measure_token_perturbation(
 			builder,
 			renderer,
 			edge_count,
@@ -194,18 +194,19 @@ func run() -> void:
 	print("PASS road rendering performance contract dataset=%s" % dataset_kind)
 	quit(0)
 
-func measure_render_request_token_perturbation(
+func measure_token_perturbation(
 	builder: Node,
 	renderer: Node,
 	edge_count: int,
 	columns: int,
 	rows: int
 ) -> bool:
+	var perturbation_label := token_perturbation_label()
 	var probe_script: Script = load(UPDATE_TOKEN_FAILURE_PROBE_PATH)
-	if not require(probe_script != null, "Debug render-request perturbation probe did not load"):
+	if not require(probe_script != null, "Debug %s perturbation probe did not load" % perturbation_label):
 		return false
 	var probe: RefCounted = probe_script.new()
-	if not require(probe != null, "Debug render-request perturbation probe did not instantiate"):
+	if not require(probe != null, "Debug %s perturbation probe did not instantiate" % perturbation_label):
 		return false
 
 	var retained_state: Dictionary = renderer.GetPresentationState()
@@ -219,14 +220,18 @@ func measure_render_request_token_perturbation(
 		bool(retained_state.get("isReady", false)) and
 		retained_token == retained_state.get("desired", {}) and
 		retained_edge_count == edge_count,
-		"Render-request perturbation did not start from the loaded current presentation"):
+		"%s perturbation did not start from the loaded current presentation" % perturbation_label):
 		return false
 
-	probe.ArmPreCommitTokenSupersession(renderer)
+	match token_perturbation_kind:
+		"render-request":
+			probe.ArmPreCommitTokenSupersession(renderer)
+		"road-style":
+			probe.ArmPreCommitRoadStyleSupersession(renderer)
 	var trigger_count_before := int(probe.GetPreCommitTokenSupersessionCount())
 	if not require(
 		bool(probe.IsPreCommitTokenSupersessionArmed()),
-		"Render-request perturbation probe did not arm"):
+		"%s perturbation probe did not arm" % perturbation_label):
 		return false
 
 	var fixture_width := float(columns - 1) * EDGE_SPACING
@@ -238,12 +243,12 @@ func measure_render_request_token_perturbation(
 	var perturbation_started_us := Time.get_ticks_usec()
 	if not require(
 		builder.BeginPlace(mutation_start),
-		"Render-request perturbation mutation did not begin"):
+		"%s perturbation mutation did not begin" % perturbation_label):
 		return false
 	builder.UpdatePlace(mutation_end)
 	if not require(
 		builder.CommitPlace(mutation_end),
-		"Render-request perturbation mutation did not commit"):
+		"%s perturbation mutation did not commit" % perturbation_label):
 		return false
 
 	var rejection_observed := false
@@ -252,7 +257,9 @@ func measure_render_request_token_perturbation(
 		if int(probe.GetPreCommitTokenSupersessionCount()) == trigger_count_before + 1:
 			rejection_observed = true
 			break
-	if not require(rejection_observed, "Render-request perturbation did not reach the pre-commit rejection boundary"):
+	if not require(
+		rejection_observed,
+		"%s perturbation did not reach the pre-commit rejection boundary" % perturbation_label):
 		return false
 	var rejection_ms := float(Time.get_ticks_usec() - perturbation_started_us) / 1000.0
 
@@ -268,11 +275,15 @@ func measure_render_request_token_perturbation(
 		int(pending.get("attemptCount", -1)) == 0 and
 		int(probe.GetPreCommitSupersededAttemptNumber()) == 1 and
 		not bool(probe.IsPreCommitTokenSupersessionArmed()),
-		"Render-request perturbation did not retain the old presentation behind the replacement token"):
+		"%s perturbation did not retain the old presentation behind the replacement token" % perturbation_label):
 		return false
 	if not require(
-		render_request_tokens_are_sequential(retained_token, superseded, replacement),
-		"Render-request perturbation changed a token dimension other than the expected graph change and RenderRequestID replacement"):
+		token_perturbation_tokens_are_sequential(
+			token_perturbation_kind,
+			retained_token,
+			superseded,
+			replacement),
+		"%s perturbation changed an unexpected token dimension" % perturbation_label):
 		return false
 	if not require(
 		int(probe.GetObjectResourceCount()) == resource_count_before and
@@ -284,13 +295,13 @@ func measure_render_request_token_perturbation(
 		renderer.FindRoadSurfaceHit(
 			(mutation_start + mutation_end) * 0.5,
 			EDGE_SPACING * 0.5).is_empty(),
-		"Render-request perturbation leaked resources, swapped presentation, or exposed a mixed-token surface"):
+		"%s perturbation leaked resources, swapped presentation, or exposed a mixed-token surface" % perturbation_label):
 		return false
 
 	var recovery_started_us := Time.get_ticks_usec()
 	if not require(
 		probe.CompletePreCommitTokenSupersession(),
-		"Render-request perturbation replacement did not publish"):
+		"%s perturbation replacement did not publish" % perturbation_label):
 		return false
 	var recovery_ms := float(Time.get_ticks_usec() - recovery_started_us) / 1000.0
 	var recovered: Dictionary = renderer.GetPresentationState()
@@ -325,14 +336,17 @@ func measure_render_request_token_perturbation(
 		int(recovered.get("surfacePrimitiveCount", 0)) > retained_primitive_count and
 		int(probe.GetObjectResourceCount()) == resource_count_before and
 		not recovered_hit.is_empty(),
-		"Render-request perturbation replacement did not publish one complete current presentation: %s" % JSON.stringify(recovered_evidence)):
+		"%s perturbation replacement did not publish one complete current presentation: %s" % [
+			perturbation_label,
+			JSON.stringify(recovered_evidence),
+		]):
 		return false
 
 	print("TOKEN_PERTURBATION_RESULT %s" % JSON.stringify({
 		"dataset": dataset_kind,
 		"edges_before": edge_count,
 		"edges_after": renderer.GetRenderedEdgeCount(),
-		"dimension": "renderRequestID",
+		"dimension": token_perturbation_dimension(),
 		"rejection_ms": snappedf(rejection_ms, 0.001),
 		"recovery_ms": snappedf(recovery_ms, 0.001),
 		"total_ms": snappedf(rejection_ms + recovery_ms, 0.001),
@@ -345,27 +359,58 @@ func measure_render_request_token_perturbation(
 	}))
 	return true
 
-func render_request_tokens_are_sequential(
+func token_perturbation_tokens_are_sequential(
+	perturbation_kind: String,
 	retained: Dictionary,
 	superseded: Dictionary,
 	replacement: Dictionary
 ) -> bool:
-	var stable_dimensions: Array[String] = [
+	var stable_target_dimensions: Array[String] = [
 		"sceneGeneration",
 		"graphFacadeID",
 		"graphFacadeGeneration",
 		"roadStyleRevision",
 	]
-	for dimension: String in stable_dimensions:
+	for dimension: String in stable_target_dimensions:
 		if retained.get(dimension) != superseded.get(dimension):
 			return false
+	var stable_replacement_dimensions: Array[String] = [
+		"sceneGeneration",
+		"graphFacadeID",
+		"graphFacadeGeneration",
+		"changeSequence",
+	]
+	for dimension: String in stable_replacement_dimensions:
 		if superseded.get(dimension) != replacement.get(dimension):
 			return false
-	return (
-		int(superseded.get("changeSequence", -1)) == int(retained.get("changeSequence", -2)) + 1 and
-		int(replacement.get("changeSequence", -1)) == int(superseded.get("changeSequence", -2)) and
-		int(superseded.get("renderRequestID", -1)) == int(retained.get("renderRequestID", -2)) + 1 and
-		int(replacement.get("renderRequestID", -1)) == int(superseded.get("renderRequestID", -2)) + 1)
+	if (
+		int(superseded.get("changeSequence", -1)) != int(retained.get("changeSequence", -2)) + 1 or
+		int(superseded.get("renderRequestID", -1)) != int(retained.get("renderRequestID", -2)) + 1 or
+		int(replacement.get("renderRequestID", -1)) != int(superseded.get("renderRequestID", -2)) + 1
+	):
+		return false
+	match perturbation_kind:
+		"render-request":
+			return replacement.get("roadStyleRevision") == superseded.get("roadStyleRevision")
+		"road-style":
+			return int(replacement.get("roadStyleRevision", -1)) == int(superseded.get("roadStyleRevision", -2)) + 1
+	return false
+
+func token_perturbation_label() -> String:
+	match token_perturbation_kind:
+		"render-request":
+			return "Render-request"
+		"road-style":
+			return "Road-style"
+	return "Unknown token"
+
+func token_perturbation_dimension() -> String:
+	match token_perturbation_kind:
+		"render-request":
+			return "renderRequestID"
+		"road-style":
+			return "roadStyleRevision"
+	return "unknown"
 
 func validate_load_phase_metrics(
 	metrics: Dictionary,
