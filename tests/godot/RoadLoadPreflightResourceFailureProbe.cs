@@ -455,6 +455,43 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
     public string GetAggregateLoadPostCancellationCheckFailureMessage() =>
         SaveManager.AggregateLoadPostCancellationCheckFailureMessage;
 
+    public void ArmAggregateLoadPostPreflightPhaseFailure(SaveManager saveManager)
+    {
+        ArgumentNullException.ThrowIfNull(saveManager);
+        saveManager.ArmNextAggregateLoadPostPreflightPhaseFailure();
+        _saveManager = saveManager;
+    }
+
+    public bool IsAggregateLoadPostPreflightPhaseFailureArmed() =>
+        _saveManager?.IsAggregateLoadPostPreflightPhaseFailureArmed() ?? false;
+
+    public int GetAggregateLoadPostPreflightPhaseFailureCount() =>
+        _saveManager?.GetAggregateLoadPostPreflightPhaseFailureCount() ?? 0;
+
+    public bool DidAggregateLoadPostPreflightPhaseFailureRunOnMainThread() =>
+        _saveManager?.DidAggregateLoadPostPreflightPhaseFailureRunOnMainThread() ?? false;
+
+    public int GetAggregateLoadPostPreflightPhaseObservedPhase() =>
+        _saveManager?.GetAggregateLoadPostPreflightPhaseObservedPhase() ?? -1;
+
+    public string GetAggregateLoadPostPreflightPhaseObservedSlotID() =>
+        _saveManager?.GetAggregateLoadPostPreflightPhaseObservedSlotID() ?? string.Empty;
+
+    public int GetAggregateLoadPostPreflightPhaseParticipantCount() =>
+        _saveManager?.GetAggregateLoadPostPreflightPhaseParticipantCount() ?? -1;
+
+    public int GetAggregateLoadPostPreflightPhaseRoadVertexCount() =>
+        _saveManager?.GetAggregateLoadPostPreflightPhaseRoadVertexCount() ?? -1;
+
+    public int GetAggregateLoadPostPreflightPhaseSurfacePrimitiveCount() =>
+        _saveManager?.GetAggregateLoadPostPreflightPhaseSurfacePrimitiveCount() ?? -1;
+
+    public int GetAggregateLoadPostPreflightPhaseNodeMarkerCount() =>
+        _saveManager?.GetAggregateLoadPostPreflightPhaseNodeMarkerCount() ?? -1;
+
+    public string GetAggregateLoadPostPreflightPhaseFailureMessage() =>
+        SaveManager.AggregateLoadPostPreflightPhaseFailureMessage;
+
     public void ArmAggregateLoadPostRendererPreflightFailure(SaveManager saveManager)
     {
         ArgumentNullException.ThrowIfNull(saveManager);
@@ -627,6 +664,8 @@ public partial class SaveManager
         "Injected aggregate Load failure after scene request validation.";
     internal const string AggregateLoadPostCancellationCheckFailureMessage =
         "Injected aggregate Load failure after cancellation check.";
+    internal const string AggregateLoadPostPreflightPhaseFailureMessage =
+        "Injected aggregate Load failure after entering Preflight.";
     internal const string AggregateLoadPostRendererPreflightFailureMessage =
         "Injected aggregate Load failure after road presentation preflight.";
     internal const string AggregateLoadPostSlotPreflightFailureMessage =
@@ -694,6 +733,15 @@ public partial class SaveManager
     private int _aggregateLoadPostCancellationCheckRoadVertexCount = -1;
     private int _aggregateLoadPostCancellationCheckSurfacePrimitiveCount = -1;
     private int _aggregateLoadPostCancellationCheckNodeMarkerCount = -1;
+    private bool _aggregateLoadPostPreflightPhaseFailureArmed;
+    private int _aggregateLoadPostPreflightPhaseFailureCount;
+    private bool _aggregateLoadPostPreflightPhaseFailureRanOnMainThread;
+    private int _aggregateLoadPostPreflightPhaseObservedPhase = -1;
+    private string _aggregateLoadPostPreflightPhaseObservedSlotID = string.Empty;
+    private int _aggregateLoadPostPreflightPhaseParticipantCount = -1;
+    private int _aggregateLoadPostPreflightPhaseRoadVertexCount = -1;
+    private int _aggregateLoadPostPreflightPhaseSurfacePrimitiveCount = -1;
+    private int _aggregateLoadPostPreflightPhaseNodeMarkerCount = -1;
     private bool _aggregateLoadPostRendererPreflightFailureArmed;
     private int _aggregateLoadPostRendererPreflightFailureCount;
     private bool _aggregateLoadPostSlotPreflightFailureArmed;
@@ -1262,6 +1310,81 @@ public partial class SaveManager
 
     internal int GetAggregateLoadPostCancellationCheckNodeMarkerCount() =>
         _aggregateLoadPostCancellationCheckNodeMarkerCount;
+
+    partial void ProbeAggregateLoadPostPreflightPhaseFailure(
+        SaveOperationPhase phase,
+        PreparedLoadWork prepared)
+    {
+        if (!_aggregateLoadPostPreflightPhaseFailureArmed)
+            return;
+
+        ArgumentNullException.ThrowIfNull(prepared);
+        _aggregateLoadPostPreflightPhaseFailureArmed = false;
+        _aggregateLoadPostPreflightPhaseFailureCount++;
+        _aggregateLoadPostPreflightPhaseFailureRanOnMainThread =
+            _mainThreadID != 0 && System.Environment.CurrentManagedThreadId == _mainThreadID;
+        _aggregateLoadPostPreflightPhaseObservedPhase = (int)phase;
+        _aggregateLoadPostPreflightPhaseObservedSlotID = prepared.Slot.SlotID;
+        _aggregateLoadPostPreflightPhaseParticipantCount = prepared.Slot.Participants.Count;
+        _aggregateLoadPostPreflightPhaseRoadVertexCount =
+            prepared.Presentation.RoadVertices.Length;
+        _aggregateLoadPostPreflightPhaseSurfacePrimitiveCount =
+            prepared.Presentation.RoadSurface.PrimitiveCount;
+        _aggregateLoadPostPreflightPhaseNodeMarkerCount =
+            prepared.Presentation.NodeMarkers.Length;
+        throw new InvalidOperationException(
+            AggregateLoadPostPreflightPhaseFailureMessage);
+    }
+
+    internal void ArmNextAggregateLoadPostPreflightPhaseFailure()
+    {
+        if (IsOperationBusy)
+        {
+            throw new InvalidOperationException(
+                "SaveManager must be idle before arming its aggregate Load failure probe.");
+        }
+        if (_aggregateLoadPostPreflightPhaseFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load post-Preflight-phase failure probe is already armed.");
+        }
+
+        _aggregateLoadPostPreflightPhaseFailureRanOnMainThread = false;
+        _aggregateLoadPostPreflightPhaseObservedPhase = -1;
+        _aggregateLoadPostPreflightPhaseObservedSlotID = string.Empty;
+        _aggregateLoadPostPreflightPhaseParticipantCount = -1;
+        _aggregateLoadPostPreflightPhaseRoadVertexCount = -1;
+        _aggregateLoadPostPreflightPhaseSurfacePrimitiveCount = -1;
+        _aggregateLoadPostPreflightPhaseNodeMarkerCount = -1;
+        _aggregateLoadPostPreflightPhaseFailureArmed = true;
+    }
+
+    internal bool IsAggregateLoadPostPreflightPhaseFailureArmed() =>
+        _aggregateLoadPostPreflightPhaseFailureArmed;
+
+    internal int GetAggregateLoadPostPreflightPhaseFailureCount() =>
+        _aggregateLoadPostPreflightPhaseFailureCount;
+
+    internal bool DidAggregateLoadPostPreflightPhaseFailureRunOnMainThread() =>
+        _aggregateLoadPostPreflightPhaseFailureRanOnMainThread;
+
+    internal int GetAggregateLoadPostPreflightPhaseObservedPhase() =>
+        _aggregateLoadPostPreflightPhaseObservedPhase;
+
+    internal string GetAggregateLoadPostPreflightPhaseObservedSlotID() =>
+        _aggregateLoadPostPreflightPhaseObservedSlotID;
+
+    internal int GetAggregateLoadPostPreflightPhaseParticipantCount() =>
+        _aggregateLoadPostPreflightPhaseParticipantCount;
+
+    internal int GetAggregateLoadPostPreflightPhaseRoadVertexCount() =>
+        _aggregateLoadPostPreflightPhaseRoadVertexCount;
+
+    internal int GetAggregateLoadPostPreflightPhaseSurfacePrimitiveCount() =>
+        _aggregateLoadPostPreflightPhaseSurfacePrimitiveCount;
+
+    internal int GetAggregateLoadPostPreflightPhaseNodeMarkerCount() =>
+        _aggregateLoadPostPreflightPhaseNodeMarkerCount;
 
     partial void ProbeAggregateLoadPostRendererPreflightFailure()
     {
