@@ -285,6 +285,28 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
     public string GetAggregateLoadPostSlotPreparationFailureMessage() =>
         SaveManager.AggregateLoadPostSlotPreparationFailureMessage;
 
+    public void ArmAggregateLoadPostGraphStateLookupFailure(SaveManager saveManager)
+    {
+        ArgumentNullException.ThrowIfNull(saveManager);
+        saveManager.ArmNextAggregateLoadPostGraphStateLookupFailure();
+        _saveManager = saveManager;
+    }
+
+    public bool IsAggregateLoadPostGraphStateLookupFailureArmed() =>
+        _saveManager?.IsAggregateLoadPostGraphStateLookupFailureArmed() ?? false;
+
+    public int GetAggregateLoadPostGraphStateLookupFailureCount() =>
+        _saveManager?.GetAggregateLoadPostGraphStateLookupFailureCount() ?? 0;
+
+    public bool DidAggregateLoadPostGraphStateLookupFailureRunOffMainThread() =>
+        _saveManager?.DidAggregateLoadPostGraphStateLookupFailureRunOffMainThread() ?? false;
+
+    public string GetAggregateLoadPostGraphStateLookupObservedStateTypeName() =>
+        _saveManager?.GetAggregateLoadPostGraphStateLookupObservedStateTypeName() ?? string.Empty;
+
+    public string GetAggregateLoadPostGraphStateLookupFailureMessage() =>
+        SaveManager.AggregateLoadPostGraphStateLookupFailureMessage;
+
     public void ArmAggregateLoadRendererWorkerPrepareFailure(SaveManager saveManager)
     {
         ArgumentNullException.ThrowIfNull(saveManager);
@@ -461,6 +483,8 @@ public partial class SaveManager
         "Injected aggregate Load failure after entering the preparation worker.";
     internal const string AggregateLoadPostSlotPreparationFailureMessage =
         "Injected aggregate Load failure after slot preparation.";
+    internal const string AggregateLoadPostGraphStateLookupFailureMessage =
+        "Injected aggregate Load failure after graph-state lookup.";
     internal const string AggregateLoadRendererWorkerPrepareFailureMessage =
         "Injected aggregate Load renderer worker-prepare failure.";
     internal const string AggregateLoadPostRendererPreflightFailureMessage =
@@ -494,6 +518,10 @@ public partial class SaveManager
     private bool _aggregateLoadPostSlotPreparationFailureRanOffMainThread;
     private string _aggregateLoadPostSlotPreparationObservedSlotID = string.Empty;
     private int _aggregateLoadPostSlotPreparationParticipantCount = -1;
+    private bool _aggregateLoadPostGraphStateLookupFailureArmed;
+    private int _aggregateLoadPostGraphStateLookupFailureCount;
+    private bool _aggregateLoadPostGraphStateLookupFailureRanOffMainThread;
+    private string _aggregateLoadPostGraphStateLookupObservedStateTypeName = string.Empty;
     private bool _aggregateLoadRendererWorkerPrepareFailureArmed;
     private int _aggregateLoadRendererWorkerPrepareFailureCount;
     private bool _aggregateLoadPostRendererPreflightFailureArmed;
@@ -716,6 +744,52 @@ public partial class SaveManager
 
     internal int GetAggregateLoadPostSlotPreparationParticipantCount() =>
         _aggregateLoadPostSlotPreparationParticipantCount;
+
+    partial void ProbeAggregateLoadPostGraphStateLookupFailure(
+        IPreparedSaveState graphState)
+    {
+        if (!_aggregateLoadPostGraphStateLookupFailureArmed)
+            return;
+
+        ArgumentNullException.ThrowIfNull(graphState);
+        _aggregateLoadPostGraphStateLookupFailureArmed = false;
+        _aggregateLoadPostGraphStateLookupFailureCount++;
+        _aggregateLoadPostGraphStateLookupFailureRanOffMainThread =
+            _mainThreadID != 0 && System.Environment.CurrentManagedThreadId != _mainThreadID;
+        _aggregateLoadPostGraphStateLookupObservedStateTypeName = graphState.GetType().Name;
+        throw new InvalidOperationException(
+            AggregateLoadPostGraphStateLookupFailureMessage);
+    }
+
+    internal void ArmNextAggregateLoadPostGraphStateLookupFailure()
+    {
+        if (IsOperationBusy)
+        {
+            throw new InvalidOperationException(
+                "SaveManager must be idle before arming its aggregate Load failure probe.");
+        }
+        if (_aggregateLoadPostGraphStateLookupFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load post-graph-state lookup failure probe is already armed.");
+        }
+
+        _aggregateLoadPostGraphStateLookupFailureRanOffMainThread = false;
+        _aggregateLoadPostGraphStateLookupObservedStateTypeName = string.Empty;
+        _aggregateLoadPostGraphStateLookupFailureArmed = true;
+    }
+
+    internal bool IsAggregateLoadPostGraphStateLookupFailureArmed() =>
+        _aggregateLoadPostGraphStateLookupFailureArmed;
+
+    internal int GetAggregateLoadPostGraphStateLookupFailureCount() =>
+        _aggregateLoadPostGraphStateLookupFailureCount;
+
+    internal bool DidAggregateLoadPostGraphStateLookupFailureRunOffMainThread() =>
+        _aggregateLoadPostGraphStateLookupFailureRanOffMainThread;
+
+    internal string GetAggregateLoadPostGraphStateLookupObservedStateTypeName() =>
+        _aggregateLoadPostGraphStateLookupObservedStateTypeName;
 
     partial void ProbeAggregateLoadRendererWorkerPrepareFailure()
     {

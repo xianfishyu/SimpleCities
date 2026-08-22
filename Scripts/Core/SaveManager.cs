@@ -16,6 +16,8 @@ public partial class SaveManager : Node
     partial void ProbeAggregateLoadPostPreparePhaseFailure(SaveOperationPhase phase);
     partial void ProbeAggregateLoadWorkerEntryFailure();
     partial void ProbeAggregateLoadPostSlotPreparationFailure(PreparedSaveSlot slot);
+    partial void ProbeAggregateLoadPostGraphStateLookupFailure(
+        IPreparedSaveState graphState);
     partial void ProbeAggregateLoadRendererWorkerPrepareFailure();
     partial void ProbeAggregateLoadPostRendererPreflightFailure();
     partial void ProbeAggregateLoadPostSlotPreflightFailure();
@@ -690,6 +692,7 @@ public partial class SaveManager : Node
                         lease);
                     ProbeAggregateLoadPostSlotPreparationFailure(slot);
                     IPreparedSaveState graphState = slot.GetPreparedState(context.Graph);
+                    ProbeAggregateLoadPostGraphStateLookupFailure(graphState);
                     RoadGraphRevision graphRevision = graphState as RoadGraphRevision
                         ?? throw new InvalidOperationException(
                             "RoadGraph load reader did not produce a revision.");

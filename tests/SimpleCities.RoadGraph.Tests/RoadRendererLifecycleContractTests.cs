@@ -969,6 +969,74 @@ public sealed class RoadRendererLifecycleContractTests
     }
 
     [Fact]
+    public void RealStartLoadPostGraphStateLookupFailureRunsOffMainThreadBeforeRevisionValidation()
+    {
+        string saveManagerSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Core", "SaveManager.cs"));
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadLoadPreflightResourceFailureProbe.cs"));
+        string loadOrchestration = ExtractMethod(
+            saveManagerSource,
+            "private async Task<SaveOperationResult> RunLoadAsync",
+            "private async Task<SaveOperationResult> RunDeleteAsync");
+        string failureProbe = ExtractMethod(
+            probeSource,
+            "partial void ProbeAggregateLoadPostGraphStateLookupFailure(",
+            "internal void ArmNextAggregateLoadPostGraphStateLookupFailure()");
+
+        int postSlotPreparationFailure = loadOrchestration.IndexOf(
+            "ProbeAggregateLoadPostSlotPreparationFailure(slot);",
+            StringComparison.Ordinal);
+        int graphStateLookup = loadOrchestration.IndexOf(
+            "IPreparedSaveState graphState = slot.GetPreparedState(context.Graph);",
+            StringComparison.Ordinal);
+        int failure = loadOrchestration.IndexOf(
+            "ProbeAggregateLoadPostGraphStateLookupFailure(graphState);",
+            StringComparison.Ordinal);
+        int graphRevisionValidation = loadOrchestration.IndexOf(
+            "RoadGraphRevision graphRevision = graphState as RoadGraphRevision",
+            StringComparison.Ordinal);
+        int rendererWorkerFailure = loadOrchestration.IndexOf(
+            "ProbeAggregateLoadRendererWorkerPrepareFailure();",
+            StringComparison.Ordinal);
+
+        Assert.True(
+            postSlotPreparationFailure >= 0 &&
+            postSlotPreparationFailure < graphStateLookup);
+        Assert.True(
+            graphStateLookup < failure && failure < graphRevisionValidation);
+        Assert.True(graphRevisionValidation < rendererWorkerFailure);
+        Assert.Contains(
+            "partial void ProbeAggregateLoadPostGraphStateLookupFailure(",
+            saveManagerSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "public void ArmAggregateLoadPostGraphStateLookupFailure(SaveManager saveManager)",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadPostGraphStateLookupFailureArmed = false;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadPostGraphStateLookupFailureCount++;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "System.Environment.CurrentManagedThreadId != _mainThreadID;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "graphState.GetType().Name;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "AggregateLoadPostGraphStateLookupFailureMessage",
+            failureProbe,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void RealStartLoadRendererWorkerPrepareFailureRunsBeforePresentationPreparation()
     {
         string saveManagerSource = File.ReadAllText(
