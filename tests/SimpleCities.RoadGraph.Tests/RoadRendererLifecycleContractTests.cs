@@ -655,6 +655,63 @@ public sealed class RoadRendererLifecycleContractTests
     }
 
     [Fact]
+    public void RealStartLoadPostRendererAdmissionFailureRunsAfterPublicationBeforeWorker()
+    {
+        string saveManagerSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Core", "SaveManager.cs"));
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadLoadPreflightResourceFailureProbe.cs"));
+        string loadOrchestration = ExtractMethod(
+            saveManagerSource,
+            "private async Task<SaveOperationResult> RunLoadAsync",
+            "private async Task<SaveOperationResult> RunDeleteAsync");
+        string failureProbe = ExtractMethod(
+            probeSource,
+            "partial void ProbeAggregateLoadPostRendererAdmissionFailure()",
+            "internal void ArmNextAggregateLoadPostRendererAdmissionFailure()");
+
+        int rendererAdmission = loadOrchestration.IndexOf(
+            "rendererAdmission = context.Renderer.BeginLoadAdmission();",
+            StringComparison.Ordinal);
+        int failure = loadOrchestration.IndexOf(
+            "ProbeAggregateLoadPostRendererAdmissionFailure();",
+            StringComparison.Ordinal);
+        int participantCapture = loadOrchestration.IndexOf(
+            "SaveSlotStore.CaptureLoadParticipants(GetRequiredSaveables());",
+            StringComparison.Ordinal);
+        int workerStart = loadOrchestration.IndexOf(
+            "PreparedLoadWork prepared = await Task.Run(() =>",
+            StringComparison.Ordinal);
+        int rendererAdmissionDispose = loadOrchestration.IndexOf(
+            "rendererAdmission?.Dispose();",
+            StringComparison.Ordinal);
+
+        Assert.True(rendererAdmission >= 0 && rendererAdmission < failure);
+        Assert.True(failure < participantCapture && participantCapture < workerStart);
+        Assert.True(workerStart < rendererAdmissionDispose);
+        Assert.Contains(
+            "partial void ProbeAggregateLoadPostRendererAdmissionFailure();",
+            saveManagerSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "public void ArmAggregateLoadPostRendererAdmissionFailure(SaveManager saveManager)",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadPostRendererAdmissionFailureArmed = false;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadPostRendererAdmissionFailureCount++;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "AggregateLoadPostRendererAdmissionFailureMessage",
+            failureProbe,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void RealStartLoadRendererWorkerPrepareFailureRunsBeforePresentationPreparation()
     {
         string saveManagerSource = File.ReadAllText(

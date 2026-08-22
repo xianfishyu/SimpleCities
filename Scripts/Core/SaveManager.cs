@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 /// <summary>V3 存档管理器 Autoload。</summary>
 public partial class SaveManager : Node
 {
+    partial void ProbeAggregateLoadPostRendererAdmissionFailure();
     partial void ProbeAggregateLoadRendererWorkerPrepareFailure();
     partial void ProbeAggregateLoadPostRendererPreflightFailure();
     partial void ProbeAggregateLoadPostSlotPreflightFailure();
@@ -668,6 +669,7 @@ public partial class SaveManager : Node
                 graphAdmission = context.Graph.BeginLoadAdmission();
                 toolAdmission = context.ToolManager.BeginLoadAdmission();
                 rendererAdmission = context.Renderer.BeginLoadAdmission();
+                ProbeAggregateLoadPostRendererAdmissionFailure();
                 IReadOnlyList<CapturedLoadParticipant> loadParticipants =
                     SaveSlotStore.CaptureLoadParticipants(GetRequiredSaveables());
                 lease.AdvanceTo(SaveOperationPhase.Prepare);

@@ -180,6 +180,22 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
     public string GetAggregateLoadResourcePreflightFailureMessage() =>
         RoadRenderer.AggregateLoadResourcePreflightFailureMessage;
 
+    public void ArmAggregateLoadPostRendererAdmissionFailure(SaveManager saveManager)
+    {
+        ArgumentNullException.ThrowIfNull(saveManager);
+        saveManager.ArmNextAggregateLoadPostRendererAdmissionFailure();
+        _saveManager = saveManager;
+    }
+
+    public bool IsAggregateLoadPostRendererAdmissionFailureArmed() =>
+        _saveManager?.IsAggregateLoadPostRendererAdmissionFailureArmed() ?? false;
+
+    public int GetAggregateLoadPostRendererAdmissionFailureCount() =>
+        _saveManager?.GetAggregateLoadPostRendererAdmissionFailureCount() ?? 0;
+
+    public string GetAggregateLoadPostRendererAdmissionFailureMessage() =>
+        SaveManager.AggregateLoadPostRendererAdmissionFailureMessage;
+
     public void ArmAggregateLoadRendererWorkerPrepareFailure(SaveManager saveManager)
     {
         ArgumentNullException.ThrowIfNull(saveManager);
@@ -346,6 +362,8 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
 
 public partial class SaveManager
 {
+    internal const string AggregateLoadPostRendererAdmissionFailureMessage =
+        "Injected aggregate Load failure after renderer admission publication.";
     internal const string AggregateLoadRendererWorkerPrepareFailureMessage =
         "Injected aggregate Load renderer worker-prepare failure.";
     internal const string AggregateLoadPostRendererPreflightFailureMessage =
@@ -363,6 +381,8 @@ public partial class SaveManager
     internal const string AggregateLoadSlotTargetCommitBoundaryGenerationMismatchMessage =
         "A load participant generation changed while entering commit.";
 
+    private bool _aggregateLoadPostRendererAdmissionFailureArmed;
+    private int _aggregateLoadPostRendererAdmissionFailureCount;
     private bool _aggregateLoadRendererWorkerPrepareFailureArmed;
     private int _aggregateLoadRendererWorkerPrepareFailureCount;
     private bool _aggregateLoadPostRendererPreflightFailureArmed;
@@ -386,6 +406,39 @@ public partial class SaveManager
     private bool _aggregateLoadSlotTargetCommitBoundaryGenerationMismatchArmed;
     private int _aggregateLoadSlotTargetCommitBoundaryGenerationMismatchCount;
     private AggregateLoadSlotTargetBoundaryInvalidatingLease? _aggregateLoadSlotTargetBoundaryLease;
+
+    partial void ProbeAggregateLoadPostRendererAdmissionFailure()
+    {
+        if (!_aggregateLoadPostRendererAdmissionFailureArmed)
+            return;
+
+        _aggregateLoadPostRendererAdmissionFailureArmed = false;
+        _aggregateLoadPostRendererAdmissionFailureCount++;
+        throw new InvalidOperationException(
+            AggregateLoadPostRendererAdmissionFailureMessage);
+    }
+
+    internal void ArmNextAggregateLoadPostRendererAdmissionFailure()
+    {
+        if (IsOperationBusy)
+        {
+            throw new InvalidOperationException(
+                "SaveManager must be idle before arming its aggregate Load failure probe.");
+        }
+        if (_aggregateLoadPostRendererAdmissionFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load post-renderer admission failure probe is already armed.");
+        }
+
+        _aggregateLoadPostRendererAdmissionFailureArmed = true;
+    }
+
+    internal bool IsAggregateLoadPostRendererAdmissionFailureArmed() =>
+        _aggregateLoadPostRendererAdmissionFailureArmed;
+
+    internal int GetAggregateLoadPostRendererAdmissionFailureCount() =>
+        _aggregateLoadPostRendererAdmissionFailureCount;
 
     partial void ProbeAggregateLoadRendererWorkerPrepareFailure()
     {
