@@ -49,6 +49,13 @@ public partial class RoadRendererUpdateTokenFailureProbe : RefCounted
         _renderer = renderer;
     }
 
+    public void ArmPreCommitSceneGenerationSupersession(RoadRenderer renderer)
+    {
+        ArgumentNullException.ThrowIfNull(renderer);
+        renderer.ArmNextOrdinaryPreCommitSceneGenerationSupersession();
+        _renderer = renderer;
+    }
+
     public bool IsArmed() =>
         _renderer?.IsOrdinaryPresentationResourcePreflightFailureArmed() ?? false;
 
@@ -115,6 +122,13 @@ public partial class RoadRendererUpdateTokenFailureProbe : RefCounted
 
 public partial class RoadRenderer
 {
+    private enum OrdinaryPreCommitSupersessionKind
+    {
+        RenderRequest,
+        RoadStyleRevision,
+        SceneGeneration,
+    }
+
     internal const string OrdinaryPresentationResourcePreflightFailureMessage =
         "Injected ordinary road presentation resource preflight failure.";
     internal const string OrdinaryNodeBatchFactoryFailureMessage =
@@ -142,7 +156,7 @@ public partial class RoadRenderer
     private int _ordinaryPreCommitSupersededAttemptNumber;
     private RoadRenderToken? _ordinaryPreCommitSupersededToken;
     private RoadRenderToken? _ordinaryPreCommitReplacementToken;
-    private bool _ordinaryPreCommitAdvancesRoadStyleRevision;
+    private OrdinaryPreCommitSupersessionKind _ordinaryPreCommitSupersessionKind;
 
     partial void ProbeOrdinaryPresentationResourcePreflightFailure(
         RoadRenderToken targetToken)
@@ -228,11 +242,34 @@ public partial class RoadRenderer
         _ordinaryPreCommitTokenSupersessionCount++;
         _ordinaryPreCommitSupersededAttemptNumber = _presentationTokens.AttemptCount;
         _ordinaryPreCommitSupersededToken = targetToken;
-        _ordinaryPreCommitReplacementToken =
-            _ordinaryPreCommitAdvancesRoadStyleRevision
-                ? _presentationTokens.RequestStyleRefresh(targetToken.ChangeSequence)
-                : _presentationTokens.RequestRebuild(targetToken.ChangeSequence);
-        _ordinaryPreCommitAdvancesRoadStyleRevision = false;
+        OrdinaryPreCommitSupersessionKind supersessionKind =
+            _ordinaryPreCommitSupersessionKind;
+        _ordinaryPreCommitSupersessionKind =
+            OrdinaryPreCommitSupersessionKind.RenderRequest;
+        _ordinaryPreCommitReplacementToken = supersessionKind switch
+        {
+            OrdinaryPreCommitSupersessionKind.RoadStyleRevision =>
+                _presentationTokens.RequestStyleRefresh(targetToken.ChangeSequence),
+            OrdinaryPreCommitSupersessionKind.SceneGeneration =>
+                RequestOrdinaryPreCommitSceneGenerationSupersession(targetToken),
+            _ => _presentationTokens.RequestRebuild(targetToken.ChangeSequence),
+        };
+    }
+
+    private RoadRenderToken RequestOrdinaryPreCommitSceneGenerationSupersession(
+        RoadRenderToken targetToken)
+    {
+        long replacementSceneGeneration = checked(targetToken.SceneGeneration + 1);
+        if (!_presentationTokens.SetSceneGeneration(
+                replacementSceneGeneration,
+                targetToken.ChangeSequence,
+                out RoadRenderToken replacementToken))
+        {
+            throw new InvalidOperationException(
+                "Road presentation scene generation did not advance.");
+        }
+
+        return replacementToken;
     }
 
     internal void ArmNextOrdinaryPresentationResourcePreflightFailure()
@@ -419,14 +456,18 @@ public partial class RoadRenderer
 
     internal void ArmNextOrdinaryPreCommitTokenSupersession() =>
         ArmNextOrdinaryPreCommitTokenSupersession(
-            advanceRoadStyleRevision: false);
+            OrdinaryPreCommitSupersessionKind.RenderRequest);
 
     internal void ArmNextOrdinaryPreCommitRoadStyleSupersession() =>
         ArmNextOrdinaryPreCommitTokenSupersession(
-            advanceRoadStyleRevision: true);
+            OrdinaryPreCommitSupersessionKind.RoadStyleRevision);
+
+    internal void ArmNextOrdinaryPreCommitSceneGenerationSupersession() =>
+        ArmNextOrdinaryPreCommitTokenSupersession(
+            OrdinaryPreCommitSupersessionKind.SceneGeneration);
 
     private void ArmNextOrdinaryPreCommitTokenSupersession(
-        bool advanceRoadStyleRevision)
+        OrdinaryPreCommitSupersessionKind supersessionKind)
     {
         if (!IsPresentationReady() ||
             _presentationTokens.PresentedToken is not RoadRenderToken currentToken)
@@ -465,7 +506,7 @@ public partial class RoadRenderer
         _ordinaryPreCommitSupersededAttemptNumber = 0;
         _ordinaryPreCommitSupersededToken = null;
         _ordinaryPreCommitReplacementToken = null;
-        _ordinaryPreCommitAdvancesRoadStyleRevision = advanceRoadStyleRevision;
+        _ordinaryPreCommitSupersessionKind = supersessionKind;
     }
 
     internal bool IsOrdinaryPreCommitTokenSupersessionArmed() =>

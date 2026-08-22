@@ -656,7 +656,7 @@ public sealed class RoadRendererLifecycleContractTests
             supersessionProbe,
             StringComparison.Ordinal);
         Assert.Contains(
-            "_presentationTokens.RequestRebuild(targetToken.ChangeSequence);",
+            "_presentationTokens.RequestRebuild(targetToken.ChangeSequence)",
             supersessionProbe,
             StringComparison.Ordinal);
         Assert.Contains("TryRebuildStaticBatches()", completion, StringComparison.Ordinal);
@@ -681,11 +681,11 @@ public sealed class RoadRendererLifecycleContractTests
             "private void ArmNextOrdinaryPreCommitTokenSupersession(");
 
         Assert.Contains(
-            "advanceRoadStyleRevision: true",
+            "OrdinaryPreCommitSupersessionKind.RoadStyleRevision",
             styleArm,
             StringComparison.Ordinal);
         Assert.Contains(
-            "_ordinaryPreCommitAdvancesRoadStyleRevision",
+            "_ordinaryPreCommitSupersessionKind",
             supersessionProbe,
             StringComparison.Ordinal);
         Assert.Contains(
@@ -697,9 +697,50 @@ public sealed class RoadRendererLifecycleContractTests
             supersessionProbe,
             StringComparison.Ordinal);
         Assert.Contains(
-            "_ordinaryPreCommitAdvancesRoadStyleRevision = false;",
+            "OrdinaryPreCommitSupersessionKind.RenderRequest;",
             supersessionProbe,
             StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OrdinaryPreCommitSceneGenerationSupersessionUsesSceneGenerationRequest()
+    {
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadRendererUpdateTokenFailureProbe.cs"));
+        string supersessionProbe = ExtractMethod(
+            probeSource,
+            "partial void ProbeOrdinaryPreCommitTokenSupersession(",
+            "internal void ArmNextOrdinaryPresentationResourcePreflightFailure()");
+        string sceneGenerationArm = ExtractMethod(
+            probeSource,
+            "internal void ArmNextOrdinaryPreCommitSceneGenerationSupersession()",
+            "private void ArmNextOrdinaryPreCommitTokenSupersession(");
+        string sceneGenerationRequest = ExtractMethod(
+            probeSource,
+            "private RoadRenderToken RequestOrdinaryPreCommitSceneGenerationSupersession(",
+            "internal void ArmNextOrdinaryPresentationResourcePreflightFailure()");
+
+        Assert.Contains(
+            "OrdinaryPreCommitSupersessionKind.SceneGeneration",
+            sceneGenerationArm,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "RequestOrdinaryPreCommitSceneGenerationSupersession(targetToken)",
+            supersessionProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "checked(targetToken.SceneGeneration + 1)",
+            sceneGenerationRequest,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_presentationTokens.SetSceneGeneration(",
+            sceneGenerationRequest,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "out RoadRenderToken replacementToken",
+            sceneGenerationRequest,
+            StringComparison.Ordinal);
+        Assert.Contains("return replacementToken;", sceneGenerationRequest, StringComparison.Ordinal);
     }
 
     [Fact]
