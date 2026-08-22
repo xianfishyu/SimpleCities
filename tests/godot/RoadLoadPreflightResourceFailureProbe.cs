@@ -221,6 +221,31 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
     public string GetAggregateLoadRendererCommitBoundaryGenerationMismatchMessage() =>
         SaveManager.AggregateLoadRendererCommitBoundaryGenerationMismatchMessage;
 
+    public void ArmAggregateLoadToolCommitBoundaryGenerationMismatch(
+        SaveManager saveManager,
+        ToolManager toolManager)
+    {
+        ArgumentNullException.ThrowIfNull(saveManager);
+        ArgumentNullException.ThrowIfNull(toolManager);
+        saveManager.ArmNextAggregateLoadToolCommitBoundaryGenerationMismatch(toolManager);
+        _saveManager = saveManager;
+    }
+
+    public bool IsAggregateLoadToolCommitBoundaryGenerationMismatchArmed() =>
+        _saveManager?.IsAggregateLoadToolCommitBoundaryGenerationMismatchArmed() ?? false;
+
+    public int GetAggregateLoadToolCommitBoundaryGenerationMismatchCount() =>
+        _saveManager?.GetAggregateLoadToolCommitBoundaryGenerationMismatchCount() ?? 0;
+
+    public int GetAggregateLoadToolCommitBoundaryCount() =>
+        _saveManager?.GetAggregateLoadToolCommitBoundaryCount() ?? 0;
+
+    public int GetAggregateLoadToolMarkCommittedCount() =>
+        _saveManager?.GetAggregateLoadToolMarkCommittedCount() ?? 0;
+
+    public string GetAggregateLoadToolCommitBoundaryGenerationMismatchMessage() =>
+        SaveManager.AggregateLoadToolCommitBoundaryGenerationMismatchMessage;
+
     public long GetObjectResourceCount() => Convert.ToInt64(
         Performance.GetMonitor(Performance.Monitor.ObjectResourceCount));
 }
@@ -235,6 +260,8 @@ public partial class SaveManager
         "Injected aggregate Load failure after ownership transfer and before commit.";
     internal const string AggregateLoadRendererCommitBoundaryGenerationMismatchMessage =
         "A load participant generation changed while entering commit.";
+    internal const string AggregateLoadToolCommitBoundaryGenerationMismatchMessage =
+        "A load participant generation changed while entering commit.";
 
     private bool _aggregateLoadPostRendererPreflightFailureArmed;
     private int _aggregateLoadPostRendererPreflightFailureCount;
@@ -246,6 +273,10 @@ public partial class SaveManager
     private int _aggregateLoadRendererCommitBoundaryGenerationMismatchCount;
     private RoadRenderer? _aggregateLoadRendererCommitBoundaryOwner;
     private AggregateLoadRendererBoundaryInvalidatingLease? _aggregateLoadRendererBoundaryLease;
+    private bool _aggregateLoadToolCommitBoundaryGenerationMismatchArmed;
+    private int _aggregateLoadToolCommitBoundaryGenerationMismatchCount;
+    private ToolManager? _aggregateLoadToolCommitBoundaryOwner;
+    private AggregateLoadToolBoundaryInvalidatingLease? _aggregateLoadToolBoundaryLease;
 
     partial void ProbeAggregateLoadPostRendererPreflightFailure()
     {
@@ -399,6 +430,59 @@ public partial class SaveManager
     internal int GetAggregateLoadRendererMarkCommittedCount() =>
         _aggregateLoadRendererBoundaryLease?.MarkCommittedCount ?? 0;
 
+    partial void ProbeAggregateLoadToolCommitBoundaryGenerationMismatch(
+        ToolManager toolManager,
+        ref IStorageOperationLease operationLease)
+    {
+        if (!_aggregateLoadToolCommitBoundaryGenerationMismatchArmed)
+            return;
+        if (!ReferenceEquals(toolManager, _aggregateLoadToolCommitBoundaryOwner))
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load tool commit-boundary probe targeted a different ToolManager.");
+        }
+
+        _aggregateLoadToolCommitBoundaryGenerationMismatchArmed = false;
+        _aggregateLoadToolCommitBoundaryGenerationMismatchCount++;
+        _aggregateLoadToolCommitBoundaryOwner = null;
+        var wrapper = new AggregateLoadToolBoundaryInvalidatingLease(
+            operationLease,
+            toolManager);
+        _aggregateLoadToolBoundaryLease = wrapper;
+        operationLease = wrapper;
+    }
+
+    internal void ArmNextAggregateLoadToolCommitBoundaryGenerationMismatch(
+        ToolManager toolManager)
+    {
+        if (IsOperationBusy)
+        {
+            throw new InvalidOperationException(
+                "SaveManager must be idle before arming its aggregate Load failure probe.");
+        }
+        if (_aggregateLoadToolCommitBoundaryGenerationMismatchArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load tool commit-boundary generation mismatch probe is already armed.");
+        }
+
+        _aggregateLoadToolCommitBoundaryGenerationMismatchArmed = true;
+        _aggregateLoadToolCommitBoundaryOwner = toolManager;
+        _aggregateLoadToolBoundaryLease = null;
+    }
+
+    internal bool IsAggregateLoadToolCommitBoundaryGenerationMismatchArmed() =>
+        _aggregateLoadToolCommitBoundaryGenerationMismatchArmed;
+
+    internal int GetAggregateLoadToolCommitBoundaryGenerationMismatchCount() =>
+        _aggregateLoadToolCommitBoundaryGenerationMismatchCount;
+
+    internal int GetAggregateLoadToolCommitBoundaryCount() =>
+        _aggregateLoadToolBoundaryLease?.BoundaryCount ?? 0;
+
+    internal int GetAggregateLoadToolMarkCommittedCount() =>
+        _aggregateLoadToolBoundaryLease?.MarkCommittedCount ?? 0;
+
     private sealed class AggregateLoadRendererBoundaryInvalidatingLease(
         IStorageOperationLease inner,
         RoadRenderer renderer) : IStorageOperationLease
@@ -436,10 +520,56 @@ public partial class SaveManager
             MarkCommitted();
         }
     }
+
+    private sealed class AggregateLoadToolBoundaryInvalidatingLease(
+        IStorageOperationLease inner,
+        ToolManager toolManager) : IStorageOperationLease
+    {
+        public string OperationToken => inner.OperationToken;
+        public SaveOperationKind Kind => inner.Kind;
+        internal int BoundaryCount { get; private set; }
+        internal int MarkCommittedCount { get; private set; }
+
+        public void ThrowIfCancellationRequested() => inner.ThrowIfCancellationRequested();
+
+        public void AcquireCommitLease() => inner.AcquireCommitLease();
+
+        public void CrossCommitBoundary(Action boundaryAction)
+        {
+            ArgumentNullException.ThrowIfNull(boundaryAction);
+            BoundaryCount++;
+            inner.CrossCommitBoundary(() =>
+            {
+                toolManager.InvalidateCurrentToolLoadAdmissionForAggregateBoundaryProbe();
+                boundaryAction();
+            });
+        }
+
+        public void MarkCommitted()
+        {
+            MarkCommittedCount++;
+            inner.MarkCommitted();
+        }
+
+        public void EnterCommitBoundary()
+        {
+            AcquireCommitLease();
+            CrossCommitBoundary(static () => { });
+            MarkCommitted();
+        }
+    }
 }
 
 public partial class ToolManager
 {
+    internal void InvalidateCurrentToolLoadAdmissionForAggregateBoundaryProbe()
+    {
+        ToolLoadAdmission admission = _loadAdmission ??
+            throw new InvalidOperationException(
+                "ToolManager must have a current Load admission at the aggregate commit boundary.");
+        admission.Dispose();
+    }
+
     internal Godot.Collections.Dictionary ProbeToolLoadCommitBoundaryGenerationMismatch()
     {
         const string ExpectedFailureMessage =

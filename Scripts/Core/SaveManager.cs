@@ -16,6 +16,9 @@ public partial class SaveManager : Node
     partial void ProbeAggregateLoadRendererCommitBoundaryGenerationMismatch(
         RoadRenderer renderer,
         ref IStorageOperationLease operationLease);
+    partial void ProbeAggregateLoadToolCommitBoundaryGenerationMismatch(
+        ToolManager toolManager,
+        ref IStorageOperationLease operationLease);
     partial void ProbeSlotTargetLoadCompleteCommitFailure();
 
     public static SaveManager Instance { get; private set; } = null!;
@@ -714,6 +717,9 @@ public partial class SaveManager : Node
                 IStorageOperationLease aggregateOperationLease = lease;
                 ProbeAggregateLoadRendererCommitBoundaryGenerationMismatch(
                     context.Renderer,
+                    ref aggregateOperationLease);
+                ProbeAggregateLoadToolCommitBoundaryGenerationMismatch(
+                    context.ToolManager,
                     ref aggregateOperationLease);
                 IReadOnlyList<string> warnings = aggregate.Commit(aggregateOperationLease);
                 TimeSpan aggregateCommitDuration = Stopwatch.GetElapsedTime(aggregateCommitStarted);

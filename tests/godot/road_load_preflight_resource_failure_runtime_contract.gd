@@ -839,6 +839,72 @@ func run() -> void:
 		"Real StartLoad renderer boundary rejection changed RoadGraph"):
 		return
 
+	var tool_boundary_operation_resource_count_before := int(probe.GetObjectResourceCount())
+	var tool_boundary_operation_failure_message := str(
+		probe.GetAggregateLoadToolCommitBoundaryGenerationMismatchMessage())
+	probe.ArmAggregateLoadToolCommitBoundaryGenerationMismatch(save_manager, tool_manager)
+	if not require(
+		bool(probe.IsAggregateLoadToolCommitBoundaryGenerationMismatchArmed()),
+		"Real StartLoad tool commit-boundary generation mismatch probe did not arm"):
+		return
+	var tool_boundary_operation_failed_load_result := await run_load(active_slot_id)
+	if not require(
+		int(tool_boundary_operation_failed_load_result.get("resultKind", -1)) ==
+			RESULT_FAILED and
+		not bool(tool_boundary_operation_failed_load_result.get("committed", true)) and
+		str(tool_boundary_operation_failed_load_result.get("warnings", "")).is_empty() and
+		str(tool_boundary_operation_failed_load_result.get("error", "")) ==
+			tool_boundary_operation_failure_message,
+		"Real StartLoad did not reject the stale tool inside the commit boundary: %s" %
+		JSON.stringify(tool_boundary_operation_failed_load_result)):
+		return
+	var tool_boundary_operation_resource_count_after := int(probe.GetObjectResourceCount())
+	if not require(
+		not bool(probe.IsAggregateLoadToolCommitBoundaryGenerationMismatchArmed()) and
+		int(probe.GetAggregateLoadToolCommitBoundaryGenerationMismatchCount()) == 1 and
+		int(probe.GetAggregateLoadToolCommitBoundaryCount()) == 1 and
+		int(probe.GetAggregateLoadToolMarkCommittedCount()) == 0 and
+		tool_boundary_operation_resource_count_after ==
+			tool_boundary_operation_resource_count_before,
+		"Real StartLoad tool boundary rejection did not release owned resources exactly once: %s" %
+		JSON.stringify({
+			"armed": bool(
+				probe.IsAggregateLoadToolCommitBoundaryGenerationMismatchArmed()),
+			"triggerCount": int(
+				probe.GetAggregateLoadToolCommitBoundaryGenerationMismatchCount()),
+			"boundaryCount": int(probe.GetAggregateLoadToolCommitBoundaryCount()),
+			"markCommittedCount": int(probe.GetAggregateLoadToolMarkCommittedCount()),
+			"resourceCountBefore": tool_boundary_operation_resource_count_before,
+			"resourceCountAfter": tool_boundary_operation_resource_count_after,
+		})):
+		return
+	if not require(
+		str(save_manager.get("CurrentSlotID")) == active_slot_id and
+		int(tool_manager.get("CurrentTool")) == TOOL_ROAD and
+		int(tool_manager.GetSelectedRoadType()) == selected_road_type_before and
+		builder.HasActivePlaceSession() and
+		builder.GetFixedCornerCount() == 1 and
+		builder.GetUndoEditCount() == undo_count_before and
+		builder.GetRedoEditCount() == redo_count_before and
+		renderer.GetRenderedEdgeCount() == edge_count_before and
+		renderer.GetRoadMeshVertexCount() == vertex_count_before and
+		renderer.GetNodeMarkerCount() == marker_count_before and
+		renderer.GetPresentationState() == presentation_before and
+		renderer.FindRoadSurfaceHit(Vector2(400.0, 300.0), 0.0) == hit_before,
+		"Real StartLoad tool boundary rejection changed graph, tool, placement, history, presentation, surface, token, or slot state"):
+		return
+
+	if not require(
+		await V3_SAVE_FIXTURE.save(save_manager, active_slot_id),
+		"Could not recapture the active graph after tool boundary rejection"):
+		return
+	var tool_boundary_operation_payload_after := FileAccess.get_file_as_string(
+		V3_SAVE_FIXTURE.slot_path(active_slot_id, V3_SAVE_FIXTURE.PAYLOAD_FILE_NAME))
+	if not require(
+		tool_boundary_operation_payload_after == active_payload_before,
+		"Real StartLoad tool boundary rejection changed RoadGraph"):
+		return
+
 	var load_result := await run_load(source_slot_id)
 	if not require(
 		int(load_result.get("resultKind", -1)) == RESULT_SUCCEEDED and
@@ -1006,6 +1072,20 @@ func run() -> void:
 			renderer_boundary_operation_resource_count_before,
 		"renderer_boundary_operation_resource_count_after":
 			renderer_boundary_operation_resource_count_after,
+		"tool_boundary_operation_failure_result_kind": int(
+			tool_boundary_operation_failed_load_result.get("resultKind", -1)),
+		"tool_boundary_operation_failure_committed": bool(
+			tool_boundary_operation_failed_load_result.get("committed", true)),
+		"tool_boundary_operation_failure_trigger_count": int(
+			probe.GetAggregateLoadToolCommitBoundaryGenerationMismatchCount()),
+		"tool_boundary_operation_count": int(
+			probe.GetAggregateLoadToolCommitBoundaryCount()),
+		"tool_boundary_operation_mark_committed_count": int(
+			probe.GetAggregateLoadToolMarkCommittedCount()),
+		"tool_boundary_operation_resource_count_before":
+			tool_boundary_operation_resource_count_before,
+		"tool_boundary_operation_resource_count_after":
+			tool_boundary_operation_resource_count_after,
 		"load_result_kind": int(load_result.get("resultKind", -1)),
 	}))
 	await cleanup()
