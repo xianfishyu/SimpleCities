@@ -444,6 +444,74 @@ public sealed class RoadRendererLifecycleContractTests
     }
 
     [Fact]
+    public void RealStartLoadRendererStyleSnapshotFailureLeavesAdmissionUnpublishedAndReleasesEarlierAdmissions()
+    {
+        string saveManagerSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Core", "SaveManager.cs"));
+        string rendererLoadSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.LoadCommit.cs"));
+        string loadOrchestration = ExtractMethod(
+            saveManagerSource,
+            "private async Task<SaveOperationResult> RunLoadAsync",
+            "private async Task<SaveOperationResult> RunDeleteAsync");
+        string rendererAdmission = ExtractMethod(
+            rendererLoadSource,
+            "internal RoadRendererLoadAdmission BeginLoadAdmission()",
+            "internal INonThrowingLoadCommitPlan PreflightPreparedLoad(");
+
+        int graphAdmission = loadOrchestration.IndexOf(
+            "graphAdmission = context.Graph.BeginLoadAdmission();",
+            StringComparison.Ordinal);
+        int toolAdmission = loadOrchestration.IndexOf(
+            "toolAdmission = context.ToolManager.BeginLoadAdmission();",
+            StringComparison.Ordinal);
+        int rendererAdmissionStart = loadOrchestration.IndexOf(
+            "rendererAdmission = context.Renderer.BeginLoadAdmission();",
+            StringComparison.Ordinal);
+        int participantCapture = loadOrchestration.IndexOf(
+            "SaveSlotStore.CaptureLoadParticipants(GetRequiredSaveables());",
+            StringComparison.Ordinal);
+        int workerStart = loadOrchestration.IndexOf(
+            "PreparedLoadWork prepared = await Task.Run(() =>",
+            StringComparison.Ordinal);
+        int rendererAdmissionDispose = loadOrchestration.IndexOf(
+            "rendererAdmission?.Dispose();",
+            StringComparison.Ordinal);
+        int toolAdmissionDispose = loadOrchestration.IndexOf(
+            "toolAdmission?.Dispose();",
+            StringComparison.Ordinal);
+        int graphAdmissionDispose = loadOrchestration.IndexOf(
+            "graphAdmission?.Dispose();",
+            StringComparison.Ordinal);
+
+        int generationAdvance = rendererAdmission.IndexOf(
+            "_loadAdmissionGeneration = NextLoadGeneration(_loadAdmissionGeneration);",
+            StringComparison.Ordinal);
+        int styleSnapshotCapture = rendererAdmission.IndexOf(
+            "Config.CaptureRoadTypeStyleSnapshot();",
+            StringComparison.Ordinal);
+        int renderReservation = rendererAdmission.IndexOf(
+            "_presentationTokens.ReserveLoad();",
+            StringComparison.Ordinal);
+        int admissionConstruction = rendererAdmission.IndexOf(
+            "new RoadRendererLoadAdmission(",
+            StringComparison.Ordinal);
+        int admissionPublication = rendererAdmission.IndexOf(
+            "_loadAdmission = admission;",
+            StringComparison.Ordinal);
+
+        Assert.True(graphAdmission >= 0 && graphAdmission < toolAdmission);
+        Assert.True(toolAdmission < rendererAdmissionStart);
+        Assert.True(rendererAdmissionStart < participantCapture && participantCapture < workerStart);
+        Assert.True(rendererAdmissionDispose >= 0 && rendererAdmissionDispose < toolAdmissionDispose);
+        Assert.True(toolAdmissionDispose < graphAdmissionDispose);
+        Assert.True(generationAdvance >= 0 && generationAdvance < styleSnapshotCapture);
+        Assert.True(styleSnapshotCapture < renderReservation);
+        Assert.True(renderReservation < admissionConstruction);
+        Assert.True(admissionConstruction < admissionPublication);
+    }
+
+    [Fact]
     public void RealStartLoadRendererWorkerPrepareFailureRunsBeforePresentationPreparation()
     {
         string saveManagerSource = File.ReadAllText(

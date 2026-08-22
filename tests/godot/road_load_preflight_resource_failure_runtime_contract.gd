@@ -1040,6 +1040,70 @@ func run() -> void:
 		"Real StartLoad slot-target boundary rejection changed RoadGraph"):
 		return
 
+	var renderer_config: Resource = renderer.get("Config")
+	var road_type_styles: Array = renderer_config.get("RoadTypeStyles")
+	if not require(
+		road_type_styles.size() == 4,
+		"Renderer admission style-snapshot fixture did not begin with four styles"):
+		return
+	var renderer_admission_style_snapshot_resource_count_before := int(
+		probe.GetObjectResourceCount())
+	var removed_road_type_style: Resource = road_type_styles[road_type_styles.size() - 1]
+	road_type_styles.remove_at(road_type_styles.size() - 1)
+	var invalid_style_validation: Dictionary = (
+		renderer_config.GetRoadTypeStylesValidationResult())
+	var renderer_admission_style_snapshot_failure_message := (
+		"RoadConfig RoadTypeStyles are invalid: %s" %
+		str(invalid_style_validation.get("error", "")))
+	var renderer_admission_style_snapshot_failed_load_result := await run_load(source_slot_id)
+	road_type_styles.push_back(removed_road_type_style)
+	var restored_style_validation: Dictionary = (
+		renderer_config.GetRoadTypeStylesValidationResult())
+	var renderer_admission_style_snapshot_resource_count_after := int(
+		probe.GetObjectResourceCount())
+	if not require(
+		not bool(invalid_style_validation.get("valid", true)) and
+		bool(restored_style_validation.get("valid", false)) and
+		int(renderer_admission_style_snapshot_failed_load_result.get(
+			"resultKind", -1)) == RESULT_FAILED and
+		not bool(renderer_admission_style_snapshot_failed_load_result.get(
+			"committed", true)) and
+		str(renderer_admission_style_snapshot_failed_load_result.get(
+			"warnings", "")).is_empty() and
+		str(renderer_admission_style_snapshot_failed_load_result.get("error", "")) ==
+			renderer_admission_style_snapshot_failure_message,
+		"Real StartLoad did not fail while capturing the renderer admission style snapshot: %s" %
+		JSON.stringify(renderer_admission_style_snapshot_failed_load_result)):
+		return
+	if not require(
+		renderer_admission_style_snapshot_resource_count_after ==
+			renderer_admission_style_snapshot_resource_count_before and
+		str(save_manager.get("CurrentSlotID")) == active_slot_id and
+		int(tool_manager.get("CurrentTool")) == TOOL_ROAD and
+		int(tool_manager.GetSelectedRoadType()) == selected_road_type_before and
+		builder.HasActivePlaceSession() and
+		builder.GetFixedCornerCount() == 1 and
+		builder.GetUndoEditCount() == undo_count_before and
+		builder.GetRedoEditCount() == redo_count_before and
+		renderer.GetRenderedEdgeCount() == edge_count_before and
+		renderer.GetRoadMeshVertexCount() == vertex_count_before and
+		renderer.GetNodeMarkerCount() == marker_count_before and
+		renderer.GetPresentationState() == presentation_before and
+		renderer.FindRoadSurfaceHit(Vector2(400.0, 300.0), 0.0) == hit_before,
+		"Renderer admission style-snapshot failure changed resources, graph, tool, placement, history, presentation, surface, token, or slot state"):
+		return
+
+	if not require(
+		await V3_SAVE_FIXTURE.save(save_manager, active_slot_id),
+		"Could not recapture the active graph after renderer admission style-snapshot failure"):
+		return
+	var renderer_admission_style_snapshot_payload_after := FileAccess.get_file_as_string(
+		V3_SAVE_FIXTURE.slot_path(active_slot_id, V3_SAVE_FIXTURE.PAYLOAD_FILE_NAME))
+	if not require(
+		renderer_admission_style_snapshot_payload_after == active_payload_before,
+		"Renderer admission style-snapshot failure changed RoadGraph"):
+		return
+
 	var renderer_worker_prepare_resource_count_before := int(probe.GetObjectResourceCount())
 	var renderer_worker_prepare_failure_message := str(
 		probe.GetAggregateLoadRendererWorkerPrepareFailureMessage())
@@ -1224,6 +1288,14 @@ func run() -> void:
 			aggregate_commit_plan_resource_count_before,
 		"aggregate_commit_plan_resource_count_after":
 			aggregate_commit_plan_resource_count_after,
+		"renderer_admission_style_snapshot_failure_result_kind": int(
+			renderer_admission_style_snapshot_failed_load_result.get("resultKind", -1)),
+		"renderer_admission_style_snapshot_failure_committed": bool(
+			renderer_admission_style_snapshot_failed_load_result.get("committed", true)),
+		"renderer_admission_style_snapshot_resource_count_before":
+			renderer_admission_style_snapshot_resource_count_before,
+		"renderer_admission_style_snapshot_resource_count_after":
+			renderer_admission_style_snapshot_resource_count_after,
 		"renderer_worker_prepare_failure_result_kind": int(
 			renderer_worker_prepare_failed_load_result.get("resultKind", -1)),
 		"renderer_worker_prepare_failure_committed": bool(
