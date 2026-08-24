@@ -227,6 +227,8 @@
 
   - 已提交表现 attempt 的迟到 failure 门禁修复（2026-08-24）：`RoadPresentationTokenTracker.ReportBuildFailure()` 过去只比较 desired token 与 attempt 编号，因此 `CommitDesired()` 已把同一 token 发布为 presented 后，迟到异常仍会重新写入 `CurrentFailure`。`grid-rendering:BUG-3` 现增加 `PresentedToken == token` 拒绝条件；`RoadRenderTokenTests.CommittedAttemptRejectsLateFailure` 先在旧实现上复现返回非空 `RoadPresentationFailure`，再固定已提交 attempt 返回 `null`、保持 current 且不 stalled。`RoadRenderTokenTests` 22/22、完整自动化 941/941、Debug/`ExportRelease` build 0 警告/0 错误、Roslyn compiler/analyzer 0 diagnostics 与 `git diff --check` 均通过。该修复只收窄提交后的 failure admission，不替代真实 Godot/Vulkan 视觉、性能或其余 renderer/aggregate 故障矩阵，因此 2.2、2.3 保持开放。
 
+  - 同 token 旧 attempt 的迟到 failure 门禁证据（2026-08-24）：`RoadRenderTokenTests.NewAttemptRejectsPreviousAttemptLateFailure` 让 attempt 1 先建立真实 stalled failure，再开始 attempt 2；attempt 1 随后到达的迟到异常返回 `null`，attempt 2 的真实异常仍被接纳，`CurrentFailure` 精确绑定 attempt 2，desired/presented 继续保持目标/上一代分离。该测试直接固定 `attemptNumber != AttemptCount` 分支，不与新 token 取代或提交后拒绝两个相邻门禁重复。`RoadRenderTokenTests` 23/23、完整自动化 942/942、Debug/`ExportRelease` build 0 警告/0 错误、Roslyn test-project compiler/analyzer 0 diagnostics 与 `git diff --check` 均通过；提交 `4e5ed16` 只增加测试，未修改生产行为，因此未重复运行 Godot/Vulkan。该证据关闭 2.2 的同 token 旧 attempt failure admission 直接回归缺口，但不替代其余 renderer/aggregate 故障、视觉或性能矩阵，2.2、2.3 保持开放。
+
 <a id="v3-grid-rendering2.3"></a>
 
 - [ ] **2.3 建立混合类型视觉、接管与性能门禁**
@@ -391,7 +393,7 @@
 - [x] **Degree≥3 `JunctionPatch` 已与 ribbon mesh 及 surface 同源。** 固定量化与 Clipper2 union/triangulation 为 T/X/锐角、self-loop 加支路和平行 Edge 生成有界 patch；确定 owner sector 携带稳定 Node/Edge/Endpoint 与 canonical location，普通/Load 同代且不再绘制 degree≥3 圆形 marker。其余工具消费和性能矩阵仍由开放的 2.2～2.3 负责。
 - [x] **拆除选择已消费同代道路 surface。** hover、连续轨迹与矩形选择统一查询 frozen `RoadRenderToken` 对应的四类 surface；pending/stalled/superseded 会话清空选择并拒绝确认，提交还校验 graph facade 与 change sequence。完整工具矩阵和性能门禁仍由开放的 2.0、2.2～2.3 负责。
 - [x] **RoadUpgrade 已消费同代道路 surface。** 独立改造会话冻结目标类型与完整 token，连续/矩形选择只保存稳定 canonical Edge ID；成功批次只产生一次事件/历史，旧 token、取消、NoChanges 与 full reset 均不留下可提交选择或 overlay。完整工具矩阵和性能门禁仍由开放的 2.0、2.2～2.3 负责。
-- [x] **普通 mutation 表现失败已具备 provider 级 stalled/retry 门禁。** 失败绑定完整 desired token、attempt、异常类型和消息，保留上一代完整 mesh/surface/cache 但拒绝 hit；同 token 重试成功后才一次发布，更新请求会取代旧失败，已提交 token 也拒绝同 attempt 的迟到异常。其余工具命令 admission 与完整规模/扰动矩阵仍由开放的 2.2～2.3 负责。
+- [x] **普通 mutation 表现失败已具备 provider 级 stalled/retry 门禁。** 失败绑定完整 desired token、attempt、异常类型和消息，保留上一代完整 mesh/surface/cache 但拒绝 hit；同 token 重试成功后才一次发布，新的同 token attempt 会拒绝旧 attempt 的迟到异常，更新请求会取代旧失败，已提交 token 也拒绝同 attempt 的迟到异常。其余工具命令 admission 与完整规模/扰动矩阵仍由开放的 2.2～2.3 负责。
 - [x] **撤销与重做已服从 provider/graph 同代门禁。** 两个历史回放方向都在执行前校验 current token；pending、stalled 及回放自身引发的反向等待窗口不会清栈或修改图，matching presentation 发布后才恢复可用。
 - [x] **Deferred 普通批次重建已具备独立 continuation generation。** 同帧 graph change 继续合并；Load admission、full reset、换图、退树和 aggregate commit 的同步 flush/reset 会推进 generation，旧 callable 无法消费后续新请求。
 - [x] **未转交的表现资源已有确定性 cleanup。** 普通 rebuild、Load Preflight 与未提交 plan 分别持有并释放自己的 `ArrayMesh`/`MultiMesh`；资源工厂构造中途失败也不会把已创建 Resource 留给 GC，成功 transfer 后则由表现层继续持有。
