@@ -430,6 +430,53 @@ public sealed class PauseMenuContractTests
     }
 
     [Fact]
+    public void PublishStagedGate_IsBeforeCancellationCheckAndCommitLease()
+    {
+        string slotStore = File.ReadAllText(SaveSlotStorePath);
+        string probe = File.ReadAllText(PublishOperationProbePath);
+
+        int publishStart = slotStore.IndexOf(
+            "private SavePublishResult SaveCore(",
+            StringComparison.Ordinal);
+        int publishEnd = slotStore.IndexOf(
+            "public int Load(",
+            publishStart,
+            StringComparison.Ordinal);
+        Assert.True(publishStart >= 0 && publishEnd > publishStart);
+        string publish = slotStore[publishStart..publishEnd];
+        int stagedObserver = publish.IndexOf(
+            "_publicationObserver?.Invoke(SavePublicationPhase.Staged);",
+            StringComparison.Ordinal);
+        int cancellationCheck = publish.IndexOf(
+            "operationLease.ThrowIfCancellationRequested();",
+            stagedObserver,
+            StringComparison.Ordinal);
+        int commitLease = publish.IndexOf(
+            "operationLease.AcquireCommitLease();",
+            stagedObserver,
+            StringComparison.Ordinal);
+        Assert.True(stagedObserver >= 0 && stagedObserver < cancellationCheck);
+        Assert.True(cancellationCheck < commitLease);
+
+        Assert.Contains(
+            "store = new SaveSlotStore(_resolvedSaveBaseDir, WaitAtPublishStaged);",
+            probe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "phase != SavePublicationPhase.Staged",
+            probe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "Volatile.Write(ref _publishStagedGateEntered, 1);",
+            probe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "Interlocked.Increment(ref _publishStagedGateCancelRequestCount);",
+            probe,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void PublishPostCommitGate_IsAfterTheCanonicalBoundary()
     {
         string slotStore = File.ReadAllText(SaveSlotStorePath);

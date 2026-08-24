@@ -318,6 +318,83 @@ func run() -> void:
 		not save_as_button.disabled and not save_management_back_button.disabled,
 		"Canceled Save As did not restore its input controls or manager idle state")
 
+	var slot_before_staged_save_as: String = save_manager.get("CurrentSlotID")
+	save_name_input.text = "Runtime UI staged canceled save as"
+	publish_operation_probe.ArmStagedGate(save_manager)
+	assert_true(publish_operation_probe.IsStagedGateArmed(), "Save publish staged gate did not arm")
+	save_as_button.emit_signal("pressed")
+	var staged_save_as_token := str(pause_menu.get("ActiveSaveOperationToken"))
+	save_as_button.emit_signal("pressed")
+	var duplicate_staged_save_as_token := str(pause_menu.get("ActiveSaveOperationToken"))
+	var publish_staged_gate_entered := await wait_for_publish_staged_gate(
+		pause_menu,
+		publish_operation_probe)
+	var staged_transaction_root_present := DirAccess.dir_exists_absolute(
+		transaction_failure_marker_absolute)
+	pause_menu._Input(key_event(KEY_ESCAPE))
+	pause_menu._Input(key_event(KEY_ESCAPE))
+	var staged_cancel_requested_before_release := bool(
+		pause_menu.get("ActiveSaveOperationCancelRequested"))
+	var staged_cancel_request_count_before_release := int(
+		publish_operation_probe.GetStagedCancelRequestCount())
+	var staged_cancel_request_token_before_release := str(
+		publish_operation_probe.GetStagedCancelOperationToken())
+	var staged_phase_before_release := int(pause_menu.get("ActiveSaveOperationPhase"))
+	var staged_crossed_boundary_before_release := bool(
+		pause_menu.get("ActiveSaveOperationCrossedBoundary"))
+	var staged_controls_disabled_before_release := (
+		not save_name_input.editable and save_as_button.disabled and
+		overwrite_save_button.disabled and load_save_button.disabled and
+		delete_save_button.disabled and save_management_back_button.disabled)
+	var staged_name_before_release := save_name_input.text
+	publish_operation_probe.ReleaseStagedGate()
+	var staged_save_as_reached_idle := await wait_for_save_operation_idle(pause_menu)
+	await process_frame
+	var staged_save_as_result: Dictionary = save_manager.GetOperationResult(
+		staged_save_as_token)
+	var staged_save_as_target_id := str(staged_save_as_result.get("targetSlotID", ""))
+	var publish_staged_gate_trigger_count := int(
+		publish_operation_probe.GetStagedGateTriggerCount())
+	var staged_transaction_root_removed := not DirAccess.dir_exists_absolute(
+		transaction_failure_marker_absolute)
+	publish_operation_probe.Disarm()
+	assert_true(
+		publish_staged_gate_entered and not staged_save_as_token.is_empty() and
+		staged_save_as_token == duplicate_staged_save_as_token and
+		publish_staged_gate_trigger_count == 1,
+		"Repeated staged Save As activation started or replaced the active operation token")
+	assert_true(
+		staged_cancel_requested_before_release and
+		staged_cancel_request_count_before_release == 1 and
+		staged_cancel_request_token_before_release == staged_save_as_token,
+		"Repeated Escape did not collapse to one staged Save As cancellation request")
+	assert_true(
+		staged_transaction_root_present and
+		staged_phase_before_release == SAVE_OPERATION_PHASE_PREPARE and
+		not staged_crossed_boundary_before_release and
+		staged_controls_disabled_before_release and
+		staged_name_before_release == "Runtime UI staged canceled save as" and
+		pause_menu.visible and paused and save_management_content.visible,
+		"Staged Save As did not retain its cancellable paused exclusive state")
+	assert_true(staged_save_as_reached_idle, "Canceled staged Save As did not reach a terminal state")
+	assert_true(
+		int(staged_save_as_result.get("resultKind", -1)) == SAVE_OPERATION_RESULT_CANCELED and
+		int(staged_save_as_result.get("finalPhase", -1)) == SAVE_OPERATION_PHASE_PREPARE and
+		not bool(staged_save_as_result.get("committed", true)),
+		"Staged Save As cancellation did not publish an uncommitted Canceled result")
+	assert_true(
+		staged_save_as_target_id.begins_with("manual-") and
+		not save_manager.SaveSlotExists(staged_save_as_target_id) and
+		save_manager.get("CurrentSlotID") == slot_before_staged_save_as and
+		count_items_with_prefix(save_slot_list, "手动  ·  Runtime UI staged canceled save as") == 0 and
+		save_name_input.text == "Runtime UI staged canceled save as" and
+		save_status.text.contains("操作已取消") and staged_transaction_root_removed,
+		"Canceled staged Save As published a slot, leaked staging, or changed UI state")
+	assert_true(
+		not bool(save_manager.get("IsOperationBusy")) and save_name_input.editable and
+		not save_as_button.disabled and not save_management_back_button.disabled,
+		"Canceled staged Save As did not restore its input controls or manager idle state")
+
 	save_name_input.text = "Runtime UI duplicate"
 	publish_operation_probe.ArmPostCommitGate(save_manager)
 	assert_true(publish_operation_probe.IsPostCommitGateArmed(), "Save publish post-commit gate did not arm")
@@ -923,6 +1000,17 @@ func wait_for_delete_recover_gate(probe: RefCounted) -> bool:
 func wait_for_publish_prepare_gate(probe: RefCounted) -> bool:
 	for _frame in 600:
 		if bool(probe.HasEnteredPrepareGate()):
+			return true
+		await process_frame
+	return false
+
+func wait_for_publish_staged_gate(pause_menu: Node, probe: RefCounted) -> bool:
+	for _frame in 600:
+		if (
+			bool(probe.HasEnteredStagedGate()) and
+			not bool(pause_menu.get("ActiveSaveOperationCrossedBoundary")) and
+			int(pause_menu.get("ActiveSaveOperationPhase")) == SAVE_OPERATION_PHASE_PREPARE
+		):
 			return true
 		await process_frame
 	return false
