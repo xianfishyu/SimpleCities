@@ -800,51 +800,122 @@ public sealed class RoadRendererLoadPrepareTests
             snapshot.FindEdgeIDsIntersecting(new Rect2(-4f, -2f, 4f, 2f)));
     }
 
-    [Fact]
-    public void PurePreparer_SemanticJoinVisualDoesNotDependOnEdgeIDs()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void PurePreparer_SemanticJoinInputPermutationAndEdgeIDRenamingPreserveMappedOwnership(
+        bool sameDirection)
     {
         var preparer = new RoadRenderer.RoadRendererLoadPreparer(Settings);
         RoadRendererPreparedLoad first = preparer.Prepare(
-            CreateRightAngleSemanticBoundary(3, 4).CaptureRevision());
-        RoadRendererPreparedLoad second = preparer.Prepare(
-            CreateRightAngleSemanticBoundary(4, 3).CaptureRevision());
+            CreateSemanticBoundary(sameDirection, 3, 4).CaptureRevision());
+        RoadRendererPreparedLoad permuted = preparer.Prepare(
+            CreateSemanticBoundary(
+                sameDirection,
+                3,
+                4,
+                reverseEdgeEnumeration: true).CaptureRevision());
+        RoadRendererPreparedLoad renamed = preparer.Prepare(
+            CreateSemanticBoundary(sameDirection, 4, 3).CaptureRevision());
+        RoadSurfaceTriangle[] firstJoins = SurfaceTriangles(
+            first,
+            RoadSurfaceOwnerKind.SemanticJoin);
+        RoadSurfaceTriangle[] permutedJoins = SurfaceTriangles(
+            permuted,
+            RoadSurfaceOwnerKind.SemanticJoin);
+        SemanticJoinOwnership[] firstOwnership = ExtractSemanticJoinOwnership(first);
+        SemanticJoinOwnership[] renamedOwnership = ExtractSemanticJoinOwnership(renamed);
+        IReadOnlyDictionary<int, int> edgeIDMap = new Dictionary<int, int>
+        {
+            [3] = 4,
+            [4] = 3,
+        };
 
+        Assert.Equal(firstJoins, permutedJoins);
         Assert.Equal(
             ExtractSemanticJoinVisual(first),
-            ExtractSemanticJoinVisual(second));
+            ExtractSemanticJoinVisual(renamed));
+        Assert.Equal(
+            firstOwnership.Select(item => new SemanticJoinOwnership(
+                edgeIDMap[item.EdgeID],
+                item.NodeID,
+                item.Endpoint,
+                item.SectorOrder,
+                new RoadLocation(
+                    edgeIDMap[item.Location.EdgeID],
+                    item.Location.GeometryIndex,
+                    item.Location.Parameter))),
+            renamedOwnership);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void PurePreparer_SemanticJoinStoredDirectionPreservesVisualAndMappedOwnership(
+        bool sameDirection)
+    {
+        const int streetEdgeID = 3;
+        const int highwayEdgeID = 4;
+        RoadGraph forwardGraph = CreateSemanticBoundary(
+            sameDirection,
+            streetEdgeID,
+            highwayEdgeID);
+        RoadGraph reversedGraph = CreateSemanticBoundary(
+            sameDirection,
+            streetEdgeID,
+            highwayEdgeID,
+            reverseStoredDirections: true);
+        var preparer = new RoadRenderer.RoadRendererLoadPreparer(Settings);
+
+        RoadRendererPreparedLoad forward = preparer.Prepare(forwardGraph.CaptureRevision());
+        RoadRendererPreparedLoad reversed = preparer.Prepare(reversedGraph.CaptureRevision());
+        SemanticJoinOwnership[] forwardOwnership = ExtractSemanticJoinOwnership(forward);
+        SemanticJoinOwnership[] reversedOwnership = ExtractSemanticJoinOwnership(reversed);
+        GraphNode forwardBoundary = Assert.Single(
+            forwardGraph.GetAllNodes(),
+            node => node.Position == Vector2.Zero);
+        GraphNode reversedBoundary = Assert.Single(
+            reversedGraph.GetAllNodes(),
+            node => node.Position == Vector2.Zero);
+
+        Assert.Equal(
+            ExtractSemanticJoinVisual(forward),
+            ExtractSemanticJoinVisual(reversed));
+        Assert.Equal(
+            forwardOwnership.Select(item => (
+                item.EdgeID,
+                NodeID: item.NodeID == forwardBoundary.ID
+                    ? (int?)reversedBoundary.ID
+                    : item.NodeID,
+                item.SectorOrder)),
+            reversedOwnership.Select(item => (
+                item.EdgeID,
+                item.NodeID,
+                item.SectorOrder)));
+        Assert.All(forwardOwnership, item =>
+        {
+            Assert.Equal(forwardBoundary.ID, item.NodeID);
+            Assert.Equal(EdgeEndpoint.A, item.Endpoint);
+            Assert.Equal(item.EdgeID, item.Location.EdgeID);
+            Assert.Equal(0, item.Location.GeometryIndex);
+            Assert.Equal(RoadGeometrySegment.ParameterStart, item.Location.Parameter);
+        });
+        Assert.All(reversedOwnership, item =>
+        {
+            Assert.Equal(reversedBoundary.ID, item.NodeID);
+            Assert.Equal(EdgeEndpoint.B, item.Endpoint);
+            Assert.Equal(item.EdgeID, item.Location.EdgeID);
+            GraphEdge edge = Assert.IsType<GraphEdge>(reversedGraph.GetEdge(item.EdgeID));
+            Assert.Equal(edge.GeometrySegments.Count - 1, item.Location.GeometryIndex);
+            Assert.Equal(RoadGeometrySegment.ParameterEnd, item.Location.Parameter);
+        });
     }
 
     [Fact]
     public void PurePreparer_UsesFixedBevelFallbackForSameDirectionSemanticBoundary()
     {
         Vector2 boundaryPosition = Vector2.Zero;
-        var graph = RoadGraph.FromPreparedTopology(new PreparedRoadGraphTopology(
-            5,
-            [
-                new PreparedRoadNode(0, boundaryPosition),
-                new PreparedRoadNode(1, new Vector2(10f, 5f)),
-                new PreparedRoadNode(2, new Vector2(10f, -5f)),
-            ],
-            [
-                new PreparedRoadEdge(
-                    RoadType.Street,
-                    3,
-                    0,
-                    1,
-                    [
-                        new LineRoadGeometrySegment(boundaryPosition, new Vector2(2f, 0f)),
-                        new LineRoadGeometrySegment(new Vector2(2f, 0f), new Vector2(10f, 5f)),
-                    ]),
-                new PreparedRoadEdge(
-                    RoadType.Highway,
-                    4,
-                    0,
-                    2,
-                    [
-                        new LineRoadGeometrySegment(boundaryPosition, new Vector2(2f, 0f)),
-                        new LineRoadGeometrySegment(new Vector2(2f, 0f), new Vector2(10f, -5f)),
-                    ]),
-            ]));
+        RoadGraph graph = CreateSemanticBoundary(true, 3, 4);
         var preparer = new RoadRenderer.RoadRendererLoadPreparer(Settings);
 
         RoadRendererPreparedLoad prepared = preparer.Prepare(graph.CaptureRevision());
@@ -915,27 +986,73 @@ public sealed class RoadRendererLoadPrepareTests
     private static RoadGraph CreateRightAngleSemanticBoundary(
         int streetEdgeID,
         int highwayEdgeID) =>
-        RoadGraph.FromPreparedTopology(new PreparedRoadGraphTopology(
-            Math.Max(streetEdgeID, highwayEdgeID) + 1,
+        CreateSemanticBoundary(
+            false,
+            streetEdgeID,
+            highwayEdgeID);
+
+    private static RoadGraph CreateSemanticBoundary(
+        bool sameDirection,
+        int streetEdgeID,
+        int highwayEdgeID,
+        bool reverseStoredDirections = false,
+        bool reverseEdgeEnumeration = false)
+    {
+        Vector2 boundaryPosition = Vector2.Zero;
+        int boundaryNodeID = reverseStoredDirections
+            ? Math.Max(streetEdgeID, highwayEdgeID) + 1
+            : 0;
+        Vector2 streetEnd = sameDirection
+            ? new Vector2(10f, 5f)
+            : new Vector2(10f, 0f);
+        Vector2 highwayEnd = sameDirection
+            ? new Vector2(10f, -5f)
+            : new Vector2(0f, 10f);
+        IReadOnlyList<RoadGeometrySegment> streetGeometry = sameDirection
+            ?
             [
-                new PreparedRoadNode(0, Vector2.Zero),
-                new PreparedRoadNode(1, new Vector2(10f, 0f)),
-                new PreparedRoadNode(2, new Vector2(0f, 10f)),
+                new LineRoadGeometrySegment(boundaryPosition, new Vector2(2f, 0f)),
+                new LineRoadGeometrySegment(new Vector2(2f, 0f), streetEnd),
+            ]
+            : [new LineRoadGeometrySegment(boundaryPosition, streetEnd)];
+        IReadOnlyList<RoadGeometrySegment> highwayGeometry = sameDirection
+            ?
+            [
+                new LineRoadGeometrySegment(boundaryPosition, new Vector2(2f, 0f)),
+                new LineRoadGeometrySegment(new Vector2(2f, 0f), highwayEnd),
+            ]
+            : [new LineRoadGeometrySegment(boundaryPosition, highwayEnd)];
+        var street = new PreparedRoadEdge(
+            RoadType.Street,
+            streetEdgeID,
+            reverseStoredDirections ? 1 : 0,
+            reverseStoredDirections ? boundaryNodeID : 1,
+            reverseStoredDirections
+                ? RoadGeometryDirection.ReverseChain(streetGeometry)
+                : streetGeometry);
+        var highway = new PreparedRoadEdge(
+            RoadType.Highway,
+            highwayEdgeID,
+            reverseStoredDirections ? 2 : 0,
+            reverseStoredDirections ? boundaryNodeID : 2,
+            reverseStoredDirections
+                ? RoadGeometryDirection.ReverseChain(highwayGeometry)
+                : highwayGeometry);
+        PreparedRoadEdge[] edges = reverseEdgeEnumeration
+            ? [highway, street]
+            : [street, highway];
+
+        return RoadGraph.FromPreparedTopology(new PreparedRoadGraphTopology(
+            Math.Max(
+                Math.Max(streetEdgeID, highwayEdgeID),
+                boundaryNodeID) + 1,
+            [
+                new PreparedRoadNode(boundaryNodeID, boundaryPosition),
+                new PreparedRoadNode(1, streetEnd),
+                new PreparedRoadNode(2, highwayEnd),
             ],
-            [
-                new PreparedRoadEdge(
-                    RoadType.Street,
-                    streetEdgeID,
-                    0,
-                    1,
-                    [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(10f, 0f))]),
-                new PreparedRoadEdge(
-                    RoadType.Highway,
-                    highwayEdgeID,
-                    0,
-                    2,
-                    [new LineRoadGeometrySegment(Vector2.Zero, new Vector2(0f, 10f))]),
-            ]));
+            edges));
+    }
 
     private static RoadGraph CreateAcuteJunction(bool reverseEdges)
     {
@@ -995,7 +1112,14 @@ public sealed class RoadRendererLoadPrepareTests
             edges));
     }
 
-    private static (Vector2 A, Vector2 B, Vector2 C, Color Color, int Sector)[]
+    private static (
+        Vector2 A,
+        Vector2 B,
+        Vector2 C,
+        Vector2 CenterlineStart,
+        Vector2 CenterlineEnd,
+        Color Color,
+        int Sector)[]
         ExtractSemanticJoinVisual(RoadRendererPreparedLoad prepared) =>
         Enumerable.Range(0, prepared.RoadSurface.TriangleCount)
             .Select(index => (
@@ -1006,8 +1130,21 @@ public sealed class RoadRendererLoadPrepareTests
                 item.Triangle.A,
                 item.Triangle.B,
                 item.Triangle.C,
+                item.Triangle.CenterlineStart,
+                item.Triangle.CenterlineEnd,
                 prepared.RoadColors[prepared.RoadIndices[item.Index * 3]],
                 item.Triangle.Owner.SectorOrder))
+            .ToArray();
+
+    private static SemanticJoinOwnership[] ExtractSemanticJoinOwnership(
+        RoadRendererPreparedLoad prepared) =>
+        SurfaceTriangles(prepared, RoadSurfaceOwnerKind.SemanticJoin)
+            .Select(triangle => new SemanticJoinOwnership(
+                triangle.Owner.EdgeID,
+                triangle.Owner.NodeID,
+                triangle.Owner.Endpoint,
+                triangle.Owner.SectorOrder,
+                Assert.IsType<RoadLocation>(triangle.FixedLocation)))
             .ToArray();
 
     private static (
@@ -1055,4 +1192,11 @@ public sealed class RoadRendererLoadPrepareTests
         ChangeSequence: 4,
         RoadStyleRevision: 5,
         RenderRequestID: 6);
+
+    private readonly record struct SemanticJoinOwnership(
+        int EdgeID,
+        int? NodeID,
+        EdgeEndpoint? Endpoint,
+        int SectorOrder,
+        RoadLocation Location);
 }
