@@ -38,7 +38,10 @@ public partial class SaveManager : Node
         IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
         RoadGraphRevision targetRevision,
         PreparedLoadWork prepared);
-    partial void ProbeAggregateLoadPostRendererPreflightFailure();
+    partial void ProbeAggregateLoadPostRendererPreflightFailure(
+        IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
+        RoadGraphRevision targetRevision,
+        PreparedLoadWork prepared);
     partial void ProbeAggregateLoadPostSlotPreflightFailure();
     partial void ProbeAggregateLoadPostOwnershipPreCommitFailure();
     partial void ProbeAggregateLoadGraphCommitBoundaryGenerationMismatch(
@@ -752,7 +755,10 @@ public partial class SaveManager : Node
                     rendererAdmission,
                     prepared.Presentation,
                     targetRevision.StateToken));
-                ProbeAggregateLoadPostRendererPreflightFailure();
+                ProbeAggregateLoadPostRendererPreflightFailure(
+                    preflightPlans,
+                    targetRevision,
+                    prepared);
                 long slotTargetGeneration = _currentSlotGeneration;
                 preflightPlans.Add(new SlotTargetLoadCommitPlan(
                     slotID,

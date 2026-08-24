@@ -615,6 +615,7 @@ func run() -> void:
 	var post_renderer_failed_load_result := await run_load(source_slot_id)
 	if not require(
 		int(post_renderer_failed_load_result.get("resultKind", -1)) == RESULT_FAILED and
+		int(post_renderer_failed_load_result.get("finalPhase", -1)) == PHASE_PREFLIGHT and
 		not bool(post_renderer_failed_load_result.get("committed", true)) and
 		str(post_renderer_failed_load_result.get("warnings", "")).is_empty() and
 		str(post_renderer_failed_load_result.get("error", "")) ==
@@ -626,6 +627,20 @@ func run() -> void:
 	if not require(
 		not bool(probe.IsAggregateLoadPostRendererPreflightFailureArmed()) and
 		int(probe.GetAggregateLoadPostRendererPreflightFailureCount()) == 1 and
+		bool(probe.DidAggregateLoadPostRendererPreflightFailureRunOnMainThread()) and
+		int(probe.GetAggregateLoadPostRendererPreflightPlanCount()) == 3 and
+		str(probe.GetAggregateLoadPostRendererPreflightFirstParticipantID()) ==
+			"road-graph" and
+		str(probe.GetAggregateLoadPostRendererPreflightSecondParticipantID()) ==
+			"road-tools" and
+		str(probe.GetAggregateLoadPostRendererPreflightThirdParticipantID()) ==
+			"road-presentation" and
+		int(probe.GetAggregateLoadPostRendererPreflightTargetEdgeCount()) == 0 and
+		str(probe.GetAggregateLoadPostRendererPreflightObservedSlotID()) == source_slot_id and
+		int(probe.GetAggregateLoadPostRendererPreflightSourceParticipantCount()) == 1 and
+		int(probe.GetAggregateLoadPostRendererPreflightRoadVertexCount()) == 0 and
+		int(probe.GetAggregateLoadPostRendererPreflightSurfacePrimitiveCount()) == 0 and
+		int(probe.GetAggregateLoadPostRendererPreflightNodeMarkerCount()) == 0 and
 		post_renderer_resource_count_after == post_renderer_resource_count_before,
 		"Post-renderer aggregate failure did not dispose the prepared plan and resources: %s" %
 		JSON.stringify({
@@ -638,6 +653,7 @@ func run() -> void:
 	if not require(
 		str(save_manager.get("CurrentSlotID")) == active_slot_id and
 		int(tool_manager.get("CurrentTool")) == TOOL_ROAD and
+		int(tool_manager.GetSelectedRoadType()) == selected_road_type_before and
 		builder.HasActivePlaceSession() and
 		builder.GetFixedCornerCount() == 1 and
 		builder.GetUndoEditCount() == undo_count_before and
@@ -2522,10 +2538,34 @@ func run() -> void:
 		"aggregate_resource_count_after": int(probe.GetObjectResourceCount()),
 		"post_renderer_failure_result_kind": int(
 			post_renderer_failed_load_result.get("resultKind", -1)),
+		"post_renderer_failure_final_phase": int(
+			post_renderer_failed_load_result.get("finalPhase", -1)),
 		"post_renderer_failure_committed": bool(
 			post_renderer_failed_load_result.get("committed", true)),
 		"post_renderer_failure_trigger_count": int(
 			probe.GetAggregateLoadPostRendererPreflightFailureCount()),
+		"post_renderer_failure_on_main_thread": bool(
+			probe.DidAggregateLoadPostRendererPreflightFailureRunOnMainThread()),
+		"post_renderer_plan_count": int(
+			probe.GetAggregateLoadPostRendererPreflightPlanCount()),
+		"post_renderer_first_participant_id": str(
+			probe.GetAggregateLoadPostRendererPreflightFirstParticipantID()),
+		"post_renderer_second_participant_id": str(
+			probe.GetAggregateLoadPostRendererPreflightSecondParticipantID()),
+		"post_renderer_third_participant_id": str(
+			probe.GetAggregateLoadPostRendererPreflightThirdParticipantID()),
+		"post_renderer_target_edge_count": int(
+			probe.GetAggregateLoadPostRendererPreflightTargetEdgeCount()),
+		"post_renderer_observed_slot_id": str(
+			probe.GetAggregateLoadPostRendererPreflightObservedSlotID()),
+		"post_renderer_source_participant_count": int(
+			probe.GetAggregateLoadPostRendererPreflightSourceParticipantCount()),
+		"post_renderer_road_vertex_count": int(
+			probe.GetAggregateLoadPostRendererPreflightRoadVertexCount()),
+		"post_renderer_surface_primitive_count": int(
+			probe.GetAggregateLoadPostRendererPreflightSurfacePrimitiveCount()),
+		"post_renderer_node_marker_count": int(
+			probe.GetAggregateLoadPostRendererPreflightNodeMarkerCount()),
 		"post_renderer_resource_count_before": post_renderer_resource_count_before,
 		"post_renderer_resource_count_after": post_renderer_resource_count_after,
 		"post_slot_failure_result_kind": int(
