@@ -4494,6 +4494,60 @@ public sealed class RoadRendererLifecycleContractTests
             StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void AggregateGraphPostCommitCancellationUsesTheActiveOperationAndRecordsRejection()
+    {
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadLoadObserverFailureProbe.cs"));
+        string arming = ExtractMethod(
+            probeSource,
+            "public void ArmGraphPostCommitCancellation(",
+            "public void Disarm()");
+        string handler = ExtractMethod(
+            probeSource,
+            "private void OnGraphChangedCancelOperation(",
+            "private void OnPresentationReadyCancelOperation(");
+
+        int activeOperation = handler.IndexOf(
+            "string operationToken = saveManager.ActiveOperationToken;",
+            StringComparison.Ordinal);
+        int triggerCount = handler.IndexOf(
+            "_postCommitGraphCancellationCount++;",
+            StringComparison.Ordinal);
+        int recordToken = handler.IndexOf(
+            "_postCommitGraphCancellationOperationToken = operationToken;",
+            StringComparison.Ordinal);
+        int disarm = handler.IndexOf(
+            "DisarmGraphPostCommitCancellation();",
+            StringComparison.Ordinal);
+        int cancel = handler.IndexOf(
+            "_postCommitGraphCancellationAccepted = saveManager.CancelOperation(operationToken);",
+            StringComparison.Ordinal);
+
+        Assert.Contains(
+            "_postCommitGraphCancellationHandler = OnGraphChangedCancelOperation;",
+            arming,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "graph.GraphChanged += _postCommitGraphCancellationHandler;",
+            arming,
+            StringComparison.Ordinal);
+        Assert.True(activeOperation >= 0 && activeOperation < triggerCount);
+        Assert.True(triggerCount < recordToken && recordToken < disarm && disarm < cancel);
+        Assert.Contains(
+            "public bool WasPostCommitGraphCancellationAccepted()",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "public string GetPostCommitGraphCancellationOperationToken()",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "public bool IsPostCommitGraphCancellationArmed()",
+            probeSource,
+            StringComparison.Ordinal);
+    }
+
     private static string ExtractMethod(string source, string startMarker, string endMarker)
     {
         int start = source.IndexOf(startMarker, StringComparison.Ordinal);

@@ -16,14 +16,20 @@ public partial class RoadLoadObserverFailureProbe : Godot.RefCounted
     private SaveManager? _postCommitOwner;
     private RoadRenderer? _postCommitCancellationRenderer;
     private SaveManager? _postCommitCancellationSaveManager;
+    private RoadGraph? _postCommitGraphCancellationOwner;
+    private SaveManager? _postCommitGraphCancellationSaveManager;
     private Action<RoadRenderToken>? _handler;
     private Action<RoadRenderToken>? _postCommitCancellationHandler;
     private Action<RoadGraphChangedEvent>? _graphHandler;
+    private Action<RoadGraphChangedEvent>? _postCommitGraphCancellationHandler;
     private int _triggerCount;
     private int _graphObserverTriggerCount;
     private int _postCommitCancellationCount;
     private bool _postCommitCancellationAccepted;
     private string _postCommitCancellationOperationToken = string.Empty;
+    private int _postCommitGraphCancellationCount;
+    private bool _postCommitGraphCancellationAccepted;
+    private string _postCommitGraphCancellationOperationToken = string.Empty;
 
     public void FlushPendingManagedFinalizers()
     {
@@ -109,6 +115,23 @@ public partial class RoadLoadObserverFailureProbe : Godot.RefCounted
         renderer.PresentationReady += _postCommitCancellationHandler;
     }
 
+    public void ArmGraphPostCommitCancellation(
+        RoadSystem roadSystem,
+        SaveManager saveManager)
+    {
+        ArgumentNullException.ThrowIfNull(roadSystem);
+        ArgumentNullException.ThrowIfNull(saveManager);
+        RoadGraph graph = roadSystem.Graph;
+        ArgumentNullException.ThrowIfNull(graph);
+        DisarmGraphPostCommitCancellation();
+        _postCommitGraphCancellationOwner = graph;
+        _postCommitGraphCancellationSaveManager = saveManager;
+        _postCommitGraphCancellationAccepted = false;
+        _postCommitGraphCancellationOperationToken = string.Empty;
+        _postCommitGraphCancellationHandler = OnGraphChangedCancelOperation;
+        graph.GraphChanged += _postCommitGraphCancellationHandler;
+    }
+
     public void Disarm()
     {
         DisarmObserver();
@@ -124,6 +147,7 @@ public partial class RoadLoadObserverFailureProbe : Godot.RefCounted
         _postCommitOwner?.DisarmAggregateLoadPostCommitFailure();
         _postCommitOwner = null;
         DisarmPostCommitCancellation();
+        DisarmGraphPostCommitCancellation();
     }
 
     private void DisarmObserver()
@@ -153,6 +177,19 @@ public partial class RoadLoadObserverFailureProbe : Godot.RefCounted
         _postCommitCancellationRenderer = null;
         _postCommitCancellationSaveManager = null;
         _postCommitCancellationHandler = null;
+    }
+
+    private void DisarmGraphPostCommitCancellation()
+    {
+        if (_postCommitGraphCancellationOwner is not null &&
+            _postCommitGraphCancellationHandler is not null)
+        {
+            _postCommitGraphCancellationOwner.GraphChanged -=
+                _postCommitGraphCancellationHandler;
+        }
+        _postCommitGraphCancellationOwner = null;
+        _postCommitGraphCancellationSaveManager = null;
+        _postCommitGraphCancellationHandler = null;
     }
 
     public int GetTriggerCount() => _triggerCount;
@@ -186,6 +223,27 @@ public partial class RoadLoadObserverFailureProbe : Godot.RefCounted
     public bool IsPostCommitCancellationArmed() =>
         _postCommitCancellationRenderer is not null &&
         _postCommitCancellationHandler is not null;
+    public int GetPostCommitGraphCancellationCount() =>
+        _postCommitGraphCancellationCount;
+    public bool WasPostCommitGraphCancellationAccepted() =>
+        _postCommitGraphCancellationAccepted;
+    public string GetPostCommitGraphCancellationOperationToken() =>
+        _postCommitGraphCancellationOperationToken;
+    public bool IsPostCommitGraphCancellationArmed() =>
+        _postCommitGraphCancellationOwner is not null &&
+        _postCommitGraphCancellationHandler is not null;
+
+    private void OnGraphChangedCancelOperation(RoadGraphChangedEvent _)
+    {
+        SaveManager saveManager = _postCommitGraphCancellationSaveManager
+            ?? throw new InvalidOperationException(
+                "Aggregate Load graph post-commit cancellation probe has no SaveManager.");
+        string operationToken = saveManager.ActiveOperationToken;
+        _postCommitGraphCancellationCount++;
+        _postCommitGraphCancellationOperationToken = operationToken;
+        DisarmGraphPostCommitCancellation();
+        _postCommitGraphCancellationAccepted = saveManager.CancelOperation(operationToken);
+    }
 
     private void OnPresentationReadyCancelOperation(RoadRenderToken _)
     {
