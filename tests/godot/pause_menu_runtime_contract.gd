@@ -309,7 +309,10 @@ func run() -> void:
 	await process_frame
 	assert_true(current_scene != null and current_scene.scene_file_path == MAP_SCENE, "MainMenu did not start a new MapTest session")
 	assert_true(save_manager.get("RegisteredSaveableCount") == 1, "New MapTest session did not register exactly the RoadGraph")
-	assert_true(await V3_SAVE_FIXTURE.save(save_manager, "autosave"), "Saving after returning through MainMenu failed")
+	var autosave_controller: Node = current_scene.get_node("AutosaveController")
+	assert_true(
+		await V3_SAVE_FIXTURE.run_autosave(autosave_controller, save_manager),
+		"Saving after returning through MainMenu failed")
 	var manifest_file := FileAccess.open("user://saves-v3/autosave/manifest.json", FileAccess.READ)
 	assert_true(manifest_file != null, "V3 autosave manifest is missing")
 	var manifest: Dictionary = JSON.parse_string(manifest_file.get_as_text())
