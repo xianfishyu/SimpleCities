@@ -239,6 +239,37 @@ public sealed class RoadSurfaceSnapshotTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public void PointQueryBreaksSelfLoopIncidenceTiesByEndpointRegardlessOfEnumeration(
+        bool reverseEnumeration)
+    {
+        RoadSurfaceTriangle endpointA = JunctionPatchTriangle(
+            edgeID: 7,
+            sectorOrder: 0,
+            endpoint: EdgeEndpoint.A,
+            parameter: 0f);
+        RoadSurfaceTriangle endpointB = JunctionPatchTriangle(
+            edgeID: 7,
+            sectorOrder: 0,
+            endpoint: EdgeEndpoint.B,
+            parameter: 1f);
+        RoadSurfaceTriangle[] candidates = reverseEnumeration
+            ? [endpointB, endpointA]
+            : [endpointA, endpointB];
+        var snapshot = new RoadSurfaceSnapshot(Token(), candidates);
+
+        RoadSurfaceHit hit = Assert.IsType<RoadSurfaceHit>(
+            snapshot.FindClosest(new Vector2(2f, 2f), maxSurfaceDistance: 0f));
+
+        Assert.Equal(RoadSurfaceOwnerKind.JunctionPatch, hit.OwnerKind);
+        Assert.Equal(7, hit.EdgeID);
+        Assert.Equal(20, hit.NodeID);
+        Assert.Equal(EdgeEndpoint.A, hit.Endpoint);
+        Assert.Equal(new RoadLocation(7, 0, 0f), hit.Location);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void PointQueryChoosesNearestCenterlineAcrossOverlappingWidthsRegardlessOfEnumeration(
         bool reverseEnumeration)
     {
@@ -467,11 +498,13 @@ public sealed class RoadSurfaceSnapshotTests
 
     private static RoadSurfaceTriangle JunctionPatchTriangle(
         int edgeID,
-        int sectorOrder) => new(
+        int sectorOrder,
+        EdgeEndpoint endpoint = EdgeEndpoint.A,
+        float parameter = 0f) => new(
             RoadSurfaceOwner.JunctionPatch(
                 edgeID,
                 nodeID: 20,
-                endpoint: EdgeEndpoint.A,
+                endpoint,
                 sectorOrder: sectorOrder),
             Vector2.Zero,
             new Vector2(10f, 0f),
@@ -480,7 +513,7 @@ public sealed class RoadSurfaceSnapshotTests
             centerlineEnd: new Vector2(10f, 10f),
             locationStart: null,
             locationEnd: null,
-            fixedLocation: new RoadLocation(edgeID, 0, 0f));
+            fixedLocation: new RoadLocation(edgeID, 0, parameter));
 
     private static RoadSurfaceTriangle[] QuadWithLocations(
         int edgeID,
