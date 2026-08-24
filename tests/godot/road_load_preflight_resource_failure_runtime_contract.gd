@@ -260,14 +260,17 @@ func run() -> void:
 	var aggregate_road_mesh_resource_count_before := int(probe.GetObjectResourceCount())
 	var aggregate_road_mesh_failure_message := str(
 		probe.GetAggregateLoadRoadMeshFactoryFailureMessage())
-	probe.ArmAggregateLoadRoadMeshFactoryFailure(renderer)
+	probe.ArmAggregateLoadRoadMeshFactoryFailure(save_manager, renderer)
 	if not require(
-		bool(probe.IsAggregateLoadRoadMeshFactoryFailureArmed()),
+		bool(probe.IsAggregateLoadRoadMeshFactoryFailureArmed()) and
+		bool(probe.IsAggregateLoadRoadMeshFactoryPreflightObservationArmed()),
 		"Aggregate Load road-mesh factory failure probe did not arm"):
 		return
 	var aggregate_road_mesh_failed_load_result := await run_load(active_slot_id)
 	if not require(
 		int(aggregate_road_mesh_failed_load_result.get("resultKind", -1)) == RESULT_FAILED and
+		int(aggregate_road_mesh_failed_load_result.get("finalPhase", -1)) ==
+			PHASE_PREFLIGHT and
 		not bool(aggregate_road_mesh_failed_load_result.get("committed", true)) and
 		str(aggregate_road_mesh_failed_load_result.get("warnings", "")).is_empty() and
 		str(aggregate_road_mesh_failed_load_result.get("error", "")) ==
@@ -278,8 +281,28 @@ func run() -> void:
 	var aggregate_road_mesh_resource_count_after := int(probe.GetObjectResourceCount())
 	if not require(
 		not bool(probe.IsAggregateLoadRoadMeshFactoryFailureArmed()) and
+		not bool(probe.IsAggregateLoadRoadMeshFactoryPreflightObservationArmed()) and
 		int(probe.GetAggregateLoadRoadMeshFactoryFailureCount()) == 1 and
 		int(probe.GetAggregateLoadRoadMeshFactoryIndexEnumerationCount()) == 1 and
+		int(probe.GetAggregateLoadRoadMeshFactoryPreflightObservationCount()) == 1 and
+		bool(probe.DidAggregateLoadRoadMeshFactoryPreflightObservationRunOnMainThread()) and
+		int(probe.GetAggregateLoadRoadMeshFactoryPreflightObservedPhase()) ==
+			PHASE_PREFLIGHT and
+		int(probe.GetAggregateLoadRoadMeshFactoryPreflightPlanCount()) == 2 and
+		str(probe.GetAggregateLoadRoadMeshFactoryPreflightFirstParticipantID()) ==
+			"road-graph" and
+		str(probe.GetAggregateLoadRoadMeshFactoryPreflightSecondParticipantID()) ==
+			"road-tools" and
+		int(probe.GetAggregateLoadRoadMeshFactoryPreflightTargetEdgeCount()) ==
+			edge_count_before and
+		str(probe.GetAggregateLoadRoadMeshFactoryPreflightObservedSlotID()) ==
+			active_slot_id and
+		int(probe.GetAggregateLoadRoadMeshFactoryPreflightSourceParticipantCount()) == 1 and
+		int(probe.GetAggregateLoadRoadMeshFactoryPreflightRoadVertexCount()) ==
+			vertex_count_before and
+		int(probe.GetAggregateLoadRoadMeshFactoryPreflightSurfacePrimitiveCount()) > 0 and
+		int(probe.GetAggregateLoadRoadMeshFactoryPreflightNodeMarkerCount()) ==
+			marker_count_before and
 		aggregate_road_mesh_resource_count_after ==
 			aggregate_road_mesh_resource_count_before,
 		"Aggregate road-mesh factory failure did not release its preflight resource: %s" %
@@ -288,6 +311,15 @@ func run() -> void:
 			"triggerCount": int(probe.GetAggregateLoadRoadMeshFactoryFailureCount()),
 			"indexEnumerationCount": int(
 				probe.GetAggregateLoadRoadMeshFactoryIndexEnumerationCount()),
+			"observationCount": int(
+				probe.GetAggregateLoadRoadMeshFactoryPreflightObservationCount()),
+			"observedPhase": int(
+				probe.GetAggregateLoadRoadMeshFactoryPreflightObservedPhase()),
+			"planCount": int(probe.GetAggregateLoadRoadMeshFactoryPreflightPlanCount()),
+			"firstParticipantID": str(
+				probe.GetAggregateLoadRoadMeshFactoryPreflightFirstParticipantID()),
+			"secondParticipantID": str(
+				probe.GetAggregateLoadRoadMeshFactoryPreflightSecondParticipantID()),
 			"resourceCountBefore": aggregate_road_mesh_resource_count_before,
 			"resourceCountAfter": aggregate_road_mesh_resource_count_after,
 		})):
@@ -2317,12 +2349,38 @@ func run() -> void:
 			road_mesh_failure_result.get("resourceCountAfter", -1)),
 		"aggregate_road_mesh_failure_result_kind": int(
 			aggregate_road_mesh_failed_load_result.get("resultKind", -1)),
+		"aggregate_road_mesh_failure_final_phase": int(
+			aggregate_road_mesh_failed_load_result.get("finalPhase", -1)),
 		"aggregate_road_mesh_failure_committed": bool(
 			aggregate_road_mesh_failed_load_result.get("committed", true)),
 		"aggregate_road_mesh_failure_trigger_count": int(
 			probe.GetAggregateLoadRoadMeshFactoryFailureCount()),
 		"aggregate_road_mesh_index_enumeration_count": int(
 			probe.GetAggregateLoadRoadMeshFactoryIndexEnumerationCount()),
+		"aggregate_road_mesh_preflight_observation_count": int(
+			probe.GetAggregateLoadRoadMeshFactoryPreflightObservationCount()),
+		"aggregate_road_mesh_preflight_observation_on_main_thread": bool(
+			probe.DidAggregateLoadRoadMeshFactoryPreflightObservationRunOnMainThread()),
+		"aggregate_road_mesh_preflight_observed_phase": int(
+			probe.GetAggregateLoadRoadMeshFactoryPreflightObservedPhase()),
+		"aggregate_road_mesh_preflight_plan_count": int(
+			probe.GetAggregateLoadRoadMeshFactoryPreflightPlanCount()),
+		"aggregate_road_mesh_preflight_first_participant_id": str(
+			probe.GetAggregateLoadRoadMeshFactoryPreflightFirstParticipantID()),
+		"aggregate_road_mesh_preflight_second_participant_id": str(
+			probe.GetAggregateLoadRoadMeshFactoryPreflightSecondParticipantID()),
+		"aggregate_road_mesh_preflight_target_edge_count": int(
+			probe.GetAggregateLoadRoadMeshFactoryPreflightTargetEdgeCount()),
+		"aggregate_road_mesh_preflight_observed_slot_id": str(
+			probe.GetAggregateLoadRoadMeshFactoryPreflightObservedSlotID()),
+		"aggregate_road_mesh_preflight_source_participant_count": int(
+			probe.GetAggregateLoadRoadMeshFactoryPreflightSourceParticipantCount()),
+		"aggregate_road_mesh_preflight_road_vertex_count": int(
+			probe.GetAggregateLoadRoadMeshFactoryPreflightRoadVertexCount()),
+		"aggregate_road_mesh_preflight_surface_primitive_count": int(
+			probe.GetAggregateLoadRoadMeshFactoryPreflightSurfacePrimitiveCount()),
+		"aggregate_road_mesh_preflight_node_marker_count": int(
+			probe.GetAggregateLoadRoadMeshFactoryPreflightNodeMarkerCount()),
 		"aggregate_road_mesh_resource_count_before":
 			aggregate_road_mesh_resource_count_before,
 		"aggregate_road_mesh_resource_count_after":

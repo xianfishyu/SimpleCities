@@ -38,6 +38,12 @@ public partial class SaveManager : Node
         IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
         RoadGraphRevision targetRevision,
         PreparedLoadWork prepared);
+    partial void ProbeAggregateLoadRoadMeshFactoryPreflightObservation(
+        RoadRenderer renderer,
+        SaveOperationPhase phase,
+        IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
+        RoadGraphRevision targetRevision,
+        PreparedLoadWork prepared);
     partial void ProbeAggregateLoadPostRendererPreflightFailure(
         IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
         RoadGraphRevision targetRevision,
@@ -766,6 +772,12 @@ public partial class SaveManager : Node
                     prepared);
                 preflightPlans.Add(context.ToolManager.PreflightFullReset(toolAdmission));
                 ProbeAggregateLoadPostToolPreflightFailure(
+                    preflightPlans,
+                    targetRevision,
+                    prepared);
+                ProbeAggregateLoadRoadMeshFactoryPreflightObservation(
+                    context.Renderer,
+                    lease.State.Phase,
                     preflightPlans,
                     targetRevision,
                     prepared);
