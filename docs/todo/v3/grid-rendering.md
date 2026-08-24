@@ -344,6 +344,8 @@
 
   - 真实 aggregate `CreateRoadMesh()` Preflight 故障矩阵补强（2026-08-24）：`v3-grid-rendering:2.2` 已为既有 road-mesh factory failure 补齐真实 `Preflight=4`、主线程、进入 renderer 前的两个 participant 与 `1 Edge / 4 vertices / 4 primitives / 2 markers` prepared 数据。失败发生在 `ArrayMesh` 已分配但 surface/node batch 尚未建立时；factory 与 orchestration ownership 均确定性收敛，活动表现与工具事务保持，资源 `77 -> 77`，最终无故障 Load 成功再接管。完整自动化 923/923、生命周期与 QA export 聚焦 66/66、双配置 build、Roslyn/GDScript diagnostics、`--check-only`、Vulkan 运行时、Debug/`ExportRelease` 隔离与 MCP 结构 smoke 均通过。该证据只补强一个既有 factory 点，不替代其余逐关键 Preflight Resource 故障、混合类型视觉/性能或 Phase 8 组合矩阵，因此 2.3 保持开放。
 
+  - 真实 aggregate `CreateNodeBatch()` Preflight 故障矩阵补强（2026-08-24）：`v3-grid-rendering:2.2` 已为既有 node-batch factory failure 补齐真实 `Preflight=4`、主线程、进入 renderer 前的 `road-graph → road-tools` 两个 participant 与 `1 Edge / 4 vertices / 4 primitives / 2 markers` prepared 数据。road mesh 已成功创建；`CreateNodeBatch()` 分配并配置 `MultiMesh` 后在 marker 首次 index read 失败，factory 与 renderer Preflight 外层 ownership 分别释放 node batch 和 road mesh，orchestration fallback 再释放 graph/tool plans。活动表现、surface/token/hit 与工具事务保持，资源 `77 -> 77`，最终无故障 Load 成功再接管。完整自动化 924/924、生命周期与 QA export 聚焦 67/67、双配置 build、Roslyn/GDScript diagnostics、`--check-only`、Vulkan 运行时、Debug/`ExportRelease` 隔离与 MCP 结构 smoke 均通过；minimal DAP 因既有 8-client 上限阻塞。该证据只补强一个既有 factory 点，不增加二十七个 aggregate 相邻失败或二十一个连续 Preflight 早期边界，也不替代其余逐关键 Preflight Resource 故障、混合类型视觉/性能或 Phase 8 组合矩阵，因此 2.2、2.3 保持开放。
+
 ## 暂不执行
 
 ### 高级 RoadType 视觉
