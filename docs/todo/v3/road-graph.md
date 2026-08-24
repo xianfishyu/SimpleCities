@@ -277,6 +277,8 @@
 
   - Phase 8 重新开始后的硬门基线（2026-08-24）：`b95e295` 上 BUG-21 聚焦组合为 33/33，完整自动化为 959/959，Debug 与 `ExportRelease` build 均为 0 警告、0 错误，目标性能脚本 `--check-only` 退出码为 0。正式 Vulkan junction-dense 10k camera/preview/highlight P95 为 `0.580/0.655/0.532 ms`、Load/renderer rebuild 为 `785.455 ms`；geometry-dense 10k 为 `0.569/0.709/0.546 ms`、`2786.748 ms`，两项均 PASS、静态 renderer 节点均为 `2`。100k 未运行且不作为必需项；本轮工具集未暴露 Roslyn CodeLens、Godot MCP 或 minimal DAP，未把这些门记为通过。该证据只重新建立 Phase 8 的测试、构建与必需 10k 前置，8.6 仍等待代表性最终组合、可用 MCP QA 和附录 D 归档。
 
+  - Phase 8 代表性组合复验（2026-08-24）：`road_system_v2_final_runtime_contract.gd`、`road_input_strategy_runtime_contract.gd` 与 `road_render_token_runtime_contract.gd` 的 `--check-only` 均退出 0；三项正式 Godot 4.7 Vulkan 1.4.341 Forward+ 运行也均退出 0 并分别输出 `PASS road system v3 final runtime contract`、`PASS road input strategy runtime contract` 与 `PASS road render token runtime contract`。三者组合验证 V3 命名槽/严格往返/损坏槽保持、连续与闭合建造、四类 RoadType、RoadUpgrade、full reset、matching presentation、stalled/retry、提交后 warning 和六分量取代；输入契约 PASS 后没有再发生 finalizer 退出崩溃。CLI 只包含契约预期的 ConstructionDock 缺依赖、SelfOverlap/NoChanges、非法配置 fallback、损坏槽与主动注入 warning，三个隔离 QA 根已送入回收站且没有残留 `godot_console`。Roslyn/Godot MCP/DAP 仍未暴露，因此该复验完成代表性 CLI 组合但不关闭 8.6；仍需 MCP QA 与附录 D 归档。
+
 ## 暂不执行
 
 ### 交通模拟

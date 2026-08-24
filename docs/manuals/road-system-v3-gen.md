@@ -1362,6 +1362,8 @@ Phase 7 当前已有六十六个可验证切片。其一，普通 mutation 与 `
 
 > Phase 7 收口决策（2026-08-24）：现有证据已覆盖公开 operation phase、point-of-no-return 前后、真实四参与者 aggregate、代表性 Resource 所有权转移、observer/cleanup 隔离、UI 独占状态和跨进程恢复。继续为普通 Save/Overwrite、Load 或 renderer 的每个内部语句间隙建立笛卡尔故障组合只会绑定实现细节，不再作为 V3 完成条件。后续只执行 Phase 8 的代表性端到端组合、既定性能与 Windows 导出门禁；仅当最终组合暴露真实缺陷、引入新的正式 participant，或改变 commit/ownership 边界时，新增针对性回归。
 
+> Phase 8 重新开始进展（2026-08-24）：`b95e295` 上 BUG-21 聚焦 33/33、完整自动化 959/959、Debug/`ExportRelease` build 0 警告/0 错误；junction-dense 与 geometry-dense 10k 正式 Vulkan 门均 PASS，100k 未运行且不作为必需项。`road_system_v2_final_runtime_contract.gd`（历史文件名，输出 V3）、`road_input_strategy_runtime_contract.gd` 与 `road_render_token_runtime_contract.gd` 的 `--check-only` 和正式 Vulkan 运行均退出 0 并输出 PASS；输入契约在 PASS 后正常退出，没有复发 `godot-integration:BUG-4`。日志中的缺依赖、非法配置 fallback、损坏槽与主动故障注入 warning 都是契约预期观测，未把原始通道宣称为全局干净。本轮工具集未暴露 Roslyn CodeLens、Godot MCP 或 minimal DAP，因此 Phase 8 尚未关闭，附录 D 继续为空。
+
 ### Phase 8：最终组合验收
 
 复用 Phase 0～7 的专项证据，在同一 `MapTest` 代表性流程中组合连续/闭合道路、四类型建造与改造、token 防护的 delta 撤销重做、V3 format v1 往返、并发与取消、共享表面命中和 matching presentation；额外复核 V2 根未被枚举或修改、V2/未知格式被拒绝。随后串行执行完整自动化与双配置构建，并复用既定 Vulkan 视觉、10k 硬门槛、100k 压测和 Windows 导出门禁。最终证据写回附录 D；`v3-road-graph:8.6` 是唯一集成负责人。Phase 8 不重复 Phase 7 已证明的每个微观故障点。
