@@ -736,10 +736,110 @@ func run() -> void:
 		"Aggregate post-commit recovery Load did not restore one matching presentation"):
 		return
 
+	tool_manager.set("CurrentTool", TOOL_ROAD)
+	if not require(builder.BeginPlace(Vector2(700.0, 1200.0)), "Ninth transient road did not begin"):
+		return
+	if not require(
+		builder.AddPlacePoint(Vector2(800.0, 1200.0)),
+		"Ninth transient placement point was not added"):
+		return
+	probe.Arm(renderer)
+	probe.ArmGraphObserverFailure(road_system)
+	probe.ArmGraphCleanupFailure(road_system)
+	probe.ArmToolCleanupFailure(tool_manager)
+	probe.ArmRendererCleanupFailure(renderer)
+	probe.ArmSlotCleanupFailure(save_manager)
+	probe.ArmPostCommitFailure(save_manager)
+
+	var post_commit_combined_warned_result := await run_load(source_slot_id)
+	if not require(
+		int(post_commit_combined_warned_result.get("resultKind", -1)) ==
+		RESULT_SUCCEEDED_WITH_WARNINGS and
+		bool(post_commit_combined_warned_result.get("committed", false)),
+		"Combined participant and post-commit failures did not produce a committed warning result: %s" %
+		JSON.stringify(post_commit_combined_warned_result)):
+		return
+	var post_commit_combined_warnings := str(
+		post_commit_combined_warned_result.get("warnings", ""))
+	var post_commit_combined_expected_warnings := PackedStringArray([
+		"RoadGraph observer failed: Injected RoadGraph observer failure.",
+		"Road presentation observer failed: " +
+			"Injected RoadRenderer presentation observer failure.",
+		"Load participant 'road-graph' cleanup failed: " +
+			"Injected RoadGraph load cleanup failure.",
+		"Load participant 'road-tools' cleanup failed: " +
+			"Injected ToolManager load cleanup failure.",
+		"Load participant 'road-presentation' cleanup failed: " +
+			"Injected RoadRenderer load cleanup failure.",
+		"Load participant 'slot-target' cleanup failed: " +
+			"Injected slot target load cleanup failure.",
+		"Load post-commit work failed: " +
+			"Injected aggregate Load post-commit work failure.",
+	])
+	if not require(
+		post_commit_combined_warnings.split("\n", false) ==
+		post_commit_combined_expected_warnings,
+		"Combined participant/post-commit warnings were missing or out of order: %s" %
+		post_commit_combined_warnings):
+		return
+	if not require(
+		probe.GetTriggerCount() == 7 and
+		probe.GetGraphObserverTriggerCount() == 3 and
+		probe.GetToolCleanupFailureCount() == 5 and
+		probe.GetRendererCleanupFailureCount() == 5 and
+		probe.GetGraphCleanupFailureCount() == 5 and
+		probe.GetSlotCleanupFailureCount() == 5 and
+		probe.GetPostCommitFailureCount() == 2 and
+		not probe.IsGraphObserverFailureArmed() and
+		not probe.IsToolCleanupFailureArmed() and
+		not probe.IsRendererCleanupFailureArmed() and
+		not probe.IsGraphCleanupFailureArmed() and
+		not probe.IsSlotCleanupFailureArmed() and
+		not probe.IsPostCommitFailureArmed(),
+		"Combined participant/post-commit probes did not reach their exact counts"):
+		return
+	if not require(
+		str(save_manager.get("CurrentSlotID")) == source_slot_id and
+		renderer.GetRenderedEdgeCount() == 0 and
+		not builder.HasActivePlaceSession() and
+		builder.GetUndoEditCount() == 0 and
+		builder.GetRedoEditCount() == 0 and
+		matching_presentation_is_ready(renderer),
+		"Combined participant/post-commit warning did not preserve the committed Load state"):
+		return
+
+	tool_manager.set("CurrentTool", TOOL_ROAD_UPGRADE)
+	if not require(
+		int(tool_manager.get("CurrentTool")) == TOOL_ROAD_UPGRADE,
+		"Combined participant/post-commit warning left an admission active"):
+		return
+
+	var post_commit_combined_clean_result := await run_load(active_slot_id)
+	if not require(
+		int(post_commit_combined_clean_result.get("resultKind", -1)) == RESULT_SUCCEEDED and
+		bool(post_commit_combined_clean_result.get("committed", false)) and
+		str(post_commit_combined_clean_result.get("warnings", "")).is_empty(),
+		"Load after combined participant/post-commit warnings did not re-admit every participant: %s" %
+		JSON.stringify(post_commit_combined_clean_result)):
+		return
+	if not require(
+		probe.GetTriggerCount() == 7 and
+		probe.GetGraphObserverTriggerCount() == 3 and
+		probe.GetToolCleanupFailureCount() == 5 and
+		probe.GetRendererCleanupFailureCount() == 5 and
+		probe.GetGraphCleanupFailureCount() == 5 and
+		probe.GetSlotCleanupFailureCount() == 5 and
+		probe.GetPostCommitFailureCount() == 2 and
+		str(save_manager.get("CurrentSlotID")) == active_slot_id and
+		renderer.GetRenderedEdgeCount() == 1 and
+		matching_presentation_is_ready(renderer),
+		"Combined participant/post-commit recovery Load did not restore one matching presentation"):
+		return
+
 	tool_manager.set("CurrentTool", TOOL_ROAD_REMOVE)
 	if not require(
 		int(tool_manager.get("CurrentTool")) == TOOL_ROAD_REMOVE,
-		"Dual-observer recovery Load left the tool admission active"):
+		"Combined participant/post-commit recovery Load left the tool admission active"):
 		return
 
 	print("ROAD_LOAD_OBSERVER_CLEANUP_RESULT %s" % JSON.stringify({
@@ -765,6 +865,10 @@ func run() -> void:
 			post_commit_warned_result.get("resultKind", -1)),
 		"post_commit_clean_result_kind": int(
 			post_commit_clean_result.get("resultKind", -1)),
+		"post_commit_combined_warning_result_kind": int(
+			post_commit_combined_warned_result.get("resultKind", -1)),
+		"post_commit_combined_clean_result_kind": int(
+			post_commit_combined_clean_result.get("resultKind", -1)),
 		"observer_trigger_count": probe.GetTriggerCount(),
 		"graph_observer_trigger_count": probe.GetGraphObserverTriggerCount(),
 		"tool_cleanup_trigger_count": probe.GetToolCleanupFailureCount(),
