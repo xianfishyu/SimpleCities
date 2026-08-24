@@ -1,6 +1,7 @@
 extends SceneTree
 
 const MAP_SCENE := "res://Scenes/MapTest.tscn"
+const FINALIZER_PROBE_PATH := "res://tests/godot/RoadLoadPreflightResourceFailureProbe.cs"
 const TEST_SLOT_NAME := "Road input strategy runtime contract"
 const V3_SAVE_FIXTURE := preload("res://tests/godot/v3_save_fixture.gd")
 
@@ -350,6 +351,14 @@ func run() -> void:
 		return
 	if not await verify_invalid_config_falls_back_to_renderable_values(packed_map, save_manager):
 		return
+	var finalizer_probe_script: Script = load(FINALIZER_PROBE_PATH)
+	if not assert_true(finalizer_probe_script != null, "Managed finalizer probe did not load"):
+		return
+	var finalizer_probe: RefCounted = finalizer_probe_script.new()
+	if not assert_true(finalizer_probe != null, "Managed finalizer probe did not instantiate"):
+		return
+	finalizer_probe.FlushPendingManagedFinalizers()
+	finalizer_probe = null
 
 	print("PASS road input strategy runtime contract")
 	quit(0)

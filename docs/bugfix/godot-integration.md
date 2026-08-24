@@ -96,3 +96,35 @@ QA 预设依赖逐项 `exclude_filter`，新增测试入口后没有任何自动
 - Debug 与 `ExportRelease` build 均为 0 警告、0 错误；Debug 反射确认 `FlushPendingManagedFinalizers()` 存在，`ExportRelease` 中测试 probe 类型不存在。
 - `RoadRendererLifecycleContractTests` 48/48、生命周期与 QA export 聚焦测试 49/49、完整自动化 906/906 通过；Roslyn production/test compiler/analyzer 与目标 GDScript 均为 0 diagnostics。
 - Godot editor 游标 1989 后无新增 error；唯一输出 warning 是与本修复无关的既有 `ConstructionDock: ToolManager.Instance is missing`。
+
+---
+
+<a id="godot-integration-bug-4"></a>
+## BUG-4：道路输入策略契约在 PASS 后重复触发托管数组终结崩溃
+
+> 修复日期：2026-08-24
+> 影响文件：`tests/godot/road_input_strategy_runtime_contract.gd`
+> 关联事项：第三代道路系统 Phase 8 最终组合验收；延续 `godot-integration:BUG-3` 的退出清理契约
+
+### 症状
+
+`road_input_strategy_runtime_contract.gd` 连续两次完成全部断言并打印 `PASS road input strategy runtime contract`，但都在 Godot CLI 退出阶段以 `0xC0000005`（进程退出码 `-1073741819`）结束；堆栈同样落在 `Godot.Collections.Array.Finalize()` 与 `godotsharp_array_destroy`。测试行为已经满足断言，但非零退出码使 Phase 8 代表性门禁不能计为通过。
+
+### 根因分析
+
+契约会创建、加载并释放两个真实 `MapTest` 实例，并跨 GDScript/C# 边界读取表现、工具和存档集合。场景与测试槽已在 `quit()` 前释放，但测试没有像 `godot-integration:BUG-3` 那样在 Godot 托管绑定仍有效时冲刷待处理终结器；遗留的 Godot 集合包装器因而可能延迟到原生绑定拆卸后才执行终结并访问失效状态。
+
+### 修复方案
+
+在最终场景和存档清理完成后、打印 `PASS` 与调用 `quit()` 前，加载既有 Debug-only `RoadLoadPreflightResourceFailureProbe`，复用其 `FlushPendingManagedFinalizers()`，依次执行 `GC.Collect()`、`GC.WaitForPendingFinalizers()` 与第二次 `GC.Collect()`。修复只约束既有测试的退出清理顺序，没有增加故障场景，也没有修改生产道路、输入、渲染或存档行为。
+
+### 影响范围
+
+只影响 `road_input_strategy_runtime_contract.gd` 的 CLI 退出阶段。连续/闭合建造、RoadType、改造、撤销重做、存档往返、表现 token 与无效配置 fallback 的既有断言和场景保持不变；测试仍会删除临时槽并释放两个 `MapTest` 实例。
+
+## BUG-4 验证状态
+
+- 修复前两次正式 Vulkan 1.4.341 Forward+ 运行均先打印 `PASS`，随后以 `-1073741819` 退出；修复后同一契约打印 `PASS` 并以退出码 0 正常结束，未再出现 `Godot.Collections.Array.Finalize()` 访问冲突。
+- `godot_console --headless --check-only --script res://tests/godot/road_input_strategy_runtime_contract.gd`：退出码 0；目标 GDScript diagnostics 为 0。
+- `dotnet build SimpleCities.sln`：0 警告、0 错误；Roslyn production/test compiler/analyzer 为 0 diagnostics。
+- 运行输出仍包含该契约主动触发的无效配置 fallback warning，以及既有 `ConstructionDock: ToolManager.Instance is missing` warning；这些警告与本次退出崩溃无关。
