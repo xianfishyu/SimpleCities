@@ -80,6 +80,13 @@ func run() -> void:
 	var recovered: Dictionary = await require_stalled_retry(renderer, builder, mutated)
 	if recovered.is_empty():
 		return
+	var settings_recovered: Dictionary = await require_update_token_settings_validation_failure(
+		renderer,
+		builder,
+		recovered)
+	if settings_recovered.is_empty():
+		return
+	recovered = settings_recovered
 	var prepare_recovered: Dictionary = await require_update_token_prepare_failure(
 		renderer,
 		builder,
@@ -514,6 +521,111 @@ func restore_mutated_style() -> void:
 		return
 	mutated_style.set("Width", original_style_width)
 	mutated_style = null
+
+func require_update_token_settings_validation_failure(
+	renderer: Node,
+	builder: Node,
+	before: Dictionary
+) -> Dictionary:
+	var probe_script: Script = load(UPDATE_TOKEN_FAILURE_PROBE_PATH)
+	if not require(probe_script != null, "Debug settings failure resource probe did not load"):
+		return {}
+	var probe: RefCounted = probe_script.new()
+	if not require(probe != null, "Debug settings failure resource probe did not instantiate"):
+		return {}
+
+	var config: Resource = renderer.get("Config")
+	var original_curve_display_tolerance := float(config.get("CurveDisplayTolerance"))
+	if not require(
+		original_curve_display_tolerance > 0.0,
+		"Settings failure fixture began with an invalid curve tolerance"):
+		return {}
+	var retained_edge_count: int = renderer.GetRenderedEdgeCount()
+	var retained_vertex_count: int = renderer.GetRoadMeshVertexCount()
+	var retained_marker_count: int = renderer.GetNodeMarkerCount()
+	var retained_state: Dictionary = renderer.GetPresentationState()
+	var retained_primitive_count := int(retained_state.get("surfacePrimitiveCount", 0))
+	var resource_count_before := int(probe.GetObjectResourceCount())
+
+	if not require(
+		builder.BeginPlace(Vector2(0.0, 1900.0)),
+		"Settings failure mutation did not begin"):
+		return {}
+	builder.UpdatePlace(Vector2(100.0, 1900.0))
+	config.set("CurveDisplayTolerance", 0.0)
+	if not builder.CommitPlace(Vector2(100.0, 1900.0)):
+		config.set("CurveDisplayTolerance", original_curve_display_tolerance)
+		require(false, "Settings failure mutation did not commit")
+		return {}
+	await process_frame
+	await process_frame
+	config.set("CurveDisplayTolerance", original_curve_display_tolerance)
+
+	var stalled: Dictionary = renderer.GetPresentationState()
+	var desired: Dictionary = stalled.get("desired", {})
+	if not require(
+		stalled.get("phase", "") == "stalled" and
+		bool(stalled.get("isStalled", false)) and
+		not bool(stalled.get("isReady", true)) and
+		desired != before and
+		stalled.get("presented", {}) == before and
+		stalled.get("stalledToken", {}) == desired,
+		"Settings validation failure did not stall the new desired token"):
+		return {}
+	if not require_ordinary_change(before, desired):
+		return {}
+	if not require(
+		int(stalled.get("attemptCount", 0)) == 1 and
+		str(stalled.get("failureType", "")) == "System.InvalidOperationException" and
+		str(stalled.get("failureMessage", "")) ==
+			"RoadRenderer curve tolerance is invalid.",
+		"Settings validation failure was not reported as the first attempt"):
+		return {}
+	if not require(
+		int(probe.GetObjectResourceCount()) == resource_count_before and
+		int(stalled.get("surfacePrimitiveCount", -1)) == 0 and
+		int(stalled.get("retainedSurfacePrimitiveCount", -1)) == retained_primitive_count and
+		renderer.GetRenderedEdgeCount() == retained_edge_count and
+		renderer.GetRoadMeshVertexCount() == retained_vertex_count and
+		renderer.GetNodeMarkerCount() == retained_marker_count,
+		"Settings validation failure allocated resources or replaced retained presentation"):
+		return {}
+	if not require(
+		renderer.FindRoadSurfaceHit(Vector2(50.0, 0.0), 0.0).is_empty() and
+		renderer.FindRoadSurfaceHit(Vector2(50.0, 1900.0), 0.0).is_empty(),
+		"Settings validation failure exposed old or unpresented surface data"):
+		return {}
+
+	if not require(
+		renderer.RetryRoadPresentation(),
+		"Settings validation retry did not publish the same desired token"):
+		return {}
+	var recovered := presentation_token(renderer, "Settings validation retry")
+	if recovered.is_empty():
+		return {}
+	if not require(
+		recovered == desired and
+		int(renderer.GetPresentationState().get("attemptCount", 0)) == 2 and
+		renderer.GetRenderedEdgeCount() == retained_edge_count + 1 and
+		renderer.GetRoadMeshVertexCount() > retained_vertex_count and
+		renderer.GetNodeMarkerCount() > retained_marker_count,
+		"Settings validation retry did not atomically publish attempt two"):
+		return {}
+	if not require_surface_hit(
+		renderer,
+		Vector2(50.0, 1900.0),
+		recovered,
+		"Settings validation retry"):
+		return {}
+	print(
+		(
+			"UPDATE_TOKEN_SETTINGS_VALIDATION_FAILURE_RESULT " +
+			"resource_before=%d resource_after=%d stalled_attempt=1 recovered_attempt=2"
+		) % [
+			resource_count_before,
+			int(probe.GetObjectResourceCount()),
+		])
+	return recovered
 
 func require_update_token_prepare_failure(
 	renderer: Node,

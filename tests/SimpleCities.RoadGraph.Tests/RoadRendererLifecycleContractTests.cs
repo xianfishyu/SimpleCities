@@ -164,6 +164,52 @@ public sealed class RoadRendererLifecycleContractTests
     }
 
     [Fact]
+    public void OrdinarySettingsValidationFailureRunsBeforeRevisionAndResourcePreparation()
+    {
+        string rendererSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.cs"));
+        string rendererLoadSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.LoadCommit.cs"));
+        string ordinaryBuild = ExtractMethod(
+            rendererSource,
+            "private bool TryRebuildStaticBatches",
+            "private void PublishPresentationStalled");
+
+        int settingsConstruction = ordinaryBuild.IndexOf(
+            "var settings = new RoadRendererLoadSettings(",
+            StringComparison.Ordinal);
+        int styleSnapshotCapture = ordinaryBuild.IndexOf(
+            "Config.CaptureRoadTypeStyleSnapshot());",
+            StringComparison.Ordinal);
+        int settingsValidation = ordinaryBuild.IndexOf(
+            "settings.Validate();",
+            StringComparison.Ordinal);
+        int revisionCapture = ordinaryBuild.IndexOf(
+            "RoadGraphRevision revision = graph.CaptureRevision();",
+            StringComparison.Ordinal);
+        int prepareFailureProbe = ordinaryBuild.IndexOf(
+            "ProbeOrdinaryPrepareFailure(targetToken);",
+            StringComparison.Ordinal);
+        int resourcePreflightStart = ordinaryBuild.IndexOf(
+            "long resourcePreflightStarted = Stopwatch.GetTimestamp();",
+            StringComparison.Ordinal);
+
+        Assert.True(settingsConstruction >= 0 && settingsConstruction < styleSnapshotCapture);
+        Assert.True(styleSnapshotCapture < settingsValidation);
+        Assert.True(settingsValidation < revisionCapture);
+        Assert.True(revisionCapture < prepareFailureProbe);
+        Assert.True(prepareFailureProbe < resourcePreflightStart);
+        Assert.Contains(
+            "!float.IsFinite(CurveDisplayTolerance) || CurveDisplayTolerance <= 0f",
+            rendererLoadSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "throw new InvalidOperationException(\"RoadRenderer curve tolerance is invalid.\");",
+            rendererLoadSource,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void OrdinaryPrepareFailureRunsAfterSnapshotCaptureAndBeforeResourcePreflight()
     {
         string rendererSource = File.ReadAllText(
