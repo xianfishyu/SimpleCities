@@ -279,10 +279,14 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
     public int GetAggregateLoadReservedRenderTokenPreflightNodeMarkerCount() =>
         _saveManager?.GetAggregateLoadReservedRenderTokenPreflightNodeMarkerCount() ?? -1;
 
-    public void ArmAggregateLoadRoadSurfaceSnapshotFailure(RoadRenderer renderer)
+    public void ArmAggregateLoadRoadSurfaceSnapshotFailure(
+        SaveManager saveManager,
+        RoadRenderer renderer)
     {
+        ArgumentNullException.ThrowIfNull(saveManager);
         ArgumentNullException.ThrowIfNull(renderer);
-        renderer.ArmNextAggregateLoadRoadSurfaceSnapshotFailure();
+        saveManager.ArmNextAggregateLoadRoadSurfaceSnapshotPreflightObservation(renderer);
+        _saveManager = saveManager;
         _renderer = renderer;
     }
 
@@ -294,6 +298,45 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
 
     public string GetAggregateLoadRoadSurfaceSnapshotFailureMessage() =>
         new ArgumentNullException("prepared").Message;
+
+    public bool IsAggregateLoadRoadSurfaceSnapshotPreflightObservationArmed() =>
+        _saveManager?.IsAggregateLoadRoadSurfaceSnapshotPreflightObservationArmed() ?? false;
+
+    public int GetAggregateLoadRoadSurfaceSnapshotPreflightObservationCount() =>
+        _saveManager?.GetAggregateLoadRoadSurfaceSnapshotPreflightObservationCount() ?? 0;
+
+    public bool DidAggregateLoadRoadSurfaceSnapshotPreflightObservationRunOnMainThread() =>
+        _saveManager?.DidAggregateLoadRoadSurfaceSnapshotPreflightObservationRunOnMainThread() ?? false;
+
+    public int GetAggregateLoadRoadSurfaceSnapshotPreflightObservedPhase() =>
+        _saveManager?.GetAggregateLoadRoadSurfaceSnapshotPreflightObservedPhase() ?? -1;
+
+    public int GetAggregateLoadRoadSurfaceSnapshotPreflightPlanCount() =>
+        _saveManager?.GetAggregateLoadRoadSurfaceSnapshotPreflightPlanCount() ?? -1;
+
+    public string GetAggregateLoadRoadSurfaceSnapshotPreflightFirstParticipantID() =>
+        _saveManager?.GetAggregateLoadRoadSurfaceSnapshotPreflightFirstParticipantID() ?? string.Empty;
+
+    public string GetAggregateLoadRoadSurfaceSnapshotPreflightSecondParticipantID() =>
+        _saveManager?.GetAggregateLoadRoadSurfaceSnapshotPreflightSecondParticipantID() ?? string.Empty;
+
+    public int GetAggregateLoadRoadSurfaceSnapshotPreflightTargetEdgeCount() =>
+        _saveManager?.GetAggregateLoadRoadSurfaceSnapshotPreflightTargetEdgeCount() ?? -1;
+
+    public string GetAggregateLoadRoadSurfaceSnapshotPreflightObservedSlotID() =>
+        _saveManager?.GetAggregateLoadRoadSurfaceSnapshotPreflightObservedSlotID() ?? string.Empty;
+
+    public int GetAggregateLoadRoadSurfaceSnapshotPreflightSourceParticipantCount() =>
+        _saveManager?.GetAggregateLoadRoadSurfaceSnapshotPreflightSourceParticipantCount() ?? -1;
+
+    public int GetAggregateLoadRoadSurfaceSnapshotPreflightRoadVertexCount() =>
+        _saveManager?.GetAggregateLoadRoadSurfaceSnapshotPreflightRoadVertexCount() ?? -1;
+
+    public int GetAggregateLoadRoadSurfaceSnapshotPreflightSurfacePrimitiveCount() =>
+        _saveManager?.GetAggregateLoadRoadSurfaceSnapshotPreflightSurfacePrimitiveCount() ?? -1;
+
+    public int GetAggregateLoadRoadSurfaceSnapshotPreflightNodeMarkerCount() =>
+        _saveManager?.GetAggregateLoadRoadSurfaceSnapshotPreflightNodeMarkerCount() ?? -1;
 
     public void ArmAggregateLoadCommitPlanConstructionFailure(RoadRenderer renderer)
     {
@@ -1287,6 +1330,8 @@ public partial class SaveManager
         _aggregateLoadResourcePreflight = new();
     private readonly AggregateLoadRendererPreflightProbeState
         _aggregateLoadReservedRenderTokenPreflight = new();
+    private readonly AggregateLoadRendererPreflightProbeState
+        _aggregateLoadRoadSurfaceSnapshotPreflight = new();
     private bool _aggregateLoadPostRendererPreflightFailureArmed;
     private int _aggregateLoadPostRendererPreflightFailureCount;
     private bool _aggregateLoadPostRendererPreflightFailureRanOnMainThread;
@@ -2243,6 +2288,15 @@ public partial class SaveManager
             _aggregateLoadReservedRenderTokenPreflight,
             renderer.IsAggregateLoadReservedRenderTokenFailureArmed(),
             "reserved render-token");
+        CaptureAggregateLoadRendererPreflightObservation(
+            renderer,
+            phase,
+            preflightPlans,
+            targetRevision,
+            prepared,
+            _aggregateLoadRoadSurfaceSnapshotPreflight,
+            renderer.IsAggregateLoadRoadSurfaceSnapshotFailureArmed(),
+            "road-surface snapshot");
     }
 
     private void CaptureAggregateLoadRendererPreflightObservation(
@@ -2499,6 +2553,53 @@ public partial class SaveManager
 
     internal int GetAggregateLoadReservedRenderTokenPreflightNodeMarkerCount() =>
         _aggregateLoadReservedRenderTokenPreflight.Observation.NodeMarkerCount;
+
+    internal void ArmNextAggregateLoadRoadSurfaceSnapshotPreflightObservation(
+        RoadRenderer renderer) =>
+        ArmNextAggregateLoadRendererPreflightObservation(
+            renderer,
+            _aggregateLoadRoadSurfaceSnapshotPreflight,
+            static currentRenderer => currentRenderer.ArmNextAggregateLoadRoadSurfaceSnapshotFailure(),
+            "road-surface snapshot");
+
+    internal bool IsAggregateLoadRoadSurfaceSnapshotPreflightObservationArmed() =>
+        _aggregateLoadRoadSurfaceSnapshotPreflight.Armed;
+
+    internal int GetAggregateLoadRoadSurfaceSnapshotPreflightObservationCount() =>
+        _aggregateLoadRoadSurfaceSnapshotPreflight.Count;
+
+    internal bool DidAggregateLoadRoadSurfaceSnapshotPreflightObservationRunOnMainThread() =>
+        _aggregateLoadRoadSurfaceSnapshotPreflight.Observation.RanOnMainThread;
+
+    internal int GetAggregateLoadRoadSurfaceSnapshotPreflightObservedPhase() =>
+        _aggregateLoadRoadSurfaceSnapshotPreflight.Observation.Phase;
+
+    internal int GetAggregateLoadRoadSurfaceSnapshotPreflightPlanCount() =>
+        _aggregateLoadRoadSurfaceSnapshotPreflight.Observation.PlanCount;
+
+    internal string GetAggregateLoadRoadSurfaceSnapshotPreflightFirstParticipantID() =>
+        _aggregateLoadRoadSurfaceSnapshotPreflight.Observation.FirstParticipantID;
+
+    internal string GetAggregateLoadRoadSurfaceSnapshotPreflightSecondParticipantID() =>
+        _aggregateLoadRoadSurfaceSnapshotPreflight.Observation.SecondParticipantID;
+
+    internal int GetAggregateLoadRoadSurfaceSnapshotPreflightTargetEdgeCount() =>
+        _aggregateLoadRoadSurfaceSnapshotPreflight.Observation.TargetEdgeCount;
+
+    internal string GetAggregateLoadRoadSurfaceSnapshotPreflightObservedSlotID() =>
+        _aggregateLoadRoadSurfaceSnapshotPreflight.Observation.SlotID;
+
+    internal int GetAggregateLoadRoadSurfaceSnapshotPreflightSourceParticipantCount() =>
+        _aggregateLoadRoadSurfaceSnapshotPreflight.Observation.SourceParticipantCount;
+
+    internal int GetAggregateLoadRoadSurfaceSnapshotPreflightRoadVertexCount() =>
+        _aggregateLoadRoadSurfaceSnapshotPreflight.Observation.RoadVertexCount;
+
+    internal int GetAggregateLoadRoadSurfaceSnapshotPreflightSurfacePrimitiveCount() =>
+        _aggregateLoadRoadSurfaceSnapshotPreflight.Observation.SurfacePrimitiveCount;
+
+    internal int GetAggregateLoadRoadSurfaceSnapshotPreflightNodeMarkerCount() =>
+        _aggregateLoadRoadSurfaceSnapshotPreflight.Observation.NodeMarkerCount;
 
     private sealed class AggregateLoadRendererPreflightProbeState
     {

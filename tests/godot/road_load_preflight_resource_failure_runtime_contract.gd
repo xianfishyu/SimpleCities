@@ -534,14 +534,16 @@ func run() -> void:
 	var aggregate_snapshot_resource_count_before := int(probe.GetObjectResourceCount())
 	var aggregate_snapshot_failure_message := str(
 		probe.GetAggregateLoadRoadSurfaceSnapshotFailureMessage())
-	probe.ArmAggregateLoadRoadSurfaceSnapshotFailure(renderer)
+	probe.ArmAggregateLoadRoadSurfaceSnapshotFailure(save_manager, renderer)
 	if not require(
-		bool(probe.IsAggregateLoadRoadSurfaceSnapshotFailureArmed()),
+		bool(probe.IsAggregateLoadRoadSurfaceSnapshotFailureArmed()) and
+		bool(probe.IsAggregateLoadRoadSurfaceSnapshotPreflightObservationArmed()),
 		"Aggregate Load road-surface snapshot failure probe did not arm"):
 		return
 	var aggregate_snapshot_failed_load_result := await run_load(active_slot_id)
 	if not require(
 		int(aggregate_snapshot_failed_load_result.get("resultKind", -1)) == RESULT_FAILED and
+		int(aggregate_snapshot_failed_load_result.get("finalPhase", -1)) == PHASE_PREFLIGHT and
 		not bool(aggregate_snapshot_failed_load_result.get("committed", true)) and
 		str(aggregate_snapshot_failed_load_result.get("warnings", "")).is_empty() and
 		str(aggregate_snapshot_failed_load_result.get("error", "")) ==
@@ -552,12 +554,39 @@ func run() -> void:
 	var aggregate_snapshot_resource_count_after := int(probe.GetObjectResourceCount())
 	if not require(
 		not bool(probe.IsAggregateLoadRoadSurfaceSnapshotFailureArmed()) and
+		not bool(probe.IsAggregateLoadRoadSurfaceSnapshotPreflightObservationArmed()) and
 		int(probe.GetAggregateLoadRoadSurfaceSnapshotFailureCount()) == 1 and
+		int(probe.GetAggregateLoadRoadSurfaceSnapshotPreflightObservationCount()) == 1 and
+		bool(
+			probe.DidAggregateLoadRoadSurfaceSnapshotPreflightObservationRunOnMainThread()) and
+		int(probe.GetAggregateLoadRoadSurfaceSnapshotPreflightObservedPhase()) ==
+			PHASE_PREFLIGHT and
+		int(probe.GetAggregateLoadRoadSurfaceSnapshotPreflightPlanCount()) == 2 and
+		str(probe.GetAggregateLoadRoadSurfaceSnapshotPreflightFirstParticipantID()) ==
+			"road-graph" and
+		str(probe.GetAggregateLoadRoadSurfaceSnapshotPreflightSecondParticipantID()) ==
+			"road-tools" and
+		int(probe.GetAggregateLoadRoadSurfaceSnapshotPreflightTargetEdgeCount()) ==
+			edge_count_before and
+		str(probe.GetAggregateLoadRoadSurfaceSnapshotPreflightObservedSlotID()) ==
+			active_slot_id and
+		int(probe.GetAggregateLoadRoadSurfaceSnapshotPreflightSourceParticipantCount()) == 1 and
+		int(probe.GetAggregateLoadRoadSurfaceSnapshotPreflightRoadVertexCount()) ==
+			vertex_count_before and
+		int(probe.GetAggregateLoadRoadSurfaceSnapshotPreflightSurfacePrimitiveCount()) > 0 and
+		int(probe.GetAggregateLoadRoadSurfaceSnapshotPreflightNodeMarkerCount()) ==
+			marker_count_before and
 		aggregate_snapshot_resource_count_after == aggregate_snapshot_resource_count_before,
 		"Aggregate snapshot construction failure did not release both preflight resources: %s" %
 		JSON.stringify({
 			"armed": bool(probe.IsAggregateLoadRoadSurfaceSnapshotFailureArmed()),
 			"triggerCount": int(probe.GetAggregateLoadRoadSurfaceSnapshotFailureCount()),
+			"observationCount": int(
+				probe.GetAggregateLoadRoadSurfaceSnapshotPreflightObservationCount()),
+			"observedPhase": int(
+				probe.GetAggregateLoadRoadSurfaceSnapshotPreflightObservedPhase()),
+			"planCount": int(
+				probe.GetAggregateLoadRoadSurfaceSnapshotPreflightPlanCount()),
 			"resourceCountBefore": aggregate_snapshot_resource_count_before,
 			"resourceCountAfter": aggregate_snapshot_resource_count_after,
 		})):
@@ -2553,10 +2582,36 @@ func run() -> void:
 			aggregate_reserved_token_resource_count_after,
 		"aggregate_snapshot_failure_result_kind": int(
 			aggregate_snapshot_failed_load_result.get("resultKind", -1)),
+		"aggregate_snapshot_failure_final_phase": int(
+			aggregate_snapshot_failed_load_result.get("finalPhase", -1)),
 		"aggregate_snapshot_failure_committed": bool(
 			aggregate_snapshot_failed_load_result.get("committed", true)),
 		"aggregate_snapshot_failure_trigger_count": int(
 			probe.GetAggregateLoadRoadSurfaceSnapshotFailureCount()),
+		"aggregate_snapshot_preflight_observation_count": int(
+			probe.GetAggregateLoadRoadSurfaceSnapshotPreflightObservationCount()),
+		"aggregate_snapshot_preflight_observation_on_main_thread": bool(
+			probe.DidAggregateLoadRoadSurfaceSnapshotPreflightObservationRunOnMainThread()),
+		"aggregate_snapshot_preflight_observed_phase": int(
+			probe.GetAggregateLoadRoadSurfaceSnapshotPreflightObservedPhase()),
+		"aggregate_snapshot_preflight_plan_count": int(
+			probe.GetAggregateLoadRoadSurfaceSnapshotPreflightPlanCount()),
+		"aggregate_snapshot_preflight_first_participant_id": str(
+			probe.GetAggregateLoadRoadSurfaceSnapshotPreflightFirstParticipantID()),
+		"aggregate_snapshot_preflight_second_participant_id": str(
+			probe.GetAggregateLoadRoadSurfaceSnapshotPreflightSecondParticipantID()),
+		"aggregate_snapshot_preflight_target_edge_count": int(
+			probe.GetAggregateLoadRoadSurfaceSnapshotPreflightTargetEdgeCount()),
+		"aggregate_snapshot_preflight_observed_slot_id": str(
+			probe.GetAggregateLoadRoadSurfaceSnapshotPreflightObservedSlotID()),
+		"aggregate_snapshot_preflight_source_participant_count": int(
+			probe.GetAggregateLoadRoadSurfaceSnapshotPreflightSourceParticipantCount()),
+		"aggregate_snapshot_preflight_road_vertex_count": int(
+			probe.GetAggregateLoadRoadSurfaceSnapshotPreflightRoadVertexCount()),
+		"aggregate_snapshot_preflight_surface_primitive_count": int(
+			probe.GetAggregateLoadRoadSurfaceSnapshotPreflightSurfacePrimitiveCount()),
+		"aggregate_snapshot_preflight_node_marker_count": int(
+			probe.GetAggregateLoadRoadSurfaceSnapshotPreflightNodeMarkerCount()),
 		"aggregate_snapshot_resource_count_before":
 			aggregate_snapshot_resource_count_before,
 		"aggregate_snapshot_resource_count_after":
