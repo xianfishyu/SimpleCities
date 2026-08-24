@@ -445,15 +445,18 @@ func run() -> void:
 	var aggregate_reserved_token_resource_count_before := int(probe.GetObjectResourceCount())
 	var aggregate_reserved_token_failure_message := str(
 		probe.GetAggregateLoadReservedRenderTokenFailureMessage())
-	probe.ArmAggregateLoadReservedRenderTokenFailure(renderer)
+	probe.ArmAggregateLoadReservedRenderTokenFailure(save_manager, renderer)
 	if not require(
-		bool(probe.IsAggregateLoadReservedRenderTokenFailureArmed()),
+		bool(probe.IsAggregateLoadReservedRenderTokenFailureArmed()) and
+		bool(probe.IsAggregateLoadReservedRenderTokenPreflightObservationArmed()),
 		"Aggregate Load reserved render-token failure probe did not arm"):
 		return
 	var aggregate_reserved_token_failed_load_result := await run_load(active_slot_id)
 	if not require(
 		int(aggregate_reserved_token_failed_load_result.get("resultKind", -1)) ==
 			RESULT_FAILED and
+		int(aggregate_reserved_token_failed_load_result.get("finalPhase", -1)) ==
+			PHASE_PREFLIGHT and
 		not bool(aggregate_reserved_token_failed_load_result.get("committed", true)) and
 		str(aggregate_reserved_token_failed_load_result.get("warnings", "")).is_empty() and
 		str(aggregate_reserved_token_failed_load_result.get("error", "")) ==
@@ -464,13 +467,40 @@ func run() -> void:
 	var aggregate_reserved_token_resource_count_after := int(probe.GetObjectResourceCount())
 	if not require(
 		not bool(probe.IsAggregateLoadReservedRenderTokenFailureArmed()) and
+		not bool(probe.IsAggregateLoadReservedRenderTokenPreflightObservationArmed()) and
 		int(probe.GetAggregateLoadReservedRenderTokenFailureCount()) == 1 and
+		int(probe.GetAggregateLoadReservedRenderTokenPreflightObservationCount()) == 1 and
+		bool(
+			probe.DidAggregateLoadReservedRenderTokenPreflightObservationRunOnMainThread()) and
+		int(probe.GetAggregateLoadReservedRenderTokenPreflightObservedPhase()) ==
+			PHASE_PREFLIGHT and
+		int(probe.GetAggregateLoadReservedRenderTokenPreflightPlanCount()) == 2 and
+		str(probe.GetAggregateLoadReservedRenderTokenPreflightFirstParticipantID()) ==
+			"road-graph" and
+		str(probe.GetAggregateLoadReservedRenderTokenPreflightSecondParticipantID()) ==
+			"road-tools" and
+		int(probe.GetAggregateLoadReservedRenderTokenPreflightTargetEdgeCount()) ==
+			edge_count_before and
+		str(probe.GetAggregateLoadReservedRenderTokenPreflightObservedSlotID()) ==
+			active_slot_id and
+		int(probe.GetAggregateLoadReservedRenderTokenPreflightSourceParticipantCount()) == 1 and
+		int(probe.GetAggregateLoadReservedRenderTokenPreflightRoadVertexCount()) ==
+			vertex_count_before and
+		int(probe.GetAggregateLoadReservedRenderTokenPreflightSurfacePrimitiveCount()) > 0 and
+		int(probe.GetAggregateLoadReservedRenderTokenPreflightNodeMarkerCount()) ==
+			marker_count_before and
 		aggregate_reserved_token_resource_count_after ==
 			aggregate_reserved_token_resource_count_before,
 		"Aggregate reserved render-token failure did not release both preflight resources: %s" %
 		JSON.stringify({
 			"armed": bool(probe.IsAggregateLoadReservedRenderTokenFailureArmed()),
 			"triggerCount": int(probe.GetAggregateLoadReservedRenderTokenFailureCount()),
+			"observationCount": int(
+				probe.GetAggregateLoadReservedRenderTokenPreflightObservationCount()),
+			"observedPhase": int(
+				probe.GetAggregateLoadReservedRenderTokenPreflightObservedPhase()),
+			"planCount": int(
+				probe.GetAggregateLoadReservedRenderTokenPreflightPlanCount()),
 			"resourceCountBefore": aggregate_reserved_token_resource_count_before,
 			"resourceCountAfter": aggregate_reserved_token_resource_count_after,
 		})):
@@ -2487,10 +2517,36 @@ func run() -> void:
 			aggregate_node_batch_resource_count_after,
 		"aggregate_reserved_token_failure_result_kind": int(
 			aggregate_reserved_token_failed_load_result.get("resultKind", -1)),
+		"aggregate_reserved_token_failure_final_phase": int(
+			aggregate_reserved_token_failed_load_result.get("finalPhase", -1)),
 		"aggregate_reserved_token_failure_committed": bool(
 			aggregate_reserved_token_failed_load_result.get("committed", true)),
 		"aggregate_reserved_token_failure_trigger_count": int(
 			probe.GetAggregateLoadReservedRenderTokenFailureCount()),
+		"aggregate_reserved_token_preflight_observation_count": int(
+			probe.GetAggregateLoadReservedRenderTokenPreflightObservationCount()),
+		"aggregate_reserved_token_preflight_observation_on_main_thread": bool(
+			probe.DidAggregateLoadReservedRenderTokenPreflightObservationRunOnMainThread()),
+		"aggregate_reserved_token_preflight_observed_phase": int(
+			probe.GetAggregateLoadReservedRenderTokenPreflightObservedPhase()),
+		"aggregate_reserved_token_preflight_plan_count": int(
+			probe.GetAggregateLoadReservedRenderTokenPreflightPlanCount()),
+		"aggregate_reserved_token_preflight_first_participant_id": str(
+			probe.GetAggregateLoadReservedRenderTokenPreflightFirstParticipantID()),
+		"aggregate_reserved_token_preflight_second_participant_id": str(
+			probe.GetAggregateLoadReservedRenderTokenPreflightSecondParticipantID()),
+		"aggregate_reserved_token_preflight_target_edge_count": int(
+			probe.GetAggregateLoadReservedRenderTokenPreflightTargetEdgeCount()),
+		"aggregate_reserved_token_preflight_observed_slot_id": str(
+			probe.GetAggregateLoadReservedRenderTokenPreflightObservedSlotID()),
+		"aggregate_reserved_token_preflight_source_participant_count": int(
+			probe.GetAggregateLoadReservedRenderTokenPreflightSourceParticipantCount()),
+		"aggregate_reserved_token_preflight_road_vertex_count": int(
+			probe.GetAggregateLoadReservedRenderTokenPreflightRoadVertexCount()),
+		"aggregate_reserved_token_preflight_surface_primitive_count": int(
+			probe.GetAggregateLoadReservedRenderTokenPreflightSurfacePrimitiveCount()),
+		"aggregate_reserved_token_preflight_node_marker_count": int(
+			probe.GetAggregateLoadReservedRenderTokenPreflightNodeMarkerCount()),
 		"aggregate_reserved_token_resource_count_before":
 			aggregate_reserved_token_resource_count_before,
 		"aggregate_reserved_token_resource_count_after":

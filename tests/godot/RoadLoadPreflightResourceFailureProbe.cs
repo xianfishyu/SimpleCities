@@ -220,10 +220,14 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
     public string GetAggregateLoadNodeBatchFactoryFailureMessage() =>
         RoadRenderer.AggregateLoadNodeBatchFactoryFailureMessage;
 
-    public void ArmAggregateLoadReservedRenderTokenFailure(RoadRenderer renderer)
+    public void ArmAggregateLoadReservedRenderTokenFailure(
+        SaveManager saveManager,
+        RoadRenderer renderer)
     {
+        ArgumentNullException.ThrowIfNull(saveManager);
         ArgumentNullException.ThrowIfNull(renderer);
-        renderer.ArmNextAggregateLoadReservedRenderTokenFailure();
+        saveManager.ArmNextAggregateLoadReservedRenderTokenPreflightObservation(renderer);
+        _saveManager = saveManager;
         _renderer = renderer;
     }
 
@@ -235,6 +239,45 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
 
     public string GetAggregateLoadReservedRenderTokenFailureMessage() =>
         RoadRenderer.AggregateLoadReservedRenderTokenFailureMessage;
+
+    public bool IsAggregateLoadReservedRenderTokenPreflightObservationArmed() =>
+        _saveManager?.IsAggregateLoadReservedRenderTokenPreflightObservationArmed() ?? false;
+
+    public int GetAggregateLoadReservedRenderTokenPreflightObservationCount() =>
+        _saveManager?.GetAggregateLoadReservedRenderTokenPreflightObservationCount() ?? 0;
+
+    public bool DidAggregateLoadReservedRenderTokenPreflightObservationRunOnMainThread() =>
+        _saveManager?.DidAggregateLoadReservedRenderTokenPreflightObservationRunOnMainThread() ?? false;
+
+    public int GetAggregateLoadReservedRenderTokenPreflightObservedPhase() =>
+        _saveManager?.GetAggregateLoadReservedRenderTokenPreflightObservedPhase() ?? -1;
+
+    public int GetAggregateLoadReservedRenderTokenPreflightPlanCount() =>
+        _saveManager?.GetAggregateLoadReservedRenderTokenPreflightPlanCount() ?? -1;
+
+    public string GetAggregateLoadReservedRenderTokenPreflightFirstParticipantID() =>
+        _saveManager?.GetAggregateLoadReservedRenderTokenPreflightFirstParticipantID() ?? string.Empty;
+
+    public string GetAggregateLoadReservedRenderTokenPreflightSecondParticipantID() =>
+        _saveManager?.GetAggregateLoadReservedRenderTokenPreflightSecondParticipantID() ?? string.Empty;
+
+    public int GetAggregateLoadReservedRenderTokenPreflightTargetEdgeCount() =>
+        _saveManager?.GetAggregateLoadReservedRenderTokenPreflightTargetEdgeCount() ?? -1;
+
+    public string GetAggregateLoadReservedRenderTokenPreflightObservedSlotID() =>
+        _saveManager?.GetAggregateLoadReservedRenderTokenPreflightObservedSlotID() ?? string.Empty;
+
+    public int GetAggregateLoadReservedRenderTokenPreflightSourceParticipantCount() =>
+        _saveManager?.GetAggregateLoadReservedRenderTokenPreflightSourceParticipantCount() ?? -1;
+
+    public int GetAggregateLoadReservedRenderTokenPreflightRoadVertexCount() =>
+        _saveManager?.GetAggregateLoadReservedRenderTokenPreflightRoadVertexCount() ?? -1;
+
+    public int GetAggregateLoadReservedRenderTokenPreflightSurfacePrimitiveCount() =>
+        _saveManager?.GetAggregateLoadReservedRenderTokenPreflightSurfacePrimitiveCount() ?? -1;
+
+    public int GetAggregateLoadReservedRenderTokenPreflightNodeMarkerCount() =>
+        _saveManager?.GetAggregateLoadReservedRenderTokenPreflightNodeMarkerCount() ?? -1;
 
     public void ArmAggregateLoadRoadSurfaceSnapshotFailure(RoadRenderer renderer)
     {
@@ -1242,6 +1285,8 @@ public partial class SaveManager
         _aggregateLoadNodeBatchFactoryPreflight = new();
     private readonly AggregateLoadRendererPreflightProbeState
         _aggregateLoadResourcePreflight = new();
+    private readonly AggregateLoadRendererPreflightProbeState
+        _aggregateLoadReservedRenderTokenPreflight = new();
     private bool _aggregateLoadPostRendererPreflightFailureArmed;
     private int _aggregateLoadPostRendererPreflightFailureCount;
     private bool _aggregateLoadPostRendererPreflightFailureRanOnMainThread;
@@ -2189,6 +2234,15 @@ public partial class SaveManager
             _aggregateLoadResourcePreflight,
             renderer.IsAggregateLoadResourcePreflightFailureArmed(),
             "resource preflight");
+        CaptureAggregateLoadRendererPreflightObservation(
+            renderer,
+            phase,
+            preflightPlans,
+            targetRevision,
+            prepared,
+            _aggregateLoadReservedRenderTokenPreflight,
+            renderer.IsAggregateLoadReservedRenderTokenFailureArmed(),
+            "reserved render-token");
     }
 
     private void CaptureAggregateLoadRendererPreflightObservation(
@@ -2398,6 +2452,53 @@ public partial class SaveManager
 
     internal int GetAggregateLoadResourcePreflightNodeMarkerCount() =>
         _aggregateLoadResourcePreflight.Observation.NodeMarkerCount;
+
+    internal void ArmNextAggregateLoadReservedRenderTokenPreflightObservation(
+        RoadRenderer renderer) =>
+        ArmNextAggregateLoadRendererPreflightObservation(
+            renderer,
+            _aggregateLoadReservedRenderTokenPreflight,
+            static currentRenderer => currentRenderer.ArmNextAggregateLoadReservedRenderTokenFailure(),
+            "reserved render-token");
+
+    internal bool IsAggregateLoadReservedRenderTokenPreflightObservationArmed() =>
+        _aggregateLoadReservedRenderTokenPreflight.Armed;
+
+    internal int GetAggregateLoadReservedRenderTokenPreflightObservationCount() =>
+        _aggregateLoadReservedRenderTokenPreflight.Count;
+
+    internal bool DidAggregateLoadReservedRenderTokenPreflightObservationRunOnMainThread() =>
+        _aggregateLoadReservedRenderTokenPreflight.Observation.RanOnMainThread;
+
+    internal int GetAggregateLoadReservedRenderTokenPreflightObservedPhase() =>
+        _aggregateLoadReservedRenderTokenPreflight.Observation.Phase;
+
+    internal int GetAggregateLoadReservedRenderTokenPreflightPlanCount() =>
+        _aggregateLoadReservedRenderTokenPreflight.Observation.PlanCount;
+
+    internal string GetAggregateLoadReservedRenderTokenPreflightFirstParticipantID() =>
+        _aggregateLoadReservedRenderTokenPreflight.Observation.FirstParticipantID;
+
+    internal string GetAggregateLoadReservedRenderTokenPreflightSecondParticipantID() =>
+        _aggregateLoadReservedRenderTokenPreflight.Observation.SecondParticipantID;
+
+    internal int GetAggregateLoadReservedRenderTokenPreflightTargetEdgeCount() =>
+        _aggregateLoadReservedRenderTokenPreflight.Observation.TargetEdgeCount;
+
+    internal string GetAggregateLoadReservedRenderTokenPreflightObservedSlotID() =>
+        _aggregateLoadReservedRenderTokenPreflight.Observation.SlotID;
+
+    internal int GetAggregateLoadReservedRenderTokenPreflightSourceParticipantCount() =>
+        _aggregateLoadReservedRenderTokenPreflight.Observation.SourceParticipantCount;
+
+    internal int GetAggregateLoadReservedRenderTokenPreflightRoadVertexCount() =>
+        _aggregateLoadReservedRenderTokenPreflight.Observation.RoadVertexCount;
+
+    internal int GetAggregateLoadReservedRenderTokenPreflightSurfacePrimitiveCount() =>
+        _aggregateLoadReservedRenderTokenPreflight.Observation.SurfacePrimitiveCount;
+
+    internal int GetAggregateLoadReservedRenderTokenPreflightNodeMarkerCount() =>
+        _aggregateLoadReservedRenderTokenPreflight.Observation.NodeMarkerCount;
 
     private sealed class AggregateLoadRendererPreflightProbeState
     {
