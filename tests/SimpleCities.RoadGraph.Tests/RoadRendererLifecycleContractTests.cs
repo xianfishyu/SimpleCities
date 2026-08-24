@@ -1812,6 +1812,93 @@ public sealed class RoadRendererLifecycleContractTests
     }
 
     [Fact]
+    public void RealStartLoadPostOwnershipFailureTracksFourPlansAfterAggregateTransfer()
+    {
+        string saveManagerSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Core", "SaveManager.cs"));
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadLoadPreflightResourceFailureProbe.cs"));
+        string loadOrchestration = ExtractMethod(
+            saveManagerSource,
+            "private async Task<SaveOperationResult> RunLoadAsync",
+            "private async Task<SaveOperationResult> RunDeleteAsync");
+        string failureProbe = ExtractMethod(
+            probeSource,
+            "partial void ProbeAggregateLoadPostOwnershipPreCommitFailure(",
+            "internal void ArmNextAggregateLoadPostOwnershipPreCommitFailure()");
+
+        int slotPreflightFailure = loadOrchestration.IndexOf(
+            "ProbeAggregateLoadPostSlotPreflightFailure(",
+            StringComparison.Ordinal);
+        int aggregateCreation = loadOrchestration.IndexOf(
+            "using var aggregate = new PreparedAggregateLoad(preflightPlans);",
+            StringComparison.Ordinal);
+        int ownershipTransfer = loadOrchestration.IndexOf(
+            "aggregateOwnsPlans = true;",
+            StringComparison.Ordinal);
+        int failure = loadOrchestration.IndexOf(
+            "ProbeAggregateLoadPostOwnershipPreCommitFailure(",
+            StringComparison.Ordinal);
+        int graphCommitBoundary = loadOrchestration.IndexOf(
+            "ProbeAggregateLoadGraphCommitBoundaryGenerationMismatch(",
+            StringComparison.Ordinal);
+
+        Assert.True(slotPreflightFailure >= 0 && slotPreflightFailure < aggregateCreation);
+        Assert.True(aggregateCreation < ownershipTransfer && ownershipTransfer < failure);
+        Assert.True(failure < graphCommitBoundary);
+        Assert.Contains(
+            "partial void ProbeAggregateLoadPostOwnershipPreCommitFailure(",
+            saveManagerSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "public void ArmAggregateLoadPostOwnershipPreCommitFailure(SaveManager saveManager)",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadPostOwnershipPreCommitFailureArmed = false;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadPostOwnershipPreCommitFailureCount++;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "System.Environment.CurrentManagedThreadId == _mainThreadID;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadPostOwnershipPreCommitPlanCount = preflightPlans.Count;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains("preflightPlans[0].ParticipantID", failureProbe, StringComparison.Ordinal);
+        Assert.Contains("preflightPlans[1].ParticipantID", failureProbe, StringComparison.Ordinal);
+        Assert.Contains("preflightPlans[2].ParticipantID", failureProbe, StringComparison.Ordinal);
+        Assert.Contains("preflightPlans[3].ParticipantID", failureProbe, StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadPostOwnershipPreCommitTargetEdgeCount = targetRevision.Edges.Count;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains("prepared.Slot.SlotID;", failureProbe, StringComparison.Ordinal);
+        Assert.Contains("prepared.Slot.Participants.Count;", failureProbe, StringComparison.Ordinal);
+        Assert.Contains(
+            "prepared.Presentation.RoadVertices.Length;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "prepared.Presentation.RoadSurface.PrimitiveCount;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "prepared.Presentation.NodeMarkers.Length;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "AggregateLoadPostOwnershipPreCommitFailureMessage",
+            failureProbe,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void PreparedPresentationResourcesAreReleasedBeforeOwnershipTransfer()
     {
         string rendererSource = File.ReadAllText(
@@ -1902,7 +1989,7 @@ public sealed class RoadRendererLifecycleContractTests
             "aggregateOwnsPlans = true;",
             StringComparison.Ordinal);
         int postOwnershipFailureProbe = loadOrchestration.IndexOf(
-            "ProbeAggregateLoadPostOwnershipPreCommitFailure();",
+            "ProbeAggregateLoadPostOwnershipPreCommitFailure(",
             StringComparison.Ordinal);
         int graphBoundaryGenerationProbe = loadOrchestration.IndexOf(
             "ProbeAggregateLoadGraphCommitBoundaryGenerationMismatch(",

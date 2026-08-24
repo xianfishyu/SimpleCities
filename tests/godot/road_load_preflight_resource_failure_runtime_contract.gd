@@ -762,6 +762,7 @@ func run() -> void:
 	var post_ownership_failed_load_result := await run_load(source_slot_id)
 	if not require(
 		int(post_ownership_failed_load_result.get("resultKind", -1)) == RESULT_FAILED and
+		int(post_ownership_failed_load_result.get("finalPhase", -1)) == PHASE_PREFLIGHT and
 		not bool(post_ownership_failed_load_result.get("committed", true)) and
 		str(post_ownership_failed_load_result.get("warnings", "")).is_empty() and
 		str(post_ownership_failed_load_result.get("error", "")) ==
@@ -773,12 +774,33 @@ func run() -> void:
 	if not require(
 		not bool(probe.IsAggregateLoadPostOwnershipPreCommitFailureArmed()) and
 		int(probe.GetAggregateLoadPostOwnershipPreCommitFailureCount()) == 1 and
+		bool(probe.DidAggregateLoadPostOwnershipPreCommitFailureRunOnMainThread()) and
+		int(probe.GetAggregateLoadPostOwnershipPreCommitPlanCount()) == 4 and
+		str(probe.GetAggregateLoadPostOwnershipPreCommitFirstParticipantID()) ==
+			"road-graph" and
+		str(probe.GetAggregateLoadPostOwnershipPreCommitSecondParticipantID()) ==
+			"road-tools" and
+		str(probe.GetAggregateLoadPostOwnershipPreCommitThirdParticipantID()) ==
+			"road-presentation" and
+		str(probe.GetAggregateLoadPostOwnershipPreCommitFourthParticipantID()) ==
+			"slot-target" and
+		int(probe.GetAggregateLoadPostOwnershipPreCommitTargetEdgeCount()) == 0 and
+		str(probe.GetAggregateLoadPostOwnershipPreCommitObservedSlotID()) == source_slot_id and
+		int(probe.GetAggregateLoadPostOwnershipPreCommitSourceParticipantCount()) == 1 and
+		int(probe.GetAggregateLoadPostOwnershipPreCommitRoadVertexCount()) == 0 and
+		int(probe.GetAggregateLoadPostOwnershipPreCommitSurfacePrimitiveCount()) == 0 and
+		int(probe.GetAggregateLoadPostOwnershipPreCommitNodeMarkerCount()) == 0 and
 		post_ownership_resource_count_after == post_ownership_resource_count_before,
 		"Post-ownership aggregate failure did not dispose every owned plan and resource: %s" %
 		JSON.stringify({
 			"armed": bool(probe.IsAggregateLoadPostOwnershipPreCommitFailureArmed()),
 			"triggerCount": int(
 				probe.GetAggregateLoadPostOwnershipPreCommitFailureCount()),
+			"planCount": int(probe.GetAggregateLoadPostOwnershipPreCommitPlanCount()),
+			"firstParticipantID": str(
+				probe.GetAggregateLoadPostOwnershipPreCommitFirstParticipantID()),
+			"fourthParticipantID": str(
+				probe.GetAggregateLoadPostOwnershipPreCommitFourthParticipantID()),
 			"resourceCountBefore": post_ownership_resource_count_before,
 			"resourceCountAfter": post_ownership_resource_count_after,
 		})):
@@ -786,6 +808,7 @@ func run() -> void:
 	if not require(
 		str(save_manager.get("CurrentSlotID")) == active_slot_id and
 		int(tool_manager.get("CurrentTool")) == TOOL_ROAD and
+		int(tool_manager.GetSelectedRoadType()) == selected_road_type_before and
 		builder.HasActivePlaceSession() and
 		builder.GetFixedCornerCount() == 1 and
 		builder.GetUndoEditCount() == undo_count_before and
@@ -2622,10 +2645,36 @@ func run() -> void:
 		"post_slot_resource_count_after": post_slot_resource_count_after,
 		"post_ownership_failure_result_kind": int(
 			post_ownership_failed_load_result.get("resultKind", -1)),
+		"post_ownership_failure_final_phase": int(
+			post_ownership_failed_load_result.get("finalPhase", -1)),
 		"post_ownership_failure_committed": bool(
 			post_ownership_failed_load_result.get("committed", true)),
 		"post_ownership_failure_trigger_count": int(
 			probe.GetAggregateLoadPostOwnershipPreCommitFailureCount()),
+		"post_ownership_failure_on_main_thread": bool(
+			probe.DidAggregateLoadPostOwnershipPreCommitFailureRunOnMainThread()),
+		"post_ownership_plan_count": int(
+			probe.GetAggregateLoadPostOwnershipPreCommitPlanCount()),
+		"post_ownership_first_participant_id": str(
+			probe.GetAggregateLoadPostOwnershipPreCommitFirstParticipantID()),
+		"post_ownership_second_participant_id": str(
+			probe.GetAggregateLoadPostOwnershipPreCommitSecondParticipantID()),
+		"post_ownership_third_participant_id": str(
+			probe.GetAggregateLoadPostOwnershipPreCommitThirdParticipantID()),
+		"post_ownership_fourth_participant_id": str(
+			probe.GetAggregateLoadPostOwnershipPreCommitFourthParticipantID()),
+		"post_ownership_target_edge_count": int(
+			probe.GetAggregateLoadPostOwnershipPreCommitTargetEdgeCount()),
+		"post_ownership_observed_slot_id": str(
+			probe.GetAggregateLoadPostOwnershipPreCommitObservedSlotID()),
+		"post_ownership_source_participant_count": int(
+			probe.GetAggregateLoadPostOwnershipPreCommitSourceParticipantCount()),
+		"post_ownership_road_vertex_count": int(
+			probe.GetAggregateLoadPostOwnershipPreCommitRoadVertexCount()),
+		"post_ownership_surface_primitive_count": int(
+			probe.GetAggregateLoadPostOwnershipPreCommitSurfacePrimitiveCount()),
+		"post_ownership_node_marker_count": int(
+			probe.GetAggregateLoadPostOwnershipPreCommitNodeMarkerCount()),
 		"post_ownership_resource_count_before": post_ownership_resource_count_before,
 		"post_ownership_resource_count_after": post_ownership_resource_count_after,
 		"graph_boundary_operation_failure_result_kind": int(

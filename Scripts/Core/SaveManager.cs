@@ -46,7 +46,10 @@ public partial class SaveManager : Node
         IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
         RoadGraphRevision targetRevision,
         PreparedLoadWork prepared);
-    partial void ProbeAggregateLoadPostOwnershipPreCommitFailure();
+    partial void ProbeAggregateLoadPostOwnershipPreCommitFailure(
+        IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
+        RoadGraphRevision targetRevision,
+        PreparedLoadWork prepared);
     partial void ProbeAggregateLoadGraphCommitBoundaryGenerationMismatch(
         RoadGraph graph,
         ref IStorageOperationLease operationLease);
@@ -776,7 +779,10 @@ public partial class SaveManager : Node
 
                 using var aggregate = new PreparedAggregateLoad(preflightPlans);
                 aggregateOwnsPlans = true;
-                ProbeAggregateLoadPostOwnershipPreCommitFailure();
+                ProbeAggregateLoadPostOwnershipPreCommitFailure(
+                    preflightPlans,
+                    targetRevision,
+                    prepared);
                 TimeSpan preflightDuration = Stopwatch.GetElapsedTime(preflightStarted);
                 long aggregateCommitStarted = Stopwatch.GetTimestamp();
                 IStorageOperationLease aggregateOperationLease = lease;

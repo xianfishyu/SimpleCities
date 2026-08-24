@@ -695,6 +695,42 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
     public int GetAggregateLoadPostOwnershipPreCommitFailureCount() =>
         _saveManager?.GetAggregateLoadPostOwnershipPreCommitFailureCount() ?? 0;
 
+    public bool DidAggregateLoadPostOwnershipPreCommitFailureRunOnMainThread() =>
+        _saveManager?.DidAggregateLoadPostOwnershipPreCommitFailureRunOnMainThread() ?? false;
+
+    public int GetAggregateLoadPostOwnershipPreCommitPlanCount() =>
+        _saveManager?.GetAggregateLoadPostOwnershipPreCommitPlanCount() ?? -1;
+
+    public string GetAggregateLoadPostOwnershipPreCommitFirstParticipantID() =>
+        _saveManager?.GetAggregateLoadPostOwnershipPreCommitFirstParticipantID() ?? string.Empty;
+
+    public string GetAggregateLoadPostOwnershipPreCommitSecondParticipantID() =>
+        _saveManager?.GetAggregateLoadPostOwnershipPreCommitSecondParticipantID() ?? string.Empty;
+
+    public string GetAggregateLoadPostOwnershipPreCommitThirdParticipantID() =>
+        _saveManager?.GetAggregateLoadPostOwnershipPreCommitThirdParticipantID() ?? string.Empty;
+
+    public string GetAggregateLoadPostOwnershipPreCommitFourthParticipantID() =>
+        _saveManager?.GetAggregateLoadPostOwnershipPreCommitFourthParticipantID() ?? string.Empty;
+
+    public int GetAggregateLoadPostOwnershipPreCommitTargetEdgeCount() =>
+        _saveManager?.GetAggregateLoadPostOwnershipPreCommitTargetEdgeCount() ?? -1;
+
+    public string GetAggregateLoadPostOwnershipPreCommitObservedSlotID() =>
+        _saveManager?.GetAggregateLoadPostOwnershipPreCommitObservedSlotID() ?? string.Empty;
+
+    public int GetAggregateLoadPostOwnershipPreCommitSourceParticipantCount() =>
+        _saveManager?.GetAggregateLoadPostOwnershipPreCommitSourceParticipantCount() ?? -1;
+
+    public int GetAggregateLoadPostOwnershipPreCommitRoadVertexCount() =>
+        _saveManager?.GetAggregateLoadPostOwnershipPreCommitRoadVertexCount() ?? -1;
+
+    public int GetAggregateLoadPostOwnershipPreCommitSurfacePrimitiveCount() =>
+        _saveManager?.GetAggregateLoadPostOwnershipPreCommitSurfacePrimitiveCount() ?? -1;
+
+    public int GetAggregateLoadPostOwnershipPreCommitNodeMarkerCount() =>
+        _saveManager?.GetAggregateLoadPostOwnershipPreCommitNodeMarkerCount() ?? -1;
+
     public string GetAggregateLoadPostOwnershipPreCommitFailureMessage() =>
         SaveManager.AggregateLoadPostOwnershipPreCommitFailureMessage;
 
@@ -956,6 +992,18 @@ public partial class SaveManager
     private int _aggregateLoadPostSlotPreflightNodeMarkerCount = -1;
     private bool _aggregateLoadPostOwnershipPreCommitFailureArmed;
     private int _aggregateLoadPostOwnershipPreCommitFailureCount;
+    private bool _aggregateLoadPostOwnershipPreCommitFailureRanOnMainThread;
+    private int _aggregateLoadPostOwnershipPreCommitPlanCount = -1;
+    private string _aggregateLoadPostOwnershipPreCommitFirstParticipantID = string.Empty;
+    private string _aggregateLoadPostOwnershipPreCommitSecondParticipantID = string.Empty;
+    private string _aggregateLoadPostOwnershipPreCommitThirdParticipantID = string.Empty;
+    private string _aggregateLoadPostOwnershipPreCommitFourthParticipantID = string.Empty;
+    private int _aggregateLoadPostOwnershipPreCommitTargetEdgeCount = -1;
+    private string _aggregateLoadPostOwnershipPreCommitObservedSlotID = string.Empty;
+    private int _aggregateLoadPostOwnershipPreCommitSourceParticipantCount = -1;
+    private int _aggregateLoadPostOwnershipPreCommitRoadVertexCount = -1;
+    private int _aggregateLoadPostOwnershipPreCommitSurfacePrimitiveCount = -1;
+    private int _aggregateLoadPostOwnershipPreCommitNodeMarkerCount = -1;
     private bool _aggregateLoadGraphCommitBoundaryGenerationMismatchArmed;
     private int _aggregateLoadGraphCommitBoundaryGenerationMismatchCount;
     private RoadGraph? _aggregateLoadGraphCommitBoundaryOwner;
@@ -1990,13 +2038,40 @@ public partial class SaveManager
     internal int GetAggregateLoadPostSlotPreflightNodeMarkerCount() =>
         _aggregateLoadPostSlotPreflightNodeMarkerCount;
 
-    partial void ProbeAggregateLoadPostOwnershipPreCommitFailure()
+    partial void ProbeAggregateLoadPostOwnershipPreCommitFailure(
+        IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
+        RoadGraphRevision targetRevision,
+        PreparedLoadWork prepared)
     {
         if (!_aggregateLoadPostOwnershipPreCommitFailureArmed)
             return;
 
+        ArgumentNullException.ThrowIfNull(preflightPlans);
+        ArgumentNullException.ThrowIfNull(targetRevision);
+        ArgumentNullException.ThrowIfNull(prepared);
         _aggregateLoadPostOwnershipPreCommitFailureArmed = false;
         _aggregateLoadPostOwnershipPreCommitFailureCount++;
+        _aggregateLoadPostOwnershipPreCommitFailureRanOnMainThread =
+            _mainThreadID != 0 && System.Environment.CurrentManagedThreadId == _mainThreadID;
+        _aggregateLoadPostOwnershipPreCommitPlanCount = preflightPlans.Count;
+        _aggregateLoadPostOwnershipPreCommitFirstParticipantID =
+            preflightPlans.Count > 0 ? preflightPlans[0].ParticipantID : string.Empty;
+        _aggregateLoadPostOwnershipPreCommitSecondParticipantID =
+            preflightPlans.Count > 1 ? preflightPlans[1].ParticipantID : string.Empty;
+        _aggregateLoadPostOwnershipPreCommitThirdParticipantID =
+            preflightPlans.Count > 2 ? preflightPlans[2].ParticipantID : string.Empty;
+        _aggregateLoadPostOwnershipPreCommitFourthParticipantID =
+            preflightPlans.Count > 3 ? preflightPlans[3].ParticipantID : string.Empty;
+        _aggregateLoadPostOwnershipPreCommitTargetEdgeCount = targetRevision.Edges.Count;
+        _aggregateLoadPostOwnershipPreCommitObservedSlotID = prepared.Slot.SlotID;
+        _aggregateLoadPostOwnershipPreCommitSourceParticipantCount =
+            prepared.Slot.Participants.Count;
+        _aggregateLoadPostOwnershipPreCommitRoadVertexCount =
+            prepared.Presentation.RoadVertices.Length;
+        _aggregateLoadPostOwnershipPreCommitSurfacePrimitiveCount =
+            prepared.Presentation.RoadSurface.PrimitiveCount;
+        _aggregateLoadPostOwnershipPreCommitNodeMarkerCount =
+            prepared.Presentation.NodeMarkers.Length;
         throw new InvalidOperationException(
             AggregateLoadPostOwnershipPreCommitFailureMessage);
     }
@@ -2014,6 +2089,18 @@ public partial class SaveManager
                 "Aggregate Load post-ownership pre-commit failure probe is already armed.");
         }
 
+        _aggregateLoadPostOwnershipPreCommitFailureRanOnMainThread = false;
+        _aggregateLoadPostOwnershipPreCommitPlanCount = -1;
+        _aggregateLoadPostOwnershipPreCommitFirstParticipantID = string.Empty;
+        _aggregateLoadPostOwnershipPreCommitSecondParticipantID = string.Empty;
+        _aggregateLoadPostOwnershipPreCommitThirdParticipantID = string.Empty;
+        _aggregateLoadPostOwnershipPreCommitFourthParticipantID = string.Empty;
+        _aggregateLoadPostOwnershipPreCommitTargetEdgeCount = -1;
+        _aggregateLoadPostOwnershipPreCommitObservedSlotID = string.Empty;
+        _aggregateLoadPostOwnershipPreCommitSourceParticipantCount = -1;
+        _aggregateLoadPostOwnershipPreCommitRoadVertexCount = -1;
+        _aggregateLoadPostOwnershipPreCommitSurfacePrimitiveCount = -1;
+        _aggregateLoadPostOwnershipPreCommitNodeMarkerCount = -1;
         _aggregateLoadPostOwnershipPreCommitFailureArmed = true;
     }
 
@@ -2022,6 +2109,42 @@ public partial class SaveManager
 
     internal int GetAggregateLoadPostOwnershipPreCommitFailureCount() =>
         _aggregateLoadPostOwnershipPreCommitFailureCount;
+
+    internal bool DidAggregateLoadPostOwnershipPreCommitFailureRunOnMainThread() =>
+        _aggregateLoadPostOwnershipPreCommitFailureRanOnMainThread;
+
+    internal int GetAggregateLoadPostOwnershipPreCommitPlanCount() =>
+        _aggregateLoadPostOwnershipPreCommitPlanCount;
+
+    internal string GetAggregateLoadPostOwnershipPreCommitFirstParticipantID() =>
+        _aggregateLoadPostOwnershipPreCommitFirstParticipantID;
+
+    internal string GetAggregateLoadPostOwnershipPreCommitSecondParticipantID() =>
+        _aggregateLoadPostOwnershipPreCommitSecondParticipantID;
+
+    internal string GetAggregateLoadPostOwnershipPreCommitThirdParticipantID() =>
+        _aggregateLoadPostOwnershipPreCommitThirdParticipantID;
+
+    internal string GetAggregateLoadPostOwnershipPreCommitFourthParticipantID() =>
+        _aggregateLoadPostOwnershipPreCommitFourthParticipantID;
+
+    internal int GetAggregateLoadPostOwnershipPreCommitTargetEdgeCount() =>
+        _aggregateLoadPostOwnershipPreCommitTargetEdgeCount;
+
+    internal string GetAggregateLoadPostOwnershipPreCommitObservedSlotID() =>
+        _aggregateLoadPostOwnershipPreCommitObservedSlotID;
+
+    internal int GetAggregateLoadPostOwnershipPreCommitSourceParticipantCount() =>
+        _aggregateLoadPostOwnershipPreCommitSourceParticipantCount;
+
+    internal int GetAggregateLoadPostOwnershipPreCommitRoadVertexCount() =>
+        _aggregateLoadPostOwnershipPreCommitRoadVertexCount;
+
+    internal int GetAggregateLoadPostOwnershipPreCommitSurfacePrimitiveCount() =>
+        _aggregateLoadPostOwnershipPreCommitSurfacePrimitiveCount;
+
+    internal int GetAggregateLoadPostOwnershipPreCommitNodeMarkerCount() =>
+        _aggregateLoadPostOwnershipPreCommitNodeMarkerCount;
 
     partial void ProbeAggregateLoadGraphCommitBoundaryGenerationMismatch(
         RoadGraph graph,
