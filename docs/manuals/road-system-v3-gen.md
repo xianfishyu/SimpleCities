@@ -1312,6 +1312,10 @@ Phase 7 当前已有六十六个可验证切片。其一，普通 mutation 与 `
 
 > 计数补充（2026-08-24）：在“其一百三十八”基础上新增真实 PauseMenu 的七项 Load warning 联合显示与干净恢复证据，Phase 7 可验证切片由一百三十八个更新为一百三十九个；该切片只扩展已提交 warning 的 UI 结果矩阵，不增加提交前故障点或生产行为，新增内容扩展至“其一百三十九”。
 
+其一百四十，Phase 7 将真实 renderer Resource Preflight 故障从 aggregate 生命周期证据推进到 PauseMenu 的失败呈现与下一请求恢复。`pause_menu_runtime_contract.gd` 在仍选中目标手动槽的真实 Load 确认流程中，通过 `RoadLoadPreflightResourceFailureProbe` 武装 renderer Resource Preflight 异常；operation 在引用交换前失败后，PauseMenu 退出确认页但保持 Save Management 可见、场景暂停，状态文本同时包含“加载存档失败”和注入的精确错误。契约逐值比较失败前后的 `CurrentSlotID`、`ToolManager.CurrentTool` 与 `RoadRenderer.GetPresentationState()`，并验证目标槽仍被选中、覆盖/加载/删除按钮全部恢复，一次性 renderer failure 与 SaveManager observation 各触发一次且解除。随后不重建场景，直接对同一槽执行既有七项 warning Load，再执行一次干净 Load；两次均成功关闭菜单，证明 pre-commit 关键失败没有遗留 renderer admission、operation busy 或 UI 禁用状态。Godot 4.7 `--check-only` 与隔离 APPDATA 的完整契约均以退出码 0 通过并输出 `PASS pause menu runtime contract`；完整自动化为 950/950，Debug 与 `ExportRelease` build 均为 0 警告、0 错误，Roslyn production/test compiler/analyzer 与目标 GDScript LSP 均为 0 diagnostics。Godot editor MCP 已连接正确项目，冻结 `MapTest` 推进 5 帧后 editor error、DAP `stderr` 与 `console` 均为空；测试游戏与隐藏 editor 均已关闭，隔离 QA 根已送入回收站。提交 `0f04f61` 只增加真实 PauseMenu 的关键失败与恢复回归，不修改生产逻辑。该切片关闭一个 renderer Resource Preflight 的 UI 失败格，不增加新的底层故障点、aggregate 相邻失败或连续 Preflight 早期边界；Save/Delete 结果、Load 各阶段重复激活/取消、逐项 UI warning、其余关键 renderer 故障和最终矩阵仍开放，`v3-ui:1.4`、`v3-save-system:2.3` 与最终集成负责人 `v3-road-graph:8.6` 继续保持开放。
+
+> 计数补充（2026-08-24）：在“其一百三十九”基础上新增真实 PauseMenu 的 renderer Resource Preflight 失败呈现与下一请求恢复证据，Phase 7 可验证切片由一百三十九个更新为一百四十个；该切片只扩展提交前关键失败的 UI 结果矩阵，不增加底层故障点或生产行为，新增内容扩展至“其一百四十”。
+
 ### Phase 8：最终组合验收
 
 在同一 `MapTest` 实例中完成连续折线路、跨提交延伸、简单环、棒棒糖、两路口环、八字形、支路删除重归一化、四类型建造与改造、token 防护的 delta 撤销重做、不可变 root 结构共享/释放、V3 family/version 有界往返、跨进程锁/publish lease/descriptor 恢复、共享表面命中与 junction patch、损坏/超限拒绝、并发 autosave、取消和 observer warning，以及成功/提交前失败且无提交后关键表现失败分支的 Load 生命周期。额外证明 V2 根未被枚举或修改、手工复制的 V2/未知格式被拒绝。再完成 Vulkan 视觉、10k 硬门槛、100k 压测和 Windows 导出验证。最终证据写回附录 D；`v3-road-graph:8.6` 是唯一集成负责人。
