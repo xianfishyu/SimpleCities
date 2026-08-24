@@ -1,8 +1,8 @@
 # 第三代 UI 系统待办清单
 
 > 系统 key：`v3-ui`
-> 整理日期：2026-08-21
-> 证据：`Scripts/UI/ConstructionDock.cs`、`Scripts/UI/ToolContextPanel.cs`、`Scripts/UI/GameHUD.cs`、`Scripts/UI/DebugPanel.cs`、`Scripts/Tools/ToolManager.cs`、`Scripts/Road/RoadGraphDiagnosticsSnapshot.cs`、`Scripts/Road/RoadGraph.Diagnostics.cs`、`Scenes/UI/GameHUD.tscn`、`tests/SimpleCities.RoadGraph.Tests/RoadTypeSelectorContractTests.cs`、`tests/SimpleCities.RoadGraph.Tests/RoadGraphDiagnosticsSnapshotTests.cs`、`tests/SimpleCities.RoadGraph.Performance/Program.cs`、`tests/godot/command_center_runtime_contract.gd` 与 `docs/manuals/road-system-v3-gen.md`。
+> 整理日期：2026-08-24
+> 证据：`Scripts/UI/ConstructionDock.cs`、`Scripts/UI/ToolContextPanel.cs`、`Scripts/UI/GameHUD.cs`、`Scripts/UI/PauseMenu.cs`、`Scripts/UI/DebugPanel.cs`、`Scripts/Tools/ToolManager.cs`、`Scripts/Road/RoadGraphDiagnosticsSnapshot.cs`、`Scripts/Road/RoadGraph.Diagnostics.cs`、`Scenes/UI/GameHUD.tscn`、`tests/SimpleCities.RoadGraph.Tests/RoadTypeSelectorContractTests.cs`、`tests/SimpleCities.RoadGraph.Tests/RoadGraphDiagnosticsSnapshotTests.cs`、`tests/SimpleCities.RoadGraph.Performance/Program.cs`、`tests/godot/command_center_runtime_contract.gd`、`tests/godot/pause_menu_runtime_contract.gd` 与 `docs/manuals/road-system-v3-gen.md`。
 > 主导原则：UI 只呈现和编辑工具/操作状态，不直接修改 RoadGraph 或磁盘；桌面、窄屏、键盘焦点和场景重复进入必须共享同一行为契约。
 
 ## 状态总览
@@ -12,7 +12,7 @@
 | 1.1 | 道路上下文没有 RoadType 选择控件 | 已完成 | 四段式名称与颜色 swatch 选择器写入共享 tool state |
 | 1.2 | ConstructionDock 没有道路改造工具呈现 | 已完成 | Road/RoadUpgrade 资源化双工具、T 动作、选中态和稳定焦点链已验证 |
 | 1.3 | DebugPanel 仍把 RoadGroup 数量作为路网指标 | 已完成 | 以不可变 diagnostics snapshot 展示 canonical Node/Edge/geometry/query/self-loop 结构量，并通过可见性与 sequence 门禁避免逐帧全图读取 |
-| 1.4 | 暂停菜单没有异步 Save/Load/Delete 的独占状态机 | 开放（部分实现） | operation/render token、generation、busy、Escape、退出收敛、indexed 四类 surface、现有道路事务 admission 与 deferred continuation 失效已接入；补齐结果矩阵 |
+| 1.4 | 暂停菜单没有异步 Save/Load/Delete 的独占状态机 | 开放（部分实现） | operation/render token、generation、busy、Escape、退出收敛、indexed 四类 surface、现有道路事务 admission、deferred continuation 失效与七项 post-commit warning UI 已接入；补齐其余结果矩阵 |
 
 ### 设计覆盖矩阵
 
@@ -22,7 +22,7 @@
 | V3 类型建造 | `RoadBuilder` 提供默认 `Street` 的 `SelectedRoadType` 与会话冻结；ToolContextPanel 已在 Road/RoadUpgrade 上下文显示四段式样式选择器，通过 ToolManager 委托写回共享状态 | `v3-tool-input:2.1`、1.1～1.2（均已完成） |
 | V3 既有道路改造 | `ToolType.RoadUpgrade` 与独立输入生命周期已实现；Roads catalog 以独立图标和 T 动作呈现 RoadUpgrade，ConstructionDock 与 ToolManager 双向同步选中态和上下文 | 1.2、`v3-tool-input:2.2`（均已完成） |
 | V3 规范存储诊断 | `RoadGraphDiagnosticsSnapshot` 已发布 Node、canonical Edge、原生 geometry segment、query fragment 与 self-loop；DebugPanel 只在展开且 `ChangeSequence` 改变时刷新 | 1.3、`v3-road-graph:8.2`～`8.5`（1.3 已完成） |
-| V3 异步存档体验 | PauseMenu 已消费结构化 operation state/result，按 token、menu/scene generation 过滤 continuation，busy 时禁用冲突入口并让 Escape 只请求一次取消；退出流程会 drain/shutdown。Load 已联合发布基础 mesh、带 canonical `RoadLocation` 和不可变空间索引的 `EdgeRibbon` + `TerminalCap` + `SemanticJoin` + `JunctionPatch` surface 与 matching `RoadRenderToken` acknowledgment；普通 mutation 的 renderer provider 在 pending/stalled 时拒绝 hit，placement、拆除、RoadUpgrade 与 undo/redo 已覆盖当前玩家道路事务入口。deferred 普通表现回调也会在 Load admission 同步 flush，并以 generation 拒绝旧 callable | 1.4、`v3-save-system:2.3`、`v3-tool-input:2.4`、`v3-grid-rendering:2.2` |
+| V3 异步存档体验 | PauseMenu 已消费结构化 operation state/result，按 token、menu/scene generation 过滤 continuation，busy 时禁用冲突入口并让 Escape 只请求一次取消；退出流程会 drain/shutdown。Load 已联合发布基础 mesh、带 canonical `RoadLocation` 和不可变空间索引的 `EdgeRibbon` + `TerminalCap` + `SemanticJoin` + `JunctionPatch` surface 与 matching `RoadRenderToken` acknowledgment；真实 UI 已按既定顺序显示 graph/renderer observer、四参与者 cleanup 与 post-commit 辅助工作的七项 warning，并在下一次干净 Load 清除旧 warning。普通 mutation 的 renderer provider 在 pending/stalled 时拒绝 hit，placement、拆除、RoadUpgrade 与 undo/redo 已覆盖当前玩家道路事务入口。deferred 普通表现回调也会在 Load admission 同步 flush，并以 generation 拒绝旧 callable | 1.4、`v3-save-system:2.3`、`v3-tool-input:2.4`、`v3-grid-rendering:2.2` |
 
 ## 执行顺序
 
@@ -81,7 +81,8 @@
   - 工具门禁进展（2026-08-20）：类型化建造现与拆除、RoadUpgrade 一样冻结完整表现 token；pending、stalled 或 superseded 时不会开始/继续/提交旧 placement，Load admission 期间也只拒绝新命令而不提前破坏当前 UI/工具状态。完整自动化 840/840、双配置 build 0 警告/0 错误，两项隔离道路运行时契约均 PASS；当前会话未暴露 Roslyn/Godot MCP 与 DAP，未刷新对应通道。
   - 历史命令门禁进展（2026-08-20）：HUD 查询的 undo/redo 可用性与实际回放入口均要求 provider desired/presented/surface token 和 graph current；普通 mutation pending/stalled 与回放后的反向 pending 窗口会保持按钮命令不可用，不清栈或修改图，matching presentation 发布后恢复。`RoadInputStrategyTests` 21/21、完整自动化 841/841、双配置 build 0 警告/0 错误，两项隔离道路运行时契约均 PASS；当前会话未暴露 Roslyn/Godot MCP 与 DAP，未刷新对应通道。
   - Deferred continuation 协作进展（2026-08-20）：当前生产输入层没有独立道路事务命令队列；renderer 的真实 `CallDeferred` 普通重建已捕获 continuation generation。pending mutation 后同调用栈 `StartLoad` 会先同步发布 current presentation，Load commit 使旧 callable 失效；额外两帧后 UI 可观察的 graph/mesh/surface/token 仍为新 lineage。聚焦组合 16/16、完整自动化 842/842、双配置 build 0 警告/0 错误，两个隔离道路运行时契约均 PASS；当前会话未暴露 Roslyn/Godot MCP 与 DAP。
-  - 仍缺（保持开放）：renderer 已具备四类 surface、provider 级 stalled/retry 门禁和 deferred continuation 代际失效，placement、拆除、RoadUpgrade 与 undo/redo 也已执行完整 token/graph admission，RoadType 选择器和 RoadUpgrade 双工具入口已有共享状态 UI；observer/cleanup 每类 warning、所有阶段重复激活与真实关键资源故障矩阵仍未全部验收，因此尚不能关闭最终的 graph/tool/mesh/surface 一次接管语义。
+  - Load warning UI 进展（2026-08-24）：`pause_menu_runtime_contract.gd` 通过 PauseMenu 的真实 Load 按钮同时注入 RoadGraph/RoadRenderer observer、graph/tool/renderer/slot-target cleanup 与 SaveManager post-commit 辅助异常；结果仍按成功路径关闭菜单并恢复游戏，状态文本严格按既定顺序包含七项 warning。随后从重开的菜单对同一槽执行无故障 Load，旧 warning 文本被清除，全部一次性探针保持各触发一次，菜单与 admission 可再次使用。为让干净 `APPDATA` 契约不依赖历史状态，Road 重绑改用未占用的 G，返回 MainMenu 后通过真实 `AutosaveController` 创建首个 autosave；对应原子提交为 `75a1f4f`、`5fad322` 与 `15210da`。Godot 4.7 `--check-only` 及隔离 APPDATA 的完整契约均以退出码 0 通过并输出 `PASS pause menu runtime contract`；完整自动化 950/950，Debug 与 `ExportRelease` build 均为 0 警告、0 错误，Roslyn compiler/analyzer 与目标 GDScript LSP 均为 0 diagnostics。Godot editor MCP 连接正确项目，冻结 `MapTest` 推进 5 帧后 editor error、DAP `stderr` 与 `console` 均为空；隔离 QA 根已送入回收站且没有残留 Godot 进程。
+  - 仍缺（保持开放）：renderer 已具备四类 surface、provider 级 stalled/retry 门禁和 deferred continuation 代际失效，placement、拆除、RoadUpgrade 与 undo/redo 也已执行完整 token/graph admission，RoadType 选择器和 RoadUpgrade 双工具入口已有共享状态 UI，PauseMenu 已覆盖 Load 七项 warning 联合显示与干净恢复；但 Save/Delete 各结果、Load 各阶段重复激活/取消、逐项 warning 和真实关键资源故障矩阵仍未全部验收，因此尚不能关闭最终的 graph/tool/mesh/surface 一次接管语义。
 
 ## 暂不执行
 
