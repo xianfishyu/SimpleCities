@@ -1244,6 +1244,10 @@ Phase 7 当前已有六十六个可验证切片。其一，普通 mutation 与 `
 
 > 计数补充（2026-08-24）：在“其一百二十一”基础上补齐普通 update-token 的曲线容差 settings-validation failure，Phase 7 可验证切片由一百二十一个更新为一百二十二个；该切片位于既有样式快照失败与纯 `Prepare` 故障之间，不增加真实 aggregate 相邻失败或连续 Preflight 早期边界，新增内容扩展至“其一百二十二”。
 
+其一百二十三，Phase 7 审计从细粒度 renderer 故障矩阵回到 Junction Patch 的确定性验收，并补齐此前只比较视觉、没有逐值比较 owner 映射的证据。`RoadJunctionTessellatorTests.EdgeIdRenamingAndEnumerationOrderPreserveVisualAndMappedOwnership` 先对同一三路混合宽度/颜色 incidence 做非平凡枚举置换，要求输出的完整 `RoadJunctionTriangle` 序列连同 owner incidence 逐值相同；再使用 `10→100 / 11→101 / 12→102` 的一一映射同时重命名 Edge 与 canonical `RoadLocation.EdgeID` 并扰动输入顺序，要求 sector、颜色、中心线和 triangle 顶点组成的视觉序列不变，owner incidence 则严格按同一 ID/location 映射等价。`RoadRendererLoadPrepareTests.PurePreparer_JunctionPatchVisualDoesNotDependOnStoredEdgeDirection` 同时补强生产 preparer 边界：同一三个 Edge 反转存储方向后，patch 的 owner `EdgeID/SectorOrder` 序列保持，canonical location 继续指向 owner Edge，只把 `Endpoint A / parameter 0` 对应翻转为 `Endpoint B / parameter 1`。聚焦 `RoadJunctionTessellatorTests + RoadRendererLoadPrepareTests` 为 36/36，完整自动化仍为 929/929；Debug 与 `ExportRelease` build 均为 0 警告、0 错误，Roslyn test-project compiler/analyzer 为 0 diagnostics，`git diff --check` 通过。提交 `ca73479` 只增强测试断言，没有修改生产代码或运行时行为，因此本切片不重复运行 Godot/Vulkan，也不改变普通更新故障点、真实 aggregate 相邻失败或连续 Preflight 早期边界计数。`v3-grid-rendering:2.2` 的 Junction Patch 枚举扰动、存储反向和 ID 重命名 owner 等价子矩阵由此关闭；其余 surface kind、完整混合宽度视觉/性能、renderer/aggregate 故障组合及最终集成负责人 `v3-road-graph:8.6` 继续保持开放。
+
+> 计数补充（2026-08-24）：在“其一百二十二”基础上新增 Junction Patch 的枚举扰动、存储反向与 ID 重命名 owner 等价性证据，Phase 7 可验证切片由一百二十二个更新为一百二十三个；该切片不修改生产行为，也不增加普通更新故障点、真实 aggregate 相邻失败或连续 Preflight 早期边界，新增内容扩展至“其一百二十三”。
+
 ### Phase 8：最终组合验收
 
 在同一 `MapTest` 实例中完成连续折线路、跨提交延伸、简单环、棒棒糖、两路口环、八字形、支路删除重归一化、四类型建造与改造、token 防护的 delta 撤销重做、不可变 root 结构共享/释放、V3 family/version 有界往返、跨进程锁/publish lease/descriptor 恢复、共享表面命中与 junction patch、损坏/超限拒绝、并发 autosave、取消和 observer warning，以及成功/提交前失败且无提交后关键表现失败分支的 Load 生命周期。额外证明 V2 根未被枚举或修改、手工复制的 V2/未知格式被拒绝。再完成 Vulkan 视觉、10k 硬门槛、100k 压测和 Windows 导出验证。最终证据写回附录 D；`v3-road-graph:8.6` 是唯一集成负责人。
