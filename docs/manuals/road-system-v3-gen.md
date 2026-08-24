@@ -1368,6 +1368,8 @@ Phase 7 当前已有六十六个可验证切片。其一，普通 mutation 与 `
 
 > Phase 8 MCP 与 DAP 复验（2026-08-24）：Roslyn production/test compiler+analyzer、三个最终组合 GDScript diagnostics 均为 0；Godot MCP 连接到正确项目且 addon/server `4.1.0` 匹配，冻结 `MapTest` 推进 5 帧后确认真实 `RoadRenderer`，editor error、DAP `stderr` 与 `console` 均为空并已停止项目。
 
+> Phase 8 100K 可选压力复验（2026-08-24）：额外的 grid、junction-dense、geometry-dense、owner-dense 四个正式 Vulkan 进程均 PASS；完整数据、统计口径与线性不变式、不可变 root、worker/Preflight/commit、批处理、surface AABB 索引及六分量 token 的技术分析见 [`docs/performance/road-system-v3-100k-technical-analysis.md`](../performance/road-system-v3-100k-technical-analysis.md)。该结果不改变 Phase 8 的 10K 硬门定义。
+
 ### Phase 8：最终组合验收
 
 复用 Phase 0～7 的专项证据，在同一 `MapTest` 代表性流程中组合连续/闭合道路、四类型建造与改造、token 防护的 delta 撤销重做、V3 format v1 往返、并发与取消、共享表面命中和 matching presentation；额外复核 V2 根未被枚举或修改、V2/未知格式被拒绝。随后串行执行完整自动化与双配置构建，并复用既定 Vulkan 视觉、10k 硬门槛和 Windows 导出门禁。100k 只作为可选压力测试：有结果时完整记录，但不属于 Phase 8 完成条件。最终证据写回附录 D；`v3-road-graph:8.6` 是唯一集成负责人。Phase 8 不重复 Phase 7 已证明的每个微观故障点。

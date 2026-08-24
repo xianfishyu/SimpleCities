@@ -283,6 +283,8 @@
 
   - Phase 8 MCP 与 DAP 复验（2026-08-24）：Roslyn solution 正确加载且 production/test compiler+analyzer 为 0 diagnostics；三个最终组合 GDScript 为 0 diagnostics。Godot MCP 连接 `SimpleCities` 正确路径，Godot 4.7 与 addon/server 4.1.0 匹配；冻结 `MapTest` 推进 5 帧后确认真实 `RoadRenderer`，editor error、DAP `stderr` 与 `console` 为空，项目已停止。该证据补齐此前缺失的 MCP/DAP 门，8.6 进入最终状态/附录一致性审计。
 
+  - Phase 8 100K 可选压力复验（2026-08-24）：额外运行的 grid、junction-dense、geometry-dense、owner-dense Vulkan 矩阵均 PASS，隔离根已回收；完整结果、统计口径和原理分析见 `docs/performance/road-system-v3-100k-technical-analysis.md`。该证据满足新增论文交付，但不改变 8.6 的 10K 硬门或最终完成判定。
+
 ## 暂不执行
 
 ### 交通模拟

@@ -377,6 +377,8 @@
 
   - 真实 aggregate `RoadRendererLoadCommitPlan` Preflight 构造故障矩阵补强（2026-08-24）：`v3-grid-rendering:2.2` 已为既有 commit-plan construction failure 补齐真实 `Preflight=4`、主线程、进入 renderer 前的 `road-graph → road-tools` 两个 participant 与 `1 Edge / 4 vertices / 4 primitives / 2 markers` prepared 数据。两个资源 factory、统一 Resource Preflight、reserved render-token 与 `RoadSurfaceSnapshot` 构造均已成功完成；真实 plan constructor 在赋值 snapshot/token/resource 字段后由一次性 probe 抛错，尚未返回或转交 `road-presentation` plan。renderer Preflight catch 释放 road mesh/node batch，orchestration fallback 再释放 graph/tool plans。活动表现、surface/token/hit 与工具事务保持，资源 `77 -> 77`，最终无故障 Load 成功再接管。`RoadRendererLifecycleContractTests` 70/70、完整自动化 928/928、双配置 build、Roslyn/GDScript diagnostics、`--check-only`、正式 Vulkan 运行时、Debug/`ExportRelease` 隔离与 MCP 8 帧结构 smoke 均通过，minimal DAP stderr/console 与 editor 增量日志为空。该证据只补强一个既有 commit-plan construction 点，不增加二十七个 aggregate 相邻失败或二十一个连续 Preflight 早期边界，也不替代其余 renderer 故障、混合类型视觉/性能或 Phase 8 组合矩阵，因此 2.2、2.3 保持开放。
 
+  - 100K 压力矩阵与技术分析（2026-08-24）：当前 `0b39871` 的 grid、junction-dense、geometry-dense、owner-dense 四档均在真实 Godot 4.7 Vulkan Forward+ 中退出 0 并 PASS，连续帧 P95 全部低于 `0.8 ms`，draw calls 固定为 `4/5/4`、静态 renderer 节点为 `2`。观测 Load 为 `5292.983/5271.321/24429.000/6091.620 ms`；geometry-dense 的 worker Prepare 为 `24150.849 ms`，是当前明确瓶颈，而四档 reference commit 仍只有 `6.082～8.342 ms`。owner-dense 对 `EdgeRibbon`、`TerminalCap`、`SemanticJoin`、`JunctionPatch` 各完成 20×1000 次查询；20 个批量摊销单次均值样本的 P95 为 `0.038881/0.017858/0.110267/0.017454 ms`，不代表 20,000 次独立调用的尾延迟。论文 `docs/performance/road-system-v3-100k-technical-analysis.md` 解释线性 invariant、不可变 root、分段 Load、常数节点批处理、AABB surface 索引和 token 原理；100K 继续只作扩展压力证据，不是 2.3 的硬门。
+
 ## 暂不执行
 
 ### 高级 RoadType 视觉

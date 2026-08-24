@@ -36,7 +36,7 @@
 | Phase 7 | `v3-grid-rendering:2.0`～`2.3`、`v3-tool-input:2.0`～`2.4`、`v3-ui:1.1`～`1.4`、`v3-save-system:2.3` | Phase 3～6 | 完成表现、工具、UI、加载参与者和唯一 V3 应用装配；各条目的精确依赖以所属路线图为准 |
 | Phase 8 | `v3-road-graph:8.6` | `v3-road-graph:8.0`～`8.5`、`v3-save-system:2.1`～`2.3`、`v3-grid-rendering:2.0`～`2.3`、`v3-tool-input:2.0`～`2.4`、`v3-ui:1.1`～`1.4` | 汇总全部跨系统证据并完成最终组合验收 |
 
-当前进度（2026-08-24，Phase 8 重新开始）：Phase 1～6、`v3-save-system:2.3` 与 `v3-ui:1.4` 已完成；当前开放项为 `v3-grid-rendering:2.2`～`2.3`、`v3-tool-input:2.4` 与最终集成负责人 `v3-road-graph:8.6`。`b95e295` 上 BUG-21 聚焦 33/33、完整自动化 959/959、双配置 build 0 警告/0 错误，junction-dense 与 geometry-dense 10k 正式 Vulkan 门均 PASS；100k 不作为必需项。V3 综合、输入策略和 render token 三项代表性 Vulkan 组合，以及 Windows QA 导出的可写/只读 ACL profile，也均以退出码 0 输出 PASS。Roslyn production/test compiler+analyzer、GDScript、Godot MCP 冻结 `MapTest` 与 DAP 双通道也已通过；当前只剩开放项状态和附录 D 的最终一致性审计。
+当前进度（2026-08-24，Phase 8 重新开始）：Phase 1～6、`v3-save-system:2.3` 与 `v3-ui:1.4` 已完成；当前开放项为 `v3-grid-rendering:2.2`～`2.3`、`v3-tool-input:2.4` 与最终集成负责人 `v3-road-graph:8.6`。`b95e295` 上 BUG-21 聚焦 33/33、完整自动化 959/959、双配置 build 0 警告/0 错误，junction-dense 与 geometry-dense 10k 正式 Vulkan 门均 PASS；100k 不作为必需项。V3 综合、输入策略和 render token 三项代表性 Vulkan 组合，以及 Windows QA 导出的可写/只读 ACL profile，也均以退出码 0 输出 PASS。Roslyn production/test compiler+analyzer、GDScript、Godot MCP 冻结 `MapTest` 与 DAP 双通道也已通过。额外的四档 100K 压力矩阵与技术分析已经完成，仍不改变 Phase 8 硬门定义；当前只剩开放项状态和附录 D 的最终一致性审计。
 
 ## 历史进度记录
 
