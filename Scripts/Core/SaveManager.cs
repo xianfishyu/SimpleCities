@@ -69,6 +69,9 @@ public partial class SaveManager : Node
         PreparedLoadWork prepared,
         ref IStorageOperationLease operationLease);
     partial void ProbeAggregateLoadSlotTargetCommitBoundaryGenerationMismatch(
+        IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
+        RoadGraphRevision targetRevision,
+        PreparedLoadWork prepared,
         ref IStorageOperationLease operationLease);
     partial void ProbeSlotTargetLoadCompleteCommitFailure();
 
@@ -814,6 +817,9 @@ public partial class SaveManager : Node
                     prepared,
                     ref aggregateOperationLease);
                 ProbeAggregateLoadSlotTargetCommitBoundaryGenerationMismatch(
+                    preflightPlans,
+                    targetRevision,
+                    prepared,
                     ref aggregateOperationLease);
                 IReadOnlyList<string> warnings = aggregate.Commit(aggregateOperationLease);
                 TimeSpan aggregateCommitDuration = Stopwatch.GetElapsedTime(aggregateCommitStarted);

@@ -929,6 +929,42 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
     public int GetAggregateLoadSlotTargetCommitBoundaryGenerationMismatchCount() =>
         _saveManager?.GetAggregateLoadSlotTargetCommitBoundaryGenerationMismatchCount() ?? 0;
 
+    public bool DidAggregateLoadSlotTargetCommitBoundaryProbeRunOnMainThread() =>
+        _saveManager?.DidAggregateLoadSlotTargetCommitBoundaryProbeRunOnMainThread() ?? false;
+
+    public int GetAggregateLoadSlotTargetCommitBoundaryPlanCount() =>
+        _saveManager?.GetAggregateLoadSlotTargetCommitBoundaryPlanCount() ?? -1;
+
+    public string GetAggregateLoadSlotTargetCommitBoundaryFirstParticipantID() =>
+        _saveManager?.GetAggregateLoadSlotTargetCommitBoundaryFirstParticipantID() ?? string.Empty;
+
+    public string GetAggregateLoadSlotTargetCommitBoundarySecondParticipantID() =>
+        _saveManager?.GetAggregateLoadSlotTargetCommitBoundarySecondParticipantID() ?? string.Empty;
+
+    public string GetAggregateLoadSlotTargetCommitBoundaryThirdParticipantID() =>
+        _saveManager?.GetAggregateLoadSlotTargetCommitBoundaryThirdParticipantID() ?? string.Empty;
+
+    public string GetAggregateLoadSlotTargetCommitBoundaryFourthParticipantID() =>
+        _saveManager?.GetAggregateLoadSlotTargetCommitBoundaryFourthParticipantID() ?? string.Empty;
+
+    public int GetAggregateLoadSlotTargetCommitBoundaryTargetEdgeCount() =>
+        _saveManager?.GetAggregateLoadSlotTargetCommitBoundaryTargetEdgeCount() ?? -1;
+
+    public string GetAggregateLoadSlotTargetCommitBoundaryObservedSlotID() =>
+        _saveManager?.GetAggregateLoadSlotTargetCommitBoundaryObservedSlotID() ?? string.Empty;
+
+    public int GetAggregateLoadSlotTargetCommitBoundarySourceParticipantCount() =>
+        _saveManager?.GetAggregateLoadSlotTargetCommitBoundarySourceParticipantCount() ?? -1;
+
+    public int GetAggregateLoadSlotTargetCommitBoundaryRoadVertexCount() =>
+        _saveManager?.GetAggregateLoadSlotTargetCommitBoundaryRoadVertexCount() ?? -1;
+
+    public int GetAggregateLoadSlotTargetCommitBoundarySurfacePrimitiveCount() =>
+        _saveManager?.GetAggregateLoadSlotTargetCommitBoundarySurfacePrimitiveCount() ?? -1;
+
+    public int GetAggregateLoadSlotTargetCommitBoundaryNodeMarkerCount() =>
+        _saveManager?.GetAggregateLoadSlotTargetCommitBoundaryNodeMarkerCount() ?? -1;
+
     public int GetAggregateLoadSlotTargetCommitBoundaryCount() =>
         _saveManager?.GetAggregateLoadSlotTargetCommitBoundaryCount() ?? 0;
 
@@ -1162,6 +1198,18 @@ public partial class SaveManager
     private AggregateLoadToolBoundaryInvalidatingLease? _aggregateLoadToolBoundaryLease;
     private bool _aggregateLoadSlotTargetCommitBoundaryGenerationMismatchArmed;
     private int _aggregateLoadSlotTargetCommitBoundaryGenerationMismatchCount;
+    private bool _aggregateLoadSlotTargetCommitBoundaryProbeRanOnMainThread;
+    private int _aggregateLoadSlotTargetCommitBoundaryPlanCount = -1;
+    private string _aggregateLoadSlotTargetCommitBoundaryFirstParticipantID = string.Empty;
+    private string _aggregateLoadSlotTargetCommitBoundarySecondParticipantID = string.Empty;
+    private string _aggregateLoadSlotTargetCommitBoundaryThirdParticipantID = string.Empty;
+    private string _aggregateLoadSlotTargetCommitBoundaryFourthParticipantID = string.Empty;
+    private int _aggregateLoadSlotTargetCommitBoundaryTargetEdgeCount = -1;
+    private string _aggregateLoadSlotTargetCommitBoundaryObservedSlotID = string.Empty;
+    private int _aggregateLoadSlotTargetCommitBoundarySourceParticipantCount = -1;
+    private int _aggregateLoadSlotTargetCommitBoundaryRoadVertexCount = -1;
+    private int _aggregateLoadSlotTargetCommitBoundarySurfacePrimitiveCount = -1;
+    private int _aggregateLoadSlotTargetCommitBoundaryNodeMarkerCount = -1;
     private AggregateLoadSlotTargetBoundaryInvalidatingLease? _aggregateLoadSlotTargetBoundaryLease;
 
     partial void ProbeAggregateLoadPostRendererAdmissionFailure()
@@ -2676,13 +2724,40 @@ public partial class SaveManager
         _aggregateLoadToolBoundaryLease?.MarkCommittedCount ?? 0;
 
     partial void ProbeAggregateLoadSlotTargetCommitBoundaryGenerationMismatch(
+        IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
+        RoadGraphRevision targetRevision,
+        PreparedLoadWork prepared,
         ref IStorageOperationLease operationLease)
     {
         if (!_aggregateLoadSlotTargetCommitBoundaryGenerationMismatchArmed)
             return;
 
+        ArgumentNullException.ThrowIfNull(preflightPlans);
+        ArgumentNullException.ThrowIfNull(targetRevision);
+        ArgumentNullException.ThrowIfNull(prepared);
         _aggregateLoadSlotTargetCommitBoundaryGenerationMismatchArmed = false;
         _aggregateLoadSlotTargetCommitBoundaryGenerationMismatchCount++;
+        _aggregateLoadSlotTargetCommitBoundaryProbeRanOnMainThread =
+            _mainThreadID != 0 && System.Environment.CurrentManagedThreadId == _mainThreadID;
+        _aggregateLoadSlotTargetCommitBoundaryPlanCount = preflightPlans.Count;
+        _aggregateLoadSlotTargetCommitBoundaryFirstParticipantID =
+            preflightPlans.Count > 0 ? preflightPlans[0].ParticipantID : string.Empty;
+        _aggregateLoadSlotTargetCommitBoundarySecondParticipantID =
+            preflightPlans.Count > 1 ? preflightPlans[1].ParticipantID : string.Empty;
+        _aggregateLoadSlotTargetCommitBoundaryThirdParticipantID =
+            preflightPlans.Count > 2 ? preflightPlans[2].ParticipantID : string.Empty;
+        _aggregateLoadSlotTargetCommitBoundaryFourthParticipantID =
+            preflightPlans.Count > 3 ? preflightPlans[3].ParticipantID : string.Empty;
+        _aggregateLoadSlotTargetCommitBoundaryTargetEdgeCount = targetRevision.Edges.Count;
+        _aggregateLoadSlotTargetCommitBoundaryObservedSlotID = prepared.Slot.SlotID;
+        _aggregateLoadSlotTargetCommitBoundarySourceParticipantCount =
+            prepared.Slot.Participants.Count;
+        _aggregateLoadSlotTargetCommitBoundaryRoadVertexCount =
+            prepared.Presentation.RoadVertices.Length;
+        _aggregateLoadSlotTargetCommitBoundarySurfacePrimitiveCount =
+            prepared.Presentation.RoadSurface.PrimitiveCount;
+        _aggregateLoadSlotTargetCommitBoundaryNodeMarkerCount =
+            prepared.Presentation.NodeMarkers.Length;
         var wrapper = new AggregateLoadSlotTargetBoundaryInvalidatingLease(
             operationLease,
             this);
@@ -2703,6 +2778,18 @@ public partial class SaveManager
                 "Aggregate Load slot-target commit-boundary generation mismatch probe is already armed.");
         }
 
+        _aggregateLoadSlotTargetCommitBoundaryProbeRanOnMainThread = false;
+        _aggregateLoadSlotTargetCommitBoundaryPlanCount = -1;
+        _aggregateLoadSlotTargetCommitBoundaryFirstParticipantID = string.Empty;
+        _aggregateLoadSlotTargetCommitBoundarySecondParticipantID = string.Empty;
+        _aggregateLoadSlotTargetCommitBoundaryThirdParticipantID = string.Empty;
+        _aggregateLoadSlotTargetCommitBoundaryFourthParticipantID = string.Empty;
+        _aggregateLoadSlotTargetCommitBoundaryTargetEdgeCount = -1;
+        _aggregateLoadSlotTargetCommitBoundaryObservedSlotID = string.Empty;
+        _aggregateLoadSlotTargetCommitBoundarySourceParticipantCount = -1;
+        _aggregateLoadSlotTargetCommitBoundaryRoadVertexCount = -1;
+        _aggregateLoadSlotTargetCommitBoundarySurfacePrimitiveCount = -1;
+        _aggregateLoadSlotTargetCommitBoundaryNodeMarkerCount = -1;
         _aggregateLoadSlotTargetCommitBoundaryGenerationMismatchArmed = true;
         _aggregateLoadSlotTargetBoundaryLease = null;
     }
@@ -2712,6 +2799,42 @@ public partial class SaveManager
 
     internal int GetAggregateLoadSlotTargetCommitBoundaryGenerationMismatchCount() =>
         _aggregateLoadSlotTargetCommitBoundaryGenerationMismatchCount;
+
+    internal bool DidAggregateLoadSlotTargetCommitBoundaryProbeRunOnMainThread() =>
+        _aggregateLoadSlotTargetCommitBoundaryProbeRanOnMainThread;
+
+    internal int GetAggregateLoadSlotTargetCommitBoundaryPlanCount() =>
+        _aggregateLoadSlotTargetCommitBoundaryPlanCount;
+
+    internal string GetAggregateLoadSlotTargetCommitBoundaryFirstParticipantID() =>
+        _aggregateLoadSlotTargetCommitBoundaryFirstParticipantID;
+
+    internal string GetAggregateLoadSlotTargetCommitBoundarySecondParticipantID() =>
+        _aggregateLoadSlotTargetCommitBoundarySecondParticipantID;
+
+    internal string GetAggregateLoadSlotTargetCommitBoundaryThirdParticipantID() =>
+        _aggregateLoadSlotTargetCommitBoundaryThirdParticipantID;
+
+    internal string GetAggregateLoadSlotTargetCommitBoundaryFourthParticipantID() =>
+        _aggregateLoadSlotTargetCommitBoundaryFourthParticipantID;
+
+    internal int GetAggregateLoadSlotTargetCommitBoundaryTargetEdgeCount() =>
+        _aggregateLoadSlotTargetCommitBoundaryTargetEdgeCount;
+
+    internal string GetAggregateLoadSlotTargetCommitBoundaryObservedSlotID() =>
+        _aggregateLoadSlotTargetCommitBoundaryObservedSlotID;
+
+    internal int GetAggregateLoadSlotTargetCommitBoundarySourceParticipantCount() =>
+        _aggregateLoadSlotTargetCommitBoundarySourceParticipantCount;
+
+    internal int GetAggregateLoadSlotTargetCommitBoundaryRoadVertexCount() =>
+        _aggregateLoadSlotTargetCommitBoundaryRoadVertexCount;
+
+    internal int GetAggregateLoadSlotTargetCommitBoundarySurfacePrimitiveCount() =>
+        _aggregateLoadSlotTargetCommitBoundarySurfacePrimitiveCount;
+
+    internal int GetAggregateLoadSlotTargetCommitBoundaryNodeMarkerCount() =>
+        _aggregateLoadSlotTargetCommitBoundaryNodeMarkerCount;
 
     internal int GetAggregateLoadSlotTargetCommitBoundaryCount() =>
         _aggregateLoadSlotTargetBoundaryLease?.BoundaryCount ?? 0;

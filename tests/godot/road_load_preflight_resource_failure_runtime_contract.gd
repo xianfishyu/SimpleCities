@@ -1122,6 +1122,8 @@ func run() -> void:
 	if not require(
 		int(slot_target_boundary_operation_failed_load_result.get("resultKind", -1)) ==
 			RESULT_FAILED and
+		int(slot_target_boundary_operation_failed_load_result.get("finalPhase", -1)) ==
+			PHASE_COMMIT and
 		not bool(slot_target_boundary_operation_failed_load_result.get("committed", true)) and
 		str(slot_target_boundary_operation_failed_load_result.get("warnings", "")).is_empty() and
 		str(slot_target_boundary_operation_failed_load_result.get("error", "")) ==
@@ -1134,6 +1136,26 @@ func run() -> void:
 	if not require(
 		not bool(probe.IsAggregateLoadSlotTargetCommitBoundaryGenerationMismatchArmed()) and
 		int(probe.GetAggregateLoadSlotTargetCommitBoundaryGenerationMismatchCount()) == 1 and
+		bool(probe.DidAggregateLoadSlotTargetCommitBoundaryProbeRunOnMainThread()) and
+		int(probe.GetAggregateLoadSlotTargetCommitBoundaryPlanCount()) == 4 and
+		str(probe.GetAggregateLoadSlotTargetCommitBoundaryFirstParticipantID()) ==
+			"road-graph" and
+		str(probe.GetAggregateLoadSlotTargetCommitBoundarySecondParticipantID()) ==
+			"road-tools" and
+		str(probe.GetAggregateLoadSlotTargetCommitBoundaryThirdParticipantID()) ==
+			"road-presentation" and
+		str(probe.GetAggregateLoadSlotTargetCommitBoundaryFourthParticipantID()) ==
+			"slot-target" and
+		int(probe.GetAggregateLoadSlotTargetCommitBoundaryTargetEdgeCount()) ==
+			edge_count_before and
+		str(probe.GetAggregateLoadSlotTargetCommitBoundaryObservedSlotID()) ==
+			active_slot_id and
+		int(probe.GetAggregateLoadSlotTargetCommitBoundarySourceParticipantCount()) == 1 and
+		int(probe.GetAggregateLoadSlotTargetCommitBoundaryRoadVertexCount()) ==
+			vertex_count_before and
+		int(probe.GetAggregateLoadSlotTargetCommitBoundarySurfacePrimitiveCount()) > 0 and
+		int(probe.GetAggregateLoadSlotTargetCommitBoundaryNodeMarkerCount()) ==
+			marker_count_before and
 		int(probe.GetAggregateLoadSlotTargetCommitBoundaryCount()) == 1 and
 		int(probe.GetAggregateLoadSlotTargetMarkCommittedCount()) == 0 and
 		slot_target_boundary_operation_resource_count_after ==
@@ -1144,6 +1166,11 @@ func run() -> void:
 				probe.IsAggregateLoadSlotTargetCommitBoundaryGenerationMismatchArmed()),
 			"triggerCount": int(
 				probe.GetAggregateLoadSlotTargetCommitBoundaryGenerationMismatchCount()),
+			"planCount": int(probe.GetAggregateLoadSlotTargetCommitBoundaryPlanCount()),
+			"firstParticipantID": str(
+				probe.GetAggregateLoadSlotTargetCommitBoundaryFirstParticipantID()),
+			"fourthParticipantID": str(
+				probe.GetAggregateLoadSlotTargetCommitBoundaryFourthParticipantID()),
 			"boundaryCount": int(probe.GetAggregateLoadSlotTargetCommitBoundaryCount()),
 			"markCommittedCount": int(
 				probe.GetAggregateLoadSlotTargetMarkCommittedCount()),
@@ -2878,10 +2905,36 @@ func run() -> void:
 			tool_boundary_operation_resource_count_after,
 		"slot_target_boundary_operation_failure_result_kind": int(
 			slot_target_boundary_operation_failed_load_result.get("resultKind", -1)),
+		"slot_target_boundary_operation_failure_final_phase": int(
+			slot_target_boundary_operation_failed_load_result.get("finalPhase", -1)),
 		"slot_target_boundary_operation_failure_committed": bool(
 			slot_target_boundary_operation_failed_load_result.get("committed", true)),
 		"slot_target_boundary_operation_failure_trigger_count": int(
 			probe.GetAggregateLoadSlotTargetCommitBoundaryGenerationMismatchCount()),
+		"slot_target_boundary_operation_probe_on_main_thread": bool(
+			probe.DidAggregateLoadSlotTargetCommitBoundaryProbeRunOnMainThread()),
+		"slot_target_boundary_operation_plan_count": int(
+			probe.GetAggregateLoadSlotTargetCommitBoundaryPlanCount()),
+		"slot_target_boundary_operation_first_participant_id": str(
+			probe.GetAggregateLoadSlotTargetCommitBoundaryFirstParticipantID()),
+		"slot_target_boundary_operation_second_participant_id": str(
+			probe.GetAggregateLoadSlotTargetCommitBoundarySecondParticipantID()),
+		"slot_target_boundary_operation_third_participant_id": str(
+			probe.GetAggregateLoadSlotTargetCommitBoundaryThirdParticipantID()),
+		"slot_target_boundary_operation_fourth_participant_id": str(
+			probe.GetAggregateLoadSlotTargetCommitBoundaryFourthParticipantID()),
+		"slot_target_boundary_operation_target_edge_count": int(
+			probe.GetAggregateLoadSlotTargetCommitBoundaryTargetEdgeCount()),
+		"slot_target_boundary_operation_observed_slot_id": str(
+			probe.GetAggregateLoadSlotTargetCommitBoundaryObservedSlotID()),
+		"slot_target_boundary_operation_source_participant_count": int(
+			probe.GetAggregateLoadSlotTargetCommitBoundarySourceParticipantCount()),
+		"slot_target_boundary_operation_road_vertex_count": int(
+			probe.GetAggregateLoadSlotTargetCommitBoundaryRoadVertexCount()),
+		"slot_target_boundary_operation_surface_primitive_count": int(
+			probe.GetAggregateLoadSlotTargetCommitBoundarySurfacePrimitiveCount()),
+		"slot_target_boundary_operation_node_marker_count": int(
+			probe.GetAggregateLoadSlotTargetCommitBoundaryNodeMarkerCount()),
 		"slot_target_boundary_operation_count": int(
 			probe.GetAggregateLoadSlotTargetCommitBoundaryCount()),
 		"slot_target_boundary_operation_mark_committed_count": int(
