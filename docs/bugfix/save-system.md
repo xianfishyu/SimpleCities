@@ -483,3 +483,39 @@ Load Preflight 在 plan 成功接管资源前捕获全部后续异常并释放 m
 - `dotnet test SimpleCities.sln --no-restore`：846/846 通过；Debug 与 `ExportRelease` build 均为 0 警告、0 错误。
 - 隔离 `APPDATA` 的 `road_renderer_lifecycle_runtime_contract.gd` 与 `road_render_token_runtime_contract.gd` 均输出 PASS；后者验证普通 mutation、stalled/retry 和连续 Load 的成功资源转交保持可用。生命周期故障注入脚本主动移除 renderer 后仍产生其既有的 `RoadBuilder` 查询 disposed renderer 错误，因此不把该脚本记作干净的 editor/DAP 错误通道。
 - 隔离用户目录和日志均已清理，原有 Godot PID `74652` 未受影响。当前会话未暴露 Roslyn CodeLens、Godot MCP 或 DAP，focused semantic diagnostics、editor bridge 与 DAP console 均未记为通过。
+
+---
+
+<a id="save-system-bug-15"></a>
+## BUG-15：已提交的 aggregate Load 因后续辅助异常被误报为失败
+
+> 修复日期：2026-08-24
+> 影响文件：`Scripts/Core/SaveManager.cs`、`tests/SimpleCities.RoadGraph.Tests/RoadRendererLifecycleContractTests.cs`、`tests/godot/RoadLoadObserverFailureProbe.cs`、`tests/godot/road_load_observer_cleanup_runtime_contract.gd`
+> 关联事项：`v3-save-system:2.3`
+
+### 症状
+
+aggregate Load 已通过 `aggregate.Commit(aggregateOperationLease)` 联合提交 RoadGraph、道路表现和工具状态后，如果槽位列表失效或性能指标等提交后辅助工作抛出异常，公开结果仍返回 `SaveOperationResultKind.Failed`，同时 `Committed = true`。调用方因此收到互相矛盾的失败结果，但运行时实际上已经切换到目标槽，不能安全重试或回滚。
+
+### 根因分析
+
+`SaveManager.RunLoadAsync()` 的通用 `catch` 同时覆盖提交前准备、`aggregate.Commit()` 和提交后的槽位列表/性能指标更新。联合提交一旦完成就已经越过不可逆边界；后续辅助异常落入同一个失败分支，会丢失“目标状态已经生效”的终态语义。
+
+### 修复方案
+
+`aggregate.Commit()` 成功后先保留参与者返回的 warning，再用独立 `try/catch` 隔离槽位列表失效、性能指标和相同级别的提交后辅助工作。该区域抛出的异常追加 `Load post-commit work failed: ...` warning，并以 `SucceededWithWarnings` 完成 lease；没有 warning 时仍返回 `Succeeded`。提交前异常继续沿原有 `Failed` 分支，不改变 admission、preflight 或联合提交门禁。
+
+Debug-only probe 在 commit 后、辅助工作前注入一次性异常；真实连续 Load 回归同时证明 warning 结果保留已提交状态、全部参与者解除 admission，下一次干净 Load 可再次成功。
+
+### 影响范围
+
+只调整 V3 aggregate Load 越过联合提交边界后的结果分类和诊断信息。Save、Delete、提交前 Load 失败、payload/manifest、参与者 commit 顺序和成功 Load 的状态内容不变；Debug probe 不进入 `ExportRelease` 产物。
+
+## BUG-15 验证状态
+
+- 修复前新增聚焦源码契约 1/1 失败；真实 Godot 故障注入返回 `resultKind = 2`、`committed = true` 和 `Injected aggregate Load post-commit work failure.`，确认矛盾终态可复现。
+- `RoadRendererLifecycleContractTests`：73/73 通过；`dotnet test SimpleCities.sln --configuration Debug --no-restore`：948/948 通过。
+- `dotnet build SimpleCities.sln --configuration Debug --no-restore` 与 `--configuration ExportRelease --no-restore`：均为 0 警告、0 错误；production/test Roslyn compiler 与 analyzer diagnostics 均为 0。
+- `tests/godot/road_load_observer_cleanup_runtime_contract.gd` 的 GDScript `--check-only` 退出码为 0；Godot 4.7 CLI 真实运行退出码为 0，输出 `post_commit_warning_result_kind=1`、`post_commit_clean_result_kind=0`、`post_commit_trigger_count=1` 和 `PASS road load observer cleanup runtime contract`。首次行为已 PASS 但退出时触发既有托管 finalizer 访问冲突，测试清理复用 `FlushPendingManagedFinalizers()` 后复跑干净退出。
+- Debug/`ExportRelease` 隔离检查确认 `ArmNextAggregateLoadPostCommitFailure` 分别出现 1/0 次，`RoadLoadObserverFailureProbe` 分别出现 3/0 次；测试探针未进入发布程序集。
+- 当前 Godot editor MCP 未连接，Godot LSP 与 DAP 未运行，因此 editor log、LSP 和 DAP 门未刷新，未记为通过。

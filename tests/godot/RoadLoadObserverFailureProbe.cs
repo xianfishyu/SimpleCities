@@ -13,10 +13,18 @@ public partial class RoadLoadObserverFailureProbe : Godot.RefCounted
     private RoadGraph? _graphCleanupOwner;
     private ToolManager? _toolManager;
     private SaveManager? _slotCleanupOwner;
+    private SaveManager? _postCommitOwner;
     private Action<RoadRenderToken>? _handler;
     private Action<RoadGraphChangedEvent>? _graphHandler;
     private int _triggerCount;
     private int _graphObserverTriggerCount;
+
+    public void FlushPendingManagedFinalizers()
+    {
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+    }
 
     public void Arm(RoadRenderer renderer)
     {
@@ -72,6 +80,14 @@ public partial class RoadLoadObserverFailureProbe : Godot.RefCounted
         saveManager.ArmNextSlotTargetLoadCompleteCommitFailure();
     }
 
+    public void ArmPostCommitFailure(SaveManager saveManager)
+    {
+        ArgumentNullException.ThrowIfNull(saveManager);
+        _postCommitOwner?.DisarmAggregateLoadPostCommitFailure();
+        _postCommitOwner = saveManager;
+        saveManager.ArmNextAggregateLoadPostCommitFailure();
+    }
+
     public void Disarm()
     {
         DisarmObserver();
@@ -84,6 +100,8 @@ public partial class RoadLoadObserverFailureProbe : Godot.RefCounted
         _toolManager = null;
         _slotCleanupOwner?.DisarmSlotTargetLoadCompleteCommitFailure();
         _slotCleanupOwner = null;
+        _postCommitOwner?.DisarmAggregateLoadPostCommitFailure();
+        _postCommitOwner = null;
     }
 
     private void DisarmObserver()
@@ -122,6 +140,10 @@ public partial class RoadLoadObserverFailureProbe : Godot.RefCounted
         _slotCleanupOwner?.GetSlotTargetLoadCompleteCommitFailureCount() ?? 0;
     public bool IsSlotCleanupFailureArmed() =>
         _slotCleanupOwner?.IsSlotTargetLoadCompleteCommitFailureArmed() ?? false;
+    public int GetPostCommitFailureCount() =>
+        _postCommitOwner?.GetAggregateLoadPostCommitFailureCount() ?? 0;
+    public bool IsPostCommitFailureArmed() =>
+        _postCommitOwner?.IsAggregateLoadPostCommitFailureArmed() ?? false;
 
     private void OnPresentationReady(RoadRenderToken _)
     {
@@ -272,11 +294,50 @@ public partial class ToolManager
 
 public partial class SaveManager
 {
+    internal const string AggregateLoadPostCommitFailureMessage =
+        "Injected aggregate Load post-commit work failure.";
     internal const string SlotTargetLoadCompleteCommitFailureMessage =
         "Injected slot target load cleanup failure.";
 
+    private bool _aggregateLoadPostCommitFailureArmed;
+    private int _aggregateLoadPostCommitFailureCount;
     private bool _slotTargetLoadCompleteCommitFailureArmed;
     private int _slotTargetLoadCompleteCommitFailureCount;
+
+    partial void ProbeAggregateLoadPostCommitFailure()
+    {
+        if (!_aggregateLoadPostCommitFailureArmed)
+            return;
+
+        _aggregateLoadPostCommitFailureArmed = false;
+        _aggregateLoadPostCommitFailureCount++;
+        throw new InvalidOperationException(AggregateLoadPostCommitFailureMessage);
+    }
+
+    internal void ArmNextAggregateLoadPostCommitFailure()
+    {
+        if (IsOperationBusy)
+        {
+            throw new InvalidOperationException(
+                "SaveManager must be idle before arming its aggregate post-commit failure probe.");
+        }
+        if (_aggregateLoadPostCommitFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Aggregate Load post-commit failure probe is already armed.");
+        }
+
+        _aggregateLoadPostCommitFailureArmed = true;
+    }
+
+    internal void DisarmAggregateLoadPostCommitFailure() =>
+        _aggregateLoadPostCommitFailureArmed = false;
+
+    internal bool IsAggregateLoadPostCommitFailureArmed() =>
+        _aggregateLoadPostCommitFailureArmed;
+
+    internal int GetAggregateLoadPostCommitFailureCount() =>
+        _aggregateLoadPostCommitFailureCount;
 
     partial void ProbeSlotTargetLoadCompleteCommitFailure()
     {

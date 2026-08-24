@@ -676,6 +676,66 @@ func run() -> void:
 		"Dual-observer recovery Load did not restore one matching presentation"):
 		return
 
+	tool_manager.set("CurrentTool", TOOL_ROAD)
+	if not require(builder.BeginPlace(Vector2(700.0, 1100.0)), "Eighth transient road did not begin"):
+		return
+	if not require(
+		builder.AddPlacePoint(Vector2(800.0, 1100.0)),
+		"Eighth transient placement point was not added"):
+		return
+	probe.ArmPostCommitFailure(save_manager)
+
+	var post_commit_warned_result := await run_load(source_slot_id)
+	if not require(
+		int(post_commit_warned_result.get("resultKind", -1)) ==
+		RESULT_SUCCEEDED_WITH_WARNINGS and
+		bool(post_commit_warned_result.get("committed", false)),
+		"Aggregate post-commit work failure did not produce a committed warning result: %s" %
+		JSON.stringify(post_commit_warned_result)):
+		return
+	if not require(
+		str(post_commit_warned_result.get("warnings", "")).contains(
+			"Load post-commit work failed: " +
+			"Injected aggregate Load post-commit work failure."),
+		"Aggregate post-commit warning did not preserve the failure cause"):
+		return
+	if not require(
+		probe.GetPostCommitFailureCount() == 1 and
+		not probe.IsPostCommitFailureArmed(),
+		"Aggregate post-commit failure probe did not trigger exactly once"):
+		return
+	if not require(
+		str(save_manager.get("CurrentSlotID")) == source_slot_id and
+		renderer.GetRenderedEdgeCount() == 0 and
+		not builder.HasActivePlaceSession() and
+		builder.GetUndoEditCount() == 0 and
+		builder.GetRedoEditCount() == 0 and
+		matching_presentation_is_ready(renderer),
+		"Aggregate post-commit warning did not preserve the committed Load state"):
+		return
+
+	tool_manager.set("CurrentTool", TOOL_ROAD_UPGRADE)
+	if not require(
+		int(tool_manager.get("CurrentTool")) == TOOL_ROAD_UPGRADE,
+		"Aggregate post-commit warning left a participant admission active"):
+		return
+
+	var post_commit_clean_result := await run_load(active_slot_id)
+	if not require(
+		int(post_commit_clean_result.get("resultKind", -1)) == RESULT_SUCCEEDED and
+		bool(post_commit_clean_result.get("committed", false)) and
+		str(post_commit_clean_result.get("warnings", "")).is_empty(),
+		"Load after aggregate post-commit warning did not re-admit every participant: %s" %
+		JSON.stringify(post_commit_clean_result)):
+		return
+	if not require(
+		probe.GetPostCommitFailureCount() == 1 and
+		str(save_manager.get("CurrentSlotID")) == active_slot_id and
+		renderer.GetRenderedEdgeCount() == 1 and
+		matching_presentation_is_ready(renderer),
+		"Aggregate post-commit recovery Load did not restore one matching presentation"):
+		return
+
 	tool_manager.set("CurrentTool", TOOL_ROAD_REMOVE)
 	if not require(
 		int(tool_manager.get("CurrentTool")) == TOOL_ROAD_REMOVE,
@@ -701,12 +761,17 @@ func run() -> void:
 			dual_observer_warned_result.get("resultKind", -1)),
 		"dual_observer_clean_result_kind": int(
 			dual_observer_clean_result.get("resultKind", -1)),
+		"post_commit_warning_result_kind": int(
+			post_commit_warned_result.get("resultKind", -1)),
+		"post_commit_clean_result_kind": int(
+			post_commit_clean_result.get("resultKind", -1)),
 		"observer_trigger_count": probe.GetTriggerCount(),
 		"graph_observer_trigger_count": probe.GetGraphObserverTriggerCount(),
 		"tool_cleanup_trigger_count": probe.GetToolCleanupFailureCount(),
 		"renderer_cleanup_trigger_count": probe.GetRendererCleanupFailureCount(),
 		"graph_cleanup_trigger_count": probe.GetGraphCleanupFailureCount(),
 		"slot_cleanup_trigger_count": probe.GetSlotCleanupFailureCount(),
+		"post_commit_trigger_count": probe.GetPostCommitFailureCount(),
 		"rendered_edges": renderer.GetRenderedEdgeCount(),
 		"current_tool": int(tool_manager.get("CurrentTool")),
 	}))
@@ -734,7 +799,6 @@ func matching_presentation_is_ready(renderer: Node) -> bool:
 func cleanup() -> void:
 	if probe != null:
 		probe.Disarm()
-		probe = null
 	if save_manager != null and not source_slot_id.is_empty():
 		await V3_SAVE_FIXTURE.delete_slot(save_manager, source_slot_id)
 		source_slot_id = ""
@@ -744,6 +808,9 @@ func cleanup() -> void:
 	if test_map != null and is_instance_valid(test_map):
 		test_map.queue_free()
 		await process_frame
+	if probe != null:
+		probe.FlushPendingManagedFinalizers()
+		probe = null
 
 func require(condition: bool, message: String) -> bool:
 	if condition:

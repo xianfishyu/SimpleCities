@@ -79,6 +79,7 @@ public partial class SaveManager : Node
         RoadGraphRevision targetRevision,
         PreparedLoadWork prepared,
         ref IStorageOperationLease operationLease);
+    partial void ProbeAggregateLoadPostCommitFailure();
     partial void ProbeSlotTargetLoadCompleteCommitFailure();
 
     public static SaveManager Instance { get; private set; } = null!;
@@ -833,22 +834,31 @@ public partial class SaveManager : Node
                     targetRevision,
                     prepared,
                     ref aggregateOperationLease);
-                IReadOnlyList<string> warnings = aggregate.Commit(aggregateOperationLease);
-                TimeSpan aggregateCommitDuration = Stopwatch.GetElapsedTime(aggregateCommitStarted);
-                TimeSpan referenceCommitDuration = aggregate.ReferenceCommitDuration
-                    ?? throw new InvalidOperationException(
-                        "A successful aggregate load did not record its reference commit duration.");
-                InvalidateSlotListing();
-                var metrics = new LoadPerformanceMetrics(
-                    operationToken,
-                    slotID,
-                    prepared.WorkerPrepareDuration,
-                    preflightDuration,
-                    referenceCommitDuration,
-                    aggregateCommitDuration,
-                    Stopwatch.GetElapsedTime(loadStarted));
-                lock (_operationSync)
-                    _lastLoadPerformanceMetrics = metrics;
+                var warnings = new List<string>(aggregate.Commit(aggregateOperationLease));
+                try
+                {
+                    ProbeAggregateLoadPostCommitFailure();
+                    TimeSpan aggregateCommitDuration = Stopwatch.GetElapsedTime(
+                        aggregateCommitStarted);
+                    TimeSpan referenceCommitDuration = aggregate.ReferenceCommitDuration
+                        ?? throw new InvalidOperationException(
+                            "A successful aggregate load did not record its reference commit duration.");
+                    InvalidateSlotListing();
+                    var metrics = new LoadPerformanceMetrics(
+                        operationToken,
+                        slotID,
+                        prepared.WorkerPrepareDuration,
+                        preflightDuration,
+                        referenceCommitDuration,
+                        aggregateCommitDuration,
+                        Stopwatch.GetElapsedTime(loadStarted));
+                    lock (_operationSync)
+                        _lastLoadPerformanceMetrics = metrics;
+                }
+                catch (Exception exception)
+                {
+                    warnings.Add($"Load post-commit work failed: {exception.Message}");
+                }
                 return lease.Complete(
                     warnings.Count == 0
                         ? SaveOperationResultKind.Succeeded

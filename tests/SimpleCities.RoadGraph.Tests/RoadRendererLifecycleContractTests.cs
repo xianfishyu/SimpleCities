@@ -2024,7 +2024,7 @@ public sealed class RoadRendererLifecycleContractTests
             "ProbeAggregateLoadRendererCommitBoundaryGenerationMismatch(",
             StringComparison.Ordinal);
         int aggregateCommit = loadOrchestration.IndexOf(
-            "IReadOnlyList<string> warnings = aggregate.Commit(aggregateOperationLease);",
+            "aggregate.Commit(aggregateOperationLease)",
             StringComparison.Ordinal);
 
         Assert.True(postOwnershipFailure >= 0 && postOwnershipFailure < operationLeaseCapture);
@@ -2112,7 +2112,7 @@ public sealed class RoadRendererLifecycleContractTests
             "ProbeAggregateLoadToolCommitBoundaryGenerationMismatch(",
             StringComparison.Ordinal);
         int aggregateCommit = loadOrchestration.IndexOf(
-            "IReadOnlyList<string> warnings = aggregate.Commit(aggregateOperationLease);",
+            "aggregate.Commit(aggregateOperationLease)",
             StringComparison.Ordinal);
 
         Assert.True(operationLeaseCapture >= 0 && operationLeaseCapture < graphBoundaryProbe);
@@ -2200,7 +2200,7 @@ public sealed class RoadRendererLifecycleContractTests
             "ProbeAggregateLoadSlotTargetCommitBoundaryGenerationMismatch(",
             StringComparison.Ordinal);
         int aggregateCommit = loadOrchestration.IndexOf(
-            "IReadOnlyList<string> warnings = aggregate.Commit(aggregateOperationLease);",
+            "aggregate.Commit(aggregateOperationLease)",
             StringComparison.Ordinal);
 
         Assert.True(operationLeaseCapture >= 0 && operationLeaseCapture < rendererBoundaryProbe);
@@ -2285,7 +2285,7 @@ public sealed class RoadRendererLifecycleContractTests
             "ProbeAggregateLoadSlotTargetCommitBoundaryGenerationMismatch(",
             StringComparison.Ordinal);
         int aggregateCommit = loadOrchestration.IndexOf(
-            "IReadOnlyList<string> warnings = aggregate.Commit(aggregateOperationLease);",
+            "aggregate.Commit(aggregateOperationLease)",
             StringComparison.Ordinal);
 
         Assert.True(operationLeaseCapture >= 0 && operationLeaseCapture < toolBoundaryProbe);
@@ -2449,7 +2449,7 @@ public sealed class RoadRendererLifecycleContractTests
             "ProbeAggregateLoadSlotTargetCommitBoundaryGenerationMismatch(",
             StringComparison.Ordinal);
         int aggregateCommit = loadOrchestration.IndexOf(
-            "IReadOnlyList<string> warnings = aggregate.Commit(aggregateOperationLease);",
+            "aggregate.Commit(aggregateOperationLease)",
             StringComparison.Ordinal);
         int fallbackPlanDisposal = loadOrchestration.LastIndexOf(
             "foreach (INonThrowingLoadCommitPlan plan in preflightPlans)",
@@ -4377,6 +4377,65 @@ public sealed class RoadRendererLifecycleContractTests
             StringComparison.Ordinal);
         Assert.Contains(
             "throw new InvalidOperationException(SlotTargetLoadCompleteCommitFailureMessage);",
+            probeSource,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AggregatePostCommitWorkFailureReturnsCommittedWarningInsteadOfFailure()
+    {
+        string saveManagerSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Core", "SaveManager.cs"));
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadLoadObserverFailureProbe.cs"));
+        string loadOrchestration = ExtractMethod(
+            saveManagerSource,
+            "private async Task<SaveOperationResult> RunLoadAsync",
+            "private async Task<SaveOperationResult> RunDeleteAsync");
+
+        int aggregateCommit = loadOrchestration.IndexOf(
+            "aggregate.Commit(aggregateOperationLease)",
+            StringComparison.Ordinal);
+        int postCommitProbe = loadOrchestration.IndexOf(
+            "ProbeAggregateLoadPostCommitFailure();",
+            StringComparison.Ordinal);
+        int warningFallback = loadOrchestration.IndexOf(
+            "warnings.Add($\"Load post-commit work failed: {exception.Message}\");",
+            StringComparison.Ordinal);
+        int successCompletion = loadOrchestration.IndexOf(
+            "warnings.Count == 0",
+            StringComparison.Ordinal);
+        int failureCompletion = loadOrchestration.IndexOf(
+            "SaveOperationResultKind.Failed",
+            successCompletion,
+            StringComparison.Ordinal);
+
+        Assert.True(aggregateCommit >= 0 && aggregateCommit < postCommitProbe);
+        Assert.True(postCommitProbe < warningFallback);
+        Assert.True(warningFallback < successCompletion);
+        Assert.True(successCompletion < failureCompletion);
+        Assert.Contains(
+            "partial void ProbeAggregateLoadPostCommitFailure();",
+            saveManagerSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "public void ArmPostCommitFailure(SaveManager saveManager)",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "partial void ProbeAggregateLoadPostCommitFailure()",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadPostCommitFailureArmed = false;",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadPostCommitFailureCount++;",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "throw new InvalidOperationException(AggregateLoadPostCommitFailureMessage);",
             probeSource,
             StringComparison.Ordinal);
     }
