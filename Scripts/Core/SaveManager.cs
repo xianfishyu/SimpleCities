@@ -64,6 +64,9 @@ public partial class SaveManager : Node
         ref IStorageOperationLease operationLease);
     partial void ProbeAggregateLoadToolCommitBoundaryGenerationMismatch(
         ToolManager toolManager,
+        IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
+        RoadGraphRevision targetRevision,
+        PreparedLoadWork prepared,
         ref IStorageOperationLease operationLease);
     partial void ProbeAggregateLoadSlotTargetCommitBoundaryGenerationMismatch(
         ref IStorageOperationLease operationLease);
@@ -806,6 +809,9 @@ public partial class SaveManager : Node
                     ref aggregateOperationLease);
                 ProbeAggregateLoadToolCommitBoundaryGenerationMismatch(
                     context.ToolManager,
+                    preflightPlans,
+                    targetRevision,
+                    prepared,
                     ref aggregateOperationLease);
                 ProbeAggregateLoadSlotTargetCommitBoundaryGenerationMismatch(
                     ref aggregateOperationLease);
