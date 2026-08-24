@@ -229,6 +229,8 @@
 
   - 同 token 旧 attempt 的迟到 failure 门禁证据（2026-08-24）：`RoadRenderTokenTests.NewAttemptRejectsPreviousAttemptLateFailure` 让 attempt 1 先建立真实 stalled failure，再开始 attempt 2；attempt 1 随后到达的迟到异常返回 `null`，attempt 2 的真实异常仍被接纳，`CurrentFailure` 精确绑定 attempt 2，desired/presented 继续保持目标/上一代分离。该测试直接固定 `attemptNumber != AttemptCount` 分支，不与新 token 取代或提交后拒绝两个相邻门禁重复。`RoadRenderTokenTests` 23/23、完整自动化 942/942、Debug/`ExportRelease` build 0 警告/0 错误、Roslyn test-project compiler/analyzer 0 diagnostics 与 `git diff --check` 均通过；提交 `4e5ed16` 只增加测试，未修改生产行为，因此未重复运行 Godot/Vulkan。该证据关闭 2.2 的同 token 旧 attempt failure admission 直接回归缺口，但不替代其余 renderer/aggregate 故障、视觉或性能矩阵，2.2、2.3 保持开放。
 
+  - self-loop incidence 的 Endpoint 同值顺序审计证据（2026-08-24）：`RoadSurfaceSnapshotTests.PointQueryBreaksSelfLoopIncidenceTiesByEndpointRegardlessOfEnumeration` 使用同 Edge 7、同 Node 20、同 sector、完全重叠 geometry/centerline 的两个 `JunctionPatch` 候选，仅区分 `Endpoint A / parameter 0` 与 `Endpoint B / parameter 1`；正反枚举均稳定选择 Endpoint A 及其 canonical location，直接固定 owner comparator 的 Endpoint 分支。新增理论 2/2、`RoadSurfaceSnapshotTests` 27/27、完整自动化 944/944、Debug/`ExportRelease` build 0 警告/0 错误、Roslyn test-project compiler/analyzer 0 diagnostics 与 `git diff --check` 均通过；提交 `f5090d7` 只增加测试，未修改生产行为，因此未重复运行 Godot/Vulkan。该证据关闭 2.2 fake hit consumer 的同 Edge/Node self-loop endpoint 同值子场景，但不替代其他命中、混合视觉、工具消费、性能或 renderer/aggregate 故障矩阵，2.2、2.3 保持开放。
+
 <a id="v3-grid-rendering2.3"></a>
 
 - [ ] **2.3 建立混合类型视觉、接管与性能门禁**
