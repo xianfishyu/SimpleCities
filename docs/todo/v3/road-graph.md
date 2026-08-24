@@ -264,6 +264,8 @@
 
   - Junction Patch owner 等价性协作进展（2026-08-24）：`v3-grid-rendering:2.2` 已把既有“反向存储、枚举扰动、ID 重命名”视觉证据补强到 owner 身份层。枚举置换保持完整 patch triangle/owner 序列；一一 Edge ID 重命名后的视觉不变，owner incidence 与 canonical `RoadLocation` 按相同映射等价；存储方向反转保持 owner `EdgeID/SectorOrder`，只按拓扑正确翻转 `Endpoint A/B` 与参数 `0/1`。聚焦组合 36/36、完整自动化 929/929、双配置 build 0 警告/0 错误、Roslyn test-project compiler/analyzer 0 diagnostics 与 `git diff --check` 均通过；提交 `ca73479` 仅修改测试，未重复运行 Godot/Vulkan。该证据只关闭 `v3-grid-rendering:2.2` 的 Junction Patch owner 确定性子矩阵；其他 surface kind、完整混合视觉/性能、开放系统项与 Phase 8 组合矩阵仍未全部验收，因此 8.6 保持开放。
 
+  - SemanticJoin owner 等价性协作进展（2026-08-24）：`v3-grid-rendering:2.2` 已把 bevel 与 same-direction fallback 的既有视觉证据补强到 owner 身份层。Edge 枚举置换保持完整 join triangle/owner 序列；`3↔4` 一一 Edge ID 重命名后的视觉不变，owner `EdgeID` 与 canonical `RoadLocation.EdgeID` 按相同映射迁移；存储方向反转保持视觉及 owner `EdgeID/SectorOrder`，boundary Node ID 按 canonical 重命名映射，并把 `Endpoint A / geometry 0 / parameter 0` 转换为 `Endpoint B / 最后 geometry / parameter 1`。SemanticJoin 聚焦 6/6、`RoadRendererLoadPrepareTests` 24/24、完整自动化 932/932、双配置 build 0 警告/0 错误、Roslyn test-project compiler/analyzer 0 diagnostics 与 `git diff --check` 均通过；提交 `10c4c4b` 仅修改测试，未重复运行 Godot/Vulkan。该证据只关闭 `v3-grid-rendering:2.2` 的 SemanticJoin owner 确定性子矩阵；其他 surface/混合视觉、工具消费、性能、开放系统项与 Phase 8 组合矩阵仍未全部验收，因此 `v3-grid-rendering:2.2`～`2.3` 与 8.6 保持开放。
+
 ## 暂不执行
 
 ### 交通模拟

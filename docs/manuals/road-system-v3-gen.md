@@ -1248,6 +1248,10 @@ Phase 7 当前已有六十六个可验证切片。其一，普通 mutation 与 `
 
 > 计数补充（2026-08-24）：在“其一百二十二”基础上新增 Junction Patch 的枚举扰动、存储反向与 ID 重命名 owner 等价性证据，Phase 7 可验证切片由一百二十二个更新为一百二十三个；该切片不修改生产行为，也不增加普通更新故障点、真实 aggregate 相邻失败或连续 Preflight 早期边界，新增内容扩展至“其一百二十三”。
 
+其一百二十四，Phase 7 的确定性审计继续补齐 degree-2 `SemanticJoin` 此前以视觉比较为主、尚未完整固定 owner 映射的证据。`RoadRendererLoadPrepareTests.PurePreparer_SemanticJoinInputPermutationAndEdgeIDRenamingPreserveMappedOwnership` 分别对 bevel 与 same-direction fallback 证明：同一两路 incidence 的非平凡 Edge 枚举置换保持完整 join triangle/owner 序列逐值相同；再以 `3↔4` 一一重命名两条 Edge 后，triangle、centerline、颜色和 sector 组成的视觉序列不变，owner `EdgeID` 与 canonical `RoadLocation.EdgeID` 则严格按同一映射迁移。`PurePreparer_SemanticJoinStoredDirectionPreservesVisualAndMappedOwnership` 进一步以两条 Edge 的反向存储夹具固定视觉、owner `EdgeID/SectorOrder` 不变，owner Node ID 按 canonical boundary Node 重命名映射，并把正向存储的 `Endpoint A / geometry 0 / parameter 0` 正确转换为反向存储的 `Endpoint B / 最后 geometry / parameter 1`。SemanticJoin 聚焦为 6/6，`RoadRendererLoadPrepareTests` 为 24/24，完整自动化为 932/932；Debug 与 `ExportRelease` build 均为 0 警告、0 错误，Roslyn test-project compiler/analyzer 为 0 diagnostics，`git diff --check` 通过。提交 `10c4c4b` 只补强测试，没有修改生产代码或运行时行为，因此本切片不重复运行 Godot/Vulkan。`v3-grid-rendering:2.2` 的 SemanticJoin 枚举扰动、存储反向和 ID 重命名 owner 等价子矩阵由此关闭；其余 surface/混合宽度视觉、工具消费、性能与 renderer/aggregate 故障组合仍由 `v3-grid-rendering:2.2`～`2.3` 保持开放，最终集成负责人 `v3-road-graph:8.6` 也继续开放。
+
+> 计数补充（2026-08-24）：在“其一百二十三”基础上新增 SemanticJoin 的枚举扰动、存储反向与 ID 重命名 owner 等价性证据，Phase 7 可验证切片由一百二十三个更新为一百二十四个；该切片不修改生产行为，也不增加普通更新故障点、真实 aggregate 相邻失败或连续 Preflight 早期边界，新增内容扩展至“其一百二十四”。
+
 ### Phase 8：最终组合验收
 
 在同一 `MapTest` 实例中完成连续折线路、跨提交延伸、简单环、棒棒糖、两路口环、八字形、支路删除重归一化、四类型建造与改造、token 防护的 delta 撤销重做、不可变 root 结构共享/释放、V3 family/version 有界往返、跨进程锁/publish lease/descriptor 恢复、共享表面命中与 junction patch、损坏/超限拒绝、并发 autosave、取消和 observer warning，以及成功/提交前失败且无提交后关键表现失败分支的 Load 生命周期。额外证明 V2 根未被枚举或修改、手工复制的 V2/未知格式被拒绝。再完成 Vulkan 视觉、10k 硬门槛、100k 压测和 Windows 导出验证。最终证据写回附录 D；`v3-road-graph:8.6` 是唯一集成负责人。
