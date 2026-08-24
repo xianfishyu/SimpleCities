@@ -184,7 +184,7 @@ public sealed class RoadJunctionTessellatorTests
     }
 
     [Fact]
-    public void EdgeIdRenamingAndEnumerationOrderDoNotChangeVisualGeometry()
+    public void EdgeIdRenamingAndEnumerationOrderPreserveVisualAndMappedOwnership()
     {
         RoadJunctionIncidence[] first =
         [
@@ -192,23 +192,39 @@ public sealed class RoadJunctionTessellatorTests
             Incidence(11, EdgeEndpoint.B, new Vector2(0f, 1f), RoadType.Highway, 10f),
             Incidence(12, EdgeEndpoint.A, new Vector2(-1f, -0.5f), RoadType.Street, 6f),
         ];
+        RoadJunctionIncidence[] permuted = [first[2], first[0], first[1]];
+        IReadOnlyDictionary<int, int> edgeIDMap = new Dictionary<int, int>
+        {
+            [10] = 100,
+            [11] = 101,
+            [12] = 102,
+        };
         RoadJunctionIncidence[] renamed =
         [
-            first[2] with { EdgeID = 102, Location = new RoadLocation(102, 0, 0f) },
-            first[0] with { EdgeID = 100, Location = new RoadLocation(100, 0, 0f) },
-            first[1] with { EdgeID = 101, Location = new RoadLocation(101, 0, 1f) },
+            RenameEdge(first[2], edgeIDMap[12]),
+            RenameEdge(first[0], edgeIDMap[10]),
+            RenameEdge(first[1], edgeIDMap[11]),
         ];
 
         RoadJunctionTriangle[] firstTriangles = RoadJunctionTessellator.Tessellate(
             new Vector2(0.125f, -0.25f),
             first);
+        RoadJunctionTriangle[] permutedTriangles = RoadJunctionTessellator.Tessellate(
+            new Vector2(0.125f, -0.25f),
+            permuted);
         RoadJunctionTriangle[] renamedTriangles = RoadJunctionTessellator.Tessellate(
             new Vector2(0.125f, -0.25f),
             renamed);
 
+        Assert.Equal(firstTriangles, permutedTriangles);
         Assert.Equal(
             firstTriangles.Select(VisualGeometry),
             renamedTriangles.Select(VisualGeometry));
+        Assert.Equal(
+            firstTriangles.Select(triangle => RenameEdge(
+                triangle.Incidence,
+                edgeIDMap[triangle.Incidence.EdgeID])),
+            renamedTriangles.Select(triangle => triangle.Incidence));
     }
 
     [Fact]
@@ -341,6 +357,14 @@ public sealed class RoadJunctionTessellatorTests
         RoadType.Highway => new Color("#C84B3A"),
         _ => throw new ArgumentOutOfRangeException(nameof(roadType)),
     };
+
+    private static RoadJunctionIncidence RenameEdge(
+        RoadJunctionIncidence incidence,
+        int edgeID) => incidence with
+        {
+            EdgeID = edgeID,
+            Location = incidence.Location with { EdgeID = edgeID },
+        };
 
     private static void AssertValidTriangle(RoadJunctionTriangle triangle)
     {

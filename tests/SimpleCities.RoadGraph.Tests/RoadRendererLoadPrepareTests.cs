@@ -182,24 +182,39 @@ public sealed class RoadRendererLoadPrepareTests
             CreateAcuteJunction(reverseEdges: false).CaptureRevision());
         RoadRendererPreparedLoad reversed = preparer.Prepare(
             CreateAcuteJunction(reverseEdges: true).CaptureRevision());
+        RoadSurfaceTriangle[] forwardPatch = SurfaceTriangles(
+            forward,
+            RoadSurfaceOwnerKind.JunctionPatch);
+        RoadSurfaceTriangle[] reversedPatch = SurfaceTriangles(
+            reversed,
+            RoadSurfaceOwnerKind.JunctionPatch);
 
         Assert.Equal(
             ExtractJunctionPatchVisual(forward),
             ExtractJunctionPatchVisual(reversed));
+        Assert.Equal(
+            forwardPatch.Select(triangle => (
+                triangle.Owner.EdgeID,
+                triangle.Owner.SectorOrder)),
+            reversedPatch.Select(triangle => (
+                triangle.Owner.EdgeID,
+                triangle.Owner.SectorOrder)));
         Assert.All(
-            SurfaceTriangles(forward, RoadSurfaceOwnerKind.JunctionPatch),
+            forwardPatch,
             triangle =>
             {
                 Assert.Equal(EdgeEndpoint.A, triangle.Owner.Endpoint);
                 RoadLocation location = Assert.IsType<RoadLocation>(triangle.FixedLocation);
+                Assert.Equal(triangle.Owner.EdgeID, location.EdgeID);
                 Assert.Equal(RoadGeometrySegment.ParameterStart, location.Parameter);
             });
         Assert.All(
-            SurfaceTriangles(reversed, RoadSurfaceOwnerKind.JunctionPatch),
+            reversedPatch,
             triangle =>
             {
                 Assert.Equal(EdgeEndpoint.B, triangle.Owner.Endpoint);
                 RoadLocation location = Assert.IsType<RoadLocation>(triangle.FixedLocation);
+                Assert.Equal(triangle.Owner.EdgeID, location.EdgeID);
                 Assert.Equal(RoadGeometrySegment.ParameterEnd, location.Parameter);
             });
     }
