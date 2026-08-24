@@ -2,6 +2,7 @@ extends SceneTree
 
 const MAP_SCENE := "res://Scenes/MapTest.tscn"
 const MAIN_MENU_SCENE := "res://Scenes/MainMenu.tscn"
+const LOAD_PREFLIGHT_FAILURE_PROBE_PATH := "res://tests/godot/RoadLoadPreflightResourceFailureProbe.cs"
 const LOAD_WARNING_PROBE_PATH := "res://tests/godot/RoadLoadObserverFailureProbe.cs"
 const V3_SAVE_FIXTURE := preload("res://tests/godot/v3_save_fixture.gd")
 
@@ -237,14 +238,54 @@ func run() -> void:
 	await mouse_click(cancel_button)
 	assert_true(save_manager.get("CurrentSlotID") == first_ui_slot_id, "Cancel load changed CurrentSlotID")
 	assert_selected_slot(save_slot_list, second_ui_slot_id, "second slot after cancel load")
+	var preflight_probe_script: Script = load(LOAD_PREFLIGHT_FAILURE_PROBE_PATH)
+	assert_true(preflight_probe_script != null, "Debug Load preflight failure probe did not load")
+	var preflight_probe: RefCounted = preflight_probe_script.new()
+	assert_true(preflight_probe != null, "Debug Load preflight failure probe did not instantiate")
+	var road_system: Node = map.get_node("RoadSystem")
+	var renderer: Node = map.get_node("RoadSystem/RoadRenderer")
+	var tool_before_failed_load: int = int(manager.get("CurrentTool"))
+	var presentation_before_failed_load: Dictionary = renderer.GetPresentationState()
+	var preflight_failure_message := str(
+		preflight_probe.GetAggregateLoadResourcePreflightFailureMessage())
+	await mouse_click(load_save_button)
+	await process_frame
+	preflight_probe.ArmAggregateLoadResourcePreflightFailure(save_manager, renderer)
+	assert_true(
+		preflight_probe.IsAggregateLoadResourcePreflightFailureArmed() and
+		preflight_probe.IsAggregateLoadResourcePreflightObservationArmed(),
+		"PauseMenu Load preflight failure probe did not arm")
+	await activate_focused_with_keyboard(confirm_button)
+	assert_true(
+		pause_menu.visible and paused and save_management_content.visible and
+		not confirmation_content.visible,
+		"Failed Load closed PauseMenu, resumed the game, or retained confirmation")
+	assert_true(
+		save_status.text.contains("加载存档失败") and
+		save_status.text.contains(preflight_failure_message),
+		"PauseMenu did not present the renderer Resource Preflight failure")
+	assert_true(
+		save_manager.get("CurrentSlotID") == first_ui_slot_id and
+		int(manager.get("CurrentTool")) == tool_before_failed_load and
+		renderer.GetPresentationState() == presentation_before_failed_load,
+		"Failed Load changed CurrentSlotID, tool state, or presentation")
+	assert_true(
+		not preflight_probe.IsAggregateLoadResourcePreflightFailureArmed() and
+		not preflight_probe.IsAggregateLoadResourcePreflightObservationArmed() and
+		preflight_probe.GetAggregateLoadResourcePreflightFailureCount() == 1 and
+		preflight_probe.GetAggregateLoadResourcePreflightObservationCount() == 1,
+		"Failed PauseMenu Load did not consume its preflight probe exactly once")
+	assert_selected_slot(save_slot_list, second_ui_slot_id, "second slot after failed Load")
+	assert_true(
+		not load_save_button.disabled and not overwrite_save_button.disabled and
+		not delete_save_button.disabled,
+		"Failed Load did not restore save-management actions")
 	await mouse_click(load_save_button)
 	await process_frame
 	var warning_probe_script: Script = load(LOAD_WARNING_PROBE_PATH)
 	assert_true(warning_probe_script != null, "Debug Load warning probe did not load")
 	var warning_probe: RefCounted = warning_probe_script.new()
 	assert_true(warning_probe != null, "Debug Load warning probe did not instantiate")
-	var road_system: Node = map.get_node("RoadSystem")
-	var renderer: Node = map.get_node("RoadSystem/RoadRenderer")
 	warning_probe.Arm(renderer)
 	warning_probe.ArmGraphObserverFailure(road_system)
 	warning_probe.ArmGraphCleanupFailure(road_system)
@@ -318,6 +359,7 @@ func run() -> void:
 		"Clean PauseMenu Load re-triggered a one-shot warning probe")
 	assert_true(not pause_menu.visible and not paused, "Clean recovery Load did not close PauseMenu")
 	warning_probe.Disarm()
+	preflight_probe.FlushPendingManagedFinalizers()
 	warning_probe.FlushPendingManagedFinalizers()
 	hud._Input(key_event(KEY_ESCAPE))
 	await process_frame
