@@ -620,14 +620,17 @@ func run() -> void:
 	var aggregate_commit_plan_resource_count_before := int(probe.GetObjectResourceCount())
 	var aggregate_commit_plan_failure_message := str(
 		probe.GetAggregateLoadCommitPlanConstructionFailureMessage())
-	probe.ArmAggregateLoadCommitPlanConstructionFailure(renderer)
+	probe.ArmAggregateLoadCommitPlanConstructionFailure(save_manager, renderer)
 	if not require(
-		bool(probe.IsAggregateLoadCommitPlanConstructionFailureArmed()),
+		bool(probe.IsAggregateLoadCommitPlanConstructionFailureArmed()) and
+		bool(probe.IsAggregateLoadCommitPlanConstructionPreflightObservationArmed()),
 		"Aggregate Load commit-plan construction failure probe did not arm"):
 		return
 	var aggregate_commit_plan_failed_load_result := await run_load(active_slot_id)
 	if not require(
 		int(aggregate_commit_plan_failed_load_result.get("resultKind", -1)) == RESULT_FAILED and
+		int(aggregate_commit_plan_failed_load_result.get("finalPhase", -1)) ==
+			PHASE_PREFLIGHT and
 		not bool(aggregate_commit_plan_failed_load_result.get("committed", true)) and
 		str(aggregate_commit_plan_failed_load_result.get("warnings", "")).is_empty() and
 		str(aggregate_commit_plan_failed_load_result.get("error", "")) ==
@@ -638,13 +641,41 @@ func run() -> void:
 	var aggregate_commit_plan_resource_count_after := int(probe.GetObjectResourceCount())
 	if not require(
 		not bool(probe.IsAggregateLoadCommitPlanConstructionFailureArmed()) and
+		not bool(probe.IsAggregateLoadCommitPlanConstructionPreflightObservationArmed()) and
 		int(probe.GetAggregateLoadCommitPlanConstructionFailureCount()) == 1 and
+		int(probe.GetAggregateLoadCommitPlanConstructionPreflightObservationCount()) == 1 and
+		bool(
+			probe.DidAggregateLoadCommitPlanConstructionPreflightObservationRunOnMainThread()) and
+		int(probe.GetAggregateLoadCommitPlanConstructionPreflightObservedPhase()) ==
+			PHASE_PREFLIGHT and
+		int(probe.GetAggregateLoadCommitPlanConstructionPreflightPlanCount()) == 2 and
+		str(probe.GetAggregateLoadCommitPlanConstructionPreflightFirstParticipantID()) ==
+			"road-graph" and
+		str(probe.GetAggregateLoadCommitPlanConstructionPreflightSecondParticipantID()) ==
+			"road-tools" and
+		int(probe.GetAggregateLoadCommitPlanConstructionPreflightTargetEdgeCount()) ==
+			edge_count_before and
+		str(probe.GetAggregateLoadCommitPlanConstructionPreflightObservedSlotID()) ==
+			active_slot_id and
+		int(
+			probe.GetAggregateLoadCommitPlanConstructionPreflightSourceParticipantCount()) == 1 and
+		int(probe.GetAggregateLoadCommitPlanConstructionPreflightRoadVertexCount()) ==
+			vertex_count_before and
+		int(probe.GetAggregateLoadCommitPlanConstructionPreflightSurfacePrimitiveCount()) > 0 and
+		int(probe.GetAggregateLoadCommitPlanConstructionPreflightNodeMarkerCount()) ==
+			marker_count_before and
 		aggregate_commit_plan_resource_count_after ==
 			aggregate_commit_plan_resource_count_before,
 		"Aggregate commit-plan construction failure did not release both preflight resources: %s" %
 		JSON.stringify({
 			"armed": bool(probe.IsAggregateLoadCommitPlanConstructionFailureArmed()),
 			"triggerCount": int(probe.GetAggregateLoadCommitPlanConstructionFailureCount()),
+			"observationCount": int(
+				probe.GetAggregateLoadCommitPlanConstructionPreflightObservationCount()),
+			"observedPhase": int(
+				probe.GetAggregateLoadCommitPlanConstructionPreflightObservedPhase()),
+			"planCount": int(
+				probe.GetAggregateLoadCommitPlanConstructionPreflightPlanCount()),
 			"resourceCountBefore": aggregate_commit_plan_resource_count_before,
 			"resourceCountAfter": aggregate_commit_plan_resource_count_after,
 		})):
@@ -2618,10 +2649,36 @@ func run() -> void:
 			aggregate_snapshot_resource_count_after,
 		"aggregate_commit_plan_failure_result_kind": int(
 			aggregate_commit_plan_failed_load_result.get("resultKind", -1)),
+		"aggregate_commit_plan_failure_final_phase": int(
+			aggregate_commit_plan_failed_load_result.get("finalPhase", -1)),
 		"aggregate_commit_plan_failure_committed": bool(
 			aggregate_commit_plan_failed_load_result.get("committed", true)),
 		"aggregate_commit_plan_failure_trigger_count": int(
 			probe.GetAggregateLoadCommitPlanConstructionFailureCount()),
+		"aggregate_commit_plan_preflight_observation_count": int(
+			probe.GetAggregateLoadCommitPlanConstructionPreflightObservationCount()),
+		"aggregate_commit_plan_preflight_observation_on_main_thread": bool(
+			probe.DidAggregateLoadCommitPlanConstructionPreflightObservationRunOnMainThread()),
+		"aggregate_commit_plan_preflight_observed_phase": int(
+			probe.GetAggregateLoadCommitPlanConstructionPreflightObservedPhase()),
+		"aggregate_commit_plan_preflight_plan_count": int(
+			probe.GetAggregateLoadCommitPlanConstructionPreflightPlanCount()),
+		"aggregate_commit_plan_preflight_first_participant_id": str(
+			probe.GetAggregateLoadCommitPlanConstructionPreflightFirstParticipantID()),
+		"aggregate_commit_plan_preflight_second_participant_id": str(
+			probe.GetAggregateLoadCommitPlanConstructionPreflightSecondParticipantID()),
+		"aggregate_commit_plan_preflight_target_edge_count": int(
+			probe.GetAggregateLoadCommitPlanConstructionPreflightTargetEdgeCount()),
+		"aggregate_commit_plan_preflight_observed_slot_id": str(
+			probe.GetAggregateLoadCommitPlanConstructionPreflightObservedSlotID()),
+		"aggregate_commit_plan_preflight_source_participant_count": int(
+			probe.GetAggregateLoadCommitPlanConstructionPreflightSourceParticipantCount()),
+		"aggregate_commit_plan_preflight_road_vertex_count": int(
+			probe.GetAggregateLoadCommitPlanConstructionPreflightRoadVertexCount()),
+		"aggregate_commit_plan_preflight_surface_primitive_count": int(
+			probe.GetAggregateLoadCommitPlanConstructionPreflightSurfacePrimitiveCount()),
+		"aggregate_commit_plan_preflight_node_marker_count": int(
+			probe.GetAggregateLoadCommitPlanConstructionPreflightNodeMarkerCount()),
 		"aggregate_commit_plan_resource_count_before":
 			aggregate_commit_plan_resource_count_before,
 		"aggregate_commit_plan_resource_count_after":

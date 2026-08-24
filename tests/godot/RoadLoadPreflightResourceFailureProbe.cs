@@ -338,10 +338,14 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
     public int GetAggregateLoadRoadSurfaceSnapshotPreflightNodeMarkerCount() =>
         _saveManager?.GetAggregateLoadRoadSurfaceSnapshotPreflightNodeMarkerCount() ?? -1;
 
-    public void ArmAggregateLoadCommitPlanConstructionFailure(RoadRenderer renderer)
+    public void ArmAggregateLoadCommitPlanConstructionFailure(
+        SaveManager saveManager,
+        RoadRenderer renderer)
     {
+        ArgumentNullException.ThrowIfNull(saveManager);
         ArgumentNullException.ThrowIfNull(renderer);
-        renderer.ArmNextAggregateLoadCommitPlanConstructionFailure();
+        saveManager.ArmNextAggregateLoadCommitPlanConstructionPreflightObservation(renderer);
+        _saveManager = saveManager;
         _renderer = renderer;
     }
 
@@ -353,6 +357,45 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
 
     public string GetAggregateLoadCommitPlanConstructionFailureMessage() =>
         RoadRenderer.AggregateLoadCommitPlanConstructionFailureMessage;
+
+    public bool IsAggregateLoadCommitPlanConstructionPreflightObservationArmed() =>
+        _saveManager?.IsAggregateLoadCommitPlanConstructionPreflightObservationArmed() ?? false;
+
+    public int GetAggregateLoadCommitPlanConstructionPreflightObservationCount() =>
+        _saveManager?.GetAggregateLoadCommitPlanConstructionPreflightObservationCount() ?? 0;
+
+    public bool DidAggregateLoadCommitPlanConstructionPreflightObservationRunOnMainThread() =>
+        _saveManager?.DidAggregateLoadCommitPlanConstructionPreflightObservationRunOnMainThread() ?? false;
+
+    public int GetAggregateLoadCommitPlanConstructionPreflightObservedPhase() =>
+        _saveManager?.GetAggregateLoadCommitPlanConstructionPreflightObservedPhase() ?? -1;
+
+    public int GetAggregateLoadCommitPlanConstructionPreflightPlanCount() =>
+        _saveManager?.GetAggregateLoadCommitPlanConstructionPreflightPlanCount() ?? -1;
+
+    public string GetAggregateLoadCommitPlanConstructionPreflightFirstParticipantID() =>
+        _saveManager?.GetAggregateLoadCommitPlanConstructionPreflightFirstParticipantID() ?? string.Empty;
+
+    public string GetAggregateLoadCommitPlanConstructionPreflightSecondParticipantID() =>
+        _saveManager?.GetAggregateLoadCommitPlanConstructionPreflightSecondParticipantID() ?? string.Empty;
+
+    public int GetAggregateLoadCommitPlanConstructionPreflightTargetEdgeCount() =>
+        _saveManager?.GetAggregateLoadCommitPlanConstructionPreflightTargetEdgeCount() ?? -1;
+
+    public string GetAggregateLoadCommitPlanConstructionPreflightObservedSlotID() =>
+        _saveManager?.GetAggregateLoadCommitPlanConstructionPreflightObservedSlotID() ?? string.Empty;
+
+    public int GetAggregateLoadCommitPlanConstructionPreflightSourceParticipantCount() =>
+        _saveManager?.GetAggregateLoadCommitPlanConstructionPreflightSourceParticipantCount() ?? -1;
+
+    public int GetAggregateLoadCommitPlanConstructionPreflightRoadVertexCount() =>
+        _saveManager?.GetAggregateLoadCommitPlanConstructionPreflightRoadVertexCount() ?? -1;
+
+    public int GetAggregateLoadCommitPlanConstructionPreflightSurfacePrimitiveCount() =>
+        _saveManager?.GetAggregateLoadCommitPlanConstructionPreflightSurfacePrimitiveCount() ?? -1;
+
+    public int GetAggregateLoadCommitPlanConstructionPreflightNodeMarkerCount() =>
+        _saveManager?.GetAggregateLoadCommitPlanConstructionPreflightNodeMarkerCount() ?? -1;
 
     public bool IsAggregateLoadResourcePreflightFailureArmed() =>
         _renderer?.IsAggregateLoadResourcePreflightFailureArmed() ?? false;
@@ -1332,6 +1375,8 @@ public partial class SaveManager
         _aggregateLoadReservedRenderTokenPreflight = new();
     private readonly AggregateLoadRendererPreflightProbeState
         _aggregateLoadRoadSurfaceSnapshotPreflight = new();
+    private readonly AggregateLoadRendererPreflightProbeState
+        _aggregateLoadCommitPlanConstructionPreflight = new();
     private bool _aggregateLoadPostRendererPreflightFailureArmed;
     private int _aggregateLoadPostRendererPreflightFailureCount;
     private bool _aggregateLoadPostRendererPreflightFailureRanOnMainThread;
@@ -2297,6 +2342,15 @@ public partial class SaveManager
             _aggregateLoadRoadSurfaceSnapshotPreflight,
             renderer.IsAggregateLoadRoadSurfaceSnapshotFailureArmed(),
             "road-surface snapshot");
+        CaptureAggregateLoadRendererPreflightObservation(
+            renderer,
+            phase,
+            preflightPlans,
+            targetRevision,
+            prepared,
+            _aggregateLoadCommitPlanConstructionPreflight,
+            renderer.IsAggregateLoadCommitPlanConstructionFailureArmed(),
+            "commit-plan construction");
     }
 
     private void CaptureAggregateLoadRendererPreflightObservation(
@@ -2600,6 +2654,54 @@ public partial class SaveManager
 
     internal int GetAggregateLoadRoadSurfaceSnapshotPreflightNodeMarkerCount() =>
         _aggregateLoadRoadSurfaceSnapshotPreflight.Observation.NodeMarkerCount;
+
+    internal void ArmNextAggregateLoadCommitPlanConstructionPreflightObservation(
+        RoadRenderer renderer) =>
+        ArmNextAggregateLoadRendererPreflightObservation(
+            renderer,
+            _aggregateLoadCommitPlanConstructionPreflight,
+            static currentRenderer =>
+                currentRenderer.ArmNextAggregateLoadCommitPlanConstructionFailure(),
+            "commit-plan construction");
+
+    internal bool IsAggregateLoadCommitPlanConstructionPreflightObservationArmed() =>
+        _aggregateLoadCommitPlanConstructionPreflight.Armed;
+
+    internal int GetAggregateLoadCommitPlanConstructionPreflightObservationCount() =>
+        _aggregateLoadCommitPlanConstructionPreflight.Count;
+
+    internal bool DidAggregateLoadCommitPlanConstructionPreflightObservationRunOnMainThread() =>
+        _aggregateLoadCommitPlanConstructionPreflight.Observation.RanOnMainThread;
+
+    internal int GetAggregateLoadCommitPlanConstructionPreflightObservedPhase() =>
+        _aggregateLoadCommitPlanConstructionPreflight.Observation.Phase;
+
+    internal int GetAggregateLoadCommitPlanConstructionPreflightPlanCount() =>
+        _aggregateLoadCommitPlanConstructionPreflight.Observation.PlanCount;
+
+    internal string GetAggregateLoadCommitPlanConstructionPreflightFirstParticipantID() =>
+        _aggregateLoadCommitPlanConstructionPreflight.Observation.FirstParticipantID;
+
+    internal string GetAggregateLoadCommitPlanConstructionPreflightSecondParticipantID() =>
+        _aggregateLoadCommitPlanConstructionPreflight.Observation.SecondParticipantID;
+
+    internal int GetAggregateLoadCommitPlanConstructionPreflightTargetEdgeCount() =>
+        _aggregateLoadCommitPlanConstructionPreflight.Observation.TargetEdgeCount;
+
+    internal string GetAggregateLoadCommitPlanConstructionPreflightObservedSlotID() =>
+        _aggregateLoadCommitPlanConstructionPreflight.Observation.SlotID;
+
+    internal int GetAggregateLoadCommitPlanConstructionPreflightSourceParticipantCount() =>
+        _aggregateLoadCommitPlanConstructionPreflight.Observation.SourceParticipantCount;
+
+    internal int GetAggregateLoadCommitPlanConstructionPreflightRoadVertexCount() =>
+        _aggregateLoadCommitPlanConstructionPreflight.Observation.RoadVertexCount;
+
+    internal int GetAggregateLoadCommitPlanConstructionPreflightSurfacePrimitiveCount() =>
+        _aggregateLoadCommitPlanConstructionPreflight.Observation.SurfacePrimitiveCount;
+
+    internal int GetAggregateLoadCommitPlanConstructionPreflightNodeMarkerCount() =>
+        _aggregateLoadCommitPlanConstructionPreflight.Observation.NodeMarkerCount;
 
     private sealed class AggregateLoadRendererPreflightProbeState
     {
