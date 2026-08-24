@@ -900,6 +900,114 @@ func run() -> void:
 		matching_presentation_is_ready(renderer),
 		"Post-commit cancellation recovery Load did not restore one matching presentation"):
 		return
+	var post_commit_cancel_request_accepted: bool = probe.WasPostCommitCancellationAccepted()
+	var post_commit_cancel_trigger_count: int = probe.GetPostCommitCancellationCount()
+
+	tool_manager.set("CurrentTool", TOOL_ROAD)
+	if not require(
+		builder.BeginPlace(Vector2(700.0, 1400.0)),
+		"Eleventh transient road did not begin"):
+		return
+	if not require(
+		builder.AddPlacePoint(Vector2(800.0, 1400.0)),
+		"Eleventh transient placement point was not added"):
+		return
+	probe.Arm(renderer)
+	probe.ArmGraphObserverFailure(road_system)
+	probe.ArmGraphCleanupFailure(road_system)
+	probe.ArmToolCleanupFailure(tool_manager)
+	probe.ArmRendererCleanupFailure(renderer)
+	probe.ArmSlotCleanupFailure(save_manager)
+	probe.ArmPostCommitFailure(save_manager)
+	probe.ArmPostCommitCancellation(renderer, save_manager)
+
+	var post_commit_cancel_combined_operation_token: String = save_manager.StartLoad(source_slot_id)
+	var post_commit_cancel_combined_warned_result: Dictionary = (
+		await V3_SAVE_FIXTURE.wait_for_operation(
+			save_manager,
+			post_commit_cancel_combined_operation_token)
+	)
+	if not await V3_SAVE_FIXTURE.wait_for_idle(save_manager):
+		fail("Combined post-commit cancellation Load did not become idle")
+		return
+	if not require(
+		int(post_commit_cancel_combined_warned_result.get("resultKind", -1)) ==
+		RESULT_SUCCEEDED_WITH_WARNINGS and
+		bool(post_commit_cancel_combined_warned_result.get("committed", false)) and
+		str(post_commit_cancel_combined_warned_result.get("error", "")).is_empty(),
+		"Combined cancellation and participant failures changed the committed warning result: %s" %
+		JSON.stringify(post_commit_cancel_combined_warned_result)):
+		return
+	var post_commit_cancel_combined_warnings := str(
+		post_commit_cancel_combined_warned_result.get("warnings", ""))
+	if not require(
+		post_commit_cancel_combined_warnings.split("\n", false) ==
+		post_commit_combined_expected_warnings,
+		"Rejected cancellation changed the combined warning list or order: %s" %
+		post_commit_cancel_combined_warnings):
+		return
+	if not require(
+		probe.GetTriggerCount() == 8 and
+		probe.GetGraphObserverTriggerCount() == 4 and
+		probe.GetToolCleanupFailureCount() == 6 and
+		probe.GetRendererCleanupFailureCount() == 6 and
+		probe.GetGraphCleanupFailureCount() == 6 and
+		probe.GetSlotCleanupFailureCount() == 6 and
+		probe.GetPostCommitFailureCount() == 3 and
+		probe.GetPostCommitCancellationCount() == 2 and
+		not probe.WasPostCommitCancellationAccepted() and
+		probe.GetPostCommitCancellationOperationToken() ==
+		post_commit_cancel_combined_operation_token and
+		not probe.IsGraphObserverFailureArmed() and
+		not probe.IsToolCleanupFailureArmed() and
+		not probe.IsRendererCleanupFailureArmed() and
+		not probe.IsGraphCleanupFailureArmed() and
+		not probe.IsSlotCleanupFailureArmed() and
+		not probe.IsPostCommitFailureArmed() and
+		not probe.IsPostCommitCancellationArmed(),
+		"Combined cancellation/warning probes did not reach their exact counts"):
+		return
+	if not require(
+		str(save_manager.get("CurrentSlotID")) == source_slot_id and
+		renderer.GetRenderedEdgeCount() == 0 and
+		not builder.HasActivePlaceSession() and
+		builder.GetUndoEditCount() == 0 and
+		builder.GetRedoEditCount() == 0 and
+		matching_presentation_is_ready(renderer),
+		"Rejected cancellation changed the combined warning Load state"):
+		return
+
+	tool_manager.set("CurrentTool", TOOL_ROAD_UPGRADE)
+	if not require(
+		int(tool_manager.get("CurrentTool")) == TOOL_ROAD_UPGRADE,
+		"Combined cancellation/warning Load left an admission active"):
+		return
+
+	var post_commit_cancel_combined_clean_result := await run_load(active_slot_id)
+	if not require(
+		int(post_commit_cancel_combined_clean_result.get("resultKind", -1)) ==
+		RESULT_SUCCEEDED and
+		bool(post_commit_cancel_combined_clean_result.get("committed", false)) and
+		str(post_commit_cancel_combined_clean_result.get("warnings", "")).is_empty(),
+		"Load after combined cancellation/warnings did not re-admit every participant: %s" %
+		JSON.stringify(post_commit_cancel_combined_clean_result)):
+		return
+	if not require(
+		probe.GetTriggerCount() == 8 and
+		probe.GetGraphObserverTriggerCount() == 4 and
+		probe.GetToolCleanupFailureCount() == 6 and
+		probe.GetRendererCleanupFailureCount() == 6 and
+		probe.GetGraphCleanupFailureCount() == 6 and
+		probe.GetSlotCleanupFailureCount() == 6 and
+		probe.GetPostCommitFailureCount() == 3 and
+		probe.GetPostCommitCancellationCount() == 2 and
+		probe.GetPostCommitCancellationOperationToken() ==
+		post_commit_cancel_combined_operation_token and
+		str(save_manager.get("CurrentSlotID")) == active_slot_id and
+		renderer.GetRenderedEdgeCount() == 1 and
+		matching_presentation_is_ready(renderer),
+		"Combined cancellation/warning recovery Load did not restore one matching presentation"):
+		return
 
 	tool_manager.set("CurrentTool", TOOL_ROAD_REMOVE)
 	if not require(
@@ -938,8 +1046,16 @@ func run() -> void:
 			post_commit_cancel_result.get("resultKind", -1)),
 		"post_commit_cancel_clean_result_kind": int(
 			post_commit_cancel_clean_result.get("resultKind", -1)),
-		"post_commit_cancel_request_accepted": probe.WasPostCommitCancellationAccepted(),
-		"post_commit_cancel_trigger_count": probe.GetPostCommitCancellationCount(),
+		"post_commit_cancel_request_accepted": post_commit_cancel_request_accepted,
+		"post_commit_cancel_trigger_count": post_commit_cancel_trigger_count,
+		"post_commit_cancel_combined_warning_result_kind": int(
+			post_commit_cancel_combined_warned_result.get("resultKind", -1)),
+		"post_commit_cancel_combined_clean_result_kind": int(
+			post_commit_cancel_combined_clean_result.get("resultKind", -1)),
+		"post_commit_cancel_combined_request_accepted":
+			probe.WasPostCommitCancellationAccepted(),
+		"post_commit_cancel_combined_trigger_count":
+			probe.GetPostCommitCancellationCount(),
 		"observer_trigger_count": probe.GetTriggerCount(),
 		"graph_observer_trigger_count": probe.GetGraphObserverTriggerCount(),
 		"tool_cleanup_trigger_count": probe.GetToolCleanupFailureCount(),
