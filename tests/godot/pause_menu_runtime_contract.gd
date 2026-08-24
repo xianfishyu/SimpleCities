@@ -122,15 +122,15 @@ func run() -> void:
 
 	road_binding.emit_signal("pressed")
 	assert_true(road_binding.text == "等待输入...", "Road binding did not enter capture state")
-	pause_menu._Input(key_event(KEY_T))
-	assert_true(road_binding.text == "T", "Road binding did not accept T")
-	assert_true(binding_status.text.contains("已绑定为 T"), "Successful binding did not report status")
+	pause_menu._Input(key_event(KEY_G))
+	assert_true(road_binding.text == "G", "Road binding did not accept G")
+	assert_true(binding_status.text.contains("已绑定为 G"), "Successful binding did not report status")
 	var binding_config := ConfigFile.new()
 	assert_true(binding_config.load("user://input_bindings.cfg") == OK, "Binding config was not persisted")
-	assert_true(int(binding_config.get_value("bindings", "tool_road")) == KEY_T, "Persisted road binding is not T")
+	assert_true(int(binding_config.get_value("bindings", "tool_road")) == KEY_G, "Persisted road binding is not G")
 
 	select_binding.emit_signal("pressed")
-	pause_menu._Input(key_event(KEY_T))
+	pause_menu._Input(key_event(KEY_G))
 	assert_true(select_binding.text == "等待输入...", "Conflicting key should keep capture active")
 	assert_true(binding_status.text.contains("已绑定到"), "Conflicting key did not report the existing owner")
 	select_binding.emit_signal("pressed")
@@ -147,11 +147,11 @@ func run() -> void:
 	continue_button.emit_signal("pressed")
 	assert_true(not pause_menu.visible and not paused, "Continue after rebinding did not resume the game")
 	manager.set("CurrentTool", 0)
-	hud._Input(key_event(KEY_T))
+	hud._Input(key_event(KEY_G))
 	await process_frame
-	assert_true(manager.get("CurrentTool") == 1, "Rebound T key did not select the Road tool")
+	assert_true(manager.get("CurrentTool") == 1, "Rebound G key did not select the Road tool")
 	var shortcut_value: Label = hud.get_node("ToolContextPanel/PanelMargin/Rows/ContextContentScroll/ContextContent/ShortcutRow/ShortcutValue")
-	assert_true(shortcut_value.text == "T", "Tool context did not reflect the rebound key")
+	assert_true(shortcut_value.text == "G", "Tool context did not reflect the rebound key")
 
 	hud._Input(key_event(KEY_ESCAPE))
 	await process_frame
@@ -171,7 +171,7 @@ func run() -> void:
 	assert_true(
 		road_binding.text == "R" and undo_binding.text == "Z" and redo_binding.text == "Y" and pause_binding.text == "Escape",
 		"Reset bindings did not restore Road, edit and Pause defaults")
-	assert_true(int(binding_config.get_value("bindings", "tool_road", -1)) == KEY_T, "Config snapshot should remain unchanged until reload")
+	assert_true(int(binding_config.get_value("bindings", "tool_road", -1)) == KEY_G, "Config snapshot should remain unchanged until reload")
 	assert_true(binding_config.load("user://input_bindings.cfg") == OK and int(binding_config.get_value("bindings", "tool_road", -1)) == KEY_R, "Reset Road default was not persisted")
 	assert_true(int(binding_config.get_value("bindings", "pause_menu", -1)) == KEY_ESCAPE, "Reset Pause default was not persisted")
 	bindings_back_button.emit_signal("pressed")
