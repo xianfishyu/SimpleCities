@@ -1316,6 +1316,10 @@ Phase 7 当前已有六十六个可验证切片。其一，普通 mutation 与 `
 
 > 计数补充（2026-08-24）：在“其一百三十九”基础上新增真实 PauseMenu 的 renderer Resource Preflight 失败呈现与下一请求恢复证据，Phase 7 可验证切片由一百三十九个更新为一百四十个；该切片只扩展提交前关键失败的 UI 结果矩阵，不增加底层故障点或生产行为，新增内容扩展至“其一百四十”。
 
+其一百四十一，Phase 7 把异步结果矩阵扩展到真实 PauseMenu 的 Save As 磁盘失败与同菜单恢复。`pause_menu_runtime_contract.gd` 在隔离 `user://saves-v3` 根创建文件占用 `.save-transactions`，再通过 Save Management 的真实名称输入与 Save As 按钮发起操作；`SaveSlotStore` 无法建立事务目录时，PauseMenu 保持 Save Management 可见和场景暂停，状态文本显示“新建存档失败”，`CurrentSlotID` 与玩家输入的名称均保持，列表中没有出现伪发布槽，名称输入和 Save As 按钮恢复可用。契约随后删除 marker，不关闭或重建菜单便将名称改回正常值；紧接的 Save As 成功创建独立 manual slot，后续重复名称、覆盖、renderer Resource Preflight 失败、七项 warning Load、干净 Load、Delete 与 MainMenu 重入流程全部继续通过。故障 operation 完成时 PauseMenu 会刷新列表，因此注入运行的 stderr 明确包含预期 `[SaveManager] Cannot list V3 save slots: Publication transaction root is occupied by a file.`；该通道不宣称干净，无注入的正确项目 editor/DAP smoke 仍为零错误。Godot 4.7 `--check-only` 与隔离 APPDATA 的完整契约均以退出码 0 通过并输出 `PASS pause menu runtime contract`；完整自动化为 950/950，Debug 与 `ExportRelease` build 均为 0 警告、0 错误，Roslyn production/test compiler/analyzer 与目标 GDScript LSP 均为 0 diagnostics。测试游戏与隐藏 editor 均已关闭，首次设置失败根与最终通过根两个隔离目录均已送入回收站。提交 `2b42981` 只增加 Save As 失败/恢复运行时回归，不修改生产逻辑。该切片关闭一个 Save As 磁盘失败 UI 格，不覆盖 overwrite/cleanup warning、Delete 结果或其余 Load 矩阵；`v3-ui:1.4`、`v3-save-system:2.3` 与最终集成负责人 `v3-road-graph:8.6` 继续保持开放。
+
+> 计数补充（2026-08-24）：在“其一百四十”基础上新增真实 PauseMenu 的 Save As 磁盘失败呈现与同菜单恢复证据，Phase 7 可验证切片由一百四十个更新为一百四十一个；该切片只扩展 Save 失败的 UI 结果矩阵，不增加底层故障点或生产行为，新增内容扩展至“其一百四十一”。
+
 ### Phase 8：最终组合验收
 
 在同一 `MapTest` 实例中完成连续折线路、跨提交延伸、简单环、棒棒糖、两路口环、八字形、支路删除重归一化、四类型建造与改造、token 防护的 delta 撤销重做、不可变 root 结构共享/释放、V3 family/version 有界往返、跨进程锁/publish lease/descriptor 恢复、共享表面命中与 junction patch、损坏/超限拒绝、并发 autosave、取消和 observer warning，以及成功/提交前失败且无提交后关键表现失败分支的 Load 生命周期。额外证明 V2 根未被枚举或修改、手工复制的 V2/未知格式被拒绝。再完成 Vulkan 视觉、10k 硬门槛、100k 压测和 Windows 导出验证。最终证据写回附录 D；`v3-road-graph:8.6` 是唯一集成负责人。
