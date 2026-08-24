@@ -15,6 +15,8 @@
 | 2.2 | 流式快照、严格 manifest、PNG 展示资产与目录事务需要统一的预算和恢复边界 | 已完成 | 有界 token reader、descriptor/digest 恢复、删除 tombstone、OS 根锁与故障矩阵均已验证 |
 | 2.3 | 同步入口和顺序 prepared commit 曾缺少并发及原子会话协议 | 已完成 | async coordinator、跨进程排他、四参与者 aggregate、代表性 Preflight/commit/cleanup 所有权边界、Save As 从 Capture 到越界后的取消语义、Delete 越界前后语义、退出收敛与结构化结果均已验证；不再以穷举内部语句间隙和故障排列组合作为完成条件 |
 
+> 阅读说明：本文带日期的进展与复验是当时快照，其中的“保持开放”或旧测试数量不代表当前状态；当前判定以状态总览、详细条目末尾完成证据和指南附录 D 为准。
+
 ### 设计覆盖矩阵
 
 | 设计范围 | 当前事实 | 关联待办 |
@@ -176,7 +178,7 @@
 - [x] **V2/过渡期 payload 与保存根只作历史证据。** 历史 Node/Edge/Group、当前 Group-free 且含 `roadType` 的严格 `schemaVersion = 3`、`res://saves` 和 `user://saves` 均不是 V3 format v1 输入或实现依赖。
 - [x] **V3 format v1 与独立根已成为唯一生产存档入口。** `IStreamingSaveable`、严格 manifest/payload family、`user://saves-v3`、canonical RoadGraph reader/writer、新 lineage Load 和 V2 根隔离均已有自动化、真实 `MapTest` 与 Debug 导出运行证据；后续 2.2/2.3 只能扩展有界 I/O、恢复与并发协议，不能恢复旧格式或同步兼容接口。
 - [x] **V3 同步存储原语已经确定、有界且可恢复。** `V3JsonStreamReader`、同句柄 length/hash/EOF、PNG 展示资产预算、operation-specific publish/delete descriptor、五类 occupant、OS 根锁、quarantine/tombstone 与 digest 恢复矩阵已有自动化和 Windows 导出/ACL 证据；`2.3` 只能在其上增加异步 coordinator、publish lease 和 aggregate Load，不能绕过这些磁盘不变量。
-- [x] **Load 隐藏表现资源已有明确所有权边界。** 普通构建、Load Preflight 与未提交 plan 会确定性释放尚未转交的 `ArrayMesh`/`MultiMesh`；成功 commit 后资源归表现层持有，重复 plan cleanup 不会销毁已挂载资源。关键故障逐点注入仍由开放的 `2.3` 负责。
+- [x] **Load 隐藏表现资源已有明确所有权边界。** 普通构建、Load Preflight 与未提交 plan 会确定性释放尚未转交的 `ArrayMesh`/`MultiMesh`；成功 commit 后资源归表现层持有，重复 plan cleanup 不会销毁已挂载资源。关键故障逐点注入已由 2.3 完成。
 
 ## 完成标准
 

@@ -15,13 +15,15 @@
 | 8.3 | 闭合与自交路径没有规范提交格式 | 已完成 | 已建立 closed/full-turn 提交、incoming/incoming 交点规划、rooted seam 与原子重叠/歧义拒绝 |
 | 8.4 | 规范 Edge 尚无稳定 RoadType 领域契约 | 已完成 | 已建立类型化建造、语义边界和拓扑替换继承 |
 | 8.5 | 改造、不可变 root 与规范化没有统一事务身份 | 已完成 | 已建立结构共享 root、原子改造、统一 delta 事件与 lineage/revision/sequence 防护 |
-| 8.6 | 第三代跨系统能力尚未组合验收 | 开放（Phase 8 收口） | 复用既有系统证据，只执行代表性的最终组合、性能与导出门禁，不再扩展微观故障排列 |
+| 8.6 | 第三代跨系统能力尚未组合验收 | 已完成 | Phase 0～8 的自动化、双配置构建、代表性 `MapTest` Vulkan 组合、10k 性能、Windows 导出、Roslyn/GDScript、MCP/DAP 与清理边界均已归档到指南附录 D |
+
+> 阅读说明：本文带日期的进展与复验是当时快照，其中的“保持开放”或旧测试数量不代表当前状态；当前判定以状态总览、详细条目末尾完成证据和指南附录 D 为准。
 
 ### 设计覆盖矩阵
 
 | 设计范围 | 当前事实 | 关联待办 |
 |---|---|---|
-| V3 规范存储、环路与道路分级 | 已完成 mutation 数值/容量、exact-sign line、endpoint-role incidence、六类原生方向、最大连续 Edge、删除后重归一化、半开 query fragment、RoadGroup 移除、公共闭合/自交提交、Edge 级 RoadType 及不可变 root/delta；严格 V3 format v1 reader/writer 已由 `v3-save-system:2.1` 接入，有界 token/恢复协议仍开放 | 8.6、`v3-save-system:2.2`～`2.3`、`v3-grid-rendering:2.0`～`2.3`、`v3-tool-input:2.1`～`2.4`、`v3-ui:1.1`～`1.4` |
+| V3 规范存储、环路与道路分级 | mutation 数值/容量、endpoint-role incidence、六类原生方向、最大连续 Edge、删除后重归一化、半开 query fragment、RoadGroup 移除、公共闭合/自交提交、Edge 级 RoadType 与不可变 root/delta 均已完成；严格 V3 format v1、有界 token/恢复、渲染、工具与 UI 已由各 owning system 验收并在 8.6 汇总 | 8.0～8.6、`v3-save-system:2.1`～`2.3`、`v3-grid-rendering:2.0`～`2.3`、`v3-tool-input:2.0`～`2.4`、`v3-ui:1.1`～`1.4` |
 
 ## 执行顺序
 
@@ -61,7 +63,7 @@
   - 验证证据（2026-08-13）：`dotnet test SimpleCities.sln --no-restore` 为 572/572；`dotnet build SimpleCities.sln --no-restore` 为 0 警告/0 错误；Roslyn CodeLens compiler/analyzer 为 0 diagnostics；6 个修改过的 GDScript 逐文件为 0 diagnostics；`git diff --check` 通过，生产源码和正常 fixture 无 Group 残余。自动化覆盖同向 line 折叠、折角/混合链、跨提交延伸、交叉拆分、删除后重归一化、六类原生细分/重锚、ID 规则、事件摘要、半开边界唯一命中与索引容量。
   - 局部性与性能（2026-08-13）：单 Edge 的 line 长度由 4,096 扩到 65,536、geometry 数由 64 扩到 1,024 后，首/中/尾窗口均为 1 candidate fragment、1 exact test、1 aggregated Edge、0 full scan/visit；两次 Release 复跑的 P95 为 0.0003～0.0007 ms。10k junction-dense 全场景硬门槛均通过，多交叉提交 P95 为 8.281～9.118 ms、平均分配 6,881.2 KiB；100k 压测为 20.152～20.184 ms、46,878.7 KiB。批量交叉只执行 1 次 mutation admission pass，避免逐 Edge 重复扫描整图。
   - Godot Tier 3（2026-08-13）：冻结运行 `Scenes/MapTest.tscn`，通过真实 `RoadBuilder` 提交 16 条平行道路及一条贯穿道路；最终为 50 Node、49 Edge，`RoadRenderer` 接管 49 Edge/196 mesh 顶点/2 static render nodes。editor 增量错误和 DAP `stderr` 均为空，exec holder、测试运行和临时进程已清理。
-  - 验收结果：无分支同向 line 形成 2 Node/1 Edge/1 line geometry，折角和复合曲线形成 1 Edge 与不可约原生链；成功 mutation 后不保留非结构性二 incidence Node，rooted self-loop 不跨 seam 归并。边界命中无漏失/重复，固定窗口精确访问不随同一 Edge 远端规模增长，Group 已从当前生产图和公共结果中完整移除。当前过渡期内部持久化已随 8.4 升为严格 `schemaVersion = 3` 并要求 `roadType`，但仍不是 V3 format v1；`v3-save-system:2.1` 保持开放。
+  - 验收结果：无分支同向 line 形成 2 Node/1 Edge/1 line geometry，折角和复合曲线形成 1 Edge 与不可约原生链；成功 mutation 后不保留非结构性二 incidence Node，rooted self-loop 不跨 seam 归并。边界命中无漏失/重复，固定窗口精确访问不随同一 Edge 远端规模增长，Group 已从当前生产图和公共结果中完整移除。该工作项完成时的严格 `schemaVersion = 3` 仅是过渡期内部持久化；随后已由完成的 `v3-save-system:2.1` 以独立 V3 format v1 取代。
 
 <a id="v3-road-graph8.3"></a>
 
@@ -100,8 +102,8 @@
 
 <a id="v3-road-graph8.6"></a>
 
-- [ ] **8.6 完成第三代道路系统端到端评估**
-  - 当前问题：领域测试不能证明规范存储、环路、类型选择、改造手势、混合渲染、V3 独立存档和命名槽在真实主场景共同成立。
+- [x] **8.6 完成第三代道路系统端到端评估**
+  - 完成前问题：领域测试不能证明规范存储、环路、类型选择、改造手势、混合渲染、V3 独立存档和命名槽在真实主场景共同成立。
   - 修改：按 `docs/manuals/road-system-v3-gen.md` Phase 8 建立组合契约，并把最终证据写回该指南附录 D。
   - 依赖：`v3-road-graph:8.0`～`8.5`、`v3-save-system:2.1`～`2.3`、`v3-grid-rendering:2.0`～`2.3`、`v3-tool-input:2.0`～`2.4`、`v3-ui:1.1`～`1.4`。
   - 集成负责人：`v3-road-graph`。
@@ -285,13 +287,15 @@
 
   - Phase 8 100K 可选压力复验（2026-08-24）：额外运行的 grid、junction-dense、geometry-dense、owner-dense Vulkan 矩阵均 PASS，隔离根已回收；完整结果、统计口径和原理分析见 `docs/performance/road-system-v3-100k-technical-analysis.md`。该证据满足新增论文交付，但不改变 8.6 的 10K 硬门或最终完成判定。
 
+  - 完成证据（2026-08-24）：全部依赖项已由所属系统关闭；BUG-21 聚焦 33/33、完整自动化 959/959、Debug/`ExportRelease` build 0 警告/0 错误。V3 综合、输入策略、render-token 三项互补 `MapTest` Vulkan 契约、junction-dense/geometry-dense 10k、Windows QA 导出的可写与只读 ACL profile、Roslyn production/test compiler+analyzer、三个目标 GDScript、Godot MCP 与 DAP 均通过；隔离根、ACL、项目和进程已收敛。最终结果及日志边界已写入 `docs/manuals/road-system-v3-gen.md` 附录 D，8.6 完成。
+
 ## 暂不执行
 
 ### 交通模拟
 
 - 延期原因：V3 先完成领域合法的 self-loop、parallel Edge、RoadType 和统一事务摘要；模拟层不能反向收窄这些契约。
 - 保持现状：本路线图不实现 `TrafficGraph`、寻路、速度、容量或拥堵。
-- 重新开启条件：`v3-road-graph:8.6` 完成后，由根层 `docs/todo/traffic-simulation.md` 定义模拟映射。
+- 重新开启条件：V3 完成后出现明确的交通模拟产品需求，再由根层 `docs/todo/traffic-simulation.md` 定义模拟映射、预算和验收。
 
 ## 已解决基线
 
@@ -301,7 +305,7 @@
 - [x] **V3 公共闭合、自交与环路规范形已建立。** closed/full-turn、incoming/incoming intersection、离散自交 junction、rooted self-loop 和 parallel Edge 已进入公共提交；连续重叠与 canonical split 歧义在 mutation 前结构化拒绝。后续 RoadType、V3 reader、renderer 和 delta 必须保留 seam、endpoint-role incidence、typed direction 及失败原子性。
 - [x] **V3 Edge 级 RoadType 与类型化提交已建立。** 四个稳定领域值、严格 token、显式 `RoadBuildRequest`、拆分继承、typed merge key、semantic boundary 和覆盖不改造已由 611 项自动化及真实 `MapTest` 混合类型场景验证。后续改造、renderer、V3 reader 和工具选择必须消费 Edge 级类型，不能引入默认类型或把类型塞入几何草稿。
 - [x] **V3 不可变 root、原子改造和统一 delta 身份已建立。** 普通 mutation 结构共享未触碰 Entity/geometry/bucket 页，`CaptureRevision()` 为 O(1)，`GraphChanged` 是唯一事务事件；lineage/revision/sequence token、ID watermark、observer 隔离和重入拒绝均有自动化、Release 远端扩展基准及真实 `MapTest` undo/redo 证据。后续 V3 writer、renderer token 和 full-reset aggregate 必须直接消费该 root/token，不能重新捕获可变图或恢复逐 Edge 事件。
-- [x] **空间索引精确覆盖不变式已改为线性批量校验。** `AssertInvariants()` 先按引用 identity 汇总预期 bounds，再由 `UniformGrid.HasExactCoverage(...)` 单次扫描 bucket entries；缺失、额外、错桶、同桶重复和内部计数不符仍严格拒绝。2026-08-17 再次逐级完成 12k～100k V3 Load/renderer rebuild，100k 为 5129.679 ms，不再因 `reference × bucket` 二次扫描进入 AppHang；invariant + V3 persistence 为 33/33、完整自动化为 833/833。10k 硬门和 Windows QA 导出包 writable 存档契约也已通过，但当前会话未刷新 MCP/DAP，且完整 Phase 7 表现/故障矩阵仍未完成，因此不关闭 `v3-road-graph:8.6`。
+- [x] **空间索引精确覆盖不变式已改为线性批量校验。** `AssertInvariants()` 先按引用 identity 汇总预期 bounds，再由 `UniformGrid.HasExactCoverage(...)` 单次扫描 bucket entries；缺失、额外、错桶、同桶重复和内部计数不符仍严格拒绝。2026-08-24 的 BUG-21 聚焦为 33/33、完整自动化为 959/959，junction-dense/geometry-dense 10k 与四档可选 100K 压力矩阵均通过；Phase 8 的 Roslyn、Godot MCP 与 DAP 门也已补齐。
 - [x] **V2 道路数据层不依赖输入层方向或网格概念。** 任意角度直线、折线和结构化非法路径拒绝已有自动化保护。
 - [x] **V2 原生曲线、二维交叉、查询、删除事务、渲染和存档已通过最终验收。** 这些是 V3 需要以新接口重新验证的玩家能力基线，不要求复用 V2 代码或读取 V2 数据。
 - [x] **V2 规模基线已记录。** V3 性能门槛必须使用同机、同口径对照，不能把后台总耗时误报为主线程无卡顿。

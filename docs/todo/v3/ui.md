@@ -14,6 +14,8 @@
 | 1.3 | DebugPanel 仍把 RoadGroup 数量作为路网指标 | 已完成 | 以不可变 diagnostics snapshot 展示 canonical Node/Edge/geometry/query/self-loop 结构量，并通过可见性与 sequence 门禁避免逐帧全图读取 |
 | 1.4 | 暂停菜单没有异步 Save/Load/Delete 的独占状态机 | 已完成 | operation/render token、generation、busy、Escape、退出收敛、Save As 从 Capture 到越界后、Delete 越界前后、Load 成功/失败/warning、cleanup-pending 与五类 occupant 的代表性结果均已验证；不再穷举等价内部阶段组合 |
 
+> 阅读说明：本文带日期的进展与复验是当时快照，其中的“保持开放”或旧测试数量不代表当前状态；当前判定以状态总览、详细条目末尾完成证据和指南附录 D 为准。
+
 ### 设计覆盖矩阵
 
 | 设计范围 | 当前事实 | 关联待办 |

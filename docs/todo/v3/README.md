@@ -2,13 +2,15 @@
 
 > 适用范围：仅包含第三代道路系统（V3）的系统路线图导航、全局阶段依赖和最终集成归属。
 >
-> 整理日期：2026-08-21
+> 整理日期：2026-08-24
 >
 > 架构与验收规范：[`docs/manuals/road-system-v3-gen.md`](../../manuals/road-system-v3-gen.md)
 
 本目录是 V3 路线图的唯一索引。第二代道路系统及其历史收尾继续由 [`docs/todo/README.md`](../README.md) 导航；V3 之后才启用的交通模拟仍属于 [`docs/todo/traffic-simulation.md`](../traffic-simulation.md)，不纳入本目录。
 
 系统文档是工作项状态、依赖和验收标准的唯一事实来源，本索引不重复各系统的详细要求。目录外引用工作项时必须使用完整的 `<system-key>:<id>`，不能省略 `v3-` 前缀。
+
+各系统文档内带日期的“阶段进展”“切片”“复验”和旧测试数量均是当时快照；即使正文保留“仍开放”字样，当前状态也只以所属文档的状态总览、详细条目末尾完成证据及指南附录 D 为准。
 
 ## 系统导航
 
@@ -36,9 +38,11 @@
 | Phase 7 | `v3-grid-rendering:2.0`～`2.3`、`v3-tool-input:2.0`～`2.4`、`v3-ui:1.1`～`1.4`、`v3-save-system:2.3` | Phase 3～6 | 完成表现、工具、UI、加载参与者和唯一 V3 应用装配；各条目的精确依赖以所属路线图为准 |
 | Phase 8 | `v3-road-graph:8.6` | `v3-road-graph:8.0`～`8.5`、`v3-save-system:2.1`～`2.3`、`v3-grid-rendering:2.0`～`2.3`、`v3-tool-input:2.0`～`2.4`、`v3-ui:1.1`～`1.4` | 汇总全部跨系统证据并完成最终组合验收 |
 
-当前进度（2026-08-24，Phase 8 重新开始）：Phase 1～6、`v3-save-system:2.3` 与 `v3-ui:1.4` 已完成；当前开放项为 `v3-grid-rendering:2.2`～`2.3`、`v3-tool-input:2.4` 与最终集成负责人 `v3-road-graph:8.6`。`b95e295` 上 BUG-21 聚焦 33/33、完整自动化 959/959、双配置 build 0 警告/0 错误，junction-dense 与 geometry-dense 10k 正式 Vulkan 门均 PASS；100k 不作为必需项。V3 综合、输入策略和 render token 三项代表性 Vulkan 组合，以及 Windows QA 导出的可写/只读 ACL profile，也均以退出码 0 输出 PASS。Roslyn production/test compiler+analyzer、GDScript、Godot MCP 冻结 `MapTest` 与 DAP 双通道也已通过。额外的四档 100K 压力矩阵与技术分析已经完成，仍不改变 Phase 8 硬门定义；当前只剩开放项状态和附录 D 的最终一致性审计。
+当前进度（2026-08-24）：Phase 0～8 与五个 owning system 的全部活动工作项已完成，当前没有开放的 V3 活动项。最终硬门包括完整自动化 959/959、双配置 build 0 警告/0 错误、三项互补 `MapTest` Vulkan 组合、junction-dense/geometry-dense 10k、Windows QA 导出的可写/只读 ACL profile、Roslyn/GDScript、Godot MCP 与 DAP；证据已归档到指南附录 D。四档 100K 压力矩阵只作为额外分析，不改变完成定义；交通模拟、高级视觉和分块 mesh 等项目继续保留在各系统“暂不执行”中。
 
 ## 历史进度记录
+
+> 以下内容是当时的阶段快照，其中“仍开放”“未暴露”或旧测试数量只描述对应日期，不代表当前状态；当前判定以本页上方进度、各 owning system 状态总览和指南附录 D 为准。
 
 历史进度快照（2026-08-20）：Phase 1～4 已完成；Phase 5 已完成 `v3-save-system:2.1`～`2.2`，`2.3` 已部分实现 async coordinator、结构化 token/state/result、手动优先与 pending autosave、取消/退出收敛，以及 RoadGraph + 空工具/history + renderer mesh/indexed ribbon-cap-join-patch surface + 槽目标的 non-yield aggregate Load；等待 gate 时外部取消不会再遗留占锁 lease。Phase 6 的 `v3-tool-input:2.3` 已完成：delta/history 双预算通过自动化与 Release 证据，真实 V3 Load 已验证新 lineage 清空旧 undo/redo 与 token。
 
