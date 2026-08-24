@@ -2,6 +2,7 @@ extends SceneTree
 
 const MAP_SCENE := "res://Scenes/MapTest.tscn"
 const MAIN_MENU_SCENE := "res://Scenes/MainMenu.tscn"
+const LOAD_WARNING_PROBE_PATH := "res://tests/godot/RoadLoadObserverFailureProbe.cs"
 const V3_SAVE_FIXTURE := preload("res://tests/godot/v3_save_fixture.gd")
 
 var failed := false
@@ -238,13 +239,90 @@ func run() -> void:
 	assert_selected_slot(save_slot_list, second_ui_slot_id, "second slot after cancel load")
 	await mouse_click(load_save_button)
 	await process_frame
+	var warning_probe_script: Script = load(LOAD_WARNING_PROBE_PATH)
+	assert_true(warning_probe_script != null, "Debug Load warning probe did not load")
+	var warning_probe: RefCounted = warning_probe_script.new()
+	assert_true(warning_probe != null, "Debug Load warning probe did not instantiate")
+	var road_system: Node = map.get_node("RoadSystem")
+	var renderer: Node = map.get_node("RoadSystem/RoadRenderer")
+	warning_probe.Arm(renderer)
+	warning_probe.ArmGraphObserverFailure(road_system)
+	warning_probe.ArmGraphCleanupFailure(road_system)
+	warning_probe.ArmToolCleanupFailure(manager)
+	warning_probe.ArmRendererCleanupFailure(renderer)
+	warning_probe.ArmSlotCleanupFailure(save_manager)
+	warning_probe.ArmPostCommitFailure(save_manager)
 	await activate_focused_with_keyboard(confirm_button)
 	assert_true(save_manager.get("CurrentSlotID") == second_ui_slot_id and save_status.text.contains("已加载"), "Confirmed load did not select the target slot")
+	var expected_ui_load_warnings := PackedStringArray([
+		"RoadGraph observer failed: Injected RoadGraph observer failure.",
+		"Road presentation observer failed: " +
+			"Injected RoadRenderer presentation observer failure.",
+		"Load participant 'road-graph' cleanup failed: " +
+			"Injected RoadGraph load cleanup failure.",
+		"Load participant 'road-tools' cleanup failed: " +
+			"Injected ToolManager load cleanup failure.",
+		"Load participant 'road-presentation' cleanup failed: " +
+			"Injected RoadRenderer load cleanup failure.",
+		"Load participant 'slot-target' cleanup failed: " +
+			"Injected slot target load cleanup failure.",
+		"Load post-commit work failed: " +
+			"Injected aggregate Load post-commit work failure.",
+	])
+	var previous_warning_offset := -1
+	for expected_warning in expected_ui_load_warnings:
+		var warning_offset := save_status.text.find(expected_warning)
+		assert_true(
+			warning_offset > previous_warning_offset,
+			"PauseMenu omitted or reordered Load warning: %s" % expected_warning)
+		previous_warning_offset = warning_offset
+	assert_true(
+		warning_probe.GetTriggerCount() == 1 and
+		warning_probe.GetGraphObserverTriggerCount() == 1 and
+		warning_probe.GetToolCleanupFailureCount() == 1 and
+		warning_probe.GetRendererCleanupFailureCount() == 1 and
+		warning_probe.GetGraphCleanupFailureCount() == 1 and
+		warning_probe.GetSlotCleanupFailureCount() == 1 and
+		warning_probe.GetPostCommitFailureCount() == 1 and
+		not warning_probe.IsGraphObserverFailureArmed() and
+		not warning_probe.IsToolCleanupFailureArmed() and
+		not warning_probe.IsRendererCleanupFailureArmed() and
+		not warning_probe.IsGraphCleanupFailureArmed() and
+		not warning_probe.IsSlotCleanupFailureArmed() and
+		not warning_probe.IsPostCommitFailureArmed(),
+		"PauseMenu Load did not consume every warning probe exactly once")
 	assert_true(not pause_menu.visible and not paused, "Successful load did not close PauseMenu after the matching commit")
 	hud._Input(key_event(KEY_ESCAPE))
 	await process_frame
 	await activate_focused_with_keyboard(load_button)
 	assert_true(save_management_content.visible and paused, "PauseMenu did not reopen save management after successful load")
+	second_ui_index = find_item_by_metadata(save_slot_list, second_ui_slot_id)
+	assert_true(second_ui_index >= 0, "Second manual slot is missing before clean recovery Load")
+	await mouse_click_item(save_slot_list, second_ui_index)
+	await mouse_click(load_save_button)
+	await process_frame
+	await mouse_click(confirm_button)
+	assert_true(
+		save_manager.get("CurrentSlotID") == second_ui_slot_id and
+		save_status.text.contains("已加载") and
+		not save_status.text.contains("Injected"),
+		"Clean PauseMenu Load retained warning text or selected the wrong slot")
+	assert_true(
+		warning_probe.GetTriggerCount() == 1 and
+		warning_probe.GetGraphObserverTriggerCount() == 1 and
+		warning_probe.GetToolCleanupFailureCount() == 1 and
+		warning_probe.GetRendererCleanupFailureCount() == 1 and
+		warning_probe.GetGraphCleanupFailureCount() == 1 and
+		warning_probe.GetSlotCleanupFailureCount() == 1 and
+		warning_probe.GetPostCommitFailureCount() == 1,
+		"Clean PauseMenu Load re-triggered a one-shot warning probe")
+	assert_true(not pause_menu.visible and not paused, "Clean recovery Load did not close PauseMenu")
+	warning_probe.Disarm()
+	warning_probe.FlushPendingManagedFinalizers()
+	hud._Input(key_event(KEY_ESCAPE))
+	await process_frame
+	await activate_focused_with_keyboard(load_button)
+	assert_true(save_management_content.visible and paused, "PauseMenu did not reopen after clean recovery Load")
 
 	first_ui_index = find_item_by_metadata(save_slot_list, first_ui_slot_id)
 	await mouse_click_item(save_slot_list, first_ui_index)
