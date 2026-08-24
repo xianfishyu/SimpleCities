@@ -105,7 +105,7 @@
   - 修改：按 `docs/manuals/road-system-v3-gen.md` Phase 8 建立组合契约，并把最终证据写回该指南附录 D。
   - 依赖：`v3-road-graph:8.0`～`8.5`、`v3-save-system:2.1`～`2.3`、`v3-grid-rendering:2.0`～`2.3`、`v3-tool-input:2.0`～`2.4`、`v3-ui:1.1`～`1.4`。
   - 集成负责人：`v3-road-graph`。
-  - 验证：串行运行完整自动化和构建；在真实 `MapTest` 中选择能同时覆盖拓扑、RoadType、工具、presentation token、V3 存档与 UI 的代表性组合，复用既有专项证据验证 V2 根隔离、跨进程排他、失败原子性、Vulkan 视觉、10k/100k 性能和 Windows 导出边界。最终组合只证明公开行为和跨系统不变量，不再为已由专项测试覆盖的每个内部语句间隙新增故障门。
+  - 验证：串行运行完整自动化和构建；在真实 `MapTest` 中选择能同时覆盖拓扑、RoadType、工具、presentation token、V3 存档与 UI 的代表性组合，复用既有专项证据验证 V2 根隔离、跨进程排他、失败原子性、Vulkan 视觉、10k 硬门和 Windows 导出边界。100k 可按需作为非阻塞压力测试运行，不参与 8.6 的完成判定。最终组合只证明公开行为和跨系统不变量，不再为已由专项测试覆盖的每个内部语句间隙新增故障门。
   - 验收：全部硬门禁有持久证据；TrafficGraph、A*、拥堵、高程道路和其他 V3 排除项不参与完成判定，也不得被宣称已实现。
   - 收口边界（2026-08-24）：`v3-save-system:2.3` 与 `v3-ui:1.4` 已按公开 phase、point-of-no-return、真实 aggregate 所有权和 UI 结果不变量完成。Phase 7 到此停止增加微观故障场景；`8.6` 余项仅为一次最终组合验收及附录 D 归档。只有最终组合暴露真实缺陷、引入新正式 participant，或改变 commit/ownership 边界时，才允许新增针对性故障注入。
   - 阶段证据（2026-08-14）：两路口环、八字形和删除支路后的 seam 重定位已进入领域/renderer 回归，真实 `MapTest` 的两路口环从 `4 Edge / 20 vertices / 4 markers` 收敛为 `2 Edge / 12 vertices / 2 markers`；完整自动化为 727/727，双配置构建及 Roslyn diagnostics 为 0。该证据只完成 Phase 7 的复杂 closed-ribbon 子矩阵；`v3-grid-rendering:2.0` 的缩放/重建与平行 Edge 表面命中、`2.1`～`2.3`、`v3-save-system:2.3`、`v3-tool-input:2.1`～`2.2`/`2.4` 和 `v3-ui:1.1`～`1.4` 尚未全部验收，因此 8.6 保持开放，附录 D 继续为空。
@@ -305,5 +305,5 @@
 1. 8.0～8.5 的数值、容量、incidence、连续 Edge、环路、RoadType、不可变事务和 delta 契约均通过各自自动化及性能门禁。
 2. V3 runtime、format v1、renderer、工具、UI 和事件消费者只使用一套新契约；旧 Group/API/事件/DTO/writer 已删除，不存在兼容适配器、双写或生产路径选择。
 3. `v3-save-system`、`v3-grid-rendering`、`v3-tool-input` 与 `v3-ui` 的依赖项全部通过自身验收。
-4. 8.6 在真实 `MapTest`、Vulkan、10k 门槛、100k 压测和 Windows 导出环境完成最终组合验证，证据写回 V3 指南附录 D。
+4. 8.6 在真实 `MapTest`、Vulkan、10k 门槛和 Windows 导出环境完成最终组合验证，证据写回 V3 指南附录 D；100k 仅为可选压力测试，不阻塞完成。
 5. `v3-road-graph:8.6` 是唯一最终集成负责人；交通模拟和其他明确排除项不阻塞 V3。

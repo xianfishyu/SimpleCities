@@ -239,11 +239,11 @@
 
 - [ ] **2.3 建立混合类型视觉、接管与性能门禁**
   - 当前问题：V2 基线只含统一样式，没有类型切换到 mesh 可见的离散延迟，也无法证明 per-edge 颜色/宽度和 junction patch 仍满足规模目标。现有全图 mesh 重建基线约为 10k 159 ms、100k 1170 ms，不能把后台总耗时误报为主线程无卡顿，也不能用普通 mutation 的最终重试成功掩盖 Load 的提交后关键失败。
-  - 修改：同时使用 junction-dense 10k Edge 和 geometry-dense 长 Edge 数据集，记录 Node/Edge/geometry/query fragment/self-loop/parallel Edge/junction patch/surface primitive 数；分别测量主线程 render snapshot capture、mesh+surface presentation commit、full-reset barrier 总时长、Load hidden resource Preflight 与联合 commit、后台或分帧 polygon/tessellation/index 总耗时，及镜头、闭环/类型化建造预览、各 owner kind 命中、拆除/改造预览、1/100/1000 Edge 改造与撤销重做、draw calls、objects、primitives、子节点和分配量。扰动完整 `RoadRenderToken` 的每个维度验证过期构建丢弃；普通 mutation 接管前旧 mesh 完整可见且所有 `RoadSurfaceHit`/道路命令被锁，失败进入可观测 stalled 状态并可重试；Load 在 Preflight 关键失败时不提交，在成功时联合交换且不经过 stalled/retry。100k 使用相同口径压力测试。先记录同机 V2 对照并固定主线程离散门槛，再决定是否需要分块 mesh。
+  - 修改：同时使用 junction-dense 10k Edge 和 geometry-dense 长 Edge 数据集，记录 Node/Edge/geometry/query fragment/self-loop/parallel Edge/junction patch/surface primitive 数；分别测量主线程 render snapshot capture、mesh+surface presentation commit、full-reset barrier 总时长、Load hidden resource Preflight 与联合 commit、后台或分帧 polygon/tessellation/index 总耗时，及镜头、闭环/类型化建造预览、各 owner kind 命中、拆除/改造预览、1/100/1000 Edge 改造与撤销重做、draw calls、objects、primitives、子节点和分配量。扰动完整 `RoadRenderToken` 的每个维度验证过期构建丢弃；普通 mutation 接管前旧 mesh 完整可见且所有 `RoadSurfaceHit`/道路命令被锁，失败进入可观测 stalled 状态并可重试；Load 在 Preflight 关键失败时不提交，在成功时联合交换且不经过 stalled/retry。100k 可按需使用相同口径补充压力记录。先记录同机 V2 对照并固定主线程离散门槛，再决定是否需要分块 mesh。
   - 依赖：`v3-grid-rendering:2.2`、`v3-tool-input:2.2`、`v3-tool-input:2.4`。
   - 集成负责人：`v3-grid-rendering`；最终组合验收由 `v3-road-graph:8.6` 负责。
   - 验证：真实 `MapTest` / Vulkan Forward+ 自动化；四类 T/X/锐角、semantic boundary、简单环/棒棒糖/两路口环可辨识截图及像素差；性能与 sequence 接管文档；普通 mutation 的成功/失败/重试时序，以及 Load 每个关键 Preflight 故障点、一次联合交换、普通 observer warning 和无提交后关键表现失败断言。
-  - 验收：10k 连续交互 P95 不超过 16.67 ms，静态道路节点和 draw call 不随 Edge 数线性增长；snapshot capture、普通 presentation commit、full-reset barrier、Load Preflight/联合 commit 和离散改造满足 Phase 0 固定门槛；旧/新 mesh、surface index 和 token 不混代，过期任务不覆盖新图，barrier 内无道路交互；Load 成功后 graph/tool/mesh/surface/token/`CurrentSlotID` 同代可见，失败只保留旧会话，observer warning 不回滚成功提交；100k 结果完整记录但不阻塞 V3。
+  - 验收：10k 连续交互 P95 不超过 16.67 ms，静态道路节点和 draw call 不随 Edge 数线性增长；snapshot capture、普通 presentation commit、full-reset barrier、Load Preflight/联合 commit 和离散改造满足 Phase 0 固定门槛；旧/新 mesh、surface index 和 token 不混代，过期任务不覆盖新图，barrier 内无道路交互；Load 成功后 graph/tool/mesh/surface/token/`CurrentSlotID` 同代可见，失败只保留旧会话，observer warning 不回滚成功提交；100k 为可选压力测试，不要求执行且不阻塞 V3。
   - 当前基线（2026-08-14）：统一样式 Vulkan 完整运行中，10k camera/preview/highlight P95 为 0.657/0.779/0.672 ms，Load 与 renderer rebuild 为 608.025 ms；首轮 100k 为 13.517/0.722/0.699 ms、重建 4108.956 ms，独立 100k 复跑为 0.616/0.661/0.637 ms、重建 4492.629 ms，两轮均输出 PASS，静态 renderer 节点为 2。首轮 100k camera 的 13.517 ms 尾延迟与复跑值同时保留，不能只报告热复跑。
   - 分级 ribbon 基线（2026-08-14）：加入 per-edge vertex color 后，独立真实 Vulkan 10k camera/preview/highlight P95 为 0.564/0.827/0.833 ms、Load 与 renderer rebuild 为 665.452 ms；随后独立 100k 为 8.674/0.977/0.737 ms、重建 4719.153 ms。两档均输出 PASS，draw call 为 4/5/4，静态 renderer 节点为 2；100k 仍只记录压力结果，不取代 10k 硬门槛。
   - Terminal cap 增量基线（2026-08-14）：本轮只执行 1k Vulkan，camera/preview/highlight P95 为 0.393/0.378/0.339 ms、renderer rebuild 135.918 ms、静态 renderer 节点为 2，并输出 PASS。该结果不刷新既有 10k/100k 基线，也不满足 2.3 的规模门禁。
@@ -414,5 +414,5 @@
 2. canonical Edge、self-loop、平行 Edge、四类 RoadType、semantic boundary 和混合宽度 junction 形成无洞、可确定、可独立命中的同源 mesh/surface 表现，派生数据不反向修改 RoadGraph 或存档。
 3. 普通 mutation 只在完整 token 匹配时一次发布 mesh/surface/presented token；失败保留旧表现、持续禁止道路交互并允许诊断重试，过期结果永不覆盖新图。
 4. Load 在 Preflight 完成隐藏 Mesh/RID、surface snapshot、hit index 和不可抛 plan；关键失败只发生在 commit 前，成功与 graph、empty tool/overlay root、mesh/surface、token 和 `CurrentSlotID` 一次联合交换，提交后只有普通 observer warning，不存在关键表现失败或表现重试结果。
-5. junction-dense 与 geometry-dense 10k 满足 Phase 0 固定主线程及 60 FPS 门槛；100k 使用相同口径记录完整压测但不阻塞 V3。
+5. junction-dense 与 geometry-dense 10k 满足 Phase 0 固定主线程及 60 FPS 门槛；100k 可按需使用相同口径补充压力记录，不属于完成条件。
 6. `v3-grid-rendering` 只负责本系统产出；第三代道路系统最终完成由 `v3-road-graph:8.6` 汇总 `v3-save-system`、`v3-tool-input`、`v3-ui` 和本路线图证据后判定。

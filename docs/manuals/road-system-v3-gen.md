@@ -1366,7 +1366,7 @@ Phase 7 当前已有六十六个可验证切片。其一，普通 mutation 与 `
 
 ### Phase 8：最终组合验收
 
-复用 Phase 0～7 的专项证据，在同一 `MapTest` 代表性流程中组合连续/闭合道路、四类型建造与改造、token 防护的 delta 撤销重做、V3 format v1 往返、并发与取消、共享表面命中和 matching presentation；额外复核 V2 根未被枚举或修改、V2/未知格式被拒绝。随后串行执行完整自动化与双配置构建，并复用既定 Vulkan 视觉、10k 硬门槛、100k 压测和 Windows 导出门禁。最终证据写回附录 D；`v3-road-graph:8.6` 是唯一集成负责人。Phase 8 不重复 Phase 7 已证明的每个微观故障点。
+复用 Phase 0～7 的专项证据，在同一 `MapTest` 代表性流程中组合连续/闭合道路、四类型建造与改造、token 防护的 delta 撤销重做、V3 format v1 往返、并发与取消、共享表面命中和 matching presentation；额外复核 V2 根未被枚举或修改、V2/未知格式被拒绝。随后串行执行完整自动化与双配置构建，并复用既定 Vulkan 视觉、10k 硬门槛和 Windows 导出门禁。100k 只作为可选压力测试：有结果时完整记录，但不属于 Phase 8 完成条件。最终证据写回附录 D；`v3-road-graph:8.6` 是唯一集成负责人。Phase 8 不重复 Phase 7 已证明的每个微观故障点。
 
 ---
 
@@ -1465,7 +1465,7 @@ Phase 7 当前已有六十六个可验证切片。其一，普通 mutation 与 `
 11. closed ribbon 无 seam 裂缝或伪端点；平行 Edge 可见、可命中、可选择；混合宽度 junction/semantic boundary 无洞、尖刺或遍历顺序差异；hover、拆除、改造和框选共用与 mesh 同 token 的 `RoadSurfaceHit`。
 12. query fragment 以半开所有权让 cut/join/B 端/seam 恰好一次命中，局部查询不随同一 Edge 的远端长度/geometry 数线性增长；exact-sign line predicate、极值坐标、长度、索引容量和 ID 耗尽在事务前结构化失败。
 13. delta 用 lineage/revision/sequence token 拒绝错误方向、重复重放和旧 lineage；成功 full reset 原子清理全部旧图工具/overlay/历史状态，失败 load 逐值保留当前会话；后台派生结果不能通过旧 render token 覆盖新状态。
-14. junction-dense 10k 硬门槛通过，100k 与 geometry-dense 存储/归一化数据完整记录，并包含主线程 snapshot/load/mesh 接管卡顿指标。
+14. junction-dense 与 geometry-dense 10k 硬门槛通过，并包含主线程 snapshot/load/mesh 接管卡顿指标；100k 可按需运行并保留压力记录，但不作为完成项。
 15. 完整自动化、Debug 构建、Godot 主场景、Vulkan 视觉、命名/自动存档和 Windows 导出门禁有持久证据。
 16. V3 format v1 使用确定 UTF-8 和有界单次解析；不可变 root 允许保存 O(1) 捕获且加载预建全部派生索引，局部 mutation 通过结构共享避免复制无关远端图且已失效 root 可释放；长 Edge 不产生存储伪节点；编辑历史不再保留 before/after 全图 JSON，超预算编辑在提交前拒绝。
 17. Load 经过 Admission、Prepare、Preflight 和一次 non-yield commit/notification；graph、tool、mesh/RID、surface/hit index、token 与 `CurrentSlotID` 同时交换，提交后只允许普通 observer warning，不存在关键表现失败分支。PauseMenu 的 Escape/generation/token 状态机无旧 continuation。

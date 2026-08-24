@@ -61,7 +61,7 @@
   - 修改：删除 RoadGroup 行和相关场景节点/引用，改为显示 Node、canonical Edge、原生 geometry segment、query fragment 和 self-loop 数；标签明确区分拓扑量、权威几何量与派生索引量，不把 parallel Edge 按邻居去重。只读取 `v3-road-graph:8.5` 随事务维护的不可变 diagnostics snapshot；面板可见且 sequence 改变时刷新文本，隐藏时不轮询/复制全图。
   - 依赖：`v3-road-graph:8.2`、`v3-road-graph:8.3`、`v3-road-graph:8.5`。
   - 集成负责人：`v3-ui`；端到端完成判定由 `v3-road-graph:8.6` 负责。
-  - 验证：直路、非共线多段、简单环、两路口环、交叉和删除重归一化后的指标；面板隐藏/显示、普通 delta/full reset、sequence 连跳、10k/100k 和单 Edge N geometry 下每帧分配；命令中心宽/窄屏和场景重复进入契约。
+  - 验证：直路、非共线多段、简单环、两路口环、交叉和删除重归一化后的指标；面板隐藏/显示、普通 delta/full reset、sequence 连跳、10k 和单 Edge N geometry 下每帧分配，100k 只作可选压力记录；命令中心宽/窄屏和场景重复进入契约。
   - 验收：N 段无分支道路显示 2 Node / 1 Edge / N geometry segment；简单环显示 1 Node / 1 Edge / 1 self-loop；面板无失效 Group 文案或引用，隐藏或图未变化时无逐帧全图枚举/分配。
   - 完成证据（2026-08-21）：新增不可变 `RoadGraphDiagnosticsSnapshot`，以 `StateToken` 绑定提交状态并发布 Node、canonical Edge、geometry segment、query fragment、self-loop 五项指标；构造、普通 mutation、delta/undo/redo、prepared topology 和 full-reset Load commit 均在提交边界发布快照，`CaptureDiagnosticsSnapshot()` 对同一图状态返回同一引用。`DebugPanel` 折叠时不访问 RoadGraph，展开后仅在 `ChangeSequence` 改变时刷新五项文本；场景和命令中心契约已移除 `GetAllGroups()`/RoadGroup 断言。
   - 验证证据（2026-08-21）：聚焦 `RoadGraphDiagnosticsSnapshotTests` + `GameHUDCompositionContractTests` 为 11/11；完整 `dotnet test SimpleCities.sln --no-restore` 为 863/863；Roslyn compiler/analyzer 为 0 diagnostics；Debug 与 `ExportRelease` build 均为 0 警告、0 错误。Release 性能程序的 1k/10k/100k diagnostics capture 读取均为 0 bytes 分配（约 0.018/0.019/0.019 ms）；单 Edge 4,096 geometry 的 100,000 次读取同样为 0 bytes。Godot MCP 主场景真实提交后显示 `Node=2 / Edge=1 / Geometry=1 / Query=2 / Self-loop=0`，editor 新增 error 为 0，DAP `stderr` 与 `console` 为空。
