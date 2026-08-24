@@ -223,6 +223,7 @@ internal sealed class SaveSlotStore
             _publicationObserver?.Invoke(SavePublicationPhase.Staged);
             operationLease.ThrowIfCancellationRequested();
             operationLease.AcquireCommitLease();
+            _publicationObserver?.Invoke(SavePublicationPhase.CommitLeaseAcquired);
         }
         catch
         {
@@ -1517,6 +1518,7 @@ internal sealed class SaveSlotStore
 internal enum SavePublicationPhase
 {
     Staged,
+    CommitLeaseAcquired,
     PreviousSlotMoved,
     CanonicalPublished,
     DeletionDescriptorPublished,

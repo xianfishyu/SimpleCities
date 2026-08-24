@@ -395,6 +395,95 @@ func run() -> void:
 		not save_as_button.disabled and not save_management_back_button.disabled,
 		"Canceled staged Save As did not restore its input controls or manager idle state")
 
+	var slot_before_pre_commit_boundary_save_as: String = save_manager.get("CurrentSlotID")
+	save_name_input.text = "Runtime UI pre-boundary canceled save as"
+	publish_operation_probe.ArmPreCommitBoundaryGate(save_manager)
+	assert_true(
+		publish_operation_probe.IsPreCommitBoundaryGateArmed(),
+		"Save publish pre-commit-boundary gate did not arm")
+	save_as_button.emit_signal("pressed")
+	var pre_commit_boundary_save_as_token := str(pause_menu.get("ActiveSaveOperationToken"))
+	save_as_button.emit_signal("pressed")
+	var duplicate_pre_commit_boundary_save_as_token := str(
+		pause_menu.get("ActiveSaveOperationToken"))
+	var publish_pre_commit_boundary_gate_entered := await wait_for_publish_pre_commit_boundary_gate(
+		pause_menu,
+		publish_operation_probe)
+	var pre_commit_boundary_transaction_root_present := DirAccess.dir_exists_absolute(
+		transaction_failure_marker_absolute)
+	pause_menu._Input(key_event(KEY_ESCAPE))
+	pause_menu._Input(key_event(KEY_ESCAPE))
+	var pre_commit_boundary_cancel_requested_before_release := bool(
+		pause_menu.get("ActiveSaveOperationCancelRequested"))
+	var pre_commit_boundary_cancel_request_count_before_release := int(
+		publish_operation_probe.GetPreCommitBoundaryCancelRequestCount())
+	var pre_commit_boundary_cancel_request_token_before_release := str(
+		publish_operation_probe.GetPreCommitBoundaryCancelOperationToken())
+	var pre_commit_boundary_phase_before_release := int(
+		pause_menu.get("ActiveSaveOperationPhase"))
+	var pre_commit_boundary_crossed_boundary_before_release := bool(
+		pause_menu.get("ActiveSaveOperationCrossedBoundary"))
+	var pre_commit_boundary_controls_disabled_before_release := (
+		not save_name_input.editable and save_as_button.disabled and
+		overwrite_save_button.disabled and load_save_button.disabled and
+		delete_save_button.disabled and save_management_back_button.disabled)
+	var pre_commit_boundary_name_before_release := save_name_input.text
+	publish_operation_probe.ReleasePreCommitBoundaryGate()
+	var pre_commit_boundary_save_as_reached_idle := await wait_for_save_operation_idle(pause_menu)
+	await process_frame
+	var pre_commit_boundary_save_as_result: Dictionary = save_manager.GetOperationResult(
+		pre_commit_boundary_save_as_token)
+	var pre_commit_boundary_save_as_target_id := str(
+		pre_commit_boundary_save_as_result.get("targetSlotID", ""))
+	var publish_pre_commit_boundary_gate_trigger_count := int(
+		publish_operation_probe.GetPreCommitBoundaryGateTriggerCount())
+	var pre_commit_boundary_transaction_root_removed := not DirAccess.dir_exists_absolute(
+		transaction_failure_marker_absolute)
+	publish_operation_probe.Disarm()
+	assert_true(
+		publish_pre_commit_boundary_gate_entered and
+		not pre_commit_boundary_save_as_token.is_empty() and
+		pre_commit_boundary_save_as_token == duplicate_pre_commit_boundary_save_as_token and
+		publish_pre_commit_boundary_gate_trigger_count == 1,
+		"Repeated pre-boundary Save As activation started or replaced the active operation token")
+	assert_true(
+		pre_commit_boundary_cancel_requested_before_release and
+		pre_commit_boundary_cancel_request_count_before_release == 1 and
+		pre_commit_boundary_cancel_request_token_before_release == pre_commit_boundary_save_as_token,
+		"Repeated Escape did not collapse to one pre-boundary Save As cancellation request")
+	assert_true(
+		pre_commit_boundary_transaction_root_present and
+		pre_commit_boundary_phase_before_release == SAVE_OPERATION_PHASE_PUBLISH and
+		not pre_commit_boundary_crossed_boundary_before_release and
+		pre_commit_boundary_controls_disabled_before_release and
+		pre_commit_boundary_name_before_release == "Runtime UI pre-boundary canceled save as" and
+		pause_menu.visible and paused and save_management_content.visible,
+		"Pre-boundary Save As did not retain its cancellable paused exclusive state")
+	assert_true(
+		pre_commit_boundary_save_as_reached_idle,
+		"Canceled pre-boundary Save As did not reach a terminal state")
+	assert_true(
+		int(pre_commit_boundary_save_as_result.get("resultKind", -1)) ==
+			SAVE_OPERATION_RESULT_CANCELED and
+		int(pre_commit_boundary_save_as_result.get("finalPhase", -1)) ==
+			SAVE_OPERATION_PHASE_PUBLISH and
+		not bool(pre_commit_boundary_save_as_result.get("committed", true)),
+		"Pre-boundary Save As cancellation did not publish an uncommitted Canceled result")
+	assert_true(
+		pre_commit_boundary_save_as_target_id.begins_with("manual-") and
+		not save_manager.SaveSlotExists(pre_commit_boundary_save_as_target_id) and
+		save_manager.get("CurrentSlotID") == slot_before_pre_commit_boundary_save_as and
+		count_items_with_prefix(
+			save_slot_list,
+			"手动  ·  Runtime UI pre-boundary canceled save as") == 0 and
+		save_name_input.text == "Runtime UI pre-boundary canceled save as" and
+		save_status.text.contains("操作已取消") and pre_commit_boundary_transaction_root_removed,
+		"Canceled pre-boundary Save As published a slot, leaked staging, or changed UI state")
+	assert_true(
+		not bool(save_manager.get("IsOperationBusy")) and save_name_input.editable and
+		not save_as_button.disabled and not save_management_back_button.disabled,
+		"Canceled pre-boundary Save As did not restore its input controls or manager idle state")
+
 	save_name_input.text = "Runtime UI duplicate"
 	publish_operation_probe.ArmPostCommitGate(save_manager)
 	assert_true(publish_operation_probe.IsPostCommitGateArmed(), "Save publish post-commit gate did not arm")
@@ -1010,6 +1099,17 @@ func wait_for_publish_staged_gate(pause_menu: Node, probe: RefCounted) -> bool:
 			bool(probe.HasEnteredStagedGate()) and
 			not bool(pause_menu.get("ActiveSaveOperationCrossedBoundary")) and
 			int(pause_menu.get("ActiveSaveOperationPhase")) == SAVE_OPERATION_PHASE_PREPARE
+		):
+			return true
+		await process_frame
+	return false
+
+func wait_for_publish_pre_commit_boundary_gate(pause_menu: Node, probe: RefCounted) -> bool:
+	for _frame in 600:
+		if (
+			bool(probe.HasEnteredPreCommitBoundaryGate()) and
+			not bool(pause_menu.get("ActiveSaveOperationCrossedBoundary")) and
+			int(pause_menu.get("ActiveSaveOperationPhase")) == SAVE_OPERATION_PHASE_PUBLISH
 		):
 			return true
 		await process_frame

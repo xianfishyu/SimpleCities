@@ -29,11 +29,22 @@ public partial class SavePublishOperationProbe : Godot.RefCounted
         _saveManager = saveManager;
     }
 
+    public void ArmPreCommitBoundaryGate(SaveManager saveManager)
+    {
+        ArgumentNullException.ThrowIfNull(saveManager);
+        Disarm();
+        saveManager.ArmNextPublishPreCommitBoundaryGate();
+        _saveManager = saveManager;
+    }
+
     public void ReleasePrepareGate() =>
         _saveManager?.ReleasePublishPrepareGate();
 
     public void ReleaseStagedGate() =>
         _saveManager?.ReleasePublishStagedGate();
+
+    public void ReleasePreCommitBoundaryGate() =>
+        _saveManager?.ReleasePublishPreCommitBoundaryGate();
 
     public void ReleasePostCommitGate() =>
         _saveManager?.ReleasePublishPostCommitGate();
@@ -42,6 +53,7 @@ public partial class SavePublishOperationProbe : Godot.RefCounted
     {
         _saveManager?.DisarmPublishPrepareGate();
         _saveManager?.DisarmPublishStagedGate();
+        _saveManager?.DisarmPublishPreCommitBoundaryGate();
         _saveManager?.DisarmPublishPostCommitGate();
         _saveManager = null;
     }
@@ -76,6 +88,21 @@ public partial class SavePublishOperationProbe : Godot.RefCounted
     public string GetStagedCancelOperationToken() =>
         _saveManager?.GetPublishStagedGateCancelOperationToken() ?? string.Empty;
 
+    public bool IsPreCommitBoundaryGateArmed() =>
+        _saveManager?.IsPublishPreCommitBoundaryGateArmed() ?? false;
+
+    public bool HasEnteredPreCommitBoundaryGate() =>
+        _saveManager?.HasEnteredPublishPreCommitBoundaryGate() ?? false;
+
+    public int GetPreCommitBoundaryGateTriggerCount() =>
+        _saveManager?.GetPublishPreCommitBoundaryGateTriggerCount() ?? 0;
+
+    public int GetPreCommitBoundaryCancelRequestCount() =>
+        _saveManager?.GetPublishPreCommitBoundaryGateCancelRequestCount() ?? 0;
+
+    public string GetPreCommitBoundaryCancelOperationToken() =>
+        _saveManager?.GetPublishPreCommitBoundaryGateCancelOperationToken() ?? string.Empty;
+
     public bool IsPostCommitGateArmed() =>
         _saveManager?.IsPublishPostCommitGateArmed() ?? false;
 
@@ -98,6 +125,8 @@ public partial class SaveManager
         "Timed out waiting to release the Save publish Prepare test gate.";
     private const string PublishStagedGateTimeoutMessage =
         "Timed out waiting to release the Save publish staged test gate.";
+    private const string PublishPreCommitBoundaryGateTimeoutMessage =
+        "Timed out waiting to release the Save publish pre-commit-boundary test gate.";
     private const string PublishPostCommitGateTimeoutMessage =
         "Timed out waiting to release the Save publish post-commit test gate.";
     private static readonly TimeSpan PublishOperationGateTimeout = TimeSpan.FromSeconds(15);
@@ -114,6 +143,12 @@ public partial class SaveManager
     private int _publishStagedGateTriggerCount;
     private int _publishStagedGateCancelRequestCount;
     private string _publishStagedGateCancelOperationToken = string.Empty;
+    private readonly ManualResetEventSlim _publishPreCommitBoundaryGateRelease = new(initialState: true);
+    private int _publishPreCommitBoundaryGateArmed;
+    private int _publishPreCommitBoundaryGateEntered;
+    private int _publishPreCommitBoundaryGateTriggerCount;
+    private int _publishPreCommitBoundaryGateCancelRequestCount;
+    private string _publishPreCommitBoundaryGateCancelOperationToken = string.Empty;
     private readonly ManualResetEventSlim _publishPostCommitGateRelease = new(initialState: true);
     private int _publishPostCommitGateArmed;
     private int _publishPostCommitGateEntered;
@@ -135,6 +170,12 @@ public partial class SaveManager
             Interlocked.Increment(ref _publishStagedGateCancelRequestCount);
         }
 
+        if (Volatile.Read(ref _publishPreCommitBoundaryGateEntered) != 0)
+        {
+            _publishPreCommitBoundaryGateCancelOperationToken = operationToken;
+            Interlocked.Increment(ref _publishPreCommitBoundaryGateCancelRequestCount);
+        }
+
         if (Volatile.Read(ref _publishPostCommitGateEntered) != 0)
         {
             _publishPostCommitGateCancelOperationToken = operationToken;
@@ -146,6 +187,8 @@ public partial class SaveManager
     {
         if (Volatile.Read(ref _publishStagedGateArmed) != 0)
             store = new SaveSlotStore(_resolvedSaveBaseDir, WaitAtPublishStaged);
+        else if (Volatile.Read(ref _publishPreCommitBoundaryGateArmed) != 0)
+            store = new SaveSlotStore(_resolvedSaveBaseDir, WaitAtPublishPreCommitBoundary);
         else if (Volatile.Read(ref _publishPostCommitGateArmed) != 0)
             store = new SaveSlotStore(_resolvedSaveBaseDir, WaitAtPublishPostCommit);
 
@@ -204,6 +247,27 @@ public partial class SaveManager
         finally
         {
             Volatile.Write(ref _publishPostCommitGateEntered, 0);
+        }
+    }
+
+    private void WaitAtPublishPreCommitBoundary(SavePublicationPhase phase)
+    {
+        if (phase != SavePublicationPhase.CommitLeaseAcquired ||
+            Interlocked.Exchange(ref _publishPreCommitBoundaryGateArmed, 0) == 0)
+        {
+            return;
+        }
+
+        Interlocked.Increment(ref _publishPreCommitBoundaryGateTriggerCount);
+        Volatile.Write(ref _publishPreCommitBoundaryGateEntered, 1);
+        try
+        {
+            if (!_publishPreCommitBoundaryGateRelease.Wait(PublishOperationGateTimeout))
+                throw new TimeoutException(PublishPreCommitBoundaryGateTimeoutMessage);
+        }
+        finally
+        {
+            Volatile.Write(ref _publishPreCommitBoundaryGateEntered, 0);
         }
     }
 
@@ -294,6 +358,50 @@ public partial class SaveManager
 
     internal string GetPublishStagedGateCancelOperationToken() =>
         _publishStagedGateCancelOperationToken;
+
+    internal void ArmNextPublishPreCommitBoundaryGate()
+    {
+        if (IsOperationBusy)
+        {
+            throw new InvalidOperationException(
+                "SaveManager must be idle before arming its publish pre-commit-boundary test gate.");
+        }
+        if (Interlocked.CompareExchange(ref _publishPreCommitBoundaryGateArmed, 1, 0) != 0)
+        {
+            throw new InvalidOperationException(
+                "Save publish pre-commit-boundary test gate is already armed.");
+        }
+
+        Interlocked.Exchange(ref _publishPreCommitBoundaryGateTriggerCount, 0);
+        Interlocked.Exchange(ref _publishPreCommitBoundaryGateCancelRequestCount, 0);
+        _publishPreCommitBoundaryGateCancelOperationToken = string.Empty;
+        Volatile.Write(ref _publishPreCommitBoundaryGateEntered, 0);
+        _publishPreCommitBoundaryGateRelease.Reset();
+    }
+
+    internal void ReleasePublishPreCommitBoundaryGate() =>
+        _publishPreCommitBoundaryGateRelease.Set();
+
+    internal void DisarmPublishPreCommitBoundaryGate()
+    {
+        Interlocked.Exchange(ref _publishPreCommitBoundaryGateArmed, 0);
+        _publishPreCommitBoundaryGateRelease.Set();
+    }
+
+    internal bool IsPublishPreCommitBoundaryGateArmed() =>
+        Volatile.Read(ref _publishPreCommitBoundaryGateArmed) != 0;
+
+    internal bool HasEnteredPublishPreCommitBoundaryGate() =>
+        Volatile.Read(ref _publishPreCommitBoundaryGateEntered) != 0;
+
+    internal int GetPublishPreCommitBoundaryGateTriggerCount() =>
+        Volatile.Read(ref _publishPreCommitBoundaryGateTriggerCount);
+
+    internal int GetPublishPreCommitBoundaryGateCancelRequestCount() =>
+        Volatile.Read(ref _publishPreCommitBoundaryGateCancelRequestCount);
+
+    internal string GetPublishPreCommitBoundaryGateCancelOperationToken() =>
+        _publishPreCommitBoundaryGateCancelOperationToken;
 
     internal void ArmNextPublishPostCommitGate()
     {

@@ -523,4 +523,50 @@ public sealed class PauseMenuContractTests
             probe,
             StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void PublishPreCommitBoundaryGate_IsAfterCommitLeaseAndBeforeCanonicalBoundary()
+    {
+        string slotStore = File.ReadAllText(SaveSlotStorePath);
+        string probe = File.ReadAllText(PublishOperationProbePath);
+
+        int publishStart = slotStore.IndexOf(
+            "private SavePublishResult SaveCore(",
+            StringComparison.Ordinal);
+        int publishEnd = slotStore.IndexOf(
+            "public int Load(",
+            publishStart,
+            StringComparison.Ordinal);
+        Assert.True(publishStart >= 0 && publishEnd > publishStart);
+        string publish = slotStore[publishStart..publishEnd];
+        int commitLease = publish.IndexOf(
+            "operationLease.AcquireCommitLease();",
+            StringComparison.Ordinal);
+        int preCommitBoundaryObserver = publish.IndexOf(
+            "_publicationObserver?.Invoke(SavePublicationPhase.CommitLeaseAcquired);",
+            StringComparison.Ordinal);
+        int boundary = publish.IndexOf(
+            "operationLease.CrossCommitBoundary(",
+            preCommitBoundaryObserver,
+            StringComparison.Ordinal);
+        Assert.True(commitLease >= 0 && commitLease < preCommitBoundaryObserver);
+        Assert.True(preCommitBoundaryObserver < boundary);
+
+        Assert.Contains(
+            "store = new SaveSlotStore(_resolvedSaveBaseDir, WaitAtPublishPreCommitBoundary);",
+            probe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "phase != SavePublicationPhase.CommitLeaseAcquired",
+            probe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "Volatile.Write(ref _publishPreCommitBoundaryGateEntered, 1);",
+            probe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "Interlocked.Increment(ref _publishPreCommitBoundaryGateCancelRequestCount);",
+            probe,
+            StringComparison.Ordinal);
+    }
 }
