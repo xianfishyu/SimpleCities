@@ -236,6 +236,35 @@ public sealed class RoadSurfaceSnapshotTests
         Assert.Equal(new RoadLocation(3, 0, 0f), edgeHit.Location);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void PointQueryChoosesNearestCenterlineAcrossOverlappingWidthsRegardlessOfEnumeration(
+        bool reverseEnumeration)
+    {
+        RoadSurfaceTriangle[] wide = Quad(edgeID: 3, y: 0f, halfWidth: 4f);
+        RoadSurfaceTriangle[] narrow = Quad(edgeID: 9, y: 2f, halfWidth: 1f);
+        RoadSurfaceTriangle[] triangles = reverseEnumeration
+            ? [.. narrow.Reverse(), .. wide.Reverse()]
+            : [.. wide, .. narrow];
+        var snapshot = new RoadSurfaceSnapshot(Token(), triangles);
+
+        RoadSurfaceHit overlapHit = Assert.IsType<RoadSurfaceHit>(
+            snapshot.FindClosest(new Vector2(5f, 1.5f), maxSurfaceDistance: 0f));
+
+        Assert.Equal(RoadSurfaceOwnerKind.EdgeRibbon, overlapHit.OwnerKind);
+        Assert.Equal(9, overlapHit.EdgeID);
+        Assert.Equal(0f, overlapHit.SurfaceDistance);
+        Assert.Equal(0.5f, overlapHit.CenterlineDistance, 5);
+
+        RoadSurfaceHit wideOnlyHit = Assert.IsType<RoadSurfaceHit>(
+            snapshot.FindClosest(new Vector2(5f, -3.5f), maxSurfaceDistance: 0f));
+
+        Assert.Equal(3, wideOnlyHit.EdgeID);
+        Assert.Equal(0f, wideOnlyHit.SurfaceDistance);
+        Assert.Equal(3.5f, wideOnlyHit.CenterlineDistance, 5);
+    }
+
     [Fact]
     public void RectangleQueryUsesVisibleTrianglesAndReturnsSortedUniqueOwners()
     {
