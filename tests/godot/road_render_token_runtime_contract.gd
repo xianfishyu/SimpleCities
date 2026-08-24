@@ -80,6 +80,12 @@ func run() -> void:
 	var recovered: Dictionary = await require_stalled_retry(renderer, builder, mutated)
 	if recovered.is_empty():
 		return
+	var postcommit_recovered: Dictionary = require_update_token_postcommit_failure(
+		renderer,
+		recovered)
+	if postcommit_recovered.is_empty():
+		return
+	recovered = postcommit_recovered
 	var settings_recovered: Dictionary = await require_update_token_settings_validation_failure(
 		renderer,
 		builder,
@@ -521,6 +527,67 @@ func restore_mutated_style() -> void:
 		return
 	mutated_style.set("Width", original_style_width)
 	mutated_style = null
+
+func require_update_token_postcommit_failure(
+	renderer: Node,
+	before: Dictionary
+) -> Dictionary:
+	var probe_script: Script = load(UPDATE_TOKEN_FAILURE_PROBE_PATH)
+	if not require(probe_script != null, "Debug post-commit failure probe did not load"):
+		return {}
+	var probe: RefCounted = probe_script.new()
+	if not require(probe != null, "Debug post-commit failure probe did not instantiate"):
+		return {}
+
+	var retained_edge_count: int = renderer.GetRenderedEdgeCount()
+	var retained_vertex_count: int = renderer.GetRoadMeshVertexCount()
+	var retained_marker_count: int = renderer.GetNodeMarkerCount()
+	var retained_primitive_count := int(
+		renderer.GetPresentationState().get("surfacePrimitiveCount", 0))
+	var resource_count_before := int(probe.GetObjectResourceCount())
+	var returned_success := bool(probe.RunPostCommitFailure(renderer))
+	var committed := presentation_token(renderer, "Post-commit failure rebuild")
+	if committed.is_empty():
+		return {}
+	if not require(
+		returned_success,
+		"A fully committed ordinary presentation reported rebuild failure"):
+		return {}
+	if not require(
+		not bool(probe.IsPostCommitFailureArmed()) and
+		int(probe.GetPostCommitFailureCount()) == 1,
+		"Post-commit failure probe did not trigger exactly once"):
+		return {}
+	if not require(
+		require_same(before, committed, [
+			"sceneGeneration",
+			"graphFacadeID",
+			"graphFacadeGeneration",
+			"changeSequence",
+			"roadStyleRevision",
+		], "Post-commit failure rebuild") and
+		int(committed.renderRequestID) == int(before.renderRequestID) + 1,
+		"Post-commit failure rebuild did not publish exactly one replacement request"):
+		return {}
+	if not require(
+		int(probe.GetObjectResourceCount()) == resource_count_before and
+		renderer.GetRenderedEdgeCount() == retained_edge_count and
+		renderer.GetRoadMeshVertexCount() == retained_vertex_count and
+		renderer.GetNodeMarkerCount() == retained_marker_count and
+		int(renderer.GetPresentationState().get("surfacePrimitiveCount", 0)) ==
+			retained_primitive_count,
+		"Post-commit failure rebuild lost or leaked the committed presentation"):
+		return {}
+	print(
+		(
+			"UPDATE_TOKEN_POSTCOMMIT_FAILURE_RESULT resource_before=%d resource_after=%d " +
+			"trigger_count=%d returned_success=true"
+		) % [
+			resource_count_before,
+			int(probe.GetObjectResourceCount()),
+			int(probe.GetPostCommitFailureCount()),
+		])
+	return committed
 
 func require_update_token_settings_validation_failure(
 	renderer: Node,

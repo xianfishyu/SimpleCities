@@ -177,6 +177,22 @@ public partial class RoadRendererUpdateTokenFailureProbe : RefCounted
     public bool CompletePreCommitTokenSupersession() =>
         _renderer?.CompleteOrdinaryPreCommitTokenSupersession() ?? false;
 
+    public bool RunPostCommitFailure(RoadRenderer renderer)
+    {
+        ArgumentNullException.ThrowIfNull(renderer);
+        _renderer = renderer;
+        return renderer.RunOrdinaryPostCommitFailureProbe();
+    }
+
+    public bool IsPostCommitFailureArmed() =>
+        _renderer?.IsOrdinaryPostCommitFailureArmed() ?? false;
+
+    public int GetPostCommitFailureCount() =>
+        _renderer?.GetOrdinaryPostCommitFailureCount() ?? 0;
+
+    public string GetPostCommitFailureMessage() =>
+        RoadRenderer.OrdinaryPostCommitFailureMessage;
+
     public long GetObjectResourceCount() => Convert.ToInt64(
         Performance.GetMonitor(Performance.Monitor.ObjectResourceCount));
 }
@@ -203,6 +219,8 @@ public partial class RoadRenderer
         "Injected ordinary CreateRoadMesh index enumeration failure.";
     internal const string OrdinaryPresentationStalledObserverFailureMessage =
         "Injected ordinary road presentation stalled observer failure.";
+    internal const string OrdinaryPostCommitFailureMessage =
+        "Injected ordinary road presentation post-commit failure.";
 
     private bool _ordinaryPrepareFailureArmed;
     private RoadRenderToken? _ordinaryPrepareFailureArmToken;
@@ -235,6 +253,9 @@ public partial class RoadRenderer
     private OrdinaryPreCommitSupersessionKind _ordinaryPreCommitSupersessionKind;
     private Vector2 _ordinaryPreCommitChangeSequenceMutationStart;
     private Vector2 _ordinaryPreCommitChangeSequenceMutationEnd;
+    private bool _ordinaryPostCommitFailureArmed;
+    private RoadRenderToken? _ordinaryPostCommitFailureArmToken;
+    private int _ordinaryPostCommitFailureCount;
 
     partial void ProbeOrdinaryPrepareFailure(RoadRenderToken targetToken)
     {
@@ -355,6 +376,21 @@ public partial class RoadRenderer
         };
     }
 
+    partial void ProbeOrdinaryPostCommitFailure(RoadRenderToken targetToken)
+    {
+        if (!_ordinaryPostCommitFailureArmed ||
+            _ordinaryPostCommitFailureArmToken is not RoadRenderToken armedToken ||
+            targetToken == armedToken)
+        {
+            return;
+        }
+
+        _ordinaryPostCommitFailureArmed = false;
+        _ordinaryPostCommitFailureArmToken = null;
+        _ordinaryPostCommitFailureCount++;
+        throw new InvalidOperationException(OrdinaryPostCommitFailureMessage);
+    }
+
     private RoadRenderToken RequestOrdinaryPreCommitSceneGenerationSupersession(
         RoadRenderToken targetToken)
     {
@@ -462,6 +498,33 @@ public partial class RoadRenderer
 
         return replacementToken;
     }
+
+    internal bool RunOrdinaryPostCommitFailureProbe()
+    {
+        if (!IsPresentationReady() ||
+            _network is not RoadGraph graph ||
+            _presentationTokens.PresentedToken is not RoadRenderToken currentToken)
+        {
+            throw new InvalidOperationException(
+                "Road presentation must be ready before running its post-commit failure probe.");
+        }
+        if (_ordinaryPostCommitFailureArmed)
+        {
+            throw new InvalidOperationException(
+                "Road presentation post-commit failure probe is already armed.");
+        }
+
+        _ordinaryPostCommitFailureArmed = true;
+        _ordinaryPostCommitFailureArmToken = currentToken;
+        _presentationTokens.RequestRebuild(graph.CurrentStateToken.ChangeSequence);
+        return TryRebuildStaticBatches();
+    }
+
+    internal bool IsOrdinaryPostCommitFailureArmed() =>
+        _ordinaryPostCommitFailureArmed;
+
+    internal int GetOrdinaryPostCommitFailureCount() =>
+        _ordinaryPostCommitFailureCount;
 
     internal void ArmNextOrdinaryPrepareFailure()
     {

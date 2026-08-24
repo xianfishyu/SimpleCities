@@ -48,6 +48,8 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
         ref RoadSurfaceSnapshot.PreparedData roadSurface);
     partial void ProbeOrdinaryPreCommitTokenSupersession(
         RoadRenderToken targetToken);
+    partial void ProbeOrdinaryPostCommitFailure(
+        RoadRenderToken targetToken);
 
     // 施工预览
     private Vector2[] _previewPoints = [];
@@ -489,6 +491,7 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
         ArrayMesh? roadMesh = null;
         MultiMesh? nodeBatch = null;
         bool presentationResourcesTransferred = false;
+        bool presentationCommitted = false;
         try
         {
             long snapshotCaptureStarted = Stopwatch.GetTimestamp();
@@ -550,6 +553,8 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
             presentationResourcesTransferred = true;
             _presentedSurface = surfaceSnapshot;
             _presentationTokens.CommitDesired(targetToken);
+            presentationCommitted = true;
+            ProbeOrdinaryPostCommitFailure(targetToken);
             TimeSpan presentationCommitDuration = Stopwatch.GetElapsedTime(
                 presentationCommitStarted);
             if (_pendingPresentationPerformanceRequest is
@@ -572,6 +577,15 @@ public partial class RoadRenderer : Node2D, IRoadSurfaceSelectionProvider
         }
         catch (Exception exception)
         {
+            if (presentationCommitted &&
+                _presentationTokens.PresentedToken == targetToken &&
+                _presentedSurface?.RenderToken == targetToken)
+            {
+                GD.PushWarning(
+                    $"Road presentation post-commit work failed: {exception.Message}");
+                return true;
+            }
+
             RoadPresentationFailure? failure = _presentationTokens.ReportBuildFailure(
                 targetToken,
                 attemptNumber,

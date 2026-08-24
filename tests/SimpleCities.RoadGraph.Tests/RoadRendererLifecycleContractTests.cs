@@ -302,6 +302,57 @@ public sealed class RoadRendererLifecycleContractTests
     }
 
     [Fact]
+    public void OrdinaryPostCommitFailureStillReportsTheCommittedPresentationAsSuccessful()
+    {
+        string rendererSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Road", "RoadRenderer.cs"));
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadRendererUpdateTokenFailureProbe.cs"));
+        string rebuild = ExtractMethod(
+            rendererSource,
+            "private bool TryRebuildStaticBatches",
+            "private void PublishPresentationStalled");
+
+        int tokenCommit = rebuild.IndexOf(
+            "_presentationTokens.CommitDesired(targetToken)",
+            StringComparison.Ordinal);
+        int commitConfirmation = rebuild.IndexOf(
+            "presentationCommitted = true;",
+            StringComparison.Ordinal);
+        int postCommitProbe = rebuild.IndexOf(
+            "ProbeOrdinaryPostCommitFailure(targetToken)",
+            StringComparison.Ordinal);
+        int performancePublication = rebuild.IndexOf(
+            "_lastPresentationPerformanceMetrics = new(",
+            StringComparison.Ordinal);
+
+        Assert.True(tokenCommit >= 0 && tokenCommit < commitConfirmation);
+        Assert.True(commitConfirmation < postCommitProbe);
+        Assert.True(postCommitProbe < performancePublication);
+        Assert.Contains("bool presentationCommitted = false;", rebuild, StringComparison.Ordinal);
+        Assert.Contains(
+            "partial void ProbeOrdinaryPostCommitFailure(",
+            rendererSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "return renderer.RunOrdinaryPostCommitFailureProbe();",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "if (presentationCommitted &&",
+            rebuild,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_presentationTokens.PresentedToken == targetToken",
+            rebuild,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_presentedSurface?.RenderToken == targetToken",
+            rebuild,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void OrdinaryPresentationStalledObserversAreIsolatedInSubscriptionOrder()
     {
         string rendererSource = File.ReadAllText(

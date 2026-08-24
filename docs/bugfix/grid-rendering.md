@@ -92,3 +92,38 @@
 - `dotnet build SimpleCities.sln --no-restore -c Debug` 与 `-c ExportRelease`：均为 0 个警告、0 个错误。
 - Roslyn CodeLens compiler/analyzer：0 diagnostics；`git diff --check`：通过。
 - 本修复属于纯 C# token tracker 状态门禁，按 `godot-csharp-qa` Tier 1 收口；未重复运行 Godot/Vulkan。
+
+---
+
+<a id="grid-rendering-bug-4"></a>
+## BUG-4：普通表现已提交后仍返回构建失败
+
+### 症状
+
+普通 rebuild 已经交换新 mesh、node batch 与 surface，并由 `CommitDesired()` 把目标 token 发布为 `PresentedToken` 后，如果同一 `try` 块内的提交后工作再抛出异常，`TryRebuildStaticBatches()` 仍返回 `false`。此时表现状态实际为 ready、资源已由表现层持有，返回值却声称构建失败。
+
+### 根因分析
+
+`TryRebuildStaticBatches()` 的 `catch` 过去无条件返回 `false`。`grid-rendering:BUG-3` 已让 `ReportBuildFailure()` 拒绝已提交 token 的迟到异常，因此该路径不会错误进入 stalled；但 catch 没有把“failure 被拒绝且目标 token/surface 已完整提交”转换为成功结果。性能快照发布、`QueueRedraw()` 及未来同类提交后工作都位于 `CommitDesired()` 之后、同一异常边界之内，故异常会造成状态与返回值分裂。
+
+### 修复方案
+
+在 `Scripts/Road/RoadRenderer.cs` 为当前 attempt 增加本地 `presentationCommitted` 标志，只在 `CommitDesired()` 返回后置位。catch 入口要求该标志成立，并同时检查 `PresentedToken == targetToken` 与 `_presentedSurface.RenderToken == targetToken`；三项都匹配时，目标表现已经由本次 attempt 完整接管，异常降为 `Road presentation post-commit work failed` warning，并返回 `true`，`finally` 继续保持已转交资源的表现层所有权。任一条件不匹配时仍走原有 `ReportBuildFailure()` 与 stalled/取代逻辑并返回 `false`，不会把尚未进入提交的冗余 current rebuild 误判为成功。
+
+Debug-only `RoadRendererUpdateTokenFailureProbe` 在 `CommitDesired()` 之后、性能快照发布之前注入一次性异常，并通过真实同步 rebuild 暴露返回值；`ExportRelease` 不包含该探针。
+
+### 影响范围
+
+修复只改变普通表现已经完成 token/surface 提交后的异常返回语义。提交前 prepare、Resource factory、snapshot、token 取代、stalled/retry，以及 aggregate Load 的 non-yield commit 协议不变。
+
+---
+
+## 验证状态（BUG-4）
+
+- 修复前，聚焦 `OrdinaryPostCommitFailureStillReportsTheCommittedPresentationAsSuccessful`：1/1 失败，源码中没有已提交目标的成功返回分支。
+- 修复前，隔离 `APPDATA` 的 `road_render_token_runtime_contract.gd`：退出码 1，真实状态已经 ready，但输出 `A fully committed ordinary presentation reported rebuild failure`。
+- 修复后，同一真实 Godot 4.7 headless 契约退出码为 0，输出 `UPDATE_TOKEN_POSTCOMMIT_FAILURE_RESULT resource_before=77 resource_after=77 trigger_count=1 returned_success=true` 与 `PASS road render token runtime contract`；仅包含本场景预期的 post-commit warning、stalled-observer warning 和既有 `ConstructionDock` warning。
+- `RoadRendererLifecycleContractTests`：72/72 通过；`dotnet test SimpleCities.sln --no-restore`：947/947 通过。
+- `dotnet build SimpleCities.sln --configuration Debug --no-restore` 与 `--configuration ExportRelease --no-restore`：均为 0 个警告、0 个错误。
+- Roslyn CodeLens production/test compiler/analyzer：0 diagnostics；目标 GDScript diagnostics：0；Debug DLL 中 `PostCommitFailure` 匹配 12 次，`ExportRelease` 为 0。
+- `godot` MCP addon 未连接，因而没有刷新 editor log 与 DAP console 门；真实 CLI 契约输出和退出码已完成本次运行时行为验证。
