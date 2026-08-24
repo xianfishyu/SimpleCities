@@ -482,6 +482,89 @@ public sealed class RoadRendererLoadPrepareTests
     }
 
     [Fact]
+    public void PurePreparer_EdgeRibbonInputPermutationAndEdgeIDRenamingPreserveMappedOwnership()
+    {
+        var preparer = new RoadRenderer.RoadRendererLoadPreparer(Settings);
+        RoadRendererPreparedLoad first = preparer.Prepare(
+            CreateTerminalCapFixture(10, 11).CaptureRevision());
+        RoadRendererPreparedLoad permuted = preparer.Prepare(
+            CreateTerminalCapFixture(
+                10,
+                11,
+                reverseEdgeEnumeration: true).CaptureRevision());
+        RoadRendererPreparedLoad renamed = preparer.Prepare(
+            CreateTerminalCapFixture(11, 10).CaptureRevision());
+        EdgeRibbonOwnership[] firstOwnership = ExtractEdgeRibbonOwnership(first);
+        EdgeRibbonOwnership[] renamedOwnership = ExtractEdgeRibbonOwnership(renamed);
+        IReadOnlyDictionary<int, int> edgeIDMap = new Dictionary<int, int>
+        {
+            [10] = 11,
+            [11] = 10,
+        };
+
+        Assert.Equal(
+            SurfaceTriangles(first, RoadSurfaceOwnerKind.EdgeRibbon),
+            SurfaceTriangles(permuted, RoadSurfaceOwnerKind.EdgeRibbon));
+        Assert.Equal(first.RoadVertices, permuted.RoadVertices);
+        Assert.Equal(first.RoadUvs, permuted.RoadUvs);
+        Assert.Equal(first.RoadColors, permuted.RoadColors);
+        Assert.Equal(first.RoadIndices, permuted.RoadIndices);
+        Assert.Equal(
+            ExtractEdgeRibbonVisual(first),
+            ExtractEdgeRibbonVisual(renamed));
+        Assert.Equal(
+            firstOwnership.Select(item => item with
+            {
+                Owner = RoadSurfaceOwner.EdgeRibbon(edgeIDMap[item.Owner.EdgeID]),
+                LocationStart = RemapEdgeID(item.LocationStart, edgeIDMap),
+                LocationEnd = RemapEdgeID(item.LocationEnd, edgeIDMap),
+            }),
+            renamedOwnership);
+    }
+
+    [Fact]
+    public void PurePreparer_EdgeRibbonStoredDirectionPreservesVisualAndMappedOwnership()
+    {
+        RoadGraph forwardGraph = CreateTerminalCapFixture(10, 11);
+        RoadGraph reversedGraph = CreateTerminalCapFixture(
+            10,
+            11,
+            reverseStoredDirections: true);
+        var preparer = new RoadRenderer.RoadRendererLoadPreparer(Settings);
+
+        RoadRendererPreparedLoad forward = preparer.Prepare(forwardGraph.CaptureRevision());
+        RoadRendererPreparedLoad reversed = preparer.Prepare(reversedGraph.CaptureRevision());
+        EdgeRibbonOwnership[] forwardOwnership = ExtractEdgeRibbonOwnership(forward);
+        EdgeRibbonOwnership[] reversedOwnership = ExtractEdgeRibbonOwnership(reversed);
+
+        Assert.Equal(
+            ExtractEdgeRibbonVisual(forward),
+            ExtractEdgeRibbonVisual(reversed));
+        Assert.Equal(
+            forwardOwnership.Select(item =>
+            {
+                GraphEdge reversedEdge = Assert.IsType<GraphEdge>(
+                    reversedGraph.GetEdge(item.Owner.EdgeID));
+                RoadLocation mappedStart = ReverseLocation(
+                    item.LocationEnd,
+                    reversedEdge.GeometrySegments.Count);
+                RoadLocation mappedEnd = ReverseLocation(
+                    item.LocationStart,
+                    reversedEdge.GeometrySegments.Count);
+                bool ownsLocationEnd =
+                    mappedEnd.GeometryIndex == reversedEdge.GeometrySegments.Count - 1 &&
+                    mappedEnd.Parameter == RoadGeometrySegment.ParameterEnd;
+                return item with
+                {
+                    LocationStart = mappedStart,
+                    LocationEnd = mappedEnd,
+                    OwnsLocationEnd = ownsLocationEnd,
+                };
+            }),
+            reversedOwnership);
+    }
+
+    [Fact]
     public void PurePreparer_SurfaceLocationsOwnGeometryJoinsAndOpenEdgeEndCanonically()
     {
         var graph = new RoadGraph();
@@ -1345,6 +1428,86 @@ public sealed class RoadRendererLoadPrepareTests
             .ThenBy(item => item.Center.Y)
             .ToArray();
 
+    private static EdgeRibbonVisual[] ExtractEdgeRibbonVisual(
+        RoadRendererPreparedLoad prepared) =>
+        ExtractEdgeRibbonOwnership(prepared)
+            .Select(item => item.Visual)
+            .ToArray();
+
+    private static EdgeRibbonOwnership[] ExtractEdgeRibbonOwnership(
+        RoadRendererPreparedLoad prepared) =>
+        Enumerable.Range(0, prepared.RoadSurface.TriangleCount)
+            .Select(index => (
+                Index: index,
+                Triangle: prepared.RoadSurface.GetPrimitive(index).Triangle))
+            .Where(item => item.Triangle.Owner.Kind == RoadSurfaceOwnerKind.EdgeRibbon)
+            .Select(item =>
+            {
+                (Vector2 a, Vector2 b, Vector2 c) = CanonicalizeTriangle(
+                    item.Triangle.A,
+                    item.Triangle.B,
+                    item.Triangle.C);
+                (Vector2 start, Vector2 end) = CanonicalizeLine(
+                    item.Triangle.CenterlineStart,
+                    item.Triangle.CenterlineEnd);
+                return new EdgeRibbonOwnership(
+                    new EdgeRibbonVisual(
+                        a,
+                        b,
+                        c,
+                        prepared.RoadColors[prepared.RoadIndices[item.Index * 3]]),
+                    start,
+                    end,
+                    item.Triangle.Owner,
+                    Assert.IsType<RoadLocation>(item.Triangle.LocationStart),
+                    Assert.IsType<RoadLocation>(item.Triangle.LocationEnd),
+                    item.Triangle.OwnsLocationEnd);
+            })
+            .OrderBy(item => item.Visual.A.X)
+            .ThenBy(item => item.Visual.A.Y)
+            .ThenBy(item => item.Visual.B.X)
+            .ThenBy(item => item.Visual.B.Y)
+            .ThenBy(item => item.Visual.C.X)
+            .ThenBy(item => item.Visual.C.Y)
+            .ToArray();
+
+    private static (Vector2 A, Vector2 B, Vector2 C) CanonicalizeTriangle(
+        Vector2 a,
+        Vector2 b,
+        Vector2 c)
+    {
+        Vector2[] points = [a, b, c];
+        Array.Sort(points, ComparePoints);
+        return (points[0], points[1], points[2]);
+    }
+
+    private static (Vector2 Start, Vector2 End) CanonicalizeLine(
+        Vector2 start,
+        Vector2 end) =>
+        ComparePoints(start, end) <= 0 ? (start, end) : (end, start);
+
+    private static int ComparePoints(Vector2 first, Vector2 second)
+    {
+        int xComparison = first.X.CompareTo(second.X);
+        return xComparison != 0 ? xComparison : first.Y.CompareTo(second.Y);
+    }
+
+    private static RoadLocation RemapEdgeID(
+        RoadLocation location,
+        IReadOnlyDictionary<int, int> edgeIDMap) =>
+        new(
+            edgeIDMap[location.EdgeID],
+            location.GeometryIndex,
+            location.Parameter);
+
+    private static RoadLocation ReverseLocation(
+        RoadLocation location,
+        int geometryCount) =>
+        new(
+            location.EdgeID,
+            geometryCount - 1 - location.GeometryIndex,
+            RoadGeometrySegment.ParameterEnd - location.Parameter);
+
     private static (
         Vector2 A,
         Vector2 B,
@@ -1418,4 +1581,19 @@ public sealed class RoadRendererLoadPrepareTests
         EdgeEndpoint Endpoint,
         int SectorOrder,
         RoadLocation Location);
+
+    private readonly record struct EdgeRibbonVisual(
+        Vector2 A,
+        Vector2 B,
+        Vector2 C,
+        Color Color);
+
+    private readonly record struct EdgeRibbonOwnership(
+        EdgeRibbonVisual Visual,
+        Vector2 CenterlineStart,
+        Vector2 CenterlineEnd,
+        RoadSurfaceOwner Owner,
+        RoadLocation LocationStart,
+        RoadLocation LocationEnd,
+        bool OwnsLocationEnd);
 }
