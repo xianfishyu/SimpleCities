@@ -275,6 +275,8 @@
 
   - 重叠宽窄 EdgeRibbon 命中协作进展（2026-08-24）：`v3-grid-rendering:2.2` 已用 half-width `4` 与 `1` 的真实重叠 quad 固定 owner 选择。两条 ribbon 的 surface distance 同为 0 时，较近 centerline 的窄路即使 Edge ID 更大仍优先；只命中宽路区域时则返回宽路，且两项结论均不受 Edge/triangle primitive 正反枚举影响。新增理论 2/2、`RoadSurfaceSnapshotTests` 25/25、完整自动化 940/940、双配置 build 0 警告/0 错误、Roslyn test-project compiler/analyzer 0 diagnostics 与 `git diff --check` 均通过；提交 `91f07a8` 仅增加测试，未重复运行 Godot/Vulkan。该证据只关闭 fake hit consumer 的重叠宽窄路子矩阵；其他命中、混合视觉、工具消费、性能、开放系统项与 Phase 8 组合矩阵仍未全部验收，因此 `v3-grid-rendering:2.2`～`2.3` 与 8.6 保持开放。
 
+  - Phase 8 重新开始后的硬门基线（2026-08-24）：`b95e295` 上 BUG-21 聚焦组合为 33/33，完整自动化为 959/959，Debug 与 `ExportRelease` build 均为 0 警告、0 错误，目标性能脚本 `--check-only` 退出码为 0。正式 Vulkan junction-dense 10k camera/preview/highlight P95 为 `0.580/0.655/0.532 ms`、Load/renderer rebuild 为 `785.455 ms`；geometry-dense 10k 为 `0.569/0.709/0.546 ms`、`2786.748 ms`，两项均 PASS、静态 renderer 节点均为 `2`。100k 未运行且不作为必需项；本轮工具集未暴露 Roslyn CodeLens、Godot MCP 或 minimal DAP，未把这些门记为通过。该证据只重新建立 Phase 8 的测试、构建与必需 10k 前置，8.6 仍等待代表性最终组合、可用 MCP QA 和附录 D 归档。
+
 ## 暂不执行
 
 ### 交通模拟
