@@ -346,6 +346,8 @@
 
   - 真实 aggregate `CreateNodeBatch()` Preflight 故障矩阵补强（2026-08-24）：`v3-grid-rendering:2.2` 已为既有 node-batch factory failure 补齐真实 `Preflight=4`、主线程、进入 renderer 前的 `road-graph → road-tools` 两个 participant 与 `1 Edge / 4 vertices / 4 primitives / 2 markers` prepared 数据。road mesh 已成功创建；`CreateNodeBatch()` 分配并配置 `MultiMesh` 后在 marker 首次 index read 失败，factory 与 renderer Preflight 外层 ownership 分别释放 node batch 和 road mesh，orchestration fallback 再释放 graph/tool plans。活动表现、surface/token/hit 与工具事务保持，资源 `77 -> 77`，最终无故障 Load 成功再接管。完整自动化 924/924、生命周期与 QA export 聚焦 67/67、双配置 build、Roslyn/GDScript diagnostics、`--check-only`、Vulkan 运行时、Debug/`ExportRelease` 隔离与 MCP 结构 smoke 均通过；minimal DAP 因既有 8-client 上限阻塞。该证据只补强一个既有 factory 点，不增加二十七个 aggregate 相邻失败或二十一个连续 Preflight 早期边界，也不替代其余逐关键 Preflight Resource 故障、混合类型视觉/性能或 Phase 8 组合矩阵，因此 2.2、2.3 保持开放。
 
+  - 真实 aggregate renderer Resource Preflight 故障矩阵补强（2026-08-24）：`v3-grid-rendering:2.2` 已为既有 resource-preflight failure 补齐真实 `Preflight=4`、主线程、进入 renderer 前的 `road-graph → road-tools` 两个 participant 与 `1 Edge / 4 vertices / 4 primitives / 2 markers` prepared 数据。`CreateRoadMesh()` 与 `CreateNodeBatch()` 均已成功完成，故障精确发生在 reserved render token、surface snapshot 与 commit plan 建立前；renderer Preflight catch 释放 road mesh/node batch，orchestration fallback 再释放 graph/tool plans。活动表现、surface/token/hit 与工具事务保持，资源 `77 -> 77`，最终无故障 Load 成功再接管。`RoadRendererLifecycleContractTests` 67/67、完整自动化 925/925、双配置 build、Roslyn/GDScript diagnostics、`--check-only`、正式 Vulkan 运行时、Debug/`ExportRelease` 隔离与 MCP 8 帧结构 smoke 均通过，minimal DAP stderr/console 与 editor 增量日志为空。该证据只补强一个既有 Resource Preflight 点，不增加二十七个 aggregate 相邻失败或二十一个连续 Preflight 早期边界，也不替代其余 renderer 故障、混合类型视觉/性能或 Phase 8 组合矩阵，因此 2.2、2.3 保持开放。
+
 ## 暂不执行
 
 ### 高级 RoadType 视觉
