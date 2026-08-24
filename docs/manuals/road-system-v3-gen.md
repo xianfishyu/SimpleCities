@@ -1320,6 +1320,10 @@ Phase 7 当前已有六十六个可验证切片。其一，普通 mutation 与 `
 
 > 计数补充（2026-08-24）：在“其一百四十”基础上新增真实 PauseMenu 的 Save As 磁盘失败呈现与同菜单恢复证据，Phase 7 可验证切片由一百四十个更新为一百四十一个；该切片只扩展 Save 失败的 UI 结果矩阵，不增加底层故障点或生产行为，新增内容扩展至“其一百四十一”。
 
+其一百四十二，Phase 7 把 Delete 的旧授权拒绝与下一次授权恢复推进到真实 PauseMenu。`pause_menu_runtime_contract.gd` 先从 Save Management 选择一个完整手动槽并打开真实 Delete 确认页，再仅向该槽的合法 manifest 末尾追加 JSON 空白；目标仍可分类为 `CompleteV3`，但 occupant aggregate digest 已不同于确认时绑定的授权。第一次确认因此在 descriptor 与 tombstone move 之前以 `Deletion authority occupant digest is stale.` 失败；PauseMenu 退出确认页但保持 Save Management 可见和场景暂停，状态文本显示精确“删除存档失败”诊断，`CurrentSlotID` 与磁盘目标均不变，原目标继续选中，覆盖/加载/删除按钮全部恢复。契约随后不关闭或重建菜单，直接再次点击 Delete；失败后的列表刷新已为同一 display name 生成新 generation、digest 与 operation token，第二个确认摘要仍指向该目标，确认后成功删除且后续损坏槽删除、MainMenu 重入和底层预校验流程继续通过。Godot 4.7 `--check-only` 与隔离 APPDATA 的完整契约均以退出码 0 通过并输出 `PASS pause menu runtime contract`；完整自动化为 950/950，Debug 与 `ExportRelease` build 均为 0 警告、0 错误，Roslyn production/test compiler/analyzer 与目标 GDScript LSP 均为 0 diagnostics。Godot editor MCP 连接正确项目，冻结 `MapTest` 推进 5 帧后 editor error、DAP `stderr` 与 `console` 均为空；隔离 QA 根已送入回收站，测试游戏与隐藏 editor 均已关闭且没有残留 Godot 进程。提交 `b2804c3` 只增加真实 Delete 失败/恢复运行时回归，不修改生产逻辑。该切片关闭一个 Delete 提交前 stale-occupant UI 失败格，不覆盖 cleanup-pending、Delete 取消/重复激活或其余 Save/Load 结果矩阵；`v3-ui:1.4`、`v3-save-system:2.3` 与最终集成负责人 `v3-road-graph:8.6` 继续保持开放。
+
+> 计数补充（2026-08-24）：在“其一百四十一”基础上新增真实 PauseMenu 的 Delete 失效授权拒绝与同菜单重试证据，Phase 7 可验证切片由一百四十一个更新为一百四十二个；该切片只扩展 Delete 提交前失败的 UI 结果矩阵，不增加底层故障点或生产行为，新增内容扩展至“其一百四十二”。
+
 ### Phase 8：最终组合验收
 
 在同一 `MapTest` 实例中完成连续折线路、跨提交延伸、简单环、棒棒糖、两路口环、八字形、支路删除重归一化、四类型建造与改造、token 防护的 delta 撤销重做、不可变 root 结构共享/释放、V3 family/version 有界往返、跨进程锁/publish lease/descriptor 恢复、共享表面命中与 junction patch、损坏/超限拒绝、并发 autosave、取消和 observer warning，以及成功/提交前失败且无提交后关键表现失败分支的 Load 生命周期。额外证明 V2 根未被枚举或修改、手工复制的 V2/未知格式被拒绝。再完成 Vulkan 视觉、10k 硬门槛、100k 压测和 Windows 导出验证。最终证据写回附录 D；`v3-road-graph:8.6` 是唯一集成负责人。
