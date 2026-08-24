@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 public partial class SaveManager : Node
 {
     partial void ProbeConfigureDeleteCleanupFailure(ref SaveSlotStore store);
+    partial void ProbeConfigurePublishCleanupFailure(ref SaveSlotStore store);
     partial void ProbeAggregateLoadPostRendererAdmissionFailure();
     partial void ProbeAggregateLoadPostParticipantCaptureFailure(
         IReadOnlyList<CapturedLoadParticipant> loadParticipants);
@@ -657,6 +658,7 @@ public partial class SaveManager : Node
                 SavePublishResult publish = await Task.Run(() =>
                 {
                     SaveSlotStore store = CreateSlotStore();
+                    ProbeConfigurePublishCleanupFailure(ref store);
                     return requireExisting
                         ? store.SaveCapturedExisting(slotID, captured, lease)
                         : store.SaveCaptured(

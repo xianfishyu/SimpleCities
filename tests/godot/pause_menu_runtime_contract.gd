@@ -5,6 +5,7 @@ const MAIN_MENU_SCENE := "res://Scenes/MainMenu.tscn"
 const DELETE_CLEANUP_FAILURE_PROBE_PATH := "res://tests/godot/SaveDeleteCleanupFailureProbe.cs"
 const LOAD_PREFLIGHT_FAILURE_PROBE_PATH := "res://tests/godot/RoadLoadPreflightResourceFailureProbe.cs"
 const LOAD_WARNING_PROBE_PATH := "res://tests/godot/RoadLoadObserverFailureProbe.cs"
+const PUBLISH_CLEANUP_FAILURE_PROBE_PATH := "res://tests/godot/SavePublishCleanupFailureProbe.cs"
 const V3_SAVE_FIXTURE := preload("res://tests/godot/v3_save_fixture.gd")
 
 var failed := false
@@ -266,9 +267,36 @@ func run() -> void:
 
 	await mouse_click(overwrite_save_button)
 	await process_frame
+	var publish_cleanup_probe_script: Script = load(PUBLISH_CLEANUP_FAILURE_PROBE_PATH)
+	assert_true(publish_cleanup_probe_script != null, "Debug publish cleanup failure probe did not load")
+	var publish_cleanup_probe: RefCounted = publish_cleanup_probe_script.new()
+	assert_true(publish_cleanup_probe != null, "Debug publish cleanup failure probe did not instantiate")
+	var publish_cleanup_warning := str(publish_cleanup_probe.GetFailureMessage())
+	publish_cleanup_probe.Arm(save_manager)
+	assert_true(publish_cleanup_probe.IsArmed(), "Publish cleanup failure probe did not arm")
 	await activate_focused_with_keyboard(confirm_button)
-	assert_true(save_management_content.visible and save_status.text.contains("已覆盖"), "Keyboard confirmation did not overwrite the selected slot")
+	var publish_cleanup_probe_consumed: bool = (
+		not bool(publish_cleanup_probe.IsArmed()) and
+		int(publish_cleanup_probe.GetTriggerCount()) == 1)
+	publish_cleanup_probe.Disarm()
+	assert_true(publish_cleanup_probe_consumed, "Publish cleanup failure probe was not consumed exactly once")
+	assert_true(
+		save_management_content.visible and paused and
+		save_status.text.contains("已覆盖") and
+		save_status.text.contains(publish_cleanup_warning),
+		"Overwrite cleanup pending was not presented as a successful publish warning")
 	assert_true(save_manager.get("CurrentSlotID") == first_ui_slot_id, "Overwrite selected the wrong slot")
+	assert_selected_slot(save_slot_list, first_ui_slot_id, "first slot after overwrite cleanup pending")
+	assert_true(
+		not DirAccess.dir_exists_absolute(transaction_failure_marker_absolute),
+		"Overwrite cleanup pending left publication recovery state")
+	await mouse_click(overwrite_save_button)
+	await process_frame
+	await mouse_click(confirm_button)
+	assert_true(
+		save_management_content.visible and save_status.text.contains("已覆盖") and
+		not save_status.text.contains("Injected Save publish cleanup failure."),
+		"Clean overwrite retained the cleanup warning or failed to recover")
 
 	var second_ui_index := find_item_by_metadata(save_slot_list, second_ui_slot_id)
 	assert_true(second_ui_index >= 0, "Second manual slot is missing after overwrite refresh")

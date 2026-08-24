@@ -23,6 +23,11 @@ public sealed class PauseMenuContractTests
         "tests",
         "godot",
         "SaveDeleteCleanupFailureProbe.cs");
+    private static readonly string PublishCleanupProbePath = Path.Combine(
+        ProjectRoot,
+        "tests",
+        "godot",
+        "SavePublishCleanupFailureProbe.cs");
 
     [Fact]
     public void PauseMenuScene_ProvidesAllRequestedActionsAndSubviews()
@@ -149,13 +154,22 @@ public sealed class PauseMenuContractTests
         string probe = File.ReadAllText(DeleteCleanupProbePath);
         string project = File.ReadAllText(Path.Combine(ProjectRoot, "SimpleCities.csproj"));
 
-        int storeCreation = saveManager.IndexOf(
+        int operationStart = saveManager.IndexOf(
+            "private async Task<SaveOperationResult> RunDeleteAsync",
+            StringComparison.Ordinal);
+        int operationEnd = saveManager.IndexOf(
+            "private void StartTrackedOperation",
+            operationStart,
+            StringComparison.Ordinal);
+        Assert.True(operationStart >= 0 && operationEnd > operationStart);
+        string operation = saveManager[operationStart..operationEnd];
+        int storeCreation = operation.IndexOf(
             "SaveSlotStore store = CreateSlotStore();",
             StringComparison.Ordinal);
-        int probeConfiguration = saveManager.IndexOf(
+        int probeConfiguration = operation.IndexOf(
             "ProbeConfigureDeleteCleanupFailure(ref store);",
             StringComparison.Ordinal);
-        int delete = saveManager.IndexOf(
+        int delete = operation.IndexOf(
             "return store.Delete(authorization, lease);",
             StringComparison.Ordinal);
         Assert.True(storeCreation >= 0 && storeCreation < probeConfiguration);
@@ -180,6 +194,55 @@ public sealed class PauseMenuContractTests
         string debugGroup = project[debugGroupStart..debugGroupEnd];
         Assert.Contains(
             "<Compile Include=\"tests/godot/SaveDeleteCleanupFailureProbe.cs\" />",
+            debugGroup,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PublishCleanupProbe_IsAfterCanonicalPublicationAndDebugOnly()
+    {
+        string saveManager = File.ReadAllText(SaveManagerPath);
+        string probe = File.ReadAllText(PublishCleanupProbePath);
+        string project = File.ReadAllText(Path.Combine(ProjectRoot, "SimpleCities.csproj"));
+
+        int operationStart = saveManager.IndexOf(
+            "private async Task<SaveOperationResult> RunAdmittedPublishAsync",
+            StringComparison.Ordinal);
+        int operationEnd = saveManager.IndexOf(
+            "private async Task<SaveOperationResult> RunLoadAsync",
+            operationStart,
+            StringComparison.Ordinal);
+        Assert.True(operationStart >= 0 && operationEnd > operationStart);
+        string operation = saveManager[operationStart..operationEnd];
+        int storeCreation = operation.IndexOf(
+            "SaveSlotStore store = CreateSlotStore();",
+            StringComparison.Ordinal);
+        int probeConfiguration = operation.IndexOf(
+            "ProbeConfigurePublishCleanupFailure(ref store);",
+            StringComparison.Ordinal);
+        int publish = operation.IndexOf("store.SaveCaptured", StringComparison.Ordinal);
+        Assert.True(storeCreation >= 0 && storeCreation < probeConfiguration);
+        Assert.True(probeConfiguration < publish);
+        Assert.Contains(
+            "partial void ProbeConfigurePublishCleanupFailure(ref SaveSlotStore store);",
+            saveManager,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "phase != SavePublicationPhase.CanonicalPublished",
+            probe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "throw new IOException(PublishCleanupFailureMessage);",
+            probe,
+            StringComparison.Ordinal);
+
+        const string debugGroupMarker = "<ItemGroup Condition=\"'$(Configuration)' == 'Debug'\">";
+        int debugGroupStart = project.IndexOf(debugGroupMarker, StringComparison.Ordinal);
+        int debugGroupEnd = project.IndexOf("</ItemGroup>", debugGroupStart, StringComparison.Ordinal);
+        Assert.True(debugGroupStart >= 0 && debugGroupEnd > debugGroupStart);
+        string debugGroup = project[debugGroupStart..debugGroupEnd];
+        Assert.Contains(
+            "<Compile Include=\"tests/godot/SavePublishCleanupFailureProbe.cs\" />",
             debugGroup,
             StringComparison.Ordinal);
     }
