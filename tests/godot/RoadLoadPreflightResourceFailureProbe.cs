@@ -643,6 +643,42 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
     public int GetAggregateLoadPostSlotPreflightFailureCount() =>
         _saveManager?.GetAggregateLoadPostSlotPreflightFailureCount() ?? 0;
 
+    public bool DidAggregateLoadPostSlotPreflightFailureRunOnMainThread() =>
+        _saveManager?.DidAggregateLoadPostSlotPreflightFailureRunOnMainThread() ?? false;
+
+    public int GetAggregateLoadPostSlotPreflightPlanCount() =>
+        _saveManager?.GetAggregateLoadPostSlotPreflightPlanCount() ?? -1;
+
+    public string GetAggregateLoadPostSlotPreflightFirstParticipantID() =>
+        _saveManager?.GetAggregateLoadPostSlotPreflightFirstParticipantID() ?? string.Empty;
+
+    public string GetAggregateLoadPostSlotPreflightSecondParticipantID() =>
+        _saveManager?.GetAggregateLoadPostSlotPreflightSecondParticipantID() ?? string.Empty;
+
+    public string GetAggregateLoadPostSlotPreflightThirdParticipantID() =>
+        _saveManager?.GetAggregateLoadPostSlotPreflightThirdParticipantID() ?? string.Empty;
+
+    public string GetAggregateLoadPostSlotPreflightFourthParticipantID() =>
+        _saveManager?.GetAggregateLoadPostSlotPreflightFourthParticipantID() ?? string.Empty;
+
+    public int GetAggregateLoadPostSlotPreflightTargetEdgeCount() =>
+        _saveManager?.GetAggregateLoadPostSlotPreflightTargetEdgeCount() ?? -1;
+
+    public string GetAggregateLoadPostSlotPreflightObservedSlotID() =>
+        _saveManager?.GetAggregateLoadPostSlotPreflightObservedSlotID() ?? string.Empty;
+
+    public int GetAggregateLoadPostSlotPreflightSourceParticipantCount() =>
+        _saveManager?.GetAggregateLoadPostSlotPreflightSourceParticipantCount() ?? -1;
+
+    public int GetAggregateLoadPostSlotPreflightRoadVertexCount() =>
+        _saveManager?.GetAggregateLoadPostSlotPreflightRoadVertexCount() ?? -1;
+
+    public int GetAggregateLoadPostSlotPreflightSurfacePrimitiveCount() =>
+        _saveManager?.GetAggregateLoadPostSlotPreflightSurfacePrimitiveCount() ?? -1;
+
+    public int GetAggregateLoadPostSlotPreflightNodeMarkerCount() =>
+        _saveManager?.GetAggregateLoadPostSlotPreflightNodeMarkerCount() ?? -1;
+
     public string GetAggregateLoadPostSlotPreflightFailureMessage() =>
         SaveManager.AggregateLoadPostSlotPreflightFailureMessage;
 
@@ -906,6 +942,18 @@ public partial class SaveManager
     private int _aggregateLoadPostRendererPreflightNodeMarkerCount = -1;
     private bool _aggregateLoadPostSlotPreflightFailureArmed;
     private int _aggregateLoadPostSlotPreflightFailureCount;
+    private bool _aggregateLoadPostSlotPreflightFailureRanOnMainThread;
+    private int _aggregateLoadPostSlotPreflightPlanCount = -1;
+    private string _aggregateLoadPostSlotPreflightFirstParticipantID = string.Empty;
+    private string _aggregateLoadPostSlotPreflightSecondParticipantID = string.Empty;
+    private string _aggregateLoadPostSlotPreflightThirdParticipantID = string.Empty;
+    private string _aggregateLoadPostSlotPreflightFourthParticipantID = string.Empty;
+    private int _aggregateLoadPostSlotPreflightTargetEdgeCount = -1;
+    private string _aggregateLoadPostSlotPreflightObservedSlotID = string.Empty;
+    private int _aggregateLoadPostSlotPreflightSourceParticipantCount = -1;
+    private int _aggregateLoadPostSlotPreflightRoadVertexCount = -1;
+    private int _aggregateLoadPostSlotPreflightSurfacePrimitiveCount = -1;
+    private int _aggregateLoadPostSlotPreflightNodeMarkerCount = -1;
     private bool _aggregateLoadPostOwnershipPreCommitFailureArmed;
     private int _aggregateLoadPostOwnershipPreCommitFailureCount;
     private bool _aggregateLoadGraphCommitBoundaryGenerationMismatchArmed;
@@ -1834,13 +1882,40 @@ public partial class SaveManager
     internal int GetAggregateLoadPostRendererPreflightNodeMarkerCount() =>
         _aggregateLoadPostRendererPreflightNodeMarkerCount;
 
-    partial void ProbeAggregateLoadPostSlotPreflightFailure()
+    partial void ProbeAggregateLoadPostSlotPreflightFailure(
+        IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
+        RoadGraphRevision targetRevision,
+        PreparedLoadWork prepared)
     {
         if (!_aggregateLoadPostSlotPreflightFailureArmed)
             return;
 
+        ArgumentNullException.ThrowIfNull(preflightPlans);
+        ArgumentNullException.ThrowIfNull(targetRevision);
+        ArgumentNullException.ThrowIfNull(prepared);
         _aggregateLoadPostSlotPreflightFailureArmed = false;
         _aggregateLoadPostSlotPreflightFailureCount++;
+        _aggregateLoadPostSlotPreflightFailureRanOnMainThread =
+            _mainThreadID != 0 && System.Environment.CurrentManagedThreadId == _mainThreadID;
+        _aggregateLoadPostSlotPreflightPlanCount = preflightPlans.Count;
+        _aggregateLoadPostSlotPreflightFirstParticipantID =
+            preflightPlans.Count > 0 ? preflightPlans[0].ParticipantID : string.Empty;
+        _aggregateLoadPostSlotPreflightSecondParticipantID =
+            preflightPlans.Count > 1 ? preflightPlans[1].ParticipantID : string.Empty;
+        _aggregateLoadPostSlotPreflightThirdParticipantID =
+            preflightPlans.Count > 2 ? preflightPlans[2].ParticipantID : string.Empty;
+        _aggregateLoadPostSlotPreflightFourthParticipantID =
+            preflightPlans.Count > 3 ? preflightPlans[3].ParticipantID : string.Empty;
+        _aggregateLoadPostSlotPreflightTargetEdgeCount = targetRevision.Edges.Count;
+        _aggregateLoadPostSlotPreflightObservedSlotID = prepared.Slot.SlotID;
+        _aggregateLoadPostSlotPreflightSourceParticipantCount =
+            prepared.Slot.Participants.Count;
+        _aggregateLoadPostSlotPreflightRoadVertexCount =
+            prepared.Presentation.RoadVertices.Length;
+        _aggregateLoadPostSlotPreflightSurfacePrimitiveCount =
+            prepared.Presentation.RoadSurface.PrimitiveCount;
+        _aggregateLoadPostSlotPreflightNodeMarkerCount =
+            prepared.Presentation.NodeMarkers.Length;
         throw new InvalidOperationException(
             AggregateLoadPostSlotPreflightFailureMessage);
     }
@@ -1858,6 +1933,18 @@ public partial class SaveManager
                 "Aggregate Load post-slot preflight failure probe is already armed.");
         }
 
+        _aggregateLoadPostSlotPreflightFailureRanOnMainThread = false;
+        _aggregateLoadPostSlotPreflightPlanCount = -1;
+        _aggregateLoadPostSlotPreflightFirstParticipantID = string.Empty;
+        _aggregateLoadPostSlotPreflightSecondParticipantID = string.Empty;
+        _aggregateLoadPostSlotPreflightThirdParticipantID = string.Empty;
+        _aggregateLoadPostSlotPreflightFourthParticipantID = string.Empty;
+        _aggregateLoadPostSlotPreflightTargetEdgeCount = -1;
+        _aggregateLoadPostSlotPreflightObservedSlotID = string.Empty;
+        _aggregateLoadPostSlotPreflightSourceParticipantCount = -1;
+        _aggregateLoadPostSlotPreflightRoadVertexCount = -1;
+        _aggregateLoadPostSlotPreflightSurfacePrimitiveCount = -1;
+        _aggregateLoadPostSlotPreflightNodeMarkerCount = -1;
         _aggregateLoadPostSlotPreflightFailureArmed = true;
     }
 
@@ -1866,6 +1953,42 @@ public partial class SaveManager
 
     internal int GetAggregateLoadPostSlotPreflightFailureCount() =>
         _aggregateLoadPostSlotPreflightFailureCount;
+
+    internal bool DidAggregateLoadPostSlotPreflightFailureRunOnMainThread() =>
+        _aggregateLoadPostSlotPreflightFailureRanOnMainThread;
+
+    internal int GetAggregateLoadPostSlotPreflightPlanCount() =>
+        _aggregateLoadPostSlotPreflightPlanCount;
+
+    internal string GetAggregateLoadPostSlotPreflightFirstParticipantID() =>
+        _aggregateLoadPostSlotPreflightFirstParticipantID;
+
+    internal string GetAggregateLoadPostSlotPreflightSecondParticipantID() =>
+        _aggregateLoadPostSlotPreflightSecondParticipantID;
+
+    internal string GetAggregateLoadPostSlotPreflightThirdParticipantID() =>
+        _aggregateLoadPostSlotPreflightThirdParticipantID;
+
+    internal string GetAggregateLoadPostSlotPreflightFourthParticipantID() =>
+        _aggregateLoadPostSlotPreflightFourthParticipantID;
+
+    internal int GetAggregateLoadPostSlotPreflightTargetEdgeCount() =>
+        _aggregateLoadPostSlotPreflightTargetEdgeCount;
+
+    internal string GetAggregateLoadPostSlotPreflightObservedSlotID() =>
+        _aggregateLoadPostSlotPreflightObservedSlotID;
+
+    internal int GetAggregateLoadPostSlotPreflightSourceParticipantCount() =>
+        _aggregateLoadPostSlotPreflightSourceParticipantCount;
+
+    internal int GetAggregateLoadPostSlotPreflightRoadVertexCount() =>
+        _aggregateLoadPostSlotPreflightRoadVertexCount;
+
+    internal int GetAggregateLoadPostSlotPreflightSurfacePrimitiveCount() =>
+        _aggregateLoadPostSlotPreflightSurfacePrimitiveCount;
+
+    internal int GetAggregateLoadPostSlotPreflightNodeMarkerCount() =>
+        _aggregateLoadPostSlotPreflightNodeMarkerCount;
 
     partial void ProbeAggregateLoadPostOwnershipPreCommitFailure()
     {

@@ -42,7 +42,10 @@ public partial class SaveManager : Node
         IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
         RoadGraphRevision targetRevision,
         PreparedLoadWork prepared);
-    partial void ProbeAggregateLoadPostSlotPreflightFailure();
+    partial void ProbeAggregateLoadPostSlotPreflightFailure(
+        IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
+        RoadGraphRevision targetRevision,
+        PreparedLoadWork prepared);
     partial void ProbeAggregateLoadPostOwnershipPreCommitFailure();
     partial void ProbeAggregateLoadGraphCommitBoundaryGenerationMismatch(
         RoadGraph graph,
@@ -766,7 +769,10 @@ public partial class SaveManager : Node
                         slotTargetGeneration == _currentSlotGeneration,
                     SetCurrentSlot,
                     CompleteSlotTargetLoadCommit));
-                ProbeAggregateLoadPostSlotPreflightFailure();
+                ProbeAggregateLoadPostSlotPreflightFailure(
+                    preflightPlans,
+                    targetRevision,
+                    prepared);
 
                 using var aggregate = new PreparedAggregateLoad(preflightPlans);
                 aggregateOwnsPlans = true;

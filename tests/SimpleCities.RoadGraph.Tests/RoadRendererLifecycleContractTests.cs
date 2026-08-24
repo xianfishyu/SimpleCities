@@ -1725,6 +1725,93 @@ public sealed class RoadRendererLifecycleContractTests
     }
 
     [Fact]
+    public void RealStartLoadPostSlotPreflightFailureTracksFourPlansBeforeOwnershipTransfer()
+    {
+        string saveManagerSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Core", "SaveManager.cs"));
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadLoadPreflightResourceFailureProbe.cs"));
+        string loadOrchestration = ExtractMethod(
+            saveManagerSource,
+            "private async Task<SaveOperationResult> RunLoadAsync",
+            "private async Task<SaveOperationResult> RunDeleteAsync");
+        string failureProbe = ExtractMethod(
+            probeSource,
+            "partial void ProbeAggregateLoadPostSlotPreflightFailure(",
+            "internal void ArmNextAggregateLoadPostSlotPreflightFailure()");
+
+        int rendererPreflightFailure = loadOrchestration.IndexOf(
+            "ProbeAggregateLoadPostRendererPreflightFailure(",
+            StringComparison.Ordinal);
+        int slotPlanTracked = loadOrchestration.IndexOf(
+            "preflightPlans.Add(new SlotTargetLoadCommitPlan(",
+            StringComparison.Ordinal);
+        int failure = loadOrchestration.IndexOf(
+            "ProbeAggregateLoadPostSlotPreflightFailure(",
+            StringComparison.Ordinal);
+        int aggregateCreation = loadOrchestration.IndexOf(
+            "using var aggregate = new PreparedAggregateLoad(preflightPlans);",
+            StringComparison.Ordinal);
+
+        Assert.True(rendererPreflightFailure >= 0 && rendererPreflightFailure < slotPlanTracked);
+        Assert.True(slotPlanTracked < failure && failure < aggregateCreation);
+        Assert.Contains(
+            "partial void ProbeAggregateLoadPostSlotPreflightFailure(",
+            saveManagerSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "public void ArmAggregateLoadPostSlotPreflightFailure(SaveManager saveManager)",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadPostSlotPreflightFailureArmed = false;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadPostSlotPreflightFailureCount++;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "System.Environment.CurrentManagedThreadId == _mainThreadID;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadPostSlotPreflightPlanCount = preflightPlans.Count;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains("preflightPlans[0].ParticipantID", failureProbe, StringComparison.Ordinal);
+        Assert.Contains("preflightPlans[1].ParticipantID", failureProbe, StringComparison.Ordinal);
+        Assert.Contains("preflightPlans[2].ParticipantID", failureProbe, StringComparison.Ordinal);
+        Assert.Contains("preflightPlans[3].ParticipantID", failureProbe, StringComparison.Ordinal);
+        Assert.Contains(
+            "public string ParticipantID => \"slot-target\";",
+            saveManagerSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadPostSlotPreflightTargetEdgeCount = targetRevision.Edges.Count;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains("prepared.Slot.SlotID;", failureProbe, StringComparison.Ordinal);
+        Assert.Contains("prepared.Slot.Participants.Count;", failureProbe, StringComparison.Ordinal);
+        Assert.Contains(
+            "prepared.Presentation.RoadVertices.Length;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "prepared.Presentation.RoadSurface.PrimitiveCount;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "prepared.Presentation.NodeMarkers.Length;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "AggregateLoadPostSlotPreflightFailureMessage",
+            failureProbe,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void PreparedPresentationResourcesAreReleasedBeforeOwnershipTransfer()
     {
         string rendererSource = File.ReadAllText(
@@ -1806,7 +1893,7 @@ public sealed class RoadRendererLifecycleContractTests
             "preflightPlans.Add(new SlotTargetLoadCommitPlan(",
             StringComparison.Ordinal);
         int postSlotFailureProbe = loadOrchestration.IndexOf(
-            "ProbeAggregateLoadPostSlotPreflightFailure();",
+            "ProbeAggregateLoadPostSlotPreflightFailure(",
             StringComparison.Ordinal);
         int aggregateCreation = loadOrchestration.IndexOf(
             "using var aggregate = new PreparedAggregateLoad(preflightPlans);",

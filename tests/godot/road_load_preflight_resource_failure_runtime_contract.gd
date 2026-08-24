@@ -688,6 +688,7 @@ func run() -> void:
 	var post_slot_failed_load_result := await run_load(source_slot_id)
 	if not require(
 		int(post_slot_failed_load_result.get("resultKind", -1)) == RESULT_FAILED and
+		int(post_slot_failed_load_result.get("finalPhase", -1)) == PHASE_PREFLIGHT and
 		not bool(post_slot_failed_load_result.get("committed", true)) and
 		str(post_slot_failed_load_result.get("warnings", "")).is_empty() and
 		str(post_slot_failed_load_result.get("error", "")) == post_slot_failure_message,
@@ -698,6 +699,22 @@ func run() -> void:
 	if not require(
 		not bool(probe.IsAggregateLoadPostSlotPreflightFailureArmed()) and
 		int(probe.GetAggregateLoadPostSlotPreflightFailureCount()) == 1 and
+		bool(probe.DidAggregateLoadPostSlotPreflightFailureRunOnMainThread()) and
+		int(probe.GetAggregateLoadPostSlotPreflightPlanCount()) == 4 and
+		str(probe.GetAggregateLoadPostSlotPreflightFirstParticipantID()) ==
+			"road-graph" and
+		str(probe.GetAggregateLoadPostSlotPreflightSecondParticipantID()) ==
+			"road-tools" and
+		str(probe.GetAggregateLoadPostSlotPreflightThirdParticipantID()) ==
+			"road-presentation" and
+		str(probe.GetAggregateLoadPostSlotPreflightFourthParticipantID()) ==
+			"slot-target" and
+		int(probe.GetAggregateLoadPostSlotPreflightTargetEdgeCount()) == 0 and
+		str(probe.GetAggregateLoadPostSlotPreflightObservedSlotID()) == source_slot_id and
+		int(probe.GetAggregateLoadPostSlotPreflightSourceParticipantCount()) == 1 and
+		int(probe.GetAggregateLoadPostSlotPreflightRoadVertexCount()) == 0 and
+		int(probe.GetAggregateLoadPostSlotPreflightSurfacePrimitiveCount()) == 0 and
+		int(probe.GetAggregateLoadPostSlotPreflightNodeMarkerCount()) == 0 and
 		post_slot_resource_count_after == post_slot_resource_count_before,
 		"Post-slot aggregate failure did not dispose every prepared plan and resource: %s" %
 		JSON.stringify({
@@ -710,6 +727,7 @@ func run() -> void:
 	if not require(
 		str(save_manager.get("CurrentSlotID")) == active_slot_id and
 		int(tool_manager.get("CurrentTool")) == TOOL_ROAD and
+		int(tool_manager.GetSelectedRoadType()) == selected_road_type_before and
 		builder.HasActivePlaceSession() and
 		builder.GetFixedCornerCount() == 1 and
 		builder.GetUndoEditCount() == undo_count_before and
@@ -2570,10 +2588,36 @@ func run() -> void:
 		"post_renderer_resource_count_after": post_renderer_resource_count_after,
 		"post_slot_failure_result_kind": int(
 			post_slot_failed_load_result.get("resultKind", -1)),
+		"post_slot_failure_final_phase": int(
+			post_slot_failed_load_result.get("finalPhase", -1)),
 		"post_slot_failure_committed": bool(
 			post_slot_failed_load_result.get("committed", true)),
 		"post_slot_failure_trigger_count": int(
 			probe.GetAggregateLoadPostSlotPreflightFailureCount()),
+		"post_slot_failure_on_main_thread": bool(
+			probe.DidAggregateLoadPostSlotPreflightFailureRunOnMainThread()),
+		"post_slot_plan_count": int(
+			probe.GetAggregateLoadPostSlotPreflightPlanCount()),
+		"post_slot_first_participant_id": str(
+			probe.GetAggregateLoadPostSlotPreflightFirstParticipantID()),
+		"post_slot_second_participant_id": str(
+			probe.GetAggregateLoadPostSlotPreflightSecondParticipantID()),
+		"post_slot_third_participant_id": str(
+			probe.GetAggregateLoadPostSlotPreflightThirdParticipantID()),
+		"post_slot_fourth_participant_id": str(
+			probe.GetAggregateLoadPostSlotPreflightFourthParticipantID()),
+		"post_slot_target_edge_count": int(
+			probe.GetAggregateLoadPostSlotPreflightTargetEdgeCount()),
+		"post_slot_observed_slot_id": str(
+			probe.GetAggregateLoadPostSlotPreflightObservedSlotID()),
+		"post_slot_source_participant_count": int(
+			probe.GetAggregateLoadPostSlotPreflightSourceParticipantCount()),
+		"post_slot_road_vertex_count": int(
+			probe.GetAggregateLoadPostSlotPreflightRoadVertexCount()),
+		"post_slot_surface_primitive_count": int(
+			probe.GetAggregateLoadPostSlotPreflightSurfacePrimitiveCount()),
+		"post_slot_node_marker_count": int(
+			probe.GetAggregateLoadPostSlotPreflightNodeMarkerCount()),
 		"post_slot_resource_count_before": post_slot_resource_count_before,
 		"post_slot_resource_count_after": post_slot_resource_count_after,
 		"post_ownership_failure_result_kind": int(
