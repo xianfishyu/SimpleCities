@@ -154,10 +154,14 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
     public string GetAggregateLoadRoadMeshFactoryFailureMessage() =>
         RoadRenderer.AggregateLoadRoadMeshFactoryFailureMessage;
 
-    public void ArmAggregateLoadNodeBatchFactoryFailure(RoadRenderer renderer)
+    public void ArmAggregateLoadNodeBatchFactoryFailure(
+        SaveManager saveManager,
+        RoadRenderer renderer)
     {
+        ArgumentNullException.ThrowIfNull(saveManager);
         ArgumentNullException.ThrowIfNull(renderer);
-        renderer.ArmNextAggregateLoadNodeBatchFactoryFailure();
+        saveManager.ArmNextAggregateLoadNodeBatchFactoryPreflightObservation(renderer);
+        _saveManager = saveManager;
         _renderer = renderer;
     }
 
@@ -169,6 +173,45 @@ public partial class RoadLoadPreflightResourceFailureProbe : RefCounted
 
     public int GetAggregateLoadNodeBatchFactoryMarkerReadCount() =>
         _renderer?.GetAggregateLoadNodeBatchFactoryMarkerReadCount() ?? 0;
+
+    public bool IsAggregateLoadNodeBatchFactoryPreflightObservationArmed() =>
+        _saveManager?.IsAggregateLoadNodeBatchFactoryPreflightObservationArmed() ?? false;
+
+    public int GetAggregateLoadNodeBatchFactoryPreflightObservationCount() =>
+        _saveManager?.GetAggregateLoadNodeBatchFactoryPreflightObservationCount() ?? 0;
+
+    public bool DidAggregateLoadNodeBatchFactoryPreflightObservationRunOnMainThread() =>
+        _saveManager?.DidAggregateLoadNodeBatchFactoryPreflightObservationRunOnMainThread() ?? false;
+
+    public int GetAggregateLoadNodeBatchFactoryPreflightObservedPhase() =>
+        _saveManager?.GetAggregateLoadNodeBatchFactoryPreflightObservedPhase() ?? -1;
+
+    public int GetAggregateLoadNodeBatchFactoryPreflightPlanCount() =>
+        _saveManager?.GetAggregateLoadNodeBatchFactoryPreflightPlanCount() ?? -1;
+
+    public string GetAggregateLoadNodeBatchFactoryPreflightFirstParticipantID() =>
+        _saveManager?.GetAggregateLoadNodeBatchFactoryPreflightFirstParticipantID() ?? string.Empty;
+
+    public string GetAggregateLoadNodeBatchFactoryPreflightSecondParticipantID() =>
+        _saveManager?.GetAggregateLoadNodeBatchFactoryPreflightSecondParticipantID() ?? string.Empty;
+
+    public int GetAggregateLoadNodeBatchFactoryPreflightTargetEdgeCount() =>
+        _saveManager?.GetAggregateLoadNodeBatchFactoryPreflightTargetEdgeCount() ?? -1;
+
+    public string GetAggregateLoadNodeBatchFactoryPreflightObservedSlotID() =>
+        _saveManager?.GetAggregateLoadNodeBatchFactoryPreflightObservedSlotID() ?? string.Empty;
+
+    public int GetAggregateLoadNodeBatchFactoryPreflightSourceParticipantCount() =>
+        _saveManager?.GetAggregateLoadNodeBatchFactoryPreflightSourceParticipantCount() ?? -1;
+
+    public int GetAggregateLoadNodeBatchFactoryPreflightRoadVertexCount() =>
+        _saveManager?.GetAggregateLoadNodeBatchFactoryPreflightRoadVertexCount() ?? -1;
+
+    public int GetAggregateLoadNodeBatchFactoryPreflightSurfacePrimitiveCount() =>
+        _saveManager?.GetAggregateLoadNodeBatchFactoryPreflightSurfacePrimitiveCount() ?? -1;
+
+    public int GetAggregateLoadNodeBatchFactoryPreflightNodeMarkerCount() =>
+        _saveManager?.GetAggregateLoadNodeBatchFactoryPreflightNodeMarkerCount() ?? -1;
 
     public string GetAggregateLoadNodeBatchFactoryFailureMessage() =>
         RoadRenderer.AggregateLoadNodeBatchFactoryFailureMessage;
@@ -1150,20 +1193,10 @@ public partial class SaveManager
     private int _aggregateLoadPostToolPreflightRoadVertexCount = -1;
     private int _aggregateLoadPostToolPreflightSurfacePrimitiveCount = -1;
     private int _aggregateLoadPostToolPreflightNodeMarkerCount = -1;
-    private bool _aggregateLoadRoadMeshFactoryPreflightObservationArmed;
-    private int _aggregateLoadRoadMeshFactoryPreflightObservationCount;
-    private bool _aggregateLoadRoadMeshFactoryPreflightObservationRanOnMainThread;
-    private int _aggregateLoadRoadMeshFactoryPreflightObservedPhase = -1;
-    private int _aggregateLoadRoadMeshFactoryPreflightPlanCount = -1;
-    private string _aggregateLoadRoadMeshFactoryPreflightFirstParticipantID = string.Empty;
-    private string _aggregateLoadRoadMeshFactoryPreflightSecondParticipantID = string.Empty;
-    private int _aggregateLoadRoadMeshFactoryPreflightTargetEdgeCount = -1;
-    private string _aggregateLoadRoadMeshFactoryPreflightObservedSlotID = string.Empty;
-    private int _aggregateLoadRoadMeshFactoryPreflightSourceParticipantCount = -1;
-    private int _aggregateLoadRoadMeshFactoryPreflightRoadVertexCount = -1;
-    private int _aggregateLoadRoadMeshFactoryPreflightSurfacePrimitiveCount = -1;
-    private int _aggregateLoadRoadMeshFactoryPreflightNodeMarkerCount = -1;
-    private RoadRenderer? _aggregateLoadRoadMeshFactoryPreflightOwner;
+    private readonly AggregateLoadRendererFactoryPreflightProbeState
+        _aggregateLoadRoadMeshFactoryPreflight = new();
+    private readonly AggregateLoadRendererFactoryPreflightProbeState
+        _aggregateLoadNodeBatchFactoryPreflight = new();
     private bool _aggregateLoadPostRendererPreflightFailureArmed;
     private int _aggregateLoadPostRendererPreflightFailureCount;
     private bool _aggregateLoadPostRendererPreflightFailureRanOnMainThread;
@@ -2077,54 +2110,81 @@ public partial class SaveManager
     internal int GetAggregateLoadPostToolPreflightNodeMarkerCount() =>
         _aggregateLoadPostToolPreflightNodeMarkerCount;
 
-    partial void ProbeAggregateLoadRoadMeshFactoryPreflightObservation(
+    partial void ProbeAggregateLoadRendererFactoryPreflightObservation(
         RoadRenderer renderer,
         SaveOperationPhase phase,
         IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
         RoadGraphRevision targetRevision,
         PreparedLoadWork prepared)
     {
-        if (!_aggregateLoadRoadMeshFactoryPreflightObservationArmed)
+        CaptureAggregateLoadRendererFactoryPreflightObservation(
+            renderer,
+            phase,
+            preflightPlans,
+            targetRevision,
+            prepared,
+            _aggregateLoadRoadMeshFactoryPreflight,
+            renderer.IsAggregateLoadRoadMeshFactoryFailureArmed(),
+            "road-mesh");
+        CaptureAggregateLoadRendererFactoryPreflightObservation(
+            renderer,
+            phase,
+            preflightPlans,
+            targetRevision,
+            prepared,
+            _aggregateLoadNodeBatchFactoryPreflight,
+            renderer.IsAggregateLoadNodeBatchFactoryFailureArmed(),
+            "node-batch");
+    }
+
+    private void CaptureAggregateLoadRendererFactoryPreflightObservation(
+        RoadRenderer renderer,
+        SaveOperationPhase phase,
+        IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
+        RoadGraphRevision targetRevision,
+        PreparedLoadWork prepared,
+        AggregateLoadRendererFactoryPreflightProbeState state,
+        bool factoryFailureArmed,
+        string factoryName)
+    {
+        if (!state.Armed)
             return;
-        if (!ReferenceEquals(renderer, _aggregateLoadRoadMeshFactoryPreflightOwner))
+        if (!ReferenceEquals(renderer, state.Owner))
         {
             throw new InvalidOperationException(
-                "Aggregate Load road-mesh factory preflight observation targeted a different RoadRenderer.");
+                $"Aggregate Load {factoryName} factory preflight observation targeted a different RoadRenderer.");
         }
-        if (!renderer.IsAggregateLoadRoadMeshFactoryFailureArmed())
+        if (!factoryFailureArmed)
         {
             throw new InvalidOperationException(
-                "Aggregate Load road-mesh factory failure probe was not armed at renderer preflight.");
+                $"Aggregate Load {factoryName} factory failure probe was not armed at renderer preflight.");
         }
 
         ArgumentNullException.ThrowIfNull(preflightPlans);
         ArgumentNullException.ThrowIfNull(targetRevision);
         ArgumentNullException.ThrowIfNull(prepared);
-        _aggregateLoadRoadMeshFactoryPreflightObservationArmed = false;
-        _aggregateLoadRoadMeshFactoryPreflightObservationCount++;
-        _aggregateLoadRoadMeshFactoryPreflightObservationRanOnMainThread =
-            _mainThreadID != 0 && System.Environment.CurrentManagedThreadId == _mainThreadID;
-        _aggregateLoadRoadMeshFactoryPreflightObservedPhase = (int)phase;
-        _aggregateLoadRoadMeshFactoryPreflightPlanCount = preflightPlans.Count;
-        _aggregateLoadRoadMeshFactoryPreflightFirstParticipantID =
-            preflightPlans.Count > 0 ? preflightPlans[0].ParticipantID : string.Empty;
-        _aggregateLoadRoadMeshFactoryPreflightSecondParticipantID =
-            preflightPlans.Count > 1 ? preflightPlans[1].ParticipantID : string.Empty;
-        _aggregateLoadRoadMeshFactoryPreflightTargetEdgeCount = targetRevision.Edges.Count;
-        _aggregateLoadRoadMeshFactoryPreflightObservedSlotID = prepared.Slot.SlotID;
-        _aggregateLoadRoadMeshFactoryPreflightSourceParticipantCount =
-            prepared.Slot.Participants.Count;
-        _aggregateLoadRoadMeshFactoryPreflightRoadVertexCount =
-            prepared.Presentation.RoadVertices.Length;
-        _aggregateLoadRoadMeshFactoryPreflightSurfacePrimitiveCount =
-            prepared.Presentation.RoadSurface.PrimitiveCount;
-        _aggregateLoadRoadMeshFactoryPreflightNodeMarkerCount =
-            prepared.Presentation.NodeMarkers.Length;
-        _aggregateLoadRoadMeshFactoryPreflightOwner = null;
+        state.Armed = false;
+        state.Count++;
+        state.Observation = new AggregateLoadRendererFactoryPreflightObservation(
+            _mainThreadID != 0 && System.Environment.CurrentManagedThreadId == _mainThreadID,
+            (int)phase,
+            preflightPlans.Count,
+            preflightPlans.Count > 0 ? preflightPlans[0].ParticipantID : string.Empty,
+            preflightPlans.Count > 1 ? preflightPlans[1].ParticipantID : string.Empty,
+            targetRevision.Edges.Count,
+            prepared.Slot.SlotID,
+            prepared.Slot.Participants.Count,
+            prepared.Presentation.RoadVertices.Length,
+            prepared.Presentation.RoadSurface.PrimitiveCount,
+            prepared.Presentation.NodeMarkers.Length);
+        state.Owner = null;
     }
 
-    internal void ArmNextAggregateLoadRoadMeshFactoryPreflightObservation(
-        RoadRenderer renderer)
+    private void ArmNextAggregateLoadRendererFactoryPreflightObservation(
+        RoadRenderer renderer,
+        AggregateLoadRendererFactoryPreflightProbeState state,
+        Action<RoadRenderer> armFactoryFailure,
+        string factoryName)
     {
         ArgumentNullException.ThrowIfNull(renderer);
         if (IsOperationBusy)
@@ -2132,66 +2192,147 @@ public partial class SaveManager
             throw new InvalidOperationException(
                 "SaveManager must be idle before arming its aggregate Load failure probe.");
         }
-        if (_aggregateLoadRoadMeshFactoryPreflightObservationArmed)
+        if (state.Armed)
         {
             throw new InvalidOperationException(
-                "Aggregate Load road-mesh factory preflight observation is already armed.");
+                $"Aggregate Load {factoryName} factory preflight observation is already armed.");
         }
 
-        renderer.ArmNextAggregateLoadRoadMeshFactoryFailure();
-        _aggregateLoadRoadMeshFactoryPreflightObservationRanOnMainThread = false;
-        _aggregateLoadRoadMeshFactoryPreflightObservedPhase = -1;
-        _aggregateLoadRoadMeshFactoryPreflightPlanCount = -1;
-        _aggregateLoadRoadMeshFactoryPreflightFirstParticipantID = string.Empty;
-        _aggregateLoadRoadMeshFactoryPreflightSecondParticipantID = string.Empty;
-        _aggregateLoadRoadMeshFactoryPreflightTargetEdgeCount = -1;
-        _aggregateLoadRoadMeshFactoryPreflightObservedSlotID = string.Empty;
-        _aggregateLoadRoadMeshFactoryPreflightSourceParticipantCount = -1;
-        _aggregateLoadRoadMeshFactoryPreflightRoadVertexCount = -1;
-        _aggregateLoadRoadMeshFactoryPreflightSurfacePrimitiveCount = -1;
-        _aggregateLoadRoadMeshFactoryPreflightNodeMarkerCount = -1;
-        _aggregateLoadRoadMeshFactoryPreflightObservationArmed = true;
-        _aggregateLoadRoadMeshFactoryPreflightOwner = renderer;
+        armFactoryFailure(renderer);
+        state.Observation = AggregateLoadRendererFactoryPreflightObservation.Empty;
+        state.Armed = true;
+        state.Owner = renderer;
     }
 
+    internal void ArmNextAggregateLoadRoadMeshFactoryPreflightObservation(
+        RoadRenderer renderer) =>
+        ArmNextAggregateLoadRendererFactoryPreflightObservation(
+            renderer,
+            _aggregateLoadRoadMeshFactoryPreflight,
+            static currentRenderer => currentRenderer.ArmNextAggregateLoadRoadMeshFactoryFailure(),
+            "road-mesh");
+
     internal bool IsAggregateLoadRoadMeshFactoryPreflightObservationArmed() =>
-        _aggregateLoadRoadMeshFactoryPreflightObservationArmed;
+        _aggregateLoadRoadMeshFactoryPreflight.Armed;
 
     internal int GetAggregateLoadRoadMeshFactoryPreflightObservationCount() =>
-        _aggregateLoadRoadMeshFactoryPreflightObservationCount;
+        _aggregateLoadRoadMeshFactoryPreflight.Count;
 
     internal bool DidAggregateLoadRoadMeshFactoryPreflightObservationRunOnMainThread() =>
-        _aggregateLoadRoadMeshFactoryPreflightObservationRanOnMainThread;
+        _aggregateLoadRoadMeshFactoryPreflight.Observation.RanOnMainThread;
 
     internal int GetAggregateLoadRoadMeshFactoryPreflightObservedPhase() =>
-        _aggregateLoadRoadMeshFactoryPreflightObservedPhase;
+        _aggregateLoadRoadMeshFactoryPreflight.Observation.Phase;
 
     internal int GetAggregateLoadRoadMeshFactoryPreflightPlanCount() =>
-        _aggregateLoadRoadMeshFactoryPreflightPlanCount;
+        _aggregateLoadRoadMeshFactoryPreflight.Observation.PlanCount;
 
     internal string GetAggregateLoadRoadMeshFactoryPreflightFirstParticipantID() =>
-        _aggregateLoadRoadMeshFactoryPreflightFirstParticipantID;
+        _aggregateLoadRoadMeshFactoryPreflight.Observation.FirstParticipantID;
 
     internal string GetAggregateLoadRoadMeshFactoryPreflightSecondParticipantID() =>
-        _aggregateLoadRoadMeshFactoryPreflightSecondParticipantID;
+        _aggregateLoadRoadMeshFactoryPreflight.Observation.SecondParticipantID;
 
     internal int GetAggregateLoadRoadMeshFactoryPreflightTargetEdgeCount() =>
-        _aggregateLoadRoadMeshFactoryPreflightTargetEdgeCount;
+        _aggregateLoadRoadMeshFactoryPreflight.Observation.TargetEdgeCount;
 
     internal string GetAggregateLoadRoadMeshFactoryPreflightObservedSlotID() =>
-        _aggregateLoadRoadMeshFactoryPreflightObservedSlotID;
+        _aggregateLoadRoadMeshFactoryPreflight.Observation.SlotID;
 
     internal int GetAggregateLoadRoadMeshFactoryPreflightSourceParticipantCount() =>
-        _aggregateLoadRoadMeshFactoryPreflightSourceParticipantCount;
+        _aggregateLoadRoadMeshFactoryPreflight.Observation.SourceParticipantCount;
 
     internal int GetAggregateLoadRoadMeshFactoryPreflightRoadVertexCount() =>
-        _aggregateLoadRoadMeshFactoryPreflightRoadVertexCount;
+        _aggregateLoadRoadMeshFactoryPreflight.Observation.RoadVertexCount;
 
     internal int GetAggregateLoadRoadMeshFactoryPreflightSurfacePrimitiveCount() =>
-        _aggregateLoadRoadMeshFactoryPreflightSurfacePrimitiveCount;
+        _aggregateLoadRoadMeshFactoryPreflight.Observation.SurfacePrimitiveCount;
 
     internal int GetAggregateLoadRoadMeshFactoryPreflightNodeMarkerCount() =>
-        _aggregateLoadRoadMeshFactoryPreflightNodeMarkerCount;
+        _aggregateLoadRoadMeshFactoryPreflight.Observation.NodeMarkerCount;
+
+    internal void ArmNextAggregateLoadNodeBatchFactoryPreflightObservation(
+        RoadRenderer renderer) =>
+        ArmNextAggregateLoadRendererFactoryPreflightObservation(
+            renderer,
+            _aggregateLoadNodeBatchFactoryPreflight,
+            static currentRenderer => currentRenderer.ArmNextAggregateLoadNodeBatchFactoryFailure(),
+            "node-batch");
+
+    internal bool IsAggregateLoadNodeBatchFactoryPreflightObservationArmed() =>
+        _aggregateLoadNodeBatchFactoryPreflight.Armed;
+
+    internal int GetAggregateLoadNodeBatchFactoryPreflightObservationCount() =>
+        _aggregateLoadNodeBatchFactoryPreflight.Count;
+
+    internal bool DidAggregateLoadNodeBatchFactoryPreflightObservationRunOnMainThread() =>
+        _aggregateLoadNodeBatchFactoryPreflight.Observation.RanOnMainThread;
+
+    internal int GetAggregateLoadNodeBatchFactoryPreflightObservedPhase() =>
+        _aggregateLoadNodeBatchFactoryPreflight.Observation.Phase;
+
+    internal int GetAggregateLoadNodeBatchFactoryPreflightPlanCount() =>
+        _aggregateLoadNodeBatchFactoryPreflight.Observation.PlanCount;
+
+    internal string GetAggregateLoadNodeBatchFactoryPreflightFirstParticipantID() =>
+        _aggregateLoadNodeBatchFactoryPreflight.Observation.FirstParticipantID;
+
+    internal string GetAggregateLoadNodeBatchFactoryPreflightSecondParticipantID() =>
+        _aggregateLoadNodeBatchFactoryPreflight.Observation.SecondParticipantID;
+
+    internal int GetAggregateLoadNodeBatchFactoryPreflightTargetEdgeCount() =>
+        _aggregateLoadNodeBatchFactoryPreflight.Observation.TargetEdgeCount;
+
+    internal string GetAggregateLoadNodeBatchFactoryPreflightObservedSlotID() =>
+        _aggregateLoadNodeBatchFactoryPreflight.Observation.SlotID;
+
+    internal int GetAggregateLoadNodeBatchFactoryPreflightSourceParticipantCount() =>
+        _aggregateLoadNodeBatchFactoryPreflight.Observation.SourceParticipantCount;
+
+    internal int GetAggregateLoadNodeBatchFactoryPreflightRoadVertexCount() =>
+        _aggregateLoadNodeBatchFactoryPreflight.Observation.RoadVertexCount;
+
+    internal int GetAggregateLoadNodeBatchFactoryPreflightSurfacePrimitiveCount() =>
+        _aggregateLoadNodeBatchFactoryPreflight.Observation.SurfacePrimitiveCount;
+
+    internal int GetAggregateLoadNodeBatchFactoryPreflightNodeMarkerCount() =>
+        _aggregateLoadNodeBatchFactoryPreflight.Observation.NodeMarkerCount;
+
+    private sealed class AggregateLoadRendererFactoryPreflightProbeState
+    {
+        internal bool Armed { get; set; }
+        internal int Count { get; set; }
+        internal RoadRenderer? Owner { get; set; }
+        internal AggregateLoadRendererFactoryPreflightObservation Observation { get; set; } =
+            AggregateLoadRendererFactoryPreflightObservation.Empty;
+    }
+
+    private readonly record struct AggregateLoadRendererFactoryPreflightObservation(
+        bool RanOnMainThread,
+        int Phase,
+        int PlanCount,
+        string FirstParticipantID,
+        string SecondParticipantID,
+        int TargetEdgeCount,
+        string SlotID,
+        int SourceParticipantCount,
+        int RoadVertexCount,
+        int SurfacePrimitiveCount,
+        int NodeMarkerCount)
+    {
+        internal static AggregateLoadRendererFactoryPreflightObservation Empty { get; } = new(
+            false,
+            -1,
+            -1,
+            string.Empty,
+            string.Empty,
+            -1,
+            string.Empty,
+            -1,
+            -1,
+            -1,
+            -1);
+    }
 
     partial void ProbeAggregateLoadPostRendererPreflightFailure(
         IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,

@@ -2497,8 +2497,12 @@ public sealed class RoadRendererLifecycleContractTests
             "private async Task<SaveOperationResult> RunDeleteAsync");
         string observationProbe = ExtractMethod(
             probeSource,
-            "partial void ProbeAggregateLoadRoadMeshFactoryPreflightObservation(",
-            "internal void ArmNextAggregateLoadRoadMeshFactoryPreflightObservation(");
+            "partial void ProbeAggregateLoadRendererFactoryPreflightObservation(",
+            "private void CaptureAggregateLoadRendererFactoryPreflightObservation(");
+        string observationCapture = ExtractMethod(
+            probeSource,
+            "private void CaptureAggregateLoadRendererFactoryPreflightObservation(",
+            "private void ArmNextAggregateLoadRendererFactoryPreflightObservation(");
         string observationArm = ExtractMethod(
             probeSource,
             "internal void ArmNextAggregateLoadRoadMeshFactoryPreflightObservation(",
@@ -2508,7 +2512,7 @@ public sealed class RoadRendererLifecycleContractTests
             "ProbeAggregateLoadPostToolPreflightFailure(",
             StringComparison.Ordinal);
         int observation = loadOrchestration.IndexOf(
-            "ProbeAggregateLoadRoadMeshFactoryPreflightObservation(",
+            "ProbeAggregateLoadRendererFactoryPreflightObservation(",
             StringComparison.Ordinal);
         int rendererPreflight = loadOrchestration.IndexOf(
             "preflightPlans.Add(context.Renderer.PreflightPreparedLoad(",
@@ -2517,7 +2521,7 @@ public sealed class RoadRendererLifecycleContractTests
         Assert.True(toolPreflightFailure >= 0 && toolPreflightFailure < observation);
         Assert.True(observation < rendererPreflight);
         Assert.Contains(
-            "partial void ProbeAggregateLoadRoadMeshFactoryPreflightObservation(",
+            "partial void ProbeAggregateLoadRendererFactoryPreflightObservation(",
             saveManagerSource,
             StringComparison.Ordinal);
         Assert.Contains("context.Renderer,", loadOrchestration, StringComparison.Ordinal);
@@ -2529,48 +2533,108 @@ public sealed class RoadRendererLifecycleContractTests
         Assert.Contains("SaveManager saveManager", probeSource, StringComparison.Ordinal);
         Assert.Contains("RoadRenderer renderer", probeSource, StringComparison.Ordinal);
         Assert.Contains(
-            "renderer.ArmNextAggregateLoadRoadMeshFactoryFailure();",
+            "saveManager.ArmNextAggregateLoadRoadMeshFactoryPreflightObservation(renderer);",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "currentRenderer.ArmNextAggregateLoadRoadMeshFactoryFailure()",
             observationArm,
             StringComparison.Ordinal);
         Assert.Contains(
-            "_aggregateLoadRoadMeshFactoryPreflightObservationArmed = false;",
+            "_aggregateLoadRoadMeshFactoryPreflight,",
             observationProbe,
             StringComparison.Ordinal);
         Assert.Contains(
-            "_aggregateLoadRoadMeshFactoryPreflightObservationCount++;",
+            "renderer.IsAggregateLoadRoadMeshFactoryFailureArmed(),",
+            observationProbe,
+            StringComparison.Ordinal);
+        Assert.Contains("state.Armed = false;", observationCapture, StringComparison.Ordinal);
+        Assert.Contains("state.Count++;", observationCapture, StringComparison.Ordinal);
+        Assert.Contains(
+            "System.Environment.CurrentManagedThreadId == _mainThreadID,",
+            observationCapture,
+            StringComparison.Ordinal);
+        Assert.Contains("(int)phase,", observationCapture, StringComparison.Ordinal);
+        Assert.Contains("preflightPlans.Count,", observationCapture, StringComparison.Ordinal);
+        Assert.Contains("preflightPlans[0].ParticipantID", observationCapture, StringComparison.Ordinal);
+        Assert.Contains("preflightPlans[1].ParticipantID", observationCapture, StringComparison.Ordinal);
+        Assert.Contains("targetRevision.Edges.Count,", observationCapture, StringComparison.Ordinal);
+        Assert.Contains("prepared.Slot.SlotID,", observationCapture, StringComparison.Ordinal);
+        Assert.Contains("prepared.Slot.Participants.Count,", observationCapture, StringComparison.Ordinal);
+        Assert.Contains(
+            "prepared.Presentation.RoadVertices.Length,",
+            observationCapture,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "prepared.Presentation.RoadSurface.PrimitiveCount,",
+            observationCapture,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "prepared.Presentation.NodeMarkers.Length);",
+            observationCapture,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "private readonly record struct AggregateLoadRendererFactoryPreflightObservation(",
+            probeSource,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RealStartLoadNodeBatchFactoryFailureSharesStructuredPreflightObservation()
+    {
+        string saveManagerSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Core", "SaveManager.cs"));
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadLoadPreflightResourceFailureProbe.cs"));
+        string loadOrchestration = ExtractMethod(
+            saveManagerSource,
+            "private async Task<SaveOperationResult> RunLoadAsync",
+            "private async Task<SaveOperationResult> RunDeleteAsync");
+        string observationProbe = ExtractMethod(
+            probeSource,
+            "partial void ProbeAggregateLoadRendererFactoryPreflightObservation(",
+            "private void CaptureAggregateLoadRendererFactoryPreflightObservation(");
+        string observationArm = ExtractMethod(
+            probeSource,
+            "internal void ArmNextAggregateLoadNodeBatchFactoryPreflightObservation(",
+            "internal bool IsAggregateLoadNodeBatchFactoryPreflightObservationArmed()");
+
+        int observation = loadOrchestration.IndexOf(
+            "ProbeAggregateLoadRendererFactoryPreflightObservation(",
+            StringComparison.Ordinal);
+        int rendererPreflight = loadOrchestration.IndexOf(
+            "preflightPlans.Add(context.Renderer.PreflightPreparedLoad(",
+            StringComparison.Ordinal);
+
+        Assert.True(observation >= 0 && observation < rendererPreflight);
+        Assert.Contains(
+            "public void ArmAggregateLoadNodeBatchFactoryFailure(",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains("SaveManager saveManager", probeSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "saveManager.ArmNextAggregateLoadNodeBatchFactoryPreflightObservation(renderer);",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "currentRenderer.ArmNextAggregateLoadNodeBatchFactoryFailure()",
+            observationArm,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadNodeBatchFactoryPreflight,",
             observationProbe,
             StringComparison.Ordinal);
         Assert.Contains(
-            "System.Environment.CurrentManagedThreadId == _mainThreadID;",
+            "renderer.IsAggregateLoadNodeBatchFactoryFailureArmed(),",
             observationProbe,
             StringComparison.Ordinal);
         Assert.Contains(
-            "_aggregateLoadRoadMeshFactoryPreflightObservedPhase = (int)phase;",
-            observationProbe,
+            "_aggregateLoadRoadMeshFactoryPreflight = new();",
+            probeSource,
             StringComparison.Ordinal);
         Assert.Contains(
-            "_aggregateLoadRoadMeshFactoryPreflightPlanCount = preflightPlans.Count;",
-            observationProbe,
-            StringComparison.Ordinal);
-        Assert.Contains("preflightPlans[0].ParticipantID", observationProbe, StringComparison.Ordinal);
-        Assert.Contains("preflightPlans[1].ParticipantID", observationProbe, StringComparison.Ordinal);
-        Assert.Contains(
-            "_aggregateLoadRoadMeshFactoryPreflightTargetEdgeCount = targetRevision.Edges.Count;",
-            observationProbe,
-            StringComparison.Ordinal);
-        Assert.Contains("prepared.Slot.SlotID;", observationProbe, StringComparison.Ordinal);
-        Assert.Contains("prepared.Slot.Participants.Count;", observationProbe, StringComparison.Ordinal);
-        Assert.Contains(
-            "prepared.Presentation.RoadVertices.Length;",
-            observationProbe,
-            StringComparison.Ordinal);
-        Assert.Contains(
-            "prepared.Presentation.RoadSurface.PrimitiveCount;",
-            observationProbe,
-            StringComparison.Ordinal);
-        Assert.Contains(
-            "prepared.Presentation.NodeMarkers.Length;",
-            observationProbe,
+            "_aggregateLoadNodeBatchFactoryPreflight = new();",
+            probeSource,
             StringComparison.Ordinal);
     }
 

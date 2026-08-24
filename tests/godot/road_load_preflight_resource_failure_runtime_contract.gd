@@ -353,14 +353,17 @@ func run() -> void:
 	var aggregate_node_batch_resource_count_before := int(probe.GetObjectResourceCount())
 	var aggregate_node_batch_failure_message := str(
 		probe.GetAggregateLoadNodeBatchFactoryFailureMessage())
-	probe.ArmAggregateLoadNodeBatchFactoryFailure(renderer)
+	probe.ArmAggregateLoadNodeBatchFactoryFailure(save_manager, renderer)
 	if not require(
-		bool(probe.IsAggregateLoadNodeBatchFactoryFailureArmed()),
+		bool(probe.IsAggregateLoadNodeBatchFactoryFailureArmed()) and
+		bool(probe.IsAggregateLoadNodeBatchFactoryPreflightObservationArmed()),
 		"Aggregate Load node-batch factory failure probe did not arm"):
 		return
 	var aggregate_node_batch_failed_load_result := await run_load(active_slot_id)
 	if not require(
 		int(aggregate_node_batch_failed_load_result.get("resultKind", -1)) == RESULT_FAILED and
+		int(aggregate_node_batch_failed_load_result.get("finalPhase", -1)) ==
+			PHASE_PREFLIGHT and
 		not bool(aggregate_node_batch_failed_load_result.get("committed", true)) and
 		str(aggregate_node_batch_failed_load_result.get("warnings", "")).is_empty() and
 		str(aggregate_node_batch_failed_load_result.get("error", "")) ==
@@ -371,8 +374,28 @@ func run() -> void:
 	var aggregate_node_batch_resource_count_after := int(probe.GetObjectResourceCount())
 	if not require(
 		not bool(probe.IsAggregateLoadNodeBatchFactoryFailureArmed()) and
+		not bool(probe.IsAggregateLoadNodeBatchFactoryPreflightObservationArmed()) and
 		int(probe.GetAggregateLoadNodeBatchFactoryFailureCount()) == 1 and
 		int(probe.GetAggregateLoadNodeBatchFactoryMarkerReadCount()) == 1 and
+		int(probe.GetAggregateLoadNodeBatchFactoryPreflightObservationCount()) == 1 and
+		bool(probe.DidAggregateLoadNodeBatchFactoryPreflightObservationRunOnMainThread()) and
+		int(probe.GetAggregateLoadNodeBatchFactoryPreflightObservedPhase()) ==
+			PHASE_PREFLIGHT and
+		int(probe.GetAggregateLoadNodeBatchFactoryPreflightPlanCount()) == 2 and
+		str(probe.GetAggregateLoadNodeBatchFactoryPreflightFirstParticipantID()) ==
+			"road-graph" and
+		str(probe.GetAggregateLoadNodeBatchFactoryPreflightSecondParticipantID()) ==
+			"road-tools" and
+		int(probe.GetAggregateLoadNodeBatchFactoryPreflightTargetEdgeCount()) ==
+			edge_count_before and
+		str(probe.GetAggregateLoadNodeBatchFactoryPreflightObservedSlotID()) ==
+			active_slot_id and
+		int(probe.GetAggregateLoadNodeBatchFactoryPreflightSourceParticipantCount()) == 1 and
+		int(probe.GetAggregateLoadNodeBatchFactoryPreflightRoadVertexCount()) ==
+			vertex_count_before and
+		int(probe.GetAggregateLoadNodeBatchFactoryPreflightSurfacePrimitiveCount()) > 0 and
+		int(probe.GetAggregateLoadNodeBatchFactoryPreflightNodeMarkerCount()) ==
+			marker_count_before and
 		aggregate_node_batch_resource_count_after ==
 			aggregate_node_batch_resource_count_before,
 		"Aggregate node-batch factory failure did not release both preflight resources: %s" %
@@ -380,6 +403,15 @@ func run() -> void:
 			"armed": bool(probe.IsAggregateLoadNodeBatchFactoryFailureArmed()),
 			"triggerCount": int(probe.GetAggregateLoadNodeBatchFactoryFailureCount()),
 			"markerReadCount": int(probe.GetAggregateLoadNodeBatchFactoryMarkerReadCount()),
+			"observationCount": int(
+				probe.GetAggregateLoadNodeBatchFactoryPreflightObservationCount()),
+			"observedPhase": int(
+				probe.GetAggregateLoadNodeBatchFactoryPreflightObservedPhase()),
+			"planCount": int(probe.GetAggregateLoadNodeBatchFactoryPreflightPlanCount()),
+			"firstParticipantID": str(
+				probe.GetAggregateLoadNodeBatchFactoryPreflightFirstParticipantID()),
+			"secondParticipantID": str(
+				probe.GetAggregateLoadNodeBatchFactoryPreflightSecondParticipantID()),
 			"resourceCountBefore": aggregate_node_batch_resource_count_before,
 			"resourceCountAfter": aggregate_node_batch_resource_count_after,
 		})):
@@ -2387,12 +2419,38 @@ func run() -> void:
 			aggregate_road_mesh_resource_count_after,
 		"aggregate_node_batch_failure_result_kind": int(
 			aggregate_node_batch_failed_load_result.get("resultKind", -1)),
+		"aggregate_node_batch_failure_final_phase": int(
+			aggregate_node_batch_failed_load_result.get("finalPhase", -1)),
 		"aggregate_node_batch_failure_committed": bool(
 			aggregate_node_batch_failed_load_result.get("committed", true)),
 		"aggregate_node_batch_failure_trigger_count": int(
 			probe.GetAggregateLoadNodeBatchFactoryFailureCount()),
 		"aggregate_node_batch_marker_read_count": int(
 			probe.GetAggregateLoadNodeBatchFactoryMarkerReadCount()),
+		"aggregate_node_batch_preflight_observation_count": int(
+			probe.GetAggregateLoadNodeBatchFactoryPreflightObservationCount()),
+		"aggregate_node_batch_preflight_observation_on_main_thread": bool(
+			probe.DidAggregateLoadNodeBatchFactoryPreflightObservationRunOnMainThread()),
+		"aggregate_node_batch_preflight_observed_phase": int(
+			probe.GetAggregateLoadNodeBatchFactoryPreflightObservedPhase()),
+		"aggregate_node_batch_preflight_plan_count": int(
+			probe.GetAggregateLoadNodeBatchFactoryPreflightPlanCount()),
+		"aggregate_node_batch_preflight_first_participant_id": str(
+			probe.GetAggregateLoadNodeBatchFactoryPreflightFirstParticipantID()),
+		"aggregate_node_batch_preflight_second_participant_id": str(
+			probe.GetAggregateLoadNodeBatchFactoryPreflightSecondParticipantID()),
+		"aggregate_node_batch_preflight_target_edge_count": int(
+			probe.GetAggregateLoadNodeBatchFactoryPreflightTargetEdgeCount()),
+		"aggregate_node_batch_preflight_observed_slot_id": str(
+			probe.GetAggregateLoadNodeBatchFactoryPreflightObservedSlotID()),
+		"aggregate_node_batch_preflight_source_participant_count": int(
+			probe.GetAggregateLoadNodeBatchFactoryPreflightSourceParticipantCount()),
+		"aggregate_node_batch_preflight_road_vertex_count": int(
+			probe.GetAggregateLoadNodeBatchFactoryPreflightRoadVertexCount()),
+		"aggregate_node_batch_preflight_surface_primitive_count": int(
+			probe.GetAggregateLoadNodeBatchFactoryPreflightSurfacePrimitiveCount()),
+		"aggregate_node_batch_preflight_node_marker_count": int(
+			probe.GetAggregateLoadNodeBatchFactoryPreflightNodeMarkerCount()),
 		"aggregate_node_batch_resource_count_before":
 			aggregate_node_batch_resource_count_before,
 		"aggregate_node_batch_resource_count_after":

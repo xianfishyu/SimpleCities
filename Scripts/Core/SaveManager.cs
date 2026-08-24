@@ -38,7 +38,7 @@ public partial class SaveManager : Node
         IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
         RoadGraphRevision targetRevision,
         PreparedLoadWork prepared);
-    partial void ProbeAggregateLoadRoadMeshFactoryPreflightObservation(
+    partial void ProbeAggregateLoadRendererFactoryPreflightObservation(
         RoadRenderer renderer,
         SaveOperationPhase phase,
         IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
@@ -775,7 +775,7 @@ public partial class SaveManager : Node
                     preflightPlans,
                     targetRevision,
                     prepared);
-                ProbeAggregateLoadRoadMeshFactoryPreflightObservation(
+                ProbeAggregateLoadRendererFactoryPreflightObservation(
                     context.Renderer,
                     lease.State.Phase,
                     preflightPlans,
