@@ -199,6 +199,47 @@ func run() -> void:
 		save_management_back_button.emit_signal("pressed")
 		await activate_focused_with_keyboard(save_button)
 
+	var transaction_failure_marker_path := "user://saves-v3/.save-transactions"
+	var transaction_failure_marker_absolute := ProjectSettings.globalize_path(
+		transaction_failure_marker_path)
+	assert_true(
+		DirAccess.make_dir_recursive_absolute(
+			ProjectSettings.globalize_path("user://saves-v3")) == OK,
+		"Could not create the isolated V3 save root")
+	if FileAccess.file_exists(transaction_failure_marker_path) or DirAccess.dir_exists_absolute(
+		transaction_failure_marker_absolute):
+		assert_true(false, "Save As failure scenario requires a clean transaction path")
+		return
+	var transaction_failure_marker := FileAccess.open(
+		transaction_failure_marker_path,
+		FileAccess.WRITE)
+	assert_true(transaction_failure_marker != null, "Could not create Save As failure marker")
+	if transaction_failure_marker == null:
+		return
+	transaction_failure_marker.store_string("pause menu Save As failure injection")
+	transaction_failure_marker.close()
+	var slot_before_failed_save_as: String = save_manager.get("CurrentSlotID")
+	save_name_input.text = "Runtime UI blocked"
+	await mouse_click(save_as_button)
+	assert_true(
+		pause_menu.visible and paused and save_management_content.visible and
+		save_status.text.contains("新建存档失败"),
+		"Failed Save As closed PauseMenu, resumed the game, or omitted its error")
+	assert_true(
+		save_manager.get("CurrentSlotID") == slot_before_failed_save_as and
+		save_name_input.text == "Runtime UI blocked" and
+		count_items_with_prefix(save_slot_list, "手动  ·  Runtime UI blocked") == 0,
+		"Failed Save As changed CurrentSlotID, cleared its name, or published a slot")
+	assert_true(
+		save_name_input.editable and not save_as_button.disabled,
+		"Failed Save As did not restore its input controls")
+	assert_true(
+		DirAccess.remove_absolute(transaction_failure_marker_absolute) == OK,
+		"Save As failure marker cleanup failed")
+	assert_true(
+		not FileAccess.file_exists(transaction_failure_marker_path),
+		"Save As failure marker remained after cleanup")
+
 	save_name_input.text = "Runtime UI duplicate"
 	await mouse_click(save_as_button)
 	var first_ui_slot_id: String = save_manager.get("CurrentSlotID")
