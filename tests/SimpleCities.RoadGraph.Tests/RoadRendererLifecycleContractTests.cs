@@ -2497,12 +2497,12 @@ public sealed class RoadRendererLifecycleContractTests
             "private async Task<SaveOperationResult> RunDeleteAsync");
         string observationProbe = ExtractMethod(
             probeSource,
-            "partial void ProbeAggregateLoadRendererFactoryPreflightObservation(",
-            "private void CaptureAggregateLoadRendererFactoryPreflightObservation(");
+            "partial void ProbeAggregateLoadRendererPreflightObservation(",
+            "private void CaptureAggregateLoadRendererPreflightObservation(");
         string observationCapture = ExtractMethod(
             probeSource,
-            "private void CaptureAggregateLoadRendererFactoryPreflightObservation(",
-            "private void ArmNextAggregateLoadRendererFactoryPreflightObservation(");
+            "private void CaptureAggregateLoadRendererPreflightObservation(",
+            "private void ArmNextAggregateLoadRendererPreflightObservation(");
         string observationArm = ExtractMethod(
             probeSource,
             "internal void ArmNextAggregateLoadRoadMeshFactoryPreflightObservation(",
@@ -2512,7 +2512,7 @@ public sealed class RoadRendererLifecycleContractTests
             "ProbeAggregateLoadPostToolPreflightFailure(",
             StringComparison.Ordinal);
         int observation = loadOrchestration.IndexOf(
-            "ProbeAggregateLoadRendererFactoryPreflightObservation(",
+            "ProbeAggregateLoadRendererPreflightObservation(",
             StringComparison.Ordinal);
         int rendererPreflight = loadOrchestration.IndexOf(
             "preflightPlans.Add(context.Renderer.PreflightPreparedLoad(",
@@ -2521,7 +2521,7 @@ public sealed class RoadRendererLifecycleContractTests
         Assert.True(toolPreflightFailure >= 0 && toolPreflightFailure < observation);
         Assert.True(observation < rendererPreflight);
         Assert.Contains(
-            "partial void ProbeAggregateLoadRendererFactoryPreflightObservation(",
+            "partial void ProbeAggregateLoadRendererPreflightObservation(",
             saveManagerSource,
             StringComparison.Ordinal);
         Assert.Contains("context.Renderer,", loadOrchestration, StringComparison.Ordinal);
@@ -2574,7 +2574,7 @@ public sealed class RoadRendererLifecycleContractTests
             observationCapture,
             StringComparison.Ordinal);
         Assert.Contains(
-            "private readonly record struct AggregateLoadRendererFactoryPreflightObservation(",
+            "private readonly record struct AggregateLoadRendererPreflightObservation(",
             probeSource,
             StringComparison.Ordinal);
     }
@@ -2592,15 +2592,15 @@ public sealed class RoadRendererLifecycleContractTests
             "private async Task<SaveOperationResult> RunDeleteAsync");
         string observationProbe = ExtractMethod(
             probeSource,
-            "partial void ProbeAggregateLoadRendererFactoryPreflightObservation(",
-            "private void CaptureAggregateLoadRendererFactoryPreflightObservation(");
+            "partial void ProbeAggregateLoadRendererPreflightObservation(",
+            "private void CaptureAggregateLoadRendererPreflightObservation(");
         string observationArm = ExtractMethod(
             probeSource,
             "internal void ArmNextAggregateLoadNodeBatchFactoryPreflightObservation(",
             "internal bool IsAggregateLoadNodeBatchFactoryPreflightObservationArmed()");
 
         int observation = loadOrchestration.IndexOf(
-            "ProbeAggregateLoadRendererFactoryPreflightObservation(",
+            "ProbeAggregateLoadRendererPreflightObservation(",
             StringComparison.Ordinal);
         int rendererPreflight = loadOrchestration.IndexOf(
             "preflightPlans.Add(context.Renderer.PreflightPreparedLoad(",
@@ -2634,6 +2634,69 @@ public sealed class RoadRendererLifecycleContractTests
             StringComparison.Ordinal);
         Assert.Contains(
             "_aggregateLoadNodeBatchFactoryPreflight = new();",
+            probeSource,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RealStartLoadResourcePreflightFailureSharesStructuredRendererPreflightObservation()
+    {
+        string saveManagerSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Core", "SaveManager.cs"));
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadLoadPreflightResourceFailureProbe.cs"));
+        string loadOrchestration = ExtractMethod(
+            saveManagerSource,
+            "private async Task<SaveOperationResult> RunLoadAsync",
+            "private async Task<SaveOperationResult> RunDeleteAsync");
+        string observationProbe = ExtractMethod(
+            probeSource,
+            "partial void ProbeAggregateLoadRendererPreflightObservation(",
+            "private void CaptureAggregateLoadRendererPreflightObservation(");
+        string observationArm = ExtractMethod(
+            probeSource,
+            "internal void ArmNextAggregateLoadResourcePreflightObservation(",
+            "internal bool IsAggregateLoadResourcePreflightObservationArmed()");
+
+        int observation = loadOrchestration.IndexOf(
+            "ProbeAggregateLoadRendererPreflightObservation(",
+            StringComparison.Ordinal);
+        int rendererPreflight = loadOrchestration.IndexOf(
+            "preflightPlans.Add(context.Renderer.PreflightPreparedLoad(",
+            StringComparison.Ordinal);
+
+        Assert.True(observation >= 0 && observation < rendererPreflight);
+        Assert.Contains(
+            "public void ArmAggregateLoadResourcePreflightFailure(",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains("SaveManager saveManager", probeSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "saveManager.ArmNextAggregateLoadResourcePreflightObservation(renderer);",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "currentRenderer.ArmNextAggregateLoadResourcePreflightFailure()",
+            observationArm,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadResourcePreflight,",
+            observationProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "renderer.IsAggregateLoadResourcePreflightFailureArmed(),",
+            observationProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadRoadMeshFactoryPreflight = new();",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadNodeBatchFactoryPreflight = new();",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadResourcePreflight = new();",
             probeSource,
             StringComparison.Ordinal);
     }

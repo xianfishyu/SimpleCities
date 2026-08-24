@@ -619,30 +619,60 @@ func run() -> void:
 	var aggregate_resource_count_before := int(probe.GetObjectResourceCount())
 	var aggregate_failure_message := str(
 		probe.GetAggregateLoadResourcePreflightFailureMessage())
-	probe.ArmAggregateLoadResourcePreflightFailure(renderer)
+	probe.ArmAggregateLoadResourcePreflightFailure(save_manager, renderer)
 	if not require(
-		bool(probe.IsAggregateLoadResourcePreflightFailureArmed()),
+		bool(probe.IsAggregateLoadResourcePreflightFailureArmed()) and
+		bool(probe.IsAggregateLoadResourcePreflightObservationArmed()),
 		"Aggregate Load resource preflight failure probe did not arm"):
 		return
-	var failed_load_result := await run_load(source_slot_id)
+	var failed_load_result := await run_load(active_slot_id)
 	if not require(
 		int(failed_load_result.get("resultKind", -1)) == RESULT_FAILED and
+		int(failed_load_result.get("finalPhase", -1)) == PHASE_PREFLIGHT and
 		not bool(failed_load_result.get("committed", true)) and
 		str(failed_load_result.get("warnings", "")).is_empty() and
 		str(failed_load_result.get("error", "")) == aggregate_failure_message,
 		"Aggregate Load did not fail before commit at renderer resource preflight: %s" %
 		JSON.stringify(failed_load_result)):
 		return
+	var aggregate_resource_count_after := int(probe.GetObjectResourceCount())
 	if not require(
 		not bool(probe.IsAggregateLoadResourcePreflightFailureArmed()) and
+		not bool(probe.IsAggregateLoadResourcePreflightObservationArmed()) and
 		int(probe.GetAggregateLoadResourcePreflightFailureCount()) == 1 and
-		int(probe.GetObjectResourceCount()) == aggregate_resource_count_before,
+		int(probe.GetAggregateLoadResourcePreflightObservationCount()) == 1 and
+		bool(probe.DidAggregateLoadResourcePreflightObservationRunOnMainThread()) and
+		int(probe.GetAggregateLoadResourcePreflightObservedPhase()) == PHASE_PREFLIGHT and
+		int(probe.GetAggregateLoadResourcePreflightPlanCount()) == 2 and
+		str(probe.GetAggregateLoadResourcePreflightFirstParticipantID()) ==
+			"road-graph" and
+		str(probe.GetAggregateLoadResourcePreflightSecondParticipantID()) ==
+			"road-tools" and
+		int(probe.GetAggregateLoadResourcePreflightTargetEdgeCount()) ==
+			edge_count_before and
+		str(probe.GetAggregateLoadResourcePreflightObservedSlotID()) == active_slot_id and
+		int(probe.GetAggregateLoadResourcePreflightSourceParticipantCount()) == 1 and
+		int(probe.GetAggregateLoadResourcePreflightRoadVertexCount()) ==
+			vertex_count_before and
+		int(probe.GetAggregateLoadResourcePreflightSurfacePrimitiveCount()) > 0 and
+		int(probe.GetAggregateLoadResourcePreflightNodeMarkerCount()) ==
+			marker_count_before and
+		aggregate_resource_count_after == aggregate_resource_count_before,
 		"Failed aggregate Load did not release its resources and one-shot probe: %s" %
 		JSON.stringify({
 			"armed": bool(probe.IsAggregateLoadResourcePreflightFailureArmed()),
 			"triggerCount": int(probe.GetAggregateLoadResourcePreflightFailureCount()),
+			"observationCount": int(
+				probe.GetAggregateLoadResourcePreflightObservationCount()),
+			"observedPhase": int(
+				probe.GetAggregateLoadResourcePreflightObservedPhase()),
+			"planCount": int(probe.GetAggregateLoadResourcePreflightPlanCount()),
+			"firstParticipantID": str(
+				probe.GetAggregateLoadResourcePreflightFirstParticipantID()),
+			"secondParticipantID": str(
+				probe.GetAggregateLoadResourcePreflightSecondParticipantID()),
 			"resourceCountBefore": aggregate_resource_count_before,
-			"resourceCountAfter": int(probe.GetObjectResourceCount()),
+			"resourceCountAfter": aggregate_resource_count_after,
 		})):
 		return
 	if not require(
@@ -2794,11 +2824,36 @@ func run() -> void:
 		"post_tool_preflight_resource_count_after":
 			post_tool_preflight_resource_count_after,
 		"aggregate_failure_result_kind": int(failed_load_result.get("resultKind", -1)),
+		"aggregate_failure_final_phase": int(failed_load_result.get("finalPhase", -1)),
 		"aggregate_failure_committed": bool(failed_load_result.get("committed", true)),
 		"aggregate_failure_trigger_count": int(
 			probe.GetAggregateLoadResourcePreflightFailureCount()),
+		"aggregate_resource_preflight_observation_count": int(
+			probe.GetAggregateLoadResourcePreflightObservationCount()),
+		"aggregate_resource_preflight_observation_on_main_thread": bool(
+			probe.DidAggregateLoadResourcePreflightObservationRunOnMainThread()),
+		"aggregate_resource_preflight_observed_phase": int(
+			probe.GetAggregateLoadResourcePreflightObservedPhase()),
+		"aggregate_resource_preflight_plan_count": int(
+			probe.GetAggregateLoadResourcePreflightPlanCount()),
+		"aggregate_resource_preflight_first_participant_id": str(
+			probe.GetAggregateLoadResourcePreflightFirstParticipantID()),
+		"aggregate_resource_preflight_second_participant_id": str(
+			probe.GetAggregateLoadResourcePreflightSecondParticipantID()),
+		"aggregate_resource_preflight_target_edge_count": int(
+			probe.GetAggregateLoadResourcePreflightTargetEdgeCount()),
+		"aggregate_resource_preflight_observed_slot_id": str(
+			probe.GetAggregateLoadResourcePreflightObservedSlotID()),
+		"aggregate_resource_preflight_source_participant_count": int(
+			probe.GetAggregateLoadResourcePreflightSourceParticipantCount()),
+		"aggregate_resource_preflight_road_vertex_count": int(
+			probe.GetAggregateLoadResourcePreflightRoadVertexCount()),
+		"aggregate_resource_preflight_surface_primitive_count": int(
+			probe.GetAggregateLoadResourcePreflightSurfacePrimitiveCount()),
+		"aggregate_resource_preflight_node_marker_count": int(
+			probe.GetAggregateLoadResourcePreflightNodeMarkerCount()),
 		"aggregate_resource_count_before": aggregate_resource_count_before,
-		"aggregate_resource_count_after": int(probe.GetObjectResourceCount()),
+		"aggregate_resource_count_after": aggregate_resource_count_after,
 		"post_renderer_failure_result_kind": int(
 			post_renderer_failed_load_result.get("resultKind", -1)),
 		"post_renderer_failure_final_phase": int(
