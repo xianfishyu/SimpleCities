@@ -13,12 +13,24 @@ public partial class SavePublishOperationProbe : Godot.RefCounted
         _saveManager = saveManager;
     }
 
+    public void ArmPostCommitGate(SaveManager saveManager)
+    {
+        ArgumentNullException.ThrowIfNull(saveManager);
+        Disarm();
+        saveManager.ArmNextPublishPostCommitGate();
+        _saveManager = saveManager;
+    }
+
     public void ReleasePrepareGate() =>
         _saveManager?.ReleasePublishPrepareGate();
+
+    public void ReleasePostCommitGate() =>
+        _saveManager?.ReleasePublishPostCommitGate();
 
     public void Disarm()
     {
         _saveManager?.DisarmPublishPrepareGate();
+        _saveManager?.DisarmPublishPostCommitGate();
         _saveManager = null;
     }
 
@@ -36,13 +48,30 @@ public partial class SavePublishOperationProbe : Godot.RefCounted
 
     public string GetCancelOperationToken() =>
         _saveManager?.GetPublishPrepareGateCancelOperationToken() ?? string.Empty;
+
+    public bool IsPostCommitGateArmed() =>
+        _saveManager?.IsPublishPostCommitGateArmed() ?? false;
+
+    public bool HasEnteredPostCommitGate() =>
+        _saveManager?.HasEnteredPublishPostCommitGate() ?? false;
+
+    public int GetPostCommitGateTriggerCount() =>
+        _saveManager?.GetPublishPostCommitGateTriggerCount() ?? 0;
+
+    public int GetPostCommitCancelRequestCount() =>
+        _saveManager?.GetPublishPostCommitGateCancelRequestCount() ?? 0;
+
+    public string GetPostCommitCancelOperationToken() =>
+        _saveManager?.GetPublishPostCommitGateCancelOperationToken() ?? string.Empty;
 }
 
 public partial class SaveManager
 {
     private const string PublishPrepareGateTimeoutMessage =
         "Timed out waiting to release the Save publish Prepare test gate.";
-    private static readonly TimeSpan PublishPrepareGateTimeout = TimeSpan.FromSeconds(15);
+    private const string PublishPostCommitGateTimeoutMessage =
+        "Timed out waiting to release the Save publish post-commit test gate.";
+    private static readonly TimeSpan PublishOperationGateTimeout = TimeSpan.FromSeconds(15);
 
     private readonly ManualResetEventSlim _publishPrepareGateRelease = new(initialState: true);
     private int _publishPrepareGateArmed;
@@ -50,18 +79,33 @@ public partial class SaveManager
     private int _publishPrepareGateTriggerCount;
     private int _publishPrepareGateCancelRequestCount;
     private string _publishPrepareGateCancelOperationToken = string.Empty;
+    private readonly ManualResetEventSlim _publishPostCommitGateRelease = new(initialState: true);
+    private int _publishPostCommitGateArmed;
+    private int _publishPostCommitGateEntered;
+    private int _publishPostCommitGateTriggerCount;
+    private int _publishPostCommitGateCancelRequestCount;
+    private string _publishPostCommitGateCancelOperationToken = string.Empty;
 
     partial void ProbeObservePublishCancelOperation(ref string operationToken)
     {
-        if (Volatile.Read(ref _publishPrepareGateEntered) == 0)
-            return;
+        if (Volatile.Read(ref _publishPrepareGateEntered) != 0)
+        {
+            _publishPrepareGateCancelOperationToken = operationToken;
+            Interlocked.Increment(ref _publishPrepareGateCancelRequestCount);
+        }
 
-        _publishPrepareGateCancelOperationToken = operationToken;
-        Interlocked.Increment(ref _publishPrepareGateCancelRequestCount);
+        if (Volatile.Read(ref _publishPostCommitGateEntered) != 0)
+        {
+            _publishPostCommitGateCancelOperationToken = operationToken;
+            Interlocked.Increment(ref _publishPostCommitGateCancelRequestCount);
+        }
     }
 
     partial void ProbeWaitAtPublishPrepare(ref SaveSlotStore store)
     {
+        if (Volatile.Read(ref _publishPostCommitGateArmed) != 0)
+            store = new SaveSlotStore(_resolvedSaveBaseDir, WaitAtPublishPostCommit);
+
         if (Interlocked.Exchange(ref _publishPrepareGateArmed, 0) == 0)
             return;
 
@@ -69,12 +113,33 @@ public partial class SaveManager
         Volatile.Write(ref _publishPrepareGateEntered, 1);
         try
         {
-            if (!_publishPrepareGateRelease.Wait(PublishPrepareGateTimeout))
+            if (!_publishPrepareGateRelease.Wait(PublishOperationGateTimeout))
                 throw new TimeoutException(PublishPrepareGateTimeoutMessage);
         }
         finally
         {
             Volatile.Write(ref _publishPrepareGateEntered, 0);
+        }
+    }
+
+    private void WaitAtPublishPostCommit(SavePublicationPhase phase)
+    {
+        if (phase != SavePublicationPhase.CanonicalPublished ||
+            Interlocked.Exchange(ref _publishPostCommitGateArmed, 0) == 0)
+        {
+            return;
+        }
+
+        Interlocked.Increment(ref _publishPostCommitGateTriggerCount);
+        Volatile.Write(ref _publishPostCommitGateEntered, 1);
+        try
+        {
+            if (!_publishPostCommitGateRelease.Wait(PublishOperationGateTimeout))
+                throw new TimeoutException(PublishPostCommitGateTimeoutMessage);
+        }
+        finally
+        {
+            Volatile.Write(ref _publishPostCommitGateEntered, 0);
         }
     }
 
@@ -121,4 +186,48 @@ public partial class SaveManager
 
     internal string GetPublishPrepareGateCancelOperationToken() =>
         _publishPrepareGateCancelOperationToken;
+
+    internal void ArmNextPublishPostCommitGate()
+    {
+        if (IsOperationBusy)
+        {
+            throw new InvalidOperationException(
+                "SaveManager must be idle before arming its publish post-commit test gate.");
+        }
+        if (Interlocked.CompareExchange(ref _publishPostCommitGateArmed, 1, 0) != 0)
+        {
+            throw new InvalidOperationException(
+                "Save publish post-commit test gate is already armed.");
+        }
+
+        Interlocked.Exchange(ref _publishPostCommitGateTriggerCount, 0);
+        Interlocked.Exchange(ref _publishPostCommitGateCancelRequestCount, 0);
+        _publishPostCommitGateCancelOperationToken = string.Empty;
+        Volatile.Write(ref _publishPostCommitGateEntered, 0);
+        _publishPostCommitGateRelease.Reset();
+    }
+
+    internal void ReleasePublishPostCommitGate() =>
+        _publishPostCommitGateRelease.Set();
+
+    internal void DisarmPublishPostCommitGate()
+    {
+        Interlocked.Exchange(ref _publishPostCommitGateArmed, 0);
+        _publishPostCommitGateRelease.Set();
+    }
+
+    internal bool IsPublishPostCommitGateArmed() =>
+        Volatile.Read(ref _publishPostCommitGateArmed) != 0;
+
+    internal bool HasEnteredPublishPostCommitGate() =>
+        Volatile.Read(ref _publishPostCommitGateEntered) != 0;
+
+    internal int GetPublishPostCommitGateTriggerCount() =>
+        Volatile.Read(ref _publishPostCommitGateTriggerCount);
+
+    internal int GetPublishPostCommitGateCancelRequestCount() =>
+        Volatile.Read(ref _publishPostCommitGateCancelRequestCount);
+
+    internal string GetPublishPostCommitGateCancelOperationToken() =>
+        _publishPostCommitGateCancelOperationToken;
 }

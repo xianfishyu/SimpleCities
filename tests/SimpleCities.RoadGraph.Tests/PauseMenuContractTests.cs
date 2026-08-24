@@ -428,4 +428,52 @@ public sealed class PauseMenuContractTests
             debugGroup,
             StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void PublishPostCommitGate_IsAfterTheCanonicalBoundary()
+    {
+        string slotStore = File.ReadAllText(SaveSlotStorePath);
+        string probe = File.ReadAllText(PublishOperationProbePath);
+
+        int publishStart = slotStore.IndexOf(
+            "private SavePublishResult SaveCore(",
+            StringComparison.Ordinal);
+        int publishEnd = slotStore.IndexOf(
+            "public int Load(",
+            publishStart,
+            StringComparison.Ordinal);
+        Assert.True(publishStart >= 0 && publishEnd > publishStart);
+        string publish = slotStore[publishStart..publishEnd];
+        int canonicalObserver = publish.IndexOf(
+            "_publicationObserver?.Invoke(SavePublicationPhase.CanonicalPublished);",
+            StringComparison.Ordinal);
+        Assert.True(canonicalObserver >= 0);
+        int boundary = publish.LastIndexOf(
+            "operationLease.CrossCommitBoundary(",
+            canonicalObserver,
+            StringComparison.Ordinal);
+        int committed = publish.LastIndexOf(
+            "operationLease.MarkCommitted();",
+            canonicalObserver,
+            StringComparison.Ordinal);
+        Assert.True(boundary >= 0 && boundary < committed);
+        Assert.True(committed < canonicalObserver);
+
+        Assert.Contains(
+            "store = new SaveSlotStore(_resolvedSaveBaseDir, WaitAtPublishPostCommit);",
+            probe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "phase != SavePublicationPhase.CanonicalPublished",
+            probe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "Volatile.Write(ref _publishPostCommitGateEntered, 1);",
+            probe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "Interlocked.Increment(ref _publishPostCommitGateCancelRequestCount);",
+            probe,
+            StringComparison.Ordinal);
+    }
 }

@@ -12,6 +12,7 @@ const V3_SAVE_FIXTURE := preload("res://tests/godot/v3_save_fixture.gd")
 const SAVE_OPERATION_PHASE_RECOVER := 2
 const SAVE_OPERATION_PHASE_PREPARE := 3
 const SAVE_OPERATION_PHASE_COMMIT := 5
+const SAVE_OPERATION_PHASE_PUBLISH := 6
 const SAVE_OPERATION_PHASE_CLEANUP := 7
 const SAVE_OPERATION_RESULT_SUCCEEDED := 0
 const SAVE_OPERATION_RESULT_CANCELED := 3
@@ -318,10 +319,76 @@ func run() -> void:
 		"Canceled Save As did not restore its input controls or manager idle state")
 
 	save_name_input.text = "Runtime UI duplicate"
-	await mouse_click(save_as_button)
+	publish_operation_probe.ArmPostCommitGate(save_manager)
+	assert_true(publish_operation_probe.IsPostCommitGateArmed(), "Save publish post-commit gate did not arm")
+	save_as_button.emit_signal("pressed")
+	var post_commit_save_as_token := str(pause_menu.get("ActiveSaveOperationToken"))
+	var publish_post_commit_reached := await wait_for_publish_post_commit_boundary(
+		pause_menu,
+		publish_operation_probe)
+	var publish_post_commit_cancel_count_before_escape := int(
+		publish_operation_probe.GetPostCommitCancelRequestCount())
+	pause_menu._Input(key_event(KEY_ESCAPE))
+	pause_menu._Input(key_event(KEY_ESCAPE))
+	var publish_post_commit_cancel_count_after_escape := int(
+		publish_operation_probe.GetPostCommitCancelRequestCount())
+	var publish_post_commit_cancel_accepted := bool(
+		save_manager.CancelOperation(post_commit_save_as_token))
+	var publish_post_commit_cancel_count_after_direct_request := int(
+		publish_operation_probe.GetPostCommitCancelRequestCount())
+	var publish_post_commit_cancel_token := str(
+		publish_operation_probe.GetPostCommitCancelOperationToken())
+	pause_menu._Input(key_event(KEY_ESCAPE))
+	pause_menu._Input(key_event(KEY_ESCAPE))
+	var publish_post_commit_cancel_count_after_all_escape := int(
+		publish_operation_probe.GetPostCommitCancelRequestCount())
+	var publish_post_commit_controls_disabled := (
+		not save_name_input.editable and save_as_button.disabled and
+		overwrite_save_button.disabled and load_save_button.disabled and
+		delete_save_button.disabled and save_management_back_button.disabled)
+	var publish_post_commit_name_before_release := save_name_input.text
+	publish_operation_probe.ReleasePostCommitGate()
+	var post_commit_save_as_reached_idle := await wait_for_save_operation_idle(pause_menu)
+	await process_frame
+	var post_commit_save_as_result: Dictionary = save_manager.GetOperationResult(
+		post_commit_save_as_token)
+	var publish_post_commit_trigger_count := int(
+		publish_operation_probe.GetPostCommitGateTriggerCount())
 	var first_ui_slot_id: String = save_manager.get("CurrentSlotID")
-	assert_true(first_ui_slot_id.begins_with("manual-"), "Mouse Save As did not create the first manual slot")
-	assert_true(save_status.text.contains("已创建"), "First Save As did not report success")
+	publish_operation_probe.Disarm()
+	assert_true(
+		publish_post_commit_reached and not post_commit_save_as_token.is_empty() and
+		publish_post_commit_trigger_count == 1,
+		"Save As did not enter the canonical post-commit gate exactly once")
+	assert_true(
+		publish_post_commit_cancel_count_before_escape == 0 and
+		publish_post_commit_cancel_count_after_escape == 0 and
+		not publish_post_commit_cancel_accepted and
+		publish_post_commit_cancel_count_after_direct_request == 1 and
+		publish_post_commit_cancel_count_after_all_escape == 1 and
+		publish_post_commit_cancel_token == post_commit_save_as_token,
+		"Save As post-commit Escape was forwarded or direct cancellation was accepted")
+	assert_true(
+		publish_post_commit_controls_disabled and
+		publish_post_commit_name_before_release == "Runtime UI duplicate" and
+		pause_menu.visible and paused and save_management_content.visible,
+		"Save As post-commit gate did not retain its paused exclusive busy state")
+	assert_true(post_commit_save_as_reached_idle, "Committed Save As did not reach a terminal state")
+	assert_true(
+		int(post_commit_save_as_result.get("resultKind", -1)) == SAVE_OPERATION_RESULT_SUCCEEDED and
+		int(post_commit_save_as_result.get("finalPhase", -1)) == SAVE_OPERATION_PHASE_CLEANUP and
+		bool(post_commit_save_as_result.get("committed", false)),
+		"Rejected post-commit cancellation changed the successful Save As result")
+	assert_true(
+		first_ui_slot_id.begins_with("manual-") and
+		save_manager.SaveSlotExists(first_ui_slot_id) and
+		count_items_with_prefix(save_slot_list, "手动  ·  Runtime UI duplicate") == 1 and
+		save_name_input.text.is_empty() and save_status.text.contains("已创建"),
+		"Rejected post-commit cancellation lost or misreported the published Save As slot")
+	assert_true(
+		not bool(save_manager.get("IsOperationBusy")) and save_name_input.editable and
+		not save_as_button.disabled and not save_management_back_button.disabled,
+		"Committed Save As did not restore its input controls or manager idle state")
 	save_name_input.text = "Runtime UI duplicate"
 	await mouse_click(save_as_button)
 	var second_ui_slot_id: String = save_manager.get("CurrentSlotID")
@@ -856,6 +923,17 @@ func wait_for_delete_recover_gate(probe: RefCounted) -> bool:
 func wait_for_publish_prepare_gate(probe: RefCounted) -> bool:
 	for _frame in 600:
 		if bool(probe.HasEnteredPrepareGate()):
+			return true
+		await process_frame
+	return false
+
+func wait_for_publish_post_commit_boundary(pause_menu: Node, probe: RefCounted) -> bool:
+	for _frame in 600:
+		if (
+			bool(probe.HasEnteredPostCommitGate()) and
+			bool(pause_menu.get("ActiveSaveOperationCrossedBoundary")) and
+			int(pause_menu.get("ActiveSaveOperationPhase")) == SAVE_OPERATION_PHASE_PUBLISH
+		):
 			return true
 		await process_frame
 	return false
