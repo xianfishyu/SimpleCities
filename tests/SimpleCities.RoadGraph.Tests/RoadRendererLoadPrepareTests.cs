@@ -383,6 +383,105 @@ public sealed class RoadRendererLoadPrepareTests
     }
 
     [Fact]
+    public void PurePreparer_TerminalCapInputPermutationAndEdgeIDRenamingPreserveMappedOwnership()
+    {
+        var preparer = new RoadRenderer.RoadRendererLoadPreparer(Settings);
+        RoadRendererPreparedLoad first = preparer.Prepare(
+            CreateTerminalCapFixture(10, 11).CaptureRevision());
+        RoadRendererPreparedLoad permuted = preparer.Prepare(
+            CreateTerminalCapFixture(
+                10,
+                11,
+                reverseEdgeEnumeration: true).CaptureRevision());
+        RoadRendererPreparedLoad renamed = preparer.Prepare(
+            CreateTerminalCapFixture(11, 10).CaptureRevision());
+        TerminalCapOwnership[] firstOwnership = ExtractTerminalCapOwnership(first);
+        TerminalCapOwnership[] renamedOwnership = ExtractTerminalCapOwnership(renamed);
+        IReadOnlyDictionary<int, int> edgeIDMap = new Dictionary<int, int>
+        {
+            [10] = 11,
+            [11] = 10,
+        };
+
+        Assert.Equal(SurfaceDiscs(first), SurfaceDiscs(permuted));
+        Assert.Equal(first.NodeMarkers, permuted.NodeMarkers);
+        Assert.Equal(
+            ExtractTerminalCapVisual(first),
+            ExtractTerminalCapVisual(renamed));
+        Assert.Equal(
+            firstOwnership.Select(item => new TerminalCapOwnership(
+                item.Center,
+                edgeIDMap[item.EdgeID],
+                item.NodeID,
+                item.Endpoint,
+                item.SectorOrder,
+                new RoadLocation(
+                    edgeIDMap[item.Location.EdgeID],
+                    item.Location.GeometryIndex,
+                    item.Location.Parameter))),
+            renamedOwnership);
+    }
+
+    [Fact]
+    public void PurePreparer_TerminalCapStoredDirectionPreservesVisualAndMappedOwnership()
+    {
+        RoadGraph forwardGraph = CreateTerminalCapFixture(10, 11);
+        RoadGraph reversedGraph = CreateTerminalCapFixture(
+            10,
+            11,
+            reverseStoredDirections: true);
+        var preparer = new RoadRenderer.RoadRendererLoadPreparer(Settings);
+
+        RoadRendererPreparedLoad forward = preparer.Prepare(forwardGraph.CaptureRevision());
+        RoadRendererPreparedLoad reversed = preparer.Prepare(reversedGraph.CaptureRevision());
+        TerminalCapOwnership[] forwardOwnership = ExtractTerminalCapOwnership(forward);
+        TerminalCapOwnership[] reversedOwnership = ExtractTerminalCapOwnership(reversed);
+        IReadOnlyDictionary<int, int> nodeIDMap = new Dictionary<int, int>
+        {
+            [0] = 5,
+            [1] = 4,
+            [2] = 7,
+            [3] = 6,
+        };
+
+        Assert.Equal(
+            ExtractTerminalCapVisual(forward),
+            ExtractTerminalCapVisual(reversed));
+        Assert.Equal(
+            forwardOwnership.Select(item =>
+            {
+                EdgeEndpoint mappedEndpoint = item.Endpoint switch
+                {
+                    EdgeEndpoint.A => EdgeEndpoint.B,
+                    EdgeEndpoint.B => EdgeEndpoint.A,
+                    _ => throw new InvalidOperationException("A terminal cap endpoint is invalid."),
+                };
+                GraphEdge reversedEdge = Assert.IsType<GraphEdge>(
+                    reversedGraph.GetEdge(item.EdgeID));
+                RoadLocation mappedLocation = mappedEndpoint switch
+                {
+                    EdgeEndpoint.A => new RoadLocation(
+                        item.EdgeID,
+                        0,
+                        RoadGeometrySegment.ParameterStart),
+                    EdgeEndpoint.B => new RoadLocation(
+                        item.EdgeID,
+                        reversedEdge.GeometrySegments.Count - 1,
+                        RoadGeometrySegment.ParameterEnd),
+                    _ => throw new InvalidOperationException("A terminal cap endpoint is invalid."),
+                };
+                return new TerminalCapOwnership(
+                    item.Center,
+                    item.EdgeID,
+                    nodeIDMap[item.NodeID],
+                    mappedEndpoint,
+                    item.SectorOrder,
+                    mappedLocation);
+            }),
+            reversedOwnership);
+    }
+
+    [Fact]
     public void PurePreparer_SurfaceLocationsOwnGeometryJoinsAndOpenEdgeEndCanonically()
     {
         var graph = new RoadGraph();
@@ -991,6 +1090,71 @@ public sealed class RoadRendererLoadPrepareTests
             streetEdgeID,
             highwayEdgeID);
 
+    private static RoadGraph CreateTerminalCapFixture(
+        int streetEdgeID,
+        int highwayEdgeID,
+        bool reverseStoredDirections = false,
+        bool reverseEdgeEnumeration = false)
+    {
+        Vector2 streetStart = Vector2.Zero;
+        Vector2 streetMiddle = new(4f, 2f);
+        Vector2 streetEnd = new(10f, 0f);
+        Vector2 highwayStart = new(0f, 20f);
+        Vector2 highwayMiddle = new(6f, 16f);
+        Vector2 highwayEnd = new(12f, 20f);
+        IReadOnlyList<RoadGeometrySegment> streetGeometry =
+        [
+            new LineRoadGeometrySegment(streetStart, streetMiddle),
+            new LineRoadGeometrySegment(streetMiddle, streetEnd),
+        ];
+        IReadOnlyList<RoadGeometrySegment> highwayGeometry =
+        [
+            new LineRoadGeometrySegment(highwayStart, highwayMiddle),
+            new LineRoadGeometrySegment(highwayMiddle, highwayEnd),
+        ];
+        PreparedRoadNode[] nodes = reverseStoredDirections
+            ?
+            [
+                new PreparedRoadNode(4, streetEnd),
+                new PreparedRoadNode(5, streetStart),
+                new PreparedRoadNode(6, highwayEnd),
+                new PreparedRoadNode(7, highwayStart),
+            ]
+            :
+            [
+                new PreparedRoadNode(0, streetStart),
+                new PreparedRoadNode(1, streetEnd),
+                new PreparedRoadNode(2, highwayStart),
+                new PreparedRoadNode(3, highwayEnd),
+            ];
+        var street = new PreparedRoadEdge(
+            RoadType.Street,
+            streetEdgeID,
+            reverseStoredDirections ? 4 : 0,
+            reverseStoredDirections ? 5 : 1,
+            reverseStoredDirections
+                ? RoadGeometryDirection.ReverseChain(streetGeometry)
+                : streetGeometry);
+        var highway = new PreparedRoadEdge(
+            RoadType.Highway,
+            highwayEdgeID,
+            reverseStoredDirections ? 6 : 2,
+            reverseStoredDirections ? 7 : 3,
+            reverseStoredDirections
+                ? RoadGeometryDirection.ReverseChain(highwayGeometry)
+                : highwayGeometry);
+        PreparedRoadEdge[] edges = reverseEdgeEnumeration
+            ? [highway, street]
+            : [street, highway];
+
+        return RoadGraph.FromPreparedTopology(new PreparedRoadGraphTopology(
+            Math.Max(
+                Math.Max(streetEdgeID, highwayEdgeID),
+                nodes.Max(node => node.ID)) + 1,
+            nodes,
+            edges));
+    }
+
     private static RoadGraph CreateSemanticBoundary(
         bool sameDirection,
         int streetEdgeID,
@@ -1147,6 +1311,40 @@ public sealed class RoadRendererLoadPrepareTests
                 Assert.IsType<RoadLocation>(triangle.FixedLocation)))
             .ToArray();
 
+    private static TerminalCapVisual[] ExtractTerminalCapVisual(
+        RoadRendererPreparedLoad prepared) =>
+        SurfaceDiscs(prepared)
+            .Select(disc =>
+            {
+                RoadRendererNodeMarker marker = Assert.Single(
+                    prepared.NodeMarkers,
+                    candidate => candidate.Position == disc.Center);
+                return new TerminalCapVisual(
+                    disc.Center,
+                    disc.Radius,
+                    disc.CenterlineStart,
+                    disc.CenterlineEnd,
+                    marker.Diameter,
+                    marker.Color);
+            })
+            .OrderBy(item => item.Center.X)
+            .ThenBy(item => item.Center.Y)
+            .ToArray();
+
+    private static TerminalCapOwnership[] ExtractTerminalCapOwnership(
+        RoadRendererPreparedLoad prepared) =>
+        SurfaceDiscs(prepared)
+            .Select(disc => new TerminalCapOwnership(
+                disc.Center,
+                disc.Owner.EdgeID,
+                Assert.IsType<int>(disc.Owner.NodeID),
+                Assert.IsType<EdgeEndpoint>(disc.Owner.Endpoint),
+                disc.Owner.SectorOrder,
+                Assert.IsType<RoadLocation>(disc.Location)))
+            .OrderBy(item => item.Center.X)
+            .ThenBy(item => item.Center.Y)
+            .ToArray();
+
     private static (
         Vector2 A,
         Vector2 B,
@@ -1178,6 +1376,11 @@ public sealed class RoadRendererLoadPrepareTests
             .Where(triangle => triangle.Owner.Kind == ownerKind)
             .ToArray();
 
+    private static RoadSurfaceDisc[] SurfaceDiscs(RoadRendererPreparedLoad prepared) =>
+        Enumerable.Range(prepared.RoadSurface.TriangleCount, prepared.RoadSurface.DiscCount)
+            .Select(index => prepared.RoadSurface.GetPrimitive(index).Disc)
+            .ToArray();
+
     private static RoadTypeStyleDefinition Style(
         RoadType roadType,
         string displayName,
@@ -1197,6 +1400,22 @@ public sealed class RoadRendererLoadPrepareTests
         int EdgeID,
         int? NodeID,
         EdgeEndpoint? Endpoint,
+        int SectorOrder,
+        RoadLocation Location);
+
+    private readonly record struct TerminalCapVisual(
+        Vector2 Center,
+        float Radius,
+        Vector2 CenterlineStart,
+        Vector2 CenterlineEnd,
+        float Diameter,
+        Color Color);
+
+    private readonly record struct TerminalCapOwnership(
+        Vector2 Center,
+        int EdgeID,
+        int NodeID,
+        EdgeEndpoint Endpoint,
         int SectorOrder,
         RoadLocation Location);
 }
