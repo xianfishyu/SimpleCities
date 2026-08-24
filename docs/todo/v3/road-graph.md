@@ -281,6 +281,8 @@
 
   - Phase 8 Windows 导出复验（2026-08-24）：`ExportPresetContractTests` 为 1/1，真实 `Windows Desktop QA` debug 导出退出码为 0。导出包在隔离可写 profile 完成 V3 命名槽、manifest/hash 与删除并输出 PASS；只读 profile 对精确 `user://saves-v3` 根临时施加写入 DENY ACE，Save As 以 `committed=false` 返回访问拒绝且 `CurrentSlotID` 不变，并输出只读 ACL PASS。DENY ACE 已移除，外部复核存档根为空、导出进程为 0，QA 根已送入回收站。导出前既有 ImGui GDExtension 动态库加载错误不计作干净日志；MCP/DAP 仍未暴露，因此 8.6 继续开放。
 
+  - Phase 8 MCP 与 DAP 复验（2026-08-24）：Roslyn solution 正确加载且 production/test compiler+analyzer 为 0 diagnostics；三个最终组合 GDScript 为 0 diagnostics。Godot MCP 连接 `SimpleCities` 正确路径，Godot 4.7 与 addon/server 4.1.0 匹配；冻结 `MapTest` 推进 5 帧后确认真实 `RoadRenderer`，editor error、DAP `stderr` 与 `console` 为空，项目已停止。该证据补齐此前缺失的 MCP/DAP 门，8.6 进入最终状态/附录一致性审计。
+
 ## 暂不执行
 
 ### 交通模拟

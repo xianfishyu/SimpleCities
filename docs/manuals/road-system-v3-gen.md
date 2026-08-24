@@ -1366,6 +1366,8 @@ Phase 7 当前已有六十六个可验证切片。其一，普通 mutation 与 `
 
 > Phase 8 Windows 导出复验（2026-08-24）：QA 资源白名单聚焦测试为 1/1，`Windows Desktop QA` 真实 debug 导出退出码为 0；导出包在隔离可写 profile 输出 `PASS exported save writable user data contract`，在仅对隔离 `user://saves-v3` 临时施加写入 DENY ACE 的 profile 中以 `committed=false` 拒绝 Save As，并输出 `PASS exported save read-only ACL contract`。DENY ACE 已在 `finally` 中移除，存档根为空、导出进程为 0，QA 根已送入回收站。导出前的既有 ImGui GDExtension 动态库加载错误仍原样记录，未把 export 日志宣称为全局干净；MCP/DAP 门仍未刷新。
 
+> Phase 8 MCP 与 DAP 复验（2026-08-24）：Roslyn production/test compiler+analyzer、三个最终组合 GDScript diagnostics 均为 0；Godot MCP 连接到正确项目且 addon/server `4.1.0` 匹配，冻结 `MapTest` 推进 5 帧后确认真实 `RoadRenderer`，editor error、DAP `stderr` 与 `console` 均为空并已停止项目。
+
 ### Phase 8：最终组合验收
 
 复用 Phase 0～7 的专项证据，在同一 `MapTest` 代表性流程中组合连续/闭合道路、四类型建造与改造、token 防护的 delta 撤销重做、V3 format v1 往返、并发与取消、共享表面命中和 matching presentation；额外复核 V2 根未被枚举或修改、V2/未知格式被拒绝。随后串行执行完整自动化与双配置构建，并复用既定 Vulkan 视觉、10k 硬门槛和 Windows 导出门禁。100k 只作为可选压力测试：有结果时完整记录，但不属于 Phase 8 完成条件。最终证据写回附录 D；`v3-road-graph:8.6` 是唯一集成负责人。Phase 8 不重复 Phase 7 已证明的每个微观故障点。
