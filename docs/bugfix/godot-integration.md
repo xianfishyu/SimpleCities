@@ -33,6 +33,7 @@ QA 预设依赖逐项 `exclude_filter`，新增测试入口后没有任何自动
 - 实际 Windows Desktop QA 导出成功；包内测试资源检查只发现 `exported_save_runtime_contract` 与 `v3_save_fixture`。
 - 导出包在隔离可写 profile 输出 `PASS exported save writable user data contract`，在临时只读 ACL profile 输出 `PASS exported save read-only ACL contract`；临时 DENY ACE 已移除。
 - 保存相关聚焦测试 118/118、完整 `dotnet test SimpleCities.sln --no-restore` 698/698，Debug 与 `ExportRelease` build 均为 0 警告、0 错误。Roslyn compiler/analyzer 为 0 diagnostics，Godot editor error 为 0；全库 GDScript 只有 3 条与本修复无关的既有 warning。
+- Phase 8 重新开始复验（2026-08-24）：`ExportPresetContractTests` 为 1/1，当前 `Windows Desktop QA` `--export-debug` 退出码为 0。实际导出包在隔离可写 profile 输出 `PASS exported save writable user data contract`；另一个隔离 profile 对精确 `user://saves-v3` 根临时施加当前身份的继承写入 DENY ACE，Save As 以 `committed=false` 返回访问拒绝并输出 `PASS exported save read-only ACL contract`。`finally` 已移除该 DENY ACE，外部复核存档根条目数为 0、导出进程为 0，整个 QA 根随后送入回收站。导出前仍打印既有 ImGui GDExtension 动态库加载错误，但没有阻止打包、两个 profile 运行或退出码 0；本轮 Roslyn/Godot MCP/DAP 工具未暴露，因此未刷新这些通道。
 
 ---
 

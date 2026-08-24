@@ -279,6 +279,8 @@
 
   - Phase 8 代表性组合复验（2026-08-24）：`road_system_v2_final_runtime_contract.gd`、`road_input_strategy_runtime_contract.gd` 与 `road_render_token_runtime_contract.gd` 的 `--check-only` 均退出 0；三项正式 Godot 4.7 Vulkan 1.4.341 Forward+ 运行也均退出 0 并分别输出 `PASS road system v3 final runtime contract`、`PASS road input strategy runtime contract` 与 `PASS road render token runtime contract`。三者组合验证 V3 命名槽/严格往返/损坏槽保持、连续与闭合建造、四类 RoadType、RoadUpgrade、full reset、matching presentation、stalled/retry、提交后 warning 和六分量取代；输入契约 PASS 后没有再发生 finalizer 退出崩溃。CLI 只包含契约预期的 ConstructionDock 缺依赖、SelfOverlap/NoChanges、非法配置 fallback、损坏槽与主动注入 warning，三个隔离 QA 根已送入回收站且没有残留 `godot_console`。Roslyn/Godot MCP/DAP 仍未暴露，因此该复验完成代表性 CLI 组合但不关闭 8.6；仍需 MCP QA 与附录 D 归档。
 
+  - Phase 8 Windows 导出复验（2026-08-24）：`ExportPresetContractTests` 为 1/1，真实 `Windows Desktop QA` debug 导出退出码为 0。导出包在隔离可写 profile 完成 V3 命名槽、manifest/hash 与删除并输出 PASS；只读 profile 对精确 `user://saves-v3` 根临时施加写入 DENY ACE，Save As 以 `committed=false` 返回访问拒绝且 `CurrentSlotID` 不变，并输出只读 ACL PASS。DENY ACE 已移除，外部复核存档根为空、导出进程为 0，QA 根已送入回收站。导出前既有 ImGui GDExtension 动态库加载错误不计作干净日志；MCP/DAP 仍未暴露，因此 8.6 继续开放。
+
 ## 暂不执行
 
 ### 交通模拟
