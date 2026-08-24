@@ -18,6 +18,11 @@ public sealed class PauseMenuContractTests
     private static readonly string MainMenuScenePath = Path.Combine(ProjectRoot, "Scenes", "MainMenu.tscn");
     private static readonly string MainMenuScriptPath = Path.Combine(ProjectRoot, "Scripts", "UI", "MainMenu.cs");
     private static readonly string SaveManagerPath = Path.Combine(ProjectRoot, "Scripts", "Core", "SaveManager.cs");
+    private static readonly string DeleteCleanupProbePath = Path.Combine(
+        ProjectRoot,
+        "tests",
+        "godot",
+        "SaveDeleteCleanupFailureProbe.cs");
 
     [Fact]
     public void PauseMenuScene_ProvidesAllRequestedActionsAndSubviews()
@@ -135,5 +140,47 @@ public sealed class PauseMenuContractTests
         Assert.Contains("_coordinator.DiscardPendingAutosave()", saveManager, StringComparison.Ordinal);
         Assert.Contains("_coordinator.BeginShutdownAsync()", saveManager, StringComparison.Ordinal);
         Assert.DoesNotContain("_ = _coordinator.BeginShutdownAsync()", saveManager, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DeleteCleanupProbe_IsAfterTheTombstoneAndDebugOnly()
+    {
+        string saveManager = File.ReadAllText(SaveManagerPath);
+        string probe = File.ReadAllText(DeleteCleanupProbePath);
+        string project = File.ReadAllText(Path.Combine(ProjectRoot, "SimpleCities.csproj"));
+
+        int storeCreation = saveManager.IndexOf(
+            "SaveSlotStore store = CreateSlotStore();",
+            StringComparison.Ordinal);
+        int probeConfiguration = saveManager.IndexOf(
+            "ProbeConfigureDeleteCleanupFailure(ref store);",
+            StringComparison.Ordinal);
+        int delete = saveManager.IndexOf(
+            "return store.Delete(authorization, lease);",
+            StringComparison.Ordinal);
+        Assert.True(storeCreation >= 0 && storeCreation < probeConfiguration);
+        Assert.True(probeConfiguration < delete);
+        Assert.Contains(
+            "partial void ProbeConfigureDeleteCleanupFailure(ref SaveSlotStore store);",
+            saveManager,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "phase != SavePublicationPhase.DeletionTombstoned",
+            probe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "throw new IOException(DeleteTombstoneCleanupFailureMessage);",
+            probe,
+            StringComparison.Ordinal);
+
+        const string debugGroupMarker = "<ItemGroup Condition=\"'$(Configuration)' == 'Debug'\">";
+        int debugGroupStart = project.IndexOf(debugGroupMarker, StringComparison.Ordinal);
+        int debugGroupEnd = project.IndexOf("</ItemGroup>", debugGroupStart, StringComparison.Ordinal);
+        Assert.True(debugGroupStart >= 0 && debugGroupEnd > debugGroupStart);
+        string debugGroup = project[debugGroupStart..debugGroupEnd];
+        Assert.Contains(
+            "<Compile Include=\"tests/godot/SaveDeleteCleanupFailureProbe.cs\" />",
+            debugGroup,
+            StringComparison.Ordinal);
     }
 }

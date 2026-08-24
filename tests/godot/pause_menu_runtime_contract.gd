@@ -2,6 +2,7 @@ extends SceneTree
 
 const MAP_SCENE := "res://Scenes/MapTest.tscn"
 const MAIN_MENU_SCENE := "res://Scenes/MainMenu.tscn"
+const DELETE_CLEANUP_FAILURE_PROBE_PATH := "res://tests/godot/SaveDeleteCleanupFailureProbe.cs"
 const LOAD_PREFLIGHT_FAILURE_PROBE_PATH := "res://tests/godot/RoadLoadPreflightResourceFailureProbe.cs"
 const LOAD_WARNING_PROBE_PATH := "res://tests/godot/RoadLoadObserverFailureProbe.cs"
 const V3_SAVE_FIXTURE := preload("res://tests/godot/v3_save_fixture.gd")
@@ -451,6 +452,50 @@ func run() -> void:
 		"Delete retry did not refresh the target authorization")
 	await mouse_click(confirm_button)
 	assert_true(not save_manager.SaveSlotExists(first_ui_slot_id) and save_status.text.contains("已删除"), "Confirmed mouse delete retained the target slot")
+
+	save_name_input.text = "Runtime UI cleanup pending"
+	await mouse_click(save_as_button)
+	var cleanup_pending_slot_id: String = save_manager.get("CurrentSlotID")
+	assert_true(
+		cleanup_pending_slot_id.begins_with("manual-") and
+		count_items_with_prefix(save_slot_list, "手动  ·  Runtime UI cleanup pending") == 1,
+		"Could not create the Delete cleanup-pending target")
+	var cleanup_pending_index := find_item_by_metadata(save_slot_list, cleanup_pending_slot_id)
+	assert_true(cleanup_pending_index >= 0, "Delete cleanup-pending target is missing")
+	await mouse_click_item(save_slot_list, cleanup_pending_index)
+	await mouse_click(delete_save_button)
+	await process_frame
+	assert_true(
+		confirmation_content.visible and
+		confirmation_message(pause_menu).contains("Runtime UI cleanup pending"),
+		"Delete cleanup-pending confirmation omitted the target summary")
+	var delete_cleanup_probe_script: Script = load(DELETE_CLEANUP_FAILURE_PROBE_PATH)
+	assert_true(delete_cleanup_probe_script != null, "Debug Delete cleanup failure probe did not load")
+	var delete_cleanup_probe: RefCounted = delete_cleanup_probe_script.new()
+	assert_true(delete_cleanup_probe != null, "Debug Delete cleanup failure probe did not instantiate")
+	var delete_cleanup_warning := str(delete_cleanup_probe.GetFailureMessage())
+	delete_cleanup_probe.Arm(save_manager)
+	assert_true(delete_cleanup_probe.IsArmed(), "Delete cleanup failure probe did not arm")
+	await mouse_click(confirm_button)
+	var delete_cleanup_probe_consumed: bool = (
+		not bool(delete_cleanup_probe.IsArmed()) and
+		int(delete_cleanup_probe.GetTriggerCount()) == 1)
+	delete_cleanup_probe.Disarm()
+	assert_true(delete_cleanup_probe_consumed, "Delete cleanup failure probe was not consumed exactly once")
+	assert_true(
+		pause_menu.visible and paused and save_management_content.visible and
+		save_status.text.contains("已删除") and
+		save_status.text.contains(delete_cleanup_warning),
+		"Delete cleanup pending was not presented as a successful logical deletion warning")
+	assert_true(
+		save_manager.get("CurrentSlotID") == "autosave" and
+		not save_manager.SaveSlotExists(cleanup_pending_slot_id) and
+		find_item_by_metadata(save_slot_list, cleanup_pending_slot_id) < 0 and
+		not DirAccess.dir_exists_absolute(transaction_failure_marker_absolute),
+		"Delete cleanup pending restored the target, retained its CurrentSlotID, or left recovery state")
+	assert_true(
+		save_name_input.editable and not save_as_button.disabled,
+		"Delete cleanup pending did not restore save-management inputs")
 
 	save_name_input.text = "Runtime UI damaged"
 	await mouse_click(save_as_button)

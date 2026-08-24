@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 /// <summary>V3 存档管理器 Autoload。</summary>
 public partial class SaveManager : Node
 {
+    partial void ProbeConfigureDeleteCleanupFailure(ref SaveSlotStore store);
     partial void ProbeAggregateLoadPostRendererAdmissionFailure();
     partial void ProbeAggregateLoadPostParticipantCaptureFailure(
         IReadOnlyList<CapturedLoadParticipant> loadParticipants);
@@ -913,7 +914,11 @@ public partial class SaveManager : Node
                 lease.AdvanceTo(SaveOperationPhase.Recover);
                 long targetGeneration = _currentSlotGeneration;
                 SaveDeleteResult deleted = await Task.Run(() =>
-                    CreateSlotStore().Delete(authorization, lease));
+                {
+                    SaveSlotStore store = CreateSlotStore();
+                    ProbeConfigureDeleteCleanupFailure(ref store);
+                    return store.Delete(authorization, lease);
+                });
                 lease.AdvanceTo(SaveOperationPhase.Cleanup);
                 InvalidateSlotListing();
                 if (deleted.IsDeleted &&
