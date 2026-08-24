@@ -165,6 +165,7 @@ internal sealed class RoadPresentationTokenTracker
         ArgumentNullException.ThrowIfNull(exception);
         if (DesiredToken is not RoadRenderToken desired ||
             desired != token ||
+            PresentedToken == token ||
             attemptNumber != AttemptCount)
         {
             return null;

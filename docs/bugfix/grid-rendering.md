@@ -61,3 +61,34 @@
 - `dotnet build SimpleCities.sln`：成功，0 errors；仅有 2 个既有 `NU1900` 警告。
 - `camera_zoom_runtime_contract.gd` 的中键、缩放与平移路径无新增失败；综合契约仍有一项无关失败：当前未提交的 `Scenes/MapTest.tscn` 已移除 `minScale = 0.009`，与旧断言不一致。
 - 当前会话未提供 Roslyn CodeLens、Godot editor MCP 或 DAP console；headless 运行仍报告既有根证书读取错误和 `ConstructionDock: ToolManager.Instance is missing` 警告。
+
+---
+
+<a id="grid-rendering-bug-3"></a>
+## BUG-3：已提交的表现 attempt 仍会接纳迟到失败
+
+### 症状
+
+`RoadPresentationTokenTracker.CommitDesired()` 已把目标 token 发布为 `PresentedToken` 后，同一 token、同一 attempt 的迟到异常仍会被 `ReportBuildFailure()` 转换为 `RoadPresentationFailure`。这会让已经同代呈现的表现重新带上 failure 状态，而不是把提交后的迟到结果视为失效结果。
+
+### 根因分析
+
+`ReportBuildFailure()` 只校验 failure token 是否仍为 `DesiredToken`，以及 attempt 编号是否仍为当前编号；它没有排除该 token 已经成为 `PresentedToken` 的情况。因此成功提交不会终止同一 attempt 的 failure admission 窗口。
+
+### 修复方案
+
+在 `Scripts/Road/RoadRenderToken.cs` 的 `RoadPresentationTokenTracker.ReportBuildFailure()` 中增加 `PresentedToken == token` 拒绝条件。目标尚未提交时，当前 attempt 的真实构建异常仍进入既有 stalled/retry 流程；目标已经提交后，同一 attempt 的迟到异常返回 `null`，不会重新写入 `CurrentFailure`。`RoadRenderTokenTests.CommittedAttemptRejectsLateFailure` 固定该提交边界。
+
+### 影响范围
+
+修复只收窄已呈现 token 的迟到 failure admission。普通构建在提交前的失败、同 token 重试、新 token 取代、六分量身份比较和 reserved Load 提交语义不变。
+
+---
+
+## 验证状态（BUG-3）
+
+- 修复前，`dotnet test Tests/SimpleCities.RoadGraph.Tests/SimpleCities.RoadGraph.Tests.csproj --no-restore --filter "FullyQualifiedName~RoadRenderTokenTests.CommittedAttemptRejectsLateFailure"`：1/1 失败，实际返回了 `RoadPresentationFailure`。
+- 修复后，`RoadRenderTokenTests`：22/22 通过；`dotnet test SimpleCities.sln --no-restore`：941/941 通过。
+- `dotnet build SimpleCities.sln --no-restore -c Debug` 与 `-c ExportRelease`：均为 0 个警告、0 个错误。
+- Roslyn CodeLens compiler/analyzer：0 diagnostics；`git diff --check`：通过。
+- 本修复属于纯 C# token tracker 状态门禁，按 `godot-csharp-qa` Tier 1 收口；未重复运行 Godot/Vulkan。

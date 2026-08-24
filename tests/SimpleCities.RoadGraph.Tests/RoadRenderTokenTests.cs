@@ -100,6 +100,30 @@ public sealed class RoadRenderTokenTests
     }
 
     [Fact]
+    public void CommittedAttemptRejectsLateFailure()
+    {
+        var tracker = new RoadPresentationTokenTracker();
+        RoadRenderToken initial = tracker.BindGraph(graphFacadeID: 12, changeSequence: 0);
+        tracker.CommitDesired(initial);
+        RoadRenderToken target = tracker.RequestGraphChange(
+            changeSequence: 1,
+            isFullReset: false);
+        int attempt = tracker.BeginBuildAttempt(target);
+        tracker.CommitDesired(target);
+
+        RoadPresentationFailure? failure = tracker.ReportBuildFailure(
+            target,
+            attempt,
+            new InvalidOperationException("late failure after commit"));
+
+        Assert.Null(failure);
+        Assert.True(tracker.IsPresentationCurrent);
+        Assert.False(tracker.IsPresentationStalled);
+        Assert.Null(tracker.CurrentFailure);
+        Assert.Equal(target, tracker.PresentedToken);
+    }
+
+    [Fact]
     public void FailedBuildStallsCurrentDesiredAndRetriesWithoutChangingItsIdentity()
     {
         var tracker = new RoadPresentationTokenTracker();
