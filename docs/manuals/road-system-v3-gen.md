@@ -1264,6 +1264,10 @@ Phase 7 当前已有六十六个可验证切片。其一，普通 mutation 与 `
 
 > 计数补充（2026-08-24）：在“其一百二十六”基础上新增 JunctionPatch 命中的 sector 优先级与 Edge ID 同值规则证据，Phase 7 可验证切片由一百二十六个更新为一百二十七个；该切片不修改生产行为，也不增加普通更新故障点、真实 aggregate 相邻失败或连续 Preflight 早期边界，新增内容扩展至“其一百二十七”。
 
+其一百二十八，Phase 7 的 fake hit consumer 审计继续补齐重叠宽窄道路的实际 ribbon 几何，而不再只用完全相同 triangle 上的抽象 centerline 比较。`RoadSurfaceSnapshotTests.PointQueryChoosesNearestCenterlineAcrossOverlappingWidthsRegardlessOfEnumeration` 构造 `Edge 3 / center y=0 / half-width=4` 的宽 ribbon 与 `Edge 9 / center y=2 / half-width=1` 的窄 ribbon，并反转 Edge 及各自两个 triangle 的 primitive 枚举。查询 `(5, 1.5)` 同时位于两条道路的真实 triangle 内，二者 surface distance 都为 0；结果稳定选择中心线距离 `0.5` 的 Edge 9，而不是 Edge ID 更小但中心线距离 `1.5` 的宽路。查询 `(5, -3.5)` 只位于宽路内，则稳定返回 Edge 3、surface distance 0 与 centerline distance `3.5`。新增理论聚焦为 2/2，`RoadSurfaceSnapshotTests` 为 25/25，完整自动化为 940/940；Debug 与 `ExportRelease` build 均为 0 警告、0 错误，Roslyn test-project compiler/analyzer 为 0 diagnostics，`git diff --check` 通过。提交 `91f07a8` 只增加测试，没有修改生产代码或运行时行为，因此本切片不重复运行 Godot/Vulkan。该证据关闭 `v3-grid-rendering:2.2` fake hit consumer 的重叠宽窄路 owner 选择子场景，但不替代其他命中、混合视觉、工具消费、性能或 renderer/aggregate 故障矩阵，`v3-grid-rendering:2.2`～`2.3` 与最终集成负责人 `v3-road-graph:8.6` 继续开放。
+
+> 计数补充（2026-08-24）：在“其一百二十七”基础上新增重叠宽窄 EdgeRibbon 的 centerline owner 选择证据，Phase 7 可验证切片由一百二十七个更新为一百二十八个；该切片不修改生产行为，也不增加普通更新故障点、真实 aggregate 相邻失败或连续 Preflight 早期边界，新增内容扩展至“其一百二十八”。
+
 ### Phase 8：最终组合验收
 
 在同一 `MapTest` 实例中完成连续折线路、跨提交延伸、简单环、棒棒糖、两路口环、八字形、支路删除重归一化、四类型建造与改造、token 防护的 delta 撤销重做、不可变 root 结构共享/释放、V3 family/version 有界往返、跨进程锁/publish lease/descriptor 恢复、共享表面命中与 junction patch、损坏/超限拒绝、并发 autosave、取消和 observer warning，以及成功/提交前失败且无提交后关键表现失败分支的 Load 生命周期。额外证明 V2 根未被枚举或修改、手工复制的 V2/未知格式被拒绝。再完成 Vulkan 视觉、10k 硬门槛、100k 压测和 Windows 导出验证。最终证据写回附录 D；`v3-road-graph:8.6` 是唯一集成负责人。

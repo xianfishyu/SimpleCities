@@ -272,6 +272,8 @@
 
   - JunctionPatch 命中同值顺序协作进展（2026-08-24）：`v3-grid-rendering:2.2` 已用完全重叠、surface/centerline distance 相同的 fake patch triangle 固定 `SectorOrder → EdgeID` 比较链。较小 sector 即使属于较高 Edge ID 仍优先；sector 相同时才选择较小 Edge ID，且两项结论都不受 primitive 正反枚举影响。hit 继续返回稳定的 `JunctionPatch` kind、Node/Endpoint 与 fixed canonical location。新增理论 2/2、`RoadSurfaceSnapshotTests` 23/23、完整自动化 938/938、双配置 build 0 警告/0 错误、Roslyn test-project compiler/analyzer 0 diagnostics 与 `git diff --check` 均通过；提交 `9ffd9d2` 仅增加测试，未重复运行 Godot/Vulkan。该证据只关闭 fake hit consumer 的 sector/Edge ID 同值顺序子矩阵；其他命中、混合视觉、工具消费、性能、开放系统项与 Phase 8 组合矩阵仍未全部验收，因此 `v3-grid-rendering:2.2`～`2.3` 与 8.6 保持开放。
 
+  - 重叠宽窄 EdgeRibbon 命中协作进展（2026-08-24）：`v3-grid-rendering:2.2` 已用 half-width `4` 与 `1` 的真实重叠 quad 固定 owner 选择。两条 ribbon 的 surface distance 同为 0 时，较近 centerline 的窄路即使 Edge ID 更大仍优先；只命中宽路区域时则返回宽路，且两项结论均不受 Edge/triangle primitive 正反枚举影响。新增理论 2/2、`RoadSurfaceSnapshotTests` 25/25、完整自动化 940/940、双配置 build 0 警告/0 错误、Roslyn test-project compiler/analyzer 0 diagnostics 与 `git diff --check` 均通过；提交 `91f07a8` 仅增加测试，未重复运行 Godot/Vulkan。该证据只关闭 fake hit consumer 的重叠宽窄路子矩阵；其他命中、混合视觉、工具消费、性能、开放系统项与 Phase 8 组合矩阵仍未全部验收，因此 `v3-grid-rendering:2.2`～`2.3` 与 8.6 保持开放。
+
 ## 暂不执行
 
 ### 交通模拟

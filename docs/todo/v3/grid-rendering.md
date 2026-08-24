@@ -223,6 +223,8 @@
 
   - JunctionPatch 命中同值顺序审计证据（2026-08-24）：`RoadSurfaceSnapshotTests.PointQueryBreaksJunctionTiesBySectorThenEdgeIDRegardlessOfEnumeration` 以正反 primitive 枚举构造完全重叠且 surface/centerline distance 相同的 patch triangle。`Edge 9 / Sector 0` 与 `Edge 3 / Sector 1` 同值时始终选择 Edge 9；两者 sector 都为 0 时始终选择 Edge 3，固定了 `SectorOrder → EdgeID` 的比较顺序且不依赖 primitive 枚举。两组 hit 继续携带 `JunctionPatch` kind、稳定 Node/Endpoint 与所属 Edge 的 fixed canonical location。新增理论 2/2、`RoadSurfaceSnapshotTests` 23/23、完整自动化 938/938、Debug/`ExportRelease` build 0 警告/0 错误、Roslyn test-project compiler/analyzer 0 diagnostics 与 `git diff --check` 均通过；提交 `9ffd9d2` 只增加测试，未修改生产行为，因此未重复运行 Godot/Vulkan。该证据关闭 2.2 fake hit consumer 的 sector/Edge ID 同值顺序子场景，但不替代其他命中、混合视觉、工具消费、性能或 renderer/aggregate 故障矩阵，2.2、2.3 保持开放。
 
+  - 重叠宽窄 EdgeRibbon 命中审计证据（2026-08-24）：`RoadSurfaceSnapshotTests.PointQueryChoosesNearestCenterlineAcrossOverlappingWidthsRegardlessOfEnumeration` 使用 half-width `4` 的 Edge 3 与 half-width `1` 的 Edge 9 构造真实重叠 quad，并反转 Edge/triangle primitive 顺序。重叠点同时满足两者 surface distance 0 时，稳定选择 centerline distance `0.5` 的窄路 Edge 9，而不是 ID 更小但 centerline distance `1.5` 的宽路；只位于宽路内的点稳定返回 Edge 3。新增理论 2/2、`RoadSurfaceSnapshotTests` 25/25、完整自动化 940/940、Debug/`ExportRelease` build 0 警告/0 错误、Roslyn test-project compiler/analyzer 0 diagnostics 与 `git diff --check` 均通过；提交 `91f07a8` 只增加测试，未修改生产行为，因此未重复运行 Godot/Vulkan。该证据关闭 2.2 fake hit consumer 的重叠宽窄路 owner 选择子场景，但不替代其他命中、混合视觉、工具消费、性能或 renderer/aggregate 故障矩阵，2.2、2.3 保持开放。
+
 <a id="v3-grid-rendering2.3"></a>
 
 - [ ] **2.3 建立混合类型视觉、接管与性能门禁**
