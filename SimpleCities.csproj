@@ -17,6 +17,7 @@
     <Compile Include="tests/godot/SaveDeleteCleanupFailureProbe.cs" />
     <Compile Include="tests/godot/SaveDeleteOperationProbe.cs" />
     <Compile Include="tests/godot/SavePublishCleanupFailureProbe.cs" />
+    <Compile Include="tests/godot/SavePublishOperationProbe.cs" />
     <Compile Include="tests/godot/RoadFullResetPerformanceProbe.cs" />
     <Compile Include="tests/godot/RoadLoadObserverFailureProbe.cs" />
     <Compile Include="tests/godot/RoadLoadPreflightResourceFailureProbe.cs" />

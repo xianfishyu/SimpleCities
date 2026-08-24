@@ -14,6 +14,8 @@ public partial class SaveManager : Node
     partial void ProbeObserveCancelOperation(ref string operationToken);
     partial void ProbeWaitAtDeleteRecover(ref SaveSlotStore store);
     partial void ProbeConfigurePublishCleanupFailure(ref SaveSlotStore store);
+    partial void ProbeObservePublishCancelOperation(ref string operationToken);
+    partial void ProbeWaitAtPublishPrepare(ref SaveSlotStore store);
     partial void ProbeAggregateLoadPostRendererAdmissionFailure();
     partial void ProbeAggregateLoadPostParticipantCaptureFailure(
         IReadOnlyList<CapturedLoadParticipant> loadParticipants);
@@ -472,6 +474,7 @@ public partial class SaveManager : Node
         if (string.IsNullOrEmpty(operationToken))
             return false;
         ProbeObserveCancelOperation(ref operationToken);
+        ProbeObservePublishCancelOperation(ref operationToken);
         bool hasCancellation;
         lock (_operationSync)
         {
@@ -661,6 +664,7 @@ public partial class SaveManager : Node
                 SavePublishResult publish = await Task.Run(() =>
                 {
                     SaveSlotStore store = CreateSlotStore();
+                    ProbeWaitAtPublishPrepare(ref store);
                     ProbeConfigurePublishCleanupFailure(ref store);
                     return requireExisting
                         ? store.SaveCapturedExisting(slotID, captured, lease)

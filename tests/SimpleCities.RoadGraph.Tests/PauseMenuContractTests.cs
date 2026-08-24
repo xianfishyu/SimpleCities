@@ -34,6 +34,11 @@ public sealed class PauseMenuContractTests
         "tests",
         "godot",
         "SavePublishCleanupFailureProbe.cs");
+    private static readonly string PublishOperationProbePath = Path.Combine(
+        ProjectRoot,
+        "tests",
+        "godot",
+        "SavePublishOperationProbe.cs");
 
     [Fact]
     public void PauseMenuScene_ProvidesAllRequestedActionsAndSubviews()
@@ -358,6 +363,68 @@ public sealed class PauseMenuContractTests
         string debugGroup = project[debugGroupStart..debugGroupEnd];
         Assert.Contains(
             "<Compile Include=\"tests/godot/SavePublishCleanupFailureProbe.cs\" />",
+            debugGroup,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PublishPrepareGate_IsBeforePublicationAndDebugOnly()
+    {
+        string saveManager = File.ReadAllText(SaveManagerPath);
+        string probe = File.ReadAllText(PublishOperationProbePath);
+        string project = File.ReadAllText(Path.Combine(ProjectRoot, "SimpleCities.csproj"));
+
+        int operationStart = saveManager.IndexOf(
+            "private async Task<SaveOperationResult> RunAdmittedPublishAsync",
+            StringComparison.Ordinal);
+        int operationEnd = saveManager.IndexOf(
+            "private async Task<SaveOperationResult> RunLoadAsync",
+            operationStart,
+            StringComparison.Ordinal);
+        Assert.True(operationStart >= 0 && operationEnd > operationStart);
+        string operation = saveManager[operationStart..operationEnd];
+        int storeCreation = operation.IndexOf(
+            "SaveSlotStore store = CreateSlotStore();",
+            StringComparison.Ordinal);
+        int prepareGate = operation.IndexOf(
+            "ProbeWaitAtPublishPrepare(ref store);",
+            StringComparison.Ordinal);
+        int publish = operation.IndexOf("store.SaveCaptured", StringComparison.Ordinal);
+        Assert.True(storeCreation >= 0 && storeCreation < prepareGate);
+        Assert.True(prepareGate < publish);
+        Assert.Contains(
+            "partial void ProbeWaitAtPublishPrepare(ref SaveSlotStore store);",
+            saveManager,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "partial void ProbeObservePublishCancelOperation(ref string operationToken);",
+            saveManager,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "ProbeObservePublishCancelOperation(ref operationToken);",
+            saveManager,
+            StringComparison.Ordinal);
+        Assert.Contains("ManualResetEventSlim", probe, StringComparison.Ordinal);
+        Assert.Contains(
+            "Interlocked.Exchange(ref _publishPrepareGateArmed, 0)",
+            probe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "throw new TimeoutException(PublishPrepareGateTimeoutMessage);",
+            probe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "Interlocked.Increment(ref _publishPrepareGateCancelRequestCount);",
+            probe,
+            StringComparison.Ordinal);
+
+        const string debugGroupMarker = "<ItemGroup Condition=\"'$(Configuration)' == 'Debug'\">";
+        int debugGroupStart = project.IndexOf(debugGroupMarker, StringComparison.Ordinal);
+        int debugGroupEnd = project.IndexOf("</ItemGroup>", debugGroupStart, StringComparison.Ordinal);
+        Assert.True(debugGroupStart >= 0 && debugGroupEnd > debugGroupStart);
+        string debugGroup = project[debugGroupStart..debugGroupEnd];
+        Assert.Contains(
+            "<Compile Include=\"tests/godot/SavePublishOperationProbe.cs\" />",
             debugGroup,
             StringComparison.Ordinal);
     }

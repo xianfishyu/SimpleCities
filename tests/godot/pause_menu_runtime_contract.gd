@@ -7,8 +7,10 @@ const DELETE_OPERATION_PROBE_PATH := "res://tests/godot/SaveDeleteOperationProbe
 const LOAD_PREFLIGHT_FAILURE_PROBE_PATH := "res://tests/godot/RoadLoadPreflightResourceFailureProbe.cs"
 const LOAD_WARNING_PROBE_PATH := "res://tests/godot/RoadLoadObserverFailureProbe.cs"
 const PUBLISH_CLEANUP_FAILURE_PROBE_PATH := "res://tests/godot/SavePublishCleanupFailureProbe.cs"
+const PUBLISH_OPERATION_PROBE_PATH := "res://tests/godot/SavePublishOperationProbe.cs"
 const V3_SAVE_FIXTURE := preload("res://tests/godot/v3_save_fixture.gd")
 const SAVE_OPERATION_PHASE_RECOVER := 2
+const SAVE_OPERATION_PHASE_PREPARE := 3
 const SAVE_OPERATION_PHASE_COMMIT := 5
 const SAVE_OPERATION_PHASE_CLEANUP := 7
 const SAVE_OPERATION_RESULT_SUCCEEDED := 0
@@ -247,6 +249,73 @@ func run() -> void:
 	assert_true(
 		not FileAccess.file_exists(transaction_failure_marker_path),
 		"Save As failure marker remained after cleanup")
+
+	var publish_operation_probe_script: Script = load(PUBLISH_OPERATION_PROBE_PATH)
+	assert_true(publish_operation_probe_script != null, "Debug Save publish operation probe did not load")
+	var publish_operation_probe: RefCounted = publish_operation_probe_script.new()
+	assert_true(publish_operation_probe != null, "Debug Save publish operation probe did not instantiate")
+	var slot_before_canceled_save_as: String = save_manager.get("CurrentSlotID")
+	save_name_input.text = "Runtime UI canceled save as"
+	publish_operation_probe.ArmPrepareGate(save_manager)
+	assert_true(publish_operation_probe.IsPrepareGateArmed(), "Save publish Prepare gate did not arm")
+	save_as_button.emit_signal("pressed")
+	var canceled_save_as_token := str(pause_menu.get("ActiveSaveOperationToken"))
+	save_as_button.emit_signal("pressed")
+	var duplicate_save_as_token := str(pause_menu.get("ActiveSaveOperationToken"))
+	var publish_prepare_gate_entered := await wait_for_publish_prepare_gate(publish_operation_probe)
+	pause_menu._Input(key_event(KEY_ESCAPE))
+	pause_menu._Input(key_event(KEY_ESCAPE))
+	var save_as_cancel_requested_before_release := bool(
+		pause_menu.get("ActiveSaveOperationCancelRequested"))
+	var save_as_cancel_request_count_before_release := int(
+		publish_operation_probe.GetCancelRequestCount())
+	var save_as_cancel_request_token_before_release := str(
+		publish_operation_probe.GetCancelOperationToken())
+	var save_as_controls_disabled_before_release := (
+		not save_name_input.editable and save_as_button.disabled and
+		overwrite_save_button.disabled and load_save_button.disabled and
+		delete_save_button.disabled and save_management_back_button.disabled)
+	var save_as_name_before_release := save_name_input.text
+	publish_operation_probe.ReleasePrepareGate()
+	var canceled_save_as_reached_idle := await wait_for_save_operation_idle(pause_menu)
+	await process_frame
+	var canceled_save_as_result: Dictionary = save_manager.GetOperationResult(
+		canceled_save_as_token)
+	var publish_prepare_gate_trigger_count := int(
+		publish_operation_probe.GetPrepareGateTriggerCount())
+	publish_operation_probe.Disarm()
+	assert_true(publish_prepare_gate_entered, "Save As did not enter the publish Prepare gate")
+	assert_true(
+		not canceled_save_as_token.is_empty() and
+		canceled_save_as_token == duplicate_save_as_token and
+		publish_prepare_gate_trigger_count == 1,
+		"Repeated Save As activation started or replaced the active operation token")
+	assert_true(
+		save_as_cancel_requested_before_release and
+		save_as_cancel_request_count_before_release == 1 and
+		save_as_cancel_request_token_before_release == canceled_save_as_token,
+		"Repeated Escape did not collapse to one Save As cancellation request")
+	assert_true(
+		save_as_controls_disabled_before_release and
+		save_as_name_before_release == "Runtime UI canceled save as" and
+		pause_menu.visible and paused and save_management_content.visible,
+		"Save As cancellation did not keep the paused menu in its exclusive busy state")
+	assert_true(canceled_save_as_reached_idle, "Canceled Save As did not reach a terminal state")
+	assert_true(
+		int(canceled_save_as_result.get("resultKind", -1)) == SAVE_OPERATION_RESULT_CANCELED and
+		int(canceled_save_as_result.get("finalPhase", -1)) == SAVE_OPERATION_PHASE_PREPARE and
+		not bool(canceled_save_as_result.get("committed", true)),
+		"Save As Prepare cancellation did not publish an uncommitted Canceled result")
+	assert_true(
+		save_manager.get("CurrentSlotID") == slot_before_canceled_save_as and
+		count_items_with_prefix(save_slot_list, "手动  ·  Runtime UI canceled save as") == 0 and
+		save_name_input.text == "Runtime UI canceled save as" and
+		save_status.text.contains("操作已取消"),
+		"Canceled Save As changed disk/current-slot state, cleared its name, or omitted its result")
+	assert_true(
+		not bool(save_manager.get("IsOperationBusy")) and save_name_input.editable and
+		not save_as_button.disabled and not save_management_back_button.disabled,
+		"Canceled Save As did not restore its input controls or manager idle state")
 
 	save_name_input.text = "Runtime UI duplicate"
 	await mouse_click(save_as_button)
@@ -780,6 +849,13 @@ func key_event(keycode: int) -> InputEventKey:
 func wait_for_delete_recover_gate(probe: RefCounted) -> bool:
 	for _frame in 600:
 		if bool(probe.HasEnteredRecoverGate()):
+			return true
+		await process_frame
+	return false
+
+func wait_for_publish_prepare_gate(probe: RefCounted) -> bool:
+	for _frame in 600:
+		if bool(probe.HasEnteredPrepareGate()):
 			return true
 		await process_frame
 	return false
