@@ -4440,6 +4440,60 @@ public sealed class RoadRendererLifecycleContractTests
             StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void AggregatePostCommitCancellationUsesTheActiveOperationAndRecordsRejection()
+    {
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadLoadObserverFailureProbe.cs"));
+        string arming = ExtractMethod(
+            probeSource,
+            "public void ArmPostCommitCancellation(",
+            "public void Disarm()");
+        string handler = ExtractMethod(
+            probeSource,
+            "private void OnPresentationReadyCancelOperation(",
+            "private void OnPresentationReady(");
+
+        int activeOperation = handler.IndexOf(
+            "string operationToken = saveManager.ActiveOperationToken;",
+            StringComparison.Ordinal);
+        int triggerCount = handler.IndexOf(
+            "_postCommitCancellationCount++;",
+            StringComparison.Ordinal);
+        int recordToken = handler.IndexOf(
+            "_postCommitCancellationOperationToken = operationToken;",
+            StringComparison.Ordinal);
+        int disarm = handler.IndexOf(
+            "DisarmPostCommitCancellation();",
+            StringComparison.Ordinal);
+        int cancel = handler.IndexOf(
+            "_postCommitCancellationAccepted = saveManager.CancelOperation(operationToken);",
+            StringComparison.Ordinal);
+
+        Assert.Contains(
+            "_postCommitCancellationHandler = OnPresentationReadyCancelOperation;",
+            arming,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "renderer.PresentationReady += _postCommitCancellationHandler;",
+            arming,
+            StringComparison.Ordinal);
+        Assert.True(activeOperation >= 0 && activeOperation < triggerCount);
+        Assert.True(triggerCount < recordToken && recordToken < disarm && disarm < cancel);
+        Assert.Contains(
+            "public bool WasPostCommitCancellationAccepted()",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "public string GetPostCommitCancellationOperationToken()",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "public bool IsPostCommitCancellationArmed()",
+            probeSource,
+            StringComparison.Ordinal);
+    }
+
     private static string ExtractMethod(string source, string startMarker, string endMarker)
     {
         int start = source.IndexOf(startMarker, StringComparison.Ordinal);

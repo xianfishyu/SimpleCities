@@ -14,10 +14,16 @@ public partial class RoadLoadObserverFailureProbe : Godot.RefCounted
     private ToolManager? _toolManager;
     private SaveManager? _slotCleanupOwner;
     private SaveManager? _postCommitOwner;
+    private RoadRenderer? _postCommitCancellationRenderer;
+    private SaveManager? _postCommitCancellationSaveManager;
     private Action<RoadRenderToken>? _handler;
+    private Action<RoadRenderToken>? _postCommitCancellationHandler;
     private Action<RoadGraphChangedEvent>? _graphHandler;
     private int _triggerCount;
     private int _graphObserverTriggerCount;
+    private int _postCommitCancellationCount;
+    private bool _postCommitCancellationAccepted;
+    private string _postCommitCancellationOperationToken = string.Empty;
 
     public void FlushPendingManagedFinalizers()
     {
@@ -88,6 +94,21 @@ public partial class RoadLoadObserverFailureProbe : Godot.RefCounted
         saveManager.ArmNextAggregateLoadPostCommitFailure();
     }
 
+    public void ArmPostCommitCancellation(
+        RoadRenderer renderer,
+        SaveManager saveManager)
+    {
+        ArgumentNullException.ThrowIfNull(renderer);
+        ArgumentNullException.ThrowIfNull(saveManager);
+        DisarmPostCommitCancellation();
+        _postCommitCancellationRenderer = renderer;
+        _postCommitCancellationSaveManager = saveManager;
+        _postCommitCancellationAccepted = false;
+        _postCommitCancellationOperationToken = string.Empty;
+        _postCommitCancellationHandler = OnPresentationReadyCancelOperation;
+        renderer.PresentationReady += _postCommitCancellationHandler;
+    }
+
     public void Disarm()
     {
         DisarmObserver();
@@ -102,6 +123,7 @@ public partial class RoadLoadObserverFailureProbe : Godot.RefCounted
         _slotCleanupOwner = null;
         _postCommitOwner?.DisarmAggregateLoadPostCommitFailure();
         _postCommitOwner = null;
+        DisarmPostCommitCancellation();
     }
 
     private void DisarmObserver()
@@ -118,6 +140,19 @@ public partial class RoadLoadObserverFailureProbe : Godot.RefCounted
             _graphObserverOwner.GraphChanged -= _graphHandler;
         _graphObserverOwner = null;
         _graphHandler = null;
+    }
+
+    private void DisarmPostCommitCancellation()
+    {
+        if (_postCommitCancellationRenderer is not null &&
+            _postCommitCancellationHandler is not null)
+        {
+            _postCommitCancellationRenderer.PresentationReady -=
+                _postCommitCancellationHandler;
+        }
+        _postCommitCancellationRenderer = null;
+        _postCommitCancellationSaveManager = null;
+        _postCommitCancellationHandler = null;
     }
 
     public int GetTriggerCount() => _triggerCount;
@@ -144,6 +179,25 @@ public partial class RoadLoadObserverFailureProbe : Godot.RefCounted
         _postCommitOwner?.GetAggregateLoadPostCommitFailureCount() ?? 0;
     public bool IsPostCommitFailureArmed() =>
         _postCommitOwner?.IsAggregateLoadPostCommitFailureArmed() ?? false;
+    public int GetPostCommitCancellationCount() => _postCommitCancellationCount;
+    public bool WasPostCommitCancellationAccepted() => _postCommitCancellationAccepted;
+    public string GetPostCommitCancellationOperationToken() =>
+        _postCommitCancellationOperationToken;
+    public bool IsPostCommitCancellationArmed() =>
+        _postCommitCancellationRenderer is not null &&
+        _postCommitCancellationHandler is not null;
+
+    private void OnPresentationReadyCancelOperation(RoadRenderToken _)
+    {
+        SaveManager saveManager = _postCommitCancellationSaveManager
+            ?? throw new InvalidOperationException(
+                "Aggregate Load post-commit cancellation probe has no SaveManager.");
+        string operationToken = saveManager.ActiveOperationToken;
+        _postCommitCancellationCount++;
+        _postCommitCancellationOperationToken = operationToken;
+        DisarmPostCommitCancellation();
+        _postCommitCancellationAccepted = saveManager.CancelOperation(operationToken);
+    }
 
     private void OnPresentationReady(RoadRenderToken _)
     {
