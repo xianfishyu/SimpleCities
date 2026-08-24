@@ -88,6 +88,48 @@ public sealed class RoadSurfaceSnapshotTests
         Assert.Equal(RoadSurfaceOwnerKind.EdgeRibbon, hit.OwnerKind);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void PointQueryBreaksOverlappingTerminalCapTiesByNodeRegardlessOfEnumeration(
+        bool reverseEnumeration)
+    {
+        RoadSurfaceDisc lowerNode = TerminalCapDisc(
+            edgeID: 7,
+            nodeID: 3,
+            endpoint: EdgeEndpoint.A,
+            center: new Vector2(-1f, 0f),
+            radius: 2f,
+            outwardDirection: Vector2.Left,
+            location: new RoadLocation(7, 0, 0f));
+        RoadSurfaceDisc higherNode = TerminalCapDisc(
+            edgeID: 7,
+            nodeID: 9,
+            endpoint: EdgeEndpoint.B,
+            center: new Vector2(1f, 0f),
+            radius: 2f,
+            outwardDirection: Vector2.Right,
+            location: new RoadLocation(7, 0, 1f));
+        RoadSurfaceDisc[] candidates = reverseEnumeration
+            ? [higherNode, lowerNode]
+            : [lowerNode, higherNode];
+        var snapshot = new RoadSurfaceSnapshot(
+            Token(),
+            Array.Empty<RoadSurfaceTriangle>(),
+            candidates);
+
+        RoadSurfaceHit hit = Assert.IsType<RoadSurfaceHit>(
+            snapshot.FindClosest(Vector2.Zero, maxSurfaceDistance: 0f));
+
+        Assert.Equal(RoadSurfaceOwnerKind.TerminalCap, hit.OwnerKind);
+        Assert.Equal(7, hit.EdgeID);
+        Assert.Equal(3, hit.NodeID);
+        Assert.Equal(EdgeEndpoint.A, hit.Endpoint);
+        Assert.Equal(new RoadLocation(7, 0, 0f), hit.Location);
+        Assert.Equal(0f, hit.SurfaceDistance);
+        Assert.Equal(1f, hit.CenterlineDistance);
+    }
+
     [Fact]
     public void TerminalCapDiscRejectsInvalidRadiusAndBounds()
     {
