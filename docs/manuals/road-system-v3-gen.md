@@ -1356,9 +1356,15 @@ Phase 7 当前已有六十六个可验证切片。其一，普通 mutation 与 `
 
 > 计数补充（2026-08-24）：在“其一百四十九”基础上新增真实 PauseMenu 的 Save As 取得 commit lease 后、越过 boundary 前取消、重复激活与事务清理证据，Phase 7 可验证切片由一百四十九个更新为一百五十个；该切片补齐 Save As point-of-no-return 前的最后一个 worker 窗口，并扩展既有 Debug-only 等待入口，新增内容扩展至“其一百五十”。
 
+其一百五十一，Phase 7 补齐 Save As Capture 的公开取消边界，并以此结束微观阶段扩展。`SaveManager.RunAdmittedPublishAsync()` 在 `SaveSlotStore.CaptureSnapshots(...)` 返回后、首次取消检查与 `Prepare` 前通过 partial hook 取得可选 `Task`；Debug-only `SavePublishOperationProbe` 只在 armed 时返回 `TaskCompletionSource` 驱动的异步门，未武装和 `ExportRelease` 均不产生让出或探针实现。真实 PauseMenu 连续两次 Save As 保持同一个非空 operation token，门内仍为 `Capture=1`、`HasCrossedCommitBoundary=false`，且尚未创建 `.save-transactions`；双 Escape 只发送一次同 token 取消，玩家名称、菜单暂停和全部存档入口的独占禁用状态保持。释放门后紧邻的取消检查返回 `Canceled`、`finalPhase=Capture`、`committed=false`；目标槽不发布，`CurrentSlotID` 与名称保持，事务根在前后都不存在，manager、输入和按钮恢复，后续 Save As、Overwrite、Load、Delete 与 MainMenu 重入继续成功。提交 `d0ea140` 只增加 Debug 测试缝、源码顺序契约与真实 UI 回归。PauseMenu/ExportPreset 聚焦契约为 13/13，完整自动化为 959/959，Debug 与 `ExportRelease` build 均为 0 警告、0 错误；Roslyn production/test compiler/analyzer 与目标 GDScript LSP 为 0 diagnostics，Godot 4.7 `--check-only` 和隔离 APPDATA 契约均以退出码 0 通过，后者输出 `PASS pause menu runtime contract`。八项 Capture 标识在 Debug/`ExportRelease` DLL 中命中 8/0；正确项目冻结 `MapTest` 5 帧并找到真实 `RoadRenderer`，最终 editor error、DAP `stderr` 与 `console` 均为空，QA 根已送入回收站且没有残留 Godot 进程。故障注入日志仍包含契约主动触发的既有 ConstructionDock、Save As 文件占位、observer 与损坏槽诊断，未把该通道宣称为干净。
+
+> 计数补充（2026-08-24）：在“其一百五十”基础上新增 Save As Capture 取消、重复激活与零 staging 证据，Phase 7 可验证切片由一百五十个更新为一百五十一个，新增内容扩展至“其一百五十一”。
+
+> Phase 7 收口决策（2026-08-24）：现有证据已覆盖公开 operation phase、point-of-no-return 前后、真实四参与者 aggregate、代表性 Resource 所有权转移、observer/cleanup 隔离、UI 独占状态和跨进程恢复。继续为普通 Save/Overwrite、Load 或 renderer 的每个内部语句间隙建立笛卡尔故障组合只会绑定实现细节，不再作为 V3 完成条件。后续只执行 Phase 8 的代表性端到端组合、既定性能与 Windows 导出门禁；仅当最终组合暴露真实缺陷、引入新的正式 participant，或改变 commit/ownership 边界时，新增针对性回归。
+
 ### Phase 8：最终组合验收
 
-在同一 `MapTest` 实例中完成连续折线路、跨提交延伸、简单环、棒棒糖、两路口环、八字形、支路删除重归一化、四类型建造与改造、token 防护的 delta 撤销重做、不可变 root 结构共享/释放、V3 family/version 有界往返、跨进程锁/publish lease/descriptor 恢复、共享表面命中与 junction patch、损坏/超限拒绝、并发 autosave、取消和 observer warning，以及成功/提交前失败且无提交后关键表现失败分支的 Load 生命周期。额外证明 V2 根未被枚举或修改、手工复制的 V2/未知格式被拒绝。再完成 Vulkan 视觉、10k 硬门槛、100k 压测和 Windows 导出验证。最终证据写回附录 D；`v3-road-graph:8.6` 是唯一集成负责人。
+复用 Phase 0～7 的专项证据，在同一 `MapTest` 代表性流程中组合连续/闭合道路、四类型建造与改造、token 防护的 delta 撤销重做、V3 format v1 往返、并发与取消、共享表面命中和 matching presentation；额外复核 V2 根未被枚举或修改、V2/未知格式被拒绝。随后串行执行完整自动化与双配置构建，并复用既定 Vulkan 视觉、10k 硬门槛、100k 压测和 Windows 导出门禁。最终证据写回附录 D；`v3-road-graph:8.6` 是唯一集成负责人。Phase 8 不重复 Phase 7 已证明的每个微观故障点。
 
 ---
 
