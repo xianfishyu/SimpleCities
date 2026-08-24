@@ -221,6 +221,8 @@
 
   - EdgeRibbon owner 等价性审计证据（2026-08-24）：`RoadRendererLoadPrepareTests.PurePreparer_EdgeRibbonInputPermutationAndEdgeIDRenamingPreserveMappedOwnership` 使用相同的双 Edge/双 geometry 夹具，证明枚举置换保持完整 ribbon triangle/owner 与 mesh 顶点、UV、颜色、索引数组逐值相同，并证明 `10↔11` 一一重命名后的有色无向 triangle 视觉不变、完整 owner 与 canonical location 区间按相同 Edge ID 映射迁移。`PurePreparer_EdgeRibbonStoredDirectionPreservesVisualAndMappedOwnership` 进一步固定反向存储前后的有色 triangle 集与物理 centerline，location 按 `g → last-g`、`[s,e] → [1-e,1-s]` 反演，`OwnsLocationEnd` 随 canonical 开放 B 端迁移。EdgeRibbon 聚焦 2/2、`RoadRendererLoadPrepareTests` 28/28、完整自动化 936/936、Debug/`ExportRelease` build 0 警告/0 错误、Roslyn test-project compiler/analyzer 0 diagnostics 与 `git diff --check` 均通过；提交 `c897f03` 只增加测试，未修改生产行为，因此未重复运行 Godot/Vulkan。四类 surface 的枚举扰动、存储反向和 ID 重命名 owner 等价基础子矩阵由此均有明确证据，但混合宽度视觉、工具消费、性能及 renderer/aggregate 故障矩阵仍未完成，2.2、2.3 保持开放。
 
+  - JunctionPatch 命中同值顺序审计证据（2026-08-24）：`RoadSurfaceSnapshotTests.PointQueryBreaksJunctionTiesBySectorThenEdgeIDRegardlessOfEnumeration` 以正反 primitive 枚举构造完全重叠且 surface/centerline distance 相同的 patch triangle。`Edge 9 / Sector 0` 与 `Edge 3 / Sector 1` 同值时始终选择 Edge 9；两者 sector 都为 0 时始终选择 Edge 3，固定了 `SectorOrder → EdgeID` 的比较顺序且不依赖 primitive 枚举。两组 hit 继续携带 `JunctionPatch` kind、稳定 Node/Endpoint 与所属 Edge 的 fixed canonical location。新增理论 2/2、`RoadSurfaceSnapshotTests` 23/23、完整自动化 938/938、Debug/`ExportRelease` build 0 警告/0 错误、Roslyn test-project compiler/analyzer 0 diagnostics 与 `git diff --check` 均通过；提交 `9ffd9d2` 只增加测试，未修改生产行为，因此未重复运行 Godot/Vulkan。该证据关闭 2.2 fake hit consumer 的 sector/Edge ID 同值顺序子场景，但不替代其他命中、混合视觉、工具消费、性能或 renderer/aggregate 故障矩阵，2.2、2.3 保持开放。
+
 <a id="v3-grid-rendering2.3"></a>
 
 - [ ] **2.3 建立混合类型视觉、接管与性能门禁**

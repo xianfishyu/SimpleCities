@@ -270,6 +270,8 @@
 
   - EdgeRibbon owner 等价性协作进展（2026-08-24）：`v3-grid-rendering:2.2` 已用相同双 Edge/双 geometry 夹具补齐基础四类 surface 的最后一个 owner 确定性子矩阵。枚举置换保持完整 ribbon triangle/owner 与 mesh 顶点、UV、颜色、索引数组；`10↔11` 一一 Edge ID 重命名后的有色无向 triangle 视觉不变，owner 与 canonical location 区间按相同映射迁移；存储方向反转保持有色 triangle 集及物理 centerline，location 按 geometry 倒序和参数 `1-t` 反演，唯一 `OwnsLocationEnd` 随新 canonical B 端迁移。EdgeRibbon 聚焦 2/2、`RoadRendererLoadPrepareTests` 28/28、完整自动化 936/936、双配置 build 0 警告/0 错误、Roslyn test-project compiler/analyzer 0 diagnostics 与 `git diff --check` 均通过；提交 `c897f03` 仅增加测试，未重复运行 Godot/Vulkan。四类 surface 的基础 owner 等价证据现已齐备，但混合视觉、工具消费、性能、开放系统项与 Phase 8 组合矩阵仍未全部验收，因此 `v3-grid-rendering:2.2`～`2.3` 与 8.6 保持开放。
 
+  - JunctionPatch 命中同值顺序协作进展（2026-08-24）：`v3-grid-rendering:2.2` 已用完全重叠、surface/centerline distance 相同的 fake patch triangle 固定 `SectorOrder → EdgeID` 比较链。较小 sector 即使属于较高 Edge ID 仍优先；sector 相同时才选择较小 Edge ID，且两项结论都不受 primitive 正反枚举影响。hit 继续返回稳定的 `JunctionPatch` kind、Node/Endpoint 与 fixed canonical location。新增理论 2/2、`RoadSurfaceSnapshotTests` 23/23、完整自动化 938/938、双配置 build 0 警告/0 错误、Roslyn test-project compiler/analyzer 0 diagnostics 与 `git diff --check` 均通过；提交 `9ffd9d2` 仅增加测试，未重复运行 Godot/Vulkan。该证据只关闭 fake hit consumer 的 sector/Edge ID 同值顺序子矩阵；其他命中、混合视觉、工具消费、性能、开放系统项与 Phase 8 组合矩阵仍未全部验收，因此 `v3-grid-rendering:2.2`～`2.3` 与 8.6 保持开放。
+
 ## 暂不执行
 
 ### 交通模拟
