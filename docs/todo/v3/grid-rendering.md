@@ -231,6 +231,8 @@
 
   - self-loop incidence 的 Endpoint 同值顺序审计证据（2026-08-24）：`RoadSurfaceSnapshotTests.PointQueryBreaksSelfLoopIncidenceTiesByEndpointRegardlessOfEnumeration` 使用同 Edge 7、同 Node 20、同 sector、完全重叠 geometry/centerline 的两个 `JunctionPatch` 候选，仅区分 `Endpoint A / parameter 0` 与 `Endpoint B / parameter 1`；正反枚举均稳定选择 Endpoint A 及其 canonical location，直接固定 owner comparator 的 Endpoint 分支。新增理论 2/2、`RoadSurfaceSnapshotTests` 27/27、完整自动化 944/944、Debug/`ExportRelease` build 0 警告/0 错误、Roslyn test-project compiler/analyzer 0 diagnostics 与 `git diff --check` 均通过；提交 `f5090d7` 只增加测试，未修改生产行为，因此未重复运行 Godot/Vulkan。该证据关闭 2.2 fake hit consumer 的同 Edge/Node self-loop endpoint 同值子场景，但不替代其他命中、混合视觉、工具消费、性能或 renderer/aggregate 故障矩阵，2.2、2.3 保持开放。
 
+  - 重叠 TerminalCap 的 NodeID 同值顺序审计证据（2026-08-24）：`RoadSurfaceSnapshotTests.PointQueryBreaksOverlappingTerminalCapTiesByNodeRegardlessOfEnumeration` 为同一 Edge 7 的 Node 3/A 与 Node 9/B 构造半径 2、在原点等 surface distance 0 与等 centerline distance 1 的重叠 cap；正反 disc 枚举均稳定选择较小 NodeID 3，并返回 Endpoint A 与 parameter 0 的 canonical location。新增理论 2/2、`RoadSurfaceSnapshotTests` 29/29、完整自动化 946/946、Debug/`ExportRelease` build 0 警告/0 错误、Roslyn test-project compiler/analyzer 0 diagnostics 与 `git diff --check` 均通过；提交 `342dcaf` 只增加测试，未修改生产行为，因此未重复运行 Godot/Vulkan。结合既有 owner-kind、location-presence、sector/Edge ID 与 Endpoint 证据，fake point-hit 的稳定 owner 破同值链已有直接或相邻回归；其他命中、混合视觉、工具消费、性能及 renderer/aggregate 故障矩阵仍由 2.2～2.3 保持开放。
+
 <a id="v3-grid-rendering2.3"></a>
 
 - [ ] **2.3 建立混合类型视觉、接管与性能门禁**

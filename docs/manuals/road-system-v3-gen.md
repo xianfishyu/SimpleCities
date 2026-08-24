@@ -1280,6 +1280,10 @@ Phase 7 当前已有六十六个可验证切片。其一，普通 mutation 与 `
 
 > 计数补充（2026-08-24）：在“其一百三十”基础上新增 self-loop A/B incidence 的 Endpoint 同值规则证据，Phase 7 可验证切片由一百三十个更新为一百三十一个；该切片不修改生产行为，也不增加普通更新构建故障点、真实 aggregate 相邻失败或连续 Preflight 早期边界，新增内容扩展至“其一百三十一”。
 
+其一百三十二，Phase 7 的 fake hit consumer 审计补齐同一短 Edge 两端 `TerminalCap` 实际重叠时的 NodeID 同值顺序。`RoadSurfaceSnapshotTests.PointQueryBreaksOverlappingTerminalCapTiesByNodeRegardlessOfEnumeration` 为 Edge 7 构造 `Node 3 / Endpoint A / center (-1, 0) / parameter 0` 与 `Node 9 / Endpoint B / center (1, 0) / parameter 1` 两个半径 2 的解析 disc；查询原点时两者都处于可见 cap 内，surface distance 同为 0，centerline distance 同为 1，Edge ID、owner kind 与 sector 也完全相同。正反两种 disc 枚举都必须选择较小 NodeID 3，并返回其 Endpoint A 与 canonical location，证明 owner comparator 在前置字段同值后不依赖输入顺序。新增理论为 2/2，`RoadSurfaceSnapshotTests` 为 29/29、完整自动化为 946/946，Debug 与 `ExportRelease` build 均为 0 警告、0 错误；Roslyn test-project compiler/analyzer 为 0 diagnostics，`git diff --check` 通过。提交 `342dcaf` 只增加测试，没有修改生产代码或运行时行为，因此按 Tier 1 收口且未重复运行 Godot/Vulkan。结合既有 ribbon/cap owner-kind、geometry-join location-presence、junction sector/Edge ID 与 self-loop Endpoint 证据，fake point-hit 的稳定 owner 破同值链已有直接或相邻回归；这不替代混合视觉、工具消费、性能或 renderer/aggregate 故障矩阵，`v3-grid-rendering:2.2`～`2.3` 与最终集成负责人 `v3-road-graph:8.6` 继续保持开放。
+
+> 计数补充（2026-08-24）：在“其一百三十一”基础上新增重叠 TerminalCap 的 NodeID 同值规则证据，Phase 7 可验证切片由一百三十一个更新为一百三十二个；该切片不修改生产行为，也不增加普通更新构建故障点、真实 aggregate 相邻失败或连续 Preflight 早期边界，新增内容扩展至“其一百三十二”。
+
 ### Phase 8：最终组合验收
 
 在同一 `MapTest` 实例中完成连续折线路、跨提交延伸、简单环、棒棒糖、两路口环、八字形、支路删除重归一化、四类型建造与改造、token 防护的 delta 撤销重做、不可变 root 结构共享/释放、V3 family/version 有界往返、跨进程锁/publish lease/descriptor 恢复、共享表面命中与 junction patch、损坏/超限拒绝、并发 autosave、取消和 observer warning，以及成功/提交前失败且无提交后关键表现失败分支的 Load 生命周期。额外证明 V2 根未被枚举或修改、手工复制的 V2/未知格式被拒绝。再完成 Vulkan 视觉、10k 硬门槛、100k 压测和 Windows 导出验证。最终证据写回附录 D；`v3-road-graph:8.6` 是唯一集成负责人。
