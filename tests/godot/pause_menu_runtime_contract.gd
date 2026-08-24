@@ -9,6 +9,7 @@ const LOAD_WARNING_PROBE_PATH := "res://tests/godot/RoadLoadObserverFailureProbe
 const PUBLISH_CLEANUP_FAILURE_PROBE_PATH := "res://tests/godot/SavePublishCleanupFailureProbe.cs"
 const PUBLISH_OPERATION_PROBE_PATH := "res://tests/godot/SavePublishOperationProbe.cs"
 const V3_SAVE_FIXTURE := preload("res://tests/godot/v3_save_fixture.gd")
+const SAVE_OPERATION_PHASE_CAPTURE := 1
 const SAVE_OPERATION_PHASE_RECOVER := 2
 const SAVE_OPERATION_PHASE_PREPARE := 3
 const SAVE_OPERATION_PHASE_COMMIT := 5
@@ -255,6 +256,90 @@ func run() -> void:
 	assert_true(publish_operation_probe_script != null, "Debug Save publish operation probe did not load")
 	var publish_operation_probe: RefCounted = publish_operation_probe_script.new()
 	assert_true(publish_operation_probe != null, "Debug Save publish operation probe did not instantiate")
+	var slot_before_capture_save_as: String = save_manager.get("CurrentSlotID")
+	save_name_input.text = "Runtime UI capture canceled save as"
+	publish_operation_probe.ArmCaptureGate(save_manager)
+	assert_true(publish_operation_probe.IsCaptureGateArmed(), "Save publish Capture gate did not arm")
+	save_as_button.emit_signal("pressed")
+	var capture_save_as_token := str(pause_menu.get("ActiveSaveOperationToken"))
+	save_as_button.emit_signal("pressed")
+	var duplicate_capture_save_as_token := str(pause_menu.get("ActiveSaveOperationToken"))
+	var publish_capture_gate_entered := await wait_for_publish_capture_gate(
+		pause_menu,
+		publish_operation_probe)
+	var capture_transaction_root_absent_before_release := not DirAccess.dir_exists_absolute(
+		transaction_failure_marker_absolute)
+	pause_menu._Input(key_event(KEY_ESCAPE))
+	pause_menu._Input(key_event(KEY_ESCAPE))
+	var capture_cancel_requested_before_release := bool(
+		pause_menu.get("ActiveSaveOperationCancelRequested"))
+	var capture_cancel_request_count_before_release := int(
+		publish_operation_probe.GetCaptureCancelRequestCount())
+	var capture_cancel_request_token_before_release := str(
+		publish_operation_probe.GetCaptureCancelOperationToken())
+	var capture_phase_before_release := int(pause_menu.get("ActiveSaveOperationPhase"))
+	var capture_crossed_boundary_before_release := bool(
+		pause_menu.get("ActiveSaveOperationCrossedBoundary"))
+	var capture_controls_disabled_before_release := (
+		not save_name_input.editable and save_as_button.disabled and
+		overwrite_save_button.disabled and load_save_button.disabled and
+		delete_save_button.disabled and save_management_back_button.disabled)
+	var capture_name_before_release := save_name_input.text
+	publish_operation_probe.ReleaseCaptureGate()
+	var capture_save_as_reached_idle := await wait_for_save_operation_idle(pause_menu)
+	await process_frame
+	var capture_save_as_result: Dictionary = save_manager.GetOperationResult(
+		capture_save_as_token)
+	var capture_save_as_target_id := str(capture_save_as_result.get("targetSlotID", ""))
+	var publish_capture_gate_trigger_count := int(
+		publish_operation_probe.GetCaptureGateTriggerCount())
+	var capture_transaction_root_absent_after_release := not DirAccess.dir_exists_absolute(
+		transaction_failure_marker_absolute)
+	publish_operation_probe.Disarm()
+	assert_true(
+		publish_capture_gate_entered and not capture_save_as_token.is_empty() and
+		capture_save_as_token == duplicate_capture_save_as_token and
+		publish_capture_gate_trigger_count == 1,
+		"Repeated Capture Save As activation started or replaced the active operation token")
+	assert_true(
+		capture_cancel_requested_before_release and
+		capture_cancel_request_count_before_release == 1 and
+		capture_cancel_request_token_before_release == capture_save_as_token,
+		"Repeated Escape did not collapse to one Capture Save As cancellation request")
+	assert_true(
+		capture_transaction_root_absent_before_release and
+		capture_phase_before_release == SAVE_OPERATION_PHASE_CAPTURE and
+		not capture_crossed_boundary_before_release and
+		capture_controls_disabled_before_release and
+		capture_name_before_release == "Runtime UI capture canceled save as" and
+		pause_menu.visible and paused and save_management_content.visible,
+		"Capture Save As did not retain its cancellable paused exclusive state")
+	assert_true(
+		capture_save_as_reached_idle,
+		"Canceled Capture Save As did not reach a terminal state")
+	assert_true(
+		int(capture_save_as_result.get("resultKind", -1)) ==
+			SAVE_OPERATION_RESULT_CANCELED and
+		int(capture_save_as_result.get("finalPhase", -1)) ==
+			SAVE_OPERATION_PHASE_CAPTURE and
+		not bool(capture_save_as_result.get("committed", true)),
+		"Capture Save As cancellation did not publish an uncommitted Canceled result")
+	assert_true(
+		capture_save_as_target_id.begins_with("manual-") and
+		not save_manager.SaveSlotExists(capture_save_as_target_id) and
+		save_manager.get("CurrentSlotID") == slot_before_capture_save_as and
+		count_items_with_prefix(
+			save_slot_list,
+			"手动  ·  Runtime UI capture canceled save as") == 0 and
+		save_name_input.text == "Runtime UI capture canceled save as" and
+		save_status.text.contains("操作已取消") and
+		capture_transaction_root_absent_after_release,
+		"Canceled Capture Save As published a slot, created staging, or changed UI state")
+	assert_true(
+		not bool(save_manager.get("IsOperationBusy")) and save_name_input.editable and
+		not save_as_button.disabled and not save_management_back_button.disabled,
+		"Canceled Capture Save As did not restore its input controls or manager idle state")
+
 	var slot_before_canceled_save_as: String = save_manager.get("CurrentSlotID")
 	save_name_input.text = "Runtime UI canceled save as"
 	publish_operation_probe.ArmPrepareGate(save_manager)
@@ -1089,6 +1174,17 @@ func wait_for_delete_recover_gate(probe: RefCounted) -> bool:
 func wait_for_publish_prepare_gate(probe: RefCounted) -> bool:
 	for _frame in 600:
 		if bool(probe.HasEnteredPrepareGate()):
+			return true
+		await process_frame
+	return false
+
+func wait_for_publish_capture_gate(pause_menu: Node, probe: RefCounted) -> bool:
+	for _frame in 600:
+		if (
+			bool(probe.HasEnteredCaptureGate()) and
+			not bool(pause_menu.get("ActiveSaveOperationCrossedBoundary")) and
+			int(pause_menu.get("ActiveSaveOperationPhase")) == SAVE_OPERATION_PHASE_CAPTURE
+		):
 			return true
 		await process_frame
 	return false

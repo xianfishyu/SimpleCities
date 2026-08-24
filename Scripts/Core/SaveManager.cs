@@ -14,6 +14,7 @@ public partial class SaveManager : Node
     partial void ProbeObserveCancelOperation(ref string operationToken);
     partial void ProbeWaitAtDeleteRecover(ref SaveSlotStore store);
     partial void ProbeConfigurePublishCleanupFailure(ref SaveSlotStore store);
+    partial void ProbeGetPublishCaptureGate(ref Task? gate);
     partial void ProbeObservePublishCancelOperation(ref string operationToken);
     partial void ProbeWaitAtPublishPrepare(ref SaveSlotStore store);
     partial void ProbeAggregateLoadPostRendererAdmissionFailure();
@@ -659,6 +660,10 @@ public partial class SaveManager : Node
                 lease.AdvanceTo(SaveOperationPhase.Capture);
                 IReadOnlyList<CapturedSaveParticipant> captured =
                     SaveSlotStore.CaptureSnapshots(GetRequiredSaveables());
+                Task? captureGate = null;
+                ProbeGetPublishCaptureGate(ref captureGate);
+                if (captureGate is not null)
+                    await captureGate;
                 lease.ThrowIfCancellationRequested();
                 lease.AdvanceTo(SaveOperationPhase.Prepare);
                 SavePublishResult publish = await Task.Run(() =>

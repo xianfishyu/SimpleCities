@@ -368,6 +368,69 @@ public sealed class PauseMenuContractTests
     }
 
     [Fact]
+    public void PublishCaptureGate_IsAfterSnapshotAndBeforeCancellationCheckAndPrepare()
+    {
+        string saveManager = File.ReadAllText(SaveManagerPath);
+        string probe = File.ReadAllText(PublishOperationProbePath);
+
+        int operationStart = saveManager.IndexOf(
+            "private async Task<SaveOperationResult> RunAdmittedPublishAsync",
+            StringComparison.Ordinal);
+        int operationEnd = saveManager.IndexOf(
+            "private async Task<SaveOperationResult> RunLoadAsync",
+            operationStart,
+            StringComparison.Ordinal);
+        Assert.True(operationStart >= 0 && operationEnd > operationStart);
+        string operation = saveManager[operationStart..operationEnd];
+        int capturePhase = operation.IndexOf(
+            "lease.AdvanceTo(SaveOperationPhase.Capture);",
+            StringComparison.Ordinal);
+        int captureSnapshots = operation.IndexOf(
+            "SaveSlotStore.CaptureSnapshots(GetRequiredSaveables());",
+            StringComparison.Ordinal);
+        int captureGate = operation.IndexOf(
+            "ProbeGetPublishCaptureGate(ref captureGate);",
+            StringComparison.Ordinal);
+        int captureGateAwait = operation.IndexOf(
+            "await captureGate;",
+            StringComparison.Ordinal);
+        int cancellationCheck = operation.IndexOf(
+            "lease.ThrowIfCancellationRequested();",
+            StringComparison.Ordinal);
+        int preparePhase = operation.IndexOf(
+            "lease.AdvanceTo(SaveOperationPhase.Prepare);",
+            StringComparison.Ordinal);
+        Assert.True(capturePhase >= 0 && capturePhase < captureSnapshots);
+        Assert.True(captureSnapshots < captureGate && captureGate < captureGateAwait);
+        Assert.True(captureGateAwait < cancellationCheck && cancellationCheck < preparePhase);
+
+        Assert.Contains(
+            "partial void ProbeGetPublishCaptureGate(ref Task? gate);",
+            saveManager,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "Interlocked.Exchange(ref _publishCaptureGateArmed, 0)",
+            probe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)",
+            probe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "await release.WaitAsync(PublishOperationGateTimeout);",
+            probe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "throw new TimeoutException(PublishCaptureGateTimeoutMessage);",
+            probe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "Interlocked.Increment(ref _publishCaptureGateCancelRequestCount);",
+            probe,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void PublishPrepareGate_IsBeforePublicationAndDebugOnly()
     {
         string saveManager = File.ReadAllText(SaveManagerPath);

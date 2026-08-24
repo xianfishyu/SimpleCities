@@ -1,9 +1,18 @@
 using System;
 using System.Threading;
+using System.Threading.Tasks;
 
 public partial class SavePublishOperationProbe : Godot.RefCounted
 {
     private SaveManager? _saveManager;
+
+    public void ArmCaptureGate(SaveManager saveManager)
+    {
+        ArgumentNullException.ThrowIfNull(saveManager);
+        Disarm();
+        saveManager.ArmNextPublishCaptureGate();
+        _saveManager = saveManager;
+    }
 
     public void ArmPrepareGate(SaveManager saveManager)
     {
@@ -40,6 +49,9 @@ public partial class SavePublishOperationProbe : Godot.RefCounted
     public void ReleasePrepareGate() =>
         _saveManager?.ReleasePublishPrepareGate();
 
+    public void ReleaseCaptureGate() =>
+        _saveManager?.ReleasePublishCaptureGate();
+
     public void ReleaseStagedGate() =>
         _saveManager?.ReleasePublishStagedGate();
 
@@ -51,12 +63,28 @@ public partial class SavePublishOperationProbe : Godot.RefCounted
 
     public void Disarm()
     {
+        _saveManager?.DisarmPublishCaptureGate();
         _saveManager?.DisarmPublishPrepareGate();
         _saveManager?.DisarmPublishStagedGate();
         _saveManager?.DisarmPublishPreCommitBoundaryGate();
         _saveManager?.DisarmPublishPostCommitGate();
         _saveManager = null;
     }
+
+    public bool IsCaptureGateArmed() =>
+        _saveManager?.IsPublishCaptureGateArmed() ?? false;
+
+    public bool HasEnteredCaptureGate() =>
+        _saveManager?.HasEnteredPublishCaptureGate() ?? false;
+
+    public int GetCaptureGateTriggerCount() =>
+        _saveManager?.GetPublishCaptureGateTriggerCount() ?? 0;
+
+    public int GetCaptureCancelRequestCount() =>
+        _saveManager?.GetPublishCaptureGateCancelRequestCount() ?? 0;
+
+    public string GetCaptureCancelOperationToken() =>
+        _saveManager?.GetPublishCaptureGateCancelOperationToken() ?? string.Empty;
 
     public bool IsPrepareGateArmed() =>
         _saveManager?.IsPublishPrepareGateArmed() ?? false;
@@ -121,6 +149,8 @@ public partial class SavePublishOperationProbe : Godot.RefCounted
 
 public partial class SaveManager
 {
+    private const string PublishCaptureGateTimeoutMessage =
+        "Timed out waiting to release the Save publish Capture test gate.";
     private const string PublishPrepareGateTimeoutMessage =
         "Timed out waiting to release the Save publish Prepare test gate.";
     private const string PublishStagedGateTimeoutMessage =
@@ -131,6 +161,13 @@ public partial class SaveManager
         "Timed out waiting to release the Save publish post-commit test gate.";
     private static readonly TimeSpan PublishOperationGateTimeout = TimeSpan.FromSeconds(15);
 
+    private TaskCompletionSource _publishCaptureGateRelease = new(
+        TaskCreationOptions.RunContinuationsAsynchronously);
+    private int _publishCaptureGateArmed;
+    private int _publishCaptureGateEntered;
+    private int _publishCaptureGateTriggerCount;
+    private int _publishCaptureGateCancelRequestCount;
+    private string _publishCaptureGateCancelOperationToken = string.Empty;
     private readonly ManualResetEventSlim _publishPrepareGateRelease = new(initialState: true);
     private int _publishPrepareGateArmed;
     private int _publishPrepareGateEntered;
@@ -158,6 +195,12 @@ public partial class SaveManager
 
     partial void ProbeObservePublishCancelOperation(ref string operationToken)
     {
+        if (Volatile.Read(ref _publishCaptureGateEntered) != 0)
+        {
+            _publishCaptureGateCancelOperationToken = operationToken;
+            Interlocked.Increment(ref _publishCaptureGateCancelRequestCount);
+        }
+
         if (Volatile.Read(ref _publishPrepareGateEntered) != 0)
         {
             _publishPrepareGateCancelOperationToken = operationToken;
@@ -180,6 +223,36 @@ public partial class SaveManager
         {
             _publishPostCommitGateCancelOperationToken = operationToken;
             Interlocked.Increment(ref _publishPostCommitGateCancelRequestCount);
+        }
+    }
+
+    partial void ProbeGetPublishCaptureGate(ref Task? gate)
+    {
+        if (Interlocked.Exchange(ref _publishCaptureGateArmed, 0) == 0)
+            return;
+
+        Interlocked.Increment(ref _publishCaptureGateTriggerCount);
+        Volatile.Write(ref _publishCaptureGateEntered, 1);
+        TaskCompletionSource release = Volatile.Read(ref _publishCaptureGateRelease);
+        gate = WaitAtPublishCaptureAsync(release.Task);
+    }
+
+    private async Task WaitAtPublishCaptureAsync(Task release)
+    {
+        try
+        {
+            try
+            {
+                await release.WaitAsync(PublishOperationGateTimeout);
+            }
+            catch (TimeoutException)
+            {
+                throw new TimeoutException(PublishCaptureGateTimeoutMessage);
+            }
+        }
+        finally
+        {
+            Volatile.Write(ref _publishCaptureGateEntered, 0);
         }
     }
 
@@ -207,6 +280,52 @@ public partial class SaveManager
             Volatile.Write(ref _publishPrepareGateEntered, 0);
         }
     }
+
+    internal void ArmNextPublishCaptureGate()
+    {
+        if (IsOperationBusy)
+        {
+            throw new InvalidOperationException(
+                "SaveManager must be idle before arming its publish Capture test gate.");
+        }
+        if (Interlocked.CompareExchange(ref _publishCaptureGateArmed, 1, 0) != 0)
+        {
+            throw new InvalidOperationException(
+                "Save publish Capture test gate is already armed.");
+        }
+
+        Interlocked.Exchange(ref _publishCaptureGateTriggerCount, 0);
+        Interlocked.Exchange(ref _publishCaptureGateCancelRequestCount, 0);
+        _publishCaptureGateCancelOperationToken = string.Empty;
+        Volatile.Write(ref _publishCaptureGateEntered, 0);
+        Interlocked.Exchange(
+            ref _publishCaptureGateRelease,
+            new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously));
+    }
+
+    internal void ReleasePublishCaptureGate() =>
+        Volatile.Read(ref _publishCaptureGateRelease).TrySetResult();
+
+    internal void DisarmPublishCaptureGate()
+    {
+        Interlocked.Exchange(ref _publishCaptureGateArmed, 0);
+        Volatile.Read(ref _publishCaptureGateRelease).TrySetResult();
+    }
+
+    internal bool IsPublishCaptureGateArmed() =>
+        Volatile.Read(ref _publishCaptureGateArmed) != 0;
+
+    internal bool HasEnteredPublishCaptureGate() =>
+        Volatile.Read(ref _publishCaptureGateEntered) != 0;
+
+    internal int GetPublishCaptureGateTriggerCount() =>
+        Volatile.Read(ref _publishCaptureGateTriggerCount);
+
+    internal int GetPublishCaptureGateCancelRequestCount() =>
+        Volatile.Read(ref _publishCaptureGateCancelRequestCount);
+
+    internal string GetPublishCaptureGateCancelOperationToken() =>
+        _publishCaptureGateCancelOperationToken;
 
     private void WaitAtPublishStaged(SavePublicationPhase phase)
     {
