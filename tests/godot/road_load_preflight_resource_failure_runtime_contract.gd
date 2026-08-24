@@ -9,6 +9,7 @@ const RESULT_SUCCEEDED := 0
 const RESULT_FAILED := 2
 const PHASE_PREPARE := 3
 const PHASE_PREFLIGHT := 4
+const PHASE_COMMIT := 5
 const TOOL_ROAD := 1
 const ROAD_TYPE_ARTERIAL := 2
 
@@ -844,6 +845,8 @@ func run() -> void:
 	if not require(
 		int(graph_boundary_operation_failed_load_result.get("resultKind", -1)) ==
 			RESULT_FAILED and
+		int(graph_boundary_operation_failed_load_result.get("finalPhase", -1)) ==
+			PHASE_COMMIT and
 		not bool(graph_boundary_operation_failed_load_result.get("committed", true)) and
 		str(graph_boundary_operation_failed_load_result.get("warnings", "")).is_empty() and
 		str(graph_boundary_operation_failed_load_result.get("error", "")) ==
@@ -855,6 +858,25 @@ func run() -> void:
 	if not require(
 		not bool(probe.IsAggregateLoadGraphCommitBoundaryGenerationMismatchArmed()) and
 		int(probe.GetAggregateLoadGraphCommitBoundaryGenerationMismatchCount()) == 1 and
+		bool(probe.DidAggregateLoadGraphCommitBoundaryProbeRunOnMainThread()) and
+		int(probe.GetAggregateLoadGraphCommitBoundaryPlanCount()) == 4 and
+		str(probe.GetAggregateLoadGraphCommitBoundaryFirstParticipantID()) ==
+			"road-graph" and
+		str(probe.GetAggregateLoadGraphCommitBoundarySecondParticipantID()) ==
+			"road-tools" and
+		str(probe.GetAggregateLoadGraphCommitBoundaryThirdParticipantID()) ==
+			"road-presentation" and
+		str(probe.GetAggregateLoadGraphCommitBoundaryFourthParticipantID()) ==
+			"slot-target" and
+		int(probe.GetAggregateLoadGraphCommitBoundaryTargetEdgeCount()) ==
+			edge_count_before and
+		str(probe.GetAggregateLoadGraphCommitBoundaryObservedSlotID()) == active_slot_id and
+		int(probe.GetAggregateLoadGraphCommitBoundarySourceParticipantCount()) == 1 and
+		int(probe.GetAggregateLoadGraphCommitBoundaryRoadVertexCount()) ==
+			vertex_count_before and
+		int(probe.GetAggregateLoadGraphCommitBoundarySurfacePrimitiveCount()) > 0 and
+		int(probe.GetAggregateLoadGraphCommitBoundaryNodeMarkerCount()) ==
+			marker_count_before and
 		int(probe.GetAggregateLoadGraphCommitBoundaryCount()) == 1 and
 		int(probe.GetAggregateLoadGraphMarkCommittedCount()) == 0 and
 		graph_boundary_operation_resource_count_after ==
@@ -865,6 +887,11 @@ func run() -> void:
 				probe.IsAggregateLoadGraphCommitBoundaryGenerationMismatchArmed()),
 			"triggerCount": int(
 				probe.GetAggregateLoadGraphCommitBoundaryGenerationMismatchCount()),
+			"planCount": int(probe.GetAggregateLoadGraphCommitBoundaryPlanCount()),
+			"firstParticipantID": str(
+				probe.GetAggregateLoadGraphCommitBoundaryFirstParticipantID()),
+			"fourthParticipantID": str(
+				probe.GetAggregateLoadGraphCommitBoundaryFourthParticipantID()),
 			"boundaryCount": int(probe.GetAggregateLoadGraphCommitBoundaryCount()),
 			"markCommittedCount": int(probe.GetAggregateLoadGraphMarkCommittedCount()),
 			"resourceCountBefore": graph_boundary_operation_resource_count_before,
@@ -2679,10 +2706,36 @@ func run() -> void:
 		"post_ownership_resource_count_after": post_ownership_resource_count_after,
 		"graph_boundary_operation_failure_result_kind": int(
 			graph_boundary_operation_failed_load_result.get("resultKind", -1)),
+		"graph_boundary_operation_failure_final_phase": int(
+			graph_boundary_operation_failed_load_result.get("finalPhase", -1)),
 		"graph_boundary_operation_failure_committed": bool(
 			graph_boundary_operation_failed_load_result.get("committed", true)),
 		"graph_boundary_operation_failure_trigger_count": int(
 			probe.GetAggregateLoadGraphCommitBoundaryGenerationMismatchCount()),
+		"graph_boundary_operation_probe_on_main_thread": bool(
+			probe.DidAggregateLoadGraphCommitBoundaryProbeRunOnMainThread()),
+		"graph_boundary_operation_plan_count": int(
+			probe.GetAggregateLoadGraphCommitBoundaryPlanCount()),
+		"graph_boundary_operation_first_participant_id": str(
+			probe.GetAggregateLoadGraphCommitBoundaryFirstParticipantID()),
+		"graph_boundary_operation_second_participant_id": str(
+			probe.GetAggregateLoadGraphCommitBoundarySecondParticipantID()),
+		"graph_boundary_operation_third_participant_id": str(
+			probe.GetAggregateLoadGraphCommitBoundaryThirdParticipantID()),
+		"graph_boundary_operation_fourth_participant_id": str(
+			probe.GetAggregateLoadGraphCommitBoundaryFourthParticipantID()),
+		"graph_boundary_operation_target_edge_count": int(
+			probe.GetAggregateLoadGraphCommitBoundaryTargetEdgeCount()),
+		"graph_boundary_operation_observed_slot_id": str(
+			probe.GetAggregateLoadGraphCommitBoundaryObservedSlotID()),
+		"graph_boundary_operation_source_participant_count": int(
+			probe.GetAggregateLoadGraphCommitBoundarySourceParticipantCount()),
+		"graph_boundary_operation_road_vertex_count": int(
+			probe.GetAggregateLoadGraphCommitBoundaryRoadVertexCount()),
+		"graph_boundary_operation_surface_primitive_count": int(
+			probe.GetAggregateLoadGraphCommitBoundarySurfacePrimitiveCount()),
+		"graph_boundary_operation_node_marker_count": int(
+			probe.GetAggregateLoadGraphCommitBoundaryNodeMarkerCount()),
 		"graph_boundary_operation_count": int(
 			probe.GetAggregateLoadGraphCommitBoundaryCount()),
 		"graph_boundary_operation_mark_committed_count": int(

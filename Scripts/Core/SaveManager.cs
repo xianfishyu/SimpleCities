@@ -52,6 +52,9 @@ public partial class SaveManager : Node
         PreparedLoadWork prepared);
     partial void ProbeAggregateLoadGraphCommitBoundaryGenerationMismatch(
         RoadGraph graph,
+        IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
+        RoadGraphRevision targetRevision,
+        PreparedLoadWork prepared,
         ref IStorageOperationLease operationLease);
     partial void ProbeAggregateLoadRendererCommitBoundaryGenerationMismatch(
         RoadRenderer renderer,
@@ -788,6 +791,9 @@ public partial class SaveManager : Node
                 IStorageOperationLease aggregateOperationLease = lease;
                 ProbeAggregateLoadGraphCommitBoundaryGenerationMismatch(
                     context.Graph,
+                    preflightPlans,
+                    targetRevision,
+                    prepared,
                     ref aggregateOperationLease);
                 ProbeAggregateLoadRendererCommitBoundaryGenerationMismatch(
                     context.Renderer,

@@ -1899,6 +1899,94 @@ public sealed class RoadRendererLifecycleContractTests
     }
 
     [Fact]
+    public void RealStartLoadGraphCommitBoundaryFailureTracksFourPlansBeforeCommit()
+    {
+        string saveManagerSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Core", "SaveManager.cs"));
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadLoadPreflightResourceFailureProbe.cs"));
+        string loadOrchestration = ExtractMethod(
+            saveManagerSource,
+            "private async Task<SaveOperationResult> RunLoadAsync",
+            "private async Task<SaveOperationResult> RunDeleteAsync");
+        string failureProbe = ExtractMethod(
+            probeSource,
+            "partial void ProbeAggregateLoadGraphCommitBoundaryGenerationMismatch(",
+            "internal void ArmNextAggregateLoadGraphCommitBoundaryGenerationMismatch()");
+
+        int postOwnershipFailure = loadOrchestration.IndexOf(
+            "ProbeAggregateLoadPostOwnershipPreCommitFailure(",
+            StringComparison.Ordinal);
+        int operationLeaseCapture = loadOrchestration.IndexOf(
+            "IStorageOperationLease aggregateOperationLease = lease;",
+            StringComparison.Ordinal);
+        int graphBoundaryProbe = loadOrchestration.IndexOf(
+            "ProbeAggregateLoadGraphCommitBoundaryGenerationMismatch(",
+            StringComparison.Ordinal);
+        int rendererBoundaryProbe = loadOrchestration.IndexOf(
+            "ProbeAggregateLoadRendererCommitBoundaryGenerationMismatch(",
+            StringComparison.Ordinal);
+        int aggregateCommit = loadOrchestration.IndexOf(
+            "IReadOnlyList<string> warnings = aggregate.Commit(aggregateOperationLease);",
+            StringComparison.Ordinal);
+
+        Assert.True(postOwnershipFailure >= 0 && postOwnershipFailure < operationLeaseCapture);
+        Assert.True(operationLeaseCapture < graphBoundaryProbe);
+        Assert.True(graphBoundaryProbe < rendererBoundaryProbe && rendererBoundaryProbe < aggregateCommit);
+        Assert.Contains(
+            "partial void ProbeAggregateLoadGraphCommitBoundaryGenerationMismatch(",
+            saveManagerSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "public void ArmAggregateLoadGraphCommitBoundaryGenerationMismatch(",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadGraphCommitBoundaryGenerationMismatchArmed = false;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadGraphCommitBoundaryGenerationMismatchCount++;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "System.Environment.CurrentManagedThreadId == _mainThreadID;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadGraphCommitBoundaryPlanCount = preflightPlans.Count;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains("preflightPlans[0].ParticipantID", failureProbe, StringComparison.Ordinal);
+        Assert.Contains("preflightPlans[1].ParticipantID", failureProbe, StringComparison.Ordinal);
+        Assert.Contains("preflightPlans[2].ParticipantID", failureProbe, StringComparison.Ordinal);
+        Assert.Contains("preflightPlans[3].ParticipantID", failureProbe, StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadGraphCommitBoundaryTargetEdgeCount = targetRevision.Edges.Count;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains("prepared.Slot.SlotID;", failureProbe, StringComparison.Ordinal);
+        Assert.Contains("prepared.Slot.Participants.Count;", failureProbe, StringComparison.Ordinal);
+        Assert.Contains(
+            "prepared.Presentation.RoadVertices.Length;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "prepared.Presentation.RoadSurface.PrimitiveCount;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "prepared.Presentation.NodeMarkers.Length;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "new AggregateLoadGraphBoundaryInvalidatingLease(",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains("operationLease = wrapper;", failureProbe, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void PreparedPresentationResourcesAreReleasedBeforeOwnershipTransfer()
     {
         string rendererSource = File.ReadAllText(
