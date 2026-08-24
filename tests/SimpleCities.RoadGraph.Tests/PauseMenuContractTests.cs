@@ -23,6 +23,11 @@ public sealed class PauseMenuContractTests
         "tests",
         "godot",
         "SaveDeleteCleanupFailureProbe.cs");
+    private static readonly string DeleteOperationProbePath = Path.Combine(
+        ProjectRoot,
+        "tests",
+        "godot",
+        "SaveDeleteOperationProbe.cs");
     private static readonly string PublishCleanupProbePath = Path.Combine(
         ProjectRoot,
         "tests",
@@ -194,6 +199,70 @@ public sealed class PauseMenuContractTests
         string debugGroup = project[debugGroupStart..debugGroupEnd];
         Assert.Contains(
             "<Compile Include=\"tests/godot/SaveDeleteCleanupFailureProbe.cs\" />",
+            debugGroup,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DeleteRecoverGate_IsBeforeDeletionAndDebugOnly()
+    {
+        string saveManager = File.ReadAllText(SaveManagerPath);
+        string probe = File.ReadAllText(DeleteOperationProbePath);
+        string project = File.ReadAllText(Path.Combine(ProjectRoot, "SimpleCities.csproj"));
+
+        int operationStart = saveManager.IndexOf(
+            "private async Task<SaveOperationResult> RunDeleteAsync",
+            StringComparison.Ordinal);
+        int operationEnd = saveManager.IndexOf(
+            "private void StartTrackedOperation",
+            operationStart,
+            StringComparison.Ordinal);
+        Assert.True(operationStart >= 0 && operationEnd > operationStart);
+        string operation = saveManager[operationStart..operationEnd];
+        int storeCreation = operation.IndexOf(
+            "SaveSlotStore store = CreateSlotStore();",
+            StringComparison.Ordinal);
+        int recoverGate = operation.IndexOf(
+            "ProbeWaitAtDeleteRecover(ref store);",
+            StringComparison.Ordinal);
+        int delete = operation.IndexOf(
+            "return store.Delete(authorization, lease);",
+            StringComparison.Ordinal);
+        Assert.True(storeCreation >= 0 && storeCreation < recoverGate);
+        Assert.True(recoverGate < delete);
+        Assert.Contains(
+            "partial void ProbeWaitAtDeleteRecover(ref SaveSlotStore store);",
+            saveManager,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "partial void ProbeObserveCancelOperation(ref string operationToken);",
+            saveManager,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "ProbeObserveCancelOperation(ref operationToken);",
+            saveManager,
+            StringComparison.Ordinal);
+        Assert.Contains("ManualResetEventSlim", probe, StringComparison.Ordinal);
+        Assert.Contains(
+            "Interlocked.Exchange(ref _deleteRecoverGateArmed, 0)",
+            probe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "throw new TimeoutException(DeleteRecoverGateTimeoutMessage);",
+            probe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "Interlocked.Increment(ref _deleteRecoverGateCancelRequestCount);",
+            probe,
+            StringComparison.Ordinal);
+
+        const string debugGroupMarker = "<ItemGroup Condition=\"'$(Configuration)' == 'Debug'\">";
+        int debugGroupStart = project.IndexOf(debugGroupMarker, StringComparison.Ordinal);
+        int debugGroupEnd = project.IndexOf("</ItemGroup>", debugGroupStart, StringComparison.Ordinal);
+        Assert.True(debugGroupStart >= 0 && debugGroupEnd > debugGroupStart);
+        string debugGroup = project[debugGroupStart..debugGroupEnd];
+        Assert.Contains(
+            "<Compile Include=\"tests/godot/SaveDeleteOperationProbe.cs\" />",
             debugGroup,
             StringComparison.Ordinal);
     }

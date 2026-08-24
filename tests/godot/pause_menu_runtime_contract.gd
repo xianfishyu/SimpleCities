@@ -3,10 +3,13 @@ extends SceneTree
 const MAP_SCENE := "res://Scenes/MapTest.tscn"
 const MAIN_MENU_SCENE := "res://Scenes/MainMenu.tscn"
 const DELETE_CLEANUP_FAILURE_PROBE_PATH := "res://tests/godot/SaveDeleteCleanupFailureProbe.cs"
+const DELETE_OPERATION_PROBE_PATH := "res://tests/godot/SaveDeleteOperationProbe.cs"
 const LOAD_PREFLIGHT_FAILURE_PROBE_PATH := "res://tests/godot/RoadLoadPreflightResourceFailureProbe.cs"
 const LOAD_WARNING_PROBE_PATH := "res://tests/godot/RoadLoadObserverFailureProbe.cs"
 const PUBLISH_CLEANUP_FAILURE_PROBE_PATH := "res://tests/godot/SavePublishCleanupFailureProbe.cs"
 const V3_SAVE_FIXTURE := preload("res://tests/godot/v3_save_fixture.gd")
+const SAVE_OPERATION_PHASE_RECOVER := 2
+const SAVE_OPERATION_RESULT_CANCELED := 3
 
 var failed := false
 
@@ -444,6 +447,70 @@ func run() -> void:
 	assert_true(confirmation_content.visible and confirmation_message(pause_menu).contains("Runtime UI duplicate"), "Delete confirmation omitted the target summary")
 	await mouse_click(cancel_button)
 	assert_true(save_manager.SaveSlotExists(first_ui_slot_id), "Cancel delete removed the target slot")
+	var delete_operation_probe_script: Script = load(DELETE_OPERATION_PROBE_PATH)
+	assert_true(delete_operation_probe_script != null, "Debug Delete operation probe did not load")
+	var delete_operation_probe: RefCounted = delete_operation_probe_script.new()
+	assert_true(delete_operation_probe != null, "Debug Delete operation probe did not instantiate")
+	var slot_before_canceled_delete: String = save_manager.get("CurrentSlotID")
+	await mouse_click(delete_save_button)
+	assert_true(
+		confirmation_content.visible and confirmation_message(pause_menu).contains("Runtime UI duplicate"),
+		"Delete cancellation confirmation omitted the target summary")
+	delete_operation_probe.ArmRecoverGate(save_manager)
+	confirm_button.emit_signal("pressed")
+	var canceled_delete_token := str(pause_menu.get("ActiveSaveOperationToken"))
+	confirm_button.emit_signal("pressed")
+	var duplicate_delete_token := str(pause_menu.get("ActiveSaveOperationToken"))
+	var delete_recover_gate_entered := await wait_for_delete_recover_gate(delete_operation_probe)
+	pause_menu._Input(key_event(KEY_ESCAPE))
+	pause_menu._Input(key_event(KEY_ESCAPE))
+	var delete_cancel_requested_before_release := bool(
+		pause_menu.get("ActiveSaveOperationCancelRequested"))
+	var delete_cancel_request_count_before_release := int(
+		delete_operation_probe.GetCancelRequestCount())
+	var delete_cancel_request_token_before_release := str(
+		delete_operation_probe.GetCancelOperationToken())
+	var delete_controls_disabled_before_release := (
+		confirm_button.disabled and cancel_button.disabled and
+		overwrite_save_button.disabled and load_save_button.disabled and
+		delete_save_button.disabled and save_management_back_button.disabled)
+	delete_operation_probe.ReleaseRecoverGate()
+	var canceled_delete_reached_idle := await wait_for_save_operation_idle(pause_menu)
+	await process_frame
+	var canceled_delete_result: Dictionary = save_manager.GetOperationResult(canceled_delete_token)
+	var delete_recover_gate_trigger_count := int(
+		delete_operation_probe.GetRecoverGateTriggerCount())
+	delete_operation_probe.Disarm()
+	assert_true(delete_recover_gate_entered, "Delete operation did not enter the Recover cancellation gate")
+	assert_true(
+		not canceled_delete_token.is_empty() and canceled_delete_token == duplicate_delete_token and
+		delete_recover_gate_trigger_count == 1,
+		"Repeated Delete confirmation started or replaced the active operation token")
+	assert_true(
+		delete_cancel_requested_before_release and
+		delete_cancel_request_count_before_release == 1 and
+		delete_cancel_request_token_before_release == canceled_delete_token,
+		"Repeated Escape did not collapse to one Delete cancellation request")
+	assert_true(
+		delete_controls_disabled_before_release and pause_menu.visible and paused and
+		save_management_content.visible and not confirmation_content.visible,
+		"Delete cancellation did not keep the paused menu in its exclusive busy state")
+	assert_true(canceled_delete_reached_idle, "Canceled Delete did not reach a terminal state")
+	assert_true(
+		int(canceled_delete_result.get("resultKind", -1)) == SAVE_OPERATION_RESULT_CANCELED and
+		int(canceled_delete_result.get("finalPhase", -1)) == SAVE_OPERATION_PHASE_RECOVER and
+		not bool(canceled_delete_result.get("committed", true)),
+		"Delete Recover cancellation did not publish an uncommitted Canceled result")
+	assert_true(
+		save_manager.SaveSlotExists(first_ui_slot_id) and
+		save_manager.get("CurrentSlotID") == slot_before_canceled_delete and
+		save_status.text.contains("操作已取消"),
+		"Canceled Delete changed disk/current-slot state or omitted its result")
+	assert_selected_slot(save_slot_list, first_ui_slot_id, "first slot after canceled delete")
+	assert_true(
+		not overwrite_save_button.disabled and not load_save_button.disabled and
+		not delete_save_button.disabled,
+		"Canceled Delete did not restore save-management actions")
 	var slot_before_failed_delete: String = save_manager.get("CurrentSlotID")
 	await mouse_click(delete_save_button)
 	await process_frame
@@ -622,6 +689,13 @@ func key_event(keycode: int) -> InputEventKey:
 	event.physical_keycode = keycode
 	event.pressed = true
 	return event
+
+func wait_for_delete_recover_gate(probe: RefCounted) -> bool:
+	for _frame in 600:
+		if bool(probe.HasEnteredRecoverGate()):
+			return true
+		await process_frame
+	return false
 
 func activate_focused_with_keyboard(control: Control) -> void:
 	await process_frame

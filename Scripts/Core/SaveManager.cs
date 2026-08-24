@@ -11,6 +11,8 @@ using System.Threading.Tasks;
 public partial class SaveManager : Node
 {
     partial void ProbeConfigureDeleteCleanupFailure(ref SaveSlotStore store);
+    partial void ProbeObserveCancelOperation(ref string operationToken);
+    partial void ProbeWaitAtDeleteRecover(ref SaveSlotStore store);
     partial void ProbeConfigurePublishCleanupFailure(ref SaveSlotStore store);
     partial void ProbeAggregateLoadPostRendererAdmissionFailure();
     partial void ProbeAggregateLoadPostParticipantCaptureFailure(
@@ -469,6 +471,7 @@ public partial class SaveManager : Node
         EnsureMainThread();
         if (string.IsNullOrEmpty(operationToken))
             return false;
+        ProbeObserveCancelOperation(ref operationToken);
         bool hasCancellation;
         lock (_operationSync)
         {
@@ -919,6 +922,7 @@ public partial class SaveManager : Node
                 {
                     SaveSlotStore store = CreateSlotStore();
                     ProbeConfigureDeleteCleanupFailure(ref store);
+                    ProbeWaitAtDeleteRecover(ref store);
                     return store.Delete(authorization, lease);
                 });
                 lease.AdvanceTo(SaveOperationPhase.Cleanup);
