@@ -415,8 +415,40 @@ func run() -> void:
 	assert_true(confirmation_content.visible and confirmation_message(pause_menu).contains("Runtime UI duplicate"), "Delete confirmation omitted the target summary")
 	await mouse_click(cancel_button)
 	assert_true(save_manager.SaveSlotExists(first_ui_slot_id), "Cancel delete removed the target slot")
+	var slot_before_failed_delete: String = save_manager.get("CurrentSlotID")
 	await mouse_click(delete_save_button)
 	await process_frame
+	var first_manifest_before_stale_delete := FileAccess.get_file_as_string(first_manifest_path)
+	var stale_delete_manifest := FileAccess.open(first_manifest_path, FileAccess.WRITE)
+	assert_true(stale_delete_manifest != null, "Could not mutate the delete target after confirmation")
+	if stale_delete_manifest == null:
+		return
+	stale_delete_manifest.store_string(first_manifest_before_stale_delete + "\n")
+	stale_delete_manifest.close()
+	assert_true(
+		save_manager.SaveSlotExists(first_ui_slot_id),
+		"Delete stale-occupant injection damaged the target slot")
+	await mouse_click(confirm_button)
+	assert_true(
+		pause_menu.visible and paused and save_management_content.visible and
+		save_status.text.contains("删除存档失败") and
+		save_status.text.contains("Deletion authority occupant digest is stale."),
+		"Stale-occupant Delete did not remain paused with its precise failure")
+	assert_true(
+		save_manager.get("CurrentSlotID") == slot_before_failed_delete and
+		save_manager.SaveSlotExists(first_ui_slot_id),
+		"Failed Delete changed CurrentSlotID or removed the stale target")
+	assert_selected_slot(save_slot_list, first_ui_slot_id, "first slot after failed delete")
+	assert_true(
+		not overwrite_save_button.disabled and not load_save_button.disabled and
+		not delete_save_button.disabled,
+		"Failed Delete did not restore save-management actions")
+	await mouse_click(delete_save_button)
+	await process_frame
+	assert_true(
+		confirmation_content.visible and
+		confirmation_message(pause_menu).contains("Runtime UI duplicate"),
+		"Delete retry did not refresh the target authorization")
 	await mouse_click(confirm_button)
 	assert_true(not save_manager.SaveSlotExists(first_ui_slot_id) and save_status.text.contains("已删除"), "Confirmed mouse delete retained the target slot")
 
