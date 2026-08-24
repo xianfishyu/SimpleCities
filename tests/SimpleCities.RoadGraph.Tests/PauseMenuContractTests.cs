@@ -18,6 +18,7 @@ public sealed class PauseMenuContractTests
     private static readonly string MainMenuScenePath = Path.Combine(ProjectRoot, "Scenes", "MainMenu.tscn");
     private static readonly string MainMenuScriptPath = Path.Combine(ProjectRoot, "Scripts", "UI", "MainMenu.cs");
     private static readonly string SaveManagerPath = Path.Combine(ProjectRoot, "Scripts", "Core", "SaveManager.cs");
+    private static readonly string SaveSlotStorePath = Path.Combine(ProjectRoot, "Scripts", "Core", "SaveSlotStore.cs");
     private static readonly string DeleteCleanupProbePath = Path.Combine(
         ProjectRoot,
         "tests",
@@ -264,6 +265,51 @@ public sealed class PauseMenuContractTests
         Assert.Contains(
             "<Compile Include=\"tests/godot/SaveDeleteOperationProbe.cs\" />",
             debugGroup,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DeletePostCommitGate_IsAfterTheTombstoneBoundary()
+    {
+        string slotStore = File.ReadAllText(SaveSlotStorePath);
+        string probe = File.ReadAllText(DeleteOperationProbePath);
+
+        int deleteStart = slotStore.IndexOf(
+            "internal SaveDeleteResult Delete(",
+            StringComparison.Ordinal);
+        int deleteEnd = slotStore.IndexOf(
+            "private static IReadOnlyList<SaveParticipantDefinition>",
+            deleteStart,
+            StringComparison.Ordinal);
+        Assert.True(deleteStart >= 0 && deleteEnd > deleteStart);
+        string delete = slotStore[deleteStart..deleteEnd];
+        int boundary = delete.IndexOf(
+            "operationLease.CrossCommitBoundary(() => Directory.Move(slotDir, tombstoneDir));",
+            StringComparison.Ordinal);
+        int committed = delete.IndexOf(
+            "operationLease.MarkCommitted();",
+            StringComparison.Ordinal);
+        int tombstoneObserver = delete.IndexOf(
+            "_publicationObserver?.Invoke(SavePublicationPhase.DeletionTombstoned);",
+            StringComparison.Ordinal);
+        Assert.True(boundary >= 0 && boundary < committed);
+        Assert.True(committed < tombstoneObserver);
+
+        Assert.Contains(
+            "store = new SaveSlotStore(_resolvedSaveBaseDir, WaitAtDeletePostCommit);",
+            probe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "phase != SavePublicationPhase.DeletionTombstoned",
+            probe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "Volatile.Write(ref _deletePostCommitGateEntered, 1);",
+            probe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "Interlocked.Increment(ref _deletePostCommitGateCancelRequestCount);",
+            probe,
             StringComparison.Ordinal);
     }
 

@@ -9,6 +9,9 @@ const LOAD_WARNING_PROBE_PATH := "res://tests/godot/RoadLoadObserverFailureProbe
 const PUBLISH_CLEANUP_FAILURE_PROBE_PATH := "res://tests/godot/SavePublishCleanupFailureProbe.cs"
 const V3_SAVE_FIXTURE := preload("res://tests/godot/v3_save_fixture.gd")
 const SAVE_OPERATION_PHASE_RECOVER := 2
+const SAVE_OPERATION_PHASE_COMMIT := 5
+const SAVE_OPERATION_PHASE_CLEANUP := 7
+const SAVE_OPERATION_RESULT_SUCCEEDED := 0
 const SAVE_OPERATION_RESULT_CANCELED := 3
 
 var failed := false
@@ -548,6 +551,90 @@ func run() -> void:
 	await mouse_click(confirm_button)
 	assert_true(not save_manager.SaveSlotExists(first_ui_slot_id) and save_status.text.contains("已删除"), "Confirmed mouse delete retained the target slot")
 
+	save_name_input.text = "Runtime UI committed delete"
+	await mouse_click(save_as_button)
+	var post_commit_delete_slot_id: String = save_manager.get("CurrentSlotID")
+	assert_true(
+		post_commit_delete_slot_id.begins_with("manual-") and
+		count_items_with_prefix(save_slot_list, "手动  ·  Runtime UI committed delete") == 1,
+		"Could not create the Delete post-commit cancellation target")
+	var post_commit_delete_index := find_item_by_metadata(save_slot_list, post_commit_delete_slot_id)
+	assert_true(post_commit_delete_index >= 0, "Delete post-commit cancellation target is missing")
+	await mouse_click_item(save_slot_list, post_commit_delete_index)
+	await mouse_click(delete_save_button)
+	await process_frame
+	assert_true(
+		confirmation_content.visible and
+		confirmation_message(pause_menu).contains("Runtime UI committed delete"),
+		"Delete post-commit confirmation omitted the target summary")
+	delete_operation_probe.ArmPostCommitGate(save_manager)
+	confirm_button.emit_signal("pressed")
+	var post_commit_delete_token := str(pause_menu.get("ActiveSaveOperationToken"))
+	var post_commit_boundary_visible := await wait_for_delete_post_commit_boundary(
+		pause_menu,
+		delete_operation_probe)
+	var post_commit_cancel_count_before_escape := int(
+		delete_operation_probe.GetPostCommitCancelRequestCount())
+	pause_menu._Input(key_event(KEY_ESCAPE))
+	pause_menu._Input(key_event(KEY_ESCAPE))
+	var post_commit_cancel_count_after_escape := int(
+		delete_operation_probe.GetPostCommitCancelRequestCount())
+	var post_commit_cancel_accepted := bool(
+		save_manager.CancelOperation(post_commit_delete_token))
+	var post_commit_cancel_count_after_direct_request := int(
+		delete_operation_probe.GetPostCommitCancelRequestCount())
+	var post_commit_cancel_token := str(
+		delete_operation_probe.GetPostCommitCancelOperationToken())
+	pause_menu._Input(key_event(KEY_ESCAPE))
+	pause_menu._Input(key_event(KEY_ESCAPE))
+	var post_commit_cancel_count_after_all_escape := int(
+		delete_operation_probe.GetPostCommitCancelRequestCount())
+	var post_commit_controls_disabled := (
+		confirm_button.disabled and cancel_button.disabled and
+		overwrite_save_button.disabled and load_save_button.disabled and
+		delete_save_button.disabled and save_management_back_button.disabled)
+	delete_operation_probe.ReleasePostCommitGate()
+	var post_commit_delete_reached_idle := await wait_for_save_operation_idle(pause_menu)
+	await process_frame
+	var post_commit_delete_result: Dictionary = save_manager.GetOperationResult(
+		post_commit_delete_token)
+	var post_commit_gate_trigger_count := int(
+		delete_operation_probe.GetPostCommitGateTriggerCount())
+	delete_operation_probe.Disarm()
+	assert_true(
+		post_commit_boundary_visible and not post_commit_delete_token.is_empty() and
+		post_commit_gate_trigger_count == 1,
+		"Delete did not expose one stable post-commit tombstone boundary")
+	assert_true(
+		post_commit_cancel_count_before_escape == 0 and
+		post_commit_cancel_count_after_escape == 0 and
+		not post_commit_cancel_accepted and
+		post_commit_cancel_count_after_direct_request == 1 and
+		post_commit_cancel_count_after_all_escape == 1 and
+		post_commit_cancel_token == post_commit_delete_token,
+		"Delete post-commit Escape was forwarded or direct cancellation was accepted")
+	assert_true(
+		post_commit_controls_disabled and pause_menu.visible and paused and
+		save_management_content.visible and not confirmation_content.visible,
+		"Delete post-commit gate did not preserve the paused exclusive UI state")
+	assert_true(post_commit_delete_reached_idle, "Post-commit Delete did not reach a terminal state")
+	assert_true(
+		int(post_commit_delete_result.get("resultKind", -1)) == SAVE_OPERATION_RESULT_SUCCEEDED and
+		int(post_commit_delete_result.get("finalPhase", -1)) == SAVE_OPERATION_PHASE_CLEANUP and
+		bool(post_commit_delete_result.get("committed", false)),
+		"Rejected post-commit cancellation changed the successful Delete result")
+	assert_true(
+		save_manager.get("CurrentSlotID") == "autosave" and
+		not save_manager.SaveSlotExists(post_commit_delete_slot_id) and
+		find_item_by_metadata(save_slot_list, post_commit_delete_slot_id) < 0 and
+		save_status.text.contains("已删除") and
+		not save_status.text.contains("操作已取消"),
+		"Rejected post-commit cancellation restored the target or misreported Delete")
+	assert_true(
+		not overwrite_save_button.disabled and not load_save_button.disabled and
+		not delete_save_button.disabled,
+		"Post-commit Delete did not restore save-management actions")
+
 	save_name_input.text = "Runtime UI cleanup pending"
 	await mouse_click(save_as_button)
 	var cleanup_pending_slot_id: String = save_manager.get("CurrentSlotID")
@@ -693,6 +780,17 @@ func key_event(keycode: int) -> InputEventKey:
 func wait_for_delete_recover_gate(probe: RefCounted) -> bool:
 	for _frame in 600:
 		if bool(probe.HasEnteredRecoverGate()):
+			return true
+		await process_frame
+	return false
+
+func wait_for_delete_post_commit_boundary(pause_menu: Node, probe: RefCounted) -> bool:
+	for _frame in 600:
+		if (
+			bool(probe.HasEnteredPostCommitGate()) and
+			bool(pause_menu.get("ActiveSaveOperationCrossedBoundary")) and
+			int(pause_menu.get("ActiveSaveOperationPhase")) == SAVE_OPERATION_PHASE_COMMIT
+		):
 			return true
 		await process_frame
 	return false
