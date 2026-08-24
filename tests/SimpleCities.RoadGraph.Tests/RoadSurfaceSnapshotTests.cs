@@ -194,6 +194,48 @@ public sealed class RoadSurfaceSnapshotTests
         Assert.Equal(0f, hit.CenterlineDistance);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void PointQueryBreaksJunctionTiesBySectorThenEdgeIDRegardlessOfEnumeration(
+        bool reverseEnumeration)
+    {
+        RoadSurfaceTriangle lowerSectorHigherID = JunctionPatchTriangle(
+            edgeID: 9,
+            sectorOrder: 0);
+        RoadSurfaceTriangle higherSectorLowerID = JunctionPatchTriangle(
+            edgeID: 3,
+            sectorOrder: 1);
+        RoadSurfaceTriangle[] sectorCandidates = reverseEnumeration
+            ? [higherSectorLowerID, lowerSectorHigherID]
+            : [lowerSectorHigherID, higherSectorLowerID];
+        var sectorSnapshot = new RoadSurfaceSnapshot(Token(), sectorCandidates);
+
+        RoadSurfaceHit sectorHit = Assert.IsType<RoadSurfaceHit>(
+            sectorSnapshot.FindClosest(new Vector2(2f, 2f), maxSurfaceDistance: 0f));
+
+        Assert.Equal(RoadSurfaceOwnerKind.JunctionPatch, sectorHit.OwnerKind);
+        Assert.Equal(9, sectorHit.EdgeID);
+        Assert.Equal(20, sectorHit.NodeID);
+        Assert.Equal(EdgeEndpoint.A, sectorHit.Endpoint);
+        Assert.Equal(new RoadLocation(9, 0, 0f), sectorHit.Location);
+
+        RoadSurfaceTriangle sameSectorLowerID = JunctionPatchTriangle(
+            edgeID: 3,
+            sectorOrder: 0);
+        RoadSurfaceTriangle[] edgeCandidates = reverseEnumeration
+            ? [lowerSectorHigherID, sameSectorLowerID]
+            : [sameSectorLowerID, lowerSectorHigherID];
+        var edgeSnapshot = new RoadSurfaceSnapshot(Token(), edgeCandidates);
+
+        RoadSurfaceHit edgeHit = Assert.IsType<RoadSurfaceHit>(
+            edgeSnapshot.FindClosest(new Vector2(2f, 2f), maxSurfaceDistance: 0f));
+
+        Assert.Equal(RoadSurfaceOwnerKind.JunctionPatch, edgeHit.OwnerKind);
+        Assert.Equal(3, edgeHit.EdgeID);
+        Assert.Equal(new RoadLocation(3, 0, 0f), edgeHit.Location);
+    }
+
     [Fact]
     public void RectangleQueryUsesVisibleTrianglesAndReturnsSortedUniqueOwners()
     {
@@ -393,6 +435,23 @@ public sealed class RoadSurfaceSnapshotTests
             centerlineEnd,
             locationStart: null,
             locationEnd: null);
+
+    private static RoadSurfaceTriangle JunctionPatchTriangle(
+        int edgeID,
+        int sectorOrder) => new(
+            RoadSurfaceOwner.JunctionPatch(
+                edgeID,
+                nodeID: 20,
+                endpoint: EdgeEndpoint.A,
+                sectorOrder: sectorOrder),
+            Vector2.Zero,
+            new Vector2(10f, 0f),
+            new Vector2(0f, 10f),
+            centerlineStart: Vector2.Zero,
+            centerlineEnd: new Vector2(10f, 10f),
+            locationStart: null,
+            locationEnd: null,
+            fixedLocation: new RoadLocation(edgeID, 0, 0f));
 
     private static RoadSurfaceTriangle[] QuadWithLocations(
         int edgeID,
