@@ -30,6 +30,10 @@ public partial class SaveManager : Node
     partial void ProbeAggregateLoadPostPreflightPhaseFailure(
         SaveOperationPhase phase,
         PreparedLoadWork prepared);
+    partial void ProbeAggregateLoadPostGraphPreflightFailure(
+        IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
+        RoadGraphRevision targetRevision,
+        PreparedLoadWork prepared);
     partial void ProbeAggregateLoadPostRendererPreflightFailure();
     partial void ProbeAggregateLoadPostSlotPreflightFailure();
     partial void ProbeAggregateLoadPostOwnershipPreCommitFailure();
@@ -731,6 +735,10 @@ public partial class SaveManager : Node
                     prepared.GraphState,
                     out RoadGraphRevision targetRevision);
                 preflightPlans.Add(graphPlan);
+                ProbeAggregateLoadPostGraphPreflightFailure(
+                    preflightPlans,
+                    targetRevision,
+                    prepared);
                 preflightPlans.Add(context.ToolManager.PreflightFullReset(toolAdmission));
                 preflightPlans.Add(context.Renderer.PreflightPreparedLoad(
                     rendererAdmission,

@@ -1470,6 +1470,94 @@ public sealed class RoadRendererLifecycleContractTests
     }
 
     [Fact]
+    public void RealStartLoadPostGraphPreflightFailureTracksFirstPlanBeforeToolPreflight()
+    {
+        string saveManagerSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "Scripts", "Core", "SaveManager.cs"));
+        string probeSource = File.ReadAllText(
+            Path.Combine(ProjectRoot, "tests", "godot", "RoadLoadPreflightResourceFailureProbe.cs"));
+        string loadOrchestration = ExtractMethod(
+            saveManagerSource,
+            "private async Task<SaveOperationResult> RunLoadAsync",
+            "private async Task<SaveOperationResult> RunDeleteAsync");
+        string failureProbe = ExtractMethod(
+            probeSource,
+            "partial void ProbeAggregateLoadPostGraphPreflightFailure(",
+            "internal void ArmNextAggregateLoadPostGraphPreflightFailure()");
+
+        int preflightPhaseFailure = loadOrchestration.IndexOf(
+            "ProbeAggregateLoadPostPreflightPhaseFailure(lease.State.Phase, prepared);",
+            StringComparison.Ordinal);
+        int preflightTimer = loadOrchestration.IndexOf(
+            "long preflightStarted = Stopwatch.GetTimestamp();",
+            StringComparison.Ordinal);
+        int graphPreflight = loadOrchestration.IndexOf(
+            "context.Graph.PreflightPreparedLoad(",
+            StringComparison.Ordinal);
+        int graphPlanTracked = loadOrchestration.IndexOf(
+            "preflightPlans.Add(graphPlan);",
+            StringComparison.Ordinal);
+        int failure = loadOrchestration.IndexOf(
+            "ProbeAggregateLoadPostGraphPreflightFailure(",
+            StringComparison.Ordinal);
+        int toolPreflight = loadOrchestration.IndexOf(
+            "context.ToolManager.PreflightFullReset(toolAdmission)",
+            StringComparison.Ordinal);
+
+        Assert.True(preflightPhaseFailure >= 0 && preflightPhaseFailure < preflightTimer);
+        Assert.True(preflightTimer < graphPreflight && graphPreflight < graphPlanTracked);
+        Assert.True(graphPlanTracked < failure && failure < toolPreflight);
+        Assert.Contains(
+            "partial void ProbeAggregateLoadPostGraphPreflightFailure(",
+            saveManagerSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "public void ArmAggregateLoadPostGraphPreflightFailure(SaveManager saveManager)",
+            probeSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadPostGraphPreflightFailureArmed = false;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadPostGraphPreflightFailureCount++;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "System.Environment.CurrentManagedThreadId == _mainThreadID;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadPostGraphPreflightPlanCount = preflightPlans.Count;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "preflightPlans[0].ParticipantID;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "_aggregateLoadPostGraphPreflightTargetEdgeCount = targetRevision.Edges.Count;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "prepared.Slot.SlotID;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "prepared.Slot.Participants.Count;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "prepared.Presentation.RoadSurface.PrimitiveCount;",
+            failureProbe,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "AggregateLoadPostGraphPreflightFailureMessage",
+            failureProbe,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void PreparedPresentationResourcesAreReleasedBeforeOwnershipTransfer()
     {
         string rendererSource = File.ReadAllText(

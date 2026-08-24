@@ -1956,6 +1956,68 @@ func run() -> void:
 		"Post-Preflight-phase failure changed RoadGraph"):
 		return
 
+	var post_graph_preflight_resource_count_before := int(probe.GetObjectResourceCount())
+	var post_graph_preflight_failure_message := str(
+		probe.GetAggregateLoadPostGraphPreflightFailureMessage())
+	probe.ArmAggregateLoadPostGraphPreflightFailure(save_manager)
+	if not require(
+		bool(probe.IsAggregateLoadPostGraphPreflightFailureArmed()),
+		"Aggregate Load post-graph-preflight failure probe did not arm"):
+		return
+	var post_graph_preflight_failed_load_result := await run_load(source_slot_id)
+	var post_graph_preflight_resource_count_after := int(probe.GetObjectResourceCount())
+	if not require(
+		int(post_graph_preflight_failed_load_result.get("resultKind", -1)) ==
+			RESULT_FAILED and
+		int(post_graph_preflight_failed_load_result.get("finalPhase", -1)) ==
+			PHASE_PREFLIGHT and
+		not bool(post_graph_preflight_failed_load_result.get("committed", true)) and
+		str(post_graph_preflight_failed_load_result.get("warnings", "")).is_empty() and
+		str(post_graph_preflight_failed_load_result.get("error", "")) ==
+			post_graph_preflight_failure_message,
+		"Real StartLoad did not fail after graph preflight and before tool preflight: %s" %
+		JSON.stringify(post_graph_preflight_failed_load_result)):
+		return
+	if not require(
+		not bool(probe.IsAggregateLoadPostGraphPreflightFailureArmed()) and
+		int(probe.GetAggregateLoadPostGraphPreflightFailureCount()) == 1 and
+		bool(probe.DidAggregateLoadPostGraphPreflightFailureRunOnMainThread()) and
+		int(probe.GetAggregateLoadPostGraphPreflightPlanCount()) == 1 and
+		str(probe.GetAggregateLoadPostGraphPreflightParticipantID()) == "road-graph" and
+		int(probe.GetAggregateLoadPostGraphPreflightTargetEdgeCount()) == 0 and
+		str(probe.GetAggregateLoadPostGraphPreflightObservedSlotID()) == source_slot_id and
+		int(probe.GetAggregateLoadPostGraphPreflightSourceParticipantCount()) == 1 and
+		int(probe.GetAggregateLoadPostGraphPreflightRoadVertexCount()) == 0 and
+		int(probe.GetAggregateLoadPostGraphPreflightSurfacePrimitiveCount()) == 0 and
+		int(probe.GetAggregateLoadPostGraphPreflightNodeMarkerCount()) == 0 and
+		post_graph_preflight_resource_count_after ==
+			post_graph_preflight_resource_count_before and
+		str(save_manager.get("CurrentSlotID")) == active_slot_id and
+		int(tool_manager.get("CurrentTool")) == TOOL_ROAD and
+		int(tool_manager.GetSelectedRoadType()) == selected_road_type_before and
+		builder.HasActivePlaceSession() and
+		builder.GetFixedCornerCount() == 1 and
+		builder.GetUndoEditCount() == undo_count_before and
+		builder.GetRedoEditCount() == redo_count_before and
+		renderer.GetRenderedEdgeCount() == edge_count_before and
+		renderer.GetRoadMeshVertexCount() == vertex_count_before and
+		renderer.GetNodeMarkerCount() == marker_count_before and
+		renderer.GetPresentationState() == presentation_before and
+		renderer.FindRoadSurfaceHit(Vector2(400.0, 300.0), 0.0) == hit_before,
+		"Post-graph-preflight failure changed resources, graph, tool, placement, history, presentation, surface, token, or slot state"):
+		return
+
+	if not require(
+		await V3_SAVE_FIXTURE.save(save_manager, active_slot_id),
+		"Could not recapture the active graph after post-graph-preflight failure"):
+		return
+	var post_graph_preflight_payload_after := FileAccess.get_file_as_string(
+		V3_SAVE_FIXTURE.slot_path(active_slot_id, V3_SAVE_FIXTURE.PAYLOAD_FILE_NAME))
+	if not require(
+		post_graph_preflight_payload_after == active_payload_before,
+		"Post-graph-preflight failure changed RoadGraph"):
+		return
+
 	var load_result := await run_load(source_slot_id)
 	if not require(
 		int(load_result.get("resultKind", -1)) == RESULT_SUCCEEDED and
@@ -2325,6 +2387,36 @@ func run() -> void:
 			post_preflight_phase_resource_count_before,
 		"post_preflight_phase_resource_count_after":
 			post_preflight_phase_resource_count_after,
+		"post_graph_preflight_failure_result_kind": int(
+			post_graph_preflight_failed_load_result.get("resultKind", -1)),
+		"post_graph_preflight_failure_final_phase": int(
+			post_graph_preflight_failed_load_result.get("finalPhase", -1)),
+		"post_graph_preflight_failure_committed": bool(
+			post_graph_preflight_failed_load_result.get("committed", true)),
+		"post_graph_preflight_failure_trigger_count": int(
+			probe.GetAggregateLoadPostGraphPreflightFailureCount()),
+		"post_graph_preflight_failure_on_main_thread": bool(
+			probe.DidAggregateLoadPostGraphPreflightFailureRunOnMainThread()),
+		"post_graph_preflight_plan_count": int(
+			probe.GetAggregateLoadPostGraphPreflightPlanCount()),
+		"post_graph_preflight_participant_id": str(
+			probe.GetAggregateLoadPostGraphPreflightParticipantID()),
+		"post_graph_preflight_target_edge_count": int(
+			probe.GetAggregateLoadPostGraphPreflightTargetEdgeCount()),
+		"post_graph_preflight_observed_slot_id": str(
+			probe.GetAggregateLoadPostGraphPreflightObservedSlotID()),
+		"post_graph_preflight_source_participant_count": int(
+			probe.GetAggregateLoadPostGraphPreflightSourceParticipantCount()),
+		"post_graph_preflight_road_vertex_count": int(
+			probe.GetAggregateLoadPostGraphPreflightRoadVertexCount()),
+		"post_graph_preflight_surface_primitive_count": int(
+			probe.GetAggregateLoadPostGraphPreflightSurfacePrimitiveCount()),
+		"post_graph_preflight_node_marker_count": int(
+			probe.GetAggregateLoadPostGraphPreflightNodeMarkerCount()),
+		"post_graph_preflight_resource_count_before":
+			post_graph_preflight_resource_count_before,
+		"post_graph_preflight_resource_count_after":
+			post_graph_preflight_resource_count_after,
 		"aggregate_failure_result_kind": int(failed_load_result.get("resultKind", -1)),
 		"aggregate_failure_committed": bool(failed_load_result.get("committed", true)),
 		"aggregate_failure_trigger_count": int(
