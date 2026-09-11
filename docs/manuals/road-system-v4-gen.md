@@ -1,12 +1,14 @@
 # 第四代道路系统重构指南
 
-> 文档状态：重构设计基线，2026-09-08。
+> 文档状态：重构设计讨论稿，2026-09-11 更新。当前仍处于设计追问阶段，尚未完成实施切片和开工确认；文中的 P0–P9/W0–W9 是待复核的阶段框架，不代表已经授权实施。
 >
 > V4 是一次破坏式重构。它建立新的道路核心、接口、数据模型和存档代际，最终由 Godot 适配层接入产品。V3 与第3.5代文档保留为历史基线，不代表 V4 已经实现。
 >
 > 后续道路重构以本指南为准，取代 V3.5 的渐进迁移顺序。开发期间 V4 在独立核心测试和验证场景中运行，正式主场景在验收后一次切换。旧缺陷作为 V4 回归输入，不要求先在 V3 修复整套系统。
 
 ## 1. 总体决定
+
+本版范围已收敛为 **8 km × 8 km 地图上的米字型（方格八方向）道路**。1 个核心坐标单位 = 1 个 Godot 世界坐标单位 = 1 米；`CellSize` 表示以米计的主网格边长，当前配置为 100 米，不是一米一格。地图中心为原点。两条对角线在半格位置相交时自动形成可连通路口，半格路口只允许沿对角方向继续建设。当前只实现直线段及其折线链，不交付自由角度道路、其他网格或曲线算法；原曲线设计保留在 §3.3 作为未来资料。渲染目标为 144 FPS，道路计算由编辑命令触发并与渲染分离。普通编辑从玩家提交操作到看到结果的预算为 100–300 ms，计时定义见 §6.4。存档仅用于调试，不要求旧版本迁移。
 
 当前 V3 已经建立了 canonical Edge、incidence、自环、平行 Edge、原生几何、不可变 revision、delta、token 和 prepared Load 等契约，但上一轮审计仍发现交点聚类排序、单段原生曲线自交、性能计数和非有限 bucket 参数问题。`RoadGraph` 仍同时承担规划、工作状态、索引、诊断、持久化和事件协调。`Scripts/Road/` 当前约 16,136 行，其中 `RoadGraph*.cs` 约 5,103 行，`RoadRenderer` 约 2,002 行。
 
@@ -60,7 +62,7 @@ V4 采用一个新纯 .NET 项目 `SimpleCities.RoadCore`。核心不引用 Godo
 src/SimpleCities.RoadCore/
   SimpleCities.RoadCore.csproj       # Microsoft.NET.Sdk / net10.0
   Model/                           # ID、实体、profile、不可变状态
-  Geometry/                        # 六类原生几何及数值策略
+  Geometry/                        # 米字网格线段、折线及数值策略
   Spatial/                         # fragment、派生索引
   Queries/                         # snapshot、RoadLocation、junction
   Mutations/                       # request、planner、draft、plan
@@ -93,7 +95,7 @@ flowchart LR
     P0["P0 冻结 V3<br/>建立 RoadCore 项目边界"] --> G0{{"G0<br/>核心独立编译"}}
     G0 --> P1["P1 模型与数值策略<br/>ID / Snapshot / Profile"]
     P1 --> G1{{"G1<br/>模型 invariant"}}
-    G1 --> P2["P2 Geometry Kernel<br/>六类几何 / 自交 / overlap"]
+    G1 --> P2["P2 Geometry Kernel<br/>八方向线段 / 折线自交 / overlap"]
     P2 --> G2{{"G2<br/>几何结果确定"}}
     G2 --> P3["P3 Spatial + Read Model<br/>查询 / Junction / Turn"]
     G2 --> P6["P6 Presentation Preparer<br/>纯 mesh / surface 数据"]
@@ -116,7 +118,7 @@ flowchart LR
 | --- | --- | --- | --- | --- |
 | P0 | 工程边界 | V3 稳定分支、当前项目文件 | 独立 core project、core tests、程序集规则 | core 仍引用 Godot，或源文件被重复编译 |
 | P1 | 核心模型 | 无 | Node/Edge/Profile/Token/Snapshot | ID、profile、numeric policy 没有版本或 invariant |
-| P2 | 几何 | P1 model | geometry result、location、split witness | 自交、重叠或未收敛没有确定结果 |
+| P2 | 几何 | P1 model | grid segment result、location、split witness | 半格交点、折线自交、重叠或预算拒绝没有确定结果 |
 | P3 | 读取 | P1 + P2 | SpatialQuery、ReadSnapshot、Junction/Turn | consumer 需要直接访问 builder、bucket 或旧 GraphEdge |
 | P4 | 写入 | P2 + P3 | MutationPlan、WorkingState、ChangeSet、commit | 失败需要修改活动 root 后回滚，或出现第二个写入点 |
 | P5 | 历史与存档 | P4 change set | V4 codec、prepared state、bounded history | codec 修改活动 network，或 V3/V4 writer 并存 |
@@ -134,7 +136,7 @@ P0 和 P1 是共同前置。P2 完成后，P3 和 P6 可以并行：P3 负责领
 ```text
 W0  Core project / solution boundary
 W1  Core model / numeric policy / invariants
-W2  Geometry kernel / self-intersection
+W2  Grid segment kernel / polyline self-intersection
 W3  Spatial index / read snapshot / junction view
 W4  Mutation planner / draft / change set / commit
 W5  History / V4 codec / prepared load
@@ -169,7 +171,7 @@ P8 之前，V3 是正式主场景的唯一道路 runtime，V4 只运行于 core 
 - 切换前保留 V3 可运行分支，切换失败可以回到该分支；
 - 切换后清理旧源文件前，再执行一次全量测试和导出文件扫描。
 
-V4 发布策略必须在 P8 前决定：继续隐藏 V3 存档、提供一次性离线 converter，或明确从空的 V4 存档开始。普通运行时不能悄悄把 V3 存档转换成 V4。
+V4 从独立的新调试存档开始，不要求保留旧版本兼容性，不制作 converter，也不以旧城市继承为切换条件。普通运行时不能悄悄读取或转换 V3 存档；不兼容文件应明确拒绝。该决定不要求删除已有调试文件。
 
 ### 2.4 证据流
 
@@ -192,22 +194,47 @@ flowchart TD
 
 - canonical Node/Edge 模型；
 - 强类型 `NodeId`、`EdgeId`、`RoadProfileId`；
-- 六类现有原生几何；
-- 正确处理开放 Edge、self-loop、parallel Edge、闭环、八字形和交点；
-- 明确的几何容差、相交、重叠和未收敛结果；
+- 米字网格的水平、垂直、两组对角方向线段及其折线链；
+- 正确处理开放 Edge、self-loop、parallel Edge、折线闭环、八字形和交点；
+- 半格对角交点自动成为可连通的结构节点，半格起点只沿对角方向建设；
+- 明确的几何容差、相交、共线重叠、无效输入和预算拒绝结果；
+- 建造与已有道路发生正长度共线区间重叠时，不论 profile 是否相同均整笔拒绝，冲突预览标红；
 - immutable network snapshot；
 - planner、working draft、admission、change set 和一次性 commit；
 - 只读道路查询 seam；
 - 派生的 junction/turn read model；
 - V4 独立 persistence codec；
 - Godot renderer、输入会话、undo/redo 和异步 Load 适配；
-- 与当前 V3 等价的编辑、选择、保存、加载和失败保护能力。
+- 删除和升级均按格段选择：按下选择、长按拖动累积、高亮预览、抬起后整笔提交；路口截断格段，不以整条 canonical Edge 作为最小编辑单位；
+- 当前米字网格玩法所需的编辑、选择、撤销恢复、调试保存加载及失败保护能力；不以 V3 的全部几何能力作为等价验收条件。
 
 ### 3.2 暂不实现
 
 交通流、拥堵、车辆行为、复杂寻路、信号灯、车道、桥梁、隧道、立交和高程道路不属于 V4 核心重构。V4 只提供足够稳定的 `JunctionReadModel` 和 `TurnMovement` seam，供后续系统读取。
 
 V4 也不提前实现 renderer chunk。只有性能数据证明 global batch 成为实际瓶颈时，才建立带 generation 和 ownership 的 chunk 模块。
+
+自由角度直线、六边形/三角形等其他网格，以及 Bézier、圆弧、圆锥曲线等曲线能力均不属于本版交付。不得为保留扩展描述而引入无消费方的曲线实现、占位运行时或强制曲线测试。
+
+### 3.3 未来几何扩展资料（不计入本版实现与验收）
+
+原设计计划覆盖六类原生几何：Line、CircularArc、CubicBezier、CubicHermiteSpline、Clothoid、RationalQuadratic。本版只保留满足米字网格规则的 Line 及折线链；其余类型及自由绘制模式在未来重新立项。有理二次曲线可作为圆锥曲线扩展的讨论基础，不代表本版已经提供其接口或算法。
+
+未来曲线 kernel 的职责包括位置、切线、长度、bounds、split、canonicalization、reverse、line/curve/curve 求交、overlap、tangent、crossing、endpoint touch 和单段自交。自适应细分可作为研究起点，但结果必须区分命中、无命中、重叠、歧义、预算耗尽和 `Unresolved`，保留参数、位置及残差；不能把最大深度叶节点当作数学精确结果。届时需补充曲率范围、小/大坐标、近切、近重叠、反向几何及求交收敛验证。
+
+原单段曲线自交流程保留如下，当前 Cubic Bézier 自交缺陷样例仅作为未来回归资料，不阻塞本版验收：
+
+```text
+segment
+  -> parameter pair search (u, v)
+  -> skip adjacent parameter band
+  -> cluster positions
+  -> create two split witnesses
+  -> planner creates repeated crossing Node
+  -> canonical Edge / self-loop result
+```
+
+本版继续将输入约束、几何运算、实体身份和表现职责分开，但不承诺未来增加曲线完全无需改变内部实现。恢复曲线工作时，必须重新审定 numeric policy、codec schema、查询和表现误差，不能仅因存在 `GeometryChain` 或参数位置就宣称已经支持曲线。
 
 ## 4. 核心数据模型
 
@@ -253,7 +280,11 @@ RoadEdge
 
 `Degree` 等于 incidence 数。self-loop 对同一个 Node 提供 A、B 两个不同端接。parallel Edge 始终按 EdgeId 区分。Edge 方向用于 canonical 表示，不自动代表交通方向。
 
-Edge 仍表示两个结构节点之间的最大连续原生几何链。弯道和几何段连接处不自动创建 Node；真实交点、端点和 profile 变化形成结构节点。同 profile 的非结构性二度节点合并；不同 profile 保留。开放 Edge 按端点 ID 定向；自环在既定 seam 上选择稳定方向，反向时保留 A/B 角色映射。
+Edge 表示两个结构节点之间的最大连续网格折线链。折线转折和段连接处不自动创建 Node；真实交点、端点和 profile 变化形成结构节点。同 profile 的非结构性二度节点合并；不同 profile 保留。开放 Edge 按端点 ID 定向；自环在既定 seam 上选择稳定方向，反向时保留 A/B 角色映射。
+
+核心 Edge 的存储边界不等于删除和升级工具的选择边界。即使十格连续道路已合并为一个 Edge，鼠标命中的单个格段仍须能独立删除或升级；planner 根据选中区间在需要处拆分、删除内容或改变 profile，再执行 canonicalization。不能为了支持格段选择而永久保留所有格点为结构 Node，也不能把鼠标命中的 EdgeId 直接解释成整条道路编辑。正常无路口道路以主网格间隔选择，路口进一步截断选择；格心路口两侧的半段分别可选，点击一侧不跨路口自动选中另一侧。
+
+例如格长 100 米时，`(0,0)→(100,100)` 与 `(0,100)→(100,0)` 必须在 `(50,50)` 米建立同一个可连通路口，对应格坐标 `(0.5,0.5)`。主格点输入与自动生成的结构节点不是同一集合，不能因交点不在主格点而忽略它。主格点允许八方向建设；半格路口只允许沿穿过它的对角网格线继续建设，不允许横竖起建。这是建造方向约束，不额外规定未来交通系统的转向许可。
 
 孤立纯环保留一个 rooted seam：新建闭环使用规范输入起点；由已有二度环收敛时使用其中最小 NodeId。仍有真实 junction 时，seam 随拓扑收敛到结构节点，不能仅因旧 NodeId 较小而阻止合并。相同规范内容的同一快照必须确定序列化；不同建造顺序可以分配不同 ID，不承诺任意提交顺序产生相同 JSON 字节。
 
@@ -263,20 +294,34 @@ Edge 仍表示两个结构节点之间的最大连续原生几何链。弯道和
 
 ### 4.3 数值模型
 
-V4 设计基线采用 binary64 的独立 `RoadPoint`/`RoadVector`，在引擎 adapter 显式转换为 binary32 Godot `Vector2`。坐标仍为二维世界单位，首版保持 1 核心世界单位对应 1 Godot 世界单位，不把它自动解释为米。P1 必须固定：
+V4 设计基线采用 binary64 的独立 `RoadPoint`/`RoadVector`，核心坐标以米计。**1 核心单位 = 1 Godot 世界单位 = 1 米**，引擎 adapter 只进行 binary64 到 binary32 的数值转换，不额外乘以 100。相机缩放改变屏幕上每米占多少像素，不改变世界单位的物理含义。地图覆盖 8000 m × 8000 m，以中心为原点，X/Y 坐标范围均为 `[-4000,4000]` 米。
+
+`CellSize = c` 表示主网格边长为 `c` 米。2026-09-11 核对 `scenes/road_config.tres`，当前值为 `100.0`，因此水平或垂直跨一格长 100 米，对角跨一格长 `100 * sqrt(2)` 米（约 141.421 米）。半格中心相对格角在两个轴上各偏移 50 米，不是偏移 0.5 米。当前格长下地图每边 80 格，共 6400 个方格区域。格长是地图创建参数，首版只提供 **25、50、100、200 米**四档，默认 100 米，创建后固定并写入存档；调试其他格长时创建新地图，不重新解释或缩放已有路网。四档均整除地图半宽 4000 米，使中心网格原点与地图边界对齐；reader 拒绝其他格长。
+
+以下名词必须分开：主格点的格坐标为整数 `(i,j)`，相对网格原点的米制位置为 `(i*c,j*c)`；格心坐标为 `(i+0.5,j+0.5)`，对应 `((i+0.5)*c,(j+0.5)*c)` 米。结构节点是端点、路口或 profile 分界，允许落在合法格心。Godot 世界坐标与核心米制位置采用相同单位，屏幕坐标另由相机变换得到。网格输入身份由离散网格规则确定，不通过显示浮点坐标相等来判定。NodeId 仍是实体身份，不等于坐标键。
+
+当前 100 米格长下，主格点和格心的米制坐标都是整数；25 米档的格心可能具有 12.5 米轴向偏移。首版四档产生的整数或半整数米坐标在本地图范围内均可被 binary64 和 binary32 精确表示；对角长度、归一化法线、道路宽度偏移和相机变换仍会舍入。未来若扩展其他格长，必须单独验证误差，不能直接沿用四档的结论。
+
+在已确定的地图原点和单位约定下，地图边缘绝对坐标 4000 米附近，binary32 的相邻可表示值间距约为 **0.244140625 毫米**；binary64 约为 **4.54747 × 10^-10 毫米**。相邻值间距不是整个显示链的误差上限，单次最近舍入通常不超过半个间距；不能据此保证矩阵运算、输入反算和整个帧的累计误差。当前 8 km 尺度没有仅凭坐标数量级就必须采用动态局部原点的证据，仍需验证地图边缘、最大缩放及最小显示细节。
+
+**已确认的半格规则：**主格点可沿八方向建设，格心只可沿穿过它的对角网格线建设，保持当前 `SquareEightRoadInputStrategy` 的方向限制。不得从格心横竖起建并继续生成四分之一格等非本版格网位置。半格表示的是 `c/2` 的轴向偏移，而不是固定半米；离散键的表示方案、完整合法性检查和数值误差容限在后续设计中确定。
+
+**已确认的边界规则：**拖拽越过地图边界时，预览终点停在当前合法建设方向上、边界内最远的合法格点，不把任意矩形裁剪交点当作道路端点。从格心起建时仍遵守对角方向限制；没有正长度合法延伸时不能提交。最终提交与预览采用相同的受限草稿，核心独立拒绝越界请求。首版限制道路中心线和合法建设位置，允许路面宽度、端帽及路口表面在边界自然伸出，不为此引入表现网格裁剪；伸出的表面不产生界外结构节点或合法建造起点。表现 mesh 与 surface owner 仍使用相同几何，不能只裁剪点击数据而保留画面。
+
+P1 必须固定：
 
 - finite 和坐标范围；
 - canonical zero；
-- 几何长度与曲率范围；
+- 网格合法起点/方向、地图边界及几何长度范围；
 - 空间误差和参数误差；
 - binary64 exact-sign predicate 的使用位置；
-- 曲线求交无法在预算内收敛时的 `Unresolved` 结果。
+- 非法网格几何、数值失败和工作预算超限的明确拒绝结果。
 
-binary64 是对 V3 数值语义的明确变更：原有 binary32 exact-sign 代码需要重新实现或验证，旧阈值不能未经测量直接照搬。P1 记录坐标上限、snap 半径、cluster 直径、长度和工作预算的实际数值；P2 分别验证小坐标、大坐标、近切、近重叠和反向几何，未确定这些数值前不得进入拓扑集成。
+binary64 是对 V3 数值表示的明确变更；米制解释保持现有 Godot 坐标数值，不进行百倍坐标缩放。原有 binary32 exact-sign 代码需要重新实现或验证，旧阈值须按米制、格长和新精度复核，不能未经测量直接照搬。P1 记录坐标上限、snap 半径、cluster 直径、长度和工作预算的实际数值；P2 验证地图中心与边缘、半格交点、共线重叠、反向线段及输入边界，未确定这些数值前不得进入拓扑集成。
 
 引擎转换记录误差并检查有限性。可见 mesh 和 surface query 必须共用转换后相同的顶点，防止二者分别舍入；核心精确查询始终使用 binary64 原生几何。过小道路在大坐标下无法可靠呈现时，要在表现预检中明确拒绝或采用经过验证的局部原点转换。
 
-统一使用 `RoadLocation(EdgeId, GeometryIndex, Parameter)` 表示路网中的点，用 `RoadLocationSpan` 表示同一 geometry 的参数区间。Geometry Kernel 的点结果只含参数、位置和残差，由查询或 planner 绑定 EdgeId。位置随来源 `RoadStateToken` 使用，split/merge 后不得继续解释旧参数。显示 span 插值得到的 location 是表面命中的来源定位，不能宣称为原生曲线的精确最近点。
+统一使用 `RoadLocation(EdgeId, GeometryIndex, Parameter)` 表示路网中的点，用 `RoadLocationSpan` 表示同一线段的参数区间。Geometry Kernel 的点结果只含参数、位置和残差，由查询或 planner 绑定 EdgeId。位置随来源 `RoadStateToken` 使用，split/merge 后不得继续解释旧参数。显示 span 插值得到的 location 是表面命中的来源定位，不能直接冒充核心中心线最近点；未来曲线同样需要保持这个区分。
 
 ## 5. 模块设计
 
@@ -307,6 +352,12 @@ planner 接收 immutable snapshot、request 和 numeric policy，创建私有 `R
 
 planner 不读取活动 facade 的 mutable 字段，不触发事件，不创建 Godot 对象，也不在 commit 后继续补工作。需要多步 canonicalization 的算法全部在私有 draft 内完成；`RoadNetwork` 只接纳 base token 仍然匹配且预算通过的冻结 plan。
 
+建造请求与已有道路中心线存在正长度共线区间重叠时，planner 返回明确的重叠拒绝及冲突区间；同 profile、不同 profile、反向重绘、部分覆盖和完全覆盖遵守相同规则。不能跳过覆盖部分后提交余下道路，也不能隐式升级已有道路。点交叉和仅端点接触不属于区间重叠，继续按路口与连接规则处理。拒绝不产生 snapshot swap、history 条目或 ID 消耗。
+
+删除和升级 request 表达同一来源 token 上的一组道路位置区间，升级另附目标 profile，而非只有 EdgeId 集合。一次拖动抬起时提交全部已选择区间，planner 在私有草稿中完成所需 split、delete 或 profile change 及 canonicalization，再一次发布。局部删除保留同一 Edge 未选中的其余区间，不能直接 detach 整条 Edge。选择区间的合并、去重和来源校验不能依赖已被 split/merge 改写的活动 ID；每次有效手势形成一次 change set 和一次可撤销操作，不能逐格提前写入活动路网。
+
+升级只改变与目标 profile 不同的选中区间，同目标 profile 区间直接跳过，不为跳过部分执行无意义 split/merge。整笔没有实际变化时返回明确的无变化结果供调用方收尾，不交换 snapshot、不递增 token、不消耗 ID、不发布变更事件，也不新增 undo/redo 条目。界面静默结束，不提示“已是该类型”。混合选择中的实际变化部分仍作为一笔提交及一条历史记录；这不改变建造工具统一拒绝重叠的规则。
+
 ### 5.3 `RoadWorkingState`
 
 working state 是 planner 或 network 在提交前使用的私有可变草稿。它集中管理实体表、incidence、ID reservation、派生索引和资源计数。草稿完成后生成 immutable snapshot；失败则直接丢弃草稿。
@@ -317,30 +368,20 @@ working state 不能直接负责“所有权限”。它只接受 planner 已确
 
 ### 5.4 Geometry Kernel
 
-Geometry Kernel 只处理：
+本版 Geometry Kernel 只处理米字网格线段及折线：
 
 - 几何段的位置、切线、长度、bounds 和 split；
 - canonicalization 和 reverse；
-- line/curve/curve 相交；
-- overlap、tangent、crossing、endpoint touch；
-- 单个 geometry 的 self-intersection；
+- line/line 相交；
+- 共线 overlap、crossing、endpoint touch；
+- 折线不同线段之间的 self-intersection；
 - 显示层之外的 `GeometryLocation`。
 
-同一套 kernel 必须服务 mutation、Load validation、read query 和 presentation preparation。当前 `RoadGeometryIntersectionQuery` 的自适应细分可以作为算法起点，但 V4 必须显式返回“命中、无命中、重叠、歧义、预算耗尽或未收敛”，不能把最大深度的叶节点默认当作数学精确结果。
+同一套 kernel 必须服务 mutation、Load validation、read query 和 presentation preparation。结果必须区分命中、无命中、重叠、无效输入、数值失败和预算超限；不能把计算失败作为空命中列表返回。正常合法网格输入必须有成功样例门，不能以大量拒绝替代正确实现。本版不迁移曲线自适应细分或曲线求交收敛算法。
 
 V4 的核心库暂不设置 `IGeometryKernel` 这样的公共 interface。只有第二种实际算法需要在同一个消费点替换时，才建立 adapter seam；测试使用确定输入的纯函数和小型 fixture，不为抽象而增加一层转发。
 
-完整的单段曲线自交流程是：
-
-```text
-segment
-  -> parameter pair search (u, v)
-  -> skip adjacent parameter band
-  -> cluster positions
-  -> create two split witnesses
-  -> planner creates repeated crossing Node
-  -> canonical Edge / self-loop result
-```
+单条非退化直线段不存在本版需要搜索的内部自交；折线自交需要识别不同线段的参数见证，并由 planner 一次建立结构节点及切分结果。原单段曲线自交流程已移至 §3.3，仅供未来参考。
 
 ### 5.5 `SpatialQueryIndex`
 
@@ -399,15 +440,33 @@ V4 使用新的 `simple-cities-v4` format family 和新的保存根，例如 `us
 }
 ```
 
-Node、Edge、geometry 和 profile 均按稳定 ID 排序。reader 只接受规范格式，拒绝未知字段、重复字段、错误 profile、悬空 endpoint、内部未建 Node 的交点、错误 self-loop seam 和不可收敛 geometry。当前内置 profile catalog 的四个 ID 固定为 `dirt`、`street`、`arterial`、`highway`，catalog version 不等于 schema version。
+Node、Edge 等实体按稳定 ID 排序，Edge 内线段保持规范几何链顺序。reader 只接受规范格式，拒绝未知字段、重复字段、错误 profile、悬空 endpoint、内部未建 Node 的交点、错误 self-loop seam、越界或不符合本版网格规则的几何；曲线和其他未支持的几何类型必须拒绝。当前内置 profile catalog 的四个 ID 固定为 `dirt`、`street`、`arterial`、`highway`，catalog version 不等于 schema version。米制、地图尺寸和网格规则属于带版本的格式契约；payload 还须保存该地图创建时固定的格长，加载使用存档格长完成几何验证及输入装配，不能使用当前新建地图默认值重新解释已存坐标。上面的 JSON 仅列出最小内容示例，地图参数字段将在 schema 设计中补齐。
 
-V4 不在普通运行时 Load 中读取或转换 V3 数据。若以后需要迁移，单独制作离线 converter，输出经过 V4 reader 再验证的新 payload。
+存档仅服务快速迭代中的调试复现。V4 不读取或转换 V3 数据，也不制作离线 converter；后续格式改变可以提升 schema version 并拒绝旧文件，无需承担跨版本兼容。当前版本仍须确定性 round-trip；坏文件或加载失败不得污染活动场景，保存失败不得破坏已有槽位。格式不兼容必须给出明确原因，不能伪装成空地图或自动回退默认值。
 
 ## 6. Godot 适配层
 
 ### 6.1 输入
 
 `RoadEditController` 负责将输入映射为核心 request。现有 Placement、Removal 和 Upgrade session 可以保留交互语义，但只保存 token-bound read snapshot 和用户选择，不直接读取核心内部集合。它不再同时承担 RoadGraph mutation、history admission 和 renderer token 判断；这些信息由核心结果和 presentation adapter 返回。
+
+当前只接入米字网格策略。首版同一时刻只允许一笔未完成的道路编辑，不排队提交后续建造、拆除、升级或 undo/redo。等待期间相机、光标和下一笔非提交预览继续响应；预览若依赖旧路网必须标明其暂定状态，提交前重新绑定当前 snapshot。完成包括核心提交与对应表现发布；表现失败时按 §6.2 暂停道路编辑并提供手动重试，不能释放编辑门后允许旧画面继续修改新路网。Load 与正在处理的编辑通过统一操作状态互斥。Esc 取消按 §6.4 的提交边界执行，不在提交后自动撤销或补偿恢复道路。
+
+**已确认的删除与升级手势：**两种工具均以鼠标命中的道路格段为选择单位。按下时选中命中格段；保持按下并拖动时累积沿途命中的格段，重复经过不重复加入；选择期间高亮完整影响范围，仅修改会话选择，不删除或升级活动路网。抬起时冻结选择并发出一次批量删除或升级请求。单击即按下后抬起，作用于所命中的一个格段。未命中的同一格内其他道路不自动一起选中；不能把“选中一个格子”解释为修改整个方格区域内的所有分支。一次删除手势与一次升级手势均对应一次撤销。
+
+一条无路口长道路横跨多个主网格间隔时，点击中间只删除或升级相应格段，不作用于整条 canonical Edge。路口截断格段选择：例如 100 米格长下，`(0,0)→(100,100)` 在 `(50,50)` 有路口，点击前半段只选 `(0,0)→(50,50)`，其长度约 70.711 米，不自动选路口另一侧。拖选可以分别经过并累积两侧区间。拖动采样必须覆盖鼠标轨迹经过的可选格段，不能仅依赖每个渲染帧的鼠标落点而漏掉快速移动途中的格段。本节只确认按下、拖动、抬起提交及路口截断的行为，不据“参照都市天际线”推导额外游戏功能。
+
+**已确认的路口选择规则：**鼠标移向能够明确辨认的道路分支后，才预选或累积选中该分支上的格段。路口中心不能明确归属某个分支时，不新增选择，已累积的选择保持不变。拖动穿过路口不自动扩散到其他相连分支；不能仅因路径经过共享 junction patch 或命中 NodeId 就选择全部 incident Edge。高亮必须显示实际将作用的道路区间，不能只显示路口标记让玩家猜测选中了哪条路。
+
+**高亮是必要交互反馈：**未按下时对可操作格段显示悬停预选高亮；按下后，已经累积的格段保持选择高亮，鼠标离开也不消失，直到本次手势完成或取消。悬停预选与已选择状态应可区分，且均限定到格段/路口截断后的区间，不高亮整条底层 Edge。抬起后后台处理中保留能准确对应本次操作的范围反馈，实际路网仍由提交结果决定；成功完成或取消后清除该手势的选择高亮。重叠建造的红色冲突预览是另一种状态，不与可执行选择混用。具体颜色、透明度及轮廓样式在视觉设计和运行时验收中确定。
+
+升级经过已经是目标类型的格段时静默跳过，不弹提示，不将其高亮成待改变区间；拖选仍可继续累积其他需要改变的部分。整笔没有变化时静默清理会话选择，不留下等待状态、变更或撤销记录。
+
+越界拖拽按 §4.3 将预览终点约束到合法格点，预览与提交使用同一份几何草稿。建造与已有道路发生正长度共线区间重叠时，无论同类型还是不同类型、部分覆盖还是完全覆盖，都拒绝整笔建造。延伸道路应从已有端点起建；改变类型使用升级工具，不通过重叠建造完成。
+
+**已确认的重叠预览规则：**本次草稿的冲突区段标红，已有道路保持原样，同时显示“与现有道路重叠”等原因，整笔操作不可提交。不能在玩家不知情时仅建造剩余部分，也不能因全部重复而创建空的撤销条目。正常十字/斜向交叉、半格交点和仅端点连接不能按共线重叠标红；道路显示宽度的交叠也不自动等于中心线区间重叠。预览检查尚未完成或版本过期时，不把它显示为已经确认可建；最终提交仍由核心按同一规则校验。
+
+2026-09-11 源码核对：当前建造预览是白色半透明虚线，提交时才返回拒绝原因；已有道路完全覆盖时拒绝，部分覆盖时跳过覆盖部分，覆盖判断不区分 RoadType。上述红色非法预览和统一拒绝重叠属于已确认的 V4 设计变更，尚未实现；相关 V3 测试不能直接作为 V4 行为期望。
 
 提交路径统一为：
 
@@ -417,7 +476,7 @@ InputEvent
   -> RoadMutationRequest
   -> RoadNetwork.Plan / Commit
   -> RoadChangeSet
-  -> History + Presentation invalidation
+  -> 与核心提交协调的 History + Presentation invalidation
 ```
 
 UI 不能创建 Node、Edge 或 profile，也不能直接调用 renderer 的 surface geometry 来决定领域拓扑。renderer surface 只用于“玩家点击了当前看见的哪一条 Edge”，最终领域合法性仍由 core planner 判断。
@@ -438,6 +497,16 @@ UI 不能创建 Node、Edge 或 profile，也不能直接调用 renderer 的 sur
 
 普通 rebuild 与 Load 必须共用同一个 pure preparer。`ArrayMesh`、`MultiMesh` 和 scene tree 操作不得进入核心或 worker preparation。
 
+核心发布后可以继续显示上一份完整表现，但 mesh、surface owner 和点击 location 必须来自同一个 presented token。展示旧版本不等于可以将旧 location 用于新核心；必须经过 token 校验和重新规划。资源创建失败属于表现失败，不得将已经成功的核心提交伪报为建造失败；已提交内容可被保存，history 也必须与其保持一致。
+
+**预防优先：**正常编辑应基于冻结的目标快照，在核心提交前完成纯表现准备、顶点/索引/owner 校验、资源预算检查及能够提前执行的 hidden Resource Preflight。Godot 资源预检仍在允许的主线程阶段完成，并受每帧预算约束；不能为了后台化而在 worker 创建 Resource。预检失败则不提交核心；取消或 token 失效则丢弃预备结果和未发布资源。核心提交后的发布路径尽量只交换已准备的引用和状态，不重新进行几何计算或批量资源创建。应用层协调这些准备工作，核心仍不依赖 Godot。
+
+正常合法输入和规定压力范围内，不应把“显示失败后点重试”当作正常编辑流程；确定性的网格、owner、资源生命周期错误必须在切换前修复。预检不能保证设备丢失或内存耗尽等外部故障绝不发生，因此保留异常处理入口，但不以它代替正确性验收。
+
+**已确认的表现失败处置：**若核心已经提交、表现仍未能发布，保留最后一份完整画面，暂停道路建造/删除/升级及依赖当前表现的操作，显示“道路显示更新失败”和“重试”按钮。相机继续可用，允许保存已提交的核心数据供调试。重试只为当前已提交 snapshot 重新准备并发布表现，不重新提交原编辑、不分配道路实体 ID、不改变核心 token，也不增加历史记录；重复点击不能并发启动多个重试。重试成功后再恢复道路编辑，失败继续保持明确的异常状态，不无限自动重试或静默恢复旧路网。若图形设备本身已不可用，不能保证旧画面仍能绘制，该情况不能伪称成功保留画面。
+
+故障验证分别覆盖提交前预检失败、提交后发布失败、手动重试成功/失败及晚到结果；必须同时检查路网是否改变、画面/owner 是否一致、历史是否重复，以及编辑禁用和保存可用的状态。上述为设计要求，当前并未进行 V4 故障注入或运行时验证。
+
 ### 6.3 存档装配
 
 新增 `RoadSaveParticipant` 将核心 snapshot/prepare state 适配到现有 `IStreamingSaveable`。`SaveManager` 和 `PreparedAggregateLoad` 继续管理操作 token、scene generation、文件锁和多 participant 协调。
@@ -453,13 +522,33 @@ commit plan 必须满足现有 `INonThrowingLoadCommitPlan` 的真实含义：
 
 如果未来 participant 无法满足这些条件，先重新设计 rollback 协议，再加入 aggregate，不能继续扩大“全有或全无”的承诺。
 
+### 6.4 渲染节奏、后台工作和表现滞后
+
+渲染目标为 144 FPS，整帧预算约为 `1000 / 144 = 6.9444 ms`。道路规划及纯表现准备由命令触发，在后台读取不可变快照；它们不需要按 144 Hz 重算。未来持续模拟可使用独立固定步长，但本版不引入交通模拟频率。主线程发布经版本检查的结果并管理 Godot 资源，渲染在等待期间继续使用完整的已发布表现。`CallDeferred` 仅表示延后调用，不等于后台计算。
+
+计算与渲染分离仍需约束主线程资源创建、上传、内存分配和后台资源竞争。不能用后台耗时不计帧时间的说法掩盖主线程长任务，也不能仅以 `run/max_fps=144` 证明达标。道路拓扑按完整版本切换，不对新增/删除/切分过程进行插值。
+
+普通编辑的 **100–300 ms 预算约束玩家提交操作到看到正确结果的端到端延迟**，并非必须延迟至少 100 ms。计时从触发提交的输入事件开始，至包含该命令结果的完整表现第一次 `frame_post_draw`；预览变化不算提交结果，不能从后台开始执行或核心提交时重新起算。100 ms 为期望目标，300 ms 为上限目标；分位数、典型命令规模及严格超限判据将在后续验收设计中冻结，当前不是性能已通过的声明。输入到核心提交、后台准备、资源预检、引用交换和核心提交到绘制的表现滞后仍分别记录，所有等待均计入端到端时间。`frame_post_draw` 是引擎完成绘制的观测点，不代表显示器物理扫描完成。
+
+144 FPS 下 100–300 ms 约覆盖 14–43 个渲染帧，因此不能采用“版本落后一两帧就失败”的统一规则。这是整个编辑流程的总预算，不能给后台计算和提交后表现各分配一份 300 ms。删除与升级手势从抬起触发提交开始计时，玩家按住拖动选择的时长不计为后台延迟，但选择反馈须保持渲染响应。所有延迟记录毫秒、渲染帧数、desired/presented token 和失败原因；端到端超过 300 ms 继续处理并提示等待，尚未提交时提示 Esc 取消，已提交时只提示更新显示，不因超时自动取消，也不把单纯超时伪报为计算失败。任何一帧的 mesh/surface/token 混用仍然是正确性缺陷，不享受时间宽限。资源已就绪后的额外调度等待应单独记录，不能被后台耗时掩盖。
+
+**已确认的取消边界：**按住选择期间 Esc 清空本次选择；抬起进入计算或预检后，只要核心尚未提交，Esc 可以取消，不必等待超过 300 ms 才生效。耗时计算和可预检工作尽量置于提交前，最终同步提交不可中断。取消与提交由统一协调点确定先后：取消先被接受则禁止提交，提交已经发生则不能再报告“已取消”。
+
+接受取消后立即使该操作的晚到结果失去发布资格，并请求后台退出；清理尚未完成时可以显示“正在取消”，清理完成并可安全恢复编辑后再报告“已取消”。取消不得改变活动路网、ID watermark 或产生变更历史。取消响应及资源清理的时间预算在后续验收设计中确定，不采用强制中止线程来制造立即完成的假象。
+
+核心已经提交后，Esc 不再取消该操作，系统继续完成对应表现，提示改为“正在更新显示”，不再显示“Esc 取消”。本取消流程不提供提交后的撤销、补偿或恢复原路网，也不将自动 undo 作为收尾步骤；不能只丢弃显示任务就声称取消成功。表现失败应准确报告并处理资源状态，不能伪报道路已恢复。
+
+独立的编辑 undo/redo 继续保留，作用于已完成的操作；本节“不恢复”仅指 Esc 在提交后不恢复原路网，不移除正常撤销/重做功能。Esc 不自动转换成 undo 请求，也不改变 history 的一次有效手势对应一次撤销的规则。
+
+10K 连续交互门改为以 144 FPS 为渲染目标，帧时间 P95 预算约 6.94 ms，同时报告 P99、最大值和超预算帧，避免 P95 掩盖明显卡顿。10K 的计数对象、典型编辑规模、测试硬件、渲染设置和采样窗口尚待定义；100K 保留为候选压力规模，必须先核对其在最终格长和合法路网规则下是否可构造，不能混入非法几何凑数量。8 km × 8 km、100 米格长对应 80 × 80 = 6400 个方格区域，不等于 6400 条道路；网格显示、道路实体数量和空间索引覆盖分别度量。
+
 ## 7. 实施阶段
 
 ### P0：冻结 V3 和建立新项目
 
 保留 V3 分支和当前测试基线。创建 `SimpleCities.RoadCore` 与独立 core tests。当前 V3 的 959/959、Debug/ExportRelease build 和已记录 runtime 证据只作为基线，不混入 V4 通过数。P0 先验证新的程序集边界：核心可以独立编译，根 Godot 项目不重复编译核心源文件，核心测试不加载 Godot。
 
-P0 同时登记当前已确认问题：交点 cluster 空间排序、单段曲线自交、空间 metrics、非有限 bucket 和旧类参考文档。它们作为 V4 的回归输入；修复 V3 还是直接在 V4 重新实现，由对应阶段决定。
+P0 同时登记当前已确认问题：交点 cluster 空间排序、空间 metrics、非有限 bucket 和旧类参考文档。与米字网格有关的问题作为 V4 回归输入；单段曲线自交样例仅保留为 §3.3 的未来资料，不要求本版修复或迁移曲线实现。
 
 ### P1：模型和 numeric policy
 
@@ -467,7 +556,7 @@ P0 同时登记当前已确认问题：交点 cluster 空间排序、单段曲�
 
 ### P2：Geometry Kernel
 
-迁移六类 geometry，完成 canonicalization、reverse、split、精确 sign、容差查询、overlap、tangent、self-intersection 和未收敛结果。V4 必须用当前已发现的 Cubic Bézier 自交样例作为回归夹具。曲线 Kernel 的 public 结果必须包含状态和残差，不能只返回空列表而隐藏未收敛。
+实现米字网格线段及折线的 canonicalization、reverse、split、可靠 sign、容差查询、共线 overlap、端点接触和折线 self-intersection。必须覆盖半格对角路口、反向重复绘制、地图边缘以及已确认的合法起点规则。数值失败和预算超限不能作为空结果返回；曲线算法和 Cubic Bézier 自交夹具不属于本阶段交付。
 
 ### P3：Spatial index 和 Read Model
 
@@ -477,17 +566,21 @@ P0 同时登记当前已确认问题：交点 cluster 空间排序、单段曲�
 
 实现 path submission、split、merge、delete、profile change、容量 admission、`RoadChangeSet` 和 token 校验。成功命令只能产生一次 snapshot swap；失败只能丢弃 draft。一个 request 先在私有 working state 中完整规划，再一次发布；禁止复用 V3 的“修改活动 builder、失败后恢复”作为 V4 公开流程。
 
+delete 和 profile change 支持格段区间的批量删除/升级，不能只复用整 Edge 删除或改类型入口。覆盖长 Edge 内部单格操作、格心路口只选单侧、多格拖选、重复经过、局部删除保留未选区间、split/merge 后的位置失效和一次手势一次撤销。升级还须覆盖混合同目标类型选择和整笔无变化，后者不改变 token/ID/history 且不提示。取消用例覆盖选择取消、预提交取消、晚到结果拒绝、取消与提交竞争、已提交后不再取消且不触发自动撤销；独立 undo/redo 另行验证已完成操作的撤销与重做。
+
+建造重叠拒绝覆盖同/不同 profile、正/反向、部分/全部区间；验证整笔拒绝且活动路网、ID 和 history 不变，同时以点交叉和端点连接作为允许对照。纯几何 kernel 仍返回 overlap 事实，是否拒绝由建造 planner 决定，不把 UI 颜色当作领域判定。
+
 ### P5：History 和 V4 Codec
 
 将 history 改为核心 change set 的消费者，建立 V4 writer/reader 和 prepared load state。V4 存档先在 core tests 中完成 deterministic round-trip，再接入 SaveManager。history 只保存有限的 change set 和完整 token；Load 产生新 lineage 并清空旧 history。codec 只创建 prepared state，不直接修改活动 network。
 
 ### P6：Presentation Adapter
 
-将现有 pure preparer 迁入 `RoadPresentationPreparer`，保持 ribbon、terminal cap、semantic join、junction patch 和 owner query 的视觉及定位语义。renderer 只接收准备好的数据。presentation owner 可以引用 EdgeId/NodeId，但不能把 triangle、颜色或宽度写回 core snapshot。
+将米字网格道路所需的 pure preparer 迁入 `RoadPresentationPreparer`，保持 ribbon、terminal cap、semantic join、junction patch 和 owner query 的视觉及定位语义，不迁移曲线采样链。renderer 只接收准备好的数据。presentation owner 可以引用 EdgeId/NodeId，但不能把 triangle、颜色或宽度写回 core snapshot。准备与资源发布按 §6.4 分离，并保留完整 token 对应关系。落实 §6.2 的提交前预检及提交后显示重试，支持格段范围的悬停/选择高亮，边界表现自然伸出而不裁剪。
 
 ### P7：Input、UI 和 SaveManager 接入
 
-实现 `RoadEditController`、三个 session、RoadType/profile 选择、undo/redo 和 aggregate Load。旧 UI 逐个改为读取 read model 和 operation state。此阶段才把核心网络作为现有 `IStreamingSaveable` 的 adapter 注册给 SaveManager；核心库不依赖 `Scripts/Core`。
+实现 `RoadEditController`、三个 session、RoadType/profile 选择、undo/redo 和 aggregate Load。删除和升级 session 按格段累积选择、高亮并在抬起后批量提交，路口截断选择，中心歧义不新增选择、拖动不扩散到未命中分支。支持等待提示及已冻结取消边界下的 Esc 行为、静默跳过同目标类型和表现失败手动重试；不能继承 V3 只收集完整 EdgeId 的删除/升级粒度。旧 UI 逐个改为读取 read model 和 operation state。此阶段才把核心网络作为现有 `IStreamingSaveable` 的 adapter 注册给 SaveManager；核心库不依赖 `Scripts/Core`。
 
 ### P8：一次切换
 
@@ -503,15 +596,15 @@ V4 完成前必须同时满足：
 
 1. core library 不引用 Godot 或应用层类型；
 2. 生产只有一个道路 network、一个 writer、一个 reader 和一个 commit 入口；
-3. self-loop、parallel Edge、单段曲线自交和多段自交均有明确结果；
+3. 网格 self-loop、parallel Edge、折线自交和半格对角路口均有明确结果；建造与已有道路发生共线区间重叠时不论 profile 均整笔拒绝，冲突区段预览标红且不可提交，合法点交叉和端点连接不被误拒；未支持的曲线或其他网格不会进入活动路网；
 4. planner、query、renderer 和 persistence 共享同一 immutable snapshot 语义；
-5. Node/Edge/profile identity、geometry location 和 token 规则均有自动化测试；
-6. 失败不会留下部分 Node/Edge、ID、history、surface、slot 或 token 状态；
+5. Node/Edge/profile identity、geometry location 和 token 规则均有自动化测试；单格删除/升级不扩大到整个 Edge，路口截断选择且不向未命中分支扩散，悬停及累积选择高亮与实际作用区间一致；长按拖选在抬起前不写路网、抬起后有变化时一次提交并可一次撤销，同目标类型静默跳过、整笔无变化不产生历史；
+6. 核心提交前失败或已接受的取消不改变 Node/Edge、ID、history 或 token，晚到结果不能发布；表现预检尽量前置，提交后取消入口关闭且不执行自动撤销；表现失败进入明确异常状态并提供手动重试，重试不重复提交编辑或产生历史，不伪称核心已回滚；Load 和 slot 失败遵守各自预检与发布契约；
 7. Load commit 的 non-throwing 前提有源码约束和故障测试；
 8. 普通 mutation 和 Load 的 presentation owner、mesh 和 hit location 可逐值比较；
-9. 10k junction-dense 与 geometry-dense 的连续交互满足 16.67 ms P95 门；100k 只作为压力记录；
-10. 性能报告分开列出 domain、prepare、preflight、commit、draw 和端到端时间；
-11. V4 存档使用新的 family/root，V3 数据没有被普通运行时读取或修改；
+9. 8 km × 8 km 覆盖范围内的 10K 密集路口与密集折线连续交互按 §6.4 的 144 FPS 目标验证；测试口径必须先冻结，100K 只作为压力记录；
+10. 性能报告分开列出 domain、prepare、preflight、commit、draw、版本滞后和端到端时间；普通编辑按输入提交到正确结果绘制的 100–300 ms 预算及后续冻结的统计口径验证，不能混用帧时间与响应延迟；
+11. V4 调试存档使用新的 family/root，当前 schema 可确定性往返，错误版本明确拒绝，不读取或转换 V3 数据，不要求跨版本迁移；
 12. V3 旧生产文件、双路径和临时兼容 facade 已删除。
 
 “原子”在 V4 中必须指明层级：core network 的 snapshot swap 是单一同步引用替换；presentation 和 SaveManager 的多 participant commit 依赖各 plan 的 no-throw、no-yield contract。若 participant 不能满足这个 contract，必须先设计 rollback 或 journal，不得把普通异常隔离成 warning 后继续声称整个 aggregate 可回滚。
@@ -559,3 +652,5 @@ V4 core test project
 - [`Scripts/Core/SaveManager.cs`](../../Scripts/Core/SaveManager.cs)：当前 Godot 存档装配和异步 Load。
 
 V4 指南是设计文档，不代表本次已经完成代码迁移。V4 实现阶段应逐批更新本文件的状态、证据和实际目录，避免把设计目标写成已验证事实。
+
+2026-09-11 的范围修订只记录设计讨论决定。米字网格、半格路口及其仅沿对角方向起建、8 km × 8 km、地图中心原点、1 核心/Godot 世界单位 = 1 米、144 FPS、后台分离、单笔未完成编辑以及无存档迁移已确认。100–300 ms 已明确为玩家提交操作到看到正确结果的端到端预算；超时继续等待，提交前允许 Esc 取消，提交后继续更新显示、不再取消，也不通过取消流程撤销恢复；独立 undo/redo 继续保留。格长在创建地图时从 25/50/100/200 米选择，默认 100 米，创建后固定并随存档保存；越界拖拽预览停在当前方向上界内最远合法格点，核心仍拒绝越界输入，路面宽度/端帽/路口表面允许自然伸出。建造与已有道路的共线区间重叠不论类型均整笔拒绝，草稿冲突区段标红，正常交叉和端点连接仍允许。删除与升级均按格段按下选择、拖动累积、高亮完整作用范围、抬起后批量提交；路口截断选择，半格路口两侧分别可选，路口中央歧义不新增选择、不扩散到其他分支。同目标类型升级静默跳过。表现准备和预检优先放到提交前，提交后显示失败暂停道路编辑并提供手动重试，相机和调试保存保持可用，重试不重复执行原命令。性能统计口径、选择视觉参数及其余模型边界继续复核；完成设计讨论后，还需实施切片、依赖和验收安排等后续工序，再单独确认开始实现。
