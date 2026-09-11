@@ -1,0 +1,73 @@
+WARNING: ConstructionDock: ToolManager.Instance is missing; tool commands are disabled until ToolManager exists.
+   at: void ConstructionDock.LogMissingToolManager() (res://Scripts/UI/ConstructionDock.cs:591)
+   GDScript backtrace (most recent call first):
+       [0] run (res://tests/godot/road_load_generation_runtime_contract.gd:35)
+   C# backtrace (most recent call first):
+       [0] void Godot.GD.PushWarning(string) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Core/GD.cs:396)
+       [1] void ConstructionDock.LogMissingToolManager() (D:\Code\GodotProject\simple-cities\Scripts\UI\ConstructionDock.cs:591)
+       [2] void ConstructionDock._EnterTree() (D:\Code\GodotProject\simple-cities\Scripts\UI\ConstructionDock.cs:98)
+       [3] bool Godot.Node.InvokeGodotClassMethod(Godot.NativeInterop.godot_string_name&, Godot.NativeInterop.NativeVariantPtrArgs, Godot.NativeInterop.godot_variant&) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Generated/GodotObjects/Node.cs:2612)
+       [4] bool Godot.CanvasItem.InvokeGodotClassMethod(Godot.NativeInterop.godot_string_name&, Godot.NativeInterop.NativeVariantPtrArgs, Godot.NativeInterop.godot_variant&) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Generated/GodotObjects/CanvasItem.cs:1845)
+       [5] bool Godot.Control.InvokeGodotClassMethod(Godot.NativeInterop.godot_string_name&, Godot.NativeInterop.NativeVariantPtrArgs, Godot.NativeInterop.godot_variant&) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Generated/GodotObjects/Control.cs:4029)
+       [6] bool ConstructionDock.InvokeGodotClassMethod(Godot.NativeInterop.godot_string_name&, Godot.NativeInterop.NativeVariantPtrArgs, Godot.NativeInterop.godot_variant&) (D:\Code\GodotProject\simple-cities\.godot\mono\temp\obj\Debug\Godot.SourceGenerators\Godot.SourceGenerators.ScriptMethodsGenerator\ConstructionDock_ScriptMethods.generated.cs:308)
+       [7] Godot.NativeInterop.godot_bool Godot.Bridge.CSharpInstanceBridge.Call(nint, Godot.NativeInterop.godot_string_name*, Godot.NativeInterop.godot_variant**, int, Godot.NativeInterop.godot_variant_call_error*, Godot.NativeInterop.godot_variant*) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Core/Bridge/CSharpInstanceBridge.cs:24)
+WARNING: [SaveManager] Corrupt save slot 'manual-75e1ad4811de440694ff45f59084ac46': Manifest timestamp must use exact seven-digit UTC format.
+   at: System.Collections.Generic.IReadOnlyList`1[SaveSlotSummary] SaveManager.ListSlots() (res://Scripts/Core/SaveManager.cs:559)
+   GDScript backtrace (most recent call first):
+       [0] delete_slot (res://tests/godot/v3_save_fixture.gd:22)
+       [1] cleanup (res://tests/godot/road_load_generation_runtime_contract.gd:429)
+       [2] run (res://tests/godot/road_load_generation_runtime_contract.gd:156)
+       [3] run_scene_invalidation (res://tests/godot/road_load_generation_runtime_contract.gd:271)
+       [4] save (res://tests/godot/v3_save_fixture.gd:13)
+       [5] operation_succeeded (res://tests/godot/v3_save_fixture.gd:37)
+       [6] wait_for_idle (res://tests/godot/v3_save_fixture.gd:50)
+   C# backtrace (most recent call first):
+       [0] void Godot.GD.PushWarning(string) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Core/GD.cs:396)
+       [1] System.Collections.Generic.IReadOnlyList`1[SaveSlotSummary] SaveManager.ListSlots() (D:\Code\GodotProject\simple-cities\Scripts\Core\SaveManager.cs:559)
+       [2] string SaveManager.RequestDeleteSlot(string) (D:\Code\GodotProject\simple-cities\Scripts\Core\SaveManager.cs:574)
+       [3] bool SaveManager.InvokeGodotClassMethod(Godot.NativeInterop.godot_string_name&, Godot.NativeInterop.NativeVariantPtrArgs, Godot.NativeInterop.godot_variant&) (D:\Code\GodotProject\simple-cities\.godot\mono\temp\obj\Debug\Godot.SourceGenerators\Godot.SourceGenerators.ScriptMethodsGenerator\SaveManager_ScriptMethods.generated.cs:2169)
+       [4] Godot.NativeInterop.godot_bool Godot.Bridge.CSharpInstanceBridge.Call(nint, Godot.NativeInterop.godot_string_name*, Godot.NativeInterop.godot_variant**, int, Godot.NativeInterop.godot_variant_call_error*, Godot.NativeInterop.godot_variant*) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Core/Bridge/CSharpInstanceBridge.cs:24)
+WARNING: [SaveManager] Corrupt save slot 'manual-e9a7dee260fc4b4ab57ab500c1bd8212': Manifest timestamp must use exact seven-digit UTC format.
+   at: System.Collections.Generic.IReadOnlyList`1[SaveSlotSummary] SaveManager.ListSlots() (res://Scripts/Core/SaveManager.cs:559)
+   GDScript backtrace (most recent call first):
+       [0] delete_slot (res://tests/godot/v3_save_fixture.gd:22)
+       [1] cleanup (res://tests/godot/road_load_generation_runtime_contract.gd:429)
+       [2] run (res://tests/godot/road_load_generation_runtime_contract.gd:156)
+       [3] run_scene_invalidation (res://tests/godot/road_load_generation_runtime_contract.gd:271)
+       [4] save (res://tests/godot/v3_save_fixture.gd:13)
+       [5] operation_succeeded (res://tests/godot/v3_save_fixture.gd:37)
+       [6] wait_for_idle (res://tests/godot/v3_save_fixture.gd:50)
+   C# backtrace (most recent call first):
+       [0] void Godot.GD.PushWarning(string) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Core/GD.cs:396)
+       [1] System.Collections.Generic.IReadOnlyList`1[SaveSlotSummary] SaveManager.ListSlots() (D:\Code\GodotProject\simple-cities\Scripts\Core\SaveManager.cs:559)
+       [2] string SaveManager.RequestDeleteSlot(string) (D:\Code\GodotProject\simple-cities\Scripts\Core\SaveManager.cs:574)
+       [3] bool SaveManager.InvokeGodotClassMethod(Godot.NativeInterop.godot_string_name&, Godot.NativeInterop.NativeVariantPtrArgs, Godot.NativeInterop.godot_variant&) (D:\Code\GodotProject\simple-cities\.godot\mono\temp\obj\Debug\Godot.SourceGenerators\Godot.SourceGenerators.ScriptMethodsGenerator\SaveManager_ScriptMethods.generated.cs:2169)
+       [4] Godot.NativeInterop.godot_bool Godot.Bridge.CSharpInstanceBridge.Call(nint, Godot.NativeInterop.godot_string_name*, Godot.NativeInterop.godot_variant**, int, Godot.NativeInterop.godot_variant_call_error*, Godot.NativeInterop.godot_variant*) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Core/Bridge/CSharpInstanceBridge.cs:24)
+WARNING: [SaveManager] Corrupt save slot 'manual-75e1ad4811de440694ff45f59084ac46': Manifest timestamp must use exact seven-digit UTC format.
+   at: System.Collections.Generic.IReadOnlyList`1[SaveSlotSummary] SaveManager.ListSlots() (res://Scripts/Core/SaveManager.cs:559)
+   GDScript backtrace (most recent call first):
+       [0] delete_slot (res://tests/godot/v3_save_fixture.gd:22)
+       [1] cleanup (res://tests/godot/road_load_generation_runtime_contract.gd:432)
+       [2] delete_slot (res://tests/godot/v3_save_fixture.gd:26)
+       [3] operation_succeeded (res://tests/godot/v3_save_fixture.gd:37)
+       [4] wait_for_idle (res://tests/godot/v3_save_fixture.gd:50)
+   C# backtrace (most recent call first):
+       [0] void Godot.GD.PushWarning(string) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Core/GD.cs:396)
+       [1] System.Collections.Generic.IReadOnlyList`1[SaveSlotSummary] SaveManager.ListSlots() (D:\Code\GodotProject\simple-cities\Scripts\Core\SaveManager.cs:559)
+       [2] string SaveManager.RequestDeleteSlot(string) (D:\Code\GodotProject\simple-cities\Scripts\Core\SaveManager.cs:574)
+       [3] bool SaveManager.InvokeGodotClassMethod(Godot.NativeInterop.godot_string_name&, Godot.NativeInterop.NativeVariantPtrArgs, Godot.NativeInterop.godot_variant&) (D:\Code\GodotProject\simple-cities\.godot\mono\temp\obj\Debug\Godot.SourceGenerators\Godot.SourceGenerators.ScriptMethodsGenerator\SaveManager_ScriptMethods.generated.cs:2169)
+       [4] Godot.NativeInterop.godot_bool Godot.Bridge.CSharpInstanceBridge.Call(nint, Godot.NativeInterop.godot_string_name*, Godot.NativeInterop.godot_variant**, int, Godot.NativeInterop.godot_variant_call_error*, Godot.NativeInterop.godot_variant*) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Core/Bridge/CSharpInstanceBridge.cs:24)
+WARNING: [SaveManager] Corrupt save slot 'manual-e9a7dee260fc4b4ab57ab500c1bd8212': Manifest timestamp must use exact seven-digit UTC format.
+   at: System.Collections.Generic.IReadOnlyList`1[SaveSlotSummary] SaveManager.ListSlots() (res://Scripts/Core/SaveManager.cs:559)
+   GDScript backtrace (most recent call first):
+       [0] delete_slot (res://tests/godot/v3_save_fixture.gd:22)
+       [1] cleanup (res://tests/godot/road_load_generation_runtime_contract.gd:432)
+       [2] delete_slot (res://tests/godot/v3_save_fixture.gd:26)
+       [3] operation_succeeded (res://tests/godot/v3_save_fixture.gd:37)
+       [4] wait_for_idle (res://tests/godot/v3_save_fixture.gd:50)
+   C# backtrace (most recent call first):
+       [0] void Godot.GD.PushWarning(string) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Core/GD.cs:396)
+       [1] System.Collections.Generic.IReadOnlyList`1[SaveSlotSummary] SaveManager.ListSlots() (D:\Code\GodotProject\simple-cities\Scripts\Core\SaveManager.cs:559)
+       [2] string SaveManager.RequestDeleteSlot(string) (D:\Code\GodotProject\simple-cities\Scripts\Core\SaveManager.cs:574)
+       [3] bool SaveManager.InvokeGodotClassMethod(Godot.NativeInterop.godot_string_name&, Godot.NativeInterop.NativeVariantPtrArgs, Godot.NativeInterop.godot_variant&) (D:\Code\GodotProject\simple-cities\.godot\mono\temp\obj\Debug\Godot.SourceGenerators\Godot.SourceGenerators.ScriptMethodsGenerator\SaveManager_ScriptMethods.generated.cs:2169)
+       [4] Godot.NativeInterop.godot_bool Godot.Bridge.CSharpInstanceBridge.Call(nint, Godot.NativeInterop.godot_string_name*, Godot.NativeInterop.godot_variant**, int, Godot.NativeInterop.godot_variant_call_error*, Godot.NativeInterop.godot_variant*) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Core/Bridge/CSharpInstanceBridge.cs:24)

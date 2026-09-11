@@ -175,7 +175,7 @@ public sealed class PauseMenuContractTests
         Assert.True(operationStart >= 0 && operationEnd > operationStart);
         string operation = saveManager[operationStart..operationEnd];
         int storeCreation = operation.IndexOf(
-            "SaveSlotStore store = CreateSlotStore();",
+            "SaveSlotStore store = CreateSlotStore(sceneRequest);",
             StringComparison.Ordinal);
         int probeConfiguration = operation.IndexOf(
             "ProbeConfigureDeleteCleanupFailure(ref store);",
@@ -226,7 +226,7 @@ public sealed class PauseMenuContractTests
         Assert.True(operationStart >= 0 && operationEnd > operationStart);
         string operation = saveManager[operationStart..operationEnd];
         int storeCreation = operation.IndexOf(
-            "SaveSlotStore store = CreateSlotStore();",
+            "SaveSlotStore store = CreateSlotStore(sceneRequest);",
             StringComparison.Ordinal);
         int recoverGate = operation.IndexOf(
             "ProbeWaitAtDeleteRecover(ref store);",
@@ -301,7 +301,7 @@ public sealed class PauseMenuContractTests
         Assert.True(committed < tombstoneObserver);
 
         Assert.Contains(
-            "store = new SaveSlotStore(_resolvedSaveBaseDir, WaitAtDeletePostCommit);",
+            "store = new SaveSlotStore(store.SaveBaseDirectory, WaitAtDeletePostCommit);",
             probe,
             StringComparison.Ordinal);
         Assert.Contains(
@@ -335,7 +335,7 @@ public sealed class PauseMenuContractTests
         Assert.True(operationStart >= 0 && operationEnd > operationStart);
         string operation = saveManager[operationStart..operationEnd];
         int storeCreation = operation.IndexOf(
-            "SaveSlotStore store = CreateSlotStore();",
+            "SaveSlotStore store = CreateSlotStore(sceneRequest);",
             StringComparison.Ordinal);
         int probeConfiguration = operation.IndexOf(
             "ProbeConfigurePublishCleanupFailure(ref store);",
@@ -447,7 +447,7 @@ public sealed class PauseMenuContractTests
         Assert.True(operationStart >= 0 && operationEnd > operationStart);
         string operation = saveManager[operationStart..operationEnd];
         int storeCreation = operation.IndexOf(
-            "SaveSlotStore store = CreateSlotStore();",
+            "SaveSlotStore store = CreateSlotStore(sceneRequest);",
             StringComparison.Ordinal);
         int prepareGate = operation.IndexOf(
             "ProbeWaitAtPublishPrepare(ref store);",
@@ -522,7 +522,7 @@ public sealed class PauseMenuContractTests
         Assert.True(cancellationCheck < commitLease);
 
         Assert.Contains(
-            "store = new SaveSlotStore(_resolvedSaveBaseDir, WaitAtPublishStaged);",
+            "store = new SaveSlotStore(store.SaveBaseDirectory, WaitAtPublishStaged);",
             probe,
             StringComparison.Ordinal);
         Assert.Contains(
@@ -570,7 +570,7 @@ public sealed class PauseMenuContractTests
         Assert.True(committed < canonicalObserver);
 
         Assert.Contains(
-            "store = new SaveSlotStore(_resolvedSaveBaseDir, WaitAtPublishPostCommit);",
+            "store = new SaveSlotStore(store.SaveBaseDirectory, WaitAtPublishPostCommit);",
             probe,
             StringComparison.Ordinal);
         Assert.Contains(
@@ -616,7 +616,7 @@ public sealed class PauseMenuContractTests
         Assert.True(preCommitBoundaryObserver < boundary);
 
         Assert.Contains(
-            "store = new SaveSlotStore(_resolvedSaveBaseDir, WaitAtPublishPreCommitBoundary);",
+            "store = new SaveSlotStore(store.SaveBaseDirectory, WaitAtPublishPreCommitBoundary);",
             probe,
             StringComparison.Ordinal);
         Assert.Contains(

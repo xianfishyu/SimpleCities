@@ -143,6 +143,8 @@ public sealed class SaveSlotSummary
     public string? Warning { get; init; }
     public bool IsAutosave => string.Equals(SlotID, SaveManager.AutosaveSlotID, StringComparison.Ordinal);
     internal SaveSlotOccupantKind OccupantKind { get; init; }
+    internal bool SupportsDeletion => OccupantKind is SaveSlotOccupantKind.CompleteV3 or
+        SaveSlotOccupantKind.CorruptV3;
     internal string? OccupantDigest { get; init; }
     internal long UIGeneration { get; set; }
     internal string DeleteOperationToken { get; set; } = "";

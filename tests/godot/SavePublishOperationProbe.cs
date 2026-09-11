@@ -259,11 +259,11 @@ public partial class SaveManager
     partial void ProbeWaitAtPublishPrepare(ref SaveSlotStore store)
     {
         if (Volatile.Read(ref _publishStagedGateArmed) != 0)
-            store = new SaveSlotStore(_resolvedSaveBaseDir, WaitAtPublishStaged);
+            store = new SaveSlotStore(store.SaveBaseDirectory, WaitAtPublishStaged);
         else if (Volatile.Read(ref _publishPreCommitBoundaryGateArmed) != 0)
-            store = new SaveSlotStore(_resolvedSaveBaseDir, WaitAtPublishPreCommitBoundary);
+            store = new SaveSlotStore(store.SaveBaseDirectory, WaitAtPublishPreCommitBoundary);
         else if (Volatile.Read(ref _publishPostCommitGateArmed) != 0)
-            store = new SaveSlotStore(_resolvedSaveBaseDir, WaitAtPublishPostCommit);
+            store = new SaveSlotStore(store.SaveBaseDirectory, WaitAtPublishPostCommit);
 
         if (Interlocked.Exchange(ref _publishPrepareGateArmed, 0) == 0)
             return;

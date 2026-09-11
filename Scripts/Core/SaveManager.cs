@@ -7,7 +7,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-/// <summary>V3 存档管理器 Autoload。</summary>
+/// <summary>协调当前场景存储策略与保存、加载操作的 Autoload。</summary>
 public partial class SaveManager : Node
 {
     partial void ProbeConfigureDeleteCleanupFailure(ref SaveSlotStore store);
@@ -91,10 +91,7 @@ public partial class SaveManager : Node
 
     public static SaveManager Instance { get; private set; } = null!;
 
-    private const string SaveBaseDir = "user://saves-v3";
     private const int MaximumRetainedResults = 256;
-    internal const string RoadGraphSaveFileName = "road_network";
-    private static readonly string[] RequiredSaveFileNames = [RoadGraphSaveFileName];
 
     private readonly List<IStreamingSaveable> _saveables = [];
     private readonly SaveOperationCoordinator _coordinator = new();
@@ -119,7 +116,6 @@ public partial class SaveManager : Node
     private long _currentSlotGeneration;
     private int _mainThreadID;
     private int _pendingAutosaveWakeup;
-    private string _resolvedSaveBaseDir = string.Empty;
     private Task? _applicationQuitTask;
     private bool _sceneClosing;
     private bool _exiting;
@@ -163,7 +159,6 @@ public partial class SaveManager : Node
         Instance = this;
         ProcessMode = ProcessModeEnum.Always;
         _mainThreadID = System.Environment.CurrentManagedThreadId;
-        _resolvedSaveBaseDir = ResolveSaveBaseDir(ProjectSettings.GlobalizePath);
         _coordinator.StateChanged += OnCoordinatorStateChanged;
         _coordinator.PendingAutosaveReady += OnPendingAutosaveReady;
         GetTree().AutoAcceptQuit = false;
@@ -234,12 +229,6 @@ public partial class SaveManager : Node
         return _saveables.Remove(saveable);
     }
 
-    internal bool RegisterSceneParticipants(
-        RoadGraph graph,
-        ToolManager toolManager,
-        RoadRenderer renderer) =>
-        RegisterSceneLoad(new SceneLoadParticipants(graph, toolManager, renderer));
-
     internal bool RegisterSceneLoad(SceneLoadParticipants participants)
     {
         EnsureMainThread();
@@ -247,6 +236,8 @@ public partial class SaveManager : Node
         if (!_saveables.Contains(participants.Network) || _sceneContext is not null)
             return false;
 
+        string saveBaseDir = participants.Storage.ResolveSaveBaseDir(ProjectSettings.GlobalizePath);
+        _ = participants.Storage.SelectParticipants(_saveables);
         CancellationTokenSource previousCancellation = _sceneCancellation;
         previousCancellation.Cancel();
         previousCancellation.Dispose();
@@ -256,13 +247,12 @@ public partial class SaveManager : Node
         participants.Presentation.ConfigureSceneGeneration(_sceneGeneration);
         _sceneContext = new SceneLoadContext(
             _sceneGeneration,
-            participants);
+            participants,
+            saveBaseDir);
+        InvalidateSlotListing();
         SetCurrentSlot(AutosaveSlotID);
         return true;
     }
-
-    internal void UnregisterSceneParticipants(ToolManager toolManager) =>
-        UnregisterSceneLoad(toolManager);
 
     internal void UnregisterSceneLoad(ISceneToolLoadParticipant tools)
     {
@@ -274,6 +264,7 @@ public partial class SaveManager : Node
         }
 
         BeginSceneClose();
+        InvalidateSlotListing();
         _sceneContext = null;
         _sceneGeneration = NextGeneration(_sceneGeneration);
     }
@@ -405,7 +396,7 @@ public partial class SaveManager : Node
             !string.Equals(authorization.SlotID, slotID, StringComparison.Ordinal) ||
             !string.Equals(authorization.OperationToken, operationToken, StringComparison.Ordinal))
         {
-            GD.PushError($"[SaveManager] V3 delete authorization is stale or does not match slot '{slotID}'.");
+            GD.PushError($"[SaveManager] Delete authorization is stale or does not match slot '{slotID}'.");
             return string.Empty;
         }
 
@@ -550,7 +541,7 @@ public partial class SaveManager : Node
         }
         catch (Exception exception)
         {
-            GD.PushError($"[SaveManager] Cannot inspect V3 slot '{slotID}': {exception.Message}");
+            GD.PushError($"[SaveManager] Cannot inspect slot '{slotID}': {exception.Message}");
             return false;
         }
     }
@@ -567,13 +558,13 @@ public partial class SaveManager : Node
                 summary.UIGeneration = generation;
                 summary.DeleteOperationToken = Guid.NewGuid().ToString("N");
                 if (!summary.IsValid)
-                    GD.PushWarning($"[SaveManager] Corrupt V3 slot '{summary.SlotID}': {summary.Error}");
+                    GD.PushWarning($"[SaveManager] Corrupt save slot '{summary.SlotID}': {summary.Error}");
             }
             return summaries;
         }
         catch (Exception exception)
         {
-            GD.PushError($"[SaveManager] Cannot list V3 save slots: {exception.Message}");
+            GD.PushError($"[SaveManager] Cannot list save slots: {exception.Message}");
             return Array.Empty<SaveSlotSummary>();
         }
     }
@@ -589,7 +580,7 @@ public partial class SaveManager : Node
         }
         catch (Exception exception)
         {
-            GD.PushError($"[SaveManager] Cannot authorize V3 delete for slot '{slotID}': {exception.Message}");
+            GD.PushError($"[SaveManager] Cannot authorize delete for slot '{slotID}': {exception.Message}");
             return string.Empty;
         }
     }
@@ -600,8 +591,7 @@ public partial class SaveManager : Node
         if (summary.UIGeneration <= 0 || summary.UIGeneration != _slotListGeneration ||
             string.IsNullOrEmpty(summary.DeleteOperationToken) ||
             string.IsNullOrEmpty(summary.OccupantDigest) ||
-            summary.OccupantKind is not SaveSlotOccupantKind.CompleteV3 and
-                not SaveSlotOccupantKind.CorruptV3)
+            !summary.SupportsDeletion)
         {
             return string.Empty;
         }
@@ -670,7 +660,7 @@ public partial class SaveManager : Node
                 lease.AdvanceTo(SaveOperationPhase.Prepare);
                 SavePublishResult publish = await Task.Run(() =>
                 {
-                    SaveSlotStore store = CreateSlotStore();
+                    SaveSlotStore store = CreateSlotStore(sceneRequest);
                     ProbeWaitAtPublishPrepare(ref store);
                     ProbeConfigurePublishCleanupFailure(ref store);
                     return requireExisting
@@ -754,7 +744,7 @@ public partial class SaveManager : Node
                 {
                     long workerPrepareStarted = Stopwatch.GetTimestamp();
                     ProbeAggregateLoadWorkerEntryFailure();
-                    PreparedSaveSlot slot = CreateSlotStore().PrepareLoad(
+                    PreparedSaveSlot slot = CreateSlotStore(sceneRequest).PrepareLoad(
                         slotID,
                         loadParticipants,
                         lease);
@@ -931,7 +921,7 @@ public partial class SaveManager : Node
                 long targetGeneration = _currentSlotGeneration;
                 SaveDeleteResult deleted = await Task.Run(() =>
                 {
-                    SaveSlotStore store = CreateSlotStore();
+                    SaveSlotStore store = CreateSlotStore(sceneRequest);
                     ProbeConfigureDeleteCleanupFailure(ref store);
                     ProbeWaitAtDeleteRecover(ref store);
                     return store.Delete(authorization, lease);
@@ -1174,7 +1164,8 @@ public partial class SaveManager : Node
         EnsureMainThread();
         return new SceneRequest(
             _sceneGeneration,
-            _sceneCancellation.Token);
+            _sceneCancellation.Token,
+            _sceneContext?.SaveBaseDir ?? string.Empty);
     }
 
     private SceneLoadContext RequireLoadContext(SceneRequest request)
@@ -1260,11 +1251,14 @@ public partial class SaveManager : Node
     private bool IsSceneContextCurrent(SceneRequest request) =>
         IsSceneRequestCurrent(request);
 
-    private SaveSlotStore CreateSlotStore()
+    private SaveSlotStore CreateSlotStore(SceneRequest? request = null)
     {
-        if (_resolvedSaveBaseDir.Length == 0)
+        string saveBaseDir = request is null
+            ? _sceneContext?.SaveBaseDir ?? string.Empty
+            : request.SaveBaseDir;
+        if (saveBaseDir.Length == 0)
             throw new InvalidOperationException("SaveManager is not ready.");
-        return new SaveSlotStore(_resolvedSaveBaseDir);
+        return new SaveSlotStore(saveBaseDir);
     }
 
     private void InvalidateSlotListing()
@@ -1289,35 +1283,8 @@ public partial class SaveManager : Node
         generation == long.MaxValue ? 1 : generation + 1;
 
     private IReadOnlyList<IStreamingSaveable> GetRequiredSaveables() =>
-        SelectSaveables(_saveables, RequiredSaveFileNames);
-
-    internal static IReadOnlyList<IStreamingSaveable> SelectSaveables(
-        IReadOnlyList<IStreamingSaveable> saveables,
-        IReadOnlyList<string> saveFileNames)
-    {
-        var selected = new List<IStreamingSaveable>(saveFileNames.Count);
-        foreach (string fileName in saveFileNames)
-        {
-            IStreamingSaveable? match = null;
-            foreach (IStreamingSaveable candidate in saveables)
-            {
-                if (!string.Equals(candidate.SaveFileName, fileName, StringComparison.Ordinal))
-                    continue;
-                if (match is not null)
-                    throw new InvalidOperationException($"Multiple saveables provide '{fileName}'.");
-                match = candidate;
-            }
-            selected.Add(match ?? throw new InvalidOperationException(
-                $"Required saveable '{fileName}' is not registered."));
-        }
-        return selected;
-    }
-
-    internal static string ResolveSaveBaseDir(Func<string, string> globalizePath)
-    {
-        ArgumentNullException.ThrowIfNull(globalizePath);
-        return globalizePath(SaveBaseDir);
-    }
+        (_sceneContext ?? throw new InvalidOperationException("No scene storage is registered."))
+            .Participants.Storage.SelectParticipants(_saveables);
 
     private void EnsureMainThread()
     {
@@ -1330,32 +1297,17 @@ public partial class SaveManager : Node
         ProbeSlotTargetLoadCompleteCommitFailure();
     }
 
-    private sealed record SceneRequest(long Generation, CancellationToken CancellationToken);
+    private sealed record SceneRequest(
+        long Generation,
+        CancellationToken CancellationToken,
+        string SaveBaseDir);
 
     private sealed record TrackedOperation(long SceneGeneration, Task Completion);
 
     private sealed record SceneLoadContext(
         long Generation,
-        SceneLoadParticipants Participants);
-
-    // Legacy V3 fault probes retain this view until the contract cleanup slice.
-    private sealed record PreparedLoadWork
-    {
-        private readonly PreparedSceneLoad _prepared;
-
-        internal PreparedLoadWork(PreparedSceneLoad prepared)
-        {
-            ArgumentNullException.ThrowIfNull(prepared);
-            _prepared = prepared;
-            Presentation = prepared.Presentation as RoadRendererPreparedLoad
-                ?? throw new InvalidOperationException("V3 load requires a road presentation payload.");
-        }
-
-        internal PreparedSaveSlot Slot => _prepared.Slot;
-        internal IPreparedSaveState GraphState => _prepared.NetworkState;
-        internal RoadRendererPreparedLoad Presentation { get; }
-        internal TimeSpan WorkerPrepareDuration => _prepared.WorkerPrepareDuration;
-    }
+        SceneLoadParticipants Participants,
+        string SaveBaseDir);
 
     private sealed record LoadPerformanceMetrics(
         string OperationToken,

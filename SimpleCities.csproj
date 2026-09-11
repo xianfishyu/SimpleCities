@@ -14,6 +14,7 @@
     <Compile Remove="tests/**/*.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(Configuration)' == 'Debug'">
+    <Compile Include="tests/godot/SceneStoragePolicyProbe.cs" />
     <Compile Include="tests/godot/SaveDeleteCleanupFailureProbe.cs" />
     <Compile Include="tests/godot/SaveDeleteOperationProbe.cs" />
     <Compile Include="tests/godot/SavePublishCleanupFailureProbe.cs" />

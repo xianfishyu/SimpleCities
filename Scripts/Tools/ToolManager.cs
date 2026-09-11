@@ -48,7 +48,8 @@ public partial class ToolManager : Node2D
             ? SaveManager.Instance
             : null;
         if (roadSystem is not null && renderer is not null && saveManager is not null &&
-            saveManager.RegisterSceneLoad(new SceneLoadParticipants(roadSystem.Graph, this, renderer)))
+            saveManager.RegisterSceneLoad(new SceneLoadParticipants(
+                roadSystem.Graph, this, renderer, V3RoadStorage.Policy)))
         {
             _registeredSaveManager = saveManager;
         }

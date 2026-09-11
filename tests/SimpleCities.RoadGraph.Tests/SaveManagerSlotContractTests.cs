@@ -28,7 +28,7 @@ public sealed class SaveManagerSlotContractTests : IDisposable
 
         Assert.Equal(
             "C:/profile/SimpleCities/saves-v3",
-            SaveManager.ResolveSaveBaseDir(Globalize));
+            V3RoadStorage.Policy.ResolveSaveBaseDir(Globalize));
         Assert.Equal(["user://saves-v3"], requested);
     }
 
@@ -65,14 +65,40 @@ public sealed class SaveManagerSlotContractTests : IDisposable
         IStreamingSaveable graph = new TestSaveable("road_network", 1);
         IStreamingSaveable economy = new TestSaveable("economy", 2);
 
-        IReadOnlyList<IStreamingSaveable> selected = SaveManager.SelectSaveables(
-            [economy, graph],
-            [SaveManager.RoadGraphSaveFileName]);
+        IReadOnlyList<IStreamingSaveable> selected = V3RoadStorage.Policy.SelectParticipants(
+            [economy, graph]);
 
         Assert.Same(graph, Assert.Single(selected));
-        Assert.Throws<InvalidOperationException>(() => SaveManager.SelectSaveables(
-            [economy],
-            [SaveManager.RoadGraphSaveFileName]));
+        Assert.Throws<InvalidOperationException>(() => V3RoadStorage.Policy.SelectParticipants([economy]));
+    }
+
+    [Fact]
+    public void ScenePolicy_UsesCapturedRootAndPayloadNamesForRoundTrip()
+    {
+        string[] fileNames = ["economy"];
+        var policy = new SceneStoragePolicy("user://isolated-scene", fileNames);
+        fileNames[0] = "road_network";
+        var requestedRoots = new List<string>();
+        string root = policy.ResolveSaveBaseDir(path =>
+        {
+            requestedRoots.Add(path);
+            return Path.Combine(_testRoot, "isolated-scene");
+        });
+        var store = new SaveSlotStore(root);
+        var road = new TestSaveable("road_network", 13);
+        var economy = new TestSaveable("economy", 42);
+        IReadOnlyList<IStreamingSaveable> participants = policy.SelectParticipants([road, economy]);
+
+        store.Save("manual-policy", "Policy round-trip", participants);
+        economy.Value = 0;
+        store.Load("manual-policy", participants);
+
+        Assert.Equal(["user://isolated-scene"], requestedRoots);
+        Assert.Equal("economy.json", Assert.Single(store.ReadManifest("manual-policy").Files).Name);
+        Assert.Equal(42, economy.Value);
+        Assert.Equal(13, road.Value);
+        Assert.Equal(0, road.CommitCount);
+        Assert.False(Directory.Exists(V3Root));
     }
 
     [Fact]

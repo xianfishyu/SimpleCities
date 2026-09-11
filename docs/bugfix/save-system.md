@@ -519,3 +519,39 @@ Debug-only probe 在 commit 后、辅助工作前注入一次性异常；真实�
 - `tests/godot/road_load_observer_cleanup_runtime_contract.gd` 的 GDScript `--check-only` 退出码为 0；Godot 4.7 CLI 真实运行退出码为 0，输出 `post_commit_warning_result_kind=1`、`post_commit_clean_result_kind=0`、`post_commit_trigger_count=1` 和 `PASS road load observer cleanup runtime contract`。首次行为已 PASS 但退出时触发既有托管 finalizer 访问冲突，测试清理复用 `FlushPendingManagedFinalizers()` 后复跑干净退出。
 - Debug/`ExportRelease` 隔离检查确认 `ArmNextAggregateLoadPostCommitFailure` 分别出现 1/0 次，`RoadLoadObserverFailureProbe` 分别出现 3/0 次；测试探针未进入发布程序集。
 - 当前 Godot editor MCP 未连接，Godot LSP 与 DAP 未运行，因此 editor log、LSP 和 DAP 门未刷新，未记为通过。
+
+---
+
+<a id="save-system-bug-16"></a>
+## BUG-16：场景切换保存根后旧删除授权仍可用于同名槽位
+
+> 修复日期：2026-09-12
+> 影响文件：`Scripts/Core/SaveManager.cs`、`tests/godot/SceneStoragePolicyProbe.cs`、`tests/godot/scene_storage_authorization_runtime_contract.gd`、`SimpleCities.csproj`、`export_presets.cfg`
+> 关联事项：GitHub #4（V4-03 收拢存档协调器）的提交前评审
+
+### 症状
+
+V4-03 尚未提交的场景存储策略实现中，在保存根 A 获取槽位摘要并授权删除，随后绑定保存根 B，若 B 存在槽位 ID 和内容摘要均相同的副本，旧摘要仍可重新授权，旧授权也能删除 B 的槽位。该问题在提交前评审发现，仅使用隔离临时目录中的克隆槽位复现，不属于此前已发布版本的回归，也未删除真实用户存档。
+
+### 根因分析
+
+场景重新装配已切换操作所用的保存根，但注册和注销未推进 `_slotListGeneration`，也未清除待删除授权。删除校验依赖列表代际、槽位 ID、内容摘要及操作 token；两根含相同槽位时，这些条件不足以识别授权来自旧场景。
+
+### 修复方案
+
+`RegisterSceneLoad()` 安装新上下文后，以及 `UnregisterSceneLoad()` 开始关闭旧场景后，统一调用既有 `InvalidateSlotListing()`，同时推进列表代际并清除待删除授权。旧摘要不能重新授权，旧 token 也不能启动删除。
+
+新增真实 Godot 回归通过公开列表及删除入口验证两个拒绝条件，并检查两根的槽位均保留。测试探针仅在 Debug 编译，探针和脚本均从 QA 导出资源排除；清理时恢复默认 V3 装配，并验证临时根的绝对路径前缀后删除本测试目录。
+
+### 影响范围
+
+修复场景存储策略注册与注销边界上的删除授权失效行为。保存和加载继续使用请求捕获的保存根；当前生产路径仍为 V3，没有提前接入 V4 存储。
+
+## BUG-16 验证状态
+
+- Godot 4.7 Mono 使用 `--rendering-method forward_plus --rendering-driver vulkan --audio-driver Dummy --script res://tests/godot/scene_storage_authorization_runtime_contract.gd`：修复前退出 1，旧摘要与旧授权均未拒绝，B 槽位被删除；修复后退出 0，两个拒绝条件和两槽保留均为 true，并输出明确 PASS。stderr 的 stale authorization 错误为本回归预期拒绝。
+- `dotnet test SimpleCities.sln --no-restore --verbosity minimal`：最终 965/965 通过。首次收尾发现新脚本遗漏 QA 导出排除，补齐后原有导出契约通过。
+- Debug 构建及 `dotnet build SimpleCities.csproj --configuration ExportRelease --no-restore --verbosity minimal` 均为 0 警告、0 错误；Roslyn compiler/analyzer diagnostics 为 0。程序集检查确认 `SceneStoragePolicyProbe` 在 Debug 存在，在 ExportRelease 不存在。
+- 修复后再次运行 `road_load_generation_runtime_contract.gd`：Forward+/Vulkan 退出 0，输出 PASS；存储装配切换未破坏既有加载代际契约。测试进程已退出，临时槽位已清理。
+- Godot MCP 编辑器桥接被另一客户端占用，编辑器桥接与 DAP 检查未执行；真实行为依据独立引擎进程验证。日志中已有初始化 ToolManager 提示及两份旧存档时间戳警告，未修改这些旧存档。
+- Standards 和 Spec 双线复核均无剩余发现。红/绿及加载回归原始证据见 `.scratch/v4-03-qa/`。

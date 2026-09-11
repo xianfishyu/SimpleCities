@@ -30,7 +30,7 @@ public partial class RoadGraph : IStreamingSaveable
     private double _totalGeometryLength;
 
     public long FacadeID { get; }
-    public string SaveFileName => "road_network";
+    public string SaveFileName => V3RoadStorage.NetworkFileName;
 
     public IStreamingLoadReader CaptureLoadReader() => new RoadGraphLoadReader(
         _capacity,

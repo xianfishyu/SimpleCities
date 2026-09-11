@@ -1,0 +1,22 @@
+WARNING: ConstructionDock: ToolManager.Instance is missing; tool commands are disabled until ToolManager exists.
+   at: void ConstructionDock.LogMissingToolManager() (res://Scripts/UI/ConstructionDock.cs:591)
+   GDScript backtrace (most recent call first):
+       [0] run (res://tests/godot/scene_storage_authorization_runtime_contract.gd:11)
+   C# backtrace (most recent call first):
+       [0] void Godot.GD.PushWarning(string) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Core/GD.cs:396)
+       [1] void ConstructionDock.LogMissingToolManager() (D:\Code\GodotProject\simple-cities\Scripts\UI\ConstructionDock.cs:591)
+       [2] void ConstructionDock._EnterTree() (D:\Code\GodotProject\simple-cities\Scripts\UI\ConstructionDock.cs:98)
+       [3] bool Godot.Node.InvokeGodotClassMethod(Godot.NativeInterop.godot_string_name&, Godot.NativeInterop.NativeVariantPtrArgs, Godot.NativeInterop.godot_variant&) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Generated/GodotObjects/Node.cs:2612)
+       [4] bool Godot.CanvasItem.InvokeGodotClassMethod(Godot.NativeInterop.godot_string_name&, Godot.NativeInterop.NativeVariantPtrArgs, Godot.NativeInterop.godot_variant&) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Generated/GodotObjects/CanvasItem.cs:1845)
+       [5] bool Godot.Control.InvokeGodotClassMethod(Godot.NativeInterop.godot_string_name&, Godot.NativeInterop.NativeVariantPtrArgs, Godot.NativeInterop.godot_variant&) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Generated/GodotObjects/Control.cs:4029)
+       [6] bool ConstructionDock.InvokeGodotClassMethod(Godot.NativeInterop.godot_string_name&, Godot.NativeInterop.NativeVariantPtrArgs, Godot.NativeInterop.godot_variant&) (D:\Code\GodotProject\simple-cities\.godot\mono\temp\obj\Debug\Godot.SourceGenerators\Godot.SourceGenerators.ScriptMethodsGenerator\ConstructionDock_ScriptMethods.generated.cs:308)
+       [7] Godot.NativeInterop.godot_bool Godot.Bridge.CSharpInstanceBridge.Call(nint, Godot.NativeInterop.godot_string_name*, Godot.NativeInterop.godot_variant**, int, Godot.NativeInterop.godot_variant_call_error*, Godot.NativeInterop.godot_variant*) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Core/Bridge/CSharpInstanceBridge.cs:24)
+ERROR: [SaveManager] Delete authorization is stale or does not match slot 'manual-shared'.
+   at: string SaveManager.StartDeleteSlot(string, string) (res://Scripts/Core/SaveManager.cs:399)
+   GDScript backtrace (most recent call first):
+       [0] run (res://tests/godot/scene_storage_authorization_runtime_contract.gd:25)
+   C# backtrace (most recent call first):
+       [0] void Godot.GD.PushError(string) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Core/GD.cs:366)
+       [1] string SaveManager.StartDeleteSlot(string, string) (D:\Code\GodotProject\simple-cities\Scripts\Core\SaveManager.cs:399)
+       [2] bool SaveManager.InvokeGodotClassMethod(Godot.NativeInterop.godot_string_name&, Godot.NativeInterop.NativeVariantPtrArgs, Godot.NativeInterop.godot_variant&) (D:\Code\GodotProject\simple-cities\.godot\mono\temp\obj\Debug\Godot.SourceGenerators\Godot.SourceGenerators.ScriptMethodsGenerator\SaveManager_ScriptMethods.generated.cs:2129)
+       [3] Godot.NativeInterop.godot_bool Godot.Bridge.CSharpInstanceBridge.Call(nint, Godot.NativeInterop.godot_string_name*, Godot.NativeInterop.godot_variant**, int, Godot.NativeInterop.godot_variant_call_error*, Godot.NativeInterop.godot_variant*) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Core/Bridge/CSharpInstanceBridge.cs:24)

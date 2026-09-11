@@ -104,7 +104,7 @@ public partial class SaveManager
     partial void ProbeWaitAtDeleteRecover(ref SaveSlotStore store)
     {
         if (Volatile.Read(ref _deletePostCommitGateArmed) != 0)
-            store = new SaveSlotStore(_resolvedSaveBaseDir, WaitAtDeletePostCommit);
+            store = new SaveSlotStore(store.SaveBaseDirectory, WaitAtDeletePostCommit);
 
         if (Interlocked.Exchange(ref _deleteRecoverGateArmed, 0) == 0)
             return;

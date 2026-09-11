@@ -43,7 +43,7 @@ public partial class SaveManager
         if (Volatile.Read(ref _deleteTombstoneCleanupFailureArmed) == 0)
             return;
 
-        store = new SaveSlotStore(_resolvedSaveBaseDir, phase =>
+        store = new SaveSlotStore(store.SaveBaseDirectory, phase =>
         {
             if (phase != SavePublicationPhase.DeletionTombstoned ||
                 Interlocked.Exchange(ref _deleteTombstoneCleanupFailureArmed, 0) == 0)

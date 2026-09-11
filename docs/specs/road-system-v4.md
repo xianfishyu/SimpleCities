@@ -1,6 +1,6 @@
 # V4 米字网格道路系统规格
 
-综合日期：2026-09-12。状态：规格及两层测试边界已确认并发布为 [GitHub #1](https://github.com/xianfishyu/SimpleCities/issues/1)，22张工作项已发布为 #2–#23。V4-01 加载准备契约扩展和V4-02 调用方迁移已完成；其余条目仍是后续交付要求，不代表整套 V4 已实现或验证。
+综合日期：2026-09-12。状态：规格及两层测试边界已确认并发布为 [GitHub #1](https://github.com/xianfishyu/SimpleCities/issues/1)，22张工作项已发布为 #2–#23。V4-01–03 存档装配的扩展、迁移和收拢已完成；其余条目仍是后续交付要求，不代表整套 V4 已实现或验证。
 
 ## Problem Statement
 
@@ -146,6 +146,6 @@
 - 已确认的产品规则不因转为规格重新开放访谈。测试边界确认仅确认验证方式，不表示代码实施开工或所有技术参数已冻结。
 - 待后续冻结的内容包括：数值和拾取容差、最短合法片段、候选与工作预算、离散位置身份的具体表示、历史字节预算及单笔超限策略、高亮样式、取消清理时间预算、地图参数 schema、prepared payload/token 装配和完整性能口径。
 - 当前代码的简单独立直线撤销记录按固定系数估算约 624 字节，64 笔同类操作约 39 KiB；这是旧实现的估算示例，不是 V4 的内存测量。16 MiB 旧历史上限未被确认为本版预算。
-- 2026-09-12 已发布[规格 #1](https://github.com/xianfishyu/SimpleCities/issues/1)及其22个原生子工作项 #2–#23，均使用 ready-for-agent 标签；已核对26条原生阻塞关系。[V4-01](https://github.com/xianfishyu/SimpleCities/issues/2)与[V4-02](https://github.com/xianfishyu/SimpleCities/issues/3)已完成，下一项为[V4-03：收拢存档协调器](https://github.com/xianfishyu/SimpleCities/issues/4)。已完成部分保持V3保存加载行为，尚未切换正式路网。
+- 2026-09-12 已发布[规格 #1](https://github.com/xianfishyu/SimpleCities/issues/1)及其22个原生子工作项 #2–#23，均使用 ready-for-agent 标签；已核对26条原生阻塞关系。V4-01–03（#2–#4）已完成，下一项为[V4-04：创建并保存V4空地图](https://github.com/xianfishyu/SimpleCities/issues/5)。已完成部分保持V3保存加载行为，尚未切换正式路网。
 - [V4-20 性能与资源基线 #21](https://github.com/xianfishyu/SimpleCities/issues/21)完成测量不等于性能达标；[V4-21 正式切换 #22](https://github.com/xianfishyu/SimpleCities/issues/22)仍需通过必要性能与参数门，未达标时需先补充获准的具体优化票及阻塞关系。
 - ready-for-agent 是分流标签；工作项发布不代表工作已经完成，也不替代验收参数冻结和代码开工确认。本地发布元数据更新不改写已发布父规格的正文或状态。

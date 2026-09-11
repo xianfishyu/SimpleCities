@@ -1,0 +1,5 @@
+Godot Engine v4.7.stable.mono.official.5b4e0cb0f - https://godotengine.org
+Vulkan 1.4.351 - Forward+ - Using Device #0: NVIDIA - NVIDIA GeForce RTX 5080
+
+SCENE_STORAGE_AUTHORIZATION_RESULT {"both_slots_retained":true,"bound_a":true,"bound_b":true,"deletion_result":{},"old_authorization_rejected":true,"old_summary_rejected":true,"passed":true}
+PASS scene storage authorization runtime contract

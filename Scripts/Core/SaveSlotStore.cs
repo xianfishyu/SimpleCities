@@ -25,6 +25,8 @@ internal sealed class SaveSlotStore
     private readonly string _saveBaseDir;
     private readonly Action<SavePublicationPhase>? _publicationObserver;
 
+    internal string SaveBaseDirectory => _saveBaseDir;
+
     public SaveSlotStore(
         string saveBaseDir,
         Action<SavePublicationPhase>? publicationObserver = null)

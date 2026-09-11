@@ -33,7 +33,8 @@ public sealed class ToolManagerContractTests
         Assert.Contains("_roadBuilder?.SetUpgradeHoverActive(false);", source, StringComparison.Ordinal);
         Assert.Contains("_roadBuilder?.SetUpgradeHoverActive(true);", source, StringComparison.Ordinal);
         Assert.Contains("public void CancelRoadSessions()", source, StringComparison.Ordinal);
-        Assert.Contains("RegisterSceneLoad(new SceneLoadParticipants(roadSystem.Graph, this, renderer))", source, StringComparison.Ordinal);
+        Assert.Contains("RegisterSceneLoad(new SceneLoadParticipants(", source, StringComparison.Ordinal);
+        Assert.Contains("roadSystem.Graph, this, renderer, V3RoadStorage.Policy)", source, StringComparison.Ordinal);
         Assert.Contains("_registeredSaveManager.UnregisterSceneLoad(this)", source, StringComparison.Ordinal);
     }
 }

@@ -1827,8 +1827,8 @@ public partial class SaveManager
         if (!_aggregateLoadPostPreparedWorkReturnFailureArmed)
             return;
 
-        if (preparedLoad.Presentation is not RoadRendererPreparedLoad) return;
-        var prepared = new PreparedLoadWork(preparedLoad);
+        if (preparedLoad.Presentation is not RoadRendererPreparedLoad presentation) return;
+        PreparedSceneLoad prepared = preparedLoad;
 
         ArgumentNullException.ThrowIfNull(prepared);
         _aggregateLoadPostPreparedWorkReturnFailureArmed = false;
@@ -1839,11 +1839,11 @@ public partial class SaveManager
         _aggregateLoadPostPreparedWorkReturnParticipantCount =
             prepared.Slot.Participants.Count;
         _aggregateLoadPostPreparedWorkReturnRoadVertexCount =
-            prepared.Presentation.RoadVertices.Length;
+            presentation.RoadVertices.Length;
         _aggregateLoadPostPreparedWorkReturnSurfacePrimitiveCount =
-            prepared.Presentation.RoadSurface.PrimitiveCount;
+            presentation.RoadSurface.PrimitiveCount;
         _aggregateLoadPostPreparedWorkReturnNodeMarkerCount =
-            prepared.Presentation.NodeMarkers.Length;
+            presentation.NodeMarkers.Length;
         throw new InvalidOperationException(
             AggregateLoadPostPreparedWorkReturnFailureMessage);
     }
@@ -1900,8 +1900,8 @@ public partial class SaveManager
         if (!_aggregateLoadPostSceneRequestValidationFailureArmed)
             return;
 
-        if (preparedLoad.Presentation is not RoadRendererPreparedLoad) return;
-        var prepared = new PreparedLoadWork(preparedLoad);
+        if (preparedLoad.Presentation is not RoadRendererPreparedLoad presentation) return;
+        PreparedSceneLoad prepared = preparedLoad;
 
         ArgumentNullException.ThrowIfNull(prepared);
         _aggregateLoadPostSceneRequestValidationFailureArmed = false;
@@ -1912,11 +1912,11 @@ public partial class SaveManager
         _aggregateLoadPostSceneRequestValidationParticipantCount =
             prepared.Slot.Participants.Count;
         _aggregateLoadPostSceneRequestValidationRoadVertexCount =
-            prepared.Presentation.RoadVertices.Length;
+            presentation.RoadVertices.Length;
         _aggregateLoadPostSceneRequestValidationSurfacePrimitiveCount =
-            prepared.Presentation.RoadSurface.PrimitiveCount;
+            presentation.RoadSurface.PrimitiveCount;
         _aggregateLoadPostSceneRequestValidationNodeMarkerCount =
-            prepared.Presentation.NodeMarkers.Length;
+            presentation.NodeMarkers.Length;
         throw new InvalidOperationException(
             AggregateLoadPostSceneRequestValidationFailureMessage);
     }
@@ -1973,8 +1973,8 @@ public partial class SaveManager
         if (!_aggregateLoadPostCancellationCheckFailureArmed)
             return;
 
-        if (preparedLoad.Presentation is not RoadRendererPreparedLoad) return;
-        var prepared = new PreparedLoadWork(preparedLoad);
+        if (preparedLoad.Presentation is not RoadRendererPreparedLoad presentation) return;
+        PreparedSceneLoad prepared = preparedLoad;
 
         ArgumentNullException.ThrowIfNull(prepared);
         _aggregateLoadPostCancellationCheckFailureArmed = false;
@@ -1985,11 +1985,11 @@ public partial class SaveManager
         _aggregateLoadPostCancellationCheckParticipantCount =
             prepared.Slot.Participants.Count;
         _aggregateLoadPostCancellationCheckRoadVertexCount =
-            prepared.Presentation.RoadVertices.Length;
+            presentation.RoadVertices.Length;
         _aggregateLoadPostCancellationCheckSurfacePrimitiveCount =
-            prepared.Presentation.RoadSurface.PrimitiveCount;
+            presentation.RoadSurface.PrimitiveCount;
         _aggregateLoadPostCancellationCheckNodeMarkerCount =
-            prepared.Presentation.NodeMarkers.Length;
+            presentation.NodeMarkers.Length;
         throw new InvalidOperationException(
             AggregateLoadPostCancellationCheckFailureMessage);
     }
@@ -2047,8 +2047,8 @@ public partial class SaveManager
         if (!_aggregateLoadPostPreflightPhaseFailureArmed)
             return;
 
-        if (preparedLoad.Presentation is not RoadRendererPreparedLoad) return;
-        var prepared = new PreparedLoadWork(preparedLoad);
+        if (preparedLoad.Presentation is not RoadRendererPreparedLoad presentation) return;
+        PreparedSceneLoad prepared = preparedLoad;
 
         ArgumentNullException.ThrowIfNull(prepared);
         _aggregateLoadPostPreflightPhaseFailureArmed = false;
@@ -2059,11 +2059,11 @@ public partial class SaveManager
         _aggregateLoadPostPreflightPhaseObservedSlotID = prepared.Slot.SlotID;
         _aggregateLoadPostPreflightPhaseParticipantCount = prepared.Slot.Participants.Count;
         _aggregateLoadPostPreflightPhaseRoadVertexCount =
-            prepared.Presentation.RoadVertices.Length;
+            presentation.RoadVertices.Length;
         _aggregateLoadPostPreflightPhaseSurfacePrimitiveCount =
-            prepared.Presentation.RoadSurface.PrimitiveCount;
+            presentation.RoadSurface.PrimitiveCount;
         _aggregateLoadPostPreflightPhaseNodeMarkerCount =
-            prepared.Presentation.NodeMarkers.Length;
+            presentation.NodeMarkers.Length;
         throw new InvalidOperationException(
             AggregateLoadPostPreflightPhaseFailureMessage);
     }
@@ -2127,8 +2127,8 @@ public partial class SaveManager
             return;
 
         if (targetState is not RoadGraphRevision targetRevision) return;
-        if (preparedLoad.Presentation is not RoadRendererPreparedLoad) return;
-        var prepared = new PreparedLoadWork(preparedLoad);
+        if (preparedLoad.Presentation is not RoadRendererPreparedLoad presentation) return;
+        PreparedSceneLoad prepared = preparedLoad;
 
         ArgumentNullException.ThrowIfNull(preflightPlans);
         ArgumentNullException.ThrowIfNull(targetRevision);
@@ -2145,11 +2145,11 @@ public partial class SaveManager
         _aggregateLoadPostGraphPreflightSourceParticipantCount =
             prepared.Slot.Participants.Count;
         _aggregateLoadPostGraphPreflightRoadVertexCount =
-            prepared.Presentation.RoadVertices.Length;
+            presentation.RoadVertices.Length;
         _aggregateLoadPostGraphPreflightSurfacePrimitiveCount =
-            prepared.Presentation.RoadSurface.PrimitiveCount;
+            presentation.RoadSurface.PrimitiveCount;
         _aggregateLoadPostGraphPreflightNodeMarkerCount =
-            prepared.Presentation.NodeMarkers.Length;
+            presentation.NodeMarkers.Length;
         throw new InvalidOperationException(
             AggregateLoadPostGraphPreflightFailureMessage);
     }
@@ -2221,8 +2221,8 @@ public partial class SaveManager
             return;
 
         if (targetState is not RoadGraphRevision targetRevision) return;
-        if (preparedLoad.Presentation is not RoadRendererPreparedLoad) return;
-        var prepared = new PreparedLoadWork(preparedLoad);
+        if (preparedLoad.Presentation is not RoadRendererPreparedLoad presentation) return;
+        PreparedSceneLoad prepared = preparedLoad;
 
         ArgumentNullException.ThrowIfNull(preflightPlans);
         ArgumentNullException.ThrowIfNull(targetRevision);
@@ -2241,11 +2241,11 @@ public partial class SaveManager
         _aggregateLoadPostToolPreflightSourceParticipantCount =
             prepared.Slot.Participants.Count;
         _aggregateLoadPostToolPreflightRoadVertexCount =
-            prepared.Presentation.RoadVertices.Length;
+            presentation.RoadVertices.Length;
         _aggregateLoadPostToolPreflightSurfacePrimitiveCount =
-            prepared.Presentation.RoadSurface.PrimitiveCount;
+            presentation.RoadSurface.PrimitiveCount;
         _aggregateLoadPostToolPreflightNodeMarkerCount =
-            prepared.Presentation.NodeMarkers.Length;
+            presentation.NodeMarkers.Length;
         throw new InvalidOperationException(
             AggregateLoadPostToolPreflightFailureMessage);
     }
@@ -2321,8 +2321,8 @@ public partial class SaveManager
     {
         if (presentationParticipant is not RoadRenderer renderer) return;
         if (targetState is not RoadGraphRevision targetRevision) return;
-        if (preparedLoad.Presentation is not RoadRendererPreparedLoad) return;
-        var prepared = new PreparedLoadWork(preparedLoad);
+        if (preparedLoad.Presentation is not RoadRendererPreparedLoad presentation) return;
+        PreparedSceneLoad prepared = preparedLoad;
 
         CaptureAggregateLoadRendererPreflightObservation(
             renderer,
@@ -2385,7 +2385,7 @@ public partial class SaveManager
         SaveOperationPhase phase,
         IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
         RoadGraphRevision targetRevision,
-        PreparedLoadWork prepared,
+        PreparedSceneLoad prepared,
         AggregateLoadRendererPreflightProbeState state,
         bool failureArmed,
         string failureName)
@@ -2406,6 +2406,8 @@ public partial class SaveManager
         ArgumentNullException.ThrowIfNull(preflightPlans);
         ArgumentNullException.ThrowIfNull(targetRevision);
         ArgumentNullException.ThrowIfNull(prepared);
+        if (prepared.Presentation is not RoadRendererPreparedLoad presentation)
+            throw new ArgumentException("V3 observation requires a road presentation payload.", nameof(prepared));
         state.Armed = false;
         state.Count++;
         state.Observation = new AggregateLoadRendererPreflightObservation(
@@ -2417,9 +2419,9 @@ public partial class SaveManager
             targetRevision.Edges.Count,
             prepared.Slot.SlotID,
             prepared.Slot.Participants.Count,
-            prepared.Presentation.RoadVertices.Length,
-            prepared.Presentation.RoadSurface.PrimitiveCount,
-            prepared.Presentation.NodeMarkers.Length);
+            presentation.RoadVertices.Length,
+            presentation.RoadSurface.PrimitiveCount,
+            presentation.NodeMarkers.Length);
         state.Owner = null;
     }
 
@@ -2775,8 +2777,8 @@ public partial class SaveManager
             return;
 
         if (targetState is not RoadGraphRevision targetRevision) return;
-        if (preparedLoad.Presentation is not RoadRendererPreparedLoad) return;
-        var prepared = new PreparedLoadWork(preparedLoad);
+        if (preparedLoad.Presentation is not RoadRendererPreparedLoad presentation) return;
+        PreparedSceneLoad prepared = preparedLoad;
 
         ArgumentNullException.ThrowIfNull(preflightPlans);
         ArgumentNullException.ThrowIfNull(targetRevision);
@@ -2797,11 +2799,11 @@ public partial class SaveManager
         _aggregateLoadPostRendererPreflightSourceParticipantCount =
             prepared.Slot.Participants.Count;
         _aggregateLoadPostRendererPreflightRoadVertexCount =
-            prepared.Presentation.RoadVertices.Length;
+            presentation.RoadVertices.Length;
         _aggregateLoadPostRendererPreflightSurfacePrimitiveCount =
-            prepared.Presentation.RoadSurface.PrimitiveCount;
+            presentation.RoadSurface.PrimitiveCount;
         _aggregateLoadPostRendererPreflightNodeMarkerCount =
-            prepared.Presentation.NodeMarkers.Length;
+            presentation.NodeMarkers.Length;
         throw new InvalidOperationException(
             AggregateLoadPostRendererPreflightFailureMessage);
     }
@@ -2881,8 +2883,8 @@ public partial class SaveManager
             return;
 
         if (targetState is not RoadGraphRevision targetRevision) return;
-        if (preparedLoad.Presentation is not RoadRendererPreparedLoad) return;
-        var prepared = new PreparedLoadWork(preparedLoad);
+        if (preparedLoad.Presentation is not RoadRendererPreparedLoad presentation) return;
+        PreparedSceneLoad prepared = preparedLoad;
 
         ArgumentNullException.ThrowIfNull(preflightPlans);
         ArgumentNullException.ThrowIfNull(targetRevision);
@@ -2905,11 +2907,11 @@ public partial class SaveManager
         _aggregateLoadPostSlotPreflightSourceParticipantCount =
             prepared.Slot.Participants.Count;
         _aggregateLoadPostSlotPreflightRoadVertexCount =
-            prepared.Presentation.RoadVertices.Length;
+            presentation.RoadVertices.Length;
         _aggregateLoadPostSlotPreflightSurfacePrimitiveCount =
-            prepared.Presentation.RoadSurface.PrimitiveCount;
+            presentation.RoadSurface.PrimitiveCount;
         _aggregateLoadPostSlotPreflightNodeMarkerCount =
-            prepared.Presentation.NodeMarkers.Length;
+            presentation.NodeMarkers.Length;
         throw new InvalidOperationException(
             AggregateLoadPostSlotPreflightFailureMessage);
     }
@@ -2993,8 +2995,8 @@ public partial class SaveManager
             return;
 
         if (targetState is not RoadGraphRevision targetRevision) return;
-        if (preparedLoad.Presentation is not RoadRendererPreparedLoad) return;
-        var prepared = new PreparedLoadWork(preparedLoad);
+        if (preparedLoad.Presentation is not RoadRendererPreparedLoad presentation) return;
+        PreparedSceneLoad prepared = preparedLoad;
 
         ArgumentNullException.ThrowIfNull(preflightPlans);
         ArgumentNullException.ThrowIfNull(targetRevision);
@@ -3017,11 +3019,11 @@ public partial class SaveManager
         _aggregateLoadPostOwnershipPreCommitSourceParticipantCount =
             prepared.Slot.Participants.Count;
         _aggregateLoadPostOwnershipPreCommitRoadVertexCount =
-            prepared.Presentation.RoadVertices.Length;
+            presentation.RoadVertices.Length;
         _aggregateLoadPostOwnershipPreCommitSurfacePrimitiveCount =
-            prepared.Presentation.RoadSurface.PrimitiveCount;
+            presentation.RoadSurface.PrimitiveCount;
         _aggregateLoadPostOwnershipPreCommitNodeMarkerCount =
-            prepared.Presentation.NodeMarkers.Length;
+            presentation.NodeMarkers.Length;
         throw new InvalidOperationException(
             AggregateLoadPostOwnershipPreCommitFailureMessage);
     }
@@ -3108,8 +3110,8 @@ public partial class SaveManager
 
         if (network is not RoadGraph graph) return;
         if (targetState is not RoadGraphRevision targetRevision) return;
-        if (preparedLoad.Presentation is not RoadRendererPreparedLoad) return;
-        var prepared = new PreparedLoadWork(preparedLoad);
+        if (preparedLoad.Presentation is not RoadRendererPreparedLoad presentation) return;
+        PreparedSceneLoad prepared = preparedLoad;
         if (!ReferenceEquals(graph, _aggregateLoadGraphCommitBoundaryOwner))
         {
             throw new InvalidOperationException(
@@ -3137,11 +3139,11 @@ public partial class SaveManager
         _aggregateLoadGraphCommitBoundarySourceParticipantCount =
             prepared.Slot.Participants.Count;
         _aggregateLoadGraphCommitBoundaryRoadVertexCount =
-            prepared.Presentation.RoadVertices.Length;
+            presentation.RoadVertices.Length;
         _aggregateLoadGraphCommitBoundarySurfacePrimitiveCount =
-            prepared.Presentation.RoadSurface.PrimitiveCount;
+            presentation.RoadSurface.PrimitiveCount;
         _aggregateLoadGraphCommitBoundaryNodeMarkerCount =
-            prepared.Presentation.NodeMarkers.Length;
+            presentation.NodeMarkers.Length;
         _aggregateLoadGraphCommitBoundaryOwner = null;
         var wrapper = new AggregateLoadGraphBoundaryInvalidatingLease(
             operationLease,
@@ -3242,8 +3244,8 @@ public partial class SaveManager
 
         if (presentationParticipant is not RoadRenderer renderer) return;
         if (targetState is not RoadGraphRevision targetRevision) return;
-        if (preparedLoad.Presentation is not RoadRendererPreparedLoad) return;
-        var prepared = new PreparedLoadWork(preparedLoad);
+        if (preparedLoad.Presentation is not RoadRendererPreparedLoad presentation) return;
+        PreparedSceneLoad prepared = preparedLoad;
         if (!ReferenceEquals(renderer, _aggregateLoadRendererCommitBoundaryOwner))
         {
             throw new InvalidOperationException(
@@ -3271,11 +3273,11 @@ public partial class SaveManager
         _aggregateLoadRendererCommitBoundarySourceParticipantCount =
             prepared.Slot.Participants.Count;
         _aggregateLoadRendererCommitBoundaryRoadVertexCount =
-            prepared.Presentation.RoadVertices.Length;
+            presentation.RoadVertices.Length;
         _aggregateLoadRendererCommitBoundarySurfacePrimitiveCount =
-            prepared.Presentation.RoadSurface.PrimitiveCount;
+            presentation.RoadSurface.PrimitiveCount;
         _aggregateLoadRendererCommitBoundaryNodeMarkerCount =
-            prepared.Presentation.NodeMarkers.Length;
+            presentation.NodeMarkers.Length;
         _aggregateLoadRendererCommitBoundaryOwner = null;
         var wrapper = new AggregateLoadRendererBoundaryInvalidatingLease(
             operationLease,
@@ -3375,8 +3377,8 @@ public partial class SaveManager
 
         if (toolParticipant is not ToolManager toolManager) return;
         if (targetState is not RoadGraphRevision targetRevision) return;
-        if (preparedLoad.Presentation is not RoadRendererPreparedLoad) return;
-        var prepared = new PreparedLoadWork(preparedLoad);
+        if (preparedLoad.Presentation is not RoadRendererPreparedLoad presentation) return;
+        PreparedSceneLoad prepared = preparedLoad;
         if (!ReferenceEquals(toolManager, _aggregateLoadToolCommitBoundaryOwner))
         {
             throw new InvalidOperationException(
@@ -3404,11 +3406,11 @@ public partial class SaveManager
         _aggregateLoadToolCommitBoundarySourceParticipantCount =
             prepared.Slot.Participants.Count;
         _aggregateLoadToolCommitBoundaryRoadVertexCount =
-            prepared.Presentation.RoadVertices.Length;
+            presentation.RoadVertices.Length;
         _aggregateLoadToolCommitBoundarySurfacePrimitiveCount =
-            prepared.Presentation.RoadSurface.PrimitiveCount;
+            presentation.RoadSurface.PrimitiveCount;
         _aggregateLoadToolCommitBoundaryNodeMarkerCount =
-            prepared.Presentation.NodeMarkers.Length;
+            presentation.NodeMarkers.Length;
         _aggregateLoadToolCommitBoundaryOwner = null;
         var wrapper = new AggregateLoadToolBoundaryInvalidatingLease(
             operationLease,
@@ -3506,8 +3508,8 @@ public partial class SaveManager
             return;
 
         if (targetState is not RoadGraphRevision targetRevision) return;
-        if (preparedLoad.Presentation is not RoadRendererPreparedLoad) return;
-        var prepared = new PreparedLoadWork(preparedLoad);
+        if (preparedLoad.Presentation is not RoadRendererPreparedLoad presentation) return;
+        PreparedSceneLoad prepared = preparedLoad;
 
         ArgumentNullException.ThrowIfNull(preflightPlans);
         ArgumentNullException.ThrowIfNull(targetRevision);
@@ -3530,11 +3532,11 @@ public partial class SaveManager
         _aggregateLoadSlotTargetCommitBoundarySourceParticipantCount =
             prepared.Slot.Participants.Count;
         _aggregateLoadSlotTargetCommitBoundaryRoadVertexCount =
-            prepared.Presentation.RoadVertices.Length;
+            presentation.RoadVertices.Length;
         _aggregateLoadSlotTargetCommitBoundarySurfacePrimitiveCount =
-            prepared.Presentation.RoadSurface.PrimitiveCount;
+            presentation.RoadSurface.PrimitiveCount;
         _aggregateLoadSlotTargetCommitBoundaryNodeMarkerCount =
-            prepared.Presentation.NodeMarkers.Length;
+            presentation.NodeMarkers.Length;
         var wrapper = new AggregateLoadSlotTargetBoundaryInvalidatingLease(
             operationLease,
             this);

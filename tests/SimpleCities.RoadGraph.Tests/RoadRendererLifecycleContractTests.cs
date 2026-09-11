@@ -961,7 +961,7 @@ public sealed class RoadRendererLifecycleContractTests
             "ProbeAggregateLoadWorkerEntryFailure();",
             StringComparison.Ordinal);
         int slotPrepare = loadOrchestration.IndexOf(
-            "PreparedSaveSlot slot = CreateSlotStore().PrepareLoad(",
+            "PreparedSaveSlot slot = CreateSlotStore(sceneRequest).PrepareLoad(",
             StringComparison.Ordinal);
         int rendererWorkerFailure = loadOrchestration.IndexOf(
             "ProbeAggregateLoadRendererWorkerPrepareFailure();",
@@ -1016,7 +1016,7 @@ public sealed class RoadRendererLifecycleContractTests
             "ProbeAggregateLoadWorkerEntryFailure();",
             StringComparison.Ordinal);
         int slotPrepare = loadOrchestration.IndexOf(
-            "PreparedSaveSlot slot = CreateSlotStore().PrepareLoad(",
+            "PreparedSaveSlot slot = CreateSlotStore(sceneRequest).PrepareLoad(",
             StringComparison.Ordinal);
         int failure = loadOrchestration.IndexOf(
             "ProbeAggregateLoadPostSlotPreparationFailure(slot);",
@@ -1332,7 +1332,7 @@ public sealed class RoadRendererLifecycleContractTests
             failureProbe,
             StringComparison.Ordinal);
         Assert.Contains(
-            "prepared.Presentation.RoadSurface.PrimitiveCount;",
+            "presentation.RoadSurface.PrimitiveCount;",
             failureProbe,
             StringComparison.Ordinal);
         Assert.Contains(
@@ -1406,7 +1406,7 @@ public sealed class RoadRendererLifecycleContractTests
             failureProbe,
             StringComparison.Ordinal);
         Assert.Contains(
-            "prepared.Presentation.RoadSurface.PrimitiveCount;",
+            "presentation.RoadSurface.PrimitiveCount;",
             failureProbe,
             StringComparison.Ordinal);
         Assert.Contains(
@@ -1480,7 +1480,7 @@ public sealed class RoadRendererLifecycleContractTests
             failureProbe,
             StringComparison.Ordinal);
         Assert.Contains(
-            "prepared.Presentation.RoadSurface.PrimitiveCount;",
+            "presentation.RoadSurface.PrimitiveCount;",
             failureProbe,
             StringComparison.Ordinal);
         Assert.Contains(
@@ -1557,7 +1557,7 @@ public sealed class RoadRendererLifecycleContractTests
             failureProbe,
             StringComparison.Ordinal);
         Assert.Contains(
-            "prepared.Presentation.RoadSurface.PrimitiveCount;",
+            "presentation.RoadSurface.PrimitiveCount;",
             failureProbe,
             StringComparison.Ordinal);
         Assert.Contains(
@@ -1645,7 +1645,7 @@ public sealed class RoadRendererLifecycleContractTests
             failureProbe,
             StringComparison.Ordinal);
         Assert.Contains(
-            "prepared.Presentation.RoadSurface.PrimitiveCount;",
+            "presentation.RoadSurface.PrimitiveCount;",
             failureProbe,
             StringComparison.Ordinal);
         Assert.Contains(
@@ -1730,7 +1730,7 @@ public sealed class RoadRendererLifecycleContractTests
             failureProbe,
             StringComparison.Ordinal);
         Assert.Contains(
-            "prepared.Presentation.RoadSurface.PrimitiveCount;",
+            "presentation.RoadSurface.PrimitiveCount;",
             failureProbe,
             StringComparison.Ordinal);
         Assert.Contains(
@@ -1804,15 +1804,15 @@ public sealed class RoadRendererLifecycleContractTests
         Assert.Contains("prepared.Slot.SlotID;", failureProbe, StringComparison.Ordinal);
         Assert.Contains("prepared.Slot.Participants.Count;", failureProbe, StringComparison.Ordinal);
         Assert.Contains(
-            "prepared.Presentation.RoadVertices.Length;",
+            "presentation.RoadVertices.Length;",
             failureProbe,
             StringComparison.Ordinal);
         Assert.Contains(
-            "prepared.Presentation.RoadSurface.PrimitiveCount;",
+            "presentation.RoadSurface.PrimitiveCount;",
             failureProbe,
             StringComparison.Ordinal);
         Assert.Contains(
-            "prepared.Presentation.NodeMarkers.Length;",
+            "presentation.NodeMarkers.Length;",
             failureProbe,
             StringComparison.Ordinal);
         Assert.Contains(
@@ -1891,15 +1891,15 @@ public sealed class RoadRendererLifecycleContractTests
         Assert.Contains("prepared.Slot.SlotID;", failureProbe, StringComparison.Ordinal);
         Assert.Contains("prepared.Slot.Participants.Count;", failureProbe, StringComparison.Ordinal);
         Assert.Contains(
-            "prepared.Presentation.RoadVertices.Length;",
+            "presentation.RoadVertices.Length;",
             failureProbe,
             StringComparison.Ordinal);
         Assert.Contains(
-            "prepared.Presentation.RoadSurface.PrimitiveCount;",
+            "presentation.RoadSurface.PrimitiveCount;",
             failureProbe,
             StringComparison.Ordinal);
         Assert.Contains(
-            "prepared.Presentation.NodeMarkers.Length;",
+            "presentation.NodeMarkers.Length;",
             failureProbe,
             StringComparison.Ordinal);
         Assert.Contains(
@@ -1978,15 +1978,15 @@ public sealed class RoadRendererLifecycleContractTests
         Assert.Contains("prepared.Slot.SlotID;", failureProbe, StringComparison.Ordinal);
         Assert.Contains("prepared.Slot.Participants.Count;", failureProbe, StringComparison.Ordinal);
         Assert.Contains(
-            "prepared.Presentation.RoadVertices.Length;",
+            "presentation.RoadVertices.Length;",
             failureProbe,
             StringComparison.Ordinal);
         Assert.Contains(
-            "prepared.Presentation.RoadSurface.PrimitiveCount;",
+            "presentation.RoadSurface.PrimitiveCount;",
             failureProbe,
             StringComparison.Ordinal);
         Assert.Contains(
-            "prepared.Presentation.NodeMarkers.Length;",
+            "presentation.NodeMarkers.Length;",
             failureProbe,
             StringComparison.Ordinal);
         Assert.Contains(
@@ -2065,15 +2065,15 @@ public sealed class RoadRendererLifecycleContractTests
         Assert.Contains("prepared.Slot.SlotID;", failureProbe, StringComparison.Ordinal);
         Assert.Contains("prepared.Slot.Participants.Count;", failureProbe, StringComparison.Ordinal);
         Assert.Contains(
-            "prepared.Presentation.RoadVertices.Length;",
+            "presentation.RoadVertices.Length;",
             failureProbe,
             StringComparison.Ordinal);
         Assert.Contains(
-            "prepared.Presentation.RoadSurface.PrimitiveCount;",
+            "presentation.RoadSurface.PrimitiveCount;",
             failureProbe,
             StringComparison.Ordinal);
         Assert.Contains(
-            "prepared.Presentation.NodeMarkers.Length;",
+            "presentation.NodeMarkers.Length;",
             failureProbe,
             StringComparison.Ordinal);
         Assert.Contains(
@@ -2153,15 +2153,15 @@ public sealed class RoadRendererLifecycleContractTests
         Assert.Contains("prepared.Slot.SlotID;", failureProbe, StringComparison.Ordinal);
         Assert.Contains("prepared.Slot.Participants.Count;", failureProbe, StringComparison.Ordinal);
         Assert.Contains(
-            "prepared.Presentation.RoadVertices.Length;",
+            "presentation.RoadVertices.Length;",
             failureProbe,
             StringComparison.Ordinal);
         Assert.Contains(
-            "prepared.Presentation.RoadSurface.PrimitiveCount;",
+            "presentation.RoadSurface.PrimitiveCount;",
             failureProbe,
             StringComparison.Ordinal);
         Assert.Contains(
-            "prepared.Presentation.NodeMarkers.Length;",
+            "presentation.NodeMarkers.Length;",
             failureProbe,
             StringComparison.Ordinal);
         Assert.Contains(
@@ -2241,15 +2241,15 @@ public sealed class RoadRendererLifecycleContractTests
         Assert.Contains("prepared.Slot.SlotID;", failureProbe, StringComparison.Ordinal);
         Assert.Contains("prepared.Slot.Participants.Count;", failureProbe, StringComparison.Ordinal);
         Assert.Contains(
-            "prepared.Presentation.RoadVertices.Length;",
+            "presentation.RoadVertices.Length;",
             failureProbe,
             StringComparison.Ordinal);
         Assert.Contains(
-            "prepared.Presentation.RoadSurface.PrimitiveCount;",
+            "presentation.RoadSurface.PrimitiveCount;",
             failureProbe,
             StringComparison.Ordinal);
         Assert.Contains(
-            "prepared.Presentation.NodeMarkers.Length;",
+            "presentation.NodeMarkers.Length;",
             failureProbe,
             StringComparison.Ordinal);
         Assert.Contains(
@@ -2325,15 +2325,15 @@ public sealed class RoadRendererLifecycleContractTests
         Assert.Contains("prepared.Slot.SlotID;", failureProbe, StringComparison.Ordinal);
         Assert.Contains("prepared.Slot.Participants.Count;", failureProbe, StringComparison.Ordinal);
         Assert.Contains(
-            "prepared.Presentation.RoadVertices.Length;",
+            "presentation.RoadVertices.Length;",
             failureProbe,
             StringComparison.Ordinal);
         Assert.Contains(
-            "prepared.Presentation.RoadSurface.PrimitiveCount;",
+            "presentation.RoadSurface.PrimitiveCount;",
             failureProbe,
             StringComparison.Ordinal);
         Assert.Contains(
-            "prepared.Presentation.NodeMarkers.Length;",
+            "presentation.NodeMarkers.Length;",
             failureProbe,
             StringComparison.Ordinal);
         Assert.Contains(
@@ -2659,15 +2659,15 @@ public sealed class RoadRendererLifecycleContractTests
         Assert.Contains("prepared.Slot.SlotID,", observationCapture, StringComparison.Ordinal);
         Assert.Contains("prepared.Slot.Participants.Count,", observationCapture, StringComparison.Ordinal);
         Assert.Contains(
-            "prepared.Presentation.RoadVertices.Length,",
+            "presentation.RoadVertices.Length,",
             observationCapture,
             StringComparison.Ordinal);
         Assert.Contains(
-            "prepared.Presentation.RoadSurface.PrimitiveCount,",
+            "presentation.RoadSurface.PrimitiveCount,",
             observationCapture,
             StringComparison.Ordinal);
         Assert.Contains(
-            "prepared.Presentation.NodeMarkers.Length);",
+            "presentation.NodeMarkers.Length);",
             observationCapture,
             StringComparison.Ordinal);
         Assert.Contains(
