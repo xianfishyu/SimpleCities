@@ -8,3 +8,4 @@ saves/
 **/obj/
 docs/ui/concepts
 .playwright-mcp/
+docs/adr
