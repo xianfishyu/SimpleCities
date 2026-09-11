@@ -27,64 +27,64 @@ public partial class SaveManager : Node
         IPreparedSaveState graphState);
     partial void ProbeAggregateLoadRendererWorkerPrepareFailure();
     partial void ProbeAggregateLoadPostRendererWorkerPreparationFailure(
-        RoadRendererPreparedLoad presentation);
+        IPreparedScenePresentation preparedPresentation);
     partial void ProbeAggregateLoadPostPreparedWorkReturnFailure(
-        PreparedLoadWork prepared);
+        PreparedSceneLoad preparedLoad);
     partial void ProbeAggregateLoadPostSceneRequestValidationFailure(
-        PreparedLoadWork prepared);
+        PreparedSceneLoad preparedLoad);
     partial void ProbeAggregateLoadPostCancellationCheckFailure(
-        PreparedLoadWork prepared);
+        PreparedSceneLoad preparedLoad);
     partial void ProbeAggregateLoadPostPreflightPhaseFailure(
         SaveOperationPhase phase,
-        PreparedLoadWork prepared);
+        PreparedSceneLoad preparedLoad);
     partial void ProbeAggregateLoadPostGraphPreflightFailure(
         IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
-        RoadGraphRevision targetRevision,
-        PreparedLoadWork prepared);
+        IPreparedSaveState targetState,
+        PreparedSceneLoad preparedLoad);
     partial void ProbeAggregateLoadPostToolPreflightFailure(
         IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
-        RoadGraphRevision targetRevision,
-        PreparedLoadWork prepared);
+        IPreparedSaveState targetState,
+        PreparedSceneLoad preparedLoad);
     partial void ProbeAggregateLoadRendererPreflightObservation(
-        RoadRenderer renderer,
+        IScenePresentationLoadParticipant presentationParticipant,
         SaveOperationPhase phase,
         IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
-        RoadGraphRevision targetRevision,
-        PreparedLoadWork prepared);
+        IPreparedSaveState targetState,
+        PreparedSceneLoad preparedLoad);
     partial void ProbeAggregateLoadPostRendererPreflightFailure(
         IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
-        RoadGraphRevision targetRevision,
-        PreparedLoadWork prepared);
+        IPreparedSaveState targetState,
+        PreparedSceneLoad preparedLoad);
     partial void ProbeAggregateLoadPostSlotPreflightFailure(
         IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
-        RoadGraphRevision targetRevision,
-        PreparedLoadWork prepared);
+        IPreparedSaveState targetState,
+        PreparedSceneLoad preparedLoad);
     partial void ProbeAggregateLoadPostOwnershipPreCommitFailure(
         IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
-        RoadGraphRevision targetRevision,
-        PreparedLoadWork prepared);
+        IPreparedSaveState targetState,
+        PreparedSceneLoad preparedLoad);
     partial void ProbeAggregateLoadGraphCommitBoundaryGenerationMismatch(
-        RoadGraph graph,
+        ISceneNetworkLoadParticipant network,
         IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
-        RoadGraphRevision targetRevision,
-        PreparedLoadWork prepared,
+        IPreparedSaveState targetState,
+        PreparedSceneLoad preparedLoad,
         ref IStorageOperationLease operationLease);
     partial void ProbeAggregateLoadRendererCommitBoundaryGenerationMismatch(
-        RoadRenderer renderer,
+        IScenePresentationLoadParticipant presentationParticipant,
         IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
-        RoadGraphRevision targetRevision,
-        PreparedLoadWork prepared,
+        IPreparedSaveState targetState,
+        PreparedSceneLoad preparedLoad,
         ref IStorageOperationLease operationLease);
     partial void ProbeAggregateLoadToolCommitBoundaryGenerationMismatch(
-        ToolManager toolManager,
+        ISceneToolLoadParticipant toolParticipant,
         IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
-        RoadGraphRevision targetRevision,
-        PreparedLoadWork prepared,
+        IPreparedSaveState targetState,
+        PreparedSceneLoad preparedLoad,
         ref IStorageOperationLease operationLease);
     partial void ProbeAggregateLoadSlotTargetCommitBoundaryGenerationMismatch(
         IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
-        RoadGraphRevision targetRevision,
-        PreparedLoadWork prepared,
+        IPreparedSaveState targetState,
+        PreparedSceneLoad preparedLoad,
         ref IStorageOperationLease operationLease);
     partial void ProbeAggregateLoadPostCommitFailure();
     partial void ProbeSlotTargetLoadCompleteCommitFailure();
@@ -229,21 +229,22 @@ public partial class SaveManager : Node
     public bool Unregister(IStreamingSaveable saveable)
     {
         EnsureMainThread();
-        if (_sceneContext?.Graph == saveable)
-            UnregisterSceneParticipants(_sceneContext.ToolManager);
+        if (_sceneContext?.Participants.Network == saveable)
+            UnregisterSceneLoad(_sceneContext.Participants.Tools);
         return _saveables.Remove(saveable);
     }
 
     internal bool RegisterSceneParticipants(
         RoadGraph graph,
         ToolManager toolManager,
-        RoadRenderer renderer)
+        RoadRenderer renderer) =>
+        RegisterSceneLoad(new SceneLoadParticipants(graph, toolManager, renderer));
+
+    internal bool RegisterSceneLoad(SceneLoadParticipants participants)
     {
         EnsureMainThread();
-        ArgumentNullException.ThrowIfNull(graph);
-        ArgumentNullException.ThrowIfNull(toolManager);
-        ArgumentNullException.ThrowIfNull(renderer);
-        if (!_saveables.Contains(graph) || _sceneContext is not null)
+        ArgumentNullException.ThrowIfNull(participants);
+        if (!_saveables.Contains(participants.Network) || _sceneContext is not null)
             return false;
 
         CancellationTokenSource previousCancellation = _sceneCancellation;
@@ -252,21 +253,22 @@ public partial class SaveManager : Node
         _sceneCancellation = new CancellationTokenSource();
         _sceneGeneration = NextGeneration(_sceneGeneration);
         _sceneClosing = false;
-        renderer.ConfigureSceneGeneration(_sceneGeneration);
+        participants.Presentation.ConfigureSceneGeneration(_sceneGeneration);
         _sceneContext = new SceneLoadContext(
             _sceneGeneration,
-            graph,
-            toolManager,
-            renderer);
+            participants);
         SetCurrentSlot(AutosaveSlotID);
         return true;
     }
 
-    internal void UnregisterSceneParticipants(ToolManager toolManager)
+    internal void UnregisterSceneParticipants(ToolManager toolManager) =>
+        UnregisterSceneLoad(toolManager);
+
+    internal void UnregisterSceneLoad(ISceneToolLoadParticipant tools)
     {
         EnsureMainThread();
         if (_sceneContext is not SceneLoadContext context ||
-            !ReferenceEquals(context.ToolManager, toolManager))
+            !ReferenceEquals(context.Participants.Tools, tools))
         {
             return;
         }
@@ -727,28 +729,28 @@ public partial class SaveManager : Node
         SaveOperationLease lease = admission.Lease!;
         await using (lease)
         {
-            RoadGraph.RoadGraphLoadAdmission? graphAdmission = null;
-            ToolManager.ToolLoadAdmission? toolAdmission = null;
-            RoadRenderer.RoadRendererLoadAdmission? rendererAdmission = null;
+            ISceneNetworkLoadAdmission? graphAdmission = null;
+            ISceneToolLoadAdmission? toolAdmission = null;
+            IScenePresentationLoadAdmission? rendererAdmission = null;
             var preflightPlans = new List<INonThrowingLoadCommitPlan>();
             bool aggregateOwnsPlans = false;
             try
             {
                 SceneLoadContext context = RequireLoadContext(sceneRequest);
-                graphAdmission = context.Graph.BeginLoadAdmission();
-                toolAdmission = context.ToolManager.BeginLoadAdmission();
-                rendererAdmission = context.Renderer.BeginLoadAdmission();
+                graphAdmission = context.Participants.Network.BeginSceneLoadAdmission();
+                toolAdmission = context.Participants.Tools.BeginSceneLoadAdmission();
+                rendererAdmission = context.Participants.Presentation.BeginSceneLoadAdmission();
                 ProbeAggregateLoadPostRendererAdmissionFailure();
                 var preparationContext = new SceneLoadPreparationContext(
                     context.Generation,
-                    context.Graph,
-                    new V3RoadLoadPresentationPreparer(rendererAdmission.Preparer));
+                    context.Participants.Network,
+                    rendererAdmission.Preparer);
                 IReadOnlyList<CapturedLoadParticipant> loadParticipants =
                     SaveSlotStore.CaptureLoadParticipants(GetRequiredSaveables());
                 ProbeAggregateLoadPostParticipantCaptureFailure(loadParticipants);
                 lease.AdvanceTo(SaveOperationPhase.Prepare);
                 ProbeAggregateLoadPostPreparePhaseFailure(lease.State.Phase);
-                PreparedLoadWork prepared = await Task.Run(() =>
+                PreparedSceneLoad prepared = await Task.Run(() =>
                 {
                     long workerPrepareStarted = Stopwatch.GetTimestamp();
                     ProbeAggregateLoadWorkerEntryFailure();
@@ -760,16 +762,15 @@ public partial class SaveManager : Node
                     IPreparedSaveState graphState = slot.GetPreparedState(preparationContext.NetworkTarget);
                     ProbeAggregateLoadPostGraphStateLookupFailure(graphState);
                     ProbeAggregateLoadRendererWorkerPrepareFailure();
-                    RoadRendererPreparedLoad presentation =
-                        (RoadRendererPreparedLoad)preparationContext.PresentationPreparer.Prepare(graphState);
+                    IPreparedScenePresentation presentation =
+                        preparationContext.PresentationPreparer.Prepare(graphState);
                     ProbeAggregateLoadPostRendererWorkerPreparationFailure(presentation);
-                    return new PreparedLoadWork(
-                        new PreparedSceneLoad(
-                            preparationContext,
-                            slot,
-                            graphState,
-                            presentation,
-                            Stopwatch.GetElapsedTime(workerPrepareStarted)));
+                    return new PreparedSceneLoad(
+                        preparationContext,
+                        slot,
+                        graphState,
+                        presentation,
+                        Stopwatch.GetElapsedTime(workerPrepareStarted));
                 });
                 ProbeAggregateLoadPostPreparedWorkReturnFailure(prepared);
 
@@ -780,30 +781,28 @@ public partial class SaveManager : Node
                 lease.AdvanceTo(SaveOperationPhase.Preflight);
                 ProbeAggregateLoadPostPreflightPhaseFailure(lease.State.Phase, prepared);
                 long preflightStarted = Stopwatch.GetTimestamp();
-                INonThrowingLoadCommitPlan graphPlan = context.Graph.PreflightPreparedLoad(
-                    graphAdmission,
-                    prepared.GraphState,
-                    out RoadGraphRevision targetRevision);
+                INonThrowingLoadCommitPlan graphPlan = graphAdmission.PreflightPreparedLoad(
+                    prepared.NetworkState,
+                    out IPreparedSaveState targetRevision);
                 preflightPlans.Add(graphPlan);
                 ProbeAggregateLoadPostGraphPreflightFailure(
                     preflightPlans,
                     targetRevision,
                     prepared);
-                preflightPlans.Add(context.ToolManager.PreflightFullReset(toolAdmission));
+                preflightPlans.Add(toolAdmission.PreflightFullReset());
                 ProbeAggregateLoadPostToolPreflightFailure(
                     preflightPlans,
                     targetRevision,
                     prepared);
                 ProbeAggregateLoadRendererPreflightObservation(
-                    context.Renderer,
+                    context.Participants.Presentation,
                     lease.State.Phase,
                     preflightPlans,
                     targetRevision,
                     prepared);
-                preflightPlans.Add(context.Renderer.PreflightPreparedLoad(
-                    rendererAdmission,
+                preflightPlans.Add(rendererAdmission.PreflightPreparedLoad(
                     prepared.Presentation,
-                    targetRevision.StateToken));
+                    targetRevision));
                 ProbeAggregateLoadPostRendererPreflightFailure(
                     preflightPlans,
                     targetRevision,
@@ -830,19 +829,19 @@ public partial class SaveManager : Node
                 long aggregateCommitStarted = Stopwatch.GetTimestamp();
                 IStorageOperationLease aggregateOperationLease = lease;
                 ProbeAggregateLoadGraphCommitBoundaryGenerationMismatch(
-                    context.Graph,
+                    context.Participants.Network,
                     preflightPlans,
                     targetRevision,
                     prepared,
                     ref aggregateOperationLease);
                 ProbeAggregateLoadRendererCommitBoundaryGenerationMismatch(
-                    context.Renderer,
+                    context.Participants.Presentation,
                     preflightPlans,
                     targetRevision,
                     prepared,
                     ref aggregateOperationLease);
                 ProbeAggregateLoadToolCommitBoundaryGenerationMismatch(
-                    context.ToolManager,
+                    context.Participants.Tools,
                     preflightPlans,
                     targetRevision,
                     prepared,
@@ -1337,11 +1336,9 @@ public partial class SaveManager : Node
 
     private sealed record SceneLoadContext(
         long Generation,
-        RoadGraph Graph,
-        ToolManager ToolManager,
-        RoadRenderer Renderer);
+        SceneLoadParticipants Participants);
 
-    // V3 compatibility view: callers migrate to PreparedSceneLoad in the next slice.
+    // Legacy V3 fault probes retain this view until the contract cleanup slice.
     private sealed record PreparedLoadWork
     {
         private readonly PreparedSceneLoad _prepared;

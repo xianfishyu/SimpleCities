@@ -1761,10 +1761,12 @@ public partial class SaveManager
         _aggregateLoadRendererWorkerPrepareFailureCount;
 
     partial void ProbeAggregateLoadPostRendererWorkerPreparationFailure(
-        RoadRendererPreparedLoad presentation)
+        IPreparedScenePresentation preparedPresentation)
     {
         if (!_aggregateLoadPostRendererWorkerPreparationFailureArmed)
             return;
+
+        if (preparedPresentation is not RoadRendererPreparedLoad presentation) return;
 
         ArgumentNullException.ThrowIfNull(presentation);
         _aggregateLoadPostRendererWorkerPreparationFailureArmed = false;
@@ -1820,10 +1822,13 @@ public partial class SaveManager
         _aggregateLoadPostRendererWorkerPreparationNodeMarkerCount;
 
     partial void ProbeAggregateLoadPostPreparedWorkReturnFailure(
-        PreparedLoadWork prepared)
+        PreparedSceneLoad preparedLoad)
     {
         if (!_aggregateLoadPostPreparedWorkReturnFailureArmed)
             return;
+
+        if (preparedLoad.Presentation is not RoadRendererPreparedLoad) return;
+        var prepared = new PreparedLoadWork(preparedLoad);
 
         ArgumentNullException.ThrowIfNull(prepared);
         _aggregateLoadPostPreparedWorkReturnFailureArmed = false;
@@ -1890,10 +1895,13 @@ public partial class SaveManager
         _aggregateLoadPostPreparedWorkReturnNodeMarkerCount;
 
     partial void ProbeAggregateLoadPostSceneRequestValidationFailure(
-        PreparedLoadWork prepared)
+        PreparedSceneLoad preparedLoad)
     {
         if (!_aggregateLoadPostSceneRequestValidationFailureArmed)
             return;
+
+        if (preparedLoad.Presentation is not RoadRendererPreparedLoad) return;
+        var prepared = new PreparedLoadWork(preparedLoad);
 
         ArgumentNullException.ThrowIfNull(prepared);
         _aggregateLoadPostSceneRequestValidationFailureArmed = false;
@@ -1960,10 +1968,13 @@ public partial class SaveManager
         _aggregateLoadPostSceneRequestValidationNodeMarkerCount;
 
     partial void ProbeAggregateLoadPostCancellationCheckFailure(
-        PreparedLoadWork prepared)
+        PreparedSceneLoad preparedLoad)
     {
         if (!_aggregateLoadPostCancellationCheckFailureArmed)
             return;
+
+        if (preparedLoad.Presentation is not RoadRendererPreparedLoad) return;
+        var prepared = new PreparedLoadWork(preparedLoad);
 
         ArgumentNullException.ThrowIfNull(prepared);
         _aggregateLoadPostCancellationCheckFailureArmed = false;
@@ -2031,10 +2042,13 @@ public partial class SaveManager
 
     partial void ProbeAggregateLoadPostPreflightPhaseFailure(
         SaveOperationPhase phase,
-        PreparedLoadWork prepared)
+        PreparedSceneLoad preparedLoad)
     {
         if (!_aggregateLoadPostPreflightPhaseFailureArmed)
             return;
+
+        if (preparedLoad.Presentation is not RoadRendererPreparedLoad) return;
+        var prepared = new PreparedLoadWork(preparedLoad);
 
         ArgumentNullException.ThrowIfNull(prepared);
         _aggregateLoadPostPreflightPhaseFailureArmed = false;
@@ -2106,11 +2120,15 @@ public partial class SaveManager
 
     partial void ProbeAggregateLoadPostGraphPreflightFailure(
         IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
-        RoadGraphRevision targetRevision,
-        PreparedLoadWork prepared)
+        IPreparedSaveState targetState,
+        PreparedSceneLoad preparedLoad)
     {
         if (!_aggregateLoadPostGraphPreflightFailureArmed)
             return;
+
+        if (targetState is not RoadGraphRevision targetRevision) return;
+        if (preparedLoad.Presentation is not RoadRendererPreparedLoad) return;
+        var prepared = new PreparedLoadWork(preparedLoad);
 
         ArgumentNullException.ThrowIfNull(preflightPlans);
         ArgumentNullException.ThrowIfNull(targetRevision);
@@ -2196,11 +2214,15 @@ public partial class SaveManager
 
     partial void ProbeAggregateLoadPostToolPreflightFailure(
         IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
-        RoadGraphRevision targetRevision,
-        PreparedLoadWork prepared)
+        IPreparedSaveState targetState,
+        PreparedSceneLoad preparedLoad)
     {
         if (!_aggregateLoadPostToolPreflightFailureArmed)
             return;
+
+        if (targetState is not RoadGraphRevision targetRevision) return;
+        if (preparedLoad.Presentation is not RoadRendererPreparedLoad) return;
+        var prepared = new PreparedLoadWork(preparedLoad);
 
         ArgumentNullException.ThrowIfNull(preflightPlans);
         ArgumentNullException.ThrowIfNull(targetRevision);
@@ -2291,12 +2313,17 @@ public partial class SaveManager
         _aggregateLoadPostToolPreflightNodeMarkerCount;
 
     partial void ProbeAggregateLoadRendererPreflightObservation(
-        RoadRenderer renderer,
+        IScenePresentationLoadParticipant presentationParticipant,
         SaveOperationPhase phase,
         IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
-        RoadGraphRevision targetRevision,
-        PreparedLoadWork prepared)
+        IPreparedSaveState targetState,
+        PreparedSceneLoad preparedLoad)
     {
+        if (presentationParticipant is not RoadRenderer renderer) return;
+        if (targetState is not RoadGraphRevision targetRevision) return;
+        if (preparedLoad.Presentation is not RoadRendererPreparedLoad) return;
+        var prepared = new PreparedLoadWork(preparedLoad);
+
         CaptureAggregateLoadRendererPreflightObservation(
             renderer,
             phase,
@@ -2741,11 +2768,15 @@ public partial class SaveManager
 
     partial void ProbeAggregateLoadPostRendererPreflightFailure(
         IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
-        RoadGraphRevision targetRevision,
-        PreparedLoadWork prepared)
+        IPreparedSaveState targetState,
+        PreparedSceneLoad preparedLoad)
     {
         if (!_aggregateLoadPostRendererPreflightFailureArmed)
             return;
+
+        if (targetState is not RoadGraphRevision targetRevision) return;
+        if (preparedLoad.Presentation is not RoadRendererPreparedLoad) return;
+        var prepared = new PreparedLoadWork(preparedLoad);
 
         ArgumentNullException.ThrowIfNull(preflightPlans);
         ArgumentNullException.ThrowIfNull(targetRevision);
@@ -2843,11 +2874,15 @@ public partial class SaveManager
 
     partial void ProbeAggregateLoadPostSlotPreflightFailure(
         IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
-        RoadGraphRevision targetRevision,
-        PreparedLoadWork prepared)
+        IPreparedSaveState targetState,
+        PreparedSceneLoad preparedLoad)
     {
         if (!_aggregateLoadPostSlotPreflightFailureArmed)
             return;
+
+        if (targetState is not RoadGraphRevision targetRevision) return;
+        if (preparedLoad.Presentation is not RoadRendererPreparedLoad) return;
+        var prepared = new PreparedLoadWork(preparedLoad);
 
         ArgumentNullException.ThrowIfNull(preflightPlans);
         ArgumentNullException.ThrowIfNull(targetRevision);
@@ -2951,11 +2986,15 @@ public partial class SaveManager
 
     partial void ProbeAggregateLoadPostOwnershipPreCommitFailure(
         IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
-        RoadGraphRevision targetRevision,
-        PreparedLoadWork prepared)
+        IPreparedSaveState targetState,
+        PreparedSceneLoad preparedLoad)
     {
         if (!_aggregateLoadPostOwnershipPreCommitFailureArmed)
             return;
+
+        if (targetState is not RoadGraphRevision targetRevision) return;
+        if (preparedLoad.Presentation is not RoadRendererPreparedLoad) return;
+        var prepared = new PreparedLoadWork(preparedLoad);
 
         ArgumentNullException.ThrowIfNull(preflightPlans);
         ArgumentNullException.ThrowIfNull(targetRevision);
@@ -3058,14 +3097,19 @@ public partial class SaveManager
         _aggregateLoadPostOwnershipPreCommitNodeMarkerCount;
 
     partial void ProbeAggregateLoadGraphCommitBoundaryGenerationMismatch(
-        RoadGraph graph,
+        ISceneNetworkLoadParticipant network,
         IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
-        RoadGraphRevision targetRevision,
-        PreparedLoadWork prepared,
+        IPreparedSaveState targetState,
+        PreparedSceneLoad preparedLoad,
         ref IStorageOperationLease operationLease)
     {
         if (!_aggregateLoadGraphCommitBoundaryGenerationMismatchArmed)
             return;
+
+        if (network is not RoadGraph graph) return;
+        if (targetState is not RoadGraphRevision targetRevision) return;
+        if (preparedLoad.Presentation is not RoadRendererPreparedLoad) return;
+        var prepared = new PreparedLoadWork(preparedLoad);
         if (!ReferenceEquals(graph, _aggregateLoadGraphCommitBoundaryOwner))
         {
             throw new InvalidOperationException(
@@ -3118,7 +3162,7 @@ public partial class SaveManager
             throw new InvalidOperationException(
                 "Aggregate Load graph commit-boundary generation mismatch probe is already armed.");
         }
-        RoadGraph graph = _sceneContext?.Graph ?? throw new InvalidOperationException(
+        RoadGraph graph = _sceneContext?.Participants.Network as RoadGraph ?? throw new InvalidOperationException(
             "SaveManager must have a current RoadGraph before arming its aggregate Load graph probe.");
 
         _aggregateLoadGraphCommitBoundaryProbeRanOnMainThread = false;
@@ -3187,14 +3231,19 @@ public partial class SaveManager
         _aggregateLoadGraphBoundaryLease?.MarkCommittedCount ?? 0;
 
     partial void ProbeAggregateLoadRendererCommitBoundaryGenerationMismatch(
-        RoadRenderer renderer,
+        IScenePresentationLoadParticipant presentationParticipant,
         IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
-        RoadGraphRevision targetRevision,
-        PreparedLoadWork prepared,
+        IPreparedSaveState targetState,
+        PreparedSceneLoad preparedLoad,
         ref IStorageOperationLease operationLease)
     {
         if (!_aggregateLoadRendererCommitBoundaryGenerationMismatchArmed)
             return;
+
+        if (presentationParticipant is not RoadRenderer renderer) return;
+        if (targetState is not RoadGraphRevision targetRevision) return;
+        if (preparedLoad.Presentation is not RoadRendererPreparedLoad) return;
+        var prepared = new PreparedLoadWork(preparedLoad);
         if (!ReferenceEquals(renderer, _aggregateLoadRendererCommitBoundaryOwner))
         {
             throw new InvalidOperationException(
@@ -3315,14 +3364,19 @@ public partial class SaveManager
         _aggregateLoadRendererBoundaryLease?.MarkCommittedCount ?? 0;
 
     partial void ProbeAggregateLoadToolCommitBoundaryGenerationMismatch(
-        ToolManager toolManager,
+        ISceneToolLoadParticipant toolParticipant,
         IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
-        RoadGraphRevision targetRevision,
-        PreparedLoadWork prepared,
+        IPreparedSaveState targetState,
+        PreparedSceneLoad preparedLoad,
         ref IStorageOperationLease operationLease)
     {
         if (!_aggregateLoadToolCommitBoundaryGenerationMismatchArmed)
             return;
+
+        if (toolParticipant is not ToolManager toolManager) return;
+        if (targetState is not RoadGraphRevision targetRevision) return;
+        if (preparedLoad.Presentation is not RoadRendererPreparedLoad) return;
+        var prepared = new PreparedLoadWork(preparedLoad);
         if (!ReferenceEquals(toolManager, _aggregateLoadToolCommitBoundaryOwner))
         {
             throw new InvalidOperationException(
@@ -3444,12 +3498,16 @@ public partial class SaveManager
 
     partial void ProbeAggregateLoadSlotTargetCommitBoundaryGenerationMismatch(
         IReadOnlyList<INonThrowingLoadCommitPlan> preflightPlans,
-        RoadGraphRevision targetRevision,
-        PreparedLoadWork prepared,
+        IPreparedSaveState targetState,
+        PreparedSceneLoad preparedLoad,
         ref IStorageOperationLease operationLease)
     {
         if (!_aggregateLoadSlotTargetCommitBoundaryGenerationMismatchArmed)
             return;
+
+        if (targetState is not RoadGraphRevision targetRevision) return;
+        if (preparedLoad.Presentation is not RoadRendererPreparedLoad) return;
+        var prepared = new PreparedLoadWork(preparedLoad);
 
         ArgumentNullException.ThrowIfNull(preflightPlans);
         ArgumentNullException.ThrowIfNull(targetRevision);

@@ -557,19 +557,19 @@ public sealed class RoadRendererLifecycleContractTests
             "internal INonThrowingLoadCommitPlan PreflightPreparedLoad(");
 
         int graphAdmission = loadOrchestration.IndexOf(
-            "graphAdmission = context.Graph.BeginLoadAdmission();",
+            "graphAdmission = context.Participants.Network.BeginSceneLoadAdmission();",
             StringComparison.Ordinal);
         int toolAdmission = loadOrchestration.IndexOf(
-            "toolAdmission = context.ToolManager.BeginLoadAdmission();",
+            "toolAdmission = context.Participants.Tools.BeginSceneLoadAdmission();",
             StringComparison.Ordinal);
         int rendererAdmissionStart = loadOrchestration.IndexOf(
-            "rendererAdmission = context.Renderer.BeginLoadAdmission();",
+            "rendererAdmission = context.Participants.Presentation.BeginSceneLoadAdmission();",
             StringComparison.Ordinal);
         int participantCapture = loadOrchestration.IndexOf(
             "SaveSlotStore.CaptureLoadParticipants(GetRequiredSaveables());",
             StringComparison.Ordinal);
         int workerStart = loadOrchestration.IndexOf(
-            "PreparedLoadWork prepared = await Task.Run(() =>",
+            "PreparedSceneLoad prepared = await Task.Run(() =>",
             StringComparison.Ordinal);
         int rendererAdmissionDispose = loadOrchestration.IndexOf(
             "rendererAdmission?.Dispose();",
@@ -768,7 +768,7 @@ public sealed class RoadRendererLifecycleContractTests
             "internal void ArmNextAggregateLoadPostRendererAdmissionFailure()");
 
         int rendererAdmission = loadOrchestration.IndexOf(
-            "rendererAdmission = context.Renderer.BeginLoadAdmission();",
+            "rendererAdmission = context.Participants.Presentation.BeginSceneLoadAdmission();",
             StringComparison.Ordinal);
         int failure = loadOrchestration.IndexOf(
             "ProbeAggregateLoadPostRendererAdmissionFailure();",
@@ -777,7 +777,7 @@ public sealed class RoadRendererLifecycleContractTests
             "SaveSlotStore.CaptureLoadParticipants(GetRequiredSaveables());",
             StringComparison.Ordinal);
         int workerStart = loadOrchestration.IndexOf(
-            "PreparedLoadWork prepared = await Task.Run(() =>",
+            "PreparedSceneLoad prepared = await Task.Run(() =>",
             StringComparison.Ordinal);
         int rendererAdmissionDispose = loadOrchestration.IndexOf(
             "rendererAdmission?.Dispose();",
@@ -837,7 +837,7 @@ public sealed class RoadRendererLifecycleContractTests
             "lease.AdvanceTo(SaveOperationPhase.Prepare);",
             StringComparison.Ordinal);
         int workerStart = loadOrchestration.IndexOf(
-            "PreparedLoadWork prepared = await Task.Run(() =>",
+            "PreparedSceneLoad prepared = await Task.Run(() =>",
             StringComparison.Ordinal);
         int rendererAdmissionDispose = loadOrchestration.IndexOf(
             "rendererAdmission?.Dispose();",
@@ -899,7 +899,7 @@ public sealed class RoadRendererLifecycleContractTests
             "ProbeAggregateLoadPostPreparePhaseFailure(lease.State.Phase);",
             StringComparison.Ordinal);
         int workerStart = loadOrchestration.IndexOf(
-            "PreparedLoadWork prepared = await Task.Run(() =>",
+            "PreparedSceneLoad prepared = await Task.Run(() =>",
             StringComparison.Ordinal);
         int rendererAdmissionDispose = loadOrchestration.IndexOf(
             "rendererAdmission?.Dispose();",
@@ -952,7 +952,7 @@ public sealed class RoadRendererLifecycleContractTests
             "internal void ArmNextAggregateLoadWorkerEntryFailure()");
 
         int workerStart = loadOrchestration.IndexOf(
-            "PreparedLoadWork prepared = await Task.Run(() =>",
+            "PreparedSceneLoad prepared = await Task.Run(() =>",
             StringComparison.Ordinal);
         int workerTimer = loadOrchestration.IndexOf(
             "long workerPrepareStarted = Stopwatch.GetTimestamp();",
@@ -1150,7 +1150,7 @@ public sealed class RoadRendererLifecycleContractTests
             "internal void ArmNextAggregateLoadRendererWorkerPrepareFailure()");
 
         int workerStart = loadOrchestration.IndexOf(
-            "PreparedLoadWork prepared = await Task.Run(() =>",
+            "PreparedSceneLoad prepared = await Task.Run(() =>",
             StringComparison.Ordinal);
         int graphState = loadOrchestration.IndexOf(
             "IPreparedSaveState graphState = slot.GetPreparedState(preparationContext.NetworkTarget);",
@@ -1165,7 +1165,7 @@ public sealed class RoadRendererLifecycleContractTests
             "EnsureSceneRequestCurrent(sceneRequest);",
             StringComparison.Ordinal);
         int rendererPreflight = loadOrchestration.IndexOf(
-            "preflightPlans.Add(context.Renderer.PreflightPreparedLoad(",
+            "preflightPlans.Add(rendererAdmission.PreflightPreparedLoad(",
             StringComparison.Ordinal);
 
         Assert.True(workerStart >= 0 && workerStart < graphState);
@@ -1219,7 +1219,7 @@ public sealed class RoadRendererLifecycleContractTests
             "ProbeAggregateLoadPostRendererWorkerPreparationFailure(presentation);",
             StringComparison.Ordinal);
         int preparedWork = loadOrchestration.IndexOf(
-            "return new PreparedLoadWork(",
+            "return new PreparedSceneLoad(",
             StringComparison.Ordinal);
         int workerEnd = loadOrchestration.IndexOf(
             "EnsureSceneRequestCurrent(sceneRequest);",
@@ -1287,7 +1287,7 @@ public sealed class RoadRendererLifecycleContractTests
             "ProbeAggregateLoadPostRendererWorkerPreparationFailure(presentation);",
             StringComparison.Ordinal);
         int preparedWork = loadOrchestration.IndexOf(
-            "return new PreparedLoadWork(",
+            "return new PreparedSceneLoad(",
             StringComparison.Ordinal);
         int failure = loadOrchestration.IndexOf(
             "ProbeAggregateLoadPostPreparedWorkReturnFailure(prepared);",
@@ -1444,7 +1444,7 @@ public sealed class RoadRendererLifecycleContractTests
             "lease.AdvanceTo(SaveOperationPhase.Preflight);",
             StringComparison.Ordinal);
         int graphPreflight = loadOrchestration.IndexOf(
-            "context.Graph.PreflightPreparedLoad(",
+            "graphAdmission.PreflightPreparedLoad(",
             StringComparison.Ordinal);
 
         Assert.True(
@@ -1518,7 +1518,7 @@ public sealed class RoadRendererLifecycleContractTests
             "long preflightStarted = Stopwatch.GetTimestamp();",
             StringComparison.Ordinal);
         int graphPreflight = loadOrchestration.IndexOf(
-            "context.Graph.PreflightPreparedLoad(",
+            "graphAdmission.PreflightPreparedLoad(",
             StringComparison.Ordinal);
 
         Assert.True(cancellationCheckFailure >= 0 && cancellationCheckFailure < preflightPhase);
@@ -1589,7 +1589,7 @@ public sealed class RoadRendererLifecycleContractTests
             "long preflightStarted = Stopwatch.GetTimestamp();",
             StringComparison.Ordinal);
         int graphPreflight = loadOrchestration.IndexOf(
-            "context.Graph.PreflightPreparedLoad(",
+            "graphAdmission.PreflightPreparedLoad(",
             StringComparison.Ordinal);
         int graphPlanTracked = loadOrchestration.IndexOf(
             "preflightPlans.Add(graphPlan);",
@@ -1598,7 +1598,7 @@ public sealed class RoadRendererLifecycleContractTests
             "ProbeAggregateLoadPostGraphPreflightFailure(",
             StringComparison.Ordinal);
         int toolPreflight = loadOrchestration.IndexOf(
-            "context.ToolManager.PreflightFullReset(toolAdmission)",
+            "toolAdmission.PreflightFullReset()",
             StringComparison.Ordinal);
 
         Assert.True(preflightPhaseFailure >= 0 && preflightPhaseFailure < preflightTimer);
@@ -1674,13 +1674,13 @@ public sealed class RoadRendererLifecycleContractTests
             "ProbeAggregateLoadPostGraphPreflightFailure(",
             StringComparison.Ordinal);
         int toolPlanTracked = loadOrchestration.IndexOf(
-            "preflightPlans.Add(context.ToolManager.PreflightFullReset(toolAdmission));",
+            "preflightPlans.Add(toolAdmission.PreflightFullReset());",
             StringComparison.Ordinal);
         int failure = loadOrchestration.IndexOf(
             "ProbeAggregateLoadPostToolPreflightFailure(",
             StringComparison.Ordinal);
         int rendererPreflight = loadOrchestration.IndexOf(
-            "context.Renderer.PreflightPreparedLoad(",
+            "rendererAdmission.PreflightPreparedLoad(",
             StringComparison.Ordinal);
 
         Assert.True(graphPreflightFailure >= 0 && graphPreflightFailure < toolPlanTracked);
@@ -1759,7 +1759,7 @@ public sealed class RoadRendererLifecycleContractTests
             "ProbeAggregateLoadPostToolPreflightFailure(",
             StringComparison.Ordinal);
         int rendererPlanTracked = loadOrchestration.IndexOf(
-            "preflightPlans.Add(context.Renderer.PreflightPreparedLoad(",
+            "preflightPlans.Add(rendererAdmission.PreflightPreparedLoad(",
             StringComparison.Ordinal);
         int failure = loadOrchestration.IndexOf(
             "ProbeAggregateLoadPostRendererPreflightFailure(",
@@ -2416,7 +2416,7 @@ public sealed class RoadRendererLifecycleContractTests
         Assert.True(planCreation < cleanup);
 
         int rendererPlan = loadOrchestration.IndexOf(
-            "preflightPlans.Add(context.Renderer.PreflightPreparedLoad(",
+            "preflightPlans.Add(rendererAdmission.PreflightPreparedLoad(",
             StringComparison.Ordinal);
         int postRendererFailureProbe = loadOrchestration.IndexOf(
             "ProbeAggregateLoadPostRendererPreflightFailure(",
@@ -2612,7 +2612,7 @@ public sealed class RoadRendererLifecycleContractTests
             "ProbeAggregateLoadRendererPreflightObservation(",
             StringComparison.Ordinal);
         int rendererPreflight = loadOrchestration.IndexOf(
-            "preflightPlans.Add(context.Renderer.PreflightPreparedLoad(",
+            "preflightPlans.Add(rendererAdmission.PreflightPreparedLoad(",
             StringComparison.Ordinal);
 
         Assert.True(toolPreflightFailure >= 0 && toolPreflightFailure < observation);
@@ -2621,7 +2621,7 @@ public sealed class RoadRendererLifecycleContractTests
             "partial void ProbeAggregateLoadRendererPreflightObservation(",
             saveManagerSource,
             StringComparison.Ordinal);
-        Assert.Contains("context.Renderer,", loadOrchestration, StringComparison.Ordinal);
+        Assert.Contains("context.Participants.Presentation,", loadOrchestration, StringComparison.Ordinal);
         Assert.Contains("lease.State.Phase,", loadOrchestration, StringComparison.Ordinal);
         Assert.Contains(
             "public void ArmAggregateLoadRoadMeshFactoryFailure(",
@@ -2700,7 +2700,7 @@ public sealed class RoadRendererLifecycleContractTests
             "ProbeAggregateLoadRendererPreflightObservation(",
             StringComparison.Ordinal);
         int rendererPreflight = loadOrchestration.IndexOf(
-            "preflightPlans.Add(context.Renderer.PreflightPreparedLoad(",
+            "preflightPlans.Add(rendererAdmission.PreflightPreparedLoad(",
             StringComparison.Ordinal);
 
         Assert.True(observation >= 0 && observation < rendererPreflight);
@@ -2759,7 +2759,7 @@ public sealed class RoadRendererLifecycleContractTests
             "ProbeAggregateLoadRendererPreflightObservation(",
             StringComparison.Ordinal);
         int rendererPreflight = loadOrchestration.IndexOf(
-            "preflightPlans.Add(context.Renderer.PreflightPreparedLoad(",
+            "preflightPlans.Add(rendererAdmission.PreflightPreparedLoad(",
             StringComparison.Ordinal);
 
         Assert.True(observation >= 0 && observation < rendererPreflight);
@@ -2822,7 +2822,7 @@ public sealed class RoadRendererLifecycleContractTests
             "ProbeAggregateLoadRendererPreflightObservation(",
             StringComparison.Ordinal);
         int rendererPreflight = loadOrchestration.IndexOf(
-            "preflightPlans.Add(context.Renderer.PreflightPreparedLoad(",
+            "preflightPlans.Add(rendererAdmission.PreflightPreparedLoad(",
             StringComparison.Ordinal);
 
         Assert.True(observation >= 0 && observation < rendererPreflight);
@@ -2881,7 +2881,7 @@ public sealed class RoadRendererLifecycleContractTests
             "ProbeAggregateLoadRendererPreflightObservation(",
             StringComparison.Ordinal);
         int rendererPreflight = loadOrchestration.IndexOf(
-            "preflightPlans.Add(context.Renderer.PreflightPreparedLoad(",
+            "preflightPlans.Add(rendererAdmission.PreflightPreparedLoad(",
             StringComparison.Ordinal);
 
         Assert.True(observation >= 0 && observation < rendererPreflight);
@@ -2940,7 +2940,7 @@ public sealed class RoadRendererLifecycleContractTests
             "ProbeAggregateLoadRendererPreflightObservation(",
             StringComparison.Ordinal);
         int rendererPreflight = loadOrchestration.IndexOf(
-            "preflightPlans.Add(context.Renderer.PreflightPreparedLoad(",
+            "preflightPlans.Add(rendererAdmission.PreflightPreparedLoad(",
             StringComparison.Ordinal);
 
         Assert.True(observation >= 0 && observation < rendererPreflight);

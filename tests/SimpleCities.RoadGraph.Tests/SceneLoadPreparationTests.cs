@@ -52,6 +52,60 @@ public sealed class SceneLoadPreparationTests
         }
     }
 
+    [Fact]
+    public void NetworkParticipant_PreflightsWithoutPublishingAndCommitsOnce()
+    {
+        var saved = new RoadGraph();
+        Assert.True(saved.SubmitPolyline(RoadType.Street, [Vector2.Zero, new Vector2(100f, 0f)]).Success);
+        string expected = RoadGraphTestCodec.CaptureJson(saved);
+        var active = new RoadGraph();
+        string original = RoadGraphTestCodec.CaptureJson(active);
+        IPreparedSaveState loaded = RoadGraphTestCodec.PrepareJson(active, expected);
+        ISceneNetworkLoadParticipant participant = active;
+        using ISceneNetworkLoadAdmission admission = participant.BeginSceneLoadAdmission();
+        using INonThrowingLoadCommitPlan plan = admission.PreflightPreparedLoad(loaded, out IPreparedSaveState target);
+
+        Assert.Equal(original, RoadGraphTestCodec.CaptureJson(active));
+        Assert.IsType<RoadGraphRevision>(target);
+        int notifications = 0;
+        active.GraphChanged += _ => notifications++;
+        using var aggregate = new PreparedAggregateLoad([plan]);
+        aggregate.Commit(new UncoordinatedStorageOperationLease(SaveOperationKind.Load));
+
+        Assert.Equal(expected, RoadGraphTestCodec.CaptureJson(active));
+        Assert.Equal(1, notifications);
+        Assert.False(plan.IsGenerationCurrent);
+    }
+
+    [Fact]
+    public async Task NetworkParticipant_CanceledAggregateKeepsTheOriginalStateAndReleasesAdmission()
+    {
+        var active = new RoadGraph();
+        string original = RoadGraphTestCodec.CaptureJson(active);
+        GraphStateToken originalToken = active.CurrentStateToken;
+        var saved = new RoadGraph();
+        Assert.True(saved.SubmitPolyline(RoadType.Street, [Vector2.Zero, new Vector2(100f, 0f)]).Success);
+        IPreparedSaveState loaded = RoadGraphTestCodec.PrepareJson(active, RoadGraphTestCodec.CaptureJson(saved));
+        using var cancellation = new CancellationTokenSource();
+        await using var coordinator = new SaveOperationCoordinator();
+        SaveOperationAdmission operation = await coordinator.AdmitManualAsync(
+            SaveOperationKind.Load, "manual-1", cancellation.Token);
+        await using SaveOperationLease lease = Assert.IsType<SaveOperationLease>(operation.Lease);
+        ISceneNetworkLoadParticipant participant = active;
+
+        using (ISceneNetworkLoadAdmission admission = participant.BeginSceneLoadAdmission())
+        using (var aggregate = new PreparedAggregateLoad([admission.PreflightPreparedLoad(loaded, out _)]))
+        {
+            cancellation.Cancel();
+
+            Assert.Throws<OperationCanceledException>(() => aggregate.Commit(lease));
+            Assert.Equal(original, RoadGraphTestCodec.CaptureJson(active));
+            Assert.Equal(originalToken, active.CurrentStateToken);
+        }
+
+        Assert.True(active.SubmitPolyline(RoadType.Dirt, [Vector2.Zero, new Vector2(20f, 0f)]).Success);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

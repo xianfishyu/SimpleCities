@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-public partial class RoadRenderer
+public partial class RoadRenderer : IScenePresentationLoadParticipant
 {
     partial void ProbeAggregateLoadRoadMeshFactoryFailure(
         ref IReadOnlyCollection<int> roadIndices);
@@ -18,6 +18,12 @@ public partial class RoadRenderer
         ref RoadSurfaceSnapshot.PreparedData roadSurface);
     partial void ProbeAggregateLoadCommitPlanConstructionFailure();
     partial void ProbeLoadCompleteCommitFailure();
+
+    void IScenePresentationLoadParticipant.ConfigureSceneGeneration(long generation) =>
+        ConfigureSceneGeneration(generation);
+
+    IScenePresentationLoadAdmission IScenePresentationLoadParticipant.BeginSceneLoadAdmission() =>
+        BeginLoadAdmission();
 
     internal RoadRendererLoadAdmission BeginLoadAdmission()
     {
@@ -149,9 +155,10 @@ public partial class RoadRenderer
             });
     }
 
-    internal sealed class RoadRendererLoadAdmission : IDisposable
+    internal sealed class RoadRendererLoadAdmission : IScenePresentationLoadAdmission
     {
         private RoadRenderer? _owner;
+        private readonly IScenePresentationPreparer _scenePreparer;
 
         internal RoadRendererLoadAdmission(
             RoadRenderer owner,
@@ -165,12 +172,27 @@ public partial class RoadRenderer
             Graph = graph;
             RenderReservation = renderReservation;
             Preparer = preparer;
+            _scenePreparer = new V3RoadLoadPresentationPreparer(preparer);
         }
 
         internal long Generation { get; }
         internal RoadGraph Graph { get; }
         internal RoadRenderLoadReservation RenderReservation { get; }
         internal RoadRendererLoadPreparer Preparer { get; }
+
+        IScenePresentationPreparer IScenePresentationLoadAdmission.Preparer => _scenePreparer;
+
+        public INonThrowingLoadCommitPlan PreflightPreparedLoad(
+            IPreparedScenePresentation presentation,
+            IPreparedSaveState targetState)
+        {
+            RoadRenderer owner = _owner ?? throw new ObjectDisposedException(nameof(RoadRendererLoadAdmission));
+            if (presentation is not RoadRendererPreparedLoad roadPresentation)
+                throw new ArgumentException("V3 renderer requires a road presentation payload.", nameof(presentation));
+            if (targetState is not RoadGraphRevision targetRevision)
+                throw new ArgumentException("V3 renderer requires a road target revision.", nameof(targetState));
+            return owner.PreflightPreparedLoad(this, roadPresentation, targetRevision.StateToken);
+        }
 
         public void Dispose()
         {

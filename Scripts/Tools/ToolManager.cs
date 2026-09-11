@@ -48,7 +48,7 @@ public partial class ToolManager : Node2D
             ? SaveManager.Instance
             : null;
         if (roadSystem is not null && renderer is not null && saveManager is not null &&
-            saveManager.RegisterSceneParticipants(roadSystem.Graph, this, renderer))
+            saveManager.RegisterSceneLoad(new SceneLoadParticipants(roadSystem.Graph, this, renderer)))
         {
             _registeredSaveManager = saveManager;
         }
@@ -63,7 +63,7 @@ public partial class ToolManager : Node2D
         if (_registeredSaveManager is not null &&
             GodotObject.IsInstanceValid(_registeredSaveManager))
         {
-            _registeredSaveManager.UnregisterSceneParticipants(this);
+            _registeredSaveManager.UnregisterSceneLoad(this);
         }
         _registeredSaveManager = null;
         if (ReferenceEquals(Instance, this))

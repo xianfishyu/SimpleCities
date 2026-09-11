@@ -3,9 +3,12 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
-public partial class RoadGraph
+public partial class RoadGraph : ISceneNetworkLoadParticipant
 {
     partial void ProbeLoadCompleteCommitFailure();
+
+    ISceneNetworkLoadAdmission ISceneNetworkLoadParticipant.BeginSceneLoadAdmission() =>
+        BeginLoadAdmission();
 
     internal RoadGraphLoadAdmission BeginLoadAdmission()
     {
@@ -81,7 +84,7 @@ public partial class RoadGraph
     private static long NextLoadAdmissionGeneration(long generation) =>
         generation == long.MaxValue ? 1 : generation + 1;
 
-    internal sealed class RoadGraphLoadAdmission : IDisposable
+    internal sealed class RoadGraphLoadAdmission : ISceneNetworkLoadAdmission
     {
         private RoadGraph? _owner;
 
@@ -97,6 +100,17 @@ public partial class RoadGraph
 
         internal long Generation { get; }
         internal RoadGraphRevision BeforeRevision { get; }
+
+        public INonThrowingLoadCommitPlan PreflightPreparedLoad(
+            IPreparedSaveState preparedState,
+            out IPreparedSaveState targetState)
+        {
+            RoadGraph owner = _owner ?? throw new ObjectDisposedException(nameof(RoadGraphLoadAdmission));
+            INonThrowingLoadCommitPlan plan = owner.PreflightPreparedLoad(
+                this, preparedState, out RoadGraphRevision targetRevision);
+            targetState = targetRevision;
+            return plan;
+        }
 
         public void Dispose()
         {

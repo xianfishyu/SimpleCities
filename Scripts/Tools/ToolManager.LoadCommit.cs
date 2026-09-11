@@ -1,9 +1,12 @@
 using System;
 using System.Collections.Generic;
 
-public partial class ToolManager
+public partial class ToolManager : ISceneToolLoadParticipant
 {
     partial void ProbeLoadCompleteCommitFailure();
+
+    ISceneToolLoadAdmission ISceneToolLoadParticipant.BeginSceneLoadAdmission() =>
+        BeginLoadAdmission();
 
     internal ToolLoadAdmission BeginLoadAdmission()
     {
@@ -49,7 +52,7 @@ public partial class ToolManager
     private static long NextLoadGeneration(long generation) =>
         generation == long.MaxValue ? 1 : generation + 1;
 
-    internal sealed class ToolLoadAdmission : IDisposable
+    internal sealed class ToolLoadAdmission : ISceneToolLoadAdmission
     {
         private ToolManager? _owner;
 
@@ -71,6 +74,12 @@ public partial class ToolManager
         internal ToolType CurrentTool { get; }
         internal RoadBuilder Builder { get; }
         internal RoadBuilder.RoadBuilderLoadAdmission BuilderAdmission { get; }
+
+        public INonThrowingLoadCommitPlan PreflightFullReset()
+        {
+            ToolManager owner = _owner ?? throw new ObjectDisposedException(nameof(ToolLoadAdmission));
+            return owner.PreflightFullReset(this);
+        }
 
         public void Dispose()
         {
