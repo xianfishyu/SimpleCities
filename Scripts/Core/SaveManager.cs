@@ -739,6 +739,10 @@ public partial class SaveManager : Node
                 toolAdmission = context.ToolManager.BeginLoadAdmission();
                 rendererAdmission = context.Renderer.BeginLoadAdmission();
                 ProbeAggregateLoadPostRendererAdmissionFailure();
+                var preparationContext = new SceneLoadPreparationContext(
+                    context.Generation,
+                    context.Graph,
+                    new V3RoadLoadPresentationPreparer(rendererAdmission.Preparer));
                 IReadOnlyList<CapturedLoadParticipant> loadParticipants =
                     SaveSlotStore.CaptureLoadParticipants(GetRequiredSaveables());
                 ProbeAggregateLoadPostParticipantCaptureFailure(loadParticipants);
@@ -753,20 +757,19 @@ public partial class SaveManager : Node
                         loadParticipants,
                         lease);
                     ProbeAggregateLoadPostSlotPreparationFailure(slot);
-                    IPreparedSaveState graphState = slot.GetPreparedState(context.Graph);
+                    IPreparedSaveState graphState = slot.GetPreparedState(preparationContext.NetworkTarget);
                     ProbeAggregateLoadPostGraphStateLookupFailure(graphState);
-                    RoadGraphRevision graphRevision = graphState as RoadGraphRevision
-                        ?? throw new InvalidOperationException(
-                            "RoadGraph load reader did not produce a revision.");
                     ProbeAggregateLoadRendererWorkerPrepareFailure();
                     RoadRendererPreparedLoad presentation =
-                        rendererAdmission.Preparer.Prepare(graphRevision);
+                        (RoadRendererPreparedLoad)preparationContext.PresentationPreparer.Prepare(graphState);
                     ProbeAggregateLoadPostRendererWorkerPreparationFailure(presentation);
                     return new PreparedLoadWork(
-                        slot,
-                        graphState,
-                        presentation,
-                        Stopwatch.GetElapsedTime(workerPrepareStarted));
+                        new PreparedSceneLoad(
+                            preparationContext,
+                            slot,
+                            graphState,
+                            presentation,
+                            Stopwatch.GetElapsedTime(workerPrepareStarted)));
                 });
                 ProbeAggregateLoadPostPreparedWorkReturnFailure(prepared);
 
@@ -1338,11 +1341,24 @@ public partial class SaveManager : Node
         ToolManager ToolManager,
         RoadRenderer Renderer);
 
-    private sealed record PreparedLoadWork(
-        PreparedSaveSlot Slot,
-        IPreparedSaveState GraphState,
-        RoadRendererPreparedLoad Presentation,
-        TimeSpan WorkerPrepareDuration);
+    // V3 compatibility view: callers migrate to PreparedSceneLoad in the next slice.
+    private sealed record PreparedLoadWork
+    {
+        private readonly PreparedSceneLoad _prepared;
+
+        internal PreparedLoadWork(PreparedSceneLoad prepared)
+        {
+            ArgumentNullException.ThrowIfNull(prepared);
+            _prepared = prepared;
+            Presentation = prepared.Presentation as RoadRendererPreparedLoad
+                ?? throw new InvalidOperationException("V3 load requires a road presentation payload.");
+        }
+
+        internal PreparedSaveSlot Slot => _prepared.Slot;
+        internal IPreparedSaveState GraphState => _prepared.NetworkState;
+        internal RoadRendererPreparedLoad Presentation { get; }
+        internal TimeSpan WorkerPrepareDuration => _prepared.WorkerPrepareDuration;
+    }
 
     private sealed record LoadPerformanceMetrics(
         string OperationToken,

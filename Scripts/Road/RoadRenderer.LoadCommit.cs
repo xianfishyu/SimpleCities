@@ -470,7 +470,7 @@ internal sealed record RoadRendererPreparedLoad(
     Color[] RoadColors,
     int[] RoadIndices,
     RoadSurfaceSnapshot.PreparedData RoadSurface,
-    RoadRendererNodeMarker[] NodeMarkers);
+    RoadRendererNodeMarker[] NodeMarkers) : IPreparedScenePresentation;
 
 internal readonly record struct RoadRendererNodeMarker(
     Vector2 Position,

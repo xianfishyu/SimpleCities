@@ -1022,7 +1022,7 @@ public sealed class RoadRendererLifecycleContractTests
             "ProbeAggregateLoadPostSlotPreparationFailure(slot);",
             StringComparison.Ordinal);
         int graphState = loadOrchestration.IndexOf(
-            "IPreparedSaveState graphState = slot.GetPreparedState(context.Graph);",
+            "IPreparedSaveState graphState = slot.GetPreparedState(preparationContext.NetworkTarget);",
             StringComparison.Ordinal);
         int rendererWorkerFailure = loadOrchestration.IndexOf(
             "ProbeAggregateLoadRendererWorkerPrepareFailure();",
@@ -1066,7 +1066,7 @@ public sealed class RoadRendererLifecycleContractTests
     }
 
     [Fact]
-    public void RealStartLoadPostGraphStateLookupFailureRunsOffMainThreadBeforeRevisionValidation()
+    public void RealStartLoadPostGraphStateLookupFailureRunsOffMainThreadBeforePresentationPreparation()
     {
         string saveManagerSource = File.ReadAllText(
             Path.Combine(ProjectRoot, "Scripts", "Core", "SaveManager.cs"));
@@ -1085,13 +1085,13 @@ public sealed class RoadRendererLifecycleContractTests
             "ProbeAggregateLoadPostSlotPreparationFailure(slot);",
             StringComparison.Ordinal);
         int graphStateLookup = loadOrchestration.IndexOf(
-            "IPreparedSaveState graphState = slot.GetPreparedState(context.Graph);",
+            "IPreparedSaveState graphState = slot.GetPreparedState(preparationContext.NetworkTarget);",
             StringComparison.Ordinal);
         int failure = loadOrchestration.IndexOf(
             "ProbeAggregateLoadPostGraphStateLookupFailure(graphState);",
             StringComparison.Ordinal);
-        int graphRevisionValidation = loadOrchestration.IndexOf(
-            "RoadGraphRevision graphRevision = graphState as RoadGraphRevision",
+        int presentationPrepare = loadOrchestration.IndexOf(
+            "preparationContext.PresentationPreparer.Prepare(graphState);",
             StringComparison.Ordinal);
         int rendererWorkerFailure = loadOrchestration.IndexOf(
             "ProbeAggregateLoadRendererWorkerPrepareFailure();",
@@ -1101,8 +1101,8 @@ public sealed class RoadRendererLifecycleContractTests
             postSlotPreparationFailure >= 0 &&
             postSlotPreparationFailure < graphStateLookup);
         Assert.True(
-            graphStateLookup < failure && failure < graphRevisionValidation);
-        Assert.True(graphRevisionValidation < rendererWorkerFailure);
+            graphStateLookup < failure && failure < rendererWorkerFailure);
+        Assert.True(rendererWorkerFailure < presentationPrepare);
         Assert.Contains(
             "partial void ProbeAggregateLoadPostGraphStateLookupFailure(",
             saveManagerSource,
@@ -1152,14 +1152,14 @@ public sealed class RoadRendererLifecycleContractTests
         int workerStart = loadOrchestration.IndexOf(
             "PreparedLoadWork prepared = await Task.Run(() =>",
             StringComparison.Ordinal);
-        int graphRevision = loadOrchestration.IndexOf(
-            "RoadGraphRevision graphRevision = graphState as RoadGraphRevision",
+        int graphState = loadOrchestration.IndexOf(
+            "IPreparedSaveState graphState = slot.GetPreparedState(preparationContext.NetworkTarget);",
             StringComparison.Ordinal);
         int failure = loadOrchestration.IndexOf(
             "ProbeAggregateLoadRendererWorkerPrepareFailure();",
             StringComparison.Ordinal);
         int presentationPrepare = loadOrchestration.IndexOf(
-            "rendererAdmission.Preparer.Prepare(graphRevision);",
+            "preparationContext.PresentationPreparer.Prepare(graphState);",
             StringComparison.Ordinal);
         int workerEnd = loadOrchestration.IndexOf(
             "EnsureSceneRequestCurrent(sceneRequest);",
@@ -1168,8 +1168,8 @@ public sealed class RoadRendererLifecycleContractTests
             "preflightPlans.Add(context.Renderer.PreflightPreparedLoad(",
             StringComparison.Ordinal);
 
-        Assert.True(workerStart >= 0 && workerStart < graphRevision);
-        Assert.True(graphRevision < failure && failure < presentationPrepare);
+        Assert.True(workerStart >= 0 && workerStart < graphState);
+        Assert.True(graphState < failure && failure < presentationPrepare);
         Assert.True(presentationPrepare < workerEnd && workerEnd < rendererPreflight);
         Assert.Contains(
             "partial void ProbeAggregateLoadRendererWorkerPrepareFailure();",
@@ -1213,7 +1213,7 @@ public sealed class RoadRendererLifecycleContractTests
             "ProbeAggregateLoadRendererWorkerPrepareFailure();",
             StringComparison.Ordinal);
         int presentationPrepare = loadOrchestration.IndexOf(
-            "rendererAdmission.Preparer.Prepare(graphRevision);",
+            "preparationContext.PresentationPreparer.Prepare(graphState);",
             StringComparison.Ordinal);
         int failure = loadOrchestration.IndexOf(
             "ProbeAggregateLoadPostRendererWorkerPreparationFailure(presentation);",
