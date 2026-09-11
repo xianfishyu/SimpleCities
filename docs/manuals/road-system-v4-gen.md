@@ -84,9 +84,111 @@ tests/godot/                       # V4 引擎与交互契约
 
 `Serialization` 可以依赖 .NET `Stream`，不拥有文件路径、磁盘锁或槽位发布。`Presentation` 可以使用纯数值颜色和宽度定义，不引用 Godot `Color` 或 Resource。非道路的相机、UI 布局及文件系统恢复协议只在接入所需范围内调整。
 
-## 2. V4 的范围
+## 2. 实施图
 
-### 2.1 必须实现
+实施采用一条核心主线和三条可并行工作流。所有箭头表示前置依赖；虚线表示“只读取已经冻结的契约”，不表示新增写入路径。
+
+```mermaid
+flowchart LR
+    P0["P0 冻结 V3<br/>建立 RoadCore 项目边界"] --> G0{{"G0<br/>核心独立编译"}}
+    G0 --> P1["P1 模型与数值策略<br/>ID / Snapshot / Profile"]
+    P1 --> G1{{"G1<br/>模型 invariant"}}
+    G1 --> P2["P2 Geometry Kernel<br/>六类几何 / 自交 / overlap"]
+    P2 --> G2{{"G2<br/>几何结果确定"}}
+    G2 --> P3["P3 Spatial + Read Model<br/>查询 / Junction / Turn"]
+    G2 --> P6["P6 Presentation Preparer<br/>纯 mesh / surface 数据"]
+    P3 --> G3{{"G3<br/>读取 seam 稳定"}}
+    P3 --> P4["P4 Planner + WorkingState<br/>split / merge / delete / commit"]
+    G3 --> P4
+    P4 --> G4{{"G4<br/>单 root / 单 change set"}}
+    G4 --> P5["P5 History + V4 Codec<br/>delta / reader / writer"]
+    P6 --> G6{{"G6<br/>owner 与 location 一致"}}
+    P5 --> G5{{"G5<br/>V4 round-trip"}}
+    G5 --> P7["P7 Godot Adapter<br/>Renderer / Input / SaveManager"]
+    G6 --> P7
+    P7 --> G7{{"G7<br/>真实场景接入"}}
+    G7 --> P8["P8 一次切换<br/>RoadSystem → V4"]
+    P8 --> G8{{"G8<br/>V3 生产路径移除"}}
+    G8 --> P9["P9 最终验收<br/>Core / Godot / 性能 / 导出"]
+```
+
+| 阶段 | 主要工作流 | 输入 | 输出 | 必须停止的条件 |
+| --- | --- | --- | --- | --- |
+| P0 | 工程边界 | V3 稳定分支、当前项目文件 | 独立 core project、core tests、程序集规则 | core 仍引用 Godot，或源文件被重复编译 |
+| P1 | 核心模型 | 无 | Node/Edge/Profile/Token/Snapshot | ID、profile、numeric policy 没有版本或 invariant |
+| P2 | 几何 | P1 model | geometry result、location、split witness | 自交、重叠或未收敛没有确定结果 |
+| P3 | 读取 | P1 + P2 | SpatialQuery、ReadSnapshot、Junction/Turn | consumer 需要直接访问 builder、bucket 或旧 GraphEdge |
+| P4 | 写入 | P2 + P3 | MutationPlan、WorkingState、ChangeSet、commit | 失败需要修改活动 root 后回滚，或出现第二个写入点 |
+| P5 | 历史与存档 | P4 change set | V4 codec、prepared state、bounded history | codec 修改活动 network，或 V3/V4 writer 并存 |
+| P6 | 表现数据 | P2 + P3 | presentation snapshot、owner、mesh arrays | worker 创建 Godot Resource，或 surface 与 mesh 来源不同 |
+| P7 | 引擎接入 | P3/P4/P5/P6 | Renderer、Input、SaveManager adapters | SaveManager 仍绑定 RoadGraph，或 UI 直接写核心 |
+| P8 | 切换 | P7 全部通过 | V4 `RoadSystem`、V4 保存根、唯一生产路径 | V3/V4 双 runtime、双事件或双 writer |
+| P9 | 收口 | P8 | 完整验证报告、删除旧生产文件 | 任一核心、runtime、性能、导出或清理门失败 |
+
+### 2.1 并行安排
+
+P0 和 P1 是共同前置。P2 完成后，P3 和 P6 可以并行：P3 负责领域读取，P6 负责纯表现数据。P3 和 P6 都不能自行创建新的领域写入路径。P4 是核心写入主线，完成后 P5 与 P7 的部分准备可以并行；P7 必须等待 P5 和 P6 的正式接口全部冻结。
+
+建议按以下工作包组织提交和审查：
+
+```text
+W0  Core project / solution boundary
+W1  Core model / numeric policy / invariants
+W2  Geometry kernel / self-intersection
+W3  Spatial index / read snapshot / junction view
+W4  Mutation planner / draft / change set / commit
+W5  History / V4 codec / prepared load
+W6  Pure presentation preparer
+W7  Godot renderer / input / SaveManager host
+W8  MapTest cutover / remove V3 road runtime
+W9  Final QA and evidence
+```
+
+每个工作包结束时只做三件事：运行该包的 focused tests、运行受影响的回归门、记录新接口和证据。未完成的工作包不通过临时转发或手工场景状态标记为完成。
+
+### 2.2 P7 的真实接入顺序
+
+P7 不能只把 V4 类型塞进现有 `SaveManager`。当前 `SaveManager` 直接使用 `RoadGraph`、`RoadGraphRevision`、`RoadRendererPreparedLoad`、`SceneLoadContext` 和 `user://saves-v3`。V4 应按以下顺序拆开：
+
+1. 把 `SceneLoadContext` 改为持有通用 network runtime、tool runtime、presentation runtime 和 slot target participant。
+2. 把 `PreparedLoadWork` 改为通用 prepared network/presentation payload，不再出现 `RoadGraphRevision` 和 `RoadRendererPreparedLoad`。
+3. 将 `SaveBaseDir`、required payload 和错误文案从 V3 常量改为 V4 storage policy。
+4. 让 `RoadSaveParticipant` 负责 core codec 与现有 `IStreamingSaveable` 的转换。
+5. 让 `RoadLoadAssembly` 负责 admission、preflight、reference swap、notification 和 cleanup plan 的组装。
+6. 通过真实 V4 participant 后，才切换 `RoadSystem` 和 `ToolManager` 的持有类型。
+
+这一顺序保证 SaveManager 只协调 participant，不知道道路实体的具体类型；它也使 V4 核心可以在没有 Godot 的测试中独立验证。
+
+### 2.3 切换点和回退点
+
+P8 之前，V3 是正式主场景的唯一道路 runtime，V4 只运行于 core tests、隔离验证场景和独立 V4 保存根。P8 需要形成一份切换清单：
+
+- `RoadSystem`、`ToolManager`、`GameHUD`、`DebugPanel` 和 SaveManager 的引用已全部迁移；
+- V4 network、renderer、input、history 和 save participant 在同一场景中只各有一个实例；
+- 新旧保存根均可被单独识别，V4 操作不会触碰 V3 根；
+- 切换前保留 V3 可运行分支，切换失败可以回到该分支；
+- 切换后清理旧源文件前，再执行一次全量测试和导出文件扫描。
+
+V4 发布策略必须在 P8 前决定：继续隐藏 V3 存档、提供一次性离线 converter，或明确从空的 V4 存档开始。普通运行时不能悄悄把 V3 存档转换成 V4。
+
+### 2.4 证据流
+
+```mermaid
+flowchart TD
+    CoreTest["Core tests"] --> ModelEvidence["Model / geometry / topology evidence"]
+    ModelEvidence --> RuntimeCore["Core commit / query / codec"]
+    RuntimeCore --> AdapterEvidence["Godot adapter evidence"]
+    AdapterEvidence --> RuntimeEvidence["MapTest runtime evidence"]
+    RuntimeEvidence --> PerfEvidence["Performance / frame_post_draw / export evidence"]
+    PerfEvidence --> Cutover["P8 cutover decision"]
+```
+
+证据必须沿这条顺序积累。Core test 通过不能代替 Godot runtime；renderer runtime 通过不能代替 V4 codec；100K 压力结果不能代替 10K 连续交互门。每次性能报告都要分别列出 domain、worker prepare、preflight、reference commit、presentation commit、frame post draw 和端到端时间。
+
+
+## 3. V4 的范围
+
+### 3.1 必须实现
 
 - canonical Node/Edge 模型；
 - 强类型 `NodeId`、`EdgeId`、`RoadProfileId`；
@@ -101,15 +203,15 @@ tests/godot/                       # V4 引擎与交互契约
 - Godot renderer、输入会话、undo/redo 和异步 Load 适配；
 - 与当前 V3 等价的编辑、选择、保存、加载和失败保护能力。
 
-### 2.2 暂不实现
+### 3.2 暂不实现
 
 交通流、拥堵、车辆行为、复杂寻路、信号灯、车道、桥梁、隧道、立交和高程道路不属于 V4 核心重构。V4 只提供足够稳定的 `JunctionReadModel` 和 `TurnMovement` seam，供后续系统读取。
 
 V4 也不提前实现 renderer chunk。只有性能数据证明 global batch 成为实际瓶颈时，才建立带 generation 和 ownership 的 chunk 模块。
 
-## 3. 核心数据模型
+## 4. 核心数据模型
 
-### 3.1 身份和状态
+### 4.1 身份和状态
 
 ```csharp
 readonly record struct NodeId(int Value);
@@ -129,7 +231,7 @@ Node ID 和 Edge ID 使用独立命名空间。运行时 token 不写入存档�
 
 同一 network 内 `ChangeSequence` 每次成功提交递增；undo/redo 可以恢复旧 `ContentRevision`，但 sequence 和 ID watermark 不回退。新分叉分配新 content revision；Load 采用存档 watermark、创建新 lineage；创建新的 network facade 分配新 `NetworkInstance`。历史 token、plan 和 `RoadLocation` 均不能跨这些身份重用。
 
-### 3.2 Node、Edge 和端接
+### 4.2 Node、Edge 和端接
 
 ```text
 RoadNode
@@ -159,7 +261,7 @@ Edge 仍表示两个结构节点之间的最大连续原生几何链。弯道和
 
 首版使用版本为 1 的不可变内置 catalog，包含 `dirt`、`street`、`arterial`、`highway`。profile ID 已被建造、改造、merge key、读取和 codec 实际消费；暂不提供运行时自定义 profile。payload 保存 catalog version 和 Edge 的 profile ID，不保存样式 Resource。未知版本或 ID 在 Load 前拒绝，不能以默认街道代替。道路显示宽度暂属样式单位，不能作为车道数或通行容量。
 
-### 3.3 数值模型
+### 4.3 数值模型
 
 V4 设计基线采用 binary64 的独立 `RoadPoint`/`RoadVector`，在引擎 adapter 显式转换为 binary32 Godot `Vector2`。坐标仍为二维世界单位，首版保持 1 核心世界单位对应 1 Godot 世界单位，不把它自动解释为米。P1 必须固定：
 
@@ -176,9 +278,9 @@ binary64 是对 V3 数值语义的明确变更：原有 binary32 exact-sign 代�
 
 统一使用 `RoadLocation(EdgeId, GeometryIndex, Parameter)` 表示路网中的点，用 `RoadLocationSpan` 表示同一 geometry 的参数区间。Geometry Kernel 的点结果只含参数、位置和残差，由查询或 planner 绑定 EdgeId。位置随来源 `RoadStateToken` 使用，split/merge 后不得继续解释旧参数。显示 span 插值得到的 location 是表面命中的来源定位，不能宣称为原生曲线的精确最近点。
 
-## 4. 模块设计
+## 5. 模块设计
 
-### 4.1 `RoadNetwork`
+### 5.1 `RoadNetwork`
 
 这是核心唯一写入模块。它只持有当前 immutable snapshot，并负责：
 
@@ -190,7 +292,7 @@ binary64 是对 V3 数值语义的明确变更：原有 binary32 exact-sign 代�
 
 核心不要求调用者订阅 Godot 风格事件。应用层在成功 commit 后发布一次变更通知。通知必须携带 before/after token、created/removed/updated ID 和 full-reset 标志。核心 commit 不执行 observer、Godot 操作或等待；应用层 observer 失败不能改变已经提交的核心状态。
 
-### 4.2 `RoadMutationPlanner`
+### 5.2 `RoadMutationPlanner`
 
 planner 接收 immutable snapshot、request 和 numeric policy，创建私有 `RoadWorkingState`，返回完整且已冻结的 plan。plan 包含：
 
@@ -205,7 +307,7 @@ planner 接收 immutable snapshot、request 和 numeric policy，创建私有 `R
 
 planner 不读取活动 facade 的 mutable 字段，不触发事件，不创建 Godot 对象，也不在 commit 后继续补工作。需要多步 canonicalization 的算法全部在私有 draft 内完成；`RoadNetwork` 只接纳 base token 仍然匹配且预算通过的冻结 plan。
 
-### 4.3 `RoadWorkingState`
+### 5.3 `RoadWorkingState`
 
 working state 是 planner 或 network 在提交前使用的私有可变草稿。它集中管理实体表、incidence、ID reservation、派生索引和资源计数。草稿完成后生成 immutable snapshot；失败则直接丢弃草稿。
 
@@ -213,7 +315,7 @@ working state 是 planner 或 network 在提交前使用的私有可变草稿。
 
 working state 不能直接负责“所有权限”。它只接受 planner 已确定的操作，执行前后都运行 core invariant。ID reservation、资源预算和 history admission 失败时，活动 root、sequence、watermark 和 change set 均保持不变。
 
-### 4.4 Geometry Kernel
+### 5.4 Geometry Kernel
 
 Geometry Kernel 只处理：
 
@@ -240,7 +342,7 @@ segment
   -> canonical Edge / self-loop result
 ```
 
-### 4.5 `SpatialQueryIndex`
+### 5.5 `SpatialQueryIndex`
 
 空间索引是派生结构，只提供粗筛 candidate，不决定道路是否相交。它必须：
 
@@ -254,7 +356,7 @@ segment
 
 V4 的 metrics 至少分开记录 bucket visited、fragment candidates、exact geometry tests、full Edge visits 和结果 Edge 数。结果数量不能代替候选数量。空间索引查询返回 `SpatialQueryResult<T>`，包含 token、结果、候选统计和拒绝原因；调用者不再通过内部计数器猜测查询是否走了全表。
 
-### 4.6 `RoadNetworkReadModel`
+### 5.6 `RoadNetworkReadModel`
 
 所有消费者通过 `IRoadNetworkReadModel` 读取：
 
@@ -267,7 +369,7 @@ V4 的 metrics 至少分开记录 bucket visited、fragment candidates、exact g
 
 返回值不暴露工作 builder、bucket page、Godot 类型或 renderer cache。`RoadSurfaceSnapshot` 是表现层读取模型，不能替代核心道路 read model。核心 read model 的 public contract 不返回 `GraphNode`/`GraphEdge` 具体可变实现，旧测试通过 snapshot view 或 test codec 读取。
 
-### 4.7 `JunctionReadModel`
+### 5.7 `JunctionReadModel`
 
 它从同一个 immutable snapshot 派生，不持久化，也不修改道路图。每个 `JunctionView` 保存：
 
@@ -280,7 +382,7 @@ V4 的 metrics 至少分开记录 bucket visited、fragment candidates、exact g
 
 self-loop 必须产生 A→B、B→A 等可区分 movement。parallel Edge 不能通过 `NeighborNodeId` 去重。V4 第一版只产生几何上的 movement 描述和稳定 ID，不擅自判断红绿灯、容量或车辆许可。该模型先服务诊断或路口可视化，之后再由交通系统消费。
 
-### 4.8 Persistence Codec
+### 5.8 Persistence Codec
 
 V4 使用新的 `simple-cities-v4` format family 和新的保存根，例如 `user://saves-v4/`。V4 payload 至少包含：
 
@@ -301,9 +403,9 @@ Node、Edge、geometry 和 profile 均按稳定 ID 排序。reader 只接受规�
 
 V4 不在普通运行时 Load 中读取或转换 V3 数据。若以后需要迁移，单独制作离线 converter，输出经过 V4 reader 再验证的新 payload。
 
-## 5. Godot 适配层
+## 6. Godot 适配层
 
-### 5.1 输入
+### 6.1 输入
 
 `RoadEditController` 负责将输入映射为核心 request。现有 Placement、Removal 和 Upgrade session 可以保留交互语义，但只保存 token-bound read snapshot 和用户选择，不直接读取核心内部集合。它不再同时承担 RoadGraph mutation、history admission 和 renderer token 判断；这些信息由核心结果和 presentation adapter 返回。
 
@@ -320,7 +422,7 @@ InputEvent
 
 UI 不能创建 Node、Edge 或 profile，也不能直接调用 renderer 的 surface geometry 来决定领域拓扑。renderer surface 只用于“玩家点击了当前看见的哪一条 Edge”，最终领域合法性仍由 core planner 判断。
 
-### 5.2 表现
+### 6.2 表现
 
 `RoadPresentationPreparer` 接收 read snapshot 和 presentation catalog，生成纯数据：display points、ribbon vertices、surface primitives、owner、`RoadLocation` 和 presentation metrics。
 
@@ -336,7 +438,7 @@ UI 不能创建 Node、Edge 或 profile，也不能直接调用 renderer 的 sur
 
 普通 rebuild 与 Load 必须共用同一个 pure preparer。`ArrayMesh`、`MultiMesh` 和 scene tree 操作不得进入核心或 worker preparation。
 
-### 5.3 存档装配
+### 6.3 存档装配
 
 新增 `RoadSaveParticipant` 将核心 snapshot/prepare state 适配到现有 `IStreamingSaveable`。`SaveManager` 和 `PreparedAggregateLoad` 继续管理操作 token、scene generation、文件锁和多 participant 协调。
 
@@ -351,7 +453,7 @@ commit plan 必须满足现有 `INonThrowingLoadCommitPlan` 的真实含义：
 
 如果未来 participant 无法满足这些条件，先重新设计 rollback 协议，再加入 aggregate，不能继续扩大“全有或全无”的承诺。
 
-## 6. 实施阶段
+## 7. 实施阶段
 
 ### P0：冻结 V3 和建立新项目
 
@@ -395,108 +497,7 @@ P0 同时登记当前已确认问题：交点 cluster 空间排序、单段曲�
 
 串行执行 core tests、solution build、Godot editor/resource 检查、真实 `MapTest` runtime、存档故障场景和性能矩阵。任何 V3 旧测试若与 V4 明确新契约冲突，应改写为 V4 测试并记录行为改变。V4 通过后再删除未使用旧源文件，并复查根项目、导出程序集和 QA 过滤规则。
 
-## 6.1 实施图
-
-实施采用一条核心主线和三条可并行工作流。所有箭头表示前置依赖；虚线表示“只读取已经冻结的契约”，不表示新增写入路径。
-
-```mermaid
-flowchart LR
-    P0["P0 冻结 V3<br/>建立 RoadCore 项目边界"] --> G0{{"G0<br/>核心独立编译"}}
-    G0 --> P1["P1 模型与数值策略<br/>ID / Snapshot / Profile"]
-    P1 --> G1{{"G1<br/>模型 invariant"}}
-    G1 --> P2["P2 Geometry Kernel<br/>六类几何 / 自交 / overlap"]
-    P2 --> G2{{"G2<br/>几何结果确定"}}
-    G2 --> P3["P3 Spatial + Read Model<br/>查询 / Junction / Turn"]
-    G2 --> P6["P6 Presentation Preparer<br/>纯 mesh / surface 数据"]
-    P3 --> G3{{"G3<br/>读取 seam 稳定"}}
-    P3 --> P4["P4 Planner + WorkingState<br/>split / merge / delete / commit"]
-    G3 --> P4
-    P4 --> G4{{"G4<br/>单 root / 单 change set"}}
-    G4 --> P5["P5 History + V4 Codec<br/>delta / reader / writer"]
-    P6 --> G6{{"G6<br/>owner 与 location 一致"}}
-    P5 --> G5{{"G5<br/>V4 round-trip"}}
-    G5 --> P7["P7 Godot Adapter<br/>Renderer / Input / SaveManager"]
-    G6 --> P7
-    P7 --> G7{{"G7<br/>真实场景接入"}}
-    G7 --> P8["P8 一次切换<br/>RoadSystem → V4"]
-    P8 --> G8{{"G8<br/>V3 生产路径移除"}}
-    G8 --> P9["P9 最终验收<br/>Core / Godot / 性能 / 导出"]
-```
-
-| 阶段 | 主要工作流 | 输入 | 输出 | 必须停止的条件 |
-| --- | --- | --- | --- | --- |
-| P0 | 工程边界 | V3 稳定分支、当前项目文件 | 独立 core project、core tests、程序集规则 | core 仍引用 Godot，或源文件被重复编译 |
-| P1 | 核心模型 | 无 | Node/Edge/Profile/Token/Snapshot | ID、profile、numeric policy 没有版本或 invariant |
-| P2 | 几何 | P1 model | geometry result、location、split witness | 自交、重叠或未收敛没有确定结果 |
-| P3 | 读取 | P1 + P2 | SpatialQuery、ReadSnapshot、Junction/Turn | consumer 需要直接访问 builder、bucket 或旧 GraphEdge |
-| P4 | 写入 | P2 + P3 | MutationPlan、WorkingState、ChangeSet、commit | 失败需要修改活动 root 后回滚，或出现第二个写入点 |
-| P5 | 历史与存档 | P4 change set | V4 codec、prepared state、bounded history | codec 修改活动 network，或 V3/V4 writer 并存 |
-| P6 | 表现数据 | P2 + P3 | presentation snapshot、owner、mesh arrays | worker 创建 Godot Resource，或 surface 与 mesh 来源不同 |
-| P7 | 引擎接入 | P3/P4/P5/P6 | Renderer、Input、SaveManager adapters | SaveManager 仍绑定 RoadGraph，或 UI 直接写核心 |
-| P8 | 切换 | P7 全部通过 | V4 `RoadSystem`、V4 保存根、唯一生产路径 | V3/V4 双 runtime、双事件或双 writer |
-| P9 | 收口 | P8 | 完整验证报告、删除旧生产文件 | 任一核心、runtime、性能、导出或清理门失败 |
-
-### 6.1.1 并行安排
-
-P0 和 P1 是共同前置。P2 完成后，P3 和 P6 可以并行：P3 负责领域读取，P6 负责纯表现数据。P3 和 P6 都不能自行创建新的领域写入路径。P4 是核心写入主线，完成后 P5 与 P7 的部分准备可以并行；P7 必须等待 P5 和 P6 的正式接口全部冻结。
-
-建议按以下工作包组织提交和审查：
-
-```text
-W0  Core project / solution boundary
-W1  Core model / numeric policy / invariants
-W2  Geometry kernel / self-intersection
-W3  Spatial index / read snapshot / junction view
-W4  Mutation planner / draft / change set / commit
-W5  History / V4 codec / prepared load
-W6  Pure presentation preparer
-W7  Godot renderer / input / SaveManager host
-W8  MapTest cutover / remove V3 road runtime
-W9  Final QA and evidence
-```
-
-每个工作包结束时只做三件事：运行该包的 focused tests、运行受影响的回归门、记录新接口和证据。未完成的工作包不通过临时转发或手工场景状态标记为完成。
-
-### 6.1.2 P7 的真实接入顺序
-
-P7 不能只把 V4 类型塞进现有 `SaveManager`。当前 `SaveManager` 直接使用 `RoadGraph`、`RoadGraphRevision`、`RoadRendererPreparedLoad`、`SceneLoadContext` 和 `user://saves-v3`。V4 应按以下顺序拆开：
-
-1. 把 `SceneLoadContext` 改为持有通用 network runtime、tool runtime、presentation runtime 和 slot target participant。
-2. 把 `PreparedLoadWork` 改为通用 prepared network/presentation payload，不再出现 `RoadGraphRevision` 和 `RoadRendererPreparedLoad`。
-3. 将 `SaveBaseDir`、required payload 和错误文案从 V3 常量改为 V4 storage policy。
-4. 让 `RoadSaveParticipant` 负责 core codec 与现有 `IStreamingSaveable` 的转换。
-5. 让 `RoadLoadAssembly` 负责 admission、preflight、reference swap、notification 和 cleanup plan 的组装。
-6. 通过真实 V4 participant 后，才切换 `RoadSystem` 和 `ToolManager` 的持有类型。
-
-这一顺序保证 SaveManager 只协调 participant，不知道道路实体的具体类型；它也使 V4 核心可以在没有 Godot 的测试中独立验证。
-
-### 6.1.3 切换点和回退点
-
-P8 之前，V3 是正式主场景的唯一道路 runtime，V4 只运行于 core tests、隔离验证场景和独立 V4 保存根。P8 需要形成一份切换清单：
-
-- `RoadSystem`、`ToolManager`、`GameHUD`、`DebugPanel` 和 SaveManager 的引用已全部迁移；
-- V4 network、renderer、input、history 和 save participant 在同一场景中只各有一个实例；
-- 新旧保存根均可被单独识别，V4 操作不会触碰 V3 根；
-- 切换前保留 V3 可运行分支，切换失败可以回到该分支；
-- 切换后清理旧源文件前，再执行一次全量测试和导出文件扫描。
-
-V4 发布策略必须在 P8 前决定：继续隐藏 V3 存档、提供一次性离线 converter，或明确从空的 V4 存档开始。普通运行时不能悄悄把 V3 存档转换成 V4。
-
-### 6.1.4 证据流
-
-```mermaid
-flowchart TD
-    CoreTest["Core tests"] --> ModelEvidence["Model / geometry / topology evidence"]
-    ModelEvidence --> RuntimeCore["Core commit / query / codec"]
-    RuntimeCore --> AdapterEvidence["Godot adapter evidence"]
-    AdapterEvidence --> RuntimeEvidence["MapTest runtime evidence"]
-    RuntimeEvidence --> PerfEvidence["Performance / frame_post_draw / export evidence"]
-    PerfEvidence --> Cutover["P8 cutover decision"]
-```
-
-证据必须沿这条顺序积累。Core test 通过不能代替 Godot runtime；renderer runtime 通过不能代替 V4 codec；100K 压力结果不能代替 10K 连续交互门。每次性能报告都要分别列出 domain、worker prepare、preflight、reference commit、presentation commit、frame post draw 和端到端时间。
-
-## 7. 验收门
+## 8. 验收门
 
 V4 完成前必须同时满足：
 
@@ -515,7 +516,7 @@ V4 完成前必须同时满足：
 
 “原子”在 V4 中必须指明层级：core network 的 snapshot swap 是单一同步引用替换；presentation 和 SaveManager 的多 participant commit 依赖各 plan 的 no-throw、no-yield contract。若 participant 不能满足这个 contract，必须先设计 rollback 或 journal，不得把普通异常隔离成 warning 后继续声称整个 aggregate 可回滚。
 
-## 8. 禁止的重构方式
+## 9. 禁止的重构方式
 
 - 直接把现有 `RoadGraph*.cs` 改名后宣称完成解耦；
 - 在 `RoadGraph` 和 `RoadNetwork` 中保留两套规划算法；
@@ -528,7 +529,7 @@ V4 完成前必须同时满足：
 - 为了性能门关闭 invariant 或把候选数记成最终命中数；
 - 在 commit 阶段执行可能失败的几何、文件或 Resource 工作。
 
-## 9. 第一批实际交付
+## 10. 第一批实际交付
 
 V4 的第一批应只包含：
 
@@ -544,7 +545,7 @@ V4 core test project
 
 这一批不接 UI、不改场景、不改 SaveManager，也不删除 V3 代码。它通过后再进入 Geometry Kernel。这样可以先验证新的依赖方向和模块深度，再承担几何迁移的风险。
 
-## 10. 依据与状态边界
+## 11. 依据与状态边界
 
 - [`docs/manuals/road-system-v3-gen.md`](./road-system-v3-gen.md)：V3 规范和历史验收。
 - [`docs/manuals/road-system-v3.5-gen.md`](./road-system-v3.5-gen.md)：V3.5 评估、重构批次和已知审计问题。
