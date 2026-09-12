@@ -111,12 +111,12 @@ public sealed class RoadOverlapTests
     }
 
     [Theory]
-    [InlineData(400, 0, 600, 0, true)] // Endpoint touch, continuing straight.
-    [InlineData(400, 0, 600, 200, true)] // Endpoint touch, turning away.
-    [InlineData(200, -200, 200, 200, false)] // Geometric point crossing.
-    [InlineData(200, 200, 200, 0, false)] // Touch inside an existing segment.
-    [InlineData(0, 25, 400, 25, false)] // Parallel nearby centerline, regardless of road width.
-    public void PointContactsAndNearbyCenterlines_AreNotConstructionOverlap(double ax, double ay, double bx, double by, bool ready)
+    [InlineData(400, 0, 600, 0)] // Endpoint touch, continuing straight.
+    [InlineData(400, 0, 600, 200)] // Endpoint touch, turning away.
+    [InlineData(200, -200, 200, 200)] // Geometric point crossing.
+    [InlineData(200, 200, 200, 0)] // Touch inside an existing segment.
+    [InlineData(0, 25, 400, 25)] // Parallel nearby centerline, regardless of road width.
+    public void PointContactsAndNearbyCenterlines_AreNotConstructionOverlap(double ax, double ay, double bx, double by)
     {
         var network = new RoadNetwork(new MapDefinition(25));
         Build(network, new(0, 0), new(400, 0), RoadProfileId.Highway);
@@ -127,7 +127,7 @@ public sealed class RoadOverlapTests
 
         Assert.Empty(result.Conflicts);
         Assert.DoesNotContain("重叠", result.Reason);
-        Assert.Equal(ready ? RoadBuildStatus.Ready : RoadBuildStatus.Rejected, result.Status);
+        Assert.Equal(RoadBuildStatus.Ready, result.Status);
         Assert.Same(before, network.Snapshot);
         Assert.Equal(content, Save(network));
     }

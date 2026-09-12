@@ -1,6 +1,6 @@
 namespace SimpleCities.RoadCore;
 
-/// <summary>当前开放折线切片的规范性与显式资源上限；不接受尚未支持的交叉或闭环。</summary>
+/// <summary>主格点路网的规范性与显式资源上限；当前允许多个无环组件。</summary>
 internal static class RoadTopology
 {
     internal const int MaximumNodes = 512;
@@ -18,10 +18,8 @@ internal static class RoadTopology
         if (nextNodeId <= 0 || nextNodeId == long.MaxValue || nextEdgeId <= 0 || nextEdgeId == long.MaxValue)
             throw new InvalidDataException("道路身份水位无效");
         if (nodes.Count > MaximumNodes || edges.Count > MaximumEdges || edges.Sum(edge => edge.Points.Count) > MaximumPoints)
-            throw new InvalidDataException("超过当前开放折线的资源上限");
+            throw new InvalidDataException("超过当前道路路网的资源上限");
         if (nodes.Count == 0 && edges.Count == 0) return;
-        if (edges.Count != nodes.Count - 1 || edges.Count == 0)
-            throw new InvalidDataException("当前只支持无分叉开放折线，不支持闭环");
         var byId = new Dictionary<NodeId, RoadNode>();
         var positions = new HashSet<RoadPoint>();
         long lastId = 0;
@@ -57,17 +55,22 @@ internal static class RoadTopology
             }
         }
         foreach (List<RoadEdge> connected in incident.Values)
-            if (connected.Count is < 1 or > 2 || (connected.Count == 2 && connected[0].Profile == connected[1].Profile))
-                throw new InvalidDataException("当前只支持开放端点和必要的道路类型分界");
-        var visited = new HashSet<NodeId>();
-        var pending = new Stack<NodeId>();
-        pending.Push(nodes[0].Id);
-        while (pending.TryPop(out NodeId id))
+            if (connected.Count < 1 || (connected.Count == 2 && connected[0].Profile == connected[1].Profile))
+                throw new InvalidDataException("结构节点必须是道路端点、真实路口或必要的道路类型分界");
+        // 一笔可连接原本独立的组件；同组件中的闭环与平行路径留待后续切片。
+        var roots = nodes.ToDictionary(node => node.Id, node => node.Id);
+        NodeId Root(NodeId id)
         {
-            if (!visited.Add(id)) continue;
-            foreach (RoadEdge edge in incident[id]) pending.Push(edge.Start == id ? edge.End : edge.Start);
+            while (roots[id] != id) id = roots[id];
+            return id;
         }
-        if (visited.Count != nodes.Count) throw new InvalidDataException("当前道路必须形成一条连通开放折线");
+        foreach (RoadEdge edge in edges)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            NodeId a = Root(edge.Start), b = Root(edge.End);
+            if (a == b) throw new InvalidDataException("闭环和同节点间的不同路径尚未接入");
+            roots[a] = b;
+        }
         for (int i = 0; i < segments.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -105,6 +108,6 @@ internal static class RoadTopology
             (a.A == b.B && a.Start.HasValue && a.Start == b.End) ||
             (a.B == b.A && a.End.HasValue && a.End == b.Start) ||
             (a.B == b.B && a.End.HasValue && a.End == b.End);
-        if (!adjacent && !joined) throw new InvalidDataException("道路相交或触及内部折点，路口功能尚未接入");
+        if (!adjacent && !joined) throw new InvalidDataException("道路交叉或接入位置缺少共同结构节点");
     }
 }

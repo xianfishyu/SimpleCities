@@ -87,11 +87,13 @@ public partial class V4MapView : Node2D, IScenePresentationLoadParticipant
 
     internal Godot.Collections.Dictionary PickRoad(Vector2 world)
     {
-        CoreRoadLocation? location = _display?.Hit(world);
-        if (location is not CoreRoadLocation hit || _display is null) return new();
+        V4RoadDisplay.HitResult? result = _display?.Hit(world);
+        if (result is not V4RoadDisplay.HitResult picked || _display is null) return new();
+        CoreRoadLocation hit = picked.Location;
         return new()
         {
             ["edgeId"] = hit.Edge.Value,
+            ["junctionNodeId"] = picked.JunctionNode?.Value ?? 0,
             ["parameter"] = hit.Parameter,
             ["sourceToken"] = hit.Source.ToString(),
             ["profile"] = _display.Snapshot.Edges.Single(edge => edge.Id == hit.Edge).Profile.Value,

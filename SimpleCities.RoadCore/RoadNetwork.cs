@@ -72,73 +72,17 @@ public sealed class RoadNetwork
         IReadOnlyList<RoadConflictSpan> conflicts = RoadOverlap.Find(before, request.Start, request.End, cancellationToken);
         if (conflicts.Count != 0)
             return new(RoadBuildStatus.Rejected, null, "与已有道路重叠，整笔不可建造", conflicts);
-        RoadNode? startNode = before.Nodes.FirstOrDefault(node => node.Position == request.Start);
-        RoadNode? endNode = before.Nodes.FirstOrDefault(node => node.Position == request.End);
-        RoadNode? connector = startNode ?? endNode;
-        if (before.EdgeCount != 0 && (connector is null || (startNode is not null && endNode is not null)))
-            return new(RoadBuildStatus.Rejected, null, "请从已有开放端点续建；闭环和独立分支尚未接入");
-        RoadEdge? previous = null;
-        if (connector is not null)
-        {
-            RoadEdge[] incident = before.Edges.Where(edge => edge.Start == connector.Id || edge.End == connector.Id).ToArray();
-            if (incident.Length != 1)
-                return new(RoadBuildStatus.Rejected, null, "当前仅支持从开放端点续建");
-            previous = incident[0];
-        }
-        bool merge = previous?.Profile == request.Profile;
-        int addedNodes = connector is null ? 2 : 1;
-        int addedEdges = merge ? 0 : 1;
-        if (before.NextNodeId >= long.MaxValue - addedNodes ||
-            (addedEdges != 0 && before.NextEdgeId >= long.MaxValue - addedEdges) ||
-            before.Token.ContentRevision >= long.MaxValue - 1 || before.Token.ChangeSequence == long.MaxValue)
+        if (before.Token.ContentRevision >= long.MaxValue - 1 || before.Token.ChangeSequence == long.MaxValue)
             return new(RoadBuildStatus.Rejected, null, "道路身份或版本已耗尽");
-        var nodes = before.Nodes.ToList();
-        var edges = before.Edges.ToList();
-        if (connector is null)
+        try
         {
-            var start = new RoadNode(new NodeId(before.NextNodeId), request.Start);
-            var end = new RoadNode(new NodeId(before.NextNodeId + 1), request.End);
-            nodes.AddRange([start, end]);
-            edges.Add(new RoadEdge(new EdgeId(before.NextEdgeId), start.Id, end.Id, request.Profile, [request.Start, request.End]));
+            return RoadBuildPlanner.Plan(this, before, request, cancellationToken);
         }
-        else
+        catch (InvalidDataException exception)
         {
-            var free = new RoadNode(new NodeId(before.NextNodeId), startNode is null ? request.Start : request.End);
-            nodes.Add(free);
-            if (merge)
-            {
-                RoadEdge old = previous!;
-                var points = old.End == connector.Id ? old.Points.ToList() : old.Points.Reverse().ToList();
-                points.Add(free.Position);
-                int n = points.Count;
-                if (RoadTopology.IsForwardCollinear(points[n - 3], points[n - 2], points[n - 1]))
-                    points.RemoveAt(n - 2);
-                NodeId kept = old.End == connector.Id ? old.Start : old.End;
-                edges.Remove(old);
-                nodes.Remove(connector);
-                edges.Add(Orient(old.Id, kept, free.Id, old.Profile, points));
-            }
-            else
-                edges.Add(Orient(new EdgeId(before.NextEdgeId), connector.Id, free.Id, request.Profile, [connector.Position, free.Position]));
+            return new(RoadBuildStatus.Rejected, null, exception.Message);
         }
-        nodes.Sort((a, b) => a.Id.Value.CompareTo(b.Id.Value));
-        edges.Sort((a, b) => a.Id.Value.CompareTo(b.Id.Value));
-        long nextNode = before.NextNodeId + addedNodes;
-        long nextEdge = before.NextEdgeId + addedEdges;
-        try { RoadTopology.Validate(before.Map, nodes, edges, nextNode, nextEdge, cancellationToken); }
-        catch (InvalidDataException exception) { return new(RoadBuildStatus.Rejected, null, exception.Message); }
-        RoadStateToken token = before.Token with
-        {
-            ContentRevision = before.Token.ContentRevision + 1,
-            ChangeSequence = before.Token.ChangeSequence + 1,
-        };
-        var target = new RoadSnapshot(before.Map, token, nextNode, nextEdge, nodes, edges);
-        cancellationToken.ThrowIfCancellationRequested();
-        return new(RoadBuildStatus.Ready, new RoadPlan(this, before, target, addedNodes, addedEdges), "");
     }
-
-    private static RoadEdge Orient(EdgeId id, NodeId a, NodeId b, RoadProfileId profile, IEnumerable<RoadPoint> points) =>
-        a.Value < b.Value ? new(id, a, b, profile, points) : new(id, b, a, profile, points.Reverse());
 
     public bool CanCommit(RoadPlan plan) =>
         ReferenceEquals(plan.Owner, this) && ReferenceEquals(plan.Source, Snapshot);

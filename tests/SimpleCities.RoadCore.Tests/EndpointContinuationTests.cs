@@ -124,20 +124,21 @@ public sealed class EndpointContinuationTests
     }
 
     [Fact]
-    public void BuildingFromAProfileBoundary_DoesNotCreateAThirdBranch()
+    public void BuildingFromAProfileBoundary_PreservesItAsAThreeWayJunction()
     {
         var network = new RoadNetwork();
         Build(network, new(0, 0), new(300, 0));
         Build(network, new(300, 0), new(300, 400), RoadProfileId.Dirt);
         RoadStateToken before = network.Snapshot.Token;
-        byte[] content = Save(network);
-
         RoadBuildResult result = network.PlanBuild(new(before, new(300, 0), new(500, 0), RoadProfileId.Street));
 
-        Assert.Equal(RoadBuildStatus.Rejected, result.Status);
-        Assert.Null(result.Plan);
+        Assert.Equal(RoadBuildStatus.Ready, result.Status);
         Assert.Equal(before, network.Snapshot.Token);
-        Assert.Equal(content, Save(network));
+        Assert.True(network.TryCommit(result.Plan!));
+        Assert.Equal(4, network.Snapshot.NodeCount);
+        Assert.Equal(3, network.Snapshot.EdgeCount);
+        RoadNode junction = Assert.Single(network.Snapshot.Nodes, node => node.Position == new RoadPoint(300, 0));
+        Assert.Equal(3, RoadJunctionQuery.Read(network.Snapshot, junction.Id)!.Incidences.Count);
     }
 
     private static void Build(RoadNetwork network, RoadPoint start, RoadPoint end, RoadProfileId? profile = null)

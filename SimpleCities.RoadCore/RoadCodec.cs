@@ -24,11 +24,11 @@ public sealed class PreparedRoadState
     public IReadOnlyList<RoadEdge> Edges { get; }
 }
 
-/// <summary>V4 开放折线道路 schema 3；有界 stream 入口，不迁移旧调试格式。</summary>
+/// <summary>V4 主格点路口路网 schema 4；有界 stream 入口，不迁移旧调试格式。</summary>
 public static class RoadCodec
 {
     public const int MaximumPayloadBytes = 1048576;
-    public const int SchemaVersion = 3;
+    public const int SchemaVersion = 4;
 
     public static void Write(Stream destination, RoadSnapshot snapshot)
     {

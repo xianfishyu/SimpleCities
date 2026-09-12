@@ -20,7 +20,7 @@ public static class RoadProfiles
 public sealed class RoadSurfacePiece
 {
     internal RoadSurfacePiece(RoadEdge edge, RoadPoint start, RoadPoint end,
-        double startParameter, double endParameter, RoadPoint[] corners)
+        double startParameter, double endParameter, RoadPoint[] corners, NodeId? junctionNode = null)
     {
         Edge = edge;
         Start = start;
@@ -28,6 +28,7 @@ public sealed class RoadSurfacePiece
         StartParameter = startParameter;
         EndParameter = endParameter;
         Corners = Array.AsReadOnly(corners);
+        JunctionNode = junctionNode;
     }
     public RoadEdge Edge { get; }
     public RoadPoint Start { get; }
@@ -35,6 +36,7 @@ public sealed class RoadSurfacePiece
     public double StartParameter { get; }
     public double EndParameter { get; }
     public IReadOnlyList<RoadPoint> Corners { get; }
+    public NodeId? JunctionNode { get; }
 }
 
 /// <summary>后台生成的纯数值表面；Godot显式转换一次，绘制和命中共享转换结果。</summary>
@@ -96,6 +98,11 @@ public static class RoadPresentation
         {
             cancellationToken.ThrowIfCancellationRequested();
             List<RoadEdge> connected = incident[node.Id];
+            if (connected.Count >= 3)
+            {
+                AddJunction(joins, node, connected);
+                continue;
+            }
             if (connected.Count != 2) continue;
             RoadEdge a = connected[0], b = connected[1];
             RoadPoint aNext = a.Start == node.Id ? a.Points[1] : a.Points[^2];
@@ -105,6 +112,68 @@ public static class RoadPresentation
         pieces.AddRange(joins);
         return new RoadSurfaceData(nodes, edges, pieces);
     }
+
+    private sealed record JunctionCorner(RoadPoint Point, RoadEdge Edge, double Parameter);
+
+    private static void AddJunction(List<RoadSurfacePiece> pieces, RoadNode node, IReadOnlyList<RoadEdge> edges)
+    {
+        RoadPoint center = node.Position;
+        double reach = edges.Max(edge => RoadProfiles.Get(edge.Profile).WidthMetres / 2);
+        var corners = new List<JunctionCorner>();
+        foreach (RoadEdge edge in edges)
+        {
+            RoadPoint next = edge.Start == node.Id ? edge.Points[1] : edge.Points[^2];
+            double length = center.DistanceTo(next);
+            double distance = Math.Min(reach, length / 2);
+            RoadPoint mouth = new(center.X + (next.X - center.X) / length * distance,
+                center.Y + (next.Y - center.Y) / length * distance);
+            RoadPoint normal = Normal(center, next, RoadProfiles.Get(edge.Profile).WidthMetres / 2);
+            double parameter = edge.Start == node.Id ? 0 : 1;
+            corners.Add(new(Add(center, normal), edge, parameter));
+            corners.Add(new(Subtract(center, normal), edge, parameter));
+            corners.Add(new(Add(mouth, normal), edge, parameter));
+            corners.Add(new(Subtract(mouth, normal), edge, parameter));
+        }
+
+        // The convex envelope joins unequal-width mouths without unbounded miters.
+        // Including both sides at the node also encloses its center for one-sided forks.
+        JunctionCorner[] ordered = corners.OrderBy(corner => corner.Point.X).ThenBy(corner => corner.Point.Y)
+            .ThenBy(corner => corner.Edge.Id.Value).ThenBy(corner => corner.Parameter)
+            .DistinctBy(corner => corner.Point).ToArray();
+        var lower = new List<JunctionCorner>();
+        var upper = new List<JunctionCorner>();
+        foreach (JunctionCorner corner in ordered) Append(lower, corner);
+        foreach (JunctionCorner corner in ordered.Reverse()) Append(upper, corner);
+        lower.RemoveAt(lower.Count - 1);
+        upper.RemoveAt(upper.Count - 1);
+        lower.AddRange(upper);
+        for (int i = 0; i < lower.Count; i++)
+        {
+            JunctionCorner a = lower[i], b = lower[(i + 1) % lower.Count];
+            if (Cross(center, a.Point, b.Point) == 0) continue;
+            if (a.Edge.Id == b.Edge.Id)
+                AddTriangle(a, a.Point, b.Point);
+            else
+            {
+                RoadPoint middle = new((a.Point.X + b.Point.X) / 2, (a.Point.Y + b.Point.Y) / 2);
+                AddTriangle(a, a.Point, middle);
+                AddTriangle(b, middle, b.Point);
+            }
+        }
+
+        void AddTriangle(JunctionCorner owner, RoadPoint a, RoadPoint b) => pieces.Add(new RoadSurfacePiece(
+            owner.Edge, center, center, owner.Parameter, owner.Parameter, [center, a, b], node.Id));
+
+        static void Append(List<JunctionCorner> hull, JunctionCorner corner)
+        {
+            while (hull.Count >= 2 && Cross(hull[^2].Point, hull[^1].Point, corner.Point) <= 0)
+                hull.RemoveAt(hull.Count - 1);
+            hull.Add(corner);
+        }
+    }
+
+    private static double Cross(RoadPoint a, RoadPoint b, RoadPoint c) =>
+        (b.X - a.X) * (c.Y - a.Y) - (b.Y - a.Y) * (c.X - a.X);
 
     private static void AddJoin(List<RoadSurfacePiece> pieces, RoadPoint center, RoadPoint aNext, RoadPoint bNext,
         RoadEdge a, RoadEdge b, double aParameter, double bParameter)

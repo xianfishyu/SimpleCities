@@ -306,7 +306,10 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
             RoadPoint point = WorldPoint(hover.Position);
             Godot.Collections.Dictionary hit = PickRoad(new Vector2((float)point.X, (float)point.Y));
             _view.SetHovered(hit.Count != 0);
-            if (hit.Count != 0) _status.Text = $"道路位置：{hit["parameter"].AsDouble():P0}";
+            if (hit.TryGetValue("junctionNodeId", out Variant junctionId) && junctionId.AsInt64() > 0 &&
+                RoadJunctionQuery.Read(_roads!.Network.Snapshot, new NodeId(junctionId.AsInt64())) is RoadJunctionReadModel junction)
+                _status.Text = $"路口 · {junction.Incidences.Count} 个方向";
+            else if (hit.Count != 0) _status.Text = $"道路位置：{hit["parameter"].AsDouble():P0}";
         }
         if (@event is InputEventMouseButton { Pressed: true } button &&
             button.ButtonIndex is MouseButton.WheelUp or MouseButton.WheelDown)
@@ -358,6 +361,52 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
             ["meshSurfaces"] = _view.MeshSurfaceCount,
             ["nodeCount"] = snapshot.NodeCount,
             ["edges"] = DescribeEdges(snapshot),
+            ["junctions"] = DescribeJunctions(snapshot),
+        };
+    }
+
+    public Godot.Collections.Dictionary GetJunctionState(long nodeId)
+    {
+        if (_roads is null || nodeId <= 0) return new();
+        RoadJunctionReadModel? junction = RoadJunctionQuery.Read(_roads.Network.Snapshot, new NodeId(nodeId));
+        return junction is null ? new() : DescribeJunction(junction);
+    }
+
+    private static Godot.Collections.Array<Godot.Collections.Dictionary> DescribeJunctions(RoadSnapshot snapshot)
+    {
+        var junctions = new Godot.Collections.Array<Godot.Collections.Dictionary>();
+        foreach (RoadNode node in snapshot.Nodes)
+        {
+            RoadJunctionReadModel? junction = RoadJunctionQuery.Read(snapshot, node.Id);
+            if (junction is not null && junction.Incidences.Count >= 3) junctions.Add(DescribeJunction(junction));
+        }
+        return junctions;
+    }
+
+    private static Godot.Collections.Dictionary DescribeJunction(RoadJunctionReadModel junction)
+    {
+        var incidences = new Godot.Collections.Array<Godot.Collections.Dictionary>();
+        foreach (RoadIncidence incidence in junction.Incidences)
+            incidences.Add(new()
+            {
+                ["edgeId"] = incidence.Key.Edge.Value, ["role"] = incidence.Key.Role.ToString(),
+                ["profile"] = incidence.Profile.Value,
+                ["outward"] = new Vector2((float)incidence.Outward.X, (float)incidence.Outward.Y),
+                ["bearingRadians"] = incidence.BearingRadians,
+            });
+        var turns = new Godot.Collections.Array<Godot.Collections.Dictionary>();
+        foreach (RoadTurnMovement turn in junction.Turns)
+            turns.Add(new()
+            {
+                ["fromEdgeId"] = turn.From.Edge.Value, ["fromRole"] = turn.From.Role.ToString(),
+                ["toEdgeId"] = turn.To.Edge.Value, ["toRole"] = turn.To.Role.ToString(),
+                ["signedAngleRadians"] = turn.SignedAngleRadians,
+            });
+        return new()
+        {
+            ["nodeId"] = junction.Node.Id.Value,
+            ["position"] = new Vector2((float)junction.Node.Position.X, (float)junction.Node.Position.Y),
+            ["sourceToken"] = junction.Source.ToString(), ["incidences"] = incidences, ["turns"] = turns,
         };
     }
 

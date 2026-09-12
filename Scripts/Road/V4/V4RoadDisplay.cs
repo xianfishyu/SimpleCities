@@ -9,7 +9,8 @@ using CoreRoadLocation = SimpleCities.RoadCore.RoadLocation;
 internal sealed class V4RoadDisplay : IDisposable
 {
     private sealed record Piece(EdgeId Edge, Vector2[] Polygon, Vector2 Start, Vector2 End,
-        double StartParameter, double EndParameter);
+        double StartParameter, double EndParameter, NodeId? JunctionNode);
+    internal readonly record struct HitResult(CoreRoadLocation Location, NodeId? JunctionNode);
 
     private V4RoadDisplay(RoadSnapshot snapshot, ArrayMesh? mesh, Piece[] pieces)
     {
@@ -40,7 +41,7 @@ internal sealed class V4RoadDisplay : IDisposable
             Vector2[] polygon = source.Corners.Select(ToVector).ToArray();
             if (polygon.Length is not (3 or 4)) throw new InvalidOperationException("Invalid V4 road surface polygon.");
             Vector2 start = ToVector(source.Start), end = ToVector(source.End);
-            pieces.Add(new Piece(source.Edge.Id, polygon, start, end, source.StartParameter, source.EndParameter));
+            pieces.Add(new Piece(source.Edge.Id, polygon, start, end, source.StartParameter, source.EndParameter, source.JunctionNode));
             RoadProfile profile = RoadProfiles.Get(source.Edge.Profile);
             var color = new Color(profile.Red / 255f, profile.Green / 255f, profile.Blue / 255f);
             int offset = vertices.Count;
@@ -79,7 +80,7 @@ internal sealed class V4RoadDisplay : IDisposable
         return converted;
     }
 
-    internal CoreRoadLocation? Hit(Vector2 world)
+    internal HitResult? Hit(Vector2 world)
     {
         if (Mesh is null || !world.IsFinite()) return null;
         // Last drawn polygon owns the visible surface where differently coloured pieces overlap.
@@ -90,7 +91,7 @@ internal sealed class V4RoadDisplay : IDisposable
             Vector2 direction = piece.End - piece.Start;
             double fraction = direction.LengthSquared() == 0 ? 0 : Mathf.Clamp((world - piece.Start).Dot(direction) / direction.LengthSquared(), 0, 1);
             double parameter = piece.StartParameter + fraction * (piece.EndParameter - piece.StartParameter);
-            return new CoreRoadLocation(Snapshot.Token, piece.Edge, parameter);
+            return new HitResult(new CoreRoadLocation(Snapshot.Token, piece.Edge, parameter), piece.JunctionNode);
         }
         return null;
     }

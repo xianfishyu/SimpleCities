@@ -85,7 +85,7 @@ func rejects_invalid_payload(map: Node, manager: Node, slot: String) -> bool:
 	var payload_path := "user://saves-v4/" + slot + "/road_network_v4.json"
 	var original := FileAccess.get_file_as_string(payload_path)
 	var passed := true
-	for replacement in [["\"schemaVersion\":3", "\"schemaVersion\":1"], ["\"cellSizeMetres\":50", "\"cellSizeMetres\":75"]]:
+	for replacement in [["\"schemaVersion\":4", "\"schemaVersion\":1"], ["\"cellSizeMetres\":50", "\"cellSizeMetres\":75"]]:
 		var before: String = map.StateToken
 		var changed := original.replace(replacement[0], replacement[1])
 		passed = publish_fixture(slot, changed) and passed
