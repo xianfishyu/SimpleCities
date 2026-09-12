@@ -52,7 +52,9 @@ internal static class RoadBuildPlanner
         {
             cancellationToken.ThrowIfCancellationRequested();
             EdgeId id = piece.Id ?? new EdgeId(Allocate(ref nextEdge));
-            edges.Add(piece.Start.Value < piece.End.Value
+            bool forward = piece.Start.Value < piece.End.Value ||
+                (piece.Start == piece.End && RoadTopology.IsCanonicalLoopDirection(piece.Points));
+            edges.Add(forward
                 ? new RoadEdge(id, piece.Start, piece.End, piece.Profile, piece.Points)
                 : new RoadEdge(id, piece.End, piece.Start, piece.Profile, piece.Points.AsEnumerable().Reverse()));
         }
@@ -111,14 +113,16 @@ internal static class RoadBuildPlanner
                 incident[piece.Start].Add(piece);
                 incident[piece.End].Add(piece);
             }
-            RoadNode? removable = nodes.Values.OrderBy(node => node.Id.Value).FirstOrDefault(node => incident[node.Id].Count == 2 &&
+            // Higher IDs disappear first, so an isolated degree-two ring retains its
+            // smallest existing NodeId as the rooted seam. A true junction is never
+            // removable, regardless of its ID or the former seam's ID.
+            RoadNode? removable = nodes.Values.OrderByDescending(node => node.Id.Value).FirstOrDefault(node => incident[node.Id].Count == 2 &&
+                !ReferenceEquals(incident[node.Id][0], incident[node.Id][1]) &&
                 incident[node.Id][0].Profile == incident[node.Id][1].Profile);
             if (removable is null) return;
             Piece a = incident[removable.Id][0], b = incident[removable.Id][1];
-            if (ReferenceEquals(a, b)) throw new InvalidDataException("闭环道路尚未接入");
             NodeId start = a.Start == removable.Id ? a.End : a.Start;
             NodeId end = b.Start == removable.Id ? b.End : b.Start;
-            if (start == end) throw new InvalidDataException("闭环道路尚未接入");
             IEnumerable<RoadPoint> first = a.End == removable.Id ? a.Points : a.Points.AsEnumerable().Reverse();
             IEnumerable<RoadPoint> second = b.Start == removable.Id ? b.Points : b.Points.AsEnumerable().Reverse();
             var joined = new List<RoadPoint>();

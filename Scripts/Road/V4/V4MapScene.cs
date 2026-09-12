@@ -421,6 +421,8 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
             edges.Add(new()
             {
                 ["edgeId"] = edge.Id.Value,
+                ["startNodeId"] = edge.Start.Value,
+                ["endNodeId"] = edge.End.Value,
                 ["profile"] = edge.Profile.Value,
                 ["points"] = points,
             });

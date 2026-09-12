@@ -23,7 +23,7 @@ public sealed class CellCenterCodecTests
         RoadJunctionReadModel original = RoadJunctionQuery.Read(before, junction.Id)!;
         Assert.Equal(4, original.Incidences.Count);
         byte[] saved = Save(network);
-        Assert.Equal(5, JsonNode.Parse(saved)!["schemaVersion"]!.GetValue<int>());
+        Assert.Equal(6, JsonNode.Parse(saved)!["schemaVersion"]!.GetValue<int>());
 
         var restored = new RoadNetwork();
         for (int read = 0; read < 2; read++)
@@ -97,7 +97,7 @@ public sealed class CellCenterCodecTests
         var network = new RoadNetwork(new MapDefinition(25));
         Build(network, new(-100, -100), new(-25, -100), RoadProfileId.Highway);
         string payload = $$"""
-            {"formatFamily":"simple-cities-v4","payloadType":"road-network","schemaVersion":5,
+            {"formatFamily":"simple-cities-v4","payloadType":"road-network","schemaVersion":6,
             "contentRevision":2,"nextNodeId":3,"nextEdgeId":2,"profileCatalogVersion":1,
             "map":{"widthMetres":8000,"heightMetres":8000,"origin":"center","metresPerUnit":1,"grid":"square-eight","cellSizeMetres":25},
             "nodes":{{nodes}},"edges":[{"id":1,"startNodeId":1,"endNodeId":2,"profile":"street","points":{{points}}}]}

@@ -1,6 +1,6 @@
 namespace SimpleCities.RoadCore;
 
-/// <summary>米字网格路网的规范性与显式资源上限；当前允许多个无环组件。</summary>
+/// <summary>米字网格路网的规范性与显式资源上限，包含 rooted 自环和不同路径平行边。</summary>
 internal static class RoadTopology
 {
     internal const int MaximumNodes = 512;
@@ -10,6 +10,18 @@ internal static class RoadTopology
     internal static bool IsForwardCollinear(RoadPoint a, RoadPoint b, RoadPoint c) =>
         Cross(b.X - a.X, b.Y - a.Y, c.X - b.X, c.Y - b.Y) == 0 &&
         (b.X - a.X) * (c.X - b.X) + (b.Y - a.Y) * (c.Y - b.Y) > 0;
+
+    internal static bool IsCanonicalLoopDirection(IReadOnlyList<RoadPoint> points)
+    {
+        for (int i = 1; i < points.Count - 1; i++)
+        {
+            RoadPoint forward = points[i], reverse = points[points.Count - 1 - i];
+            int comparison = forward.X.CompareTo(reverse.X);
+            if (comparison == 0) comparison = forward.Y.CompareTo(reverse.Y);
+            if (comparison != 0) return comparison < 0;
+        }
+        return true;
+    }
 
     internal static void Validate(MapDefinition map, IReadOnlyList<RoadNode> nodes, IReadOnlyList<RoadEdge> edges, long nextNodeId, long nextEdgeId,
         CancellationToken cancellationToken = default)
@@ -37,10 +49,12 @@ internal static class RoadTopology
         foreach (RoadEdge edge in edges)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (edge.Id.Value <= lastId || edge.Id.Value >= nextEdgeId || edge.Start.Value >= edge.End.Value || !edge.Profile.IsValid ||
+            if (edge.Id.Value <= lastId || edge.Id.Value >= nextEdgeId || edge.Start.Value > edge.End.Value || !edge.Profile.IsValid ||
                 !byId.TryGetValue(edge.Start, out RoadNode? start) || !byId.TryGetValue(edge.End, out RoadNode? end) ||
                 edge.Points.Count < 2 || edge.Points[0] != start.Position || edge.Points[^1] != end.Position)
                 throw new InvalidDataException("道路身份、端点、方向或类型无效");
+            if (edge.Start == edge.End && !IsCanonicalLoopDirection(edge.Points))
+                throw new InvalidDataException("自环必须在既定 seam 上采用规范方向");
             lastId = edge.Id.Value;
             incident[edge.Start].Add(edge);
             incident[edge.End].Add(edge);
@@ -55,22 +69,9 @@ internal static class RoadTopology
             }
         }
         foreach (List<RoadEdge> connected in incident.Values)
-            if (connected.Count < 1 || (connected.Count == 2 && connected[0].Profile == connected[1].Profile))
+            if (connected.Count < 1 || (connected.Count == 2 && connected[0].Profile == connected[1].Profile &&
+                !ReferenceEquals(connected[0], connected[1])))
                 throw new InvalidDataException("结构节点必须是道路端点、真实路口或必要的道路类型分界");
-        // 一笔可连接原本独立的组件；同组件中的闭环与平行路径留待后续切片。
-        var roots = nodes.ToDictionary(node => node.Id, node => node.Id);
-        NodeId Root(NodeId id)
-        {
-            while (roots[id] != id) id = roots[id];
-            return id;
-        }
-        foreach (RoadEdge edge in edges)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            NodeId a = Root(edge.Start), b = Root(edge.End);
-            if (a == b) throw new InvalidDataException("闭环和同节点间的不同路径尚未接入");
-            roots[a] = b;
-        }
         for (int i = 0; i < segments.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();

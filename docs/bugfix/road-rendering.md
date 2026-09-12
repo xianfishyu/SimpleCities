@@ -212,3 +212,35 @@ owner-dense 10k Vulkan 契约已经完成 Load、EdgeRibbon、TerminalCap 和 Se
 - `godot --headless --path . --check-only --script tests/godot/road_parallel_edge_runtime_contract.gd`：脚本检查通过。
 - 隔离 `APPDATA` 的真实 Vulkan `godot --path . --script tests/godot/road_parallel_edge_runtime_contract.gd`：输出 `PASS road parallel edge runtime contract`；高亮区域差值为 first `62.125491`、second `36.211765`，两侧交叉区域均为 `0`；缩放 `0.25/4.0/1.0`、同槽 Load 重建后的 geometry、mesh vertex count 和 surface owner 均保持稳定，并写出 `.godot/qa-road-parallel-edge-visual.png`。
 - 运行日志唯一 warning 为既有 `ConstructionDock: ToolManager.Instance is missing`，未归因于本修复；本轮未暴露 Roslyn CodeLens、Godot editor MCP 或 DAP 工具，未将这些门禁声称为通过。
+
+---
+
+<a id="road-rendering-bug-9"></a>
+## BUG-9：共用路口的两个自环丢失端接表面来源
+
+> 修复日期：2026-09-12
+> 影响文件：`SimpleCities.RoadCore/RoadPresentation.cs`、`tests/SimpleCities.RoadCore.Tests/LoopRoadTests.cs`
+> 关联事项：V4-10 / GitHub #11
+
+### 症状
+
+两条自环共用一个真实路口时，领域读取正确返回四个独立端接，但生成的路口表面缺少其中一个端接的来源。`TwoLoopsSharingOneJunction_KeepFourDistinctEndConnections` 在按每个 `(EdgeId, Role)` 检查路口表面时失败；仅检查路口位置或不同 EdgeId 数量无法发现同一条自环的起终角色被合并。
+
+### 根因分析
+
+路口表面用道路口两侧角点的凸包封闭。不同端接可能贡献同一坐标的角点，原路径在凸包角点去重时仅保留排序在前的来源，并据此分配表面 owner。角点坐标相同不代表端接相同，因此合法的几何去重同时丢弃了另一个端接的身份；自环 Start 与 End 共用 EdgeId 时同样必须保留角色区别。
+
+### 修复方案
+
+保留原凸包轮廓，按端接离开路口的方向排序，并使用相邻方向的角平分线切分既有凸包三角区域。每块按其方向分配到对应的 `(EdgeId, Role)`，角色映射到该规范道路边的参数0或1，确定性同值排序继续使用 EdgeId 与角色。修复只细分已有表面的来源区域，不通过叠加额外表面或扩大凸包补足缺失的 owner。
+
+### 影响范围
+
+影响V4路口表面的端接归属，包含自环和多个端接贡献重复凸包角点的场景。领域拓扑、规范道路边身份、凸包覆盖范围及存档内容不由本修复改变；领域端接读取作为本回归的外部对照。
+
+## BUG-9 验证状态
+
+- `TwoLoopsSharingOneJunction_KeepFourDistinctEndConnections` 先复现表面端接来源缺失，修复后通过：两条自环、四个独立incidence和十六个turn读取成立，每个端接均有对应的路口表面片。
+- `dotnet test SimpleCities.sln --no-restore --verbosity minimal`：核心263/263、应用968/968通过；ExportRelease构建为0警告、0错误。
+- 真实Godot 4.7 Forward+/Vulkan的 `v4_loop_runtime_contract.gd` 输出 `PASS V4 loop runtime contract`，覆盖纯环、有分支环、不同路径平行边和格心闭环，保存重载与测试槽清理均通过。具体端接owner回归由上述核心测试证明；运行时矩阵不替代该断言。日志见 `.scratch/v4-10-11-qa/v4_loop_runtime_contract.stdout.log`。
+- 双轴审查均无剩余发现。本轮Roslyn、编辑器MCP及DAP工具未暴露，对应门禁未完成；本记录不据此宣称完整道路性能已验证。

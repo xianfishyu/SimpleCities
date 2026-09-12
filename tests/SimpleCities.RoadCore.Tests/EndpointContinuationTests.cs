@@ -97,13 +97,13 @@ public sealed class EndpointContinuationTests
     }
 
     [Theory]
-    [InlineData(200, 0)] // Touch the interior of the first span.
-    [InlineData(200, -100)] // Cross the first span.
-    [InlineData(0, 0)] // Close onto the other open endpoint.
-    [InlineData(400, 400)] // Touch an existing internal turn.
-    [InlineData(200, 500)] // Overlap the last span in reverse.
-    [InlineData(4100, 200)] // Leave the map on a legal direction.
-    public void UnsupportedContinuation_DoesNotPublishOrConsumeIdentities(double x, double y)
+    [InlineData(200, 0, true)] // Touch the interior of the first span.
+    [InlineData(200, -100, true)] // Cross the first span.
+    [InlineData(0, 0, true)] // Close onto the other open endpoint.
+    [InlineData(400, 400, true)] // Touch an existing internal turn.
+    [InlineData(200, 500, false)] // Overlap the last span in reverse.
+    [InlineData(4100, 200, false)] // Leave the map on a legal direction.
+    public void Continuation_PublishesLegalLoopsAndRejectsInvalidCoverage(double x, double y, bool allowed)
     {
         var network = new RoadNetwork();
         Build(network, new(0, 0), new(400, 0));
@@ -115,12 +115,17 @@ public sealed class EndpointContinuationTests
 
         RoadBuildResult result = network.PlanBuild(new(before.Token, new(200, 200), new(x, y), RoadProfileId.Street));
 
-        Assert.Equal(RoadBuildStatus.Rejected, result.Status);
-        Assert.Null(result.Plan);
+        Assert.Equal(allowed ? RoadBuildStatus.Ready : RoadBuildStatus.Rejected, result.Status);
         Assert.Equal(before.Token, network.Snapshot.Token);
         Assert.Equal(before.NextNodeId, network.Snapshot.NextNodeId);
         Assert.Equal(before.NextEdgeId, network.Snapshot.NextEdgeId);
         Assert.Equal(content, Save(network));
+        if (allowed)
+        {
+            Assert.True(network.TryCommit(result.Plan!));
+            Assert.Equal(before.Token.ChangeSequence + 1, network.Snapshot.Token.ChangeSequence);
+        }
+        else Assert.Null(result.Plan);
     }
 
     [Fact]

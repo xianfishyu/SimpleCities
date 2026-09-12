@@ -220,17 +220,19 @@ public sealed class CellCenterRoadTests
     }
 
     [Fact]
-    public void CellCenterConnectionWithinOneComponent_StillRejectsTheCycle()
+    public void CellCenterConnectionWithinOneComponent_CreatesLoopAndBranch()
     {
         var network = new RoadNetwork();
         Build(network, new(0, 0), new(100, 100));
         Build(network, new(0, 0), new(100, 0));
         RoadSnapshot before = network.Snapshot;
         RoadBuildResult result = network.PlanBuild(new(before.Token, new(100, 0), new(50, 50), RoadProfileId.Street));
-        Assert.Equal(RoadBuildStatus.Rejected, result.Status);
-        Assert.Contains("闭环", result.Reason);
-        Assert.Null(result.Plan);
+        Assert.Equal(RoadBuildStatus.Ready, result.Status);
         Assert.Same(before, network.Snapshot);
+        Assert.True(network.TryCommit(result.Plan!));
+        RoadNode center = Assert.Single(network.Snapshot.Nodes, node => node.Position == new RoadPoint(50, 50));
+        Assert.Equal(3, RoadJunctionQuery.Read(network.Snapshot, center.Id)!.Incidences.Count);
+        Assert.Single(network.Snapshot.Edges, edge => edge.Start == edge.End);
     }
 
     private static void Build(RoadNetwork network, RoadPoint start, RoadPoint end)

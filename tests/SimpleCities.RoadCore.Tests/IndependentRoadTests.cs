@@ -9,7 +9,7 @@ public sealed class IndependentRoadTests
     public void BuildAtIdentityLimit_IsRejectedAndCurrentContentStillRoundTrips(string field, long value)
     {
         const string empty = """
-            {"formatFamily":"simple-cities-v4","payloadType":"road-network","schemaVersion":5,
+            {"formatFamily":"simple-cities-v4","payloadType":"road-network","schemaVersion":6,
             "contentRevision":1,"nextNodeId":1,"nextEdgeId":1,"profileCatalogVersion":1,
             "map":{"widthMetres":8000,"heightMetres":8000,"origin":"center","metresPerUnit":1,"grid":"square-eight","cellSizeMetres":100},
             "nodes":[],"edges":[]}
@@ -110,7 +110,7 @@ public sealed class IndependentRoadTests
     public void MalformedRoadPayload_IsRejectedBeforePublishing(string original, string replacement)
     {
         const string valid = """
-            {"formatFamily":"simple-cities-v4","payloadType":"road-network","schemaVersion":5,
+            {"formatFamily":"simple-cities-v4","payloadType":"road-network","schemaVersion":6,
             "contentRevision":2,"nextNodeId":3,"nextEdgeId":2,"profileCatalogVersion":1,
             "map":{"widthMetres":8000,"heightMetres":8000,"origin":"center","metresPerUnit":1,"grid":"square-eight","cellSizeMetres":100},
             "nodes":[{"id":1,"x":0,"y":0},{"id":2,"x":300,"y":0}],

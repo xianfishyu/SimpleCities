@@ -55,15 +55,21 @@ public sealed class RoadSurfaceData
 
 public static class RoadPresentation
 {
+    private sealed record EndConnection(RoadEdge Edge, RoadEndRole Role)
+    {
+        public RoadPoint Next => Role == RoadEndRole.Start ? Edge.Points[1] : Edge.Points[^2];
+        public double Parameter => Role == RoadEndRole.Start ? 0 : 1;
+    }
+
     public static RoadSurfaceData? Prepare(IReadOnlyList<RoadNode> nodes, IReadOnlyList<RoadEdge> edges, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (edges.Count == 0) return null;
-        var incident = nodes.ToDictionary(node => node.Id, _ => new List<RoadEdge>());
+        var incident = nodes.ToDictionary(node => node.Id, _ => new List<EndConnection>());
         foreach (RoadEdge edge in edges)
         {
-            incident[edge.Start].Add(edge);
-            incident[edge.End].Add(edge);
+            incident[edge.Start].Add(new EndConnection(edge, RoadEndRole.Start));
+            incident[edge.End].Add(new EndConnection(edge, RoadEndRole.End));
         }
         var pieces = new List<RoadSurfacePiece>();
         var joins = new List<RoadSurfacePiece>();
@@ -97,17 +103,15 @@ public static class RoadPresentation
         foreach (RoadNode node in nodes)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            List<RoadEdge> connected = incident[node.Id];
+            List<EndConnection> connected = incident[node.Id];
             if (connected.Count >= 3)
             {
                 AddJunction(joins, node, connected);
                 continue;
             }
             if (connected.Count != 2) continue;
-            RoadEdge a = connected[0], b = connected[1];
-            RoadPoint aNext = a.Start == node.Id ? a.Points[1] : a.Points[^2];
-            RoadPoint bNext = b.Start == node.Id ? b.Points[1] : b.Points[^2];
-            AddJoin(joins, node.Position, aNext, bNext, a, b, a.Start == node.Id ? 0 : 1, b.Start == node.Id ? 0 : 1);
+            EndConnection a = connected[0], b = connected[1];
+            AddJoin(joins, node.Position, a.Next, b.Next, a.Edge, b.Edge, a.Parameter, b.Parameter);
         }
         pieces.AddRange(joins);
         return new RoadSurfaceData(nodes, edges, pieces);
@@ -115,20 +119,21 @@ public static class RoadPresentation
 
     private sealed record JunctionCorner(RoadPoint Point, RoadEdge Edge, double Parameter);
 
-    private static void AddJunction(List<RoadSurfacePiece> pieces, RoadNode node, IReadOnlyList<RoadEdge> edges)
+    private static void AddJunction(List<RoadSurfacePiece> pieces, RoadNode node, IReadOnlyList<EndConnection> connections)
     {
         RoadPoint center = node.Position;
-        double reach = edges.Max(edge => RoadProfiles.Get(edge.Profile).WidthMetres / 2);
+        double reach = connections.Max(connection => RoadProfiles.Get(connection.Edge.Profile).WidthMetres / 2);
         var corners = new List<JunctionCorner>();
-        foreach (RoadEdge edge in edges)
+        foreach (EndConnection connection in connections)
         {
-            RoadPoint next = edge.Start == node.Id ? edge.Points[1] : edge.Points[^2];
+            RoadEdge edge = connection.Edge;
+            RoadPoint next = connection.Next;
             double length = center.DistanceTo(next);
             double distance = Math.Min(reach, length / 2);
             RoadPoint mouth = new(center.X + (next.X - center.X) / length * distance,
                 center.Y + (next.Y - center.Y) / length * distance);
             RoadPoint normal = Normal(center, next, RoadProfiles.Get(edge.Profile).WidthMetres / 2);
-            double parameter = edge.Start == node.Id ? 0 : 1;
+            double parameter = connection.Parameter;
             corners.Add(new(Add(center, normal), edge, parameter));
             corners.Add(new(Subtract(center, normal), edge, parameter));
             corners.Add(new(Add(mouth, normal), edge, parameter));
@@ -147,22 +152,54 @@ public static class RoadPresentation
         lower.RemoveAt(lower.Count - 1);
         upper.RemoveAt(upper.Count - 1);
         lower.AddRange(upper);
+        // Partition the existing envelope by angular end-role ownership. Several
+        // mouths can contribute the same hull corner; choosing its first EdgeId
+        // would erase another incidence (including the other end of a self-loop).
+        var owners = connections.Select(connection =>
+        {
+            double length = center.DistanceTo(connection.Next);
+            var outward = new RoadPoint((connection.Next.X - center.X) / length,
+                (connection.Next.Y - center.Y) / length);
+            double angle = Math.Atan2(outward.Y, outward.X);
+            if (angle < 0) angle += Math.Tau;
+            return (Connection: connection, Outward: outward, Angle: angle);
+        }).OrderBy(owner => owner.Angle).ThenBy(owner => owner.Connection.Edge.Id.Value)
+            .ThenBy(owner => owner.Connection.Role).ToArray();
+        var boundaries = new List<RoadPoint>();
+        for (int i = 0; i < owners.Length; i++)
+        {
+            double nextAngle = i + 1 == owners.Length ? owners[0].Angle + Math.Tau : owners[i + 1].Angle;
+            double middleAngle = (owners[i].Angle + nextAngle) / 2;
+            boundaries.Add(new RoadPoint(Math.Cos(middleAngle), Math.Sin(middleAngle)));
+        }
         for (int i = 0; i < lower.Count; i++)
         {
-            JunctionCorner a = lower[i], b = lower[(i + 1) % lower.Count];
-            if (Cross(center, a.Point, b.Point) == 0) continue;
-            if (a.Edge.Id == b.Edge.Id)
-                AddTriangle(a, a.Point, b.Point);
-            else
+            RoadPoint a = lower[i].Point, b = lower[(i + 1) % lower.Count].Point;
+            if (Cross(center, a, b) == 0) continue;
+            var cuts = new List<double> { 0, 1 };
+            RoadPoint relative = Subtract(a, center), direction = Subtract(b, a);
+            foreach (RoadPoint ray in boundaries)
             {
-                RoadPoint middle = new((a.Point.X + b.Point.X) / 2, (a.Point.Y + b.Point.Y) / 2);
-                AddTriangle(a, a.Point, middle);
-                AddTriangle(b, middle, b.Point);
+                double denominator = direction.X * ray.Y - direction.Y * ray.X;
+                if (Math.Abs(denominator) < 1e-12) continue;
+                double t = (relative.Y * ray.X - relative.X * ray.Y) / denominator;
+                if (t <= 1e-12 || t >= 1 - 1e-12) continue;
+                RoadPoint hit = new(relative.X + direction.X * t, relative.Y + direction.Y * t);
+                if (hit.X * ray.X + hit.Y * ray.Y > 0) cuts.Add(t);
+            }
+            cuts.Sort();
+            for (int j = 1; j < cuts.Count; j++)
+            {
+                RoadPoint start = new(a.X + direction.X * cuts[j - 1], a.Y + direction.Y * cuts[j - 1]);
+                RoadPoint end = new(a.X + direction.X * cuts[j], a.Y + direction.Y * cuts[j]);
+                if (Cross(center, start, end) == 0) continue;
+                RoadPoint middle = new((start.X + end.X) / 2 - center.X, (start.Y + end.Y) / 2 - center.Y);
+                EndConnection owner = owners.OrderByDescending(candidate => middle.X * candidate.Outward.X + middle.Y * candidate.Outward.Y)
+                    .ThenBy(candidate => candidate.Connection.Edge.Id.Value).ThenBy(candidate => candidate.Connection.Role).First().Connection;
+                pieces.Add(new RoadSurfacePiece(owner.Edge, center, center, owner.Parameter, owner.Parameter,
+                    [center, start, end], node.Id));
             }
         }
-
-        void AddTriangle(JunctionCorner owner, RoadPoint a, RoadPoint b) => pieces.Add(new RoadSurfacePiece(
-            owner.Edge, center, center, owner.Parameter, owner.Parameter, [center, a, b], node.Id));
 
         static void Append(List<JunctionCorner> hull, JunctionCorner corner)
         {

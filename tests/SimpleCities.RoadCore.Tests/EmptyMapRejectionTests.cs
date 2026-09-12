@@ -7,19 +7,19 @@ public sealed class EmptyMapRejectionTests
 {
     // Authored independently of the writer: the schema example is the input oracle.
     private const string Valid = """
-        {"formatFamily":"simple-cities-v4","payloadType":"road-network","schemaVersion":5,
+        {"formatFamily":"simple-cities-v4","payloadType":"road-network","schemaVersion":6,
          "contentRevision":7,"nextNodeId":9,"nextEdgeId":12,"profileCatalogVersion":1,
          "map":{"widthMetres":8000,"heightMetres":8000,"origin":"center","metresPerUnit":1,
                 "grid":"square-eight","cellSizeMetres":50},"nodes":[],"edges":[]}
         """;
 
     [Theory]
-    [InlineData("\"schemaVersion\":5", "\"schemaVersion\":1")]
+    [InlineData("\"schemaVersion\":6", "\"schemaVersion\":1")]
     [InlineData("simple-cities-v4", "simple-cities-v3")]
     [InlineData("\"cellSizeMetres\":50", "\"cellSizeMetres\":75")]
     [InlineData("\"cellSizeMetres\":50", "\"cellSizeMetres\":50.5")]
     [InlineData("\"cellSizeMetres\":50", "\"cellSizeMetres\":50,\"cellSizeMetres\":100")]
-    [InlineData("\"schemaVersion\":5", "\"schemaVersion\":5,\"unknown\":0")]
+    [InlineData("\"schemaVersion\":6", "\"schemaVersion\":6,\"unknown\":0")]
     [InlineData("\"nextNodeId\":9", "\"nextNodeId\":0")]
     [InlineData("\"nextEdgeId\":12", "\"nextEdgeId\":-1")]
     [InlineData("\"profileCatalogVersion\":1", "\"profileCatalogVersion\":2")]
