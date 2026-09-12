@@ -290,7 +290,7 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
             MapDefinition map = _roads!.Network.Snapshot.Map;
             RoadPoint cursor = WorldPoint(press.Position);
             if (cursor.X < -4000 || cursor.X > 4000 || cursor.Y < -4000 || cursor.Y > 4000) return;
-            _draftStart = map.SnapPrimary(cursor);
+            _draftStart = map.SnapBuildPoint(cursor);
             _draftSource = _roads.Network.Snapshot.Token;
             _draftProfile = RoadProfiles.All[_profileChoice.Selected].Id;
             _view.SetHovered(false);
@@ -308,7 +308,7 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
             _view.SetHovered(hit.Count != 0);
             if (hit.TryGetValue("junctionNodeId", out Variant junctionId) && junctionId.AsInt64() > 0 &&
                 RoadJunctionQuery.Read(_roads!.Network.Snapshot, new NodeId(junctionId.AsInt64())) is RoadJunctionReadModel junction)
-                _status.Text = $"路口 · {junction.Incidences.Count} 个方向";
+                _status.Text = $"{(_roads.Network.Snapshot.Map.IsCellCenter(junction.Node.Position) ? "格心路口" : "路口")} · {junction.Incidences.Count} 个方向";
             else if (hit.Count != 0) _status.Text = $"道路位置：{hit["parameter"].AsDouble():P0}";
         }
         if (@event is InputEventMouseButton { Pressed: true } button &&

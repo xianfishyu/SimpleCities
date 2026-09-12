@@ -1,0 +1,8 @@
+Godot Engine v4.7.stable.mono.official.5b4e0cb0f - https://godotengine.org
+Vulkan 1.4.351 - Forward+ - Using Device #0: NVIDIA - NVIDIA GeForce RTX 5080
+
+V4_INVALID_LOAD_RESULT {"error":"Unsupported V4 schemaVersion; expected 5.","field":"\"schemaVersion\":5","intact":true,"rejected":true}
+V4_INVALID_LOAD_RESULT {"error":"V4 cellSizeMetres must be 25, 50, 100 or 200.","field":"\"cellSizeMetres\":50","intact":true,"rejected":true}
+V4_CAMERA_RESULT {"pan":true,"zoom":true}
+V4_EMPTY_MAP_RESULT {"passed":true,"rows":[{"cell":25,"correct":true,"loaded":true,"saved":true},{"cell":50,"correct":true,"loaded":true,"saved":true},{"cell":100,"correct":true,"loaded":true,"saved":true},{"cell":200,"correct":true,"loaded":true,"saved":true}]}
+PASS V4 empty map runtime contract

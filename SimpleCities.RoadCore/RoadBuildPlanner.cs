@@ -18,8 +18,8 @@ internal static class RoadBuildPlanner
                 cancellationToken.ThrowIfCancellationRequested();
                 RoadPoint? intersection = Intersect(request.Start, request.End, edge.Points[i - 1], edge.Points[i]);
                 if (!intersection.HasValue) continue;
-                if (!source.Map.IsPrimaryPoint(intersection.Value))
-                    throw new InvalidDataException("格心路口尚未接入，请在主格点交叉或接入道路");
+                if (!source.Map.IsBuildPoint(intersection.Value))
+                    throw new InvalidDataException("道路交叉位置必须是地图内的主格点或格心");
                 cuts.Add(intersection.Value);
                 draftCuts.Add(intersection.Value);
             }
@@ -165,7 +165,8 @@ internal static class RoadBuildPlanner
             ? numerator < 0 || numerator > denominator || other < 0 || other > denominator
             : numerator > 0 || numerator < denominator || other > 0 || other < denominator)
             return null;
-        // 有界整数米坐标的行列式精确；先相乘相加后相除，避免 t 插值引入格点误差。
+        // 四档格长在 ±4000 m 内仅产生整数或半整数米坐标，行列式及乘加均可精确表示。
+        // 先相乘相加后相除，避免 t 插值引入格点误差。
         return new RoadPoint((a.X * denominator + rx * numerator) / denominator,
             (a.Y * denominator + ry * numerator) / denominator);
     }

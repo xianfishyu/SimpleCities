@@ -24,11 +24,11 @@ public sealed class PreparedRoadState
     public IReadOnlyList<RoadEdge> Edges { get; }
 }
 
-/// <summary>V4 主格点路口路网 schema 4；有界 stream 入口，不迁移旧调试格式。</summary>
+/// <summary>V4 主格点及格心路口路网 schema 5；有界 stream 入口，不迁移旧调试格式。</summary>
 public static class RoadCodec
 {
     public const int MaximumPayloadBytes = 1048576;
-    public const int SchemaVersion = 4;
+    public const int SchemaVersion = 5;
 
     public static void Write(Stream destination, RoadSnapshot snapshot)
     {
@@ -133,8 +133,8 @@ public static class RoadCodec
             Fields(node, "id", "x", "y");
             long id = Positive(node, "id");
             var point = new RoadPoint(Coordinate(node, "x"), Coordinate(node, "y"));
-            if (id >= nextNode || (nodes.Count != 0 && id <= nodes[^1].Id.Value) || !definition.IsPrimaryPoint(point))
-                throw new InvalidDataException("V4 nodes must have sorted unique IDs below the watermark and legal grid coordinates.");
+            if (id >= nextNode || (nodes.Count != 0 && id <= nodes[^1].Id.Value))
+                throw new InvalidDataException("V4 nodes must have sorted unique IDs below the watermark.");
             nodes.Add(new RoadNode(new NodeId(id), point));
         }
         var edges = new List<RoadEdge>();

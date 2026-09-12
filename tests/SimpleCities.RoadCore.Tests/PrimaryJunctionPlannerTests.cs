@@ -146,7 +146,7 @@ public sealed class PrimaryJunctionPlannerTests
     [InlineData(50)]
     [InlineData(100)]
     [InlineData(200)]
-    public void StrokeWithPrimaryAndCellCenterContacts_RejectsEverythingWithoutConsumingIds(int cellSize)
+    public void StrokeWithPrimaryAndCellCenterContacts_PublishesBothJunctionsTogether(int cellSize)
     {
         var network = new RoadNetwork(new MapDefinition(cellSize));
         Build(network, new(-2 * cellSize, -cellSize), new(2 * cellSize, -cellSize));
@@ -157,12 +157,19 @@ public sealed class PrimaryJunctionPlannerTests
         RoadBuildResult result = network.PlanBuild(new(before.Token,
             new(-2 * cellSize, -2 * cellSize), new(2 * cellSize, 2 * cellSize), RoadProfileId.Street));
 
-        Assert.Equal(RoadBuildStatus.Rejected, result.Status);
-        Assert.Contains("格心", result.Reason);
-        Assert.Null(result.Plan);
+        Assert.Equal(RoadBuildStatus.Ready, result.Status);
         Assert.Empty(result.Conflicts);
         Assert.Same(before, network.Snapshot);
         Assert.Equal(content, Save(network));
+        Assert.True(network.TryCommit(result.Plan!));
+        Assert.Equal(before.Token.ChangeSequence + 1, network.Snapshot.Token.ChangeSequence);
+        Assert.Equal(8, network.Snapshot.NodeCount);
+        Assert.Equal(7, network.Snapshot.EdgeCount);
+        foreach (RoadPoint point in new[] { new RoadPoint(-cellSize, -cellSize), new RoadPoint(cellSize / 2d, cellSize / 2d) })
+        {
+            RoadNode junction = Assert.Single(network.Snapshot.Nodes, node => node.Position == point);
+            Assert.Equal(4, RoadJunctionQuery.Read(network.Snapshot, junction.Id)!.Incidences.Count);
+        }
     }
 
     [Fact]

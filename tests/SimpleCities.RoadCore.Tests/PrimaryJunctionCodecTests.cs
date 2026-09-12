@@ -12,7 +12,7 @@ public sealed class PrimaryJunctionCodecTests
         Build(network, new(-200, 0), new(200, 0));
         Build(network, new(0, -200), new(0, 200));
         byte[] saved = Save(network);
-        Assert.Equal(4, JsonNode.Parse(saved)!["schemaVersion"]!.GetValue<int>());
+        Assert.Equal(5, JsonNode.Parse(saved)!["schemaVersion"]!.GetValue<int>());
 
         RoadSnapshot before = network.Snapshot;
         Assert.Equal(5, before.NodeCount);
@@ -105,7 +105,7 @@ public sealed class PrimaryJunctionCodecTests
         RoadSnapshot before = network.Snapshot;
         byte[] saved = Save(network);
         string payload = $$"""
-            {"formatFamily":"simple-cities-v4","payloadType":"road-network","schemaVersion":4,
+            {"formatFamily":"simple-cities-v4","payloadType":"road-network","schemaVersion":5,
             "contentRevision":3,"nextNodeId":10,"nextEdgeId":10,"profileCatalogVersion":1,
             "map":{"widthMetres":8000,"heightMetres":8000,"origin":"center","metresPerUnit":1,"grid":"square-eight","cellSizeMetres":100},
             "nodes":{{nodes}},"edges":{{edges}}}

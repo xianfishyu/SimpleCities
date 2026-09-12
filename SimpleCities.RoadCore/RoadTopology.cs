@@ -1,6 +1,6 @@
 namespace SimpleCities.RoadCore;
 
-/// <summary>主格点路网的规范性与显式资源上限；当前允许多个无环组件。</summary>
+/// <summary>米字网格路网的规范性与显式资源上限；当前允许多个无环组件。</summary>
 internal static class RoadTopology
 {
     internal const int MaximumNodes = 512;
@@ -26,8 +26,8 @@ internal static class RoadTopology
         foreach (RoadNode node in nodes)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (node.Id.Value <= lastId || node.Id.Value >= nextNodeId || !map.IsPrimaryPoint(node.Position) || !positions.Add(node.Position))
-                throw new InvalidDataException("节点身份、排序、水位或主格点位置无效");
+            if (node.Id.Value <= lastId || node.Id.Value >= nextNodeId || !map.IsBuildPoint(node.Position) || !positions.Add(node.Position))
+                throw new InvalidDataException("节点身份、排序、水位或主格点/格心位置无效");
             byId.Add(node.Id, node);
             lastId = node.Id.Value;
         }
@@ -46,10 +46,10 @@ internal static class RoadTopology
             incident[edge.End].Add(edge);
             for (int i = 0; i < edge.Points.Count; i++)
             {
-                if (!map.IsPrimaryPoint(edge.Points[i])) throw new InvalidDataException("道路折点不在地图内的主格点上");
+                if (!map.IsBuildPoint(edge.Points[i])) throw new InvalidDataException("道路折点不在地图内的主格点或格心上");
                 if (i == 0) continue;
                 RoadPoint a = edge.Points[i - 1], b = edge.Points[i];
-                if (a == b || !map.IsEightDirection(a, b)) throw new InvalidDataException("道路格段必须具有正长度并沿八方向");
+                if (!map.IsBuildSegment(a, b)) throw new InvalidDataException("道路格段必须具有正长度，主格点沿八方向，格心仅沿对角方向");
                 if (i >= 2 && IsForwardCollinear(edge.Points[i - 2], a, b)) throw new InvalidDataException("道路含多余共线折点");
                 segments.Add(new Segment(edge.Id, i, a, b, i == 1 ? edge.Start : null, i == edge.Points.Count - 1 ? edge.End : null));
             }

@@ -5,7 +5,7 @@ namespace SimpleCities.RoadCore.Tests;
 public sealed class PolylineCodecTests
 {
     private const string TurningRoad = """
-        {"formatFamily":"simple-cities-v4","payloadType":"road-network","schemaVersion":4,
+        {"formatFamily":"simple-cities-v4","payloadType":"road-network","schemaVersion":5,
         "contentRevision":3,"nextNodeId":3,"nextEdgeId":2,"profileCatalogVersion":1,
         "map":{"widthMetres":8000,"heightMetres":8000,"origin":"center","metresPerUnit":1,"grid":"square-eight","cellSizeMetres":100},
         "nodes":[{"id":1,"x":0,"y":0},{"id":2,"x":200,"y":300}],
@@ -59,8 +59,8 @@ public sealed class PolylineCodecTests
     }
 
     [Theory]
-    [InlineData("\"schemaVersion\":4", "\"schemaVersion\":1")]
-    [InlineData("\"schemaVersion\":4", "\"schemaVersion\":2")]
+    [InlineData("\"schemaVersion\":5", "\"schemaVersion\":1")]
+    [InlineData("\"schemaVersion\":5", "\"schemaVersion\":2")]
     [InlineData("\"points\":[", "\"unknownPoints\":[")]
     [InlineData("\"x\":200,\"y\":0", "\"x\":200,\"x\":200,\"y\":0")]
     [InlineData("\"x\":200,\"y\":0", "\"x\":200,\"y\":0,\"z\":0")]

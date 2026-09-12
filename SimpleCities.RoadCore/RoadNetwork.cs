@@ -63,12 +63,12 @@ public sealed class RoadNetwork
         RoadSnapshot before = Snapshot;
         if (request.Source != before.Token)
             return new(RoadBuildStatus.Rejected, null, "道路来源版本已过期");
-        if (!request.Profile.IsValid || !before.Map.IsPrimaryPoint(request.Start) || !before.Map.IsPrimaryPoint(request.End))
-            return new(RoadBuildStatus.Rejected, null, "请选择地图内的主格点和有效道路类型");
+        if (!request.Profile.IsValid || !before.Map.IsBuildPoint(request.Start) || !before.Map.IsBuildPoint(request.End))
+            return new(RoadBuildStatus.Rejected, null, "请选择地图内的主格点或格心和有效道路类型");
         if (request.Start == request.End)
             return new(RoadBuildStatus.NoChange, null, "");
-        if (!before.Map.IsEightDirection(request.Start, request.End))
-            return new(RoadBuildStatus.Rejected, null, "道路仅支持米字网格八方向");
+        if (!before.Map.IsBuildSegment(request.Start, request.End))
+            return new(RoadBuildStatus.Rejected, null, "主格点道路仅支持米字网格八方向，格心仅允许对角方向");
         IReadOnlyList<RoadConflictSpan> conflicts = RoadOverlap.Find(before, request.Start, request.End, cancellationToken);
         if (conflicts.Count != 0)
             return new(RoadBuildStatus.Rejected, null, "与已有道路重叠，整笔不可建造", conflicts);
