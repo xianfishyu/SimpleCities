@@ -9,7 +9,7 @@ public sealed class IndependentRoadTests
     public void BuildAtIdentityLimit_IsRejectedAndCurrentContentStillRoundTrips(string field, long value)
     {
         const string empty = """
-            {"formatFamily":"simple-cities-v4","payloadType":"road-network","schemaVersion":2,
+            {"formatFamily":"simple-cities-v4","payloadType":"road-network","schemaVersion":3,
             "contentRevision":1,"nextNodeId":1,"nextEdgeId":1,"profileCatalogVersion":1,
             "map":{"widthMetres":8000,"heightMetres":8000,"origin":"center","metresPerUnit":1,"grid":"square-eight","cellSizeMetres":100},
             "nodes":[],"edges":[]}
@@ -78,7 +78,7 @@ public sealed class IndependentRoadTests
         var result = network.PlanBuild(new(network.Snapshot.Token, new(-100, 25), new(200, 325), new(profile)));
         Assert.True(network.TryCommit(result.Plan!));
         RoadSurfaceData surface = RoadPresentation.Prepare(network.Snapshot.Nodes, network.Snapshot.Edges)!;
-        Assert.InRange(surface.Corners[0].DistanceTo(surface.Corners[3]), width - 1e-9, width + 1e-9);
+        Assert.InRange(surface.Pieces[0].Corners[0].DistanceTo(surface.Pieces[0].Corners[3]), width - 1e-9, width + 1e-9);
         var location = new RoadLocation(network.Snapshot.Token, new EdgeId(1), 0.5);
         Assert.Equal(new RoadPoint(50, 175), network.Snapshot.Resolve(location));
         using var bytes = new MemoryStream();
@@ -110,11 +110,11 @@ public sealed class IndependentRoadTests
     public void MalformedRoadPayload_IsRejectedBeforePublishing(string original, string replacement)
     {
         const string valid = """
-            {"formatFamily":"simple-cities-v4","payloadType":"road-network","schemaVersion":2,
+            {"formatFamily":"simple-cities-v4","payloadType":"road-network","schemaVersion":3,
             "contentRevision":2,"nextNodeId":3,"nextEdgeId":2,"profileCatalogVersion":1,
             "map":{"widthMetres":8000,"heightMetres":8000,"origin":"center","metresPerUnit":1,"grid":"square-eight","cellSizeMetres":100},
             "nodes":[{"id":1,"x":0,"y":0},{"id":2,"x":300,"y":0}],
-            "edges":[{"id":1,"startNodeId":1,"endNodeId":2,"profile":"street"}]}
+            "edges":[{"id":1,"startNodeId":1,"endNodeId":2,"profile":"street","points":[{"x":0,"y":0},{"x":300,"y":0}]}]}
             """;
         var network = new RoadNetwork();
         RoadStateToken before = network.Snapshot.Token;

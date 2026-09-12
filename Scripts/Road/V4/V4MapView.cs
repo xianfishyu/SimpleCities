@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using SimpleCities.RoadCore;
 using CoreRoadLocation = SimpleCities.RoadCore.RoadLocation;
 
@@ -15,6 +16,7 @@ public partial class V4MapView : Node2D, IScenePresentationLoadParticipant
     private Admission? _admission;
     internal RoadSnapshot? Presented => _display?.Snapshot;
     internal int MeshSurfaceCount => _display?.Mesh?.GetSurfaceCount() ?? 0;
+    internal string DrawSubmittedToken { get; private set; } = "";
 
     internal void ShowNewMap(RoadSnapshot snapshot)
     {
@@ -62,8 +64,8 @@ public partial class V4MapView : Node2D, IScenePresentationLoadParticipant
             ["edgeId"] = hit.Edge.Value,
             ["parameter"] = hit.Parameter,
             ["sourceToken"] = hit.Source.ToString(),
-            ["profile"] = _display.Snapshot.Edges[0].Profile.Value,
-            ["surfaceCenter"] = _display.SurfaceCenter(hit.Parameter),
+            ["profile"] = _display.Snapshot.Edges.Single(edge => edge.Id == hit.Edge).Profile.Value,
+            ["surfaceCenter"] = _display.SurfaceCenter(hit),
         };
     }
 
@@ -81,6 +83,7 @@ public partial class V4MapView : Node2D, IScenePresentationLoadParticipant
         DrawRect(bounds, new Color(0.35f, 0.35f, 0.35f), filled: false, width: 3);
         if (_display?.Mesh is ArrayMesh mesh)
             DrawMesh(mesh, null, modulate: _hovered ? new Color(1.4f, 1.4f, 1.4f) : Colors.White);
+        DrawSubmittedToken = Presented.Token.ToString();
         if (_preview is not null)
             DrawLine(_preview[0], _preview[1], _previewValid ? new Color("75dfcb") : new Color("ef6f76"), 10);
     }

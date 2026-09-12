@@ -43,7 +43,40 @@ public readonly record struct RoadPoint(double X, double Y)
 }
 
 public sealed record RoadNode(NodeId Id, RoadPoint Position);
-public sealed record RoadEdge(EdgeId Id, NodeId Start, NodeId End, RoadProfileId Profile);
+public sealed record RoadEdge
+{
+    public RoadEdge(EdgeId id, NodeId start, NodeId end, RoadProfileId profile, IEnumerable<RoadPoint> points)
+    {
+        Id = id;
+        Start = start;
+        End = end;
+        Profile = profile;
+        Points = Array.AsReadOnly(points.ToArray());
+    }
+    public EdgeId Id { get; }
+    public NodeId Start { get; }
+    public NodeId End { get; }
+    public RoadProfileId Profile { get; }
+    public IReadOnlyList<RoadPoint> Points { get; }
+    public double Length => Points.Zip(Points.Skip(1), (a, b) => a.DistanceTo(b)).Sum();
+
+    public RoadPoint PointAt(double parameter)
+    {
+        double distance = parameter * Length;
+        for (int i = 1; i < Points.Count; i++)
+        {
+            RoadPoint a = Points[i - 1], b = Points[i];
+            double length = a.DistanceTo(b);
+            if (distance <= length || i == Points.Count - 1)
+            {
+                double t = Math.Clamp(distance / length, 0, 1);
+                return new RoadPoint(a.X + (b.X - a.X) * t, a.Y + (b.Y - a.Y) * t);
+            }
+            distance -= length;
+        }
+        return Points[^1];
+    }
+}
 public readonly record struct RoadLocation(RoadStateToken Source, EdgeId Edge, double Parameter);
 public sealed record RoadBuildRequest(RoadStateToken Source, RoadPoint Start, RoadPoint End, RoadProfileId Profile);
 public enum RoadBuildStatus { Ready, NoChange, Rejected }

@@ -24,11 +24,11 @@ public sealed class PreparedRoadState
     public IReadOnlyList<RoadEdge> Edges { get; }
 }
 
-/// <summary>V4 独立道路 schema 2；有界 stream 入口，后续多道路格式扩展时重新审定预算。</summary>
+/// <summary>V4 开放折线道路 schema 3；有界 stream 入口，不迁移旧调试格式。</summary>
 public static class RoadCodec
 {
-    public const int MaximumPayloadBytes = 4096;
-    public const int SchemaVersion = 2;
+    public const int MaximumPayloadBytes = 1048576;
+    public const int SchemaVersion = 3;
 
     public static void Write(Stream destination, RoadSnapshot snapshot)
     {
@@ -51,7 +51,7 @@ public static class RoadCodec
         writer.WriteNumber("cellSizeMetres", snapshot.Map.CellSizeMetres);
         writer.WriteEndObject();
         writer.WriteStartArray("nodes");
-        foreach (RoadNode node in snapshot.Nodes)
+        foreach (RoadNode node in snapshot.Nodes.OrderBy(node => node.Id.Value))
         {
             writer.WriteStartObject();
             writer.WriteNumber("id", node.Id.Value);
@@ -61,13 +61,22 @@ public static class RoadCodec
         }
         writer.WriteEndArray();
         writer.WriteStartArray("edges");
-        foreach (RoadEdge edge in snapshot.Edges)
+        foreach (RoadEdge edge in snapshot.Edges.OrderBy(edge => edge.Id.Value))
         {
             writer.WriteStartObject();
             writer.WriteNumber("id", edge.Id.Value);
             writer.WriteNumber("startNodeId", edge.Start.Value);
             writer.WriteNumber("endNodeId", edge.End.Value);
             writer.WriteString("profile", edge.Profile.Value);
+            writer.WriteStartArray("points");
+            foreach (RoadPoint point in edge.Points)
+            {
+                writer.WriteStartObject();
+                writer.WriteNumber("x", point.X);
+                writer.WriteNumber("y", point.Y);
+                writer.WriteEndObject();
+            }
+            writer.WriteEndArray();
             writer.WriteEndObject();
         }
         writer.WriteEndArray();
@@ -89,9 +98,9 @@ public static class RoadCodec
             count += read;
         }
         if (count > MaximumPayloadBytes)
-            throw new InvalidDataException("V4 independent-road payload exceeds 4096 bytes.");
+            throw new InvalidDataException($"V4 road payload exceeds {MaximumPayloadBytes} bytes.");
         using JsonDocument document = JsonDocument.Parse(bytes.AsMemory(0, count),
-            new JsonDocumentOptions { MaxDepth = 4 });
+            new JsonDocumentOptions { MaxDepth = 6 });
         JsonElement root = document.RootElement;
         Fields(root, "formatFamily", "payloadType", "schemaVersion", "contentRevision",
             "nextNodeId", "nextEdgeId", "profileCatalogVersion", "map", "nodes", "edges");
@@ -115,9 +124,9 @@ public static class RoadCodec
         JsonElement nodesArray = root.GetProperty("nodes");
         JsonElement edgesArray = root.GetProperty("edges");
         if (nodesArray.ValueKind != JsonValueKind.Array || edgesArray.ValueKind != JsonValueKind.Array ||
-            !((nodesArray.GetArrayLength() == 0 && edgesArray.GetArrayLength() == 0) ||
-              (nodesArray.GetArrayLength() == 2 && edgesArray.GetArrayLength() == 1)))
-            throw new InvalidDataException("This V4 slice supports an empty map or one independent road.");
+            nodesArray.GetArrayLength() > RoadTopology.MaximumNodes ||
+            edgesArray.GetArrayLength() > RoadTopology.MaximumEdges)
+            throw new InvalidDataException("V4 nodes or edges exceed the supported road topology budget.");
         var nodes = new List<RoadNode>();
         foreach (JsonElement node in nodesArray.EnumerateArray())
         {
@@ -129,22 +138,32 @@ public static class RoadCodec
             nodes.Add(new RoadNode(new NodeId(id), point));
         }
         var edges = new List<RoadEdge>();
+        int pointCount = 0;
         foreach (JsonElement edge in edgesArray.EnumerateArray())
         {
-            Fields(edge, "id", "startNodeId", "endNodeId", "profile");
+            Fields(edge, "id", "startNodeId", "endNodeId", "profile", "points");
             long id = Positive(edge, "id");
             long startId = Positive(edge, "startNodeId");
             long endId = Positive(edge, "endNodeId");
-            RoadNode? start = nodes.Find(node => node.Id.Value == startId);
-            RoadNode? end = nodes.Find(node => node.Id.Value == endId);
             JsonElement profile = edge.GetProperty("profile");
             string? name = profile.ValueKind == JsonValueKind.String ? profile.GetString() : null;
-            if (id >= nextEdge || start is null || end is null || start.Id == end.Id ||
-                start.Position == end.Position || !definition.IsEightDirection(start.Position, end.Position) ||
+            if (id >= nextEdge || (edges.Count != 0 && id <= edges[^1].Id.Value) ||
                 name is not ("dirt" or "street" or "arterial" or "highway"))
-                throw new InvalidDataException("Invalid V4 independent road endpoints, profile or watermark.");
-            edges.Add(new RoadEdge(new EdgeId(id), start.Id, end.Id, new RoadProfileId(name)));
+                throw new InvalidDataException("V4 edges must have sorted unique IDs below the watermark and a known profile.");
+            JsonElement pointsArray = edge.GetProperty("points");
+            if (pointsArray.ValueKind != JsonValueKind.Array || pointsArray.GetArrayLength() < 2 ||
+                pointsArray.GetArrayLength() > RoadTopology.MaximumPoints - pointCount)
+                throw new InvalidDataException("V4 edge points must contain endpoints and fit the road topology budget.");
+            var points = new List<RoadPoint>(pointsArray.GetArrayLength());
+            foreach (JsonElement point in pointsArray.EnumerateArray())
+            {
+                Fields(point, "x", "y");
+                points.Add(new RoadPoint(Coordinate(point, "x"), Coordinate(point, "y")));
+            }
+            pointCount += points.Count;
+            edges.Add(new RoadEdge(new EdgeId(id), new NodeId(startId), new NodeId(endId), new RoadProfileId(name), points));
         }
+        RoadTopology.Validate(definition, nodes, edges, nextNode, nextEdge);
         return new PreparedRoadState(definition, Positive(root, "contentRevision"), nextNode, nextEdge, nodes, edges);
     }
 
