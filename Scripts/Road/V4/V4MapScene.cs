@@ -13,6 +13,7 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
     private RoadSaveParticipant? _roads;
     private V4MapView _view = null!;
     private Camera2D _camera = null!;
+    private ShaderMaterial _backgroundMaterial = null!;
     private OptionButton _cellChoice = null!;
     private OptionButton _slots = null!;
     private Label _status = null!;
@@ -41,6 +42,7 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
         _saveManager = GetNode<SaveManager>("/root/SaveManager");
         _view = GetNode<V4MapView>("View");
         _camera = GetNode<Camera2D>("Camera2D");
+        _backgroundMaterial = (ShaderMaterial)GetNode<ColorRect>("Background/ColorRect").Material;
         _cellChoice = GetNode<OptionButton>(Controls + "CellSize");
         _slots = GetNode<OptionButton>(Controls + "Slots");
         _status = GetNode<Label>(Controls + "Status");
@@ -100,6 +102,13 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
 
     public override void _Process(double delta)
     {
+        // Share the established grid style, driven by the V4 presented map and camera.
+        int cellSize = PresentedCellSizeMetres;
+        _backgroundMaterial.SetShaderParameter("minor_grid_size", cellSize);
+        _backgroundMaterial.SetShaderParameter("major_grid_size", cellSize * 10);
+        _backgroundMaterial.SetShaderParameter("camera_pos", _camera.GetScreenCenterPosition());
+        _backgroundMaterial.SetShaderParameter("camera_zoom", _camera.Zoom.X);
+        _backgroundMaterial.SetShaderParameter("viewport_size", GetViewport().GetVisibleRect().Size);
         if (_pendingOperation.Length != 0 && _saveManager.HasOperationResult(_pendingOperation))
         {
             Godot.Collections.Dictionary result = _saveManager.GetOperationResult(_pendingOperation);

@@ -75,29 +75,10 @@ public partial class V4MapView : Node2D, IScenePresentationLoadParticipant
 
     public override void _Draw()
     {
-        if (Presented is not RoadSnapshot presented)
+        if (Presented is null)
             return;
-        int cell = presented.Map.CellSizeMetres;
         var bounds = new Rect2(-4000, -4000, 8000, 8000);
-        DrawRect(bounds, new Color("172e36"));
-        var grid = new Color(0.38f, 0.65f, 0.68f, 0.30f);
-        var diagonal = new Color(0.38f, 0.65f, 0.68f, 0.12f);
-        for (int i = -4000; i <= 4000; i += cell)
-        {
-            DrawLine(new Vector2(i, -4000), new Vector2(i, 4000), grid);
-            DrawLine(new Vector2(-4000, i), new Vector2(4000, i), grid);
-        }
-        for (int i = -8000; i <= 8000; i += cell)
-        {
-            float x0 = Math.Max(-4000, -4000 - i);
-            float x1 = Math.Min(4000, 4000 - i);
-            DrawLine(new Vector2(x0, x0 + i), new Vector2(x1, x1 + i), diagonal);
-            DrawLine(new Vector2(x0, -x0 - i), new Vector2(x1, -x1 - i), diagonal);
-        }
-        DrawRect(bounds, new Color("6ebcc3"), filled: false, width: 12);
-        DrawLine(new Vector2(-4000, 0), new Vector2(4000, 0), new Color("75969d"), 6);
-        DrawLine(new Vector2(0, -4000), new Vector2(0, 4000), new Color("75969d"), 6);
-        DrawCircle(Vector2.Zero, 35, new Color("e9ca8c"));
+        DrawRect(bounds, new Color(0.35f, 0.35f, 0.35f), filled: false, width: 3);
         if (_display?.Mesh is ArrayMesh mesh)
             DrawMesh(mesh, null, modulate: _hovered ? new Color(1.4f, 1.4f, 1.4f) : Colors.White);
         if (_preview is not null)

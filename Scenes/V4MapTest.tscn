@@ -2,6 +2,17 @@
 
 [ext_resource type="Script" uid="uid://b1bexx8rwgol6" path="res://Scripts/Road/V4/V4MapScene.cs" id="1_scene"]
 [ext_resource type="Script" uid="uid://ojdvxty2b7es" path="res://Scripts/Road/V4/V4MapView.cs" id="2_view"]
+[ext_resource type="Shader" path="res://Shaders/MapTerrain.gdshader" id="3_grid"]
+
+[sub_resource type="ShaderMaterial" id="GridMaterial"]
+resource_local_to_scene = true
+shader = ExtResource("3_grid")
+shader_parameter/grid_offset = Vector2(0, 0)
+shader_parameter/major_grid_size = 1000.0
+shader_parameter/major_line_width = 3.0
+shader_parameter/minor_grid_size = 100.0
+shader_parameter/minor_line_width = 1.0
+shader_parameter/show_dot_grid = false
 
 [sub_resource type="StyleBoxFlat" id="PanelStyle"]
 bg_color = Color(0.065, 0.105, 0.125, 0.98)
@@ -17,6 +28,18 @@ corner_radius_bottom_left = 14
 
 [node name="V4MapTest" type="Node2D" unique_id=146728103]
 script = ExtResource("1_scene")
+
+[node name="Background" type="CanvasLayer" parent="."]
+layer = -100
+
+[node name="ColorRect" type="ColorRect" parent="Background"]
+material = SubResource("GridMaterial")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
 
 [node name="View" type="Node2D" parent="." unique_id=616580764]
 script = ExtResource("2_view")
