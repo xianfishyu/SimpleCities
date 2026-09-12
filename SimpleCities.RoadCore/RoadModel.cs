@@ -80,4 +80,15 @@ public sealed record RoadEdge
 public readonly record struct RoadLocation(RoadStateToken Source, EdgeId Edge, double Parameter);
 public sealed record RoadBuildRequest(RoadStateToken Source, RoadPoint Start, RoadPoint End, RoadProfileId Profile);
 public enum RoadBuildStatus { Ready, NoChange, Rejected }
-public sealed record RoadBuildResult(RoadBuildStatus Status, RoadPlan? Plan, string Reason);
+/// <summary>沿本次草稿起点到终点归一化的正长度冲突区间。</summary>
+public readonly record struct RoadConflictSpan(double StartParameter, double EndParameter);
+public sealed record RoadBuildResult(RoadBuildStatus Status, RoadPlan? Plan, string Reason)
+{
+    internal RoadBuildResult(RoadBuildStatus status, RoadPlan? plan, string reason, IEnumerable<RoadConflictSpan> conflicts)
+        : this(status, plan, reason)
+    {
+        Conflicts = Array.AsReadOnly(conflicts.ToArray());
+    }
+
+    public IReadOnlyList<RoadConflictSpan> Conflicts { get; } = Array.Empty<RoadConflictSpan>();
+}

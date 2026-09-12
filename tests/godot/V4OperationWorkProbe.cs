@@ -22,6 +22,18 @@ public partial class V4OperationWorkProbe : RefCounted
         scene.BeforeBuildWork = Wait;
     }
 
+    public void InstallPreview(V4MapScene scene)
+    {
+        _mainThread = System.Environment.CurrentManagedThreadId;
+        scene.BeforePreviewWork = Wait;
+    }
+
+    public void RemovePreview(V4MapScene scene)
+    {
+        scene.BeforePreviewWork = null;
+        Release();
+    }
+
     private void Wait()
     {
         Volatile.Write(ref _workerThread, System.Environment.CurrentManagedThreadId);

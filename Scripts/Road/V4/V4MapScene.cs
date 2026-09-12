@@ -28,12 +28,18 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
     private RoadPoint? _draftStart;
     private RoadStateToken _draftSource;
     private RoadProfileId _draftProfile;
+    private CoreRoadBuildRequest? _previewRequest;
+    private CoreRoadBuildRequest? _queuedPreview;
+    private CoreRoadBuildResult? _previewResult;
+    private CancellationTokenSource? _previewCancellation;
+    private bool _previewWorkerRunning;
     private readonly V4RoadOperation _buildOperation = new();
     private CancellationTokenSource? _buildCancellation;
     private string _buildSourceToken = "";
     private string _buildPresentedToken = "";
 #if DEBUG
     internal Action? BeforeBuildWork { get; set; }
+    internal Action? BeforePreviewWork { get; set; }
 #endif
     public bool HasBuildPreview => _draftStart.HasValue;
     public bool IsBuildBusy => _buildOperation.IsBusy;
@@ -169,7 +175,89 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
     private void CancelDraft()
     {
         _draftStart = null;
-        _view.ShowPreview(null, null, false);
+        _previewRequest = null;
+        _queuedPreview = null;
+        _previewResult = null;
+        _previewCancellation?.Cancel();
+        _view.ShowPreview(null, null, null);
+    }
+
+    public Godot.Collections.Dictionary GetBuildPreview() => new()
+    {
+        ["phase"] = _draftStart is null ? "None" : _previewResult?.Status.ToString() ?? "Pending",
+        ["sourceToken"] = _previewRequest?.Source.ToString() ?? "",
+        ["reason"] = _previewResult?.Reason ?? "",
+        ["segments"] = _view.DescribePreview(),
+    };
+
+    private void UpdateDraftPreview(RoadPoint start, RoadPoint end)
+    {
+        var request = new CoreRoadBuildRequest(_draftSource, start, end, _draftProfile);
+        if (request == _previewRequest) return;
+        _previewCancellation?.Cancel();
+        _previewRequest = request;
+        _previewResult = null;
+        _queuedPreview = request;
+        _view.ShowPreview(start, end, null);
+        _status.Text = "正在检查建造范围…";
+        RunPreviewWorker();
+    }
+
+    // At most one preview worker plus one replaceable latest request. Superseded work cannot publish.
+    private async void RunPreviewWorker()
+    {
+        if (_previewWorkerRunning) return;
+        _previewWorkerRunning = true;
+        try
+        {
+            while (IsSceneAlive && _queuedPreview is CoreRoadBuildRequest request)
+            {
+                _queuedPreview = null;
+                RoadNetwork network = _roads!.Network;
+                using var cancellation = new CancellationTokenSource();
+                _previewCancellation = cancellation;
+                CancellationToken token = cancellation.Token;
+#if DEBUG
+                Action? beforeWork = BeforePreviewWork;
+#endif
+                try
+                {
+                    CoreRoadBuildResult result = await Task.Run(() =>
+                    {
+#if DEBUG
+                        beforeWork?.Invoke();
+#endif
+                        return network.PlanBuild(request, token);
+                    });
+                    if (token.IsCancellationRequested || !IsSceneAlive || !CanEdit || request != _previewRequest ||
+                        !_draftStart.HasValue || request.Source != _roads!.Network.Snapshot.Token)
+                        continue;
+                    _previewResult = result;
+                    _view.ShowPreview(request.Start, request.End, result);
+                    _status.Text = result.Status switch
+                    {
+                        RoadBuildStatus.Ready => "松开以建造道路",
+                        RoadBuildStatus.NoChange => "拖动以预览道路",
+                        _ => result.Reason,
+                    };
+                }
+                catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+                catch (Exception exception)
+                {
+                    if (IsSceneAlive && request == _previewRequest && _draftStart.HasValue)
+                    {
+                        _previewResult = new CoreRoadBuildResult(RoadBuildStatus.Rejected, null, "建造预览检查失败");
+                        _view.ShowPreview(request.Start, request.End, _previewResult);
+                        _status.Text = $"建造预览检查失败：{exception.Message}";
+                    }
+                }
+                finally
+                {
+                    if (ReferenceEquals(_previewCancellation, cancellation)) _previewCancellation = null;
+                }
+            }
+        }
+        finally { _previewWorkerRunning = false; }
     }
 
     public override void _Input(InputEvent @event)
@@ -205,12 +293,13 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
             _draftStart = map.SnapPrimary(cursor);
             _draftSource = _roads.Network.Snapshot.Token;
             _draftProfile = RoadProfiles.All[_profileChoice.Selected].Id;
-            _view.ShowPreview(_draftStart, _draftStart, true);
+            _view.SetHovered(false);
+            UpdateDraftPreview(_draftStart.Value, _draftStart.Value);
         }
         if (@event is InputEventMouseMotion move && _draftStart is RoadPoint draft && CanEdit)
         {
             RoadPoint end = _roads!.Network.Snapshot.Map.SnapDragEnd(draft, WorldPoint(move.Position));
-            _view.ShowPreview(draft, end, draft != end);
+            UpdateDraftPreview(draft, end);
         }
         else if (@event is InputEventMouseMotion hover && CanEdit)
         {
@@ -231,6 +320,9 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
 
     public override void _ExitTree()
     {
+        _queuedPreview = null;
+        _previewRequest = null;
+        _previewCancellation?.Cancel();
         RenderingServer.FramePostDraw -= OnFramePostDraw;
         if (_buildOperation.TryCancel()) _buildCancellation?.Cancel();
         if (_buildOperation.Phase == "Committed") _buildOperation.Finish("SceneClosed");
@@ -384,7 +476,7 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
         public void CommitReferences() => owner._draftStart = null;
         public IReadOnlyList<string> PublishNotifications()
         {
-            owner._view.ShowPreview(null, null, false);
+            owner.CancelDraft();
             return Array.Empty<string>();
         }
         public void CompleteCommit() => Dispose();

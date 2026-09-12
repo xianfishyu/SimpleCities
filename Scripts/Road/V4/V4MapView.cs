@@ -9,8 +9,8 @@ using CoreRoadLocation = SimpleCities.RoadCore.RoadLocation;
 public partial class V4MapView : Node2D, IScenePresentationLoadParticipant
 {
     private V4RoadDisplay? _display;
-    private Vector2[]? _preview;
-    private bool _previewValid;
+    private sealed record PreviewSegment(Vector2 Start, Vector2 End, Color Color, bool Conflict);
+    private PreviewSegment[] _preview = [];
     private bool _hovered;
     private long _sceneGeneration;
     private Admission? _admission;
@@ -25,7 +25,7 @@ public partial class V4MapView : Node2D, IScenePresentationLoadParticipant
         V4RoadDisplay replacement = V4RoadDisplay.Prepare(snapshot, RoadPresentation.Prepare(snapshot.Nodes, snapshot.Edges));
         V4RoadDisplay? previous = _display;
         _display = replacement;
-        _preview = null;
+        _preview = [];
         _hovered = false;
         previous?.Dispose();
         QueueRedraw();
@@ -47,12 +47,42 @@ public partial class V4MapView : Node2D, IScenePresentationLoadParticipant
         QueueRedraw();
     }
 
-    internal void ShowPreview(RoadPoint? start, RoadPoint? end, bool valid)
+    internal void ShowPreview(RoadPoint? start, RoadPoint? end, SimpleCities.RoadCore.RoadBuildResult? result)
     {
-        _preview = start.HasValue && end.HasValue
-            ? [new Vector2((float)start.Value.X, (float)start.Value.Y), new Vector2((float)end.Value.X, (float)end.Value.Y)] : null;
-        _previewValid = valid;
+        var segments = new List<PreviewSegment>();
+        if (start is RoadPoint a && end is RoadPoint b)
+        {
+            var neutral = new Color("9aa5ad");
+            if (result is null || result.Conflicts.Count == 0)
+                Add(0, 1, result?.Status == RoadBuildStatus.Ready ? new Color("75dfcb") : neutral, false);
+            else
+            {
+                double cursor = 0;
+                foreach (RoadConflictSpan conflict in result.Conflicts)
+                {
+                    if (cursor < conflict.StartParameter) Add(cursor, conflict.StartParameter, neutral, false);
+                    Add(conflict.StartParameter, conflict.EndParameter, new Color("ef6f76"), true);
+                    cursor = conflict.EndParameter;
+                }
+                if (cursor < 1) Add(cursor, 1, neutral, false);
+            }
+
+            void Add(double from, double to, Color color, bool conflict)
+            {
+                Vector2 Point(double t) => new((float)(a.X + (b.X - a.X) * t), (float)(a.Y + (b.Y - a.Y) * t));
+                segments.Add(new PreviewSegment(Point(from), Point(to), color, conflict));
+            }
+        }
+        _preview = segments.ToArray();
         QueueRedraw();
+    }
+
+    internal Godot.Collections.Array<Godot.Collections.Dictionary> DescribePreview()
+    {
+        var segments = new Godot.Collections.Array<Godot.Collections.Dictionary>();
+        foreach (PreviewSegment segment in _preview)
+            segments.Add(new() { ["start"] = segment.Start, ["end"] = segment.End, ["color"] = segment.Color, ["conflict"] = segment.Conflict });
+        return segments;
     }
 
     internal Godot.Collections.Dictionary PickRoad(Vector2 world)
@@ -84,8 +114,8 @@ public partial class V4MapView : Node2D, IScenePresentationLoadParticipant
         if (_display?.Mesh is ArrayMesh mesh)
             DrawMesh(mesh, null, modulate: _hovered ? new Color(1.4f, 1.4f, 1.4f) : Colors.White);
         DrawSubmittedToken = Presented.Token.ToString();
-        if (_preview is not null)
-            DrawLine(_preview[0], _preview[1], _previewValid ? new Color("75dfcb") : new Color("ef6f76"), 10);
+        foreach (PreviewSegment segment in _preview)
+            DrawLine(segment.Start, segment.End, segment.Color, 10);
     }
 
     void IScenePresentationLoadParticipant.ConfigureSceneGeneration(long generation) => _sceneGeneration = generation;

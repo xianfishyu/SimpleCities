@@ -69,6 +69,9 @@ public sealed class RoadNetwork
             return new(RoadBuildStatus.NoChange, null, "");
         if (!before.Map.IsEightDirection(request.Start, request.End))
             return new(RoadBuildStatus.Rejected, null, "道路仅支持米字网格八方向");
+        IReadOnlyList<RoadConflictSpan> conflicts = RoadOverlap.Find(before, request.Start, request.End, cancellationToken);
+        if (conflicts.Count != 0)
+            return new(RoadBuildStatus.Rejected, null, "与已有道路重叠，整笔不可建造", conflicts);
         RoadNode? startNode = before.Nodes.FirstOrDefault(node => node.Position == request.Start);
         RoadNode? endNode = before.Nodes.FirstOrDefault(node => node.Position == request.End);
         RoadNode? connector = startNode ?? endNode;
