@@ -47,6 +47,12 @@ public sealed class RoadNetwork
 
     public RoadSnapshot Snapshot { get; private set; }
 
+    public RoadEditResult PlanRemove(RoadGridSpan span, CancellationToken cancellationToken = default) =>
+        RoadSpanEditPlanner.Plan(this, Snapshot, span, null, cancellationToken);
+
+    public RoadEditResult PlanChangeProfile(RoadGridSpan span, RoadProfileId profile, CancellationToken cancellationToken = default) =>
+        RoadSpanEditPlanner.Plan(this, Snapshot, span, profile, cancellationToken);
+
     public RoadPlan PlanLoad(PreparedRoadState prepared)
     {
         ArgumentNullException.ThrowIfNull(prepared);

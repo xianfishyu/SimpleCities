@@ -802,3 +802,34 @@ if (firstFarID == secondFarID && nodeID < firstFarID)
 - `RoadRendererLoadPrepareTests.PurePreparer_RemovingOneBranchRelocatesSeamAndClosesRemainingLoop` 验证删除前后 marker、closed 点列、顶点和索引均与重定位后的拓扑一致；`PurePreparer_FigureEightClosesBothLoopsAndKeepsSharedJunction` 继续保护共享 junction 上的两个 closed ribbon。本轮相关聚焦组合为 33/33。
 - `dotnet test SimpleCities.sln --no-restore`：727/727 通过；Debug 与 `ExportRelease` build 均为 0 警告、0 错误；Roslyn compiler/analyzer 为 0 diagnostics。
 - `road_closed_ribbon_runtime_contract.gd` 输出 `PASS`：aggregate Load 后的两路口环删除 seam 侧支路前为 `4 Edge / 20 mesh vertices / 4 node markers`，删除后为 `2 Edge / 12 mesh vertices / 2 node markers`。Godot MCP 冻结场景显示原 seam 无伪标记，剩余 junction/endpoint 正确，editor error 与 DAP `stderr` 均为空。
+
+---
+
+<a id="road-graph-bug-23"></a>
+## BUG-23：单格编辑误接受同 token 的另一候选目标格段
+
+> 修复日期：2026-09-12
+> 影响文件：`SimpleCities.RoadCore/RoadSpanEditPlanner.cs`、`tests/SimpleCities.RoadCore.Tests/RoadSpanEditTests.cs`
+> 关联事项：GitHub #13、#14
+
+### 症状
+
+从同一个来源快照规划两条不同长度的道路，两个未提交候选的目标token可以相同。提交其中一个候选后，把另一个候选上的格段传给单格删除或类型改造，会被错误接受，尽管该格段的区间和链点并不对应当前路网。回归测试 `SpanFromDifferentUncommittedTargetWithSameToken_IsRejectedBeforeAnyEdit` 在修复前报告预期 `Rejected`、实际 `Ready`。
+
+### 根因分析
+
+`RoadSpanEditPlanner.Plan()` 原先只验证来源token和EdgeId存在，随后直接使用传入格段的参数区间和链点。候选目标尚未提交时，这两个字段不足以证明格段内容属于当前快照；同token不保证两个独立候选的几何相同。
+
+### 修复方案
+
+在创建编辑草稿及判断同类型无需改变之前，使用传入格段首个参数区间的中点，在当前来源快照重新查询规范格段，并逐项比较 `Key`、`Ranges` 和 `Points`。内容不一致立即拒绝，不分配实体或修改活动路网。
+
+### 影响范围
+
+收紧V4单格删除与类型改造入口的格段来源验证，包含同目标类型的调用。该修复只保护此编辑入口，没有更改候选目标token的生成规则，也不声明所有使用token的其他入口已解决同类问题。
+
+## BUG-23 验证状态
+
+- 上述公开回归先红后绿，验证另一候选来源的格段在删除、改为不同类型、改为原类型三种调用中均被拒绝，活动snapshot引用不变。
+- 修复后核心测试275/275通过；Debug构建为0警告、0错误。
+- 本轮未提供Roslyn CodeLens、Godot editor MCP及DAP工具，对应检查未完成；上述核心回归与构建结果不替代这些检查，也不表示完整QA已通过。
