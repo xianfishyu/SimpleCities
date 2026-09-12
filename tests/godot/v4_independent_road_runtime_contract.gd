@@ -62,7 +62,11 @@ func run() -> void:
 		passed = passed and preview and built and hit_ok and saved and loaded and round_trip
 		passed = await SAVE.delete_slot(manager, slot) and passed
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png(ProjectSettings.globalize_path("res://.scratch/v4-05-qa/independent-road.png"))
+	var capture_path := "res://.scratch/v4-05-qa/independent-road.png"
+	for argument in OS.get_cmdline_user_args():
+		if argument.begins_with("--capture="):
+			capture_path = argument.trim_prefix("--capture=")
+	root.get_texture().get_image().save_png(ProjectSettings.globalize_path(capture_path))
 	var directions_ok := true
 	for end in [Vector2(300, 0), Vector2(300, 300), Vector2(0, 300), Vector2(-300, 300), Vector2(-300, 0), Vector2(-300, -300), Vector2(0, -300), Vector2(300, -300)]:
 		map.CreateMap(100)
