@@ -1,6 +1,6 @@
 # 第四代道路系统重构指南
 
-> 文档状态：重构设计与规格已确认，2026-09-12 更新。规格及22张纵向切片已发布；V4-01–03 存档装配预重构已完成，其余切片继续按阻塞关系推进。P0–P9/W0–W9 保留为模块覆盖与依赖参考，不代表 V4 路网已全部实现。
+> 文档状态：重构设计与规格已确认，2026-09-12 更新。规格及22张纵向切片已发布；V4-01–03 存档装配预重构和 V4-04 隔离空地图已完成，其余切片继续按阻塞关系推进。P0–P9/W0–W9 保留为模块覆盖与依赖参考，不代表 V4 路网已全部实现。
 >
 > V4 是一次破坏式重构。它建立新的道路核心、接口、数据模型和存档代际，最终由 Godot 适配层接入产品。V3 与第3.5代文档保留为历史基线，不代表 V4 已经实现。
 >
@@ -439,15 +439,28 @@ V4 使用新的 `simple-cities-v4` format family 和新的保存根，例如 `us
   "formatFamily": "simple-cities-v4",
   "payloadType": "road-network",
   "schemaVersion": 1,
+  "contentRevision": 1,
   "nextNodeId": 1,
   "nextEdgeId": 1,
   "profileCatalogVersion": 1,
+  "map": {
+    "widthMetres": 8000,
+    "heightMetres": 8000,
+    "origin": "center",
+    "metresPerUnit": 1,
+    "grid": "square-eight",
+    "cellSizeMetres": 100
+  },
   "nodes": [],
   "edges": []
 }
 ```
 
-Node、Edge 等实体按稳定 ID 排序，Edge 内线段保持规范几何链顺序。reader 只接受规范格式，拒绝未知字段、重复字段、错误 profile、悬空 endpoint、内部未建 Node 的交点、错误 self-loop seam、越界或不符合本版网格规则的几何；曲线和其他未支持的几何类型必须拒绝。当前内置 profile catalog 的四个 ID 固定为 `dirt`、`street`、`arterial`、`highway`，catalog version 不等于 schema version。米制、地图尺寸和网格规则属于带版本的格式契约；payload 还须保存该地图创建时固定的格长，加载使用存档格长完成几何验证及输入装配，不能使用当前新建地图默认值重新解释已存坐标。上面的 JSON 仅列出最小内容示例，地图参数字段将在 schema 设计中补齐。
+Node、Edge 等实体按稳定 ID 排序，Edge 内线段保持规范几何链顺序。reader 只接受规范格式，拒绝未知字段、重复字段、错误 profile、悬空 endpoint、内部未建 Node 的交点、错误 self-loop seam、越界或不符合本版网格规则的几何；曲线和其他未支持的几何类型必须拒绝。当前内置 profile catalog 的四个 ID 固定为 `dirt`、`street`、`arterial`、`highway`，catalog version 不等于 schema version。米制、地图尺寸和网格规则属于带版本的格式契约；payload 还须保存该地图创建时固定的格长，加载使用存档格长完成几何验证及输入装配，不能使用当前新建地图默认值重新解释已存坐标。
+
+V4-04 已实现上例的空地图 schema 1：地图两轴固定为 -4000 至 4000 米，格长只接受 25/50/100/200 米，初始内容版本和两类 ID watermark 均为 1。codec 入口最多读取 4097 字节以识别超限，接受的载荷上限为 4096 字节，JSON 深度上限为 4；所有对象拒绝缺失、未知和重复字段。当前节点和边数组必须为空，实体格式及相应预算随后续切片扩展，不把空图验证当作几何验证完成。运行时实例身份、lineage 和变更序列不写入文件；Load 保留内容版本及 watermark，创建新 lineage 并递增当前实例的变更序列。
+
+隔离场景使用 `user://saves-v4/<slot>/road_network_v4.json`，载荷格式族为 `simple-cities-v4`。槽位 manifest、完整性校验、锁和磁盘发布事务继续复用现有 `SaveSlotStore` 容器协议，其内部仍有 V3 命名；这不表示 V4 codec 接受 V3 道路载荷，也不表示当前已重写槽位容器格式。
 
 存档仅服务快速迭代中的调试复现。V4 不读取或转换 V3 数据，也不制作离线 converter；后续格式改变可以提升 schema version 并拒绝旧文件，无需承担跨版本兼容。当前版本仍须确定性 round-trip；坏文件或加载失败不得污染活动场景，保存失败不得破坏已有槽位。格式不兼容必须给出明确原因，不能伪装成空地图或自动回退默认值。
 
@@ -679,7 +692,7 @@ V4 指南是设计文档，不代表本次已经完成代码迁移。V4 实现�
 
 ### 11.1 设计讨论结论与复核状态
 
-2026-09-12 已确认[米字网格道路系统规格](../specs/road-system-v4.md)及其两层测试边界，并发布为[GitHub 规格 #1](https://github.com/xianfishyu/SimpleCities/issues/1)。22张工作项为 #2–#23，均作为规格的原生子项，26条原生阻塞关系已核对。V4-01–03（#2–#4）的扩展、调用方迁移和协调器收拢已完成，下一项为[V4-04 #5：创建并保存V4空地图](https://github.com/xianfishyu/SimpleCities/issues/5)。当前场景装配提供保存根与payload策略，通用协调器不再持有V3具体类型，旧入口及包装已移除。第三票全量965/965、双配置构建及独立Forward+/Vulkan进程中的V3加载失败隔离和场景代际契约通过；MCP桥接检查因客户端占用未执行。不代表后续V4行为或性能已通过，性能与资源参数仍按 §11.2 冻结。
+2026-09-12 已确认[米字网格道路系统规格](../specs/road-system-v4.md)及其两层测试边界，并发布为[GitHub 规格 #1](https://github.com/xianfishyu/SimpleCities/issues/1)。22张工作项为 #2–#23，均作为规格的原生子项，26条原生阻塞关系已核对。V4-01–04（#2–#5）已完成，下一项为[V4-05 #6：建造并重载一条独立道路](https://github.com/xianfishyu/SimpleCities/issues/6)。独立 `SimpleCities.RoadCore` 及核心测试已接入，应用通过程序集引用消费核心；`Scenes/V4MapTest.tscn` 可选择格长创建空图、保存和重载，正式 `MapTest` 仍运行唯一 V3 路网。第四票核心24/24、既有套件965/965、双配置构建及真实Forward+/Vulkan四档保存重载、非法输入隔离、相机输入通过；编辑器资源重载、实际按钮操作与DAP检查也已完成。证据见 `.scratch/v4-04-qa/verification.md`。实体操作、后续表现和性能尚未交付；其余性能与资源参数仍按 §11.2 冻结。
 
 2026-09-11 已确认的产品规则汇总如下，具体契约以对应章节为准：
 
@@ -705,4 +718,4 @@ V4 指南是设计文档，不代表本次已经完成代码迁移。V4 实现�
 | 性能 | 10K/100K 计数对象和可构造数据集、典型手势规模、硬件和渲染设置、采样窗口、分位数及超限判据 |
 | 历史资源 | 代表性变更的估算/实测成本、字节预算、单笔超限策略；已确认的 64 次条数上限不在此重开 |
 | 交互与恢复 | 悬停/选中高亮的样式及拾取阈值、取消响应与清理时间预算、资源重试验证口径 |
-| 格式与装配 | 地图参数的具体 schema、prepared payload 与 token 绑定、独立核心和主场景的装配契约 |
+| 格式与装配 | V4-04 已落地空地图 schema、核心程序集和隔离场景装配；实体 payload、道路表现 token 和正式切换契约随对应后续切片冻结 |

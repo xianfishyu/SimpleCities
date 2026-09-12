@@ -1,0 +1,104 @@
+[gd_scene format=3 uid="uid://6xlsovuiomfa"]
+
+[ext_resource type="Script" uid="uid://b1bexx8rwgol6" path="res://Scripts/Road/V4/V4MapScene.cs" id="1_scene"]
+[ext_resource type="Script" uid="uid://ojdvxty2b7es" path="res://Scripts/Road/V4/V4MapView.cs" id="2_view"]
+
+[sub_resource type="StyleBoxFlat" id="PanelStyle"]
+bg_color = Color(0.065, 0.105, 0.125, 0.98)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.24, 0.4, 0.43, 1)
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_right = 14
+corner_radius_bottom_left = 14
+
+[node name="V4MapTest" type="Node2D" unique_id=146728103]
+script = ExtResource("1_scene")
+
+[node name="View" type="Node2D" parent="." unique_id=616580764]
+script = ExtResource("2_view")
+
+[node name="Camera2D" type="Camera2D" parent="." unique_id=179554419]
+position = Vector2(-1700, 0)
+zoom = Vector2(0.085, 0.085)
+
+[node name="HUD" type="CanvasLayer" parent="." unique_id=957565570]
+
+[node name="Panel" type="PanelContainer" parent="HUD" unique_id=1351301192]
+offset_left = 28.0
+offset_top = 28.0
+offset_right = 358.0
+offset_bottom = 700.0
+theme_override_styles/panel = SubResource("PanelStyle")
+
+[node name="Margin" type="MarginContainer" parent="HUD/Panel" unique_id=1591024524]
+layout_mode = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 24
+
+[node name="Controls" type="VBoxContainer" parent="HUD/Panel/Margin" unique_id=1233244668]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Title" type="Label" parent="HUD/Panel/Margin/Controls" unique_id=732108811]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.55, 0.85, 0.84, 1)
+theme_override_font_sizes/font_size = 26
+text = "V4 · 米字网格"
+
+[node name="Subtitle" type="Label" parent="HUD/Panel/Margin/Controls" unique_id=273873412]
+layout_mode = 2
+text = "隔离开发场景 / 空地图"
+
+[node name="MapInfo" type="Label" parent="HUD/Panel/Margin/Controls" unique_id=632848937]
+layout_mode = 2
+text = "8 × 8 km · 中心原点"
+
+[node name="Divider" type="HSeparator" parent="HUD/Panel/Margin/Controls" unique_id=1855828548]
+layout_mode = 2
+
+[node name="ChoiceTitle" type="Label" parent="HUD/Panel/Margin/Controls" unique_id=1405189885]
+layout_mode = 2
+text = "新地图格长"
+
+[node name="CellSize" type="OptionButton" parent="HUD/Panel/Margin/Controls" unique_id=1598983979]
+custom_minimum_size = Vector2(0, 38)
+layout_mode = 2
+
+[node name="Create" type="Button" parent="HUD/Panel/Margin/Controls" unique_id=699899627]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+text = "创建新地图"
+
+[node name="Save" type="Button" parent="HUD/Panel/Margin/Controls" unique_id=1346590866]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+text = "另存为调试存档"
+
+[node name="Slots" type="OptionButton" parent="HUD/Panel/Margin/Controls" unique_id=428911255]
+custom_minimum_size = Vector2(0, 38)
+layout_mode = 2
+fit_to_longest_item = false
+
+[node name="Load" type="Button" parent="HUD/Panel/Margin/Controls" unique_id=298442727]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+text = "加载选中存档"
+
+[node name="Status" type="Label" parent="HUD/Panel/Margin/Controls" unique_id=166984154]
+custom_minimum_size = Vector2(275, 46)
+layout_mode = 2
+text = "准备地图…"
+autowrap_mode = 2
+
+[node name="Help" type="Label" parent="HUD/Panel/Margin/Controls" unique_id=1916819053]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.55, 0.64, 0.67, 1)
+text = "滚轮缩放 · 中键拖动
+格长只在创建时选择
+加载使用存档中的地图参数"

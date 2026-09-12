@@ -6,6 +6,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleCities.RoadGraph.Test
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleCities.SaveLockProbe", "tests\SimpleCities.SaveLockProbe\SimpleCities.SaveLockProbe.csproj", "{B8A40A6E-4AF7-4E28-A7E8-C2D953F7CB64}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleCities.RoadCore", "SimpleCities.RoadCore\SimpleCities.RoadCore.csproj", "{CC9BC095-2752-4E0B-B2C7-213E1CB7A965}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleCities.RoadCore.Tests", "tests\SimpleCities.RoadCore.Tests\SimpleCities.RoadCore.Tests.csproj", "{77BC9BD0-D883-4AA9-9816-BB0CBC498A9B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 	Debug|Any CPU = Debug|Any CPU
@@ -31,5 +35,17 @@ Global
 		{B8A40A6E-4AF7-4E28-A7E8-C2D953F7CB64}.ExportDebug|Any CPU.Build.0 = Debug|Any CPU
 		{B8A40A6E-4AF7-4E28-A7E8-C2D953F7CB64}.ExportRelease|Any CPU.ActiveCfg = Release|Any CPU
 		{B8A40A6E-4AF7-4E28-A7E8-C2D953F7CB64}.ExportRelease|Any CPU.Build.0 = Release|Any CPU
+		{CC9BC095-2752-4E0B-B2C7-213E1CB7A965}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CC9BC095-2752-4E0B-B2C7-213E1CB7A965}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CC9BC095-2752-4E0B-B2C7-213E1CB7A965}.ExportDebug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CC9BC095-2752-4E0B-B2C7-213E1CB7A965}.ExportDebug|Any CPU.Build.0 = Debug|Any CPU
+		{CC9BC095-2752-4E0B-B2C7-213E1CB7A965}.ExportRelease|Any CPU.ActiveCfg = Release|Any CPU
+		{CC9BC095-2752-4E0B-B2C7-213E1CB7A965}.ExportRelease|Any CPU.Build.0 = Release|Any CPU
+		{77BC9BD0-D883-4AA9-9816-BB0CBC498A9B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{77BC9BD0-D883-4AA9-9816-BB0CBC498A9B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{77BC9BD0-D883-4AA9-9816-BB0CBC498A9B}.ExportDebug|Any CPU.ActiveCfg = Debug|Any CPU
+		{77BC9BD0-D883-4AA9-9816-BB0CBC498A9B}.ExportDebug|Any CPU.Build.0 = Debug|Any CPU
+		{77BC9BD0-D883-4AA9-9816-BB0CBC498A9B}.ExportRelease|Any CPU.ActiveCfg = Release|Any CPU
+		{77BC9BD0-D883-4AA9-9816-BB0CBC498A9B}.ExportRelease|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

@@ -1,0 +1,181 @@
+SCRIPT ERROR: Parse Error: Cannot infer the type of "zoom_works" variable because the value doesn't have a set type.
+   at: GDScript::reload (res://tests/godot/v4_empty_map_runtime_contract.gd:54)
+ERROR: Failed to load script "res://tests/godot/v4_empty_map_runtime_contract.gd" with error "Parse error".
+   at: load (modules/gdscript/gdscript_resource_format.cpp:46)
+ERROR: LSP: Failed to parse script: res://tests/godot/v4_empty_map_runtime_contract.gd
+Cannot infer the type of "zoom_works" variable because the value doesn't have a set type.
+   at: reload_all_workspace_scripts (modules/gdscript/language_server/gdscript_workspace.cpp:201)
+WARNING: [godot-mcp] Rejecting new connection from 127.0.0.1:51734: another client is already connected
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] warn (res://addons/godot_mcp/core/mcp_log.gd:11)
+       [1] _accept_connection (res://addons/godot_mcp/websocket_server.gd:122)
+       [2] _process (res://addons/godot_mcp/websocket_server.gd:39)
+WARNING: [godot-mcp] Rejecting new connection from 127.0.0.1:51770: another client is already connected
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] warn (res://addons/godot_mcp/core/mcp_log.gd:11)
+       [1] _accept_connection (res://addons/godot_mcp/websocket_server.gd:122)
+       [2] _process (res://addons/godot_mcp/websocket_server.gd:39)
+WARNING: [godot-mcp] Rejecting new connection from 127.0.0.1:51786: another client is already connected
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] warn (res://addons/godot_mcp/core/mcp_log.gd:11)
+       [1] _accept_connection (res://addons/godot_mcp/websocket_server.gd:122)
+       [2] _process (res://addons/godot_mcp/websocket_server.gd:39)
+WARNING: [godot-mcp] Rejecting new connection from 127.0.0.1:51787: another client is already connected
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] warn (res://addons/godot_mcp/core/mcp_log.gd:11)
+       [1] _accept_connection (res://addons/godot_mcp/websocket_server.gd:122)
+       [2] _process (res://addons/godot_mcp/websocket_server.gd:39)
+WARNING: [godot-mcp] Rejecting new connection from 127.0.0.1:51790: another client is already connected
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] warn (res://addons/godot_mcp/core/mcp_log.gd:11)
+       [1] _accept_connection (res://addons/godot_mcp/websocket_server.gd:122)
+       [2] _process (res://addons/godot_mcp/websocket_server.gd:39)
+WARNING: [godot-mcp] Rejecting new connection from 127.0.0.1:51801: another client is already connected
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] warn (res://addons/godot_mcp/core/mcp_log.gd:11)
+       [1] _accept_connection (res://addons/godot_mcp/websocket_server.gd:122)
+       [2] _process (res://addons/godot_mcp/websocket_server.gd:39)
+WARNING: [godot-mcp] Rejecting new connection from 127.0.0.1:51809: another client is already connected
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] warn (res://addons/godot_mcp/core/mcp_log.gd:11)
+       [1] _accept_connection (res://addons/godot_mcp/websocket_server.gd:122)
+       [2] _process (res://addons/godot_mcp/websocket_server.gd:39)
+WARNING: [godot-mcp] Rejecting new connection from 127.0.0.1:51839: another client is already connected
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] warn (res://addons/godot_mcp/core/mcp_log.gd:11)
+       [1] _accept_connection (res://addons/godot_mcp/websocket_server.gd:122)
+       [2] _process (res://addons/godot_mcp/websocket_server.gd:39)
+WARNING: [godot-mcp] Rejecting new connection from 127.0.0.1:51849: another client is already connected
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] warn (res://addons/godot_mcp/core/mcp_log.gd:11)
+       [1] _accept_connection (res://addons/godot_mcp/websocket_server.gd:122)
+       [2] _process (res://addons/godot_mcp/websocket_server.gd:39)
+WARNING: [godot-mcp] Rejecting new connection from 127.0.0.1:51883: another client is already connected
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] warn (res://addons/godot_mcp/core/mcp_log.gd:11)
+       [1] _accept_connection (res://addons/godot_mcp/websocket_server.gd:122)
+       [2] _process (res://addons/godot_mcp/websocket_server.gd:39)
+WARNING: [godot-mcp] Rejecting new connection from 127.0.0.1:51896: another client is already connected
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] warn (res://addons/godot_mcp/core/mcp_log.gd:11)
+       [1] _accept_connection (res://addons/godot_mcp/websocket_server.gd:122)
+       [2] _process (res://addons/godot_mcp/websocket_server.gd:39)
+WARNING: [godot-mcp] Rejecting new connection from 127.0.0.1:51946: another client is already connected
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] warn (res://addons/godot_mcp/core/mcp_log.gd:11)
+       [1] _accept_connection (res://addons/godot_mcp/websocket_server.gd:122)
+       [2] _process (res://addons/godot_mcp/websocket_server.gd:39)
+WARNING: [godot-mcp] Rejecting new connection from 127.0.0.1:51951: another client is already connected
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] warn (res://addons/godot_mcp/core/mcp_log.gd:11)
+       [1] _accept_connection (res://addons/godot_mcp/websocket_server.gd:122)
+       [2] _process (res://addons/godot_mcp/websocket_server.gd:39)
+WARNING: [godot-mcp] Rejecting new connection from 127.0.0.1:51975: another client is already connected
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] warn (res://addons/godot_mcp/core/mcp_log.gd:11)
+       [1] _accept_connection (res://addons/godot_mcp/websocket_server.gd:122)
+       [2] _process (res://addons/godot_mcp/websocket_server.gd:39)
+WARNING: [godot-mcp] Rejecting new connection from 127.0.0.1:51986: another client is already connected
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] warn (res://addons/godot_mcp/core/mcp_log.gd:11)
+       [1] _accept_connection (res://addons/godot_mcp/websocket_server.gd:122)
+       [2] _process (res://addons/godot_mcp/websocket_server.gd:39)
+WARNING: [godot-mcp] Rejecting new connection from 127.0.0.1:52013: another client is already connected
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] warn (res://addons/godot_mcp/core/mcp_log.gd:11)
+       [1] _accept_connection (res://addons/godot_mcp/websocket_server.gd:122)
+       [2] _process (res://addons/godot_mcp/websocket_server.gd:39)
+WARNING: [godot-mcp] Rejecting new connection from 127.0.0.1:52023: another client is already connected
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] warn (res://addons/godot_mcp/core/mcp_log.gd:11)
+       [1] _accept_connection (res://addons/godot_mcp/websocket_server.gd:122)
+       [2] _process (res://addons/godot_mcp/websocket_server.gd:39)
+WARNING: [godot-mcp] Rejecting new connection from 127.0.0.1:52046: another client is already connected
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] warn (res://addons/godot_mcp/core/mcp_log.gd:11)
+       [1] _accept_connection (res://addons/godot_mcp/websocket_server.gd:122)
+       [2] _process (res://addons/godot_mcp/websocket_server.gd:39)
+WARNING: [godot-mcp] Rejecting new connection from 127.0.0.1:52056: another client is already connected
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] warn (res://addons/godot_mcp/core/mcp_log.gd:11)
+       [1] _accept_connection (res://addons/godot_mcp/websocket_server.gd:122)
+       [2] _process (res://addons/godot_mcp/websocket_server.gd:39)
+WARNING: [godot-mcp] Rejecting new connection from 127.0.0.1:52092: another client is already connected
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] warn (res://addons/godot_mcp/core/mcp_log.gd:11)
+       [1] _accept_connection (res://addons/godot_mcp/websocket_server.gd:122)
+       [2] _process (res://addons/godot_mcp/websocket_server.gd:39)
+WARNING: [godot-mcp] Rejecting new connection from 127.0.0.1:52099: another client is already connected
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] warn (res://addons/godot_mcp/core/mcp_log.gd:11)
+       [1] _accept_connection (res://addons/godot_mcp/websocket_server.gd:122)
+       [2] _process (res://addons/godot_mcp/websocket_server.gd:39)
+WARNING: [godot-mcp] Rejecting new connection from 127.0.0.1:52121: another client is already connected
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] warn (res://addons/godot_mcp/core/mcp_log.gd:11)
+       [1] _accept_connection (res://addons/godot_mcp/websocket_server.gd:122)
+       [2] _process (res://addons/godot_mcp/websocket_server.gd:39)
+WARNING: [godot-mcp] Rejecting new connection from 127.0.0.1:52129: another client is already connected
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] warn (res://addons/godot_mcp/core/mcp_log.gd:11)
+       [1] _accept_connection (res://addons/godot_mcp/websocket_server.gd:122)
+       [2] _process (res://addons/godot_mcp/websocket_server.gd:39)
+WARNING: [godot-mcp] Rejecting new connection from 127.0.0.1:52165: another client is already connected
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] warn (res://addons/godot_mcp/core/mcp_log.gd:11)
+       [1] _accept_connection (res://addons/godot_mcp/websocket_server.gd:122)
+       [2] _process (res://addons/godot_mcp/websocket_server.gd:39)
+WARNING: [godot-mcp] Rejecting new connection from 127.0.0.1:52172: another client is already connected
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] warn (res://addons/godot_mcp/core/mcp_log.gd:11)
+       [1] _accept_connection (res://addons/godot_mcp/websocket_server.gd:122)
+       [2] _process (res://addons/godot_mcp/websocket_server.gd:39)
+WARNING: [godot-mcp] Rejecting new connection from 127.0.0.1:52200: another client is already connected
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] warn (res://addons/godot_mcp/core/mcp_log.gd:11)
+       [1] _accept_connection (res://addons/godot_mcp/websocket_server.gd:122)
+       [2] _process (res://addons/godot_mcp/websocket_server.gd:39)
+WARNING: [godot-mcp] Rejecting new connection from 127.0.0.1:52206: another client is already connected
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] warn (res://addons/godot_mcp/core/mcp_log.gd:11)
+       [1] _accept_connection (res://addons/godot_mcp/websocket_server.gd:122)
+       [2] _process (res://addons/godot_mcp/websocket_server.gd:39)
+WARNING: [godot-mcp] Rejecting new connection from 127.0.0.1:52245: another client is already connected
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] warn (res://addons/godot_mcp/core/mcp_log.gd:11)
+       [1] _accept_connection (res://addons/godot_mcp/websocket_server.gd:122)
+       [2] _process (res://addons/godot_mcp/websocket_server.gd:39)
+WARNING: [godot-mcp] Rejecting new connection from 127.0.0.1:52251: another client is already connected
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] warn (res://addons/godot_mcp/core/mcp_log.gd:11)
+       [1] _accept_connection (res://addons/godot_mcp/websocket_server.gd:122)
+       [2] _process (res://addons/godot_mcp/websocket_server.gd:39)
