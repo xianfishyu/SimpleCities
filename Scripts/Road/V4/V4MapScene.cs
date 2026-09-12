@@ -65,6 +65,7 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
         _slots = GetNode<OptionButton>(Controls + "Slots");
         _status = GetNode<Label>(Controls + "Status");
         _mapInfo = GetNode<Label>(Controls + "MapInfo");
+        InitializeSelection();
         _profileChoice = GetNode<OptionButton>(Controls + "Profile");
         foreach (string label in new[] { "土路 · 8 米", "街道 · 12 米", "干道 · 24 米", "公路 · 32 米" })
             _profileChoice.AddItem(label);
@@ -92,6 +93,7 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
         // Validate before unregistering the current scene or replacing its immutable map.
         var replacement = new RoadSaveParticipant(new RoadNetwork(new MapDefinition(cellSizeMetres)));
         CancelDraft();
+        ClearRoadSelection();
         if (_roads is not null)
         {
             _saveManager.UnregisterSceneLoad(this);
@@ -138,6 +140,9 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
             UpdateMapInfo();
         }
         bool busy = _saveManager.IsOperationBusy || _pendingOperation.Length != 0 || _buildOperation.IsBusy;
+        _toolMode.Disabled = busy;
+        if (_selectionSession.Source is RoadStateToken selectionSource && _roads is not null && selectionSource != _roads.Network.Snapshot.Token)
+            ClearRoadSelection();
         GetNode<Button>(Controls + "Create").Disabled = busy;
         GetNode<Button>(Controls + "Save").Disabled = busy;
         GetNode<Button>(Controls + "Load").Disabled = busy || _slotIDs.Count == 0;
@@ -265,12 +270,14 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
         if (@event is InputEventKey { Pressed: true, Keycode: Key.Escape })
         {
             CancelDraft();
+            ClearRoadSelection();
             if (_buildOperation.TryCancel())
             {
                 _buildCancellation?.Cancel();
                 _status.Text = "正在取消…";
             }
         }
+        if (HandleSelectionInput(@event)) return;
         if (@event is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: false } release && _draftStart is RoadPoint start)
         {
             long inputTimestamp = Stopwatch.GetTimestamp();
@@ -285,7 +292,8 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
 
     public override void _UnhandledInput(InputEvent @event)
     {
-        if (@event is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true } press && CanEdit)
+        if (HandleSelectionPointerEvent(@event)) return;
+        if (@event is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true } press && CanEdit && !IsSelectionTool)
         {
             MapDefinition map = _roads!.Network.Snapshot.Map;
             RoadPoint cursor = WorldPoint(press.Position);
@@ -293,7 +301,7 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
             _draftStart = map.SnapBuildPoint(cursor);
             _draftSource = _roads.Network.Snapshot.Token;
             _draftProfile = RoadProfiles.All[_profileChoice.Selected].Id;
-            _view.SetHovered(false);
+            ClearRoadSelection();
             UpdateDraftPreview(_draftStart.Value, _draftStart.Value);
         }
         if (@event is InputEventMouseMotion move && _draftStart is RoadPoint draft && CanEdit)
@@ -301,11 +309,11 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
             RoadPoint end = _roads!.Network.Snapshot.Map.SnapDragEnd(draft, WorldPoint(move.Position));
             UpdateDraftPreview(draft, end);
         }
-        else if (@event is InputEventMouseMotion hover && CanEdit)
+        else if (@event is InputEventMouseMotion hover && CanEdit && !IsSelectionTool)
         {
             RoadPoint point = WorldPoint(hover.Position);
             Godot.Collections.Dictionary hit = PickRoad(new Vector2((float)point.X, (float)point.Y));
-            _view.SetHovered(hit.Count != 0);
+            UpdateSelectionPointer(hover.Position);
             if (hit.TryGetValue("junctionNodeId", out Variant junctionId) && junctionId.AsInt64() > 0 &&
                 RoadJunctionQuery.Read(_roads!.Network.Snapshot, new NodeId(junctionId.AsInt64())) is RoadJunctionReadModel junction)
                 _status.Text = $"{(_roads.Network.Snapshot.Map.IsCellCenter(junction.Node.Position) ? "格心路口" : "路口")} · {junction.Incidences.Count} 个方向";
@@ -528,6 +536,7 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
         public IReadOnlyList<string> PublishNotifications()
         {
             owner.CancelDraft();
+            owner.ClearRoadSelection();
             return Array.Empty<string>();
         }
         public void CompleteCommit() => Dispose();

@@ -11,7 +11,7 @@ public partial class V4MapView : Node2D, IScenePresentationLoadParticipant
     private V4RoadDisplay? _display;
     private sealed record PreviewSegment(Vector2 Start, Vector2 End, Color Color, bool Conflict);
     private PreviewSegment[] _preview = [];
-    private bool _hovered;
+    private readonly V4SelectionDisplay _selection = new();
     private long _sceneGeneration;
     private Admission? _admission;
     internal RoadSnapshot? Presented => _display?.Snapshot;
@@ -26,7 +26,7 @@ public partial class V4MapView : Node2D, IScenePresentationLoadParticipant
         V4RoadDisplay? previous = _display;
         _display = replacement;
         _preview = [];
-        _hovered = false;
+        _selection.Clear();
         previous?.Dispose();
         QueueRedraw();
     }
@@ -36,16 +36,27 @@ public partial class V4MapView : Node2D, IScenePresentationLoadParticipant
     {
         V4RoadDisplay? previous = _display;
         _display = target;
-        _hovered = false;
+        _selection.Clear();
         return previous;
     }
 
-    internal void SetHovered(bool hovered)
+    internal RoadGridSpan? PeekSpan(Vector2 world) => _display?.PeekSpan(world);
+    internal IReadOnlyList<RoadGridSpan> TraceSpans(Vector2 from, Vector2 to) => _display?.TraceSpans(from, to) ?? [];
+
+    internal void SetSelection(RoadGridSpan? hover, IReadOnlyList<RoadGridSpan> selected)
     {
-        if (_hovered == hovered) return;
-        _hovered = hovered;
+        if (Presented is RoadSnapshot snapshot) _selection.Set(snapshot, hover, selected);
+        else _selection.Clear();
         QueueRedraw();
     }
+
+    internal void ClearSelection()
+    {
+        _selection.Clear();
+        QueueRedraw();
+    }
+
+    internal Godot.Collections.Array<Godot.Collections.Dictionary> DescribeSelection() => _selection.Describe();
 
     internal void ShowPreview(RoadPoint? start, RoadPoint? end, SimpleCities.RoadCore.RoadBuildResult? result)
     {
@@ -114,8 +125,9 @@ public partial class V4MapView : Node2D, IScenePresentationLoadParticipant
         var bounds = new Rect2(-4000, -4000, 8000, 8000);
         DrawRect(bounds, new Color(0.35f, 0.35f, 0.35f), filled: false, width: 3);
         if (_display?.Mesh is ArrayMesh mesh)
-            DrawMesh(mesh, null, modulate: _hovered ? new Color(1.4f, 1.4f, 1.4f) : Colors.White);
+            DrawMesh(mesh, null, modulate: Colors.White);
         DrawSubmittedToken = Presented.Token.ToString();
+        _selection.Draw(this);
         foreach (PreviewSegment segment in _preview)
             DrawLine(segment.Start, segment.End, segment.Color, 10);
     }

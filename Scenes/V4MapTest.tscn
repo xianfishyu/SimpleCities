@@ -78,6 +78,10 @@ text = "V4 · 米字网格"
 layout_mode = 2
 text = "隔离开发场景 / 米字网格路口"
 
+[node name="ToolMode" type="OptionButton" parent="HUD/Panel/Margin/Controls"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 36)
+
 [node name="MapInfo" type="Label" parent="HUD/Panel/Margin/Controls" unique_id=632848937]
 layout_mode = 2
 text = "8 × 8 km · 中心原点"

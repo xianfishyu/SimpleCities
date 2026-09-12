@@ -96,6 +96,100 @@ internal sealed class V4RoadDisplay : IDisposable
         return null;
     }
 
+    internal RoadGridSpan? PeekSpan(Vector2 world)
+    {
+        HitResult? hit = Hit(world);
+        // A junction patch has several incidences. Only the visible branch outside it selects a span.
+        return hit is HitResult picked && picked.JunctionNode is null
+            ? RoadSpanQuery.Pick(Snapshot, picked.Location) : null;
+    }
+
+    internal IReadOnlyList<RoadGridSpan> TraceSpans(Vector2 from, Vector2 to)
+    {
+        var result = new List<RoadGridSpan>();
+        var seen = new HashSet<RoadSpanKey>();
+        if (!from.IsFinite() || !to.IsFinite()) return result;
+        if (from == to)
+        {
+            Add(from);
+            return result;
+        }
+
+        // Partition the pointer segment at every visible polygon boundary and grid-span boundary.
+        // This captures every crossed span even when an input event traverses the entire map.
+        var breaks = new List<double> { 0, 1 };
+        Vector2 travel = to - from;
+        foreach (Piece piece in Pieces)
+        {
+            if (!Clip(piece.Polygon, from, travel, out double entry, out double exit)) continue;
+            breaks.Add(entry);
+            breaks.Add(exit);
+            Vector2 axis = piece.End - piece.Start;
+            double lengthSquared = axis.LengthSquared();
+            if (lengthSquared == 0 || piece.JunctionNode is not null) continue;
+            double fractionStart = (from - piece.Start).Dot(axis) / lengthSquared;
+            double fractionDelta = travel.Dot(axis) / lengthSquared;
+            if (fractionDelta == 0) continue;
+            // All eight supported directions cross one main-grid line per span. For diagonals
+            // either coordinate gives the same crossing, so use the dominant coordinate only.
+            double origin = Math.Abs(axis.X) >= Math.Abs(axis.Y) ? piece.Start.X : piece.Start.Y;
+            double extent = Math.Abs(axis.X) >= Math.Abs(axis.Y) ? axis.X : axis.Y;
+            double startCoordinate = origin + extent * fractionStart;
+            double coordinateDelta = extent * fractionDelta;
+            double low = Math.Max(Math.Min(origin, origin + extent), Math.Min(startCoordinate + coordinateDelta * entry, startCoordinate + coordinateDelta * exit));
+            double high = Math.Min(Math.Max(origin, origin + extent), Math.Max(startCoordinate + coordinateDelta * entry, startCoordinate + coordinateDelta * exit));
+            int cell = Snapshot.Map.CellSizeMetres;
+            for (int grid = (int)Math.Ceiling(low / cell); grid <= Math.Floor(high / cell); grid++)
+            {
+                double t = (grid * cell - startCoordinate) / coordinateDelta;
+                if (t > entry && t < exit) breaks.Add(t);
+            }
+        }
+        breaks.Sort();
+        Add(from);
+        for (int i = 1; i < breaks.Count; i++)
+        {
+            double left = breaks[i - 1], right = breaks[i];
+            if (right > left) Add(from + travel * (float)((left + right) / 2));
+        }
+        Add(to);
+        return result;
+
+        void Add(Vector2 point)
+        {
+            RoadGridSpan? span = PeekSpan(point);
+            if (span is not null && seen.Add(span.Key)) result.Add(span);
+        }
+    }
+
+    internal static bool SameSpan(RoadGridSpan left, RoadGridSpan right) => left.Key == right.Key;
+
+    private static bool Clip(Vector2[] polygon, Vector2 from, Vector2 travel, out double entry, out double exit)
+    {
+        entry = 0;
+        exit = 1;
+        double area = 0;
+        for (int i = 0; i < polygon.Length; i++) area += polygon[i].Cross(polygon[(i + 1) % polygon.Length]);
+        double winding = Math.Sign(area);
+        if (winding == 0) return false;
+        for (int i = 0; i < polygon.Length; i++)
+        {
+            Vector2 start = polygon[i], side = polygon[(i + 1) % polygon.Length] - start;
+            double value = winding * side.Cross(from - start);
+            double slope = winding * side.Cross(travel);
+            if (slope == 0)
+            {
+                if (value < 0) return false;
+                continue;
+            }
+            double crossing = -value / slope;
+            if (slope > 0) entry = Math.Max(entry, crossing);
+            else exit = Math.Min(exit, crossing);
+            if (entry > exit) return false;
+        }
+        return true;
+    }
+
     internal Vector2 SurfaceCenter(CoreRoadLocation location)
     {
         if (location.Source != Snapshot.Token) throw new InvalidOperationException("V4 surface location is stale.");
