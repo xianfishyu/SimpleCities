@@ -7,19 +7,19 @@ public sealed class EmptyMapRejectionTests
 {
     // Authored independently of the writer: the schema example is the input oracle.
     private const string Valid = """
-        {"formatFamily":"simple-cities-v4","payloadType":"road-network","schemaVersion":1,
+        {"formatFamily":"simple-cities-v4","payloadType":"road-network","schemaVersion":2,
          "contentRevision":7,"nextNodeId":9,"nextEdgeId":12,"profileCatalogVersion":1,
          "map":{"widthMetres":8000,"heightMetres":8000,"origin":"center","metresPerUnit":1,
                 "grid":"square-eight","cellSizeMetres":50},"nodes":[],"edges":[]}
         """;
 
     [Theory]
-    [InlineData("\"schemaVersion\":1", "\"schemaVersion\":2")]
+    [InlineData("\"schemaVersion\":2", "\"schemaVersion\":1")]
     [InlineData("simple-cities-v4", "simple-cities-v3")]
     [InlineData("\"cellSizeMetres\":50", "\"cellSizeMetres\":75")]
     [InlineData("\"cellSizeMetres\":50", "\"cellSizeMetres\":50.5")]
     [InlineData("\"cellSizeMetres\":50", "\"cellSizeMetres\":50,\"cellSizeMetres\":100")]
-    [InlineData("\"schemaVersion\":1", "\"schemaVersion\":1,\"unknown\":0")]
+    [InlineData("\"schemaVersion\":2", "\"schemaVersion\":2,\"unknown\":0")]
     [InlineData("\"nextNodeId\":9", "\"nextNodeId\":0")]
     [InlineData("\"nextEdgeId\":12", "\"nextEdgeId\":-1")]
     [InlineData("\"profileCatalogVersion\":1", "\"profileCatalogVersion\":2")]
@@ -45,9 +45,9 @@ public sealed class EmptyMapRejectionTests
         var first = new RoadNetwork();
         var second = new RoadNetwork();
         using var bytes = new MemoryStream(Encoding.UTF8.GetBytes(Valid));
-        RoadLoadPlan plan = first.PlanLoad(RoadCodec.Read(bytes));
-        Assert.False(second.TryCommitLoad(plan));
-        Assert.True(first.TryCommitLoad(plan));
+        RoadPlan plan = first.PlanLoad(RoadCodec.Read(bytes));
+        Assert.False(second.TryCommit(plan));
+        Assert.True(first.TryCommit(plan));
         Assert.Equal(7, first.Snapshot.Token.ContentRevision);
         Assert.Equal(9, first.Snapshot.NextNodeId);
         Assert.Equal(12, first.Snapshot.NextEdgeId);

@@ -17,10 +17,10 @@ public sealed class EmptyMapTests
         var target = new RoadNetwork();
         RoadStateToken before = target.Snapshot.Token;
         bytes.Position = 0;
-        RoadLoadPlan plan = target.PlanLoad(RoadCodec.Read(bytes));
+        RoadPlan plan = target.PlanLoad(RoadCodec.Read(bytes));
 
         Assert.Equal(before, target.Snapshot.Token);
-        Assert.True(target.TryCommitLoad(plan));
+        Assert.True(target.TryCommit(plan));
         Assert.Equal(cellSize, target.Snapshot.Map.CellSizeMetres);
         Assert.Equal(before.NetworkInstance, target.Snapshot.Token.NetworkInstance);
         Assert.NotEqual(before.Lineage, target.Snapshot.Token.Lineage);
@@ -28,7 +28,7 @@ public sealed class EmptyMapTests
         Assert.Equal(1, target.Snapshot.Token.ContentRevision);
         Assert.Equal(1, target.Snapshot.NextNodeId);
         Assert.Equal(1, target.Snapshot.NextEdgeId);
-        Assert.False(target.TryCommitLoad(plan));
+        Assert.False(target.TryCommit(plan));
         using var roundTrip = new MemoryStream();
         RoadCodec.Write(roundTrip, target.Snapshot);
         Assert.Equal(bytes.ToArray(), roundTrip.ToArray());

@@ -43,7 +43,7 @@ theme_override_constants/margin_bottom = 24
 
 [node name="Controls" type="VBoxContainer" parent="HUD/Panel/Margin" unique_id=1233244668]
 layout_mode = 2
-theme_override_constants/separation = 16
+theme_override_constants/separation = 12
 
 [node name="Title" type="Label" parent="HUD/Panel/Margin/Controls" unique_id=732108811]
 layout_mode = 2
@@ -53,7 +53,7 @@ text = "V4 · 米字网格"
 
 [node name="Subtitle" type="Label" parent="HUD/Panel/Margin/Controls" unique_id=273873412]
 layout_mode = 2
-text = "隔离开发场景 / 空地图"
+text = "隔离开发场景 / 单条独立道路"
 
 [node name="MapInfo" type="Label" parent="HUD/Panel/Margin/Controls" unique_id=632848937]
 layout_mode = 2
@@ -80,6 +80,10 @@ custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
 text = "另存为调试存档"
 
+[node name="Profile" type="OptionButton" parent="HUD/Panel/Margin/Controls"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 38)
+
 [node name="Slots" type="OptionButton" parent="HUD/Panel/Margin/Controls" unique_id=428911255]
 custom_minimum_size = Vector2(0, 38)
 layout_mode = 2
@@ -99,6 +103,6 @@ autowrap_mode = 2
 [node name="Help" type="Label" parent="HUD/Panel/Margin/Controls" unique_id=1916819053]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.55, 0.64, 0.67, 1)
-text = "滚轮缩放 · 中键拖动
-格长只在创建时选择
-加载使用存档中的地图参数"
+text = "左键拖动建造 · Esc 取消
+滚轮缩放 · 中键拖动
+本切片仅支持一条独立道路"

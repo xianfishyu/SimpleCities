@@ -1,7 +1,10 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using SimpleCities.RoadCore;
+using CoreRoadBuildRequest = SimpleCities.RoadCore.RoadBuildRequest;
+using CoreRoadBuildResult = SimpleCities.RoadCore.RoadBuildResult;
 
 /// <summary>隔离 V4 操作场景；正式 MapTest 仍装配 V3。</summary>
 public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
@@ -18,6 +21,15 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
     private string _pendingOperation = "";
     private ToolAdmission? _toolAdmission;
     private readonly List<string> _slotIDs = [];
+    private OptionButton _profileChoice = null!;
+    private RoadPoint? _draftStart;
+    private RoadStateToken _draftSource;
+    private RoadProfileId _draftProfile;
+    private bool _buildBusy;
+    private long _buildGeneration;
+    public bool HasBuildPreview => _draftStart.HasValue;
+    public bool IsBuildBusy => _buildBusy;
+    public int RoadCount => _roads?.Network.Snapshot.EdgeCount ?? 0;
     public string LastOperationToken { get; private set; } = "";
     public int CellSizeMetres => _roads?.Network.Snapshot.Map.CellSizeMetres ?? 0;
     public int PresentedCellSizeMetres => _view?.Presented?.Map.CellSizeMetres ?? 0;
@@ -33,12 +45,16 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
         _slots = GetNode<OptionButton>(Controls + "Slots");
         _status = GetNode<Label>(Controls + "Status");
         _mapInfo = GetNode<Label>(Controls + "MapInfo");
+        _profileChoice = GetNode<OptionButton>(Controls + "Profile");
+        foreach (string label in new[] { "土路 · 8 米", "街道 · 12 米", "干道 · 24 米", "公路 · 32 米" })
+            _profileChoice.AddItem(label);
+        _profileChoice.Select(1);
         foreach (int cell in new[] { 25, 50, 100, 200 })
             _cellChoice.AddItem($"{cell} 米", cell);
         _cellChoice.Select(2);
         GetNode<Button>(Controls + "Create").Pressed += () => CreateMap(_cellChoice.GetSelectedId());
         GetNode<Button>(Controls + "Save").Pressed += () => StartOperation(
-            () => _saveManager.StartSaveAs($"V4 空地图 · {CellSizeMetres} 米"));
+            () => _saveManager.StartSaveAs($"V4 地图 · {CellSizeMetres} 米"));
         GetNode<Button>(Controls + "Load").Pressed += () =>
         {
             if (_slots.Selected >= 0 && _slots.Selected < _slotIDs.Count)
@@ -50,10 +66,11 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
 
     public bool CreateMap(int cellSizeMetres)
     {
-        if (_saveManager.IsOperationBusy || _pendingOperation.Length != 0 || _toolAdmission is not null)
+        if (_saveManager.IsOperationBusy || _pendingOperation.Length != 0 || _toolAdmission is not null || _buildBusy)
             return false;
         // Validate before unregistering the current scene or replacing its immutable map.
         var replacement = new RoadSaveParticipant(new RoadNetwork(new MapDefinition(cellSizeMetres)));
+        CancelDraft();
         if (_roads is not null)
         {
             _saveManager.UnregisterSceneLoad(this);
@@ -73,7 +90,7 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
 
     private string StartOperation(Func<string> start)
     {
-        if (_saveManager.IsOperationBusy || _pendingOperation.Length != 0)
+        if (_saveManager.IsOperationBusy || _pendingOperation.Length != 0 || _buildBusy)
             return "";
         LastOperationToken = start();
         _pendingOperation = LastOperationToken;
@@ -92,10 +109,11 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
             RefreshSlots();
             UpdateMapInfo();
         }
-        bool busy = _saveManager.IsOperationBusy || _pendingOperation.Length != 0;
+        bool busy = _saveManager.IsOperationBusy || _pendingOperation.Length != 0 || _buildBusy;
         GetNode<Button>(Controls + "Create").Disabled = busy;
         GetNode<Button>(Controls + "Save").Disabled = busy;
         GetNode<Button>(Controls + "Load").Disabled = busy || _slotIDs.Count == 0;
+        _profileChoice.Disabled = busy || _draftStart.HasValue;
     }
 
     private void RefreshSlots()
@@ -113,10 +131,66 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
     }
 
     private void UpdateMapInfo() => _mapInfo.Text =
-        $"8 × 8 km  ·  中心原点\n当前格长：{CellSizeMetres} 米\n每边 {8000 / CellSizeMetres} 格  ·  空路网\n1 世界单位 = 1 米";
+        $"8 × 8 km  ·  中心原点\n当前格长：{CellSizeMetres} 米\n每边 {8000 / CellSizeMetres} 格  ·  {RoadCount} 条道路\n1 世界单位 = 1 米";
+
+    private bool CanEdit => _roads is not null && !_buildBusy && !_saveManager.IsOperationBusy &&
+        _pendingOperation.Length == 0 && _toolAdmission is null && IsPresentationCurrent;
+
+    private RoadPoint WorldPoint(Vector2 screen)
+    {
+        Vector2 world = GetCanvasTransform().AffineInverse() * screen;
+        return new RoadPoint(world.X, world.Y);
+    }
+
+    private void CancelDraft()
+    {
+        _draftStart = null;
+        _view.ShowPreview(null, null, false);
+    }
+
+    public override void _Input(InputEvent @event)
+    {
+        if (@event is InputEventKey { Pressed: true, Keycode: Key.Escape })
+        {
+            CancelDraft();
+            _buildGeneration++;
+            if (_buildBusy) _status.Text = "正在取消…";
+        }
+        if (@event is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: false } release && _draftStart is RoadPoint start)
+        {
+            RoadPoint end = _roads!.Network.Snapshot.Map.SnapDragEnd(start, WorldPoint(release.Position));
+            var request = new CoreRoadBuildRequest(_draftSource, start, end, _draftProfile);
+            CancelDraft();
+            // Release over UI ends the captured gesture without constructing behind a control.
+            if (CanEdit && !GetNode<Control>("HUD/Panel").GetGlobalRect().HasPoint(release.Position))
+                SubmitBuild(request);
+        }
+    }
 
     public override void _UnhandledInput(InputEvent @event)
     {
+        if (@event is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true } press && CanEdit)
+        {
+            MapDefinition map = _roads!.Network.Snapshot.Map;
+            RoadPoint cursor = WorldPoint(press.Position);
+            if (cursor.X < -4000 || cursor.X > 4000 || cursor.Y < -4000 || cursor.Y > 4000) return;
+            _draftStart = map.SnapPrimary(cursor);
+            _draftSource = _roads.Network.Snapshot.Token;
+            _draftProfile = RoadProfiles.All[_profileChoice.Selected].Id;
+            _view.ShowPreview(_draftStart, _draftStart, true);
+        }
+        if (@event is InputEventMouseMotion move && _draftStart is RoadPoint draft && CanEdit)
+        {
+            RoadPoint end = _roads!.Network.Snapshot.Map.SnapDragEnd(draft, WorldPoint(move.Position));
+            _view.ShowPreview(draft, end, RoadCount == 0);
+        }
+        else if (@event is InputEventMouseMotion hover && CanEdit)
+        {
+            RoadPoint point = WorldPoint(hover.Position);
+            Godot.Collections.Dictionary hit = PickRoad(new Vector2((float)point.X, (float)point.Y));
+            _view.SetHovered(hit.Count != 0);
+            if (hit.Count != 0) _status.Text = $"道路位置：{hit["parameter"].AsDouble():P0}";
+        }
         if (@event is InputEventMouseButton { Pressed: true } button &&
             button.ButtonIndex is MouseButton.WheelUp or MouseButton.WheelDown)
         {
@@ -129,6 +203,7 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
 
     public override void _ExitTree()
     {
+        _buildGeneration++;
         if (_roads is not null && GodotObject.IsInstanceValid(_saveManager))
         {
             _saveManager.UnregisterSceneLoad(this);
@@ -138,12 +213,82 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
 
     ISceneToolLoadAdmission ISceneToolLoadParticipant.BeginSceneLoadAdmission()
     {
-        if (_toolAdmission is not null)
+        if (_toolAdmission is not null || _buildBusy)
             throw new InvalidOperationException("V4 tools are already loading.");
         return _toolAdmission = new ToolAdmission(this, _saveManager.SceneGeneration);
     }
 
-    // Empty-map tools have no edit draft to reset. Admission still protects scene replacement.
+    public Godot.Collections.Dictionary PickRoad(Vector2 world) =>
+        IsPresentationCurrent ? _view.PickRoad(world) : new();
+
+    public Godot.Collections.Dictionary GetRoadState()
+    {
+        if (_roads is null || RoadCount == 0) return new();
+        RoadSnapshot snapshot = _roads.Network.Snapshot;
+        RoadEdge edge = snapshot.Edges[0];
+        return new()
+        {
+            ["start"] = new Vector2((float)snapshot.Nodes[0].Position.X, (float)snapshot.Nodes[0].Position.Y),
+            ["end"] = new Vector2((float)snapshot.Nodes[1].Position.X, (float)snapshot.Nodes[1].Position.Y),
+            ["profile"] = edge.Profile.Value,
+            ["edgeId"] = edge.Id.Value,
+            ["sourceToken"] = snapshot.Token.ToString(),
+            ["meshSurfaces"] = _view.MeshSurfaceCount,
+        };
+    }
+
+    private async void SubmitBuild(CoreRoadBuildRequest request)
+    {
+        RoadNetwork network = _roads!.Network;
+        long generation = ++_buildGeneration;
+        _buildBusy = true;
+        _status.Text = "正在准备道路… Esc 取消";
+        bool committed = false;
+        V4RoadDisplay? display = null;
+        try
+        {
+            (CoreRoadBuildResult Result, RoadSurfaceData? Surface) prepared = await Task.Run(() =>
+            {
+                CoreRoadBuildResult result = network.PlanBuild(request);
+                RoadSurfaceData? surface = result.Plan is RoadPlan target
+                    ? RoadPresentation.Prepare(target.Target.Nodes, target.Target.Edges) : null;
+                return (result, surface);
+            });
+            if (!IsSceneAlive || generation != _buildGeneration)
+            {
+                if (IsSceneAlive) _status.Text = "已取消";
+                return;
+            }
+            if (prepared.Result.Plan is not RoadPlan plan)
+            {
+                _status.Text = prepared.Result.Status == RoadBuildStatus.NoChange ? "未形成有效道路" : prepared.Result.Reason;
+                return;
+            }
+            display = _view.PrepareDisplay(plan.Target, prepared.Surface);
+            if (!network.CanCommit(plan) || generation != _buildGeneration) return;
+            // No await or callbacks between the validated reference publications.
+            committed = network.TryCommit(plan);
+            if (!committed) return;
+            V4RoadDisplay? previous = _view.CommitDisplay(display);
+            display = null;
+            _view.QueueRedraw();
+            previous?.Dispose();
+            _status.Text = "道路已建造";
+            UpdateMapInfo();
+        }
+        catch (Exception exception)
+        {
+            if (IsSceneAlive) _status.Text = committed ? $"道路已提交，显示更新失败：{exception.Message}" : $"未建造道路：{exception.Message}";
+        }
+        finally
+        {
+            display?.Dispose();
+            _buildBusy = false;
+        }
+    }
+
+    private bool IsSceneAlive => GodotObject.IsInstanceValid(this) && IsInsideTree();
+
     private sealed class ToolAdmission(V4MapScene owner, long generation) : ISceneToolLoadAdmission, INonThrowingLoadCommitPlan
     {
         public string ParticipantID => "v4-tools";
@@ -155,8 +300,12 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
                 throw new LoadPreflightInvalidException("V4 tool admission is stale.");
             return this;
         }
-        public void CommitReferences() { }
-        public IReadOnlyList<string> PublishNotifications() => Array.Empty<string>();
+        public void CommitReferences() => owner._draftStart = null;
+        public IReadOnlyList<string> PublishNotifications()
+        {
+            owner._view.ShowPreview(null, null, false);
+            return Array.Empty<string>();
+        }
         public void CompleteCommit() => Dispose();
         public void Dispose()
         {

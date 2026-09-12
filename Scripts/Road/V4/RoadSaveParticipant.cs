@@ -44,7 +44,7 @@ internal sealed class RoadSaveParticipant(RoadNetwork network) : ISceneNetworkLo
         {
             if (!IsCurrent || state is not Prepared prepared)
                 throw new LoadPreflightInvalidException("Invalid V4 network load admission or payload.");
-            RoadLoadPlan plan = owner.Network.PlanLoad(prepared.Value);
+            RoadPlan plan = owner.Network.PlanLoad(prepared.Value);
             targetState = new Target(plan.Target);
             return new CommitPlan(owner, this, plan);
         }
@@ -56,13 +56,13 @@ internal sealed class RoadSaveParticipant(RoadNetwork network) : ISceneNetworkLo
         }
     }
 
-    private sealed class CommitPlan(RoadSaveParticipant owner, Admission admission, RoadLoadPlan plan)
+    private sealed class CommitPlan(RoadSaveParticipant owner, Admission admission, RoadPlan plan)
         : INonThrowingLoadCommitPlan
     {
         public string ParticipantID => "v4-network";
-        public bool IsGenerationCurrent => admission.IsCurrent && owner.Network.CanCommitLoad(plan);
+        public bool IsGenerationCurrent => admission.IsCurrent && owner.Network.CanCommit(plan);
         // Aggregate validates all plans on this same thread immediately before these reference swaps.
-        public void CommitReferences() => owner.Network.TryCommitLoad(plan);
+        public void CommitReferences() => owner.Network.TryCommit(plan);
         public IReadOnlyList<string> PublishNotifications() => Array.Empty<string>();
         public void CompleteCommit() => admission.Dispose();
         public void Dispose() => admission.Dispose();

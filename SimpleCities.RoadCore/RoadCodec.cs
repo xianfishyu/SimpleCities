@@ -5,24 +5,30 @@ namespace SimpleCities.RoadCore;
 /// <summary>完整验证后的纯内容；不携带运行时网络身份。</summary>
 public sealed class PreparedRoadState
 {
-    internal PreparedRoadState(MapDefinition map, long contentRevision, long nextNodeId, long nextEdgeId)
+    internal PreparedRoadState(MapDefinition map, long contentRevision, long nextNodeId, long nextEdgeId,
+        IEnumerable<RoadNode> nodes, IEnumerable<RoadEdge> edges)
     {
         Map = map;
         ContentRevision = contentRevision;
         NextNodeId = nextNodeId;
         NextEdgeId = nextEdgeId;
+        Nodes = Array.AsReadOnly(nodes.ToArray());
+        Edges = Array.AsReadOnly(edges.ToArray());
     }
 
     public MapDefinition Map { get; }
     public long ContentRevision { get; }
     public long NextNodeId { get; }
     public long NextEdgeId { get; }
+    public IReadOnlyList<RoadNode> Nodes { get; }
+    public IReadOnlyList<RoadEdge> Edges { get; }
 }
 
-/// <summary>V4 空地图 schema 1；有界 stream 入口，后续实体格式扩展时重新审定预算。</summary>
+/// <summary>V4 独立道路 schema 2；有界 stream 入口，后续多道路格式扩展时重新审定预算。</summary>
 public static class RoadCodec
 {
     public const int MaximumPayloadBytes = 4096;
+    public const int SchemaVersion = 2;
 
     public static void Write(Stream destination, RoadSnapshot snapshot)
     {
@@ -31,7 +37,7 @@ public static class RoadCodec
         writer.WriteStartObject();
         writer.WriteString("formatFamily", "simple-cities-v4");
         writer.WriteString("payloadType", "road-network");
-        writer.WriteNumber("schemaVersion", 1);
+        writer.WriteNumber("schemaVersion", SchemaVersion);
         writer.WriteNumber("contentRevision", snapshot.Token.ContentRevision);
         writer.WriteNumber("nextNodeId", snapshot.NextNodeId);
         writer.WriteNumber("nextEdgeId", snapshot.NextEdgeId);
@@ -45,8 +51,25 @@ public static class RoadCodec
         writer.WriteNumber("cellSizeMetres", snapshot.Map.CellSizeMetres);
         writer.WriteEndObject();
         writer.WriteStartArray("nodes");
+        foreach (RoadNode node in snapshot.Nodes)
+        {
+            writer.WriteStartObject();
+            writer.WriteNumber("id", node.Id.Value);
+            writer.WriteNumber("x", node.Position.X);
+            writer.WriteNumber("y", node.Position.Y);
+            writer.WriteEndObject();
+        }
         writer.WriteEndArray();
         writer.WriteStartArray("edges");
+        foreach (RoadEdge edge in snapshot.Edges)
+        {
+            writer.WriteStartObject();
+            writer.WriteNumber("id", edge.Id.Value);
+            writer.WriteNumber("startNodeId", edge.Start.Value);
+            writer.WriteNumber("endNodeId", edge.End.Value);
+            writer.WriteString("profile", edge.Profile.Value);
+            writer.WriteEndObject();
+        }
         writer.WriteEndArray();
         writer.WriteEndObject();
         writer.Flush();
@@ -66,7 +89,7 @@ public static class RoadCodec
             count += read;
         }
         if (count > MaximumPayloadBytes)
-            throw new InvalidDataException("V4 empty-map payload exceeds 4096 bytes.");
+            throw new InvalidDataException("V4 independent-road payload exceeds 4096 bytes.");
         using JsonDocument document = JsonDocument.Parse(bytes.AsMemory(0, count),
             new JsonDocumentOptions { MaxDepth = 4 });
         JsonElement root = document.RootElement;
@@ -74,7 +97,7 @@ public static class RoadCodec
             "nextNodeId", "nextEdgeId", "profileCatalogVersion", "map", "nodes", "edges");
         RequireText(root, "formatFamily", "simple-cities-v4");
         RequireText(root, "payloadType", "road-network");
-        RequireNumber(root, "schemaVersion", 1);
+        RequireNumber(root, "schemaVersion", SchemaVersion);
         RequireNumber(root, "profileCatalogVersion", 1);
         JsonElement map = root.GetProperty("map");
         Fields(map, "widthMetres", "heightMetres", "origin", "metresPerUnit", "grid", "cellSizeMetres");
@@ -86,14 +109,51 @@ public static class RoadCodec
         long cell = Number(map, "cellSizeMetres");
         if (cell is not (25 or 50 or 100 or 200))
             throw new InvalidDataException("V4 cellSizeMetres must be 25, 50, 100 or 200.");
-        foreach (string name in new[] { "nodes", "edges" })
+        var definition = new MapDefinition((int)cell);
+        long nextNode = Positive(root, "nextNodeId");
+        long nextEdge = Positive(root, "nextEdgeId");
+        JsonElement nodesArray = root.GetProperty("nodes");
+        JsonElement edgesArray = root.GetProperty("edges");
+        if (nodesArray.ValueKind != JsonValueKind.Array || edgesArray.ValueKind != JsonValueKind.Array ||
+            !((nodesArray.GetArrayLength() == 0 && edgesArray.GetArrayLength() == 0) ||
+              (nodesArray.GetArrayLength() == 2 && edgesArray.GetArrayLength() == 1)))
+            throw new InvalidDataException("This V4 slice supports an empty map or one independent road.");
+        var nodes = new List<RoadNode>();
+        foreach (JsonElement node in nodesArray.EnumerateArray())
         {
-            JsonElement array = root.GetProperty(name);
-            if (array.ValueKind != JsonValueKind.Array || array.GetArrayLength() != 0)
-                throw new InvalidDataException($"V4 empty-map schema requires an empty {name} array.");
+            Fields(node, "id", "x", "y");
+            long id = Positive(node, "id");
+            var point = new RoadPoint(Coordinate(node, "x"), Coordinate(node, "y"));
+            if (id >= nextNode || (nodes.Count != 0 && id <= nodes[^1].Id.Value) || !definition.IsPrimaryPoint(point))
+                throw new InvalidDataException("V4 nodes must have sorted unique IDs below the watermark and legal grid coordinates.");
+            nodes.Add(new RoadNode(new NodeId(id), point));
         }
-        return new PreparedRoadState(new MapDefinition((int)cell),
-            Positive(root, "contentRevision"), Positive(root, "nextNodeId"), Positive(root, "nextEdgeId"));
+        var edges = new List<RoadEdge>();
+        foreach (JsonElement edge in edgesArray.EnumerateArray())
+        {
+            Fields(edge, "id", "startNodeId", "endNodeId", "profile");
+            long id = Positive(edge, "id");
+            long startId = Positive(edge, "startNodeId");
+            long endId = Positive(edge, "endNodeId");
+            RoadNode? start = nodes.Find(node => node.Id.Value == startId);
+            RoadNode? end = nodes.Find(node => node.Id.Value == endId);
+            JsonElement profile = edge.GetProperty("profile");
+            string? name = profile.ValueKind == JsonValueKind.String ? profile.GetString() : null;
+            if (id >= nextEdge || start is null || end is null || start.Id == end.Id ||
+                start.Position == end.Position || !definition.IsEightDirection(start.Position, end.Position) ||
+                name is not ("dirt" or "street" or "arterial" or "highway"))
+                throw new InvalidDataException("Invalid V4 independent road endpoints, profile or watermark.");
+            edges.Add(new RoadEdge(new EdgeId(id), start.Id, end.Id, new RoadProfileId(name)));
+        }
+        return new PreparedRoadState(definition, Positive(root, "contentRevision"), nextNode, nextEdge, nodes, edges);
+    }
+
+    private static double Coordinate(JsonElement value, string name)
+    {
+        JsonElement field = value.GetProperty(name);
+        if (field.ValueKind != JsonValueKind.Number || !field.TryGetDouble(out double number) || !double.IsFinite(number))
+            throw new InvalidDataException($"V4 coordinate '{name}' must be finite.");
+        return number;
     }
 
     private static void Fields(JsonElement value, params string[] names)

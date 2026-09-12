@@ -555,3 +555,35 @@ V4-03 尚未提交的场景存储策略实现中，在保存根 A 获取槽位�
 - 修复后再次运行 `road_load_generation_runtime_contract.gd`：Forward+/Vulkan 退出 0，输出 PASS；存储装配切换未破坏既有加载代际契约。测试进程已退出，临时槽位已清理。
 - Godot MCP 编辑器桥接被另一客户端占用，编辑器桥接与 DAP 检查未执行；真实行为依据独立引擎进程验证。日志中已有初始化 ToolManager 提示及两份旧存档时间戳警告，未修改这些旧存档。
 - Standards 和 Spec 双线复核均无剩余发现。红/绿及加载回归原始证据见 `.scratch/v4-03-qa/`。
+
+---
+
+<a id="save-system-bug-17"></a>
+## BUG-17：V4 建路在身份极限处生成自身无法重载的载荷
+
+> 修复日期：2026-09-12
+> 影响文件：`SimpleCities.RoadCore/RoadNetwork.cs`、`tests/SimpleCities.RoadCore.Tests/IndependentRoadTests.cs`
+> 关联事项：GitHub #6（V4-05）的提交前评审；关联 codec 为 `SimpleCities.RoadCore/RoadCodec.cs`
+
+### 症状
+
+本票尚未提交的实现允许加载 `nextNodeId = long.MaxValue - 2`、`nextEdgeId = long.MaxValue - 1` 或 `contentRevision = long.MaxValue - 1` 的合法空图后建路。成功规划会使对应水位或版本达到 `long.MaxValue`，writer 可以写出，但 reader 拒绝该值，破坏当前格式的保存重载保证。本问题由提交前评审发现，未发布到远程版本，未涉及真实用户存档损失。
+
+### 根因分析
+
+建造准入按算术是否溢出检查，codec 则要求身份水位与内容版本严格小于 `long.MaxValue`。两个边界不一致，使合法输入经过一次成功编辑变为不可持久化的状态。
+
+### 修复方案
+
+`PlanBuild()` 在创建目标状态前拒绝节点水位大于等于 `long.MaxValue - 2`、道路水位大于等于 `long.MaxValue - 1` 或内容版本大于等于 `long.MaxValue - 1` 的请求。拒绝不产生可提交计划，不改变 token 或水位；现有内容仍可保存重载。变更序列不写入载荷，其原有溢出保护保持有效。
+
+### 影响范围
+
+调整 V4 独立道路建造的持久化数值准入，不放宽 reader，不迁移旧 schema。普通坐标与类型、V3 存档和槽位事务行为不变。
+
+## BUG-17 验证状态
+
+- `dotnet test tests/SimpleCities.RoadCore.Tests/SimpleCities.RoadCore.Tests.csproj --no-restore --filter FullyQualifiedName~BuildAtIdentityLimit --verbosity minimal`：修复前3/3失败，预期Rejected却返回Ready。
+- 修复后完整 `dotnet test SimpleCities.sln --no-restore --verbosity minimal`：核心48/48、既有965/965通过。三项边界测试通过公开Read、PlanLoad、TryCommit、PlanBuild和Write入口验证拒绝、状态不变与原内容往返。
+- Debug与ExportRelease构建0警告0错误，Roslyn compiler/analyzer诊断为空；Standards与Spec均确认原问题已修复。
+- 本故障属于纯核心数值与codec契约，真实Vulkan道路及空图回归另见 `.scratch/v4-05-qa/verification.md`，不把该运行证据扩展为已测试引擎中的极限ID输入。

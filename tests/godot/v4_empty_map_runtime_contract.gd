@@ -66,7 +66,11 @@ func run() -> void:
 	print("V4_CAMERA_RESULT ", JSON.stringify({"zoom": zoom_works, "pan": pan_works}))
 	print("V4_EMPTY_MAP_RESULT ", JSON.stringify({"rows": rows, "passed": passed}))
 	await RenderingServer.frame_post_draw
-	var capture := ProjectSettings.globalize_path("res://.scratch/v4-04-qa/empty-map.png")
+	var capture_path := "res://.scratch/v4-04-qa/empty-map.png"
+	for argument in OS.get_cmdline_user_args():
+		if argument.begins_with("--capture="):
+			capture_path = argument.trim_prefix("--capture=")
+	var capture := ProjectSettings.globalize_path(capture_path)
 	root.get_texture().get_image().save_png(capture)
 	map.queue_free()
 	await process_frame
@@ -81,7 +85,7 @@ func rejects_invalid_payload(map: Node, manager: Node, slot: String) -> bool:
 	var payload_path := "user://saves-v4/" + slot + "/road_network_v4.json"
 	var original := FileAccess.get_file_as_string(payload_path)
 	var passed := true
-	for replacement in [["\"schemaVersion\":1", "\"schemaVersion\":2"], ["\"cellSizeMetres\":50", "\"cellSizeMetres\":75"]]:
+	for replacement in [["\"schemaVersion\":2", "\"schemaVersion\":1"], ["\"cellSizeMetres\":50", "\"cellSizeMetres\":75"]]:
 		var before: String = map.StateToken
 		var changed := original.replace(replacement[0], replacement[1])
 		passed = publish_fixture(slot, changed) and passed
