@@ -87,3 +87,65 @@
 - `dotnet test SimpleCities.sln --no-restore --verbosity minimal`：核心88/88、应用968/968通过；Debug与ExportRelease构建0警告0错误，Roslyn compiler/analyzer诊断为空。
 - 真实Forward+/Vulkan异步契约退出0并PASS：等待时相机响应、取消清理保持busy、晚到结果拒绝、即时取消、提交后保留及场景退出后晚到结果隔离均通过。即时取消观测为0.1058 ms；受控等待后的首次完成绘制为391.7663 ms，这些是故障场景观测，不是性能达标结论。
 - Spec原P2经增量复核关闭，Standards无剩余问题；本次DAP未捕获打印标记，不记为通过。运行证据见 `.scratch/v4-06-16-qa/`。
+
+---
+
+<a id="tool-input-bug-4"></a>
+## BUG-4：单格删改松开鼠标后过早清除待处理范围高亮
+
+> 修复日期：2026-09-12
+> 影响文件：`Scripts/Road/V4/V4MapScene.Selection.cs`、`Scripts/Road/V4/V4MapScene.cs`、`tests/godot/v4_single_span_edit_runtime_contract.gd`
+> 关联事项：GitHub #13、#14
+
+### 症状
+
+选择有效道路格段并松开鼠标后，后台规划尚未完成，选中高亮已经消失。玩家无法从画面确认等待中的删除或类型改造将作用于哪个格段。受控等待回归 `pending_delete_retains_exact_highlight` 读到 `selectedCount=0` 和空strokes。
+
+### 根因分析
+
+单格工具的release路径在启动有效编辑前调用 `ClearRoadSelection()`，将手势结束等同于操作完成。后台仍持有所选格段，但会话和显示范围已经清空。
+
+### 修复方案
+
+有效提交保留选中格段，直到操作管线的 `finally` 清理；接受提交前Esc取消时立即清除反馈，同时继续等待后台退出。release没有合法候选时仍立即清空。高亮清理与实际操作结束或接受取消对齐，不改变领域提交边界。
+
+### 影响范围
+
+影响V4单格删除与类型改造等待阶段的范围反馈。后台取消传播沿用 `tool-input:BUG-3` 的规则，提交后Esc不恢复道路。
+
+## BUG-4 验证状态
+
+- 修复前 `pending_delete_retains_exact_highlight` 失败；修复后该断言验证等待中仍显示准确的200～300米格段，`accepted_cancel_clears_highlight_immediately`、`delete_cancel_waits_for_worker` 和 `cancelled_delete_rejects_late_result` 均通过。
+- 真实Godot 4.7 Forward+/Vulkan的 `v4_single_span_edit_runtime_contract.gd` 在 `.scratch/v4-12-13-qa/review-green.stdout.log` 输出PASS，59/59检查通过，进程退出0、stderr为空；Debug构建0警告、0错误。
+- 本轮未提供Roslyn CodeLens、Godot editor MCP及DAP工具，对应检查未完成；独立运行时验证不等同于完整QA通过。
+
+---
+
+<a id="tool-input-bug-5"></a>
+## BUG-5：同目标道路类型仍高亮并启动无效改造操作
+
+> 修复日期：2026-09-12
+> 影响文件：`Scripts/Road/V4/V4MapScene.Selection.cs`、`tests/godot/v4_single_span_edit_runtime_contract.gd`
+> 关联事项：GitHub #14
+
+### 症状
+
+类型改造工具指向已经具有目标类型的道路时，仍显示预选及选中高亮，松开鼠标后进入Preparing。核心最终虽返回无需改变，工具却提示了不会发生的作用范围并启动多余后台操作。
+
+### 根因分析
+
+工具直接接受拾取到的格段，没有按目标profile过滤候选，依赖核心的 `NoChange` 结果处理同类型道路。这只能避免内容提交，不能避免操作前的错误反馈及后台状态切换。
+
+### 修复方案
+
+更新指针时比较道路当前profile与目标profile：悬停使用当前选项，按住期间使用本次手势捕获的目标。同类型格段不进入hover或选中候选；release没有候选时清除会话，不启动操作。
+
+### 影响范围
+
+影响V4单格类型改造的候选、高亮及操作准入。核心仍独立保留同类型 `NoChange` 保护；此修复不扩展为多格批量改造。
+
+## BUG-5 验证状态
+
+- 修复前 `same_profile_has_no_hover_highlight`、`same_profile_has_no_pending_highlight`、`same_profile_does_not_start_operation` 三项失败，修复后全部通过；`same_profile_keeps_snapshot_token_and_ids` 与 `same_profile_preserves_codec_bytes` 继续通过。
+- 同轮真实Vulkan运行59/59检查通过，退出0、stderr为空，Debug构建0警告、0错误。修复前后证据分别保留于 `.scratch/v4-12-13-qa/review-red.stdout.log` 和 `review-green.stdout.log`；首次运行共四项失败，其中另一项归属 `tool-input:BUG-4`。
+- 本轮未提供Roslyn CodeLens、Godot editor MCP及DAP工具，对应检查未完成，不声明完整QA通过。

@@ -37,6 +37,7 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
     private CancellationTokenSource? _buildCancellation;
     private string _buildSourceToken = "";
     private string _buildPresentedToken = "";
+    private string _operationCompletedText = "道路已建造";
 #if DEBUG
     internal Action? BeforeBuildWork { get; set; }
     internal Action? BeforePreviewWork { get; set; }
@@ -146,7 +147,7 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
         GetNode<Button>(Controls + "Create").Disabled = busy;
         GetNode<Button>(Controls + "Save").Disabled = busy;
         GetNode<Button>(Controls + "Load").Disabled = busy || _slotIDs.Count == 0;
-        _profileChoice.Disabled = busy || _draftStart.HasValue;
+        _profileChoice.Disabled = busy || _draftStart.HasValue || _selectionSession.IsSelecting;
         if (_buildOperation.IsWaiting)
             _status.Text = "道路计算仍在进行，请继续等待… Esc 取消";
     }
@@ -438,7 +439,17 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
         return edges;
     }
 
-    private async void SubmitBuild(CoreRoadBuildRequest request, long inputTimestamp)
+    private sealed record PlannedRoadOperation(RoadPlan? Plan, bool NoChange, string Reason);
+
+    private void SubmitBuild(CoreRoadBuildRequest request, long inputTimestamp) =>
+        SubmitRoadOperation((network, token) =>
+        {
+            CoreRoadBuildResult result = network.PlanBuild(request, token);
+            return new PlannedRoadOperation(result.Plan, result.Status == RoadBuildStatus.NoChange, result.Reason);
+        }, inputTimestamp, "道路已建造", "未形成有效道路");
+
+    private async void SubmitRoadOperation(Func<RoadNetwork, CancellationToken, PlannedRoadOperation> prepare,
+        long inputTimestamp, string completedText, string noChangeText)
     {
         RoadNetwork network = _roads!.Network;
         if (!_buildOperation.TryBegin(inputTimestamp)) return;
@@ -447,6 +458,7 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
         CancellationToken token = cancellation.Token;
         _buildSourceToken = network.Snapshot.Token.ToString();
         _buildPresentedToken = "";
+        _operationCompletedText = completedText;
         _status.Text = "正在准备道路… Esc 取消";
         bool committed = false;
         V4RoadDisplay? display = null;
@@ -455,13 +467,13 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
 #endif
         try
         {
-            (CoreRoadBuildResult Result, RoadSurfaceData? Surface) prepared = await Task.Run(() =>
+            (PlannedRoadOperation Result, RoadSurfaceData? Surface) prepared = await Task.Run(() =>
             {
 #if DEBUG
                 beforeWork?.Invoke();
 #endif
                 token.ThrowIfCancellationRequested();
-                CoreRoadBuildResult result = network.PlanBuild(request, token);
+                PlannedRoadOperation result = prepare(network, token);
                 RoadSurfaceData? surface = result.Plan is RoadPlan target
                     ? RoadPresentation.Prepare(target.Target.Nodes, target.Target.Edges, token) : null;
                 token.ThrowIfCancellationRequested();
@@ -474,7 +486,7 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
             }
             if (prepared.Result.Plan is not RoadPlan plan)
             {
-                _status.Text = prepared.Result.Status == RoadBuildStatus.NoChange ? "未形成有效道路" : prepared.Result.Reason;
+                _status.Text = prepared.Result.NoChange ? noChangeText : prepared.Result.Reason;
                 return;
             }
             display = _view.PrepareDisplay(plan.Target, prepared.Surface);
@@ -496,11 +508,12 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
         }
         catch (Exception exception)
         {
-            if (IsSceneAlive) _status.Text = committed ? $"道路已提交，显示更新失败：{exception.Message}" : $"未建造道路：{exception.Message}";
+            if (IsSceneAlive) _status.Text = committed ? $"道路已提交，显示更新失败：{exception.Message}" : $"道路操作未完成：{exception.Message}";
         }
         finally
         {
             display?.Dispose();
+            if (IsSceneAlive) ClearRoadSelection();
             if (ReferenceEquals(_buildCancellation, cancellation)) _buildCancellation = null;
             if (!committed || !IsSceneAlive || _buildPresentedToken.Length == 0)
                 _buildOperation.Finish(committed ? "DisplayFailed" : "Finished");
@@ -516,7 +529,7 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
             _view.DrawSubmittedToken != _buildPresentedToken)
             return;
         if (_buildOperation.RecordFirstDraw())
-            _status.Text = $"道路已建造 · {_buildOperation.DrawnElapsedMilliseconds:F1} ms";
+            _status.Text = $"{_operationCompletedText} · {_buildOperation.DrawnElapsedMilliseconds:F1} ms";
     }
 
     private bool IsSceneAlive => GodotObject.IsInstanceValid(this) && IsInsideTree();
