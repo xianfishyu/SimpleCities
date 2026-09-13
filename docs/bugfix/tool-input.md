@@ -149,3 +149,34 @@
 - 修复前 `same_profile_has_no_hover_highlight`、`same_profile_has_no_pending_highlight`、`same_profile_does_not_start_operation` 三项失败，修复后全部通过；`same_profile_keeps_snapshot_token_and_ids` 与 `same_profile_preserves_codec_bytes` 继续通过。
 - 同轮真实Vulkan运行59/59检查通过，退出0、stderr为空，Debug构建0警告、0错误。修复前后证据分别保留于 `.scratch/v4-12-13-qa/review-red.stdout.log` 和 `review-green.stdout.log`；首次运行共四项失败，其中另一项归属 `tool-input:BUG-4`。
 - 本轮未提供Roslyn CodeLens、Godot editor MCP及DAP工具，对应检查未完成，不声明完整QA通过。
+
+---
+
+<a id="tool-input-bug-6"></a>
+## BUG-6：历史操作已完成绘制但撤销与重做按钮仍禁用一帧
+
+> 修复日期：2026-09-13
+> 影响文件：`Scripts/Road/V4/V4MapScene.cs`、`Scripts/Road/V4/V4MapScene.History.cs`、`tests/godot/v4_history_runtime_contract.gd`
+> 关联事项：GitHub #16
+
+### 症状
+
+建造或撤销已完成首次绘制，历史条数与操作状态均已更新，对应按钮仍处于禁用状态。严格等待操作结束的运行测试中，`one_build_is_one_history_entry` 和 `undo_moves_entry_without_rewinding_identity` 因按钮状态失败。
+
+### 根因分析
+
+按钮原先只在 `_Process` 中更新。操作的 `RecordFirstDraw` 在该帧稍后的 `frame_post_draw` 才释放busy，因此按钮要等下一帧 `_Process` 才能看到完成状态。历史提交正确，但输入控件状态落后一帧。
+
+### 修复方案
+
+成功新建地图、操作 `finally` 完成清理及 `RecordFirstDraw` 成功时同步调用 `UpdateHistoryControls()`，保持原有按帧更新。按钮与操作门禁在相同状态转换中同步，不延后测试观察，也不改变核心历史的提交边界。
+
+### 影响范围
+
+影响V4隔离场景的撤销与重做控件；历史请求仍受手势、保存加载及首次绘制门禁约束。后台等待、取消传播和提交后Esc规则沿用现有行为。
+
+## BUG-6 验证状态
+
+- 修复前 `history-buttons.stdout.log` 中上述2项失败；相同11项脚本在修复后全部通过，未增加等待或放宽断言，见 `.scratch/v4-15-qa/history-buttons-fixed.stdout.log`。
+- 最终真实Godot 4.7 Forward+/Vulkan历史契约39/39通过、退出0且stderr为空；包含按钮点击、快捷键、取消及读档清空历史。编辑器桥接中的真实建造→撤销→重做同样通过，DAP结果保存在 `.scratch/v4-15-qa/editor-bridge.json`。
+- 全部核心313/313、应用968/968通过，Debug/ExportRelease构建均0警告0错误；改动C#的Roslyn诊断及新脚本LSP诊断为空，场景reload与按钮有效属性检查通过。双轴审查无剩余问题，逐项证据见 `.scratch/v4-15-qa/verification.md`。

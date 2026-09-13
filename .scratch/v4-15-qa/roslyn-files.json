@@ -1,0 +1,68 @@
+[
+  {
+    "status": "fulfilled",
+    "value": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\SimpleCities.RoadCore\\\\RoadNetwork.cs\",\"project\":\"SimpleCities.RoadCore\",\"typesDefined\":[\"RoadStateToken\",\"RoadSnapshot\",\"RoadNetwork\",\"RoadPlan\"],\"diagnostics\":[]}"
+        }
+      ]
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\SimpleCities.RoadCore\\\\RoadMutationDraft.cs\",\"project\":\"SimpleCities.RoadCore\",\"typesDefined\":[\"RoadMutationDraft\",\"Piece\"],\"diagnostics\":[]}"
+        }
+      ]
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\SimpleCities.RoadCore\\\\RoadEditHistory.cs\",\"project\":\"SimpleCities.RoadCore\",\"typesDefined\":[\"RoadEditHistory\",\"RoadPublishedState\"],\"diagnostics\":[]}"
+        }
+      ]
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\Scripts\\\\Road\\\\V4\\\\V4MapScene.cs\",\"project\":\"SimpleCities\",\"typesDefined\":[\"V4MapScene\",\"PlannedRoadOperation\",\"ToolAdmission\"],\"diagnostics\":[]}"
+        }
+      ]
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\Scripts\\\\Road\\\\V4\\\\V4MapScene.History.cs\",\"project\":\"SimpleCities\",\"typesDefined\":[\"V4MapScene\"],\"diagnostics\":[]}"
+        }
+      ]
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\tests\\\\SimpleCities.RoadCore.Tests\\\\RoadEditHistoryTests.cs\",\"project\":\"SimpleCities.RoadCore.Tests\",\"typesDefined\":[\"RoadEditHistoryTests\"],\"diagnostics\":[]}"
+        }
+      ]
+    }
+  }
+]

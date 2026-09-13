@@ -67,6 +67,7 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
         _status = GetNode<Label>(Controls + "Status");
         _mapInfo = GetNode<Label>(Controls + "MapInfo");
         InitializeSelection();
+        InitializeHistory();
         _profileChoice = GetNode<OptionButton>(Controls + "Profile");
         foreach (string label in new[] { "土路 · 8 米", "街道 · 12 米", "干道 · 24 米", "公路 · 32 米" })
             _profileChoice.AddItem(label);
@@ -107,6 +108,7 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
         _view.ShowNewMap(_roads.Network.Snapshot);
         _status.Text = "已创建空地图";
         UpdateMapInfo();
+        UpdateHistoryControls();
         return true;
     }
 
@@ -148,6 +150,7 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
         GetNode<Button>(Controls + "Save").Disabled = busy;
         GetNode<Button>(Controls + "Load").Disabled = busy || _slotIDs.Count == 0;
         _profileChoice.Disabled = busy || _draftStart.HasValue || _selectionSession.IsSelecting;
+        UpdateHistoryControls();
         if (_buildOperation.IsWaiting)
             _status.Text = "道路计算仍在进行，请继续等待… Esc 取消";
     }
@@ -293,6 +296,7 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
 
     public override void _UnhandledInput(InputEvent @event)
     {
+        if (HandleHistoryInput(@event)) return;
         if (HandleSelectionPointerEvent(@event)) return;
         if (@event is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true } press && CanEdit && !IsSelectionTool)
         {
@@ -525,6 +529,7 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
             if (ReferenceEquals(_buildCancellation, cancellation)) _buildCancellation = null;
             if (!committed || !IsSceneAlive || _buildPresentedToken.Length == 0)
                 _buildOperation.Finish(committed ? "DisplayFailed" : "Finished");
+            if (IsSceneAlive) UpdateHistoryControls();
         }
     }
 
@@ -537,7 +542,10 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
             _view.DrawSubmittedToken != _buildPresentedToken)
             return;
         if (_buildOperation.RecordFirstDraw())
+        {
             _status.Text = $"{_operationCompletedText} · {_buildOperation.DrawnElapsedMilliseconds:F1} ms";
+            UpdateHistoryControls();
+        }
     }
 
     private bool IsSceneAlive => GodotObject.IsInstanceValid(this) && IsInsideTree();

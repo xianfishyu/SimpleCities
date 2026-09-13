@@ -1,0 +1,4 @@
+ERROR: FAIL V4 history runtime contract
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] run (res://tests/godot/v4_history_runtime_contract.gd:22)

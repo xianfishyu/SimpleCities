@@ -127,6 +127,26 @@ layout_mode = 2
 text = "准备地图…"
 autowrap_mode = 2
 
+[node name="History" type="HBoxContainer" parent="HUD/Panel/Margin/Controls"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Undo" type="Button" parent="HUD/Panel/Margin/Controls/History"]
+layout_mode = 2
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 36)
+text = "撤销"
+tooltip_text = "撤销上一笔道路操作 · Ctrl+Z"
+disabled = true
+
+[node name="Redo" type="Button" parent="HUD/Panel/Margin/Controls/History"]
+layout_mode = 2
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 36)
+text = "重做"
+tooltip_text = "重做道路操作 · Ctrl+Shift+Z / Ctrl+Y"
+disabled = true
+
 [node name="Help" type="Label" parent="HUD/Panel/Margin/Controls" unique_id=1916819053]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.55, 0.64, 0.67, 1)

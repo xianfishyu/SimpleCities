@@ -1,0 +1,184 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"accessibility_controls_nodes\":[],\"accessibility_described_by_nodes\":[],\"accessibility_description\":\"\",\"accessibility_flow_to_nodes\":[],\"accessibility_labeled_by_nodes\":[],\"accessibility_live\":0,\"accessibility_name\":\"\",\"action_mode\":1,\"alignment\":1,\"auto_translate_mode\":0,\"autowrap_mode\":0,\"autowrap_trim_flags\":128,\"button_group\":null,\"button_mask\":1,\"button_pressed\":false,\"clip_children\":0,\"clip_contents\":false,\"clip_text\":false,\"custom_maximum_size\":{\"x\":-1,\"y\":-1},\"custom_minimum_size\":{\"x\":0,\"y\":36},\"disabled\":true,\"editor_description\":\"\",\"expand_icon\":false,\"flat\":false,\"focus_behavior_recursive\":0,\"focus_mode\":2,\"focus_neighbor_bottom\":\"\",\"focus_neighbor_left\":\"\",\"focus_neighbor_right\":\"\",\"focus_neighbor_top\":\"\",\"focus_next\":\"\",\"focus_previous\":\"\",\"icon\":null,\"icon_alignment\":0,\"keep_pressed_outside\":false,\"language\":\"\",\"layout_direction\":0,\"layout_mode\":2,\"light_mask\":1,\"localize_numeral_system\":true,\"material\":null,\"modulate\":{\"a\":1,\"b\":1,\"g\":1,\"r\":1},\"mouse_behavior_recursive\":0,\"mouse_default_cursor_shape\":0,\"mouse_filter\":0,\"mouse_force_pass_scroll_events\":true,\"offset_transform_enabled\":false,\"offset_transform_pivot\":{\"x\":0,\"y\":0},\"offset_transform_pivot_ratio\":{\"x\":0.5,\"y\":0.5},\"offset_transform_position\":{\"x\":0,\"y\":0},\"offset_transform_position_ratio\":{\"x\":0,\"y\":0},\"offset_transform_rotation\":0,\"offset_transform_scale\":{\"x\":1,\"y\":1},\"offset_transform_visual_only\":true,\"oversampling_with_scale\":0,\"physics_interpolation_mode\":2,\"pivot_offset\":{\"x\":0,\"y\":0},\"pivot_offset_ratio\":{\"x\":0,\"y\":0},\"position\":{\"x\":0,\"y\":0},\"process_mode\":0,\"process_physics_priority\":0,\"process_priority\":0,\"process_thread_group\":0,\"propagate_maximum_size\":false,\"rotation\":0,\"scale\":{\"x\":1,\"y\":1},\"script\":null,\"self_modulate\":{\"a\":1,\"b\":1,\"g\":1,\"r\":1},\"shortcut\":null,\"shortcut_context\":null,\"shortcut_feedback\":true,\"shortcut_in_tooltip\":true,\"show_behind_parent\":false,\"size\":{\"x\":136,\"y\":36},\"size_flags_horizontal\":3,\"size_flags_stretch_ratio\":1,\"size_flags_vertical\":1,\"text\":\"撤销\",\"text_direction\":0,\"text_overrun_behavior\":0,\"texture_filter\":0,\"texture_repeat\":0,\"theme\":null,\"theme_override_colors/font_color\":null,\"theme_override_colors/font_disabled_color\":null,\"theme_override_colors/font_focus_color\":null,\"theme_override_colors/font_hover_color\":null,\"theme_override_colors/font_hover_pressed_color\":null,\"theme_override_colors/font_outline_color\":null,\"theme_override_colors/font_pressed_color\":null,\"theme_override_colors/icon_disabled_color\":null,\"theme_override_colors/icon_focus_color\":null,\"theme_override_colors/icon_hover_color\":null,\"theme_override_colors/icon_hover_pressed_color\":null,\"theme_override_colors/icon_normal_color\":null,\"theme_override_colors/icon_pressed_color\":null,\"theme_override_constants/align_to_largest_stylebox\":null,\"theme_override_constants/h_separation\":null,\"theme_override_constants/icon_max_width\":null,\"theme_override_constants/line_spacing\":null,\"theme_override_constants/outline_size\":null,\"theme_override_font_sizes/font_size\":null,\"theme_override_fonts/font\":null,\"theme_override_icons/icon\":null,\"theme_override_styles/disabled\":null,\"theme_override_styles/disabled_mirrored\":null,\"theme_override_styles/focus\":null,\"theme_override_styles/hover\":null,\"theme_override_styles/hover_mirrored\":null,\"theme_override_styles/hover_pressed\":null,\"theme_override_styles/hover_pressed_mirrored\":null,\"theme_override_styles/normal\":null,\"theme_override_styles/normal_mirrored\":null,\"theme_override_styles/pressed\":null,\"theme_override_styles/pressed_mirrored\":null,\"theme_type_variation\":\"\",\"toggle_mode\":false,\"tooltip_auto_translate_mode\":0,\"tooltip_text\":\"撤销上一笔道路操作 · Ctrl+Z\",\"top_level\":false,\"translation_context\":\"\",\"use_parent_material\":false,\"vertical_icon_alignment\":1,\"visibility_layer\":1,\"visible\":true,\"y_sort_enabled\":false,\"z_as_relative\":true,\"z_index\":0}"
+    }
+  ],
+  "structuredContent": {
+    "accessibility_controls_nodes": [],
+    "accessibility_described_by_nodes": [],
+    "accessibility_description": "",
+    "accessibility_flow_to_nodes": [],
+    "accessibility_labeled_by_nodes": [],
+    "accessibility_live": 0,
+    "accessibility_name": "",
+    "action_mode": 1,
+    "alignment": 1,
+    "auto_translate_mode": 0,
+    "autowrap_mode": 0,
+    "autowrap_trim_flags": 128,
+    "button_group": null,
+    "button_mask": 1,
+    "button_pressed": false,
+    "clip_children": 0,
+    "clip_contents": false,
+    "clip_text": false,
+    "custom_maximum_size": {
+      "x": -1,
+      "y": -1
+    },
+    "custom_minimum_size": {
+      "x": 0,
+      "y": 36
+    },
+    "disabled": true,
+    "editor_description": "",
+    "expand_icon": false,
+    "flat": false,
+    "focus_behavior_recursive": 0,
+    "focus_mode": 2,
+    "focus_neighbor_bottom": "",
+    "focus_neighbor_left": "",
+    "focus_neighbor_right": "",
+    "focus_neighbor_top": "",
+    "focus_next": "",
+    "focus_previous": "",
+    "icon": null,
+    "icon_alignment": 0,
+    "keep_pressed_outside": false,
+    "language": "",
+    "layout_direction": 0,
+    "layout_mode": 2,
+    "light_mask": 1,
+    "localize_numeral_system": true,
+    "material": null,
+    "modulate": {
+      "a": 1,
+      "b": 1,
+      "g": 1,
+      "r": 1
+    },
+    "mouse_behavior_recursive": 0,
+    "mouse_default_cursor_shape": 0,
+    "mouse_filter": 0,
+    "mouse_force_pass_scroll_events": true,
+    "offset_transform_enabled": false,
+    "offset_transform_pivot": {
+      "x": 0,
+      "y": 0
+    },
+    "offset_transform_pivot_ratio": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "offset_transform_position": {
+      "x": 0,
+      "y": 0
+    },
+    "offset_transform_position_ratio": {
+      "x": 0,
+      "y": 0
+    },
+    "offset_transform_rotation": 0,
+    "offset_transform_scale": {
+      "x": 1,
+      "y": 1
+    },
+    "offset_transform_visual_only": true,
+    "oversampling_with_scale": 0,
+    "physics_interpolation_mode": 2,
+    "pivot_offset": {
+      "x": 0,
+      "y": 0
+    },
+    "pivot_offset_ratio": {
+      "x": 0,
+      "y": 0
+    },
+    "position": {
+      "x": 0,
+      "y": 0
+    },
+    "process_mode": 0,
+    "process_physics_priority": 0,
+    "process_priority": 0,
+    "process_thread_group": 0,
+    "propagate_maximum_size": false,
+    "rotation": 0,
+    "scale": {
+      "x": 1,
+      "y": 1
+    },
+    "script": null,
+    "self_modulate": {
+      "a": 1,
+      "b": 1,
+      "g": 1,
+      "r": 1
+    },
+    "shortcut": null,
+    "shortcut_context": null,
+    "shortcut_feedback": true,
+    "shortcut_in_tooltip": true,
+    "show_behind_parent": false,
+    "size": {
+      "x": 136,
+      "y": 36
+    },
+    "size_flags_horizontal": 3,
+    "size_flags_stretch_ratio": 1,
+    "size_flags_vertical": 1,
+    "text": "撤销",
+    "text_direction": 0,
+    "text_overrun_behavior": 0,
+    "texture_filter": 0,
+    "texture_repeat": 0,
+    "theme": null,
+    "theme_override_colors/font_color": null,
+    "theme_override_colors/font_disabled_color": null,
+    "theme_override_colors/font_focus_color": null,
+    "theme_override_colors/font_hover_color": null,
+    "theme_override_colors/font_hover_pressed_color": null,
+    "theme_override_colors/font_outline_color": null,
+    "theme_override_colors/font_pressed_color": null,
+    "theme_override_colors/icon_disabled_color": null,
+    "theme_override_colors/icon_focus_color": null,
+    "theme_override_colors/icon_hover_color": null,
+    "theme_override_colors/icon_hover_pressed_color": null,
+    "theme_override_colors/icon_normal_color": null,
+    "theme_override_colors/icon_pressed_color": null,
+    "theme_override_constants/align_to_largest_stylebox": null,
+    "theme_override_constants/h_separation": null,
+    "theme_override_constants/icon_max_width": null,
+    "theme_override_constants/line_spacing": null,
+    "theme_override_constants/outline_size": null,
+    "theme_override_font_sizes/font_size": null,
+    "theme_override_fonts/font": null,
+    "theme_override_icons/icon": null,
+    "theme_override_styles/disabled": null,
+    "theme_override_styles/disabled_mirrored": null,
+    "theme_override_styles/focus": null,
+    "theme_override_styles/hover": null,
+    "theme_override_styles/hover_mirrored": null,
+    "theme_override_styles/hover_pressed": null,
+    "theme_override_styles/hover_pressed_mirrored": null,
+    "theme_override_styles/normal": null,
+    "theme_override_styles/normal_mirrored": null,
+    "theme_override_styles/pressed": null,
+    "theme_override_styles/pressed_mirrored": null,
+    "theme_type_variation": "",
+    "toggle_mode": false,
+    "tooltip_auto_translate_mode": 0,
+    "tooltip_text": "撤销上一笔道路操作 · Ctrl+Z",
+    "top_level": false,
+    "translation_context": "",
+    "use_parent_material": false,
+    "vertical_icon_alignment": 1,
+    "visibility_layer": 1,
+    "visible": true,
+    "y_sort_enabled": false,
+    "z_as_relative": true,
+    "z_index": 0
+  }
+}
