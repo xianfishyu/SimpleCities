@@ -9,33 +9,69 @@ using CoreRoadLocation = SimpleCities.RoadCore.RoadLocation;
 public partial class V4MapView : Node2D, IScenePresentationLoadParticipant
 {
     private V4RoadDisplay? _display;
+    private V4RoadDisplay? _previousDisplay;
+    private bool _awaitingDraw;
+    private bool _drawingUnavailable;
+    internal string DrawError { get; private set; } = "";
     private sealed record PreviewSegment(Vector2 Start, Vector2 End, Color Color, bool Conflict);
     private PreviewSegment[] _preview = [];
     private readonly V4SelectionDisplay _selection = new();
     private long _sceneGeneration;
     private Admission? _admission;
+#if DEBUG
+    internal Action? BeforeDisplayPreflight { get; set; }
+    internal Action? BeforeDisplayPublish { get; set; }
+    internal Action? BeforeDisplayDraw { get; set; }
+#endif
     internal RoadSnapshot? Presented => _display?.Snapshot;
     internal int MeshSurfaceCount => _display?.Mesh?.GetSurfaceCount() ?? 0;
     internal string DrawSubmittedToken { get; private set; } = "";
 
     internal void ShowNewMap(RoadSnapshot snapshot)
     {
-        if (_admission is not null)
+        if (_admission is not null || _awaitingDraw)
             throw new InvalidOperationException("Cannot replace the displayed map during load.");
         V4RoadDisplay replacement = V4RoadDisplay.Prepare(snapshot, RoadPresentation.Prepare(snapshot.Nodes, snapshot.Edges));
         V4RoadDisplay? previous = _display;
-        _display = replacement;
-        _preview = [];
-        _selection.Clear();
+        CommitDisplay(replacement);
         previous?.Dispose();
         QueueRedraw();
     }
 
-    internal V4RoadDisplay PrepareDisplay(RoadSnapshot snapshot, RoadSurfaceData? surface) => V4RoadDisplay.Prepare(snapshot, surface);
+    internal V4RoadDisplay PrepareDisplay(RoadSnapshot snapshot, RoadSurfaceData? surface)
+    {
+#if DEBUG
+        BeforeDisplayPreflight?.Invoke();
+#endif
+        return V4RoadDisplay.Prepare(snapshot, surface);
+    }
+
+    internal void PublishDisplay(V4RoadDisplay target)
+    {
+        if (_awaitingDraw) throw new InvalidOperationException("A V4 display is already awaiting its first draw.");
+#if DEBUG
+        BeforeDisplayPublish?.Invoke();
+#endif
+        // Schedule before taking ownership; everything after this is a prepared reference swap.
+        QueueRedraw();
+        _previousDisplay = CommitDisplay(target);
+        _awaitingDraw = true;
+    }
+
+    internal void CompleteDisplayDraw()
+    {
+        if (!_awaitingDraw || DrawSubmittedToken != Presented?.Token.ToString() || DrawError.Length != 0) return;
+        _awaitingDraw = false;
+        V4RoadDisplay? previous = _previousDisplay;
+        _previousDisplay = null;
+        previous?.Dispose();
+    }
     internal V4RoadDisplay? CommitDisplay(V4RoadDisplay target)
     {
         V4RoadDisplay? previous = _display;
         _display = target;
+        DrawError = "";
+        _drawingUnavailable = false;
         _preview = [];
         _selection.Clear();
         return previous;
@@ -121,6 +157,8 @@ public partial class V4MapView : Node2D, IScenePresentationLoadParticipant
     {
         _display?.Dispose();
         _display = null;
+        _previousDisplay?.Dispose();
+        _previousDisplay = null;
     }
 
     public override void _Draw()
@@ -129,12 +167,50 @@ public partial class V4MapView : Node2D, IScenePresentationLoadParticipant
             return;
         var bounds = new Rect2(-4000, -4000, 8000, 8000);
         DrawRect(bounds, new Color(0.35f, 0.35f, 0.35f), filled: false, width: 3);
-        if (_display?.Mesh is ArrayMesh mesh)
-            DrawMesh(mesh, null, modulate: Colors.White);
-        DrawSubmittedToken = Presented.Token.ToString();
-        _selection.Draw(this);
-        foreach (PreviewSegment segment in _preview)
-            DrawLine(segment.Start, segment.End, segment.Color, 10);
+        if (_drawingUnavailable) return;
+        try
+        {
+#if DEBUG
+            BeforeDisplayDraw?.Invoke();
+#endif
+            if (_display?.Mesh is ArrayMesh mesh)
+                DrawMesh(mesh, null, modulate: Colors.White);
+            _selection.Draw(this);
+            foreach (PreviewSegment segment in _preview)
+                DrawLine(segment.Start, segment.End, segment.Color, 10);
+            DrawSubmittedToken = Presented.Token.ToString();
+        }
+        catch (Exception exception)
+        {
+            DrawError = exception.Message;
+            DrawSubmittedToken = "";
+            _preview = [];
+            _selection.Clear();
+            if (_awaitingDraw)
+            {
+                V4RoadDisplay? failed = _display;
+                _display = _previousDisplay;
+                _previousDisplay = null;
+                _awaitingDraw = false;
+                failed?.Dispose();
+                // Replace any commands already emitted by the failed draw in this same frame.
+                RenderingServer.CanvasItemClear(GetCanvasItem());
+                try
+                {
+                    DrawRect(bounds, new Color(0.35f, 0.35f, 0.35f), filled: false, width: 3);
+                    if (_display?.Mesh is ArrayMesh fallback) DrawMesh(fallback, null, modulate: Colors.White);
+                    DrawSubmittedToken = Presented?.Token.ToString() ?? "";
+                }
+                catch (Exception fallbackException)
+                {
+                    // A lost device may also make the retained resources unusable. Do not retry every frame.
+                    DrawError = fallbackException.Message;
+                    _drawingUnavailable = true;
+                    RenderingServer.CanvasItemClear(GetCanvasItem());
+                }
+            }
+            else _drawingUnavailable = true;
+        }
     }
 
     void IScenePresentationLoadParticipant.ConfigureSceneGeneration(long generation) => _sceneGeneration = generation;
@@ -184,6 +260,8 @@ public partial class V4MapView : Node2D, IScenePresentationLoadParticipant
         public void CommitReferences()
         {
             _previous = owner.CommitDisplay(target);
+            owner._previousDisplay = _previous;
+            owner._awaitingDraw = true;
             _committed = true;
         }
         public IReadOnlyList<string> PublishNotifications()
@@ -193,7 +271,7 @@ public partial class V4MapView : Node2D, IScenePresentationLoadParticipant
         }
         public void CompleteCommit()
         {
-            _previous?.Dispose();
+            // The view retains the old complete picture until the new one has actually drawn.
             _previous = null;
             admission.Dispose();
         }
@@ -202,7 +280,7 @@ public partial class V4MapView : Node2D, IScenePresentationLoadParticipant
             if (_disposed) return;
             _disposed = true;
             if (!_committed) target.Dispose();
-            _previous?.Dispose();
+            if (!_committed) _previous?.Dispose();
             _previous = null;
             admission.Dispose();
         }

@@ -74,6 +74,28 @@ theme_override_colors/font_color = Color(0.55, 0.85, 0.84, 1)
 theme_override_font_sizes/font_size = 26
 text = "V4 · 米字网格"
 
+[node name="DisplayRecovery" type="VBoxContainer" parent="HUD/Panel/Margin/Controls"]
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Message" type="Label" parent="HUD/Panel/Margin/Controls/DisplayRecovery"]
+custom_minimum_size = Vector2(275, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.94, 0.52, 0.55, 1)
+text = "道路显示更新失败"
+autowrap_mode = 2
+
+[node name="Retry" type="Button" parent="HUD/Panel/Margin/Controls/DisplayRecovery"]
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+text = "重试道路显示"
+
+[node name="Save" type="Button" parent="HUD/Panel/Margin/Controls" unique_id=1346590866]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+text = "另存为调试存档"
+
 [node name="Subtitle" type="Label" parent="HUD/Panel/Margin/Controls" unique_id=273873412]
 layout_mode = 2
 text = "隔离开发场景 / 米字网格路口"
@@ -101,11 +123,6 @@ layout_mode = 2
 custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
 text = "创建新地图"
-
-[node name="Save" type="Button" parent="HUD/Panel/Margin/Controls" unique_id=1346590866]
-custom_minimum_size = Vector2(0, 40)
-layout_mode = 2
-text = "另存为调试存档"
 
 [node name="Profile" type="OptionButton" parent="HUD/Panel/Margin/Controls"]
 layout_mode = 2

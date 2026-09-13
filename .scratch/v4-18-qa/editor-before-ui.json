@@ -1,0 +1,25 @@
+{
+  "source": "Recorded godot_exec V4DisplayBot evidence before Save reposition",
+  "passed": true,
+  "failedPhase": "Failed",
+  "recoveredPhase": "Current",
+  "historyAndRoadStateUnchanged": true,
+  "viewport": [
+    1064,
+    599
+  ],
+  "saveRect": [
+    53,
+    576,
+    280,
+    40
+  ],
+  "retryRect": [
+    53,
+    181,
+    280,
+    36
+  ],
+  "framesToFailure": 13,
+  "framesToRecovery": 5
+}

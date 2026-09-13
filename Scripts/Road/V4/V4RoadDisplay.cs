@@ -46,6 +46,87 @@ internal sealed class V4RoadDisplay : IDisposable
     private readonly SpatialQueryIndex<int> _index;
     private readonly Dictionary<EdgeId, Piece[]> _piecesByEdge;
 
+    private readonly record struct SurfaceSpan(EdgeId Edge, double Start, double End);
+
+    /// <summary>Bounds follow the current preparer: one ribbon per segment, four triangles per bend,
+    /// and at most 4d hull sides split by d ownership rays at a degree-d junction.</summary>
+    private sealed class SurfacePreflight
+    {
+        private readonly RoadSnapshot _snapshot;
+        private readonly Dictionary<SurfaceSpan, (RoadPoint Start, RoadPoint End)> _ribbons = [];
+        private readonly Dictionary<(EdgeId Edge, double Parameter), RoadPoint> _boundaries = [];
+        private readonly Dictionary<NodeId, int> _degrees = [];
+        private readonly double _maximumWidth = RoadProfiles.All.Max(profile => profile.WidthMetres);
+        internal long MaximumVertices { get; }
+        internal long MaximumIndices { get; }
+
+        internal SurfacePreflight(RoadSnapshot snapshot, int pieceCount)
+        {
+            _snapshot = snapshot;
+            long joins = 0;
+            foreach (RoadEdge edge in snapshot.Edges)
+            {
+                _degrees[edge.Start] = _degrees.GetValueOrDefault(edge.Start) + 1;
+                _degrees[edge.End] = _degrees.GetValueOrDefault(edge.End) + 1;
+                joins += 4L * (edge.Points.Count - 2);
+                double length = edge.Length, distance = 0, startParameter = 0;
+                _boundaries.Add((edge.Id, 0), edge.Points[0]);
+                for (int i = 1; i < edge.Points.Count; i++)
+                {
+                    distance += edge.Points[i - 1].DistanceTo(edge.Points[i]);
+                    double endParameter = i == edge.Points.Count - 1 ? 1 : distance / length;
+                    _ribbons.Add(new(edge.Id, startParameter, endParameter), (edge.Points[i - 1], edge.Points[i]));
+                    _boundaries.Add((edge.Id, endParameter), edge.Points[i]);
+                    startParameter = endParameter;
+                }
+            }
+            foreach (int degree in _degrees.Values)
+                joins += degree >= 3 ? 4L * degree * (degree + 1) : degree == 2 ? 4 : 0;
+            MaximumVertices = 4L * _ribbons.Count + 3 * joins;
+            MaximumIndices = 6L * _ribbons.Count + 3 * joins;
+            if (pieceCount < _ribbons.Count || pieceCount > _ribbons.Count + joins ||
+                MaximumVertices > int.MaxValue || MaximumIndices > int.MaxValue)
+                throw new InvalidOperationException("V4 road surface exceeds its target resource budget.");
+        }
+
+        internal void Validate(RoadSurfacePiece source)
+        {
+            if (!ReferenceEquals(_snapshot.FindEdge(source.Edge.Id), source.Edge) ||
+                !double.IsFinite(source.StartParameter) || !double.IsFinite(source.EndParameter) ||
+                source.StartParameter < 0 || source.EndParameter > 1 || source.StartParameter > source.EndParameter ||
+                !_boundaries.TryGetValue((source.Edge.Id, source.StartParameter), out RoadPoint start) || start != source.Start ||
+                !_boundaries.TryGetValue((source.Edge.Id, source.EndParameter), out RoadPoint end) || end != source.End)
+                throw new InvalidOperationException("V4 road surface owner or location is invalid.");
+            if (source.StartParameter != source.EndParameter)
+            {
+                if (source.Corners.Count != 4 || source.JunctionNode is not null ||
+                    !_ribbons.Remove(new(source.Edge.Id, source.StartParameter, source.EndParameter), out var span) ||
+                    span.Start != start || span.End != end)
+                    throw new InvalidOperationException("V4 road ribbon coverage is invalid.");
+            }
+            else
+            {
+                NodeId? endpoint = source.StartParameter == 0 ? source.Edge.Start : source.StartParameter == 1 ? source.Edge.End : null;
+                if (source.Corners.Count != 3 ||
+                    (source.JunctionNode is NodeId junction && (endpoint != junction || _degrees.GetValueOrDefault(junction) < 3)) ||
+                    (source.JunctionNode is null && endpoint is NodeId node && _degrees.GetValueOrDefault(node) != 2))
+                    throw new InvalidOperationException("V4 road join ownership is invalid.");
+            }
+            // Caps and junction mouths can extend outside the map, but never farther than
+            // the largest catalog width from their source segment. This also bounds indexing.
+            foreach (RoadPoint corner in source.Corners)
+                if (!corner.IsFinite || corner.X < Math.Min(start.X, end.X) - _maximumWidth ||
+                    corner.X > Math.Max(start.X, end.X) + _maximumWidth ||
+                    corner.Y < Math.Min(start.Y, end.Y) - _maximumWidth || corner.Y > Math.Max(start.Y, end.Y) + _maximumWidth)
+                    throw new InvalidOperationException("V4 road surface vertex is outside its source envelope.");
+        }
+
+        internal void Complete()
+        {
+            if (_ribbons.Count != 0) throw new InvalidOperationException("V4 road surface is missing a ribbon.");
+        }
+    }
+
     internal static V4RoadDisplay Prepare(RoadSnapshot snapshot, RoadSurfaceData? surface)
     {
         if (surface is null)
@@ -55,14 +136,16 @@ internal sealed class V4RoadDisplay : IDisposable
         }
         if (!surface.Edges.SequenceEqual(snapshot.Edges) || !surface.Nodes.SequenceEqual(snapshot.Nodes) || surface.Pieces.Count == 0)
             throw new InvalidOperationException("V4 surface does not match its target snapshot.");
-        var pieces = new List<Piece>();
+        var preflight = new SurfacePreflight(snapshot, surface.Pieces.Count);
+        var pieces = new List<Piece>(surface.Pieces.Count);
         var vertices = new List<Vector3>();
         var colors = new List<Color>();
         var indices = new List<int>();
         foreach (RoadSurfacePiece source in surface.Pieces)
         {
+            preflight.Validate(source);
             Vector2[] polygon = source.Corners.Select(ToVector).ToArray();
-            if (polygon.Length is not (3 or 4)) throw new InvalidOperationException("Invalid V4 road surface polygon.");
+            ValidatePolygon(polygon);
             Vector2 start = ToVector(source.Start), end = ToVector(source.End);
             pieces.Add(new Piece(source.Edge.Id, polygon, start, end, source.StartParameter, source.EndParameter, source.JunctionNode));
             RoadProfile profile = RoadProfiles.Get(source.Edge.Profile);
@@ -76,6 +159,10 @@ internal sealed class V4RoadDisplay : IDisposable
             for (int i = 1; i < polygon.Length - 1; i++)
                 indices.AddRange([offset, offset + i, offset + i + 1]);
         }
+        preflight.Complete();
+        if (vertices.Count != colors.Count || vertices.Count > preflight.MaximumVertices || indices.Count > preflight.MaximumIndices ||
+            indices.Count % 3 != 0 || indices.Any(index => index < 0 || index >= vertices.Count))
+            throw new InvalidOperationException("V4 road mesh arrays or resource budget are invalid.");
         var mesh = new ArrayMesh();
         try
         {
@@ -93,6 +180,21 @@ internal sealed class V4RoadDisplay : IDisposable
         {
             mesh.Dispose();
             throw;
+        }
+    }
+
+    private static void ValidatePolygon(Vector2[] polygon)
+    {
+        double winding = 0;
+        for (int i = 0; i < polygon.Length; i++)
+        {
+            Vector2 a = polygon[i], b = polygon[(i + 1) % polygon.Length], c = polygon[(i + 2) % polygon.Length];
+            // Compute from the shared binary32 vertices, widening before arithmetic so large
+            // world offsets do not hide a collapsed or concave triangle through cancellation.
+            double cross = ((double)b.X - a.X) * ((double)c.Y - b.Y) - ((double)b.Y - a.Y) * ((double)c.X - b.X);
+            if (cross == 0 || (winding != 0 && Math.Sign(cross) != winding))
+                throw new InvalidOperationException("V4 road surface is degenerate or non-convex after display conversion.");
+            winding = Math.Sign(cross);
         }
     }
 

@@ -16,6 +16,8 @@
     <ProjectReference Include="SimpleCities.RoadCore/SimpleCities.RoadCore.csproj" />
   </ItemGroup>
   <ItemGroup Condition="'$(Configuration)' == 'Debug'">
+    <Compile Include="tests/godot/V4DisplayFailureProbe.cs" />
+    <Compile Include="tests/godot/V4DisplayPreflightProbe.cs" />
     <Compile Include="tests/godot/V4OperationWorkProbe.cs" />
     <Compile Include="tests/godot/V4LoadWorkProbe.cs" />
     <Compile Include="tests/godot/SceneStoragePolicyProbe.cs" />

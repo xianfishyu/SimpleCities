@@ -43,6 +43,7 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
 #if DEBUG
     internal Action? BeforeBuildWork { get; set; }
     internal Action? BeforePreviewWork { get; set; }
+    internal Action? BeforeDisplayRetryWork { get; set; }
 #endif
     public bool HasBuildPreview => _draftStart.HasValue;
     public bool IsBuildBusy => _buildOperation.IsBusy;
@@ -70,6 +71,7 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
         _mapInfo = GetNode<Label>(Controls + "MapInfo");
         InitializeSelection();
         InitializeHistory();
+        InitializeDisplayRecovery();
         _profileChoice = GetNode<OptionButton>(Controls + "Profile");
         foreach (string label in new[] { "土路 · 8 米", "街道 · 12 米", "干道 · 24 米", "公路 · 32 米" })
             _profileChoice.AddItem(label);
@@ -92,7 +94,8 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
 
     public bool CreateMap(int cellSizeMetres)
     {
-        if (_saveManager.IsOperationBusy || _pendingOperation.Length != 0 || _toolAdmission is not null || _buildOperation.IsBusy)
+        if (_saveManager.IsOperationBusy || _pendingOperation.Length != 0 || _toolAdmission is not null || _buildOperation.IsBusy ||
+            _displayPhase == DisplayPhase.AwaitingDraw)
             return false;
         // Validate before unregistering the current scene or replacing its immutable map.
         var replacement = new RoadSaveParticipant(new RoadNetwork(new MapDefinition(cellSizeMetres)));
@@ -108,13 +111,16 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
                 new SceneLoadParticipants(_roads, this, _view, RoadSaveParticipant.Storage)))
             throw new InvalidOperationException("Cannot register the isolated V4 scene.");
         _view.ShowNewMap(_roads.Network.Snapshot);
+        ResetDisplayRecoveryReferences();
+        _displayRetryCancellation?.Cancel();
         _status.Text = "已创建空地图";
         UpdateMapInfo();
         UpdateHistoryControls();
         return true;
     }
 
-    public string LoadSlot(string slotID) => StartOperation(() => _saveManager.StartLoad(slotID));
+    public string LoadSlot(string slotID) => _displayPhase == DisplayPhase.AwaitingDraw ? "" :
+        StartOperation(() => _saveManager.StartLoad(slotID));
 
     private string StartOperation(Func<string> start)
     {
@@ -146,14 +152,15 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
         }
         PublishCompletedPreview(updateStatus: false);
         bool busy = _saveManager.IsOperationBusy || _pendingOperation.Length != 0 || _buildOperation.IsBusy;
-        _toolMode.Disabled = busy;
+        _toolMode.Disabled = !CanEdit;
         if (_selectionSession.Source is RoadStateToken selectionSource && _roads is not null && selectionSource != _roads.Network.Snapshot.Token)
             ClearRoadSelection();
-        GetNode<Button>(Controls + "Create").Disabled = busy;
+        GetNode<Button>(Controls + "Create").Disabled = busy || _displayPhase == DisplayPhase.AwaitingDraw;
         GetNode<Button>(Controls + "Save").Disabled = busy;
-        GetNode<Button>(Controls + "Load").Disabled = busy || _slotIDs.Count == 0;
-        _profileChoice.Disabled = busy || _draftStart.HasValue || _selectionSession.IsSelecting;
+        GetNode<Button>(Controls + "Load").Disabled = busy || _slotIDs.Count == 0 || _displayPhase == DisplayPhase.AwaitingDraw;
+        _profileChoice.Disabled = !CanEdit || _draftStart.HasValue || _selectionSession.IsSelecting;
         UpdateHistoryControls();
+        UpdateDisplayRecoveryControls();
         if (_buildOperation.IsWaiting)
             _status.Text = "道路计算仍在进行，请继续等待… Esc 取消";
     }
@@ -176,7 +183,7 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
         $"8 × 8 km  ·  中心原点\n当前格长：{CellSizeMetres} 米\n每边 {8000 / CellSizeMetres} 格  ·  {RoadCount} 条道路\n1 世界单位 = 1 米";
 
     private bool CanEdit => _roads is not null && !_buildOperation.IsBusy && !_saveManager.IsOperationBusy &&
-        _pendingOperation.Length == 0 && _toolAdmission is null && IsPresentationCurrent;
+        _pendingOperation.Length == 0 && _toolAdmission is null && CanReadDisplay;
 
     private RoadPoint WorldPoint(Vector2 screen)
     {
@@ -356,6 +363,7 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
 
     public override void _ExitTree()
     {
+        _displayRetryCancellation?.Cancel();
         _queuedPreview = null;
         _previewRequest = null;
         _previewCancellation?.Cancel();
@@ -371,21 +379,27 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
 
     ISceneToolLoadAdmission ISceneToolLoadParticipant.BeginSceneLoadAdmission()
     {
-        if (_toolAdmission is not null || _buildOperation.IsBusy)
+        if (_toolAdmission is not null || _buildOperation.IsBusy || _displayPhase == DisplayPhase.AwaitingDraw)
             throw new InvalidOperationException("V4 tools are already loading.");
         return _toolAdmission = new ToolAdmission(this, _saveManager.SceneGeneration);
     }
 
     public Godot.Collections.Dictionary PickRoad(Vector2 world) =>
-        IsPresentationCurrent ? _view.PickRoad(world) : new();
+        CanReadDisplay ? _view.PickRoad(world) : new();
 
     public Godot.Collections.Dictionary GetQueryState() => _view.DescribeQuery();
 
     public Godot.Collections.Dictionary QueryRoad(Vector2 world, int maxBuckets = 4096, int maxCandidates = 4096, int maxExactTests = 16384) =>
-        _view.QueryRoad(world, new SpatialQueryBudget(maxBuckets, maxCandidates, maxExactTests));
+        CanReadDisplay ? _view.QueryRoad(world, new SpatialQueryBudget(maxBuckets, maxCandidates, maxExactTests)) : DisplayQueryUnavailable();
 
     public Godot.Collections.Dictionary TraceRoadSpans(Vector2 from, Vector2 to, int maxBuckets = 4096, int maxCandidates = 4096, int maxExactTests = 16384) =>
-        _view.TraceRoadSpans(from, to, new SpatialQueryBudget(maxBuckets, maxCandidates, maxExactTests));
+        CanReadDisplay ? _view.TraceRoadSpans(from, to, new SpatialQueryBudget(maxBuckets, maxCandidates, maxExactTests)) : DisplayQueryUnavailable();
+
+    private static Godot.Collections.Dictionary DisplayQueryUnavailable() => new()
+    {
+        ["status"] = SpatialQueryStatus.InvalidParameters.ToString(), ["reason"] = "道路显示尚未就绪",
+        ["hit"] = new Godot.Collections.Dictionary(), ["spanCount"] = 0,
+    };
 
     public Godot.Collections.Dictionary GetRoadState()
     {
@@ -526,11 +540,10 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
             // No await or callbacks between the validated reference publications.
             committed = _buildOperation.TryCommit(() => network.TryCommit(plan));
             if (!committed) return;
-            V4RoadDisplay? previous = _view.CommitDisplay(display);
+            _view.PublishDisplay(display);
             display = null;
-            _view.QueueRedraw();
-            previous?.Dispose();
             _buildPresentedToken = plan.Target.Token.ToString();
+            _displayPhase = DisplayPhase.AwaitingDraw;
             _status.Text = "道路已提交，正在更新显示…";
             UpdateMapInfo();
         }
@@ -540,7 +553,11 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
         }
         catch (Exception exception)
         {
-            if (IsSceneAlive) _status.Text = committed ? $"道路已提交，显示更新失败：{exception.Message}" : $"道路操作未完成：{exception.Message}";
+            if (IsSceneAlive)
+            {
+                if (committed) FailRoadDisplay(exception.Message);
+                else _status.Text = $"道路操作未完成：{exception.Message}";
+            }
         }
         finally
         {
@@ -555,6 +572,7 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
 
     private void OnFramePostDraw()
     {
+        if (!CompleteRoadDisplayFrame()) return;
         // This is the first completed render after the committed display was published.
         // Input remains gated until this point; no new write can replace the measured target.
         if (_buildOperation.Phase != "Committed" || !IsPresentationCurrent ||
@@ -574,6 +592,7 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
     {
         private readonly RoadSpanSelectionSession _emptySelection = new();
         private CancellationTokenSource? _previewToCancel;
+        private CancellationTokenSource? _retryToCancel;
         public string ParticipantID => "v4-tools";
         public bool IsGenerationCurrent => ReferenceEquals(owner._toolAdmission, this) &&
             owner._saveManager.SceneGeneration == generation;
@@ -585,6 +604,9 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
         }
         public void CommitReferences()
         {
+            owner.ResetDisplayRecoveryReferences();
+            owner._displayPhase = DisplayPhase.AwaitingDraw;
+            _retryToCancel = owner._displayRetryCancellation;
             owner._draftStart = null;
             owner._draftSource = default;
             owner._draftProfile = default;
@@ -606,10 +628,15 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
         public void CompleteCommit()
         {
             // Callback-capable cancellation runs after all reference swaps; stale results are already detached.
-            try { _previewToCancel?.Cancel(); }
+            try
+            {
+                _previewToCancel?.Cancel();
+                _retryToCancel?.Cancel();
+            }
             finally
             {
                 _previewToCancel = null;
+                _retryToCancel = null;
                 Dispose();
             }
         }

@@ -1,0 +1,37 @@
+{
+  "source": "Recorded get_file_overview results from this turn",
+  "files": [
+    {
+      "file": "Scripts/Road/V4/V4MapScene.cs",
+      "diagnostics": []
+    },
+    {
+      "file": "Scripts/Road/V4/V4MapScene.Presentation.cs",
+      "diagnostics": []
+    },
+    {
+      "file": "Scripts/Road/V4/V4MapView.cs",
+      "diagnostics": []
+    },
+    {
+      "file": "Scripts/Road/V4/V4RoadDisplay.cs",
+      "diagnostics": []
+    },
+    {
+      "file": "tests/godot/V4DisplayFailureProbe.cs",
+      "diagnostics": []
+    },
+    {
+      "file": "tests/godot/V4DisplayPreflightProbe.cs",
+      "diagnostics": []
+    },
+    {
+      "file": "Scripts/Road/V4/RoadSaveParticipant.cs",
+      "diagnostics": []
+    },
+    {
+      "file": "Scripts/Core/SaveManager.cs",
+      "diagnostics": []
+    }
+  ]
+}

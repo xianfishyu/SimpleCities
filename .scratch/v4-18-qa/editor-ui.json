@@ -1,0 +1,23 @@
+{
+  "source": "Recorded godot_exec V4DisplayBot evidence after Save reposition",
+  "buttonsFullyVisible": true,
+  "phase": "Failed",
+  "viewport": [
+    1064,
+    599
+  ],
+  "saveRect": [
+    53,
+    229,
+    280,
+    40
+  ],
+  "retryRect": [
+    53,
+    181,
+    280,
+    36
+  ],
+  "framesToFailure": 13,
+  "finalRecoveryCheck": "Interrupted; final DAP verification blocked by debugger connections"
+}
