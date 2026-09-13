@@ -1,0 +1,51 @@
+extends Node
+var phase = 0
+var passed = false
+var evidence = {}
+var probe
+var road = {}
+var history = {}
+func click(point):
+	for down in [true, false]:
+		var event = InputEventMouseButton.new()
+		event.position = point
+		event.button_index = MOUSE_BUTTON_LEFT
+		event.pressed = down
+		Input.parse_input_event(event)
+func stroke(map, y):
+	for down in [true, false]:
+		var event = InputEventMouseButton.new()
+		event.position = map.get_canvas_transform() * Vector2(0 if down else 500, y)
+		event.button_index = MOUSE_BUTTON_LEFT
+		event.pressed = down
+		Input.parse_input_event(event)
+func _process(_delta):
+	var map = get_parent()
+	if phase == 0:
+		map.get_node("Camera2D").position = Vector2(85, 0)
+		map.get_node("Camera2D").zoom = Vector2(1.2, 1.2)
+		phase = 1
+	elif phase == 1:
+		stroke(map, 0)
+		phase = 2
+	elif phase == 2 and map.RoadCount == 1 and not map.IsBuildBusy:
+		probe = load("res://tests/godot/V4DisplayFailureProbe.cs").new()
+		probe.Install(map, "publish", false)
+		stroke(map, 200)
+		phase = 3
+	elif phase == 3 and map.PresentationPhase == "Failed":
+		road = map.GetRoadState()
+		history = map.GetHistoryState()
+		var controls = map.get_node("HUD/Panel/Margin/Controls")
+		evidence = {"failed": map.GetPresentationState(), "buttonsFullyVisible": get_viewport().get_visible_rect().encloses(controls.get_node("Save").get_global_rect()) and get_viewport().get_visible_rect().encloses(controls.get_node("DisplayRecovery/Retry").get_global_rect()), "saveEnabled": not controls.get_node("Save").disabled, "viewport": str(get_viewport().get_visible_rect())}
+		phase = 4
+	elif phase == 4:
+		click(map.get_node("HUD/Panel/Margin/Controls/DisplayRecovery/Retry").get_global_rect().get_center())
+		phase = 5
+	elif phase == 5 and map.PresentationPhase == "Current" and not map.IsDisplayRetryBusy:
+		passed = map.GetRoadState() == road and map.GetHistoryState() == history and map.IsPresentationCurrent and evidence.buttonsFullyVisible and evidence.saveEnabled
+		evidence["passed"] = passed
+		evidence["recovered"] = map.GetPresentationState()
+		probe.Cleanup()
+		print("V4_DISPLAY_CLOSEOUT ", JSON.stringify(evidence))
+		phase = 6

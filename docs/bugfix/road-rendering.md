@@ -244,3 +244,65 @@ owner-dense 10k Vulkan 契约已经完成 Load、EdgeRibbon、TerminalCap 和 Se
 - `dotnet test SimpleCities.sln --no-restore --verbosity minimal`：核心263/263、应用968/968通过；ExportRelease构建为0警告、0错误。
 - 真实Godot 4.7 Forward+/Vulkan的 `v4_loop_runtime_contract.gd` 输出 `PASS V4 loop runtime contract`，覆盖纯环、有分支环、不同路径平行边和格心闭环，保存重载与测试槽清理均通过。具体端接owner回归由上述核心测试证明；运行时矩阵不替代该断言。日志见 `.scratch/v4-10-11-qa/v4_loop_runtime_contract.stdout.log`。
 - 双轴审查均无剩余发现。本轮Roslyn、编辑器MCP及DAP工具未暴露，对应门禁未完成；本记录不据此宣称完整道路性能已验证。
+
+---
+
+<a id="road-rendering-bug-10"></a>
+## BUG-10：V4提交后的显示失败缺少恢复入口并残留取消提示
+
+> 修复日期：2026-09-13
+> 影响文件：`Scripts/Road/V4/V4MapScene.cs`、`Scripts/Road/V4/V4MapScene.Presentation.cs`、`Scenes/V4MapTest.tscn`
+> 关联事项：V4-18 / GitHub #19
+
+### 症状
+
+道路核心已提交但显示发布抛异常时，场景不能继续编辑，却没有可执行的手动恢复入口。单一状态栏还可能被保存结果覆盖，或残留“正在准备道路… Esc 取消”，误导玩家以为已提交道路仍可取消。
+
+### 根因分析
+
+原流程依赖核心与表现token不一致来阻止后续操作，未建立独立的表现失败状态与恢复流程。发布异常发生在提交后状态栏更新之前，异常处理也未统一更新所有相关提示和控件。
+
+### 修复方案
+
+增加独立表现状态、持久错误提示和手动重试入口，统一控制道路工具、拾取及历史操作的可用性，同时保留相机与调试保存。重试只对当前已提交snapshot重新准备、预检和发布表现，不再次执行道路规划或提交；单个worker与代次/快照核对阻止重复点击及跨新地图、Load的晚到结果。失败、重试开始和恢复成功均同步更新状态栏，不再保留提交前的Esc取消提示。
+
+### 影响范围
+
+影响V4表现失败后的交互与恢复，不改变道路核心数据、ID水位、历史或存档格式。正式V3场景不受影响。
+
+## BUG-10 验证状态
+
+- `display-red.stdout.log` 的15项中4项失败，修复后相同15项通过；最终`display-isolated.stdout.log`的92项包含worker/预检/发布失败、单飞、保存、无取消提示及跨新地图/Load的晚到结果，全部通过。
+- 核心318/318、应用968/968通过，Debug/ExportRelease构建均0警告0错误，6个改动C#及2个消费者的Roslyn诊断、全方案分析器与新脚本LSP均为空。
+- 2026-09-13补齐编辑器/DAP验证：临时继承V4场景驱动真实鼠标建路、触发发布失败并点击Retry，DAP输出`V4_DISPLAY_CLOSEOUT`且`passed=true`；核心和历史保持不变、表现恢复Current、保存与重试按钮完整可见。stderr为空，编辑器cursor621之后无新增错误。临时场景已清理，详见`.scratch/v4-18-qa/editor-closeout.json`。
+
+---
+
+<a id="road-rendering-bug-11"></a>
+## BUG-11：V4新表现首帧失败时旧完整资源已被释放
+
+> 修复日期：2026-09-13
+> 影响文件：`Scripts/Road/V4/V4MapView.cs`、`Scripts/Road/V4/V4MapScene.cs`、`Scripts/Road/V4/V4MapScene.Presentation.cs`
+> 关联事项：V4-18 / GitHub #19
+
+### 症状
+
+候选表现引用发布后首次绘制仍可能失败。普通编辑和加载若提前释放旧mesh，就无法恢复上一份可用的完整道路画面；仅在下一帧安排重绘也会留下短暂缺失的画面。
+
+### 根因分析
+
+原资源生命周期把“引用已发布”等同于“新画面已成功绘制”。加载表现参与者也在`CompleteCommit`释放旧资源，早于实际`frame_post_draw`确认。
+
+### 修复方案
+
+由View持有前一份完整资源，普通编辑和Load都在新表现实际完成绘制后才释放。候选绘制抛错时恢复旧表现引用，清除本帧已发出的失败绘图命令并同帧绘制可用旧mesh；失败状态使依赖表现的操作暂停。若旧资源也无法绘制，停止自动尝试并保留明确失败状态，不宣称设备故障下仍有可用画面。
+
+### 影响范围
+
+影响V4表现资源交接，包括加载表现参与者的资源清理；加载已经提交的核心、槽位和历史清空语义不回滚。表现恢复的所有权在View，SaveManager仍使用既有联合提交协议。
+
+## BUG-11 验证状态
+
+- 真实Vulkan故障契约对普通编辑及不同格长Load的首个失败帧作像素区域对照，覆盖旧道路不消失、新道路不混入、Load仍报告已提交及新lineage成立；重试不重复加载或增加历史。
+- `display-isolated.stdout.log`：92/92通过、进程退出0、stderr为空；相邻加载39项、历史39项、选择35项及异步操作回归通过。双轴审查原Load首帧P2已关闭。
+- 编辑器/DAP收尾结果见BUG-10及`.scratch/v4-18-qa/verification.md`。执行桥超时未宣称已修复，收尾采用临时场景直接驱动真实输入，未修改生产代码或重启用户编辑器。

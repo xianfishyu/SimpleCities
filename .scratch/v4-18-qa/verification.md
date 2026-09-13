@@ -23,6 +23,7 @@
 | 相邻真实Vulkan回归 | Load39项、History39项、Selection35项和Async operation全部通过，四进程退出0、stderr为空 |
 | 编辑器场景 | V4MapTest重新从磁盘加载；检查新增Retry按钮实际属性 |
 | 编辑器真实输入 | 中断前建路→注入发布失败→点击Retry恢复，核心与历史保持不变；`editor-before-ui.json`。调整保存位置后另一次真实输入到Failed，1064×599下两个按钮完整可见，`editor-ui.json` |
+| 最终编辑器/DAP复核 | 2026-09-13临时继承V4场景直接驱动真实输入，建路→发布失败→点击Retry恢复，DAP输出passed=true、buttonsFullyVisible=true、saveEnabled=true；核心与历史不变。stderr为空，编辑器cursor621后无新增error；`editor-closeout.json` |
 
 运行命令：
 
@@ -50,3 +51,11 @@ godot --path <repo> --rendering-method forward_plus --rendering-driver vulkan --
 编辑器测试游戏已停止；中断前bot已清除，后续bot随游戏进程退出回收。运行契约清理其测试槽位并释放所有gate，最终核对仅保留用户编辑器。用户原有`docs/ui/README.md`和`docs/ui/road-design-workbench/`不纳入提交。
 
 本批不切换正式V3主场景，不改变schema6或灰色背景，不声明144 FPS、100–300 ms或大图资源预算已验收。
+
+## 收尾补验：2026-09-13
+
+DAP重新连接后能收到本次游戏的日志，但`godot_exec`和`godot_game_time`仍超时。只读排查确认DAP连接6006、LSP连接6008正确，游戏进程存活且CPU继续运行；未取得执行桥超时的确切根因，不宣称该工具已修复。
+
+为完成行为验证，临时场景继承未经修改的`V4MapTest.tscn`，挂载仅用于验收的输入驱动Node，由编辑器正常启动，在真实渲染帧内发送鼠标事件。完成两笔建造、注入第二笔发布失败、读取禁用状态与按钮可见范围、点击实际Retry按钮并等待Current。DAP取得明确通过结果，恢复前后核心和历史完全一致；日志有重复传送但没有stderr，编辑器无新增error。保存原始DAP结果为`editor-closeout.json`，输入脚本作为`editor-closeout-source.txt`保留。没有把执行桥恢复当作此次通过的前提。
+
+本次只补验既有代码，未改生产文件；不重复已经通过的完整测试。临时`.tscn`、`.gd`及UID已删除，游戏停止且只保留用户编辑器PID47204。修复记录补入`docs/bugfix/road-rendering.md`的BUG-10/11。至此#19的剩余编辑器/DAP门禁完成，前述中断期间失败和工具限制仍作为历史证据保留。
