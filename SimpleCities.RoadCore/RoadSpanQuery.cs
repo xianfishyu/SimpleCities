@@ -1,3 +1,5 @@
+using Boundary = SimpleCities.RoadCore.RoadSnapshotQueryData.Boundary;
+
 namespace SimpleCities.RoadCore;
 
 public readonly record struct RoadSpanRange(double StartParameter, double EndParameter);
@@ -32,26 +34,17 @@ public static class RoadSpanQuery
         ArgumentNullException.ThrowIfNull(snapshot);
         if (location.Source != snapshot.Token || !double.IsFinite(location.Parameter) ||
             location.Parameter < 0 || location.Parameter > 1) return null;
-        RoadEdge? edge = snapshot.Edges.FirstOrDefault(candidate => candidate.Id == location.Edge);
+        RoadEdge? edge = snapshot.FindEdge(location.Edge);
         if (edge is null) return null;
-        if ((location.Parameter == 0 && Degree(snapshot, edge.Start) >= 3) ||
-            (location.Parameter == 1 && Degree(snapshot, edge.End) >= 3)) return null;
+        if ((location.Parameter == 0 && snapshot.QueryData.Degree(edge.Start) >= 3) ||
+            (location.Parameter == 1 && snapshot.QueryData.Degree(edge.End) >= 3)) return null;
 
-        var vertices = new Boundary[edge.Points.Count];
-        vertices[0] = new(0, edge.Points[0]);
-        double total = edge.Length, distance = 0;
-        for (int i = 1; i < edge.Points.Count; i++)
-        {
-            distance += edge.Points[i - 1].DistanceTo(edge.Points[i]);
-            vertices[i] = new(i == edge.Points.Count - 1 ? 1 : distance / total, edge.Points[i]);
-        }
-        int segment = 0;
-        while (segment < vertices.Length - 2 && location.Parameter >= vertices[segment + 1].Parameter)
-            segment++;
+        Boundary[] vertices = snapshot.QueryData.Vertices(edge.Id);
+        int segment = RoadSnapshotQueryData.Segment(vertices, location.Parameter);
         Boundary start = FindPrimary(snapshot.Map, vertices, segment, location.Parameter, backwards: true) ?? vertices[0];
         Boundary end = FindPrimary(snapshot.Map, vertices, segment, location.Parameter, backwards: false) ?? vertices[^1];
 
-        bool transparentSeam = edge.Start == edge.End && Degree(snapshot, edge.Start) == 2 &&
+        bool transparentSeam = edge.Start == edge.End && snapshot.QueryData.Degree(edge.Start) == 2 &&
             !snapshot.Map.IsPrimaryPoint(edge.Points[0]);
         if (transparentSeam && (start.Parameter == 0 || end.Parameter == 1))
         {
@@ -98,17 +91,14 @@ public static class RoadSpanQuery
         return null;
     }
 
-    private static int Degree(RoadSnapshot snapshot, NodeId node) => snapshot.Edges.Sum(edge =>
-        (edge.Start == node ? 1 : 0) + (edge.End == node ? 1 : 0));
-
     private static IEnumerable<RoadPoint> Slice(Boundary start, Boundary end, Boundary[] vertices)
     {
         yield return start.Point;
-        foreach (Boundary vertex in vertices)
-            if (vertex.Parameter > start.Parameter && vertex.Parameter < end.Parameter)
-                yield return vertex.Point;
+        int first = RoadSnapshotQueryData.Segment(vertices, start.Parameter) + 1;
+        for (int i = first; i < vertices.Length && vertices[i].Parameter < end.Parameter; i++)
+            if (vertices[i].Parameter > start.Parameter) yield return vertices[i].Point;
         yield return end.Point;
     }
 
-    private readonly record struct Boundary(double Parameter, RoadPoint Point);
+
 }

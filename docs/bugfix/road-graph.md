@@ -833,3 +833,40 @@ if (firstFarID == secondFarID && nodeID < firstFarID)
 - 上述公开回归先红后绿，验证另一候选来源的格段在删除、改为不同类型、改为原类型三种调用中均被拒绝，活动snapshot引用不变。
 - 修复后核心测试275/275通过；Debug构建为0警告、0错误。
 - 本轮未提供Roslyn CodeLens、Godot editor MCP及DAP工具，对应检查未完成；上述核心回归与构建结果不替代这些检查，也不表示完整QA已通过。
+
+---
+
+## BUG-24：局部线段查询在终点越过负方向桶
+
+> 修复日期：2026-09-13；关联事项：GitHub #20
+> 影响文件：`SimpleCities.RoadCore/SpatialQueryIndex.cs`
+
+V4局部查询初次验证时，`(0,100)→(100,0)` 返回 `BudgetExceeded`。Y轴已经到达终桶，但在终点与X轴同时跨边界时又推进到负一桶，遍历无法抵达预定终桶。现对已经到达终桶的轴停止推进，保留终点的floor桶归属。公开 `RectangleAndGeometryQueriesSeparateBoundsCandidatesFromExactHits` 保持原 `Ready` 断言，修复后通过；8公里对角路径的有界桶遍历同时通过。
+
+## BUG-25：把索引插值片段用于精确判断导致零半径漏选
+
+> 修复日期：2026-09-13；关联事项：GitHub #20
+> 影响文件：`SimpleCities.RoadCore/RoadSpatialQueryIndex.cs`
+
+偏置长对角线 `(-4000,-3900)→(3900,4000)` 的主格点零半径查询在新公开回归中返回空。原因是索引的100米片段端点经过插值，不能替代权威几何进行零距离判断。现通过片段的来源几何序号读取原始网格线段进行精确运算，并保留片段参数范围约束；AABB增加的极小保守边距仅用于粗筛。`ZeroRadiusQueryKeepsExactGridLocationsAlongLongOffsetDiagonal` 保留严格零距离要求，全部主格点通过。
+
+## BUG-26：片段覆盖桶数整数溢出绕过容量拒绝
+
+> 修复日期：2026-09-13；关联事项：GitHub #20双轴审查
+> 影响文件：`SimpleCities.RoadCore/SpatialQueryIndex.cs`
+
+原覆盖桶数表达式在转换为long之前进行int减加。桶长100、X边界为 `[-107374182349,107374182349]` 时，真实跨度2147483648变成负值，可绕过64桶上限并触发巨量分配。该问题由静态算术反例确认，没有执行危险的分桶循环。现两轴均在减法前转为long；公开构造测试覆盖横轴、纵轴及双轴巨幅边界，全部快速抛出参数异常。
+
+## BUG-27：弧长缓存改变位置解析的舍入顺序
+
+> 修复日期：2026-09-13；关联事项：GitHub #20完整回归
+> 影响文件：`SimpleCities.RoadCore/RoadSnapshotQueryData.cs`
+
+缓存重构后，原 `EndpointContinuationTests.LocationsMeasureTheWholePolylineArcLengthAndExpireAfterContinuation` 预期的 `(300,50)` 变为 `(300,50.00000000000002)`。原因是先将累计弧长除为参数，再相减进行局部插值，引入额外舍入。现缓存绝对弧长、原始段长与总长，二分后以米制距离插值，保持原读取运算顺序且不恢复整边扫描。原精确断言未放宽，修复后通过。
+
+## BUG-24–27 验证状态
+
+- `dotnet test tests/SimpleCities.RoadCore.Tests/SimpleCities.RoadCore.Tests.csproj --no-restore`：301/301通过；应用套件968/968通过。
+- Debug及ExportRelease构建均0警告、0错误；改动C#文件的Roslyn诊断及全方案分析器诊断均为空。
+- 真实Vulkan局部查询契约41/41通过，覆盖远端增长不增加局部工作量、明确超限、查询失败后整笔放弃，以及8公里道路一次拖选320格。闭环、单格操作和选择回归通过。
+- 双轴复审无剩余发现；上述计数不表示144 FPS或后续性能门通过。逐项证据及工具日志边界见 `.scratch/v4-14-19-qa/verification.md`。

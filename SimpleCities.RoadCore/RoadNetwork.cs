@@ -15,6 +15,7 @@ public sealed class RoadSnapshot
         NextEdgeId = nextEdgeId;
         Nodes = Array.AsReadOnly(nodes?.ToArray() ?? []);
         Edges = Array.AsReadOnly(edges?.ToArray() ?? []);
+        QueryData = new RoadSnapshotQueryData(this);
     }
 
     public MapDefinition Map { get; }
@@ -25,14 +26,15 @@ public sealed class RoadSnapshot
     public IReadOnlyList<RoadEdge> Edges { get; }
     public int NodeCount => Nodes.Count;
     public int EdgeCount => Edges.Count;
+    internal RoadSnapshotQueryData QueryData { get; }
+
+    public RoadEdge? FindEdge(EdgeId id) => QueryData.FindEdge(id);
 
     public RoadPoint? Resolve(RoadLocation location)
     {
         if (location.Source != Token || !double.IsFinite(location.Parameter) || location.Parameter < 0 || location.Parameter > 1)
             return null;
-        RoadEdge? edge = Edges.FirstOrDefault(edge => edge.Id == location.Edge);
-        if (edge is null) return null;
-        return edge.PointAt(location.Parameter);
+        return QueryData.Resolve(location);
     }
 }
 
@@ -48,10 +50,16 @@ public sealed class RoadNetwork
     public RoadSnapshot Snapshot { get; private set; }
 
     public RoadEditResult PlanRemove(RoadGridSpan span, CancellationToken cancellationToken = default) =>
-        RoadSpanEditPlanner.Plan(this, Snapshot, span, null, cancellationToken);
+        PlanRemove(new[] { span }, cancellationToken);
+
+    public RoadEditResult PlanRemove(IReadOnlyList<RoadGridSpan> spans, CancellationToken cancellationToken = default) =>
+        RoadSpanEditPlanner.Plan(this, Snapshot, spans, null, cancellationToken);
 
     public RoadEditResult PlanChangeProfile(RoadGridSpan span, RoadProfileId profile, CancellationToken cancellationToken = default) =>
-        RoadSpanEditPlanner.Plan(this, Snapshot, span, profile, cancellationToken);
+        PlanChangeProfile(new[] { span }, profile, cancellationToken);
+
+    public RoadEditResult PlanChangeProfile(IReadOnlyList<RoadGridSpan> spans, RoadProfileId profile, CancellationToken cancellationToken = default) =>
+        RoadSpanEditPlanner.Plan(this, Snapshot, spans, profile, cancellationToken);
 
     public RoadPlan PlanLoad(PreparedRoadState prepared)
     {
@@ -112,11 +120,13 @@ public sealed class RoadPlan
         Target = target;
         AddedNodeCount = addedNodeCount;
         AddedEdgeCount = addedEdgeCount;
+        ChangeSet = new RoadChangeSet(source, target);
     }
 
     internal RoadNetwork Owner { get; }
     internal RoadSnapshot Source { get; }
     public RoadSnapshot Target { get; }
+    public RoadChangeSet ChangeSet { get; }
     public RoadStateToken SourceToken => Source.Token;
     public int AddedNodeCount { get; }
     public int AddedEdgeCount { get; }

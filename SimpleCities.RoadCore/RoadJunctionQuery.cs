@@ -26,10 +26,10 @@ public static class RoadJunctionQuery
 {
     public static RoadJunctionReadModel? Read(RoadSnapshot snapshot, NodeId nodeId)
     {
-        RoadNode? node = snapshot.Nodes.FirstOrDefault(candidate => candidate.Id == nodeId);
+        RoadNode? node = snapshot.QueryData.FindNode(nodeId);
         if (node is null) return null;
         var incidences = new List<RoadIncidence>();
-        foreach (RoadEdge edge in snapshot.Edges)
+        foreach (RoadEdge edge in snapshot.QueryData.Incident(nodeId))
         {
             if (edge.Start == nodeId) Add(edge, RoadEndRole.Start, edge.Points[1]);
             if (edge.End == nodeId) Add(edge, RoadEndRole.End, edge.Points[^2]);
