@@ -27,7 +27,7 @@ public sealed class PreparedRoadState
 /// <summary>V4 主格点、格心及闭环路网 schema 6；有界 stream 入口，不迁移旧调试格式。</summary>
 public static class RoadCodec
 {
-    public const int MaximumPayloadBytes = 1048576;
+    public const int MaximumPayloadBytes = 32 * 1024 * 1024;
     public const int SchemaVersion = 6;
 
     public static void Write(Stream destination, RoadSnapshot snapshot)
@@ -88,18 +88,20 @@ public static class RoadCodec
     {
         ArgumentNullException.ThrowIfNull(source);
         // One extra byte detects oversized input, including non-seekable streams.
-        byte[] bytes = new byte[MaximumPayloadBytes + 1];
-        int count = 0;
-        while (count < bytes.Length)
+        // Grow with actual input instead of allocating the maximum for every small save.
+        using var bytes = new MemoryStream();
+        byte[] buffer = new byte[64 * 1024];
+        while (true)
         {
-            int read = source.Read(bytes, count, bytes.Length - count);
+            int remaining = MaximumPayloadBytes - (int)bytes.Length;
+            int read = source.Read(buffer, 0, Math.Min(buffer.Length, remaining + 1));
             if (read == 0)
                 break;
-            count += read;
+            if (read > remaining)
+                throw new InvalidDataException($"V4 road payload exceeds {MaximumPayloadBytes} bytes.");
+            bytes.Write(buffer, 0, read);
         }
-        if (count > MaximumPayloadBytes)
-            throw new InvalidDataException($"V4 road payload exceeds {MaximumPayloadBytes} bytes.");
-        using JsonDocument document = JsonDocument.Parse(bytes.AsMemory(0, count),
+        using JsonDocument document = JsonDocument.Parse(bytes.GetBuffer().AsMemory(0, (int)bytes.Length),
             new JsonDocumentOptions { MaxDepth = 6 });
         JsonElement root = document.RootElement;
         Fields(root, "formatFamily", "payloadType", "schemaVersion", "contentRevision",

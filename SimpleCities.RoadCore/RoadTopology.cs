@@ -3,9 +3,9 @@ namespace SimpleCities.RoadCore;
 /// <summary>米字网格路网的规范性与显式资源上限，包含 rooted 自环和不同路径平行边。</summary>
 internal static class RoadTopology
 {
-    internal const int MaximumNodes = 512;
-    internal const int MaximumEdges = 256;
-    internal const int MaximumPoints = 2048;
+    internal const int MaximumNodes = 32768;
+    internal const int MaximumEdges = 16384;
+    internal const int MaximumPoints = 131072;
 
     internal static bool IsForwardCollinear(RoadPoint a, RoadPoint b, RoadPoint c) =>
         Cross(b.X - a.X, b.Y - a.Y, c.X - b.X, c.Y - b.Y) == 0 &&
@@ -60,6 +60,7 @@ internal static class RoadTopology
             incident[edge.End].Add(edge);
             for (int i = 0; i < edge.Points.Count; i++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 if (!map.IsBuildPoint(edge.Points[i])) throw new InvalidDataException("道路折点不在地图内的主格点或格心上");
                 if (i == 0) continue;
                 RoadPoint a = edge.Points[i - 1], b = edge.Points[i];
@@ -69,14 +70,48 @@ internal static class RoadTopology
             }
         }
         foreach (List<RoadEdge> connected in incident.Values)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
             if (connected.Count < 1 || (connected.Count == 2 && connected[0].Profile == connected[1].Profile &&
                 !ReferenceEquals(connected[0], connected[1])))
                 throw new InvalidDataException("结构节点必须是道路端点、真实路口或必要的道路类型分界");
+        }
+        ValidateIntersections(map, segments, cancellationToken);
+    }
+
+    private static void ValidateIntersections(MapDefinition map, IReadOnlyList<Segment> segments, CancellationToken cancellationToken)
+    {
+        // Under the validated square-eight rules every possible intersection is
+        // on the half-cell lattice. Enumerating closed segments includes endpoint
+        // touches and overlaps, while a long diagonal costs length, not AABB area.
+        // This completeness argument does not apply to future free-angle curves.
+        var atPoint = new Dictionary<(int X, int Y), List<int>>();
+        double halfCell = map.CellSizeMetres / 2d;
+        var checkedCandidates = new HashSet<int>();
         for (int i = 0; i < segments.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            for (int j = i + 1; j < segments.Count; j++)
-                ValidatePair(segments[i], segments[j]);
+            Segment segment = segments[i];
+            int x = (int)(segment.A.X / halfCell), y = (int)(segment.A.Y / halfCell);
+            int endX = (int)(segment.B.X / halfCell), endY = (int)(segment.B.Y / halfCell);
+            int dx = Math.Sign(endX - x), dy = Math.Sign(endY - y);
+            int steps = Math.Max(Math.Abs(endX - x), Math.Abs(endY - y));
+            checkedCandidates.Clear();
+            for (int step = 0; step <= steps; step++, x += dx, y += dy)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!atPoint.TryGetValue((x, y), out List<int>? candidates))
+                {
+                    candidates = new List<int>();
+                    atPoint.Add((x, y), candidates);
+                }
+                foreach (int candidate in candidates)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (checkedCandidates.Add(candidate)) ValidatePair(segments[candidate], segment);
+                }
+                candidates.Add(i);
+            }
         }
     }
 

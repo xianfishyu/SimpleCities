@@ -257,18 +257,15 @@ public sealed class PrimaryJunctionPlannerTests
     [Fact]
     public void SplittingAtTheTopologyBudget_RejectsTheWholeStroke()
     {
-        var network = new RoadNetwork(new MapDefinition(25));
-        for (int row = 0; row < 16; row++)
-            for (int column = 0; column < 16; column++)
-                Build(network, new(-3000 + column * 100, -3000 + row * 100),
-                    new(-2950 + column * 100, -3000 + row * 100));
+        RoadNetwork network = TopologyCapacityTests.LoadLines(new RoadPoint[][] { [new(0, 1000), new(50, 1000)] }
+            .Concat(TopologyCapacityTests.DisconnectedLines(16383)));
         RoadSnapshot before = network.Snapshot;
-        Assert.Equal(512, before.NodeCount);
-        Assert.Equal(256, before.EdgeCount);
+        Assert.Equal(32768, before.NodeCount);
+        Assert.Equal(16384, before.EdgeCount);
         byte[] content = Save(network);
 
         RoadBuildResult result = network.PlanBuild(new(before.Token,
-            new(-2975, -3025), new(-2975, -2975), RoadProfileId.Street));
+            new(25, 975), new(25, 1025), RoadProfileId.Street));
 
         Assert.Equal(RoadBuildStatus.Rejected, result.Status);
         Assert.Contains("资源上限", result.Reason);

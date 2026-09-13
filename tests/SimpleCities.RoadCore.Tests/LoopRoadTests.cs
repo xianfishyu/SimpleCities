@@ -223,16 +223,12 @@ public sealed class LoopRoadTests
     [Fact]
     public void SplittingLoopBeyondEdgeBudget_RejectsTheEntireClosingChord()
     {
-        var network = Square();
-        for (int i = 0; i < 255; i++)
-        {
-            int x = -3900 + i % 39 * 200;
-            int y = -3900 + i / 39 * 200;
-            Build(network, new(x, y), new(x + 100, y));
-        }
+        RoadPoint[] loop = Assert.Single(Square().Snapshot.Edges).Points.ToArray();
+        RoadNetwork network = TopologyCapacityTests.LoadLines(new[] { loop }
+            .Concat(TopologyCapacityTests.DisconnectedLines(16383)));
         RoadSnapshot before = network.Snapshot;
-        Assert.Equal(256, before.EdgeCount);
-        Assert.Equal(511, before.NodeCount);
+        Assert.Equal(16384, before.EdgeCount);
+        Assert.Equal(32767, before.NodeCount);
         RoadBuildResult result = network.PlanBuild(new(before.Token, new(0, 0), new(100, 100), RoadProfileId.Street));
         Assert.Equal(RoadBuildStatus.Rejected, result.Status);
         Assert.Contains("资源上限", result.Reason);
