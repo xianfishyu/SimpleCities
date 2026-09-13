@@ -9,7 +9,7 @@ public partial class V4MapScene
     private OptionButton _toolMode = null!;
     private Vector2? _selectionLastWorld;
     private bool IsSelectionTool => _toolMode.Selected != 0;
-    private bool IsSingleSpanTool => _toolMode.Selected is 2 or 3;
+    private bool IsSpanEditTool => _toolMode.Selected is 2 or 3;
     private RoadProfileId _selectionProfile;
 
     private void InitializeSelection()
@@ -32,15 +32,15 @@ public partial class V4MapScene
         _status.Text = mode switch
         {
             1 => "按住拖选格段 · Esc 清除",
-            2 => "选择一个格段，松开删除",
-            3 => "选择目标类型和一个格段，松开改造",
+            2 => "按住拖选格段，松开删除",
+            3 => "选择目标类型并拖选格段，松开改造",
             _ => "拖动建造道路",
         };
         GetNode<Label>(Controls + "Help").Text = mode switch
         {
             1 => "左键拖选格段 · Esc 清除\n滚轮缩放 · 中键拖动\n路口移向分支后选择",
-            2 => "左键选择一格 · 松开删除\n滚轮缩放 · 中键拖动\nEsc 取消 · 路口不扩散",
-            3 => "左键选择一格 · 松开改造\n滚轮缩放 · 中键拖动\nEsc 取消 · 四种类型互换",
+            2 => "左键拖选格段 · 松开删除\n滚轮缩放 · 中键拖动\nEsc 取消 · 路口不扩散",
+            3 => "左键拖选格段 · 松开改造\n滚轮缩放 · 中键拖动\nEsc 取消 · 四种类型互换",
             _ => "左键拖动建造 · Esc 取消\n滚轮缩放 · 中键拖动\n主格点八方向 · 格心仅对角",
         };
         return true;
@@ -69,11 +69,17 @@ public partial class V4MapScene
     {
         RoadSnapshot snapshot = _roads!.Network.Snapshot;
         Vector2 world = SelectionWorld(screen);
-        RoadGridSpan? hover = _view.PeekSpan(world);
+        var hoverQuery = _view.QuerySpan(world);
+        if (hoverQuery.Status != SpatialQueryStatus.Ready)
+        {
+            RejectSelectionQuery(hoverQuery.Reason);
+            return;
+        }
+        RoadGridSpan? hover = hoverQuery.Results.FirstOrDefault();
         if (_toolMode.Selected == 3 && hover is not null)
         {
             RoadProfileId target = _selectionSession.IsSelecting ? _selectionProfile : RoadProfiles.All[_profileChoice.Selected].Id;
-            if (snapshot.Edges.Single(edge => edge.Id == hover.Edge).Profile == target) hover = null;
+            if (snapshot.FindEdge(hover.Edge)?.Profile == target) hover = null;
         }
         if (!_selectionSession.Hover(snapshot, hover))
         {
@@ -83,17 +89,26 @@ public partial class V4MapScene
         }
         if (_selectionSession.IsSelecting)
         {
-            if (IsSingleSpanTool)
+            var trace = _view.QuerySpans(_selectionLastWorld ?? world, world);
+            if (trace.Status != SpatialQueryStatus.Ready)
             {
-                // Single-span slices replace the candidate; batching arrives in its own ticket.
-                _selectionSession.Begin(snapshot);
-                if (hover is not null) _selectionSession.Accumulate(snapshot, [hover]);
+                RejectSelectionQuery(trace.Reason);
+                return;
             }
-            else _selectionSession.Accumulate(snapshot, _view.TraceSpans(_selectionLastWorld ?? world, world));
+            var crossed = trace.Results;
+            _selectionSession.Accumulate(snapshot, _toolMode.Selected == 3
+                ? crossed.Where(span => snapshot.FindEdge(span.Edge)?.Profile != _selectionProfile)
+                : crossed);
             _selectionLastWorld = world;
             _status.Text = $"已选 {_selectionSession.Selected.Count} 个道路格段";
         }
         _view.SetSelection(_selectionSession.Hovered, _selectionSession.Selected);
+    }
+
+    private void RejectSelectionQuery(string reason)
+    {
+        ClearRoadSelection();
+        _status.Text = reason + " · 请重新选择";
     }
 
     private bool HandleSelectionInput(InputEvent input)
@@ -112,13 +127,14 @@ public partial class V4MapScene
             bool canSubmit = CanEdit && !GetNode<Control>("HUD/Panel").GetGlobalRect().HasPoint(release.Position);
             if (canSubmit)
                 UpdateSelectionPointer(release.Position);
+            if (!_selectionSession.IsSelecting) return true;
             _selectionSession.End();
             _selectionLastWorld = null;
-            if (IsSingleSpanTool)
+            if (IsSpanEditTool)
             {
-                RoadGridSpan? span = canSubmit && _selectionSession.Selected.Count == 1 ? _selectionSession.Selected[0] : null;
+                RoadGridSpan[] spans = canSubmit ? _selectionSession.Selected.ToArray() : [];
                 int mode = _toolMode.Selected;
-                if (span is not null) SubmitSpanEdit(span, mode, _selectionProfile, inputTimestamp);
+                if (spans.Length != 0) SubmitSpanEdit(spans, mode, _selectionProfile, inputTimestamp);
                 else ClearRoadSelection();
                 return true;
             }
@@ -142,10 +158,10 @@ public partial class V4MapScene
         return false; // Camera wheel/pan still flows through the shared input handler.
     }
 
-    private void SubmitSpanEdit(RoadGridSpan span, int mode, RoadProfileId profile, long inputTimestamp) =>
+    private void SubmitSpanEdit(RoadGridSpan[] spans, int mode, RoadProfileId profile, long inputTimestamp) =>
         SubmitRoadOperation((network, token) =>
         {
-            RoadEditResult result = mode == 2 ? network.PlanRemove(span, token) : network.PlanChangeProfile(span, profile, token);
+            RoadEditResult result = mode == 2 ? network.PlanRemove(spans, token) : network.PlanChangeProfile(spans, profile, token);
             return new PlannedRoadOperation(result.Plan, result.Status == RoadEditStatus.NoChange, result.Reason);
         }, inputTimestamp, mode == 2 ? "格段已删除" : "格段已改造", "选择道路格段");
 }

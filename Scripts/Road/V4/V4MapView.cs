@@ -40,9 +40,6 @@ public partial class V4MapView : Node2D, IScenePresentationLoadParticipant
         return previous;
     }
 
-    internal RoadGridSpan? PeekSpan(Vector2 world) => _display?.PeekSpan(world);
-    internal IReadOnlyList<RoadGridSpan> TraceSpans(Vector2 from, Vector2 to) => _display?.TraceSpans(from, to) ?? [];
-
     internal void SetSelection(RoadGridSpan? hover, IReadOnlyList<RoadGridSpan> selected)
     {
         if (Presented is RoadSnapshot snapshot) _selection.Set(snapshot, hover, selected);
@@ -98,8 +95,15 @@ public partial class V4MapView : Node2D, IScenePresentationLoadParticipant
 
     internal Godot.Collections.Dictionary PickRoad(Vector2 world)
     {
-        V4RoadDisplay.HitResult? result = _display?.Hit(world);
-        if (result is not V4RoadDisplay.HitResult picked || _display is null) return new();
+        var query = QueryHit(world, null);
+        if (query.Status != SpatialQueryStatus.Ready)
+            return new() { ["queryStatus"] = query.Status.ToString(), ["reason"] = query.Reason };
+        return query.Results.Count == 0 ? new() : DescribeHit(query.Results[0]);
+    }
+
+    private Godot.Collections.Dictionary DescribeHit(V4RoadDisplay.HitResult picked)
+    {
+        if (_display is null) return new();
         CoreRoadLocation hit = picked.Location;
         return new()
         {
@@ -107,7 +111,7 @@ public partial class V4MapView : Node2D, IScenePresentationLoadParticipant
             ["junctionNodeId"] = picked.JunctionNode?.Value ?? 0,
             ["parameter"] = hit.Parameter,
             ["sourceToken"] = hit.Source.ToString(),
-            ["profile"] = _display.Snapshot.Edges.Single(edge => edge.Id == hit.Edge).Profile.Value,
+            ["profile"] = _display.Snapshot.FindEdge(hit.Edge)?.Profile.Value ?? "",
             ["surfaceCenter"] = _display.SurfaceCenter(hit),
         };
     }

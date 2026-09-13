@@ -1,0 +1,38 @@
+[
+  {
+    "script": "v4_batch_edit_runtime_contract",
+    "exit": 0,
+    "pass": true,
+    "stderr": ""
+  },
+  {
+    "script": "v4_local_query_runtime_contract",
+    "exit": 0,
+    "pass": true,
+    "stderr": ""
+  },
+  {
+    "script": "v4_single_span_edit_runtime_contract",
+    "exit": 0,
+    "pass": true,
+    "stderr": ""
+  },
+  {
+    "script": "v4_span_selection_runtime_contract",
+    "exit": 0,
+    "pass": true,
+    "stderr": ""
+  },
+  {
+    "script": "v4_loop_runtime_contract",
+    "exit": 0,
+    "pass": true,
+    "stderr": ""
+  },
+  {
+    "script": "v4_async_operation_runtime_contract",
+    "exit": 0,
+    "pass": true,
+    "stderr": ""
+  }
+]

@@ -318,7 +318,7 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
             if (hit.TryGetValue("junctionNodeId", out Variant junctionId) && junctionId.AsInt64() > 0 &&
                 RoadJunctionQuery.Read(_roads!.Network.Snapshot, new NodeId(junctionId.AsInt64())) is RoadJunctionReadModel junction)
                 _status.Text = $"{(_roads.Network.Snapshot.Map.IsCellCenter(junction.Node.Position) ? "格心路口" : "路口")} · {junction.Incidences.Count} 个方向";
-            else if (hit.Count != 0) _status.Text = $"道路位置：{hit["parameter"].AsDouble():P0}";
+            else if (hit.ContainsKey("parameter")) _status.Text = $"道路位置：{hit["parameter"].AsDouble():P0}";
         }
         if (@event is InputEventMouseButton { Pressed: true } button &&
             button.ButtonIndex is MouseButton.WheelUp or MouseButton.WheelDown)
@@ -354,6 +354,14 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
 
     public Godot.Collections.Dictionary PickRoad(Vector2 world) =>
         IsPresentationCurrent ? _view.PickRoad(world) : new();
+
+    public Godot.Collections.Dictionary GetQueryState() => _view.DescribeQuery();
+
+    public Godot.Collections.Dictionary QueryRoad(Vector2 world, int maxBuckets = 4096, int maxCandidates = 4096, int maxExactTests = 16384) =>
+        _view.QueryRoad(world, new SpatialQueryBudget(maxBuckets, maxCandidates, maxExactTests));
+
+    public Godot.Collections.Dictionary TraceRoadSpans(Vector2 from, Vector2 to, int maxBuckets = 4096, int maxCandidates = 4096, int maxExactTests = 16384) =>
+        _view.TraceRoadSpans(from, to, new SpatialQueryBudget(maxBuckets, maxCandidates, maxExactTests));
 
     public Godot.Collections.Dictionary GetRoadState()
     {

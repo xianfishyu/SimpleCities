@@ -1,0 +1,226 @@
+[
+  {
+    "status": "fulfilled",
+    "value": {
+      "path": "Scripts/Road/V4/V4MapScene.Selection.cs",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\Scripts\\\\Road\\\\V4\\\\V4MapScene.Selection.cs\",\"project\":\"SimpleCities\",\"typesDefined\":[\"V4MapScene\"],\"diagnostics\":[]}"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "path": "Scripts/Road/V4/V4MapScene.cs",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\Scripts\\\\Road\\\\V4\\\\V4MapScene.cs\",\"project\":\"SimpleCities\",\"typesDefined\":[\"V4MapScene\",\"PlannedRoadOperation\",\"ToolAdmission\"],\"diagnostics\":[]}"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "path": "Scripts/Road/V4/V4MapView.cs",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\Scripts\\\\Road\\\\V4\\\\V4MapView.cs\",\"project\":\"SimpleCities\",\"typesDefined\":[\"V4MapView\",\"PreviewSegment\",\"Presentation\",\"Preparer\",\"Admission\",\"CommitPlan\"],\"diagnostics\":[]}"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "path": "Scripts/Road/V4/V4RoadDisplay.cs",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\Scripts\\\\Road\\\\V4\\\\V4RoadDisplay.cs\",\"project\":\"SimpleCities\",\"typesDefined\":[\"V4RoadDisplay\",\"Piece\",\"HitResult\"],\"diagnostics\":[]}"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "path": "Scripts/Road/V4/V4SelectionDisplay.cs",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\Scripts\\\\Road\\\\V4\\\\V4SelectionDisplay.cs\",\"project\":\"SimpleCities\",\"typesDefined\":[\"V4SelectionDisplay\",\"Stroke\"],\"diagnostics\":[]}"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "path": "SimpleCities.RoadCore/RoadJunctionQuery.cs",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\SimpleCities.RoadCore\\\\RoadJunctionQuery.cs\",\"project\":\"SimpleCities.RoadCore\",\"typesDefined\":[\"RoadVector\",\"RoadIncidenceKey\",\"RoadIncidence\",\"RoadTurnMovement\",\"RoadJunctionReadModel\",\"RoadJunctionQuery\"],\"diagnostics\":[]}"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "path": "SimpleCities.RoadCore/RoadNetwork.cs",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\SimpleCities.RoadCore\\\\RoadNetwork.cs\",\"project\":\"SimpleCities.RoadCore\",\"typesDefined\":[\"RoadStateToken\",\"RoadSnapshot\",\"RoadNetwork\",\"RoadPlan\"],\"diagnostics\":[]}"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "path": "SimpleCities.RoadCore/RoadSpanEditPlanner.cs",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\SimpleCities.RoadCore\\\\RoadSpanEditPlanner.cs\",\"project\":\"SimpleCities.RoadCore\",\"typesDefined\":[\"RoadSpanEditPlanner\"],\"diagnostics\":[]}"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "path": "SimpleCities.RoadCore/RoadSpanQuery.cs",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\SimpleCities.RoadCore\\\\RoadSpanQuery.cs\",\"project\":\"SimpleCities.RoadCore\",\"typesDefined\":[\"RoadSpanRange\",\"RoadSpanKey\",\"RoadGridSpan\",\"RoadSpanQuery\"],\"diagnostics\":[]}"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "path": "Scripts/Road/V4/V4MapView.Queries.cs",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\Scripts\\\\Road\\\\V4\\\\V4MapView.Queries.cs\",\"project\":\"SimpleCities\",\"typesDefined\":[\"V4MapView\"],\"diagnostics\":[]}"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "path": "SimpleCities.RoadCore/RoadChangeSet.cs",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\SimpleCities.RoadCore\\\\RoadChangeSet.cs\",\"project\":\"SimpleCities.RoadCore\",\"typesDefined\":[\"RoadChangeMetadata\",\"RoadNodeChange\",\"RoadEdgeChange\",\"RoadChangeSet\"],\"diagnostics\":[]}"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "path": "SimpleCities.RoadCore/RoadSnapshotQueryData.cs",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\SimpleCities.RoadCore\\\\RoadSnapshotQueryData.cs\",\"project\":\"SimpleCities.RoadCore\",\"typesDefined\":[\"RoadSnapshotQueryData\",\"Boundary\",\"ArcData\"],\"diagnostics\":[]}"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "path": "SimpleCities.RoadCore/RoadSpatialQueryIndex.cs",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\SimpleCities.RoadCore\\\\RoadSpatialQueryIndex.cs\",\"project\":\"SimpleCities.RoadCore\",\"typesDefined\":[\"RoadQueryFragment\",\"RoadQueryHit\",\"RoadSpatialQueryIndex\",\"SourceSegment\"],\"diagnostics\":[]}"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "path": "SimpleCities.RoadCore/SpatialQueryIndex.cs",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\SimpleCities.RoadCore\\\\SpatialQueryIndex.cs\",\"project\":\"SimpleCities.RoadCore\",\"typesDefined\":[\"SpatialQueryBudget\",\"SpatialQueryMetrics\",\"SpatialQueryResult\",\"SpatialBounds\",\"SpatialFragment\",\"SpatialQueryIndex\",\"Query\"],\"diagnostics\":[]}"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "path": "tests/SimpleCities.RoadCore.Tests/RoadSpanBatchEditTests.cs",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\tests\\\\SimpleCities.RoadCore.Tests\\\\RoadSpanBatchEditTests.cs\",\"project\":\"SimpleCities.RoadCore.Tests\",\"typesDefined\":[\"RoadSpanBatchEditTests\"],\"diagnostics\":[]}"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "path": "tests/SimpleCities.RoadCore.Tests/RoadSpatialQueryTests.cs",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\tests\\\\SimpleCities.RoadCore.Tests\\\\RoadSpatialQueryTests.cs\",\"project\":\"SimpleCities.RoadCore.Tests\",\"typesDefined\":[\"RoadSpatialQueryTests\"],\"diagnostics\":[]}"
+          }
+        ]
+      }
+    }
+  }
+]

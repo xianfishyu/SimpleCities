@@ -59,7 +59,8 @@ func run() -> void:
 		parallel = parallel and hit.get("sourceToken") == map.StateToken and hit.get("surfaceCenter") == point
 	parallel = parallel and picked_ids.size() == 3 and not picked_ids.has(0)
 	await RenderingServer.frame_post_draw
-	var capture_dir: String = ProjectSettings.globalize_path("res://.scratch/v4-10-11-qa")
+	var capture_path: String = OS.get_environment("V4_QA_OUTPUT")
+	var capture_dir: String = ProjectSettings.globalize_path(capture_path if not capture_path.is_empty() else "res://.scratch/v4-10-11-qa")
 	var directory_error: int = DirAccess.make_dir_recursive_absolute(capture_dir)
 	var screenshot: bool = (directory_error == OK or directory_error == ERR_ALREADY_EXISTS) and root.get_texture().get_image().save_png(capture_dir.path_join("loop.png")) == OK
 	var parallel_saved: bool = await round_trip(map, manager, "parallel")

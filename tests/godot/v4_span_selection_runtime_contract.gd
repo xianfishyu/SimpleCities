@@ -118,7 +118,8 @@ func run() -> void:
 	check("cell_center_halves_independent", count(map) == 1 and point_set_matches(half_a, [Vector2.ZERO, Vector2(50, 50)]) and point_set_matches(half_b, [Vector2(50, 50), Vector2(100, 100)]) and half_a.get("edgeId") != half_b.get("edgeId") and exact_range(half_a, 0.0, 1.0) and exact_range(half_b, 0.0, 1.0))
 	await process_frame
 	await RenderingServer.frame_post_draw
-	var capture_dir: String = ProjectSettings.globalize_path("res://.scratch/v4-10-11-qa")
+	var capture_path: String = OS.get_environment("V4_QA_OUTPUT")
+	var capture_dir: String = ProjectSettings.globalize_path(capture_path if not capture_path.is_empty() else "res://.scratch/v4-10-11-qa")
 	var directory_error: int = DirAccess.make_dir_recursive_absolute(capture_dir)
 	check("selection_screenshot", (directory_error == OK or directory_error == ERR_ALREADY_EXISTS) and root.get_texture().get_image().save_png(capture_dir.path_join("selection.png")) == OK)
 	press(map, Vector2(25, 25))

@@ -17,11 +17,34 @@ internal sealed class V4RoadDisplay : IDisposable
         Snapshot = snapshot;
         Mesh = mesh;
         Pieces = pieces;
+        _piecesByEdge = pieces.Where(piece => piece.Start != piece.End).GroupBy(piece => piece.Edge)
+            .ToDictionary(group => group.Key, group => group.OrderBy(piece => piece.StartParameter).ToArray());
+        var fragments = new List<SpatialFragment<int>>();
+        for (int index = 0; index < pieces.Length; index++)
+        {
+            Piece piece = pieces[index];
+            int count = piece.Polygon.Length == 4 ? Math.Max(1,
+                (int)Math.Ceiling(Math.Max(piece.Polygon[0].DistanceTo(piece.Polygon[1]), piece.Polygon[3].DistanceTo(piece.Polygon[2])) / 100)) : 1;
+            for (int part = 0; part < count; part++)
+            {
+                Vector2[] corners = count == 1 ? piece.Polygon : [
+                    piece.Polygon[0].Lerp(piece.Polygon[1], (float)part / count),
+                    piece.Polygon[0].Lerp(piece.Polygon[1], (float)(part + 1) / count),
+                    piece.Polygon[3].Lerp(piece.Polygon[2], (float)(part + 1) / count),
+                    piece.Polygon[3].Lerp(piece.Polygon[2], (float)part / count)];
+                // Broad-phase padding covers float interpolation at fragment seams; exact picking still uses the drawn polygon.
+                fragments.Add(new(index, new(corners.Min(point => point.X) - 0.001, corners.Min(point => point.Y) - 0.001,
+                    corners.Max(point => point.X) + 0.001, corners.Max(point => point.Y) + 0.001)));
+            }
+        }
+        _index = new(snapshot.Token, fragments);
     }
 
     internal RoadSnapshot Snapshot { get; }
     internal ArrayMesh? Mesh { get; }
     private Piece[] Pieces { get; }
+    private readonly SpatialQueryIndex<int> _index;
+    private readonly Dictionary<EdgeId, Piece[]> _piecesByEdge;
 
     internal static V4RoadDisplay Prepare(RoadSnapshot snapshot, RoadSurfaceData? surface)
     {
@@ -80,47 +103,62 @@ internal sealed class V4RoadDisplay : IDisposable
         return converted;
     }
 
-    internal HitResult? Hit(Vector2 world)
+    internal SpatialQueryResult<HitResult> QueryHit(Vector2 world, SpatialQueryBudget? budget = null)
     {
-        if (Mesh is null || !world.IsFinite()) return null;
+        SpatialQueryBudget limits = budget ?? SpatialQueryBudget.Default;
+        SpatialQueryResult<int> candidates = _index.QueryBounds(new(world.X, world.Y, world.X, world.Y), limits);
+        if (candidates.Status != SpatialQueryStatus.Ready)
+            return new(Snapshot.Token, candidates.Status, [], candidates.Metrics, candidates.Reason);
+        int exact = 0;
         // Last drawn polygon owns the visible surface where differently coloured pieces overlap.
-        for (int i = Pieces.Length - 1; i >= 0; i--)
+        foreach (int i in candidates.Results.Distinct().OrderDescending())
         {
+            if (exact >= limits.MaxExactTests)
+                return new(Snapshot.Token, SpatialQueryStatus.BudgetExceeded, [], candidates.Metrics with { ExactGeometryTests = exact }, "空间查询精确检查预算已耗尽");
+            exact++;
             Piece piece = Pieces[i];
             if (!Geometry2D.IsPointInPolygon(world, piece.Polygon)) continue;
             Vector2 direction = piece.End - piece.Start;
             double fraction = direction.LengthSquared() == 0 ? 0 : Mathf.Clamp((world - piece.Start).Dot(direction) / direction.LengthSquared(), 0, 1);
             double parameter = piece.StartParameter + fraction * (piece.EndParameter - piece.StartParameter);
-            return new HitResult(new CoreRoadLocation(Snapshot.Token, piece.Edge, parameter), piece.JunctionNode);
+            return new(Snapshot.Token, SpatialQueryStatus.Ready,
+                [new HitResult(new CoreRoadLocation(Snapshot.Token, piece.Edge, parameter), piece.JunctionNode)],
+                candidates.Metrics with { ExactGeometryTests = exact, Hits = 1 }, "");
         }
-        return null;
+        return new(Snapshot.Token, SpatialQueryStatus.Ready, [], candidates.Metrics with { ExactGeometryTests = exact }, "");
     }
 
-    internal RoadGridSpan? PeekSpan(Vector2 world)
+    internal SpatialQueryResult<RoadGridSpan> QuerySpan(Vector2 world, SpatialQueryBudget? budget = null)
     {
-        HitResult? hit = Hit(world);
+        SpatialQueryResult<HitResult> result = QueryHit(world, budget);
+        HitResult? hit = result.Results.Cast<HitResult?>().FirstOrDefault();
         // A junction patch has several incidences. Only the visible branch outside it selects a span.
-        return hit is HitResult picked && picked.JunctionNode is null
+        RoadGridSpan? span = hit is HitResult picked && picked.JunctionNode is null
             ? RoadSpanQuery.Pick(Snapshot, picked.Location) : null;
+        return new(Snapshot.Token, result.Status, span is null ? [] : [span],
+            result.Metrics with { Hits = span is null ? 0 : 1 }, result.Reason);
     }
 
-    internal IReadOnlyList<RoadGridSpan> TraceSpans(Vector2 from, Vector2 to)
+    internal SpatialQueryResult<RoadGridSpan> QueryTraceSpans(Vector2 from, Vector2 to, SpatialQueryBudget? budget = null)
     {
+        if (from == to) return QuerySpan(from, budget);
+        SpatialQueryBudget limits = budget ?? SpatialQueryBudget.Default;
+        SpatialQueryResult<int> candidates = _index.QuerySegment(new(from.X, from.Y), new(to.X, to.Y), limits);
+        if (candidates.Status != SpatialQueryStatus.Ready)
+            return new(Snapshot.Token, candidates.Status, [], candidates.Metrics, candidates.Reason);
+        SpatialQueryMetrics metrics = candidates.Metrics;
         var result = new List<RoadGridSpan>();
         var seen = new HashSet<RoadSpanKey>();
-        if (!from.IsFinite() || !to.IsFinite()) return result;
-        if (from == to)
-        {
-            Add(from);
-            return result;
-        }
 
         // Partition the pointer segment at every visible polygon boundary and grid-span boundary.
         // This captures every crossed span even when an input event traverses the entire map.
         var breaks = new List<double> { 0, 1 };
         Vector2 travel = to - from;
-        foreach (Piece piece in Pieces)
+        foreach (int index in candidates.Results.Distinct())
         {
+            if (metrics.ExactGeometryTests >= limits.MaxExactTests) return Exhausted();
+            metrics = metrics with { ExactGeometryTests = metrics.ExactGeometryTests + 1 };
+            Piece piece = Pieces[index];
             if (!Clip(piece.Polygon, from, travel, out double entry, out double exit)) continue;
             breaks.Add(entry);
             breaks.Add(exit);
@@ -146,20 +184,33 @@ internal sealed class V4RoadDisplay : IDisposable
             }
         }
         breaks.Sort();
-        Add(from);
+        if (!Add(from)) return Exhausted();
         for (int i = 1; i < breaks.Count; i++)
         {
             double left = breaks[i - 1], right = breaks[i];
-            if (right > left) Add(from + travel * (float)((left + right) / 2));
+            if (right > left && !Add(from + travel * (float)((left + right) / 2))) return Exhausted();
         }
-        Add(to);
-        return result;
+        if (!Add(to)) return Exhausted();
+        return new(Snapshot.Token, SpatialQueryStatus.Ready, result.AsReadOnly(),
+            metrics with { Hits = result.Select(span => span.Edge).Distinct().Count() }, "");
 
-        void Add(Vector2 point)
+        bool Add(Vector2 point)
         {
-            RoadGridSpan? span = PeekSpan(point);
+            var remaining = new SpatialQueryBudget(limits.MaxBuckets - metrics.BucketsVisited,
+                limits.MaxCandidates - metrics.FragmentCandidates, limits.MaxExactTests - metrics.ExactGeometryTests);
+            if (!remaining.IsValid) return false;
+            SpatialQueryResult<RoadGridSpan> picked = QuerySpan(point, remaining);
+            metrics = new(metrics.BucketsVisited + picked.Metrics.BucketsVisited,
+                metrics.FragmentCandidates + picked.Metrics.FragmentCandidates,
+                metrics.ExactGeometryTests + picked.Metrics.ExactGeometryTests, 0, 0);
+            if (picked.Status != SpatialQueryStatus.Ready) return false;
+            RoadGridSpan? span = picked.Results.FirstOrDefault();
             if (span is not null && seen.Add(span.Key)) result.Add(span);
+            return true;
         }
+
+        SpatialQueryResult<RoadGridSpan> Exhausted() => new(Snapshot.Token, SpatialQueryStatus.BudgetExceeded,
+            [], metrics with { Hits = 0 }, "拖选查询预算已耗尽，本次手势不可提交");
     }
 
     internal static bool SameSpan(RoadGridSpan left, RoadGridSpan right) => left.Key == right.Key;
@@ -193,13 +244,20 @@ internal sealed class V4RoadDisplay : IDisposable
     internal Vector2 SurfaceCenter(CoreRoadLocation location)
     {
         if (location.Source != Snapshot.Token) throw new InvalidOperationException("V4 surface location is stale.");
-        foreach (Piece piece in Pieces)
+        if (!_piecesByEdge.TryGetValue(location.Edge, out Piece[]? edgePieces))
+            throw new InvalidOperationException("V4 surface location does not belong to the displayed road.");
+        if (!double.IsFinite(location.Parameter) || location.Parameter < 0 || location.Parameter > 1)
+            throw new InvalidOperationException("V4 surface parameter is invalid.");
+        int low = 0, high = edgePieces.Length;
+        while (low + 1 < high)
         {
-            if (piece.Edge != location.Edge || location.Parameter < piece.StartParameter || location.Parameter > piece.EndParameter) continue;
-            double range = piece.EndParameter - piece.StartParameter;
-            return range == 0 ? piece.Start : piece.Start.Lerp(piece.End, (float)((location.Parameter - piece.StartParameter) / range));
+            int middle = (low + high) / 2;
+            if (edgePieces[middle].StartParameter <= location.Parameter) low = middle;
+            else high = middle;
         }
-        throw new InvalidOperationException("V4 surface location does not belong to the displayed road.");
+        Piece piece = edgePieces[low];
+        double range = piece.EndParameter - piece.StartParameter;
+        return range == 0 ? piece.Start : piece.Start.Lerp(piece.End, (float)((location.Parameter - piece.StartParameter) / range));
     }
     public void Dispose() => Mesh?.Dispose();
 }

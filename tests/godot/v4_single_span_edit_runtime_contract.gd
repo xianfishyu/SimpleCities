@@ -24,7 +24,7 @@ func run() -> void:
 	motion(map, Vector2(250, 0))
 	await process_frame
 	var preview: Dictionary = selected_stroke(map)
-	check("drag_only_previews_current_span", map.GetRoadState() == before and map.GetSelectionState().get("selectedCount", 0) == 1 and point_set_matches(preview, [Vector2(200, 0), Vector2(300, 0)]), preview)
+	check("drag_previews_both_crossed_spans", map.GetRoadState() == before and map.GetSelectionState().get("selectedCount", 0) == 2 and point_set_matches(preview, [Vector2(100, 0), Vector2(200, 0)]), preview)
 	escape()
 	await process_frame
 	release(map, Vector2(250, 0))
@@ -117,7 +117,8 @@ func run() -> void:
 	motion(map, Vector2(75, 75), false)
 	await process_frame
 	await RenderingServer.frame_post_draw
-	var capture_dir: String = ProjectSettings.globalize_path("res://.scratch/v4-12-13-qa")
+	var capture_path: String = OS.get_environment("V4_QA_OUTPUT")
+	var capture_dir: String = ProjectSettings.globalize_path(capture_path if not capture_path.is_empty() else "res://.scratch/v4-12-13-qa")
 	var directory_error: int = DirAccess.make_dir_recursive_absolute(capture_dir)
 	check("local_edit_screenshot", (directory_error == OK or directory_error == ERR_ALREADY_EXISTS) and root.get_texture().get_image().save_png(capture_dir.path_join("single-span-edits.png")) == OK)
 	print("V4_SINGLE_SPAN_EDIT_RESULT ", JSON.stringify({"rows": _rows, "passed": _passed}))

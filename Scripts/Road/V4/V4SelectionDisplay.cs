@@ -29,7 +29,7 @@ internal sealed class V4SelectionDisplay
         void Add(RoadGridSpan span, bool isSelected)
         {
             if (span.Source != snapshot.Token) return;
-            RoadEdge? edge = snapshot.Edges.FirstOrDefault(candidate => candidate.Id == span.Edge);
+            RoadEdge? edge = snapshot.FindEdge(span.Edge);
             if (edge is null) return;
             Vector2[] points = span.Points.Select(point => new Vector2((float)point.X, (float)point.Y)).ToArray();
             if (points.Length < 2 || points.Any(point => !point.IsFinite()))
