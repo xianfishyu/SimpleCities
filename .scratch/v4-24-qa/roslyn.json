@@ -1,0 +1,114 @@
+{
+  "solution": "D:/Code/GodotProject/simple-cities/SimpleCities.sln",
+  "files": [
+    "SimpleCities.RoadCore/RoadCodec.cs",
+    "SimpleCities.RoadCore/RoadTopology.cs",
+    "tests/SimpleCities.RoadCore.Tests/LoopRoadTests.cs",
+    "tests/SimpleCities.RoadCore.Tests/PrimaryJunctionPlannerTests.cs",
+    "tests/SimpleCities.RoadCore.Tests/CapacityBudgetTests.cs",
+    "tests/SimpleCities.RoadCore.Tests/CapacityCodecTests.cs",
+    "tests/SimpleCities.RoadCore.Tests/TopologyCapacityTests.cs",
+    "tests/godot/V4PerformanceProbe.cs"
+  ],
+  "focused": [
+    {
+      "status": "fulfilled",
+      "value": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\SimpleCities.RoadCore\\\\RoadCodec.cs\",\"project\":\"SimpleCities.RoadCore\",\"typesDefined\":[\"PreparedRoadState\",\"RoadCodec\"],\"diagnostics\":[]}"
+          }
+        ]
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\SimpleCities.RoadCore\\\\RoadTopology.cs\",\"project\":\"SimpleCities.RoadCore\",\"typesDefined\":[\"RoadTopology\",\"Segment\"],\"diagnostics\":[]}"
+          }
+        ]
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\tests\\\\SimpleCities.RoadCore.Tests\\\\LoopRoadTests.cs\",\"project\":\"SimpleCities.RoadCore.Tests\",\"typesDefined\":[\"LoopRoadTests\"],\"diagnostics\":[]}"
+          }
+        ]
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\tests\\\\SimpleCities.RoadCore.Tests\\\\PrimaryJunctionPlannerTests.cs\",\"project\":\"SimpleCities.RoadCore.Tests\",\"typesDefined\":[\"PrimaryJunctionPlannerTests\"],\"diagnostics\":[]}"
+          }
+        ]
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\tests\\\\SimpleCities.RoadCore.Tests\\\\CapacityBudgetTests.cs\",\"project\":\"SimpleCities.RoadCore.Tests\",\"typesDefined\":[\"CapacityBudgetTests\"],\"diagnostics\":[]}"
+          }
+        ]
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\tests\\\\SimpleCities.RoadCore.Tests\\\\CapacityCodecTests.cs\",\"project\":\"SimpleCities.RoadCore.Tests\",\"typesDefined\":[\"CapacityCodecTests\",\"PaddedStream\"],\"diagnostics\":[]}"
+          }
+        ]
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\tests\\\\SimpleCities.RoadCore.Tests\\\\TopologyCapacityTests.cs\",\"project\":\"SimpleCities.RoadCore.Tests\",\"typesDefined\":[\"TopologyCapacityTests\"],\"diagnostics\":[]}"
+          }
+        ]
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\tests\\\\godot\\\\V4PerformanceProbe.cs\",\"project\":\"SimpleCities\",\"typesDefined\":[\"V4MapScene\"],\"diagnostics\":[]}"
+          }
+        ]
+      }
+    }
+  ],
+  "analyzers": {
+    "status": "fulfilled",
+    "value": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"items\":[],\"totalCount\":0,\"truncated\":false,\"limit\":1000,\"summary\":{\"error\":0,\"warning\":0,\"info\":0,\"hidden\":0}}"
+        }
+      ]
+    }
+  }
+}

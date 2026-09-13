@@ -1,0 +1,24 @@
+cell-200-target: 40 strokes, 799 canonical edges
+cell-200-target: 80 strokes, 3199 canonical edges
+cell-200-target: 120 strokes, 3656 canonical edges
+cell-200-target: 160 strokes, 5596 canonical edges
+cell-200-target: 200 strokes, 8420 canonical edges
+cell-200-target: 240 strokes, 9680 canonical edges
+cell-200-target: complete, 9680 edges, 1240937 serialized bytes
+cell-200-dense-polylines: 40 strokes, 20 canonical edges
+cell-200-dense-polylines: 80 strokes, 40 canonical edges
+cell-200-dense-polylines: 120 strokes, 60 canonical edges
+cell-200-dense-polylines: 160 strokes, 80 canonical edges
+cell-200-dense-polylines: 200 strokes, 100 canonical edges
+cell-200-dense-polylines: 240 strokes, 120 canonical edges
+cell-200-dense-polylines: 280 strokes, 140 canonical edges
+cell-200-dense-polylines: 320 strokes, 160 canonical edges
+cell-200-dense-polylines: 360 strokes, 180 canonical edges
+cell-200-dense-polylines: 400 strokes, 200 canonical edges
+cell-200-dense-polylines: 440 strokes, 220 canonical edges
+cell-200-dense-polylines: 480 strokes, 240 canonical edges
+cell-200-dense-polylines: 520 strokes, 260 canonical edges
+cell-200-dense-polylines: 560 strokes, 280 canonical edges
+cell-200-dense-polylines: 600 strokes, 300 canonical edges
+cell-200-dense-polylines: 640 strokes, 320 canonical edges
+cell-200-dense-polylines: complete, 320 edges, 62622 serialized bytes

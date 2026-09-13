@@ -1,0 +1,93 @@
+{
+	"current": true,
+	"edges": 10000,
+	"error": "",
+	"finalHistory": {
+		"changeSequence": 3,
+		"contentRevision": 881,
+		"estimatedRetainedBytes": 448,
+		"nextEdgeId": 10001,
+		"nextNodeId": 4246,
+		"redoCount": 1,
+		"retainedCount": 1,
+		"sourceToken": "RoadStateToken { NetworkInstance = de0823cc-f9cf-456c-916b-35324afca43a, Lineage = 4dc60c73-e30c-4671-b90d-166233cd502c, ContentRevision = 881, ChangeSequence = 3 }",
+		"undoCount": 0
+	},
+	"fixture": {
+		"cell": 100,
+		"edges": 10000,
+		"historyEntries": 0,
+		"indices": 163704,
+		"nodes": 3921,
+		"points": 20320,
+		"surfacePieces": 44248,
+		"vertices": 143064
+	},
+	"passed": true,
+	"phase": 5,
+	"pickBefore": {
+		"edgeId": 944,
+		"junctionNodeId": 0,
+		"parameter": 0.5,
+		"profile": "street",
+		"sourceToken": "RoadStateToken { NetworkInstance = de0823cc-f9cf-456c-916b-35324afca43a, Lineage = 4dc60c73-e30c-4671-b90d-166233cd502c, ContentRevision = 881, ChangeSequence = 1 }",
+		"surfaceCenter": "(50.0, 0.0)"
+	},
+	"selection": {
+		"hasHover": true,
+		"mode": "ChangeProfile",
+		"selectedCount": 1,
+		"selecting": true,
+		"sourceToken": "RoadStateToken { NetworkInstance = de0823cc-f9cf-456c-916b-35324afca43a, Lineage = 4dc60c73-e30c-4671-b90d-166233cd502c, ContentRevision = 881, ChangeSequence = 1 }",
+		"strokes": [
+			{
+				"color": "(1.0, 0.78, 0.25, 0.68)",
+				"edgeId": 944,
+				"points": "[(0.0, 0.0), (100.0, 0.0)]",
+				"ranges": [
+					{
+						"endParameter": 1.0,
+						"startParameter": 0.0
+					}
+				],
+				"selected": true,
+				"sourceToken": "RoadStateToken { NetworkInstance = de0823cc-f9cf-456c-916b-35324afca43a, Lineage = 4dc60c73-e30c-4671-b90d-166233cd502c, ContentRevision = 881, ChangeSequence = 1 }",
+				"width": 9.60000038146973
+			}
+		]
+	},
+	"undo": {
+		"domainMs": 14.0174,
+		"inputToDrawMs": 239.5449,
+		"phase": "Drawn",
+		"preflightMs": 105.1115,
+		"presentationCommitMs": 0.0116,
+		"presentationPrepareMs": 110.8484,
+		"presentedToken": "RoadStateToken { NetworkInstance = de0823cc-f9cf-456c-916b-35324afca43a, Lineage = 4dc60c73-e30c-4671-b90d-166233cd502c, ContentRevision = 881, ChangeSequence = 3 }",
+		"publicationMs": 0.024,
+		"referenceCommitMs": 0.001,
+		"resumeMs": 6.8427,
+		"sourceToken": "RoadStateToken { NetworkInstance = de0823cc-f9cf-456c-916b-35324afca43a, Lineage = 4dc60c73-e30c-4671-b90d-166233cd502c, ContentRevision = 882, ChangeSequence = 2 }",
+		"workerMs": 124.8658,
+		"workerQueueMs": 0.0211
+	},
+	"upgrade": {
+		"domainMs": 87.5793,
+		"inputToDrawMs": 343.2942,
+		"phase": "Drawn",
+		"preflightMs": 144.4783,
+		"presentationCommitMs": 0.0958,
+		"presentationPrepareMs": 97.9305,
+		"presentedToken": "RoadStateToken { NetworkInstance = de0823cc-f9cf-456c-916b-35324afca43a, Lineage = 4dc60c73-e30c-4671-b90d-166233cd502c, ContentRevision = 882, ChangeSequence = 2 }",
+		"publicationMs": 0.2273,
+		"referenceCommitMs": 0.0886,
+		"resumeMs": 2.398,
+		"sourceToken": "RoadStateToken { NetworkInstance = de0823cc-f9cf-456c-916b-35324afca43a, Lineage = 4dc60c73-e30c-4671-b90d-166233cd502c, ContentRevision = 881, ChangeSequence = 1 }",
+		"workerMs": 185.5098,
+		"workerQueueMs": 0.4294
+	},
+	"viewport": {
+		"height": 599.0,
+		"width": 1064.0
+	}
+}

@@ -1,0 +1,18 @@
+{
+  "baseline": {
+    "content": [
+      {
+        "type": "text",
+        "text": "No new error messages since cursor 847."
+      }
+    ]
+  },
+  "after": {
+    "content": [
+      {
+        "type": "text",
+        "text": "No new error messages since cursor 858."
+      }
+    ]
+  }
+}

@@ -1,0 +1,1605 @@
+{
+	"datasets": [
+		{
+			"cell": 25,
+			"expectedEdges": 10000,
+			"fixture": {
+				"cell": 25,
+				"edges": 10000,
+				"historyEntries": 0,
+				"indices": 164163,
+				"nodes": 3921,
+				"points": 20320,
+				"surfacePieces": 44401,
+				"vertices": 143523
+			},
+			"name": "cell-25-target",
+			"operations": [
+				{
+					"edgesAfter": 10000,
+					"operation": "profile",
+					"timings": {
+						"domainMs": 67.1532,
+						"inputToDrawMs": 254.8378,
+						"phase": "Drawn",
+						"preflightMs": 86.3184,
+						"presentationCommitMs": 0.0811,
+						"presentationPrepareMs": 86.5354,
+						"presentedToken": "RoadStateToken { NetworkInstance = e53d7139-29e1-4c58-91ea-c2bec0f422fe, Lineage = 459674b6-2ba9-48ff-a983-3f27769bf504, ContentRevision = 882, ChangeSequence = 2 }",
+						"publicationMs": 0.213,
+						"referenceCommitMs": 0.0854,
+						"resumeMs": 5.1236,
+						"sourceToken": "RoadStateToken { NetworkInstance = e53d7139-29e1-4c58-91ea-c2bec0f422fe, Lineage = 459674b6-2ba9-48ff-a983-3f27769bf504, ContentRevision = 881, ChangeSequence = 1 }",
+						"workerMs": 153.6886,
+						"workerQueueMs": 0.3999
+					}
+				},
+				{
+					"operation": "profile-undo-api",
+					"timings": {
+						"domainMs": 27.9543,
+						"inputToDrawMs": 219.9381,
+						"phase": "Drawn",
+						"preflightMs": 101.2297,
+						"presentationCommitMs": 0.0117,
+						"presentationPrepareMs": 85.9611,
+						"presentedToken": "RoadStateToken { NetworkInstance = e53d7139-29e1-4c58-91ea-c2bec0f422fe, Lineage = 459674b6-2ba9-48ff-a983-3f27769bf504, ContentRevision = 881, ChangeSequence = 3 }",
+						"publicationMs": 0.0227,
+						"referenceCommitMs": 0.0011,
+						"resumeMs": 2.4629,
+						"sourceToken": "RoadStateToken { NetworkInstance = e53d7139-29e1-4c58-91ea-c2bec0f422fe, Lineage = 459674b6-2ba9-48ff-a983-3f27769bf504, ContentRevision = 882, ChangeSequence = 2 }",
+						"workerMs": 113.9154,
+						"workerQueueMs": 0.0215
+					}
+				},
+				{
+					"edgesAfter": 9999,
+					"operation": "delete",
+					"timings": {
+						"domainMs": 42.0087,
+						"inputToDrawMs": 254.0149,
+						"phase": "Drawn",
+						"preflightMs": 110.7382,
+						"presentationCommitMs": 0.007,
+						"presentationPrepareMs": 97.3271,
+						"presentedToken": "RoadStateToken { NetworkInstance = e53d7139-29e1-4c58-91ea-c2bec0f422fe, Lineage = 459674b6-2ba9-48ff-a983-3f27769bf504, ContentRevision = 883, ChangeSequence = 4 }",
+						"publicationMs": 0.015,
+						"referenceCommitMs": 0.0008,
+						"resumeMs": 0.2261,
+						"sourceToken": "RoadStateToken { NetworkInstance = e53d7139-29e1-4c58-91ea-c2bec0f422fe, Lineage = 459674b6-2ba9-48ff-a983-3f27769bf504, ContentRevision = 881, ChangeSequence = 3 }",
+						"workerMs": 139.3358,
+						"workerQueueMs": 0.0227
+					}
+				},
+				{
+					"operation": "delete-undo-api",
+					"timings": {
+						"domainMs": 17.1825,
+						"inputToDrawMs": 193.4611,
+						"phase": "Drawn",
+						"preflightMs": 48.614,
+						"presentationCommitMs": 0.0074,
+						"presentationPrepareMs": 124.8481,
+						"presentedToken": "RoadStateToken { NetworkInstance = e53d7139-29e1-4c58-91ea-c2bec0f422fe, Lineage = 459674b6-2ba9-48ff-a983-3f27769bf504, ContentRevision = 881, ChangeSequence = 5 }",
+						"publicationMs": 0.0163,
+						"referenceCommitMs": 0.0008,
+						"resumeMs": 0.2614,
+						"sourceToken": "RoadStateToken { NetworkInstance = e53d7139-29e1-4c58-91ea-c2bec0f422fe, Lineage = 459674b6-2ba9-48ff-a983-3f27769bf504, ContentRevision = 883, ChangeSequence = 4 }",
+						"workerMs": 142.0306,
+						"workerQueueMs": 0.023
+					}
+				}
+			],
+			"passed": true,
+			"slot": "manual-b4e374d37f684891bcd77acdfeb56537"
+		},
+		{
+			"cell": 50,
+			"expectedEdges": 10000,
+			"fixture": {
+				"cell": 50,
+				"edges": 10000,
+				"historyEntries": 0,
+				"indices": 163704,
+				"nodes": 3921,
+				"points": 20320,
+				"surfacePieces": 44248,
+				"vertices": 143064
+			},
+			"name": "cell-50-target",
+			"operations": [
+				{
+					"edgesAfter": 10000,
+					"operation": "profile",
+					"timings": {
+						"domainMs": 29.06,
+						"inputToDrawMs": 200.3811,
+						"phase": "Drawn",
+						"preflightMs": 46.9488,
+						"presentationCommitMs": 0.0065,
+						"presentationPrepareMs": 117.3806,
+						"presentedToken": "RoadStateToken { NetworkInstance = 4b64dfe9-07b6-4719-b7b1-a38ebab75d42, Lineage = 3019b4de-8137-458c-bb66-12752fc9540a, ContentRevision = 882, ChangeSequence = 2 }",
+						"publicationMs": 0.0148,
+						"referenceCommitMs": 0.001,
+						"resumeMs": 5.1833,
+						"sourceToken": "RoadStateToken { NetworkInstance = 4b64dfe9-07b6-4719-b7b1-a38ebab75d42, Lineage = 3019b4de-8137-458c-bb66-12752fc9540a, ContentRevision = 881, ChangeSequence = 1 }",
+						"workerMs": 146.4406,
+						"workerQueueMs": 0.0288
+					}
+				},
+				{
+					"operation": "profile-undo-api",
+					"timings": {
+						"domainMs": 6.4999,
+						"inputToDrawMs": 119.5059,
+						"phase": "Drawn",
+						"preflightMs": 43.2687,
+						"presentationCommitMs": 0.0067,
+						"presentationPrepareMs": 64.0969,
+						"presentedToken": "RoadStateToken { NetworkInstance = 4b64dfe9-07b6-4719-b7b1-a38ebab75d42, Lineage = 3019b4de-8137-458c-bb66-12752fc9540a, ContentRevision = 881, ChangeSequence = 3 }",
+						"publicationMs": 0.0173,
+						"referenceCommitMs": 0.0012,
+						"resumeMs": 4.0651,
+						"sourceToken": "RoadStateToken { NetworkInstance = 4b64dfe9-07b6-4719-b7b1-a38ebab75d42, Lineage = 3019b4de-8137-458c-bb66-12752fc9540a, ContentRevision = 882, ChangeSequence = 2 }",
+						"workerMs": 70.5968,
+						"workerQueueMs": 0.0254
+					}
+				},
+				{
+					"edgesAfter": 9999,
+					"operation": "delete",
+					"timings": {
+						"domainMs": 36.1107,
+						"inputToDrawMs": 148.3199,
+						"phase": "Drawn",
+						"preflightMs": 54.0238,
+						"presentationCommitMs": 0.0095,
+						"presentationPrepareMs": 52.3738,
+						"presentedToken": "RoadStateToken { NetworkInstance = 4b64dfe9-07b6-4719-b7b1-a38ebab75d42, Lineage = 3019b4de-8137-458c-bb66-12752fc9540a, ContentRevision = 883, ChangeSequence = 4 }",
+						"publicationMs": 0.0173,
+						"referenceCommitMs": 0.0013,
+						"resumeMs": 3.1773,
+						"sourceToken": "RoadStateToken { NetworkInstance = 4b64dfe9-07b6-4719-b7b1-a38ebab75d42, Lineage = 3019b4de-8137-458c-bb66-12752fc9540a, ContentRevision = 881, ChangeSequence = 3 }",
+						"workerMs": 88.4845,
+						"workerQueueMs": 0.0199
+					}
+				},
+				{
+					"operation": "delete-undo-api",
+					"timings": {
+						"domainMs": 5.8675,
+						"inputToDrawMs": 116.2958,
+						"phase": "Drawn",
+						"preflightMs": 53.1594,
+						"presentationCommitMs": 0.0107,
+						"presentationPrepareMs": 48.5199,
+						"presentedToken": "RoadStateToken { NetworkInstance = 4b64dfe9-07b6-4719-b7b1-a38ebab75d42, Lineage = 3019b4de-8137-458c-bb66-12752fc9540a, ContentRevision = 881, ChangeSequence = 5 }",
+						"publicationMs": 0.0173,
+						"referenceCommitMs": 0.001,
+						"resumeMs": 6.0501,
+						"sourceToken": "RoadStateToken { NetworkInstance = 4b64dfe9-07b6-4719-b7b1-a38ebab75d42, Lineage = 3019b4de-8137-458c-bb66-12752fc9540a, ContentRevision = 883, ChangeSequence = 4 }",
+						"workerMs": 54.3874,
+						"workerQueueMs": 0.0215
+					}
+				}
+			],
+			"passed": true,
+			"slot": "manual-21aeb146f7b84c7f86dadce7b8ea3b40"
+		},
+		{
+			"cell": 100,
+			"expectedEdges": 10000,
+			"fixture": {
+				"cell": 100,
+				"edges": 10000,
+				"historyEntries": 0,
+				"indices": 163704,
+				"nodes": 3921,
+				"points": 20320,
+				"surfacePieces": 44248,
+				"vertices": 143064
+			},
+			"name": "cell-100-target",
+			"operations": [
+				{
+					"edgesAfter": 10000,
+					"operation": "profile",
+					"timings": {
+						"domainMs": 18.6492,
+						"inputToDrawMs": 137.3811,
+						"phase": "Drawn",
+						"preflightMs": 56.0676,
+						"presentationCommitMs": 0.0082,
+						"presentationPrepareMs": 56.1151,
+						"presentedToken": "RoadStateToken { NetworkInstance = b77d2733-2e8f-4084-b5f1-f77c437cc0e3, Lineage = f3b7ef55-c6c1-4594-8b7a-f969444f5f72, ContentRevision = 882, ChangeSequence = 2 }",
+						"publicationMs": 0.0143,
+						"referenceCommitMs": 0.0008,
+						"resumeMs": 4.8674,
+						"sourceToken": "RoadStateToken { NetworkInstance = b77d2733-2e8f-4084-b5f1-f77c437cc0e3, Lineage = f3b7ef55-c6c1-4594-8b7a-f969444f5f72, ContentRevision = 881, ChangeSequence = 1 }",
+						"workerMs": 74.7643,
+						"workerQueueMs": 0.0224
+					}
+				},
+				{
+					"operation": "profile-undo-api",
+					"timings": {
+						"domainMs": 5.1063,
+						"inputToDrawMs": 111.1763,
+						"phase": "Drawn",
+						"preflightMs": 56.6774,
+						"presentationCommitMs": 0.0068,
+						"presentationPrepareMs": 45.2405,
+						"presentedToken": "RoadStateToken { NetworkInstance = b77d2733-2e8f-4084-b5f1-f77c437cc0e3, Lineage = f3b7ef55-c6c1-4594-8b7a-f969444f5f72, ContentRevision = 881, ChangeSequence = 3 }",
+						"publicationMs": 0.0126,
+						"referenceCommitMs": 0.0008,
+						"resumeMs": 2.4713,
+						"sourceToken": "RoadStateToken { NetworkInstance = b77d2733-2e8f-4084-b5f1-f77c437cc0e3, Lineage = f3b7ef55-c6c1-4594-8b7a-f969444f5f72, ContentRevision = 882, ChangeSequence = 2 }",
+						"workerMs": 50.3468,
+						"workerQueueMs": 0.0208
+					}
+				},
+				{
+					"edgesAfter": 9999,
+					"operation": "delete",
+					"timings": {
+						"domainMs": 20.7056,
+						"inputToDrawMs": 145.4677,
+						"phase": "Drawn",
+						"preflightMs": 39.976,
+						"presentationCommitMs": 0.0065,
+						"presentationPrepareMs": 82.3513,
+						"presentedToken": "RoadStateToken { NetworkInstance = b77d2733-2e8f-4084-b5f1-f77c437cc0e3, Lineage = f3b7ef55-c6c1-4594-8b7a-f969444f5f72, ContentRevision = 883, ChangeSequence = 4 }",
+						"publicationMs": 0.0128,
+						"referenceCommitMs": 0.001,
+						"resumeMs": 0.3456,
+						"sourceToken": "RoadStateToken { NetworkInstance = b77d2733-2e8f-4084-b5f1-f77c437cc0e3, Lineage = f3b7ef55-c6c1-4594-8b7a-f969444f5f72, ContentRevision = 881, ChangeSequence = 3 }",
+						"workerMs": 103.0569,
+						"workerQueueMs": 0.0198
+					}
+				},
+				{
+					"operation": "delete-undo-api",
+					"timings": {
+						"domainMs": 6.4708,
+						"inputToDrawMs": 135.606,
+						"phase": "Drawn",
+						"preflightMs": 59.8781,
+						"presentationCommitMs": 0.0067,
+						"presentationPrepareMs": 63.856,
+						"presentedToken": "RoadStateToken { NetworkInstance = b77d2733-2e8f-4084-b5f1-f77c437cc0e3, Lineage = f3b7ef55-c6c1-4594-8b7a-f969444f5f72, ContentRevision = 881, ChangeSequence = 5 }",
+						"publicationMs": 0.0139,
+						"referenceCommitMs": 0.0011,
+						"resumeMs": 2.1614,
+						"sourceToken": "RoadStateToken { NetworkInstance = b77d2733-2e8f-4084-b5f1-f77c437cc0e3, Lineage = f3b7ef55-c6c1-4594-8b7a-f969444f5f72, ContentRevision = 883, ChangeSequence = 4 }",
+						"workerMs": 70.3268,
+						"workerQueueMs": 0.0256
+					}
+				}
+			],
+			"passed": true,
+			"slot": "manual-d4b16eb2310d4ce094815585ae789f6a"
+		},
+		{
+			"cell": 200,
+			"expectedEdges": 9680,
+			"fixture": {
+				"cell": 200,
+				"edges": 9680,
+				"historyEntries": 0,
+				"indices": 156024,
+				"nodes": 3281,
+				"points": 19360,
+				"surfacePieces": 42328,
+				"vertices": 136664
+			},
+			"name": "cell-200-target",
+			"operations": [
+				{
+					"edgesAfter": 9680,
+					"operation": "profile",
+					"timings": {
+						"domainMs": 24.9717,
+						"inputToDrawMs": 167.3297,
+						"phase": "Drawn",
+						"preflightMs": 77.9767,
+						"presentationCommitMs": 0.0094,
+						"presentationPrepareMs": 55.9295,
+						"presentedToken": "RoadStateToken { NetworkInstance = 1127b2eb-3224-44e7-ba14-58a83466b6e4, Lineage = 8fc134c5-c820-4c57-9c96-c9528f3a41b6, ContentRevision = 242, ChangeSequence = 2 }",
+						"publicationMs": 0.018,
+						"referenceCommitMs": 0.001,
+						"resumeMs": 5.9295,
+						"sourceToken": "RoadStateToken { NetworkInstance = 1127b2eb-3224-44e7-ba14-58a83466b6e4, Lineage = 8fc134c5-c820-4c57-9c96-c9528f3a41b6, ContentRevision = 241, ChangeSequence = 1 }",
+						"workerMs": 80.9012,
+						"workerQueueMs": 0.0224
+					}
+				},
+				{
+					"operation": "profile-undo-api",
+					"timings": {
+						"domainMs": 5.9381,
+						"inputToDrawMs": 170.3922,
+						"phase": "Drawn",
+						"preflightMs": 73.6017,
+						"presentationCommitMs": 0.0109,
+						"presentationPrepareMs": 87.0387,
+						"presentedToken": "RoadStateToken { NetworkInstance = 1127b2eb-3224-44e7-ba14-58a83466b6e4, Lineage = 8fc134c5-c820-4c57-9c96-c9528f3a41b6, ContentRevision = 241, ChangeSequence = 3 }",
+						"publicationMs": 0.0173,
+						"referenceCommitMs": 0.0009,
+						"resumeMs": 0.8035,
+						"sourceToken": "RoadStateToken { NetworkInstance = 1127b2eb-3224-44e7-ba14-58a83466b6e4, Lineage = 8fc134c5-c820-4c57-9c96-c9528f3a41b6, ContentRevision = 242, ChangeSequence = 2 }",
+						"workerMs": 92.9768,
+						"workerQueueMs": 0.0305
+					}
+				},
+				{
+					"edgesAfter": 9679,
+					"operation": "delete",
+					"timings": {
+						"domainMs": 39.5897,
+						"inputToDrawMs": 162.8647,
+						"phase": "Drawn",
+						"preflightMs": 49.9396,
+						"presentationCommitMs": 0.0128,
+						"presentationPrepareMs": 69.9011,
+						"presentedToken": "RoadStateToken { NetworkInstance = 1127b2eb-3224-44e7-ba14-58a83466b6e4, Lineage = 8fc134c5-c820-4c57-9c96-c9528f3a41b6, ContentRevision = 243, ChangeSequence = 4 }",
+						"publicationMs": 0.0218,
+						"referenceCommitMs": 0.0011,
+						"resumeMs": 0.7353,
+						"sourceToken": "RoadStateToken { NetworkInstance = 1127b2eb-3224-44e7-ba14-58a83466b6e4, Lineage = 8fc134c5-c820-4c57-9c96-c9528f3a41b6, ContentRevision = 241, ChangeSequence = 3 }",
+						"workerMs": 109.4908,
+						"workerQueueMs": 0.0216
+					}
+				},
+				{
+					"operation": "delete-undo-api",
+					"timings": {
+						"domainMs": 33.247,
+						"inputToDrawMs": 183.6537,
+						"phase": "Drawn",
+						"preflightMs": 81.0799,
+						"presentationCommitMs": 0.0109,
+						"presentationPrepareMs": 63.9721,
+						"presentedToken": "RoadStateToken { NetworkInstance = 1127b2eb-3224-44e7-ba14-58a83466b6e4, Lineage = 8fc134c5-c820-4c57-9c96-c9528f3a41b6, ContentRevision = 241, ChangeSequence = 5 }",
+						"publicationMs": 0.0182,
+						"referenceCommitMs": 0.0013,
+						"resumeMs": 2.8503,
+						"sourceToken": "RoadStateToken { NetworkInstance = 1127b2eb-3224-44e7-ba14-58a83466b6e4, Lineage = 8fc134c5-c820-4c57-9c96-c9528f3a41b6, ContentRevision = 243, ChangeSequence = 4 }",
+						"workerMs": 97.2191,
+						"workerQueueMs": 0.0214
+					}
+				}
+			],
+			"passed": true,
+			"slot": "manual-0ff9c36a958247e6a719dc9b1feb726e"
+		},
+		{
+			"cell": 200,
+			"expectedEdges": 320,
+			"fixture": {
+				"cell": 200,
+				"edges": 320,
+				"historyEntries": 0,
+				"indices": 7680,
+				"nodes": 640,
+				"points": 960,
+				"surfacePieces": 1920,
+				"vertices": 6400
+			},
+			"name": "cell-200-dense-polylines",
+			"operations": [
+				{
+					"edgesAfter": 321,
+					"operation": "profile",
+					"timings": {
+						"domainMs": 1.9969,
+						"inputToDrawMs": 15.0687,
+						"phase": "Drawn",
+						"preflightMs": 4.1212,
+						"presentationCommitMs": 0.0028,
+						"presentationPrepareMs": 0.4759,
+						"presentedToken": "RoadStateToken { NetworkInstance = 10c1cf47-7cb6-4b03-8245-86d9b875a8da, Lineage = bf0b21af-3b51-4652-bbbb-b34d9fc33fe5, ContentRevision = 642, ChangeSequence = 2 }",
+						"publicationMs": 0.005,
+						"referenceCommitMs": 0.0004,
+						"resumeMs": 4.7869,
+						"sourceToken": "RoadStateToken { NetworkInstance = 10c1cf47-7cb6-4b03-8245-86d9b875a8da, Lineage = bf0b21af-3b51-4652-bbbb-b34d9fc33fe5, ContentRevision = 641, ChangeSequence = 1 }",
+						"workerMs": 2.4728,
+						"workerQueueMs": 0.0172
+					}
+				},
+				{
+					"operation": "profile-undo-api",
+					"timings": {
+						"domainMs": 0.6008,
+						"inputToDrawMs": 14.4466,
+						"phase": "Drawn",
+						"preflightMs": 2.4109,
+						"presentationCommitMs": 0.0016,
+						"presentationPrepareMs": 0.2891,
+						"presentedToken": "RoadStateToken { NetworkInstance = 10c1cf47-7cb6-4b03-8245-86d9b875a8da, Lineage = bf0b21af-3b51-4652-bbbb-b34d9fc33fe5, ContentRevision = 641, ChangeSequence = 3 }",
+						"publicationMs": 0.0043,
+						"referenceCommitMs": 0.0003,
+						"resumeMs": 6.2285,
+						"sourceToken": "RoadStateToken { NetworkInstance = 10c1cf47-7cb6-4b03-8245-86d9b875a8da, Lineage = bf0b21af-3b51-4652-bbbb-b34d9fc33fe5, ContentRevision = 642, ChangeSequence = 2 }",
+						"workerMs": 0.8899,
+						"workerQueueMs": 0.0117
+					}
+				},
+				{
+					"edgesAfter": 320,
+					"operation": "delete",
+					"timings": {
+						"domainMs": 1.324,
+						"inputToDrawMs": 14.7686,
+						"phase": "Drawn",
+						"preflightMs": 2.3976,
+						"presentationCommitMs": 0.0028,
+						"presentationPrepareMs": 0.2694,
+						"presentedToken": "RoadStateToken { NetworkInstance = 10c1cf47-7cb6-4b03-8245-86d9b875a8da, Lineage = bf0b21af-3b51-4652-bbbb-b34d9fc33fe5, ContentRevision = 643, ChangeSequence = 4 }",
+						"publicationMs": 0.0047,
+						"referenceCommitMs": 0.0003,
+						"resumeMs": 5.7226,
+						"sourceToken": "RoadStateToken { NetworkInstance = 10c1cf47-7cb6-4b03-8245-86d9b875a8da, Lineage = bf0b21af-3b51-4652-bbbb-b34d9fc33fe5, ContentRevision = 641, ChangeSequence = 3 }",
+						"workerMs": 1.5934,
+						"workerQueueMs": 0.0134
+					}
+				},
+				{
+					"operation": "delete-undo-api",
+					"timings": {
+						"domainMs": 0.4149,
+						"inputToDrawMs": 21.4504,
+						"phase": "Drawn",
+						"preflightMs": 19.1532,
+						"presentationCommitMs": 0.0065,
+						"presentationPrepareMs": 0.2707,
+						"presentedToken": "RoadStateToken { NetworkInstance = 10c1cf47-7cb6-4b03-8245-86d9b875a8da, Lineage = bf0b21af-3b51-4652-bbbb-b34d9fc33fe5, ContentRevision = 641, ChangeSequence = 5 }",
+						"publicationMs": 0.0132,
+						"referenceCommitMs": 0.0008,
+						"resumeMs": 0.0449,
+						"sourceToken": "RoadStateToken { NetworkInstance = 10c1cf47-7cb6-4b03-8245-86d9b875a8da, Lineage = bf0b21af-3b51-4652-bbbb-b34d9fc33fe5, ContentRevision = 643, ChangeSequence = 4 }",
+						"workerMs": 0.6856,
+						"workerQueueMs": 0.0114
+					}
+				}
+			],
+			"passed": true,
+			"slot": "manual-c414bf0f4ace4dd4b86970809f7de3f9"
+		}
+	],
+	"passed": true,
+	"remainingSlot": "",
+	"renderingDriver": "vulkan",
+	"renderingMethod": "forward_plus",
+	"rows": [
+		{
+			"details": null,
+			"name": "cell-25-target_file_exists",
+			"passed": true
+		},
+		{
+			"details": {
+				"error": ""
+			},
+			"name": "cell-25-target_fixture_loaded",
+			"passed": true
+		},
+		{
+			"details": {
+				"cell": 25,
+				"edges": 10000
+			},
+			"name": "cell-25-target_fixture_current",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-25-target_profile_mode",
+			"passed": true
+		},
+		{
+			"details": {
+				"pick": {
+					"edgeId": 944,
+					"junctionNodeId": 0,
+					"parameter": 0.5,
+					"profile": "street",
+					"sourceToken": "RoadStateToken { NetworkInstance = e53d7139-29e1-4c58-91ea-c2bec0f422fe, Lineage = 459674b6-2ba9-48ff-a983-3f27769bf504, ContentRevision = 881, ChangeSequence = 1 }",
+					"surfaceCenter": "(12.5, 0.0)"
+				},
+				"query": {
+					"bucketsVisited": 1,
+					"exactGeometryTests": 5,
+					"fragmentCandidates": 624,
+					"fullEdgeVisits": 0,
+					"hits": 1,
+					"reason": "",
+					"sourceToken": "RoadStateToken { NetworkInstance = e53d7139-29e1-4c58-91ea-c2bec0f422fe, Lineage = 459674b6-2ba9-48ff-a983-3f27769bf504, ContentRevision = 881, ChangeSequence = 1 }",
+					"status": "Ready"
+				},
+				"screen": "(1000.0, 450.0)",
+				"selection": {
+					"hasHover": true,
+					"mode": "ChangeProfile",
+					"selectedCount": 1,
+					"selecting": true,
+					"sourceToken": "RoadStateToken { NetworkInstance = e53d7139-29e1-4c58-91ea-c2bec0f422fe, Lineage = 459674b6-2ba9-48ff-a983-3f27769bf504, ContentRevision = 881, ChangeSequence = 1 }",
+					"strokes": [
+						{
+							"color": "(1.0, 0.78, 0.25, 0.68)",
+							"edgeId": 944,
+							"points": "[(0.0, 0.0), (25.0, 0.0)]",
+							"ranges": [
+								{
+									"endParameter": 1.0,
+									"startParameter": 0.0
+								}
+							],
+							"selected": true,
+							"sourceToken": "RoadStateToken { NetworkInstance = e53d7139-29e1-4c58-91ea-c2bec0f422fe, Lineage = 459674b6-2ba9-48ff-a983-3f27769bf504, ContentRevision = 881, ChangeSequence = 1 }",
+							"width": 9.60000038146973
+						}
+					]
+				},
+				"world": "(12.5, 0.0)"
+			},
+			"name": "cell-25-target_profile_one_span_selected",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-25-target_profile_drawn",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-25-target_profile_changed",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-25-target_profile_undo_accepted",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-25-target_profile_undo_drawn",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-25-target_delete_mode",
+			"passed": true
+		},
+		{
+			"details": {
+				"pick": {
+					"edgeId": 944,
+					"junctionNodeId": 0,
+					"parameter": 0.5,
+					"profile": "street",
+					"sourceToken": "RoadStateToken { NetworkInstance = e53d7139-29e1-4c58-91ea-c2bec0f422fe, Lineage = 459674b6-2ba9-48ff-a983-3f27769bf504, ContentRevision = 881, ChangeSequence = 3 }",
+					"surfaceCenter": "(12.5, 0.0)"
+				},
+				"query": {
+					"bucketsVisited": 1,
+					"exactGeometryTests": 5,
+					"fragmentCandidates": 624,
+					"fullEdgeVisits": 0,
+					"hits": 1,
+					"reason": "",
+					"sourceToken": "RoadStateToken { NetworkInstance = e53d7139-29e1-4c58-91ea-c2bec0f422fe, Lineage = 459674b6-2ba9-48ff-a983-3f27769bf504, ContentRevision = 881, ChangeSequence = 3 }",
+					"status": "Ready"
+				},
+				"screen": "(1000.0, 450.0)",
+				"selection": {
+					"hasHover": true,
+					"mode": "Remove",
+					"selectedCount": 1,
+					"selecting": true,
+					"sourceToken": "RoadStateToken { NetworkInstance = e53d7139-29e1-4c58-91ea-c2bec0f422fe, Lineage = 459674b6-2ba9-48ff-a983-3f27769bf504, ContentRevision = 881, ChangeSequence = 3 }",
+					"strokes": [
+						{
+							"color": "(1.0, 0.78, 0.25, 0.68)",
+							"edgeId": 944,
+							"points": "[(0.0, 0.0), (25.0, 0.0)]",
+							"ranges": [
+								{
+									"endParameter": 1.0,
+									"startParameter": 0.0
+								}
+							],
+							"selected": true,
+							"sourceToken": "RoadStateToken { NetworkInstance = e53d7139-29e1-4c58-91ea-c2bec0f422fe, Lineage = 459674b6-2ba9-48ff-a983-3f27769bf504, ContentRevision = 881, ChangeSequence = 3 }",
+							"width": 9.60000038146973
+						}
+					]
+				},
+				"world": "(12.5, 0.0)"
+			},
+			"name": "cell-25-target_delete_one_span_selected",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-25-target_delete_drawn",
+			"passed": true
+		},
+		{
+			"details": {
+				"edgesAfter": 9999,
+				"pick": {}
+			},
+			"name": "cell-25-target_deleted_span_absent",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-25-target_delete_undo_accepted",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-25-target_delete_undo_drawn",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-25-target_save_as",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-25-target_saved_slot_exists",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-25-target_empty_other_cell",
+			"passed": true
+		},
+		{
+			"details": {
+				"committed": true,
+				"error": "",
+				"finalPhase": 5,
+				"operationKind": 1,
+				"operationToken": "ac99d680588c4fd8b1cfc6d766fc061f",
+				"resultKind": 0,
+				"targetSlotID": "manual-b4e374d37f684891bcd77acdfeb56537",
+				"warnings": ""
+			},
+			"name": "cell-25-target_normal_save_manager_load",
+			"passed": true
+		},
+		{
+			"details": {
+				"cell": 25,
+				"edges": 10000,
+				"history": {
+					"changeSequence": 1,
+					"contentRevision": 881,
+					"estimatedRetainedBytes": 0,
+					"nextEdgeId": 10001,
+					"nextNodeId": 4246,
+					"redoCount": 0,
+					"retainedCount": 0,
+					"sourceToken": "RoadStateToken { NetworkInstance = 3ae49340-97a9-4d3f-8e30-b790a5682ae7, Lineage = d3dcf48d-887e-489d-85ae-fef1237fcd5c, ContentRevision = 881, ChangeSequence = 1 }",
+					"undoCount": 0
+				}
+			},
+			"name": "cell-25-target_loaded_current_and_empty_history",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-25-target_slot_deleted",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-50-target_file_exists",
+			"passed": true
+		},
+		{
+			"details": {
+				"error": ""
+			},
+			"name": "cell-50-target_fixture_loaded",
+			"passed": true
+		},
+		{
+			"details": {
+				"cell": 50,
+				"edges": 10000
+			},
+			"name": "cell-50-target_fixture_current",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-50-target_profile_mode",
+			"passed": true
+		},
+		{
+			"details": {
+				"pick": {
+					"edgeId": 944,
+					"junctionNodeId": 0,
+					"parameter": 0.5,
+					"profile": "street",
+					"sourceToken": "RoadStateToken { NetworkInstance = 4b64dfe9-07b6-4719-b7b1-a38ebab75d42, Lineage = 3019b4de-8137-458c-bb66-12752fc9540a, ContentRevision = 881, ChangeSequence = 1 }",
+					"surfaceCenter": "(25.0, 0.0)"
+				},
+				"query": {
+					"bucketsVisited": 1,
+					"exactGeometryTests": 5,
+					"fragmentCandidates": 220,
+					"fullEdgeVisits": 0,
+					"hits": 1,
+					"reason": "",
+					"sourceToken": "RoadStateToken { NetworkInstance = 4b64dfe9-07b6-4719-b7b1-a38ebab75d42, Lineage = 3019b4de-8137-458c-bb66-12752fc9540a, ContentRevision = 881, ChangeSequence = 1 }",
+					"status": "Ready"
+				},
+				"screen": "(1000.0, 450.0)",
+				"selection": {
+					"hasHover": true,
+					"mode": "ChangeProfile",
+					"selectedCount": 1,
+					"selecting": true,
+					"sourceToken": "RoadStateToken { NetworkInstance = 4b64dfe9-07b6-4719-b7b1-a38ebab75d42, Lineage = 3019b4de-8137-458c-bb66-12752fc9540a, ContentRevision = 881, ChangeSequence = 1 }",
+					"strokes": [
+						{
+							"color": "(1.0, 0.78, 0.25, 0.68)",
+							"edgeId": 944,
+							"points": "[(0.0, 0.0), (50.0, 0.0)]",
+							"ranges": [
+								{
+									"endParameter": 1.0,
+									"startParameter": 0.0
+								}
+							],
+							"selected": true,
+							"sourceToken": "RoadStateToken { NetworkInstance = 4b64dfe9-07b6-4719-b7b1-a38ebab75d42, Lineage = 3019b4de-8137-458c-bb66-12752fc9540a, ContentRevision = 881, ChangeSequence = 1 }",
+							"width": 9.60000038146973
+						}
+					]
+				},
+				"world": "(25.0, 0.0)"
+			},
+			"name": "cell-50-target_profile_one_span_selected",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-50-target_profile_drawn",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-50-target_profile_changed",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-50-target_profile_undo_accepted",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-50-target_profile_undo_drawn",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-50-target_delete_mode",
+			"passed": true
+		},
+		{
+			"details": {
+				"pick": {
+					"edgeId": 944,
+					"junctionNodeId": 0,
+					"parameter": 0.5,
+					"profile": "street",
+					"sourceToken": "RoadStateToken { NetworkInstance = 4b64dfe9-07b6-4719-b7b1-a38ebab75d42, Lineage = 3019b4de-8137-458c-bb66-12752fc9540a, ContentRevision = 881, ChangeSequence = 3 }",
+					"surfaceCenter": "(25.0, 0.0)"
+				},
+				"query": {
+					"bucketsVisited": 1,
+					"exactGeometryTests": 5,
+					"fragmentCandidates": 220,
+					"fullEdgeVisits": 0,
+					"hits": 1,
+					"reason": "",
+					"sourceToken": "RoadStateToken { NetworkInstance = 4b64dfe9-07b6-4719-b7b1-a38ebab75d42, Lineage = 3019b4de-8137-458c-bb66-12752fc9540a, ContentRevision = 881, ChangeSequence = 3 }",
+					"status": "Ready"
+				},
+				"screen": "(1000.0, 450.0)",
+				"selection": {
+					"hasHover": true,
+					"mode": "Remove",
+					"selectedCount": 1,
+					"selecting": true,
+					"sourceToken": "RoadStateToken { NetworkInstance = 4b64dfe9-07b6-4719-b7b1-a38ebab75d42, Lineage = 3019b4de-8137-458c-bb66-12752fc9540a, ContentRevision = 881, ChangeSequence = 3 }",
+					"strokes": [
+						{
+							"color": "(1.0, 0.78, 0.25, 0.68)",
+							"edgeId": 944,
+							"points": "[(0.0, 0.0), (50.0, 0.0)]",
+							"ranges": [
+								{
+									"endParameter": 1.0,
+									"startParameter": 0.0
+								}
+							],
+							"selected": true,
+							"sourceToken": "RoadStateToken { NetworkInstance = 4b64dfe9-07b6-4719-b7b1-a38ebab75d42, Lineage = 3019b4de-8137-458c-bb66-12752fc9540a, ContentRevision = 881, ChangeSequence = 3 }",
+							"width": 9.60000038146973
+						}
+					]
+				},
+				"world": "(25.0, 0.0)"
+			},
+			"name": "cell-50-target_delete_one_span_selected",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-50-target_delete_drawn",
+			"passed": true
+		},
+		{
+			"details": {
+				"edgesAfter": 9999,
+				"pick": {}
+			},
+			"name": "cell-50-target_deleted_span_absent",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-50-target_delete_undo_accepted",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-50-target_delete_undo_drawn",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-50-target_save_as",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-50-target_saved_slot_exists",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-50-target_empty_other_cell",
+			"passed": true
+		},
+		{
+			"details": {
+				"committed": true,
+				"error": "",
+				"finalPhase": 5,
+				"operationKind": 1,
+				"operationToken": "efd48a1f5b0d44dcae30866a37701f79",
+				"resultKind": 0,
+				"targetSlotID": "manual-21aeb146f7b84c7f86dadce7b8ea3b40",
+				"warnings": ""
+			},
+			"name": "cell-50-target_normal_save_manager_load",
+			"passed": true
+		},
+		{
+			"details": {
+				"cell": 50,
+				"edges": 10000,
+				"history": {
+					"changeSequence": 1,
+					"contentRevision": 881,
+					"estimatedRetainedBytes": 0,
+					"nextEdgeId": 10001,
+					"nextNodeId": 4246,
+					"redoCount": 0,
+					"retainedCount": 0,
+					"sourceToken": "RoadStateToken { NetworkInstance = 424b7a87-85f4-4d81-94c3-e4bdd1675c09, Lineage = 323361b0-8716-4d02-b7f6-d6a967893810, ContentRevision = 881, ChangeSequence = 1 }",
+					"undoCount": 0
+				}
+			},
+			"name": "cell-50-target_loaded_current_and_empty_history",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-50-target_slot_deleted",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-100-target_file_exists",
+			"passed": true
+		},
+		{
+			"details": {
+				"error": ""
+			},
+			"name": "cell-100-target_fixture_loaded",
+			"passed": true
+		},
+		{
+			"details": {
+				"cell": 100,
+				"edges": 10000
+			},
+			"name": "cell-100-target_fixture_current",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-100-target_profile_mode",
+			"passed": true
+		},
+		{
+			"details": {
+				"pick": {
+					"edgeId": 944,
+					"junctionNodeId": 0,
+					"parameter": 0.5,
+					"profile": "street",
+					"sourceToken": "RoadStateToken { NetworkInstance = b77d2733-2e8f-4084-b5f1-f77c437cc0e3, Lineage = f3b7ef55-c6c1-4594-8b7a-f969444f5f72, ContentRevision = 881, ChangeSequence = 1 }",
+					"surfaceCenter": "(50.0, 0.0)"
+				},
+				"query": {
+					"bucketsVisited": 1,
+					"exactGeometryTests": 5,
+					"fragmentCandidates": 96,
+					"fullEdgeVisits": 0,
+					"hits": 1,
+					"reason": "",
+					"sourceToken": "RoadStateToken { NetworkInstance = b77d2733-2e8f-4084-b5f1-f77c437cc0e3, Lineage = f3b7ef55-c6c1-4594-8b7a-f969444f5f72, ContentRevision = 881, ChangeSequence = 1 }",
+					"status": "Ready"
+				},
+				"screen": "(1000.0, 450.0)",
+				"selection": {
+					"hasHover": true,
+					"mode": "ChangeProfile",
+					"selectedCount": 1,
+					"selecting": true,
+					"sourceToken": "RoadStateToken { NetworkInstance = b77d2733-2e8f-4084-b5f1-f77c437cc0e3, Lineage = f3b7ef55-c6c1-4594-8b7a-f969444f5f72, ContentRevision = 881, ChangeSequence = 1 }",
+					"strokes": [
+						{
+							"color": "(1.0, 0.78, 0.25, 0.68)",
+							"edgeId": 944,
+							"points": "[(0.0, 0.0), (100.0, 0.0)]",
+							"ranges": [
+								{
+									"endParameter": 1.0,
+									"startParameter": 0.0
+								}
+							],
+							"selected": true,
+							"sourceToken": "RoadStateToken { NetworkInstance = b77d2733-2e8f-4084-b5f1-f77c437cc0e3, Lineage = f3b7ef55-c6c1-4594-8b7a-f969444f5f72, ContentRevision = 881, ChangeSequence = 1 }",
+							"width": 9.60000038146973
+						}
+					]
+				},
+				"world": "(50.0, 0.0)"
+			},
+			"name": "cell-100-target_profile_one_span_selected",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-100-target_profile_drawn",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-100-target_profile_changed",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-100-target_profile_undo_accepted",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-100-target_profile_undo_drawn",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-100-target_delete_mode",
+			"passed": true
+		},
+		{
+			"details": {
+				"pick": {
+					"edgeId": 944,
+					"junctionNodeId": 0,
+					"parameter": 0.5,
+					"profile": "street",
+					"sourceToken": "RoadStateToken { NetworkInstance = b77d2733-2e8f-4084-b5f1-f77c437cc0e3, Lineage = f3b7ef55-c6c1-4594-8b7a-f969444f5f72, ContentRevision = 881, ChangeSequence = 3 }",
+					"surfaceCenter": "(50.0, 0.0)"
+				},
+				"query": {
+					"bucketsVisited": 1,
+					"exactGeometryTests": 5,
+					"fragmentCandidates": 96,
+					"fullEdgeVisits": 0,
+					"hits": 1,
+					"reason": "",
+					"sourceToken": "RoadStateToken { NetworkInstance = b77d2733-2e8f-4084-b5f1-f77c437cc0e3, Lineage = f3b7ef55-c6c1-4594-8b7a-f969444f5f72, ContentRevision = 881, ChangeSequence = 3 }",
+					"status": "Ready"
+				},
+				"screen": "(1000.0, 450.0)",
+				"selection": {
+					"hasHover": true,
+					"mode": "Remove",
+					"selectedCount": 1,
+					"selecting": true,
+					"sourceToken": "RoadStateToken { NetworkInstance = b77d2733-2e8f-4084-b5f1-f77c437cc0e3, Lineage = f3b7ef55-c6c1-4594-8b7a-f969444f5f72, ContentRevision = 881, ChangeSequence = 3 }",
+					"strokes": [
+						{
+							"color": "(1.0, 0.78, 0.25, 0.68)",
+							"edgeId": 944,
+							"points": "[(0.0, 0.0), (100.0, 0.0)]",
+							"ranges": [
+								{
+									"endParameter": 1.0,
+									"startParameter": 0.0
+								}
+							],
+							"selected": true,
+							"sourceToken": "RoadStateToken { NetworkInstance = b77d2733-2e8f-4084-b5f1-f77c437cc0e3, Lineage = f3b7ef55-c6c1-4594-8b7a-f969444f5f72, ContentRevision = 881, ChangeSequence = 3 }",
+							"width": 9.60000038146973
+						}
+					]
+				},
+				"world": "(50.0, 0.0)"
+			},
+			"name": "cell-100-target_delete_one_span_selected",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-100-target_delete_drawn",
+			"passed": true
+		},
+		{
+			"details": {
+				"edgesAfter": 9999,
+				"pick": {}
+			},
+			"name": "cell-100-target_deleted_span_absent",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-100-target_delete_undo_accepted",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-100-target_delete_undo_drawn",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-100-target_save_as",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-100-target_saved_slot_exists",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-100-target_empty_other_cell",
+			"passed": true
+		},
+		{
+			"details": {
+				"committed": true,
+				"error": "",
+				"finalPhase": 5,
+				"operationKind": 1,
+				"operationToken": "b9aab156c97842558dcf5e111de88227",
+				"resultKind": 0,
+				"targetSlotID": "manual-d4b16eb2310d4ce094815585ae789f6a",
+				"warnings": ""
+			},
+			"name": "cell-100-target_normal_save_manager_load",
+			"passed": true
+		},
+		{
+			"details": {
+				"cell": 100,
+				"edges": 10000,
+				"history": {
+					"changeSequence": 1,
+					"contentRevision": 881,
+					"estimatedRetainedBytes": 0,
+					"nextEdgeId": 10001,
+					"nextNodeId": 4246,
+					"redoCount": 0,
+					"retainedCount": 0,
+					"sourceToken": "RoadStateToken { NetworkInstance = f89531dc-bc8e-4aa6-ae5c-0c262bd4a47d, Lineage = 841016ad-a15c-4c07-be36-c411fd6b1ba3, ContentRevision = 881, ChangeSequence = 1 }",
+					"undoCount": 0
+				}
+			},
+			"name": "cell-100-target_loaded_current_and_empty_history",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-100-target_slot_deleted",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-200-target_file_exists",
+			"passed": true
+		},
+		{
+			"details": {
+				"error": ""
+			},
+			"name": "cell-200-target_fixture_loaded",
+			"passed": true
+		},
+		{
+			"details": {
+				"cell": 200,
+				"edges": 9680
+			},
+			"name": "cell-200-target_fixture_current",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-200-target_profile_mode",
+			"passed": true
+		},
+		{
+			"details": {
+				"pick": {
+					"edgeId": 944,
+					"junctionNodeId": 0,
+					"parameter": 0.5,
+					"profile": "street",
+					"sourceToken": "RoadStateToken { NetworkInstance = 1127b2eb-3224-44e7-ba14-58a83466b6e4, Lineage = 8fc134c5-c820-4c57-9c96-c9528f3a41b6, ContentRevision = 241, ChangeSequence = 1 }",
+					"surfaceCenter": "(100.0, 0.0)"
+				},
+				"query": {
+					"bucketsVisited": 1,
+					"exactGeometryTests": 1,
+					"fragmentCandidates": 34,
+					"fullEdgeVisits": 0,
+					"hits": 1,
+					"reason": "",
+					"sourceToken": "RoadStateToken { NetworkInstance = 1127b2eb-3224-44e7-ba14-58a83466b6e4, Lineage = 8fc134c5-c820-4c57-9c96-c9528f3a41b6, ContentRevision = 241, ChangeSequence = 1 }",
+					"status": "Ready"
+				},
+				"screen": "(1000.0, 450.0)",
+				"selection": {
+					"hasHover": true,
+					"mode": "ChangeProfile",
+					"selectedCount": 1,
+					"selecting": true,
+					"sourceToken": "RoadStateToken { NetworkInstance = 1127b2eb-3224-44e7-ba14-58a83466b6e4, Lineage = 8fc134c5-c820-4c57-9c96-c9528f3a41b6, ContentRevision = 241, ChangeSequence = 1 }",
+					"strokes": [
+						{
+							"color": "(1.0, 0.78, 0.25, 0.68)",
+							"edgeId": 944,
+							"points": "[(0.0, 0.0), (200.0, 0.0)]",
+							"ranges": [
+								{
+									"endParameter": 1.0,
+									"startParameter": 0.0
+								}
+							],
+							"selected": true,
+							"sourceToken": "RoadStateToken { NetworkInstance = 1127b2eb-3224-44e7-ba14-58a83466b6e4, Lineage = 8fc134c5-c820-4c57-9c96-c9528f3a41b6, ContentRevision = 241, ChangeSequence = 1 }",
+							"width": 9.60000038146973
+						}
+					]
+				},
+				"world": "(100.0, 0.0)"
+			},
+			"name": "cell-200-target_profile_one_span_selected",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-200-target_profile_drawn",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-200-target_profile_changed",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-200-target_profile_undo_accepted",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-200-target_profile_undo_drawn",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-200-target_delete_mode",
+			"passed": true
+		},
+		{
+			"details": {
+				"pick": {
+					"edgeId": 944,
+					"junctionNodeId": 0,
+					"parameter": 0.5,
+					"profile": "street",
+					"sourceToken": "RoadStateToken { NetworkInstance = 1127b2eb-3224-44e7-ba14-58a83466b6e4, Lineage = 8fc134c5-c820-4c57-9c96-c9528f3a41b6, ContentRevision = 241, ChangeSequence = 3 }",
+					"surfaceCenter": "(100.0, 0.0)"
+				},
+				"query": {
+					"bucketsVisited": 1,
+					"exactGeometryTests": 1,
+					"fragmentCandidates": 34,
+					"fullEdgeVisits": 0,
+					"hits": 1,
+					"reason": "",
+					"sourceToken": "RoadStateToken { NetworkInstance = 1127b2eb-3224-44e7-ba14-58a83466b6e4, Lineage = 8fc134c5-c820-4c57-9c96-c9528f3a41b6, ContentRevision = 241, ChangeSequence = 3 }",
+					"status": "Ready"
+				},
+				"screen": "(1000.0, 450.0)",
+				"selection": {
+					"hasHover": true,
+					"mode": "Remove",
+					"selectedCount": 1,
+					"selecting": true,
+					"sourceToken": "RoadStateToken { NetworkInstance = 1127b2eb-3224-44e7-ba14-58a83466b6e4, Lineage = 8fc134c5-c820-4c57-9c96-c9528f3a41b6, ContentRevision = 241, ChangeSequence = 3 }",
+					"strokes": [
+						{
+							"color": "(1.0, 0.78, 0.25, 0.68)",
+							"edgeId": 944,
+							"points": "[(0.0, 0.0), (200.0, 0.0)]",
+							"ranges": [
+								{
+									"endParameter": 1.0,
+									"startParameter": 0.0
+								}
+							],
+							"selected": true,
+							"sourceToken": "RoadStateToken { NetworkInstance = 1127b2eb-3224-44e7-ba14-58a83466b6e4, Lineage = 8fc134c5-c820-4c57-9c96-c9528f3a41b6, ContentRevision = 241, ChangeSequence = 3 }",
+							"width": 9.60000038146973
+						}
+					]
+				},
+				"world": "(100.0, 0.0)"
+			},
+			"name": "cell-200-target_delete_one_span_selected",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-200-target_delete_drawn",
+			"passed": true
+		},
+		{
+			"details": {
+				"edgesAfter": 9679,
+				"pick": {}
+			},
+			"name": "cell-200-target_deleted_span_absent",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-200-target_delete_undo_accepted",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-200-target_delete_undo_drawn",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-200-target_save_as",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-200-target_saved_slot_exists",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-200-target_empty_other_cell",
+			"passed": true
+		},
+		{
+			"details": {
+				"committed": true,
+				"error": "",
+				"finalPhase": 5,
+				"operationKind": 1,
+				"operationToken": "cb45381eb72843e0969e90d53e63449e",
+				"resultKind": 0,
+				"targetSlotID": "manual-0ff9c36a958247e6a719dc9b1feb726e",
+				"warnings": ""
+			},
+			"name": "cell-200-target_normal_save_manager_load",
+			"passed": true
+		},
+		{
+			"details": {
+				"cell": 200,
+				"edges": 9680,
+				"history": {
+					"changeSequence": 1,
+					"contentRevision": 241,
+					"estimatedRetainedBytes": 0,
+					"nextEdgeId": 9681,
+					"nextNodeId": 3286,
+					"redoCount": 0,
+					"retainedCount": 0,
+					"sourceToken": "RoadStateToken { NetworkInstance = e01f2729-6d4f-44f1-9b9e-fa0f5e40d0c4, Lineage = 11f55650-afc4-4642-8643-8594a62e100f, ContentRevision = 241, ChangeSequence = 1 }",
+					"undoCount": 0
+				}
+			},
+			"name": "cell-200-target_loaded_current_and_empty_history",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-200-target_slot_deleted",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-200-dense-polylines_file_exists",
+			"passed": true
+		},
+		{
+			"details": {
+				"error": ""
+			},
+			"name": "cell-200-dense-polylines_fixture_loaded",
+			"passed": true
+		},
+		{
+			"details": {
+				"cell": 200,
+				"edges": 320
+			},
+			"name": "cell-200-dense-polylines_fixture_current",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-200-dense-polylines_profile_mode",
+			"passed": true
+		},
+		{
+			"details": {
+				"pick": {
+					"edgeId": 1,
+					"junctionNodeId": 0,
+					"parameter": 0.25,
+					"profile": "street",
+					"sourceToken": "RoadStateToken { NetworkInstance = 10c1cf47-7cb6-4b03-8245-86d9b875a8da, Lineage = bf0b21af-3b51-4652-bbbb-b34d9fc33fe5, ContentRevision = 641, ChangeSequence = 1 }",
+					"surfaceCenter": "(-3900.0, -4000.0)"
+				},
+				"query": {
+					"bucketsVisited": 1,
+					"exactGeometryTests": 1,
+					"fragmentCandidates": 8,
+					"fullEdgeVisits": 0,
+					"hits": 1,
+					"reason": "",
+					"sourceToken": "RoadStateToken { NetworkInstance = 10c1cf47-7cb6-4b03-8245-86d9b875a8da, Lineage = bf0b21af-3b51-4652-bbbb-b34d9fc33fe5, ContentRevision = 641, ChangeSequence = 1 }",
+					"status": "Ready"
+				},
+				"screen": "(1000.0, 450.0)",
+				"selection": {
+					"hasHover": true,
+					"mode": "ChangeProfile",
+					"selectedCount": 1,
+					"selecting": true,
+					"sourceToken": "RoadStateToken { NetworkInstance = 10c1cf47-7cb6-4b03-8245-86d9b875a8da, Lineage = bf0b21af-3b51-4652-bbbb-b34d9fc33fe5, ContentRevision = 641, ChangeSequence = 1 }",
+					"strokes": [
+						{
+							"color": "(1.0, 0.78, 0.25, 0.68)",
+							"edgeId": 1,
+							"points": "[(-4000.0, -4000.0), (-3800.0, -4000.0)]",
+							"ranges": [
+								{
+									"endParameter": 0.5,
+									"startParameter": 0.0
+								}
+							],
+							"selected": true,
+							"sourceToken": "RoadStateToken { NetworkInstance = 10c1cf47-7cb6-4b03-8245-86d9b875a8da, Lineage = bf0b21af-3b51-4652-bbbb-b34d9fc33fe5, ContentRevision = 641, ChangeSequence = 1 }",
+							"width": 9.60000038146973
+						}
+					]
+				},
+				"world": "(-3900.0, -4000.0)"
+			},
+			"name": "cell-200-dense-polylines_profile_one_span_selected",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-200-dense-polylines_profile_drawn",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-200-dense-polylines_profile_changed",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-200-dense-polylines_profile_undo_accepted",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-200-dense-polylines_profile_undo_drawn",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-200-dense-polylines_delete_mode",
+			"passed": true
+		},
+		{
+			"details": {
+				"pick": {
+					"edgeId": 1,
+					"junctionNodeId": 0,
+					"parameter": 0.25,
+					"profile": "street",
+					"sourceToken": "RoadStateToken { NetworkInstance = 10c1cf47-7cb6-4b03-8245-86d9b875a8da, Lineage = bf0b21af-3b51-4652-bbbb-b34d9fc33fe5, ContentRevision = 641, ChangeSequence = 3 }",
+					"surfaceCenter": "(-3900.0, -4000.0)"
+				},
+				"query": {
+					"bucketsVisited": 1,
+					"exactGeometryTests": 1,
+					"fragmentCandidates": 8,
+					"fullEdgeVisits": 0,
+					"hits": 1,
+					"reason": "",
+					"sourceToken": "RoadStateToken { NetworkInstance = 10c1cf47-7cb6-4b03-8245-86d9b875a8da, Lineage = bf0b21af-3b51-4652-bbbb-b34d9fc33fe5, ContentRevision = 641, ChangeSequence = 3 }",
+					"status": "Ready"
+				},
+				"screen": "(1000.0, 450.0)",
+				"selection": {
+					"hasHover": true,
+					"mode": "Remove",
+					"selectedCount": 1,
+					"selecting": true,
+					"sourceToken": "RoadStateToken { NetworkInstance = 10c1cf47-7cb6-4b03-8245-86d9b875a8da, Lineage = bf0b21af-3b51-4652-bbbb-b34d9fc33fe5, ContentRevision = 641, ChangeSequence = 3 }",
+					"strokes": [
+						{
+							"color": "(1.0, 0.78, 0.25, 0.68)",
+							"edgeId": 1,
+							"points": "[(-4000.0, -4000.0), (-3800.0, -4000.0)]",
+							"ranges": [
+								{
+									"endParameter": 0.5,
+									"startParameter": 0.0
+								}
+							],
+							"selected": true,
+							"sourceToken": "RoadStateToken { NetworkInstance = 10c1cf47-7cb6-4b03-8245-86d9b875a8da, Lineage = bf0b21af-3b51-4652-bbbb-b34d9fc33fe5, ContentRevision = 641, ChangeSequence = 3 }",
+							"width": 9.60000038146973
+						}
+					]
+				},
+				"world": "(-3900.0, -4000.0)"
+			},
+			"name": "cell-200-dense-polylines_delete_one_span_selected",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-200-dense-polylines_delete_drawn",
+			"passed": true
+		},
+		{
+			"details": {
+				"edgesAfter": 320,
+				"pick": {}
+			},
+			"name": "cell-200-dense-polylines_deleted_span_absent",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-200-dense-polylines_delete_undo_accepted",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-200-dense-polylines_delete_undo_drawn",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-200-dense-polylines_save_as",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-200-dense-polylines_saved_slot_exists",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-200-dense-polylines_empty_other_cell",
+			"passed": true
+		},
+		{
+			"details": {
+				"committed": true,
+				"error": "",
+				"finalPhase": 5,
+				"operationKind": 1,
+				"operationToken": "419272a4d185461493e86e8e5938829a",
+				"resultKind": 0,
+				"targetSlotID": "manual-c414bf0f4ace4dd4b86970809f7de3f9",
+				"warnings": ""
+			},
+			"name": "cell-200-dense-polylines_normal_save_manager_load",
+			"passed": true
+		},
+		{
+			"details": {
+				"cell": 200,
+				"edges": 320,
+				"history": {
+					"changeSequence": 1,
+					"contentRevision": 641,
+					"estimatedRetainedBytes": 0,
+					"nextEdgeId": 323,
+					"nextNodeId": 963,
+					"redoCount": 0,
+					"retainedCount": 0,
+					"sourceToken": "RoadStateToken { NetworkInstance = 6959908a-7083-4709-85a2-0bc680fb1352, Lineage = f91705ab-8107-454a-a764-91fdca186433, ContentRevision = 641, ChangeSequence = 1 }",
+					"undoCount": 0
+				}
+			},
+			"name": "cell-200-dense-polylines_loaded_current_and_empty_history",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-200-dense-polylines_slot_deleted",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "capacity_result_file_opened",
+			"passed": true
+		}
+	],
+	"timingBoundary": "Individual operation examples only; not a performance acceptance sample",
+	"viewport": {
+		"height": 900.0,
+		"width": 1600.0
+	}
+}

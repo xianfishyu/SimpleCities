@@ -1,0 +1,148 @@
+{
+  "CapturedUtc": "2026-09-13T04:25:55.9442697+00:00",
+  "Name": "cell-200-target",
+  "CellMetres": 200,
+  "Passed": true,
+  "Error": null,
+  "Runtime": ".NET 10.0.0",
+  "OS": "Microsoft Windows 10.0.19045",
+  "Architecture": "X64",
+  "Strokes": 240,
+  "Counts": {
+    "CanonicalEdges": 9680,
+    "StructuralNodes": 3281,
+    "ChainPoints": 19360,
+    "SelectableGridSpans": 9680,
+    "CellCenterJunctions": 1600,
+    "PrimaryJunctions": 1681,
+    "PolylineEdges": 0,
+    "InternalChainPoints": 0
+  },
+  "Presentation": {
+    "Pieces": 42328,
+    "Vertices": 136664,
+    "Indices": 156024
+  },
+  "SerializedBytes": 1240937,
+  "Stages": [
+    {
+      "Name": "public-plan-build-and-commit",
+      "Milliseconds": 2640.2668
+    },
+    {
+      "Name": "count-spans-and-entities",
+      "Milliseconds": 20.9842
+    },
+    {
+      "Name": "codec-write",
+      "Milliseconds": 28.3918
+    },
+    {
+      "Name": "codec-read",
+      "Milliseconds": 70.6021
+    },
+    {
+      "Name": "plan-load",
+      "Milliseconds": 2.9227
+    },
+    {
+      "Name": "load-reference-commit",
+      "Milliseconds": 0.0247
+    },
+    {
+      "Name": "codec-roundtrip-compare",
+      "Milliseconds": 10.9189
+    },
+    {
+      "Name": "pure-presentation-prepare",
+      "Milliseconds": 100.6692
+    },
+    {
+      "Name": "representative-edit-and-history-checks",
+      "Milliseconds": 229.7089
+    }
+  ],
+  "Operations": [
+    {
+      "Operation": "change-one-span",
+      "PlanMilliseconds": 15.7277,
+      "CommitMilliseconds": 0.0247,
+      "Nodes": 3281,
+      "Edges": 9680,
+      "UndoCount": 1,
+      "RedoCount": 0
+    },
+    {
+      "Operation": "undo",
+      "PlanMilliseconds": 22.2001,
+      "CommitMilliseconds": 0.0028,
+      "Nodes": 3281,
+      "Edges": 9680,
+      "UndoCount": 0,
+      "RedoCount": 1
+    },
+    {
+      "Operation": "redo",
+      "PlanMilliseconds": 3.1296,
+      "CommitMilliseconds": 0.0023,
+      "Nodes": 3281,
+      "Edges": 9680,
+      "UndoCount": 1,
+      "RedoCount": 0
+    },
+    {
+      "Operation": "undo-restore",
+      "PlanMilliseconds": 2.8369,
+      "CommitMilliseconds": 0.0016,
+      "Nodes": 3281,
+      "Edges": 9680,
+      "UndoCount": 0,
+      "RedoCount": 1
+    },
+    {
+      "Operation": "remove-one-span",
+      "PlanMilliseconds": 16.7929,
+      "CommitMilliseconds": 0.0022,
+      "Nodes": 3280,
+      "Edges": 9678,
+      "UndoCount": 1,
+      "RedoCount": 0
+    },
+    {
+      "Operation": "undo",
+      "PlanMilliseconds": 12.5191,
+      "CommitMilliseconds": 0.0019,
+      "Nodes": 3281,
+      "Edges": 9680,
+      "UndoCount": 0,
+      "RedoCount": 1
+    },
+    {
+      "Operation": "redo",
+      "PlanMilliseconds": 11.6249,
+      "CommitMilliseconds": 0.0028,
+      "Nodes": 3280,
+      "Edges": 9678,
+      "UndoCount": 1,
+      "RedoCount": 0
+    },
+    {
+      "Operation": "undo-restore",
+      "PlanMilliseconds": 11.4999,
+      "CommitMilliseconds": 0.0027,
+      "Nodes": 3281,
+      "Edges": 9680,
+      "UndoCount": 0,
+      "RedoCount": 1
+    }
+  ],
+  "Memory": {
+    "PollIntervalMs": 50,
+    "Samples": 65,
+    "SampledPeakManagedBytes": 75844432,
+    "SampledPeakWorkingSetBytes": 152055808,
+    "ProcessLifetimePeakWorkingSetBytes": 155885568,
+    "Definition": "Process-wide 50 ms samples; managed value includes live and not-yet-collected allocations, not retained dataset bytes. Working set includes runtime/native pages; lifetime peak may include previous datasets. No forced GC; sampling can miss shorter peaks."
+  },
+  "Scope": "Public core planning/codec/load/history and pure presentation only; no GPU upload, Godot input, or frame timing."
+}

@@ -22,26 +22,52 @@ public partial class V4MapScene
         {
             PreparedRoadState prepared = await Task.Run(() => BuildPerformanceFixture(cell));
             if (!IsSceneAlive) return;
-            RoadPlan plan = _roads!.Network.PlanLoad(prepared);
-            _view.ShowNewMap(plan.Target);
-            if (!_roads.Network.TryCommit(plan)) throw new InvalidOperationException("Fixture load became stale.");
-            ResetDisplayRecoveryReferences();
-            UpdateMapInfo();
-            RoadSnapshot snapshot = _roads.Network.Snapshot;
-            RoadSurfaceData surface = RoadPresentation.Prepare(snapshot.Nodes, snapshot.Edges)
-                ?? throw new InvalidOperationException("Fixture surface is missing.");
-            _performanceFixture = new()
-            {
-                ["cell"] = cell, ["edges"] = snapshot.EdgeCount, ["nodes"] = snapshot.NodeCount,
-                ["points"] = snapshot.Edges.Sum(edge => edge.Points.Count),
-                ["surfacePieces"] = surface.Pieces.Count,
-                ["vertices"] = surface.Pieces.Sum(piece => piece.Corners.Count),
-                ["indices"] = surface.Pieces.Sum(piece => (piece.Corners.Count - 2) * 3),
-                ["historyEntries"] = _roads.Network.History.UndoCount,
-            };
+            InstallPerformanceFixture(prepared);
         }
         catch (Exception error) { PerformanceFixtureError = error.Message; }
         finally { PerformanceFixtureBusy = false; }
+    }
+
+    public async void LoadPerformanceFixture(string resourcePath)
+    {
+        if (PerformanceFixtureBusy || IsBuildBusy) return;
+        PerformanceFixtureBusy = true;
+        PerformanceFixtureError = "";
+        string path = ProjectSettings.GlobalizePath(resourcePath);
+        try
+        {
+            PreparedRoadState prepared = await Task.Run(() =>
+            {
+                using var source = File.OpenRead(path);
+                return RoadCodec.Read(source);
+            });
+            if (!IsSceneAlive) return;
+            if (!CreateMap(prepared.Map.CellSizeMetres)) throw new InvalidOperationException("Fixture map creation was refused.");
+            InstallPerformanceFixture(prepared);
+        }
+        catch (Exception error) { PerformanceFixtureError = error.Message; }
+        finally { PerformanceFixtureBusy = false; }
+    }
+
+    private void InstallPerformanceFixture(PreparedRoadState prepared)
+    {
+        RoadPlan plan = _roads!.Network.PlanLoad(prepared);
+        _view.ShowNewMap(plan.Target);
+        if (!_roads.Network.TryCommit(plan)) throw new InvalidOperationException("Fixture load became stale.");
+        ResetDisplayRecoveryReferences();
+        UpdateMapInfo();
+        RoadSnapshot snapshot = _roads.Network.Snapshot;
+        RoadSurfaceData surface = RoadPresentation.Prepare(snapshot.Nodes, snapshot.Edges)
+            ?? throw new InvalidOperationException("Fixture surface is missing.");
+        _performanceFixture = new()
+        {
+            ["cell"] = snapshot.Map.CellSizeMetres, ["edges"] = snapshot.EdgeCount, ["nodes"] = snapshot.NodeCount,
+            ["points"] = snapshot.Edges.Sum(edge => edge.Points.Count),
+            ["surfacePieces"] = surface.Pieces.Count,
+            ["vertices"] = surface.Pieces.Sum(piece => piece.Corners.Count),
+            ["indices"] = surface.Pieces.Sum(piece => (piece.Corners.Count - 2) * 3),
+            ["historyEntries"] = _roads.Network.History.UndoCount,
+        };
     }
 
     private static PreparedRoadState BuildPerformanceFixture(int cell)

@@ -4,6 +4,12 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using SimpleCities.RoadCore;
 
+if (args.Length != 0 && args[0] == "--capacity-datasets")
+{
+    RoadCapacityDatasets.Run(args.Skip(1).ToArray());
+    return;
+}
+
 if (args.Length != 0 && args[0] == "--surface-diagnosis")
 {
     SurfaceDiagnosis.Run();
@@ -152,10 +158,14 @@ static object MeasureEdgeLimit()
         double x = (i % 20 * 2 - 20) * 25, y = (i / 20 * 2 - 20) * 25;
         RoadBuildResult result = network.PlanBuild(new(network.Snapshot.Token, new(x, y), new(x + 25, y), RoadProfileId.Street));
         if (result.Plan is null)
-            return new { RequestedEdgeCount = i + 1, network.Snapshot.EdgeCount, result.Status, result.Reason };
+            return new { RequestedEdgeCount = i + 1, network.Snapshot.EdgeCount, ObservedStatus = result.Status.ToString(),
+                result.Reason, Former256EdgeLimitNoLongerBinding = false,
+                Scope = "Bounded former-limit probe; rejection reason is observed, not proof of the configured capacity." };
         Require(network.TryCommit(result.Plan), "edge-limit fixture commit");
     }
-    throw new InvalidOperationException("Expected structural edge limit was not observed");
+    return new { RequestedEdgeCount = 257, network.Snapshot.EdgeCount, ObservedStatus = RoadBuildStatus.Ready.ToString(),
+        Reason = "All 257 independent roads were accepted.", Former256EdgeLimitNoLongerBinding = true,
+        Scope = "Only the former 256-edge limit is probed; this does not measure or infer the new maximum capacity." };
 }
 
 static void SeedDisconnected(RoadNetwork network, int cell, int count)

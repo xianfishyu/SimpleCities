@@ -1,0 +1,95 @@
+{
+	"datasets": [
+		{
+			"cell": 25,
+			"expectedEdges": 10000,
+			"fixture": {
+				"cell": 25,
+				"edges": 10000,
+				"historyEntries": 0,
+				"indices": 164163,
+				"nodes": 3921,
+				"points": 20320,
+				"surfacePieces": 44401,
+				"vertices": 143523
+			},
+			"name": "cell-25-target",
+			"operations": []
+		}
+	],
+	"passed": false,
+	"remainingSlot": "",
+	"renderingDriver": "vulkan",
+	"renderingMethod": "forward_plus",
+	"rows": [
+		{
+			"details": null,
+			"name": "cell-25-target_file_exists",
+			"passed": true
+		},
+		{
+			"details": {
+				"error": ""
+			},
+			"name": "cell-25-target_fixture_loaded",
+			"passed": true
+		},
+		{
+			"details": {
+				"cell": 25,
+				"edges": 10000
+			},
+			"name": "cell-25-target_fixture_current",
+			"passed": true
+		},
+		{
+			"details": null,
+			"name": "cell-25-target_profile_mode",
+			"passed": true
+		},
+		{
+			"details": {
+				"pick": {
+					"edgeId": 944,
+					"junctionNodeId": 483,
+					"parameter": 0.0,
+					"profile": "street",
+					"sourceToken": "RoadStateToken { NetworkInstance = 022b9dc0-3386-4327-b5a9-7421cd9c61fc, Lineage = 674434f7-d030-4fb6-a7dc-0329e6bbde45, ContentRevision = 881, ChangeSequence = 1 }",
+					"surfaceCenter": "(0.0, 0.0)"
+				},
+				"query": {
+					"bucketsVisited": 1,
+					"exactGeometryTests": 2,
+					"fragmentCandidates": 624,
+					"fullEdgeVisits": 0,
+					"hits": 0,
+					"reason": "",
+					"sourceToken": "RoadStateToken { NetworkInstance = 022b9dc0-3386-4327-b5a9-7421cd9c61fc, Lineage = 674434f7-d030-4fb6-a7dc-0329e6bbde45, ContentRevision = 881, ChangeSequence = 1 }",
+					"status": "Ready"
+				},
+				"screen": "(1000.0, 450.0)",
+				"selection": {
+					"hasHover": false,
+					"mode": "ChangeProfile",
+					"selectedCount": 0,
+					"selecting": true,
+					"sourceToken": "RoadStateToken { NetworkInstance = 022b9dc0-3386-4327-b5a9-7421cd9c61fc, Lineage = 674434f7-d030-4fb6-a7dc-0329e6bbde45, ContentRevision = 881, ChangeSequence = 1 }",
+					"strokes": []
+				},
+				"world": "(6.25, 0.0)"
+			},
+			"name": "cell-25-target_profile_one_span_selected",
+			"passed": false
+		},
+		{
+			"details": null,
+			"name": "capacity_result_file_opened",
+			"passed": true
+		}
+	],
+	"timingBoundary": "Individual operation examples only; not a performance acceptance sample",
+	"viewport": {
+		"height": 900.0,
+		"width": 1600.0
+	}
+}

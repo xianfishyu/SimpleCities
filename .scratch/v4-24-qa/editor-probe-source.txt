@@ -1,0 +1,81 @@
+extends Node
+var phase: int = 0
+var deadline: int = 0
+var previous: String = ""
+var proof: Dictionary = {}
+var point := Vector2(50, 0)
+func _ready() -> void:
+	deadline = Time.get_ticks_msec() + 45000
+func _process(_delta: float) -> void:
+	if phase == 6: return
+	var map = get_parent()
+	if Time.get_ticks_msec() > deadline:
+		finish(false, "Timeout phase=" + str(phase))
+		return
+	if phase == 0:
+		map.LoadPerformanceFixture("res://.scratch/v4-24-qa/datasets/cell-100-target.road.json")
+		phase = 1
+	elif phase == 1 and not map.PerformanceFixtureBusy:
+		if not map.PerformanceFixtureError.is_empty():
+			finish(false, map.PerformanceFixtureError)
+			return
+		if not map.IsPresentationCurrent: return
+		if map.RoadCount != 10000 or map.CellSizeMetres != 100:
+			finish(false, "Incorrect fixture")
+			return
+		proof.fixture = map.GetPerformanceFixture()
+		var viewport: Vector2 = get_viewport().get_visible_rect().size
+		proof.viewport = {"width": viewport.x, "height": viewport.y}
+		var camera: Camera2D = map.get_node("Camera2D")
+		camera.zoom = Vector2(1.2, 1.2)
+		camera.position = point - (Vector2(viewport.x * 0.75, viewport.y * 0.5) - viewport * 0.5) / 1.2
+		map.get_node("HUD/Panel/Margin/Controls/Profile").select(3)
+		if not map.SetToolMode(3):
+			finish(false, "Mode admission rejected")
+			return
+		phase = 2
+	elif phase == 2:
+		previous = map.StateToken
+		proof.pickBefore = map.PickRoad(point)
+		inject(true)
+		phase = 3
+	elif phase == 3:
+		proof.selection = map.GetSelectionState()
+		if proof.selection.get("selectedCount", 0) != 1:
+			finish(false, "Expected one branch span")
+			return
+		inject(false)
+		phase = 4
+	elif phase == 4 and map.BuildPhase == "Drawn" and map.StateToken != previous and not map.IsBuildBusy:
+		proof.upgrade = map.GetOperationTimings()
+		if not map.IsPresentationCurrent or map.PickRoad(point).get("profile", "") != "highway":
+			finish(false, "Upgrade display mismatch")
+			return
+		previous = map.StateToken
+		if not map.UndoRoadEdit():
+			finish(false, "Undo rejected")
+			return
+		phase = 5
+	elif phase == 5 and map.BuildPhase == "Drawn" and map.StateToken != previous and not map.IsBuildBusy:
+		proof.undo = map.GetOperationTimings()
+		proof.finalHistory = map.GetHistoryState()
+		proof.edges = map.RoadCount
+		proof.current = map.IsPresentationCurrent
+		finish(map.IsPresentationCurrent and map.RoadCount == 10000 and map.PickRoad(point).get("profile", "") == "street" and proof.finalHistory.get("undoCount", -1) == 0 and proof.finalHistory.get("redoCount", -1) == 1, "")
+func inject(down: bool) -> void:
+	var event := InputEventMouseButton.new()
+	event.position = get_parent().get_canvas_transform() * point
+	event.button_index = MOUSE_BUTTON_LEFT
+	event.pressed = down
+	Input.parse_input_event(event)
+func finish(passed: bool, error: String) -> void:
+	proof.passed = passed
+	proof.error = error
+	proof.phase = phase
+	phase = 6
+	var file := FileAccess.open("res://.scratch/v4-24-qa/editor-result.json", FileAccess.WRITE)
+	if file != null:
+		file.store_string(JSON.stringify(proof, "\t"))
+		file.close()
+	print("V4_CAPACITY_EDITOR ", JSON.stringify(proof))
+	if not passed: push_error("V4 capacity editor probe failed: " + error)
