@@ -1,0 +1,30 @@
+{
+	"builds": [],
+	"cancellations": [],
+	"cell": 25,
+	"engine": {
+		"build": "official",
+		"hash": "5b4e0cb0fd279832bbdd69fed5354d4e5ad26f88",
+		"hex": 263936,
+		"major": 4,
+		"minor": 7,
+		"patch": 0,
+		"status": "stable",
+		"string": "4.7-stable (official)",
+		"timestamp": 0
+	},
+	"error": "Fixture failed or timed out: V4 road surface is degenerate or non-convex after display conversion.",
+	"maxFps": 0,
+	"passed": false,
+	"renderingDriver": "vulkan",
+	"renderingMethod": "forward_plus",
+	"smoke": false,
+	"undoTrigger": "UndoRoadEdit API invocation to frame_post_draw",
+	"undos": [],
+	"upgrades": [],
+	"viewport": {
+		"height": 900.0,
+		"width": 1600.0
+	},
+	"vsyncMode": 0
+}

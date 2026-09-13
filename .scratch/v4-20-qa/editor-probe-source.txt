@@ -1,0 +1,35 @@
+extends Node
+var phase = 0
+var deadline = 0
+func _ready():
+	deadline = Time.get_ticks_msec() + 30000
+func _process(_delta):
+	var map = get_parent()
+	if phase == 0:
+		map.PreparePerformanceFixture(25)
+		phase = 1
+	elif phase == 1 and not map.PerformanceFixtureBusy:
+		if not map.PerformanceFixtureError.is_empty():
+			push_error(map.PerformanceFixtureError)
+			phase = 4
+			return
+		map.get_node("Camera2D").position = Vector2(-50, -200)
+		map.get_node("Camera2D").zoom = Vector2(2, 2)
+		phase = 2
+	elif phase == 2:
+		for down in [true, false]:
+			var event = InputEventMouseButton.new()
+			event.position = map.get_canvas_transform() * Vector2(-50 if down else 50, -250)
+			event.button_index = MOUSE_BUTTON_LEFT
+			event.pressed = down
+			Input.parse_input_event(event)
+		phase = 3
+	elif phase == 3 and map.BuildPhase == "Drawn":
+		var result = map.GetOperationTimings()
+		result["passed"] = map.IsPresentationCurrent and map.RoadCount == 241 and result.workerMs >= 0 and result.preflightMs >= 0
+		result["fixture"] = map.GetPerformanceFixture()
+		print("V4_PERFORMANCE_EDITOR ", JSON.stringify(result))
+		phase = 4
+	if phase < 4 and Time.get_ticks_msec() > deadline:
+		push_error("V4 performance editor probe timeout phase=" + str(phase))
+		phase = 4

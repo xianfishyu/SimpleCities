@@ -1,0 +1,4 @@
+Godot Engine v4.7.stable.mono.official.5b4e0cb0f - https://godotengine.org
+Vulkan 1.4.351 - Forward+ - Using Device #0: NVIDIA - NVIDIA GeForce RTX 5080
+
+V4_PERFORMANCE_RESULT {"cell":100,"error":"","idle":{"count":19586,"maxMs":12.503,"over144BudgetCount":1,"over144BudgetRatio":0.0000510568773613806,"p95Ms":0.841,"p99Ms":1.098},"operations":{"count":835,"maxMs":13.74,"over144BudgetCount":5,"over144BudgetRatio":0.00598802395209581,"p95Ms":3.642,"p99Ms":5.326},"panHover":{"count":16807,"maxMs":29.442,"over144BudgetCount":13,"over144BudgetRatio":0.000773487237460582,"p95Ms":0.794,"p99Ms":1.094},"passed":true}

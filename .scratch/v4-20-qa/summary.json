@@ -1,0 +1,962 @@
+[
+  {
+    "cell": 25,
+    "fixture": {
+      "cell": 25,
+      "edges": 240,
+      "historyEntries": 0,
+      "indices": 4173,
+      "nodes": 109,
+      "points": 491,
+      "surfacePieces": 1140,
+      "vertices": 3671
+    },
+    "frames": {
+      "idle": {
+        "count": 20373,
+        "p95": 0.768,
+        "p99": 0.926,
+        "max": 13.152,
+        "overBudget": 1
+      },
+      "panHover": {
+        "count": 18205,
+        "p95": 0.681,
+        "p99": 0.837,
+        "max": 26.077,
+        "overBudget": 14
+      },
+      "operationFrames": {
+        "count": 901,
+        "p95": 3.351,
+        "p99": 4.476,
+        "max": 14.029,
+        "overBudget": 4
+      }
+    },
+    "operations": {
+      "builds": {
+        "workerQueueMs": {
+          "count": 30,
+          "p95": 0.0135,
+          "p99": 0.3998,
+          "max": 0.3998
+        },
+        "workerMs": {
+          "count": 30,
+          "p95": 5.9494,
+          "p99": 7.3355,
+          "max": 7.3355
+        },
+        "domainMs": {
+          "count": 30,
+          "p95": 3.3005,
+          "p99": 3.5113,
+          "max": 3.5113
+        },
+        "presentationPrepareMs": {
+          "count": 30,
+          "p95": 2.6395,
+          "p99": 4.4853,
+          "max": 4.4853
+        },
+        "resumeMs": {
+          "count": 30,
+          "p95": 0.6785,
+          "p99": 0.7133,
+          "max": 0.7133
+        },
+        "preflightMs": {
+          "count": 30,
+          "p95": 3.119,
+          "p99": 4.1012,
+          "max": 4.1012
+        },
+        "publicationMs": {
+          "count": 30,
+          "p95": 0.0085,
+          "p99": 0.1919,
+          "max": 0.1919
+        },
+        "referenceCommitMs": {
+          "count": 30,
+          "p95": 0.0011,
+          "p99": 0.0621,
+          "max": 0.0621
+        },
+        "presentationCommitMs": {
+          "count": 30,
+          "p95": 0.0051,
+          "p99": 0.0643,
+          "max": 0.0643
+        },
+        "inputToDrawMs": {
+          "count": 30,
+          "p95": 11.8239,
+          "p99": 17.4438,
+          "max": 17.4438
+        },
+        "above100Ms": 0,
+        "above300Ms": 0
+      },
+      "undos": {
+        "workerQueueMs": {
+          "count": 30,
+          "p95": 0.0222,
+          "p99": 0.0226,
+          "max": 0.0226
+        },
+        "workerMs": {
+          "count": 30,
+          "p95": 3.1137,
+          "p99": 17.0625,
+          "max": 17.0625
+        },
+        "domainMs": {
+          "count": 30,
+          "p95": 0.5071,
+          "p99": 2.0319,
+          "max": 2.0319
+        },
+        "presentationPrepareMs": {
+          "count": 30,
+          "p95": 2.6633,
+          "p99": 15.0306,
+          "max": 15.0306
+        },
+        "resumeMs": {
+          "count": 30,
+          "p95": 0.4798,
+          "p99": 0.8608,
+          "max": 0.8608
+        },
+        "preflightMs": {
+          "count": 30,
+          "p95": 2.9595,
+          "p99": 4.25,
+          "max": 4.25
+        },
+        "publicationMs": {
+          "count": 30,
+          "p95": 0.0075,
+          "p99": 0.0106,
+          "max": 0.0106
+        },
+        "referenceCommitMs": {
+          "count": 30,
+          "p95": 0.0011,
+          "p99": 0.0011,
+          "max": 0.0011
+        },
+        "presentationCommitMs": {
+          "count": 30,
+          "p95": 0.0039,
+          "p99": 0.0046,
+          "max": 0.0046
+        },
+        "inputToDrawMs": {
+          "count": 30,
+          "p95": 9.0352,
+          "p99": 22.7411,
+          "max": 22.7411
+        },
+        "above100Ms": 0,
+        "above300Ms": 0
+      },
+      "upgrades": {
+        "workerQueueMs": {
+          "count": 30,
+          "p95": 0.0127,
+          "p99": 0.0135,
+          "max": 0.0135
+        },
+        "workerMs": {
+          "count": 30,
+          "p95": 5.1072,
+          "p99": 9.7486,
+          "max": 9.7486
+        },
+        "domainMs": {
+          "count": 30,
+          "p95": 2.6028,
+          "p99": 8.8155,
+          "max": 8.8155
+        },
+        "presentationPrepareMs": {
+          "count": 30,
+          "p95": 2.4095,
+          "p99": 2.8409,
+          "max": 2.8409
+        },
+        "resumeMs": {
+          "count": 30,
+          "p95": 0.6923,
+          "p99": 0.7415,
+          "max": 0.7415
+        },
+        "preflightMs": {
+          "count": 30,
+          "p95": 1.1988,
+          "p99": 1.5047,
+          "max": 1.5047
+        },
+        "publicationMs": {
+          "count": 30,
+          "p95": 0.0061,
+          "p99": 0.0071,
+          "max": 0.0071
+        },
+        "referenceCommitMs": {
+          "count": 30,
+          "p95": 0.001,
+          "p99": 0.001,
+          "max": 0.001
+        },
+        "presentationCommitMs": {
+          "count": 30,
+          "p95": 0.0032,
+          "p99": 0.0032,
+          "max": 0.0032
+        },
+        "inputToDrawMs": {
+          "count": 30,
+          "p95": 7.3819,
+          "p99": 12.3027,
+          "max": 12.3027
+        },
+        "above100Ms": 0,
+        "above300Ms": 0
+      }
+    },
+    "cancellation": {
+      "cancelled": 10,
+      "lostRace": 0,
+      "escapeToIdleMs": {
+        "count": 10,
+        "p95": 1.962,
+        "p99": 1.962,
+        "max": 1.962
+      }
+    }
+  },
+  {
+    "cell": 50,
+    "fixture": {
+      "cell": 50,
+      "edges": 240,
+      "historyEntries": 0,
+      "indices": 4110,
+      "nodes": 109,
+      "points": 491,
+      "surfacePieces": 1119,
+      "vertices": 3608
+    },
+    "frames": {
+      "idle": {
+        "count": 20520,
+        "p95": 0.76,
+        "p99": 0.915,
+        "max": 1.667,
+        "overBudget": 0
+      },
+      "panHover": {
+        "count": 18403,
+        "p95": 0.675,
+        "p99": 0.812,
+        "max": 27.937,
+        "overBudget": 12
+      },
+      "operationFrames": {
+        "count": 713,
+        "p95": 2.132,
+        "p99": 2.645,
+        "max": 10.593,
+        "overBudget": 1
+      }
+    },
+    "operations": {
+      "builds": {
+        "workerQueueMs": {
+          "count": 30,
+          "p95": 0.0098,
+          "p99": 0.0101,
+          "max": 0.0101
+        },
+        "workerMs": {
+          "count": 30,
+          "p95": 4.3553,
+          "p99": 12.9054,
+          "max": 12.9054
+        },
+        "domainMs": {
+          "count": 30,
+          "p95": 2.5202,
+          "p99": 2.5711,
+          "max": 2.5711
+        },
+        "presentationPrepareMs": {
+          "count": 30,
+          "p95": 2.1633,
+          "p99": 10.7117,
+          "max": 10.7117
+        },
+        "resumeMs": {
+          "count": 30,
+          "p95": 0.6405,
+          "p99": 0.8664,
+          "max": 0.8664
+        },
+        "preflightMs": {
+          "count": 30,
+          "p95": 1.1837,
+          "p99": 1.2121,
+          "max": 1.2121
+        },
+        "publicationMs": {
+          "count": 30,
+          "p95": 0.0061,
+          "p99": 0.0073,
+          "max": 0.0073
+        },
+        "referenceCommitMs": {
+          "count": 30,
+          "p95": 0.0009,
+          "p99": 0.0012,
+          "max": 0.0012
+        },
+        "presentationCommitMs": {
+          "count": 30,
+          "p95": 0.0033,
+          "p99": 0.0046,
+          "max": 0.0046
+        },
+        "inputToDrawMs": {
+          "count": 30,
+          "p95": 6.4875,
+          "p99": 16.2954,
+          "max": 16.2954
+        },
+        "above100Ms": 0,
+        "above300Ms": 0
+      },
+      "undos": {
+        "workerQueueMs": {
+          "count": 30,
+          "p95": 0.0254,
+          "p99": 0.067,
+          "max": 0.067
+        },
+        "workerMs": {
+          "count": 30,
+          "p95": 1.2303,
+          "p99": 2.1376,
+          "max": 2.1376
+        },
+        "domainMs": {
+          "count": 30,
+          "p95": 0.2519,
+          "p99": 1.2944,
+          "max": 1.2944
+        },
+        "presentationPrepareMs": {
+          "count": 30,
+          "p95": 0.9861,
+          "p99": 1.1029,
+          "max": 1.1029
+        },
+        "resumeMs": {
+          "count": 30,
+          "p95": 0.4822,
+          "p99": 0.5153,
+          "max": 0.5153
+        },
+        "preflightMs": {
+          "count": 30,
+          "p95": 2.4217,
+          "p99": 3.465,
+          "max": 3.465
+        },
+        "publicationMs": {
+          "count": 30,
+          "p95": 0.0068,
+          "p99": 0.0089,
+          "max": 0.0089
+        },
+        "referenceCommitMs": {
+          "count": 30,
+          "p95": 0.0006,
+          "p99": 0.0049,
+          "max": 0.0049
+        },
+        "presentationCommitMs": {
+          "count": 30,
+          "p95": 0.0032,
+          "p99": 0.0035,
+          "max": 0.0035
+        },
+        "inputToDrawMs": {
+          "count": 30,
+          "p95": 4.9812,
+          "p99": 6.579,
+          "max": 6.579
+        },
+        "above100Ms": 0,
+        "above300Ms": 0
+      },
+      "upgrades": {
+        "workerQueueMs": {
+          "count": 30,
+          "p95": 0.0106,
+          "p99": 0.011,
+          "max": 0.011
+        },
+        "workerMs": {
+          "count": 30,
+          "p95": 4.3777,
+          "p99": 4.9199,
+          "max": 4.9199
+        },
+        "domainMs": {
+          "count": 30,
+          "p95": 2.6142,
+          "p99": 3.0652,
+          "max": 3.0652
+        },
+        "presentationPrepareMs": {
+          "count": 30,
+          "p95": 1.3753,
+          "p99": 2.7187,
+          "max": 2.7187
+        },
+        "resumeMs": {
+          "count": 30,
+          "p95": 0.5661,
+          "p99": 0.6935,
+          "max": 0.6935
+        },
+        "preflightMs": {
+          "count": 30,
+          "p95": 1.6591,
+          "p99": 3.0042,
+          "max": 3.0042
+        },
+        "publicationMs": {
+          "count": 30,
+          "p95": 0.0078,
+          "p99": 0.0124,
+          "max": 0.0124
+        },
+        "referenceCommitMs": {
+          "count": 30,
+          "p95": 0.0008,
+          "p99": 0.0008,
+          "max": 0.0008
+        },
+        "presentationCommitMs": {
+          "count": 30,
+          "p95": 0.0058,
+          "p99": 0.0096,
+          "max": 0.0096
+        },
+        "inputToDrawMs": {
+          "count": 30,
+          "p95": 7.2036,
+          "p99": 7.3981,
+          "max": 7.3981
+        },
+        "above100Ms": 0,
+        "above300Ms": 0
+      }
+    },
+    "cancellation": {
+      "cancelled": 10,
+      "lostRace": 0,
+      "escapeToIdleMs": {
+        "count": 10,
+        "p95": 0.98,
+        "p99": 0.98,
+        "max": 0.98
+      }
+    }
+  },
+  {
+    "cell": 100,
+    "fixture": {
+      "cell": 100,
+      "edges": 240,
+      "historyEntries": 0,
+      "indices": 4110,
+      "nodes": 109,
+      "points": 491,
+      "surfacePieces": 1119,
+      "vertices": 3608
+    },
+    "frames": {
+      "idle": {
+        "count": 20807,
+        "p95": 0.742,
+        "p99": 0.891,
+        "max": 19.163,
+        "overBudget": 1
+      },
+      "panHover": {
+        "count": 18509,
+        "p95": 0.673,
+        "p99": 0.805,
+        "max": 30.085,
+        "overBudget": 7
+      },
+      "operationFrames": {
+        "count": 699,
+        "p95": 2.183,
+        "p99": 2.668,
+        "max": 16.14,
+        "overBudget": 1
+      }
+    },
+    "operations": {
+      "builds": {
+        "workerQueueMs": {
+          "count": 30,
+          "p95": 0.0075,
+          "p99": 0.0077,
+          "max": 0.0077
+        },
+        "workerMs": {
+          "count": 30,
+          "p95": 4.1743,
+          "p99": 18.4777,
+          "max": 18.4777
+        },
+        "domainMs": {
+          "count": 30,
+          "p95": 2.5408,
+          "p99": 3.2416,
+          "max": 3.2416
+        },
+        "presentationPrepareMs": {
+          "count": 30,
+          "p95": 1.1757,
+          "p99": 16.2981,
+          "max": 16.2981
+        },
+        "resumeMs": {
+          "count": 30,
+          "p95": 0.6271,
+          "p99": 0.8126,
+          "max": 0.8126
+        },
+        "preflightMs": {
+          "count": 30,
+          "p95": 1.6073,
+          "p99": 2.3476,
+          "max": 2.3476
+        },
+        "publicationMs": {
+          "count": 30,
+          "p95": 0.0101,
+          "p99": 0.0106,
+          "max": 0.0106
+        },
+        "referenceCommitMs": {
+          "count": 30,
+          "p95": 0.0008,
+          "p99": 0.0008,
+          "max": 0.0008
+        },
+        "presentationCommitMs": {
+          "count": 30,
+          "p95": 0.005,
+          "p99": 0.0071,
+          "max": 0.0071
+        },
+        "inputToDrawMs": {
+          "count": 30,
+          "p95": 7.3744,
+          "p99": 22.0307,
+          "max": 22.0307
+        },
+        "above100Ms": 0,
+        "above300Ms": 0
+      },
+      "undos": {
+        "workerQueueMs": {
+          "count": 30,
+          "p95": 0.0108,
+          "p99": 0.0116,
+          "max": 0.0116
+        },
+        "workerMs": {
+          "count": 30,
+          "p95": 1.2568,
+          "p99": 2.0772,
+          "max": 2.0772
+        },
+        "domainMs": {
+          "count": 30,
+          "p95": 0.1611,
+          "p99": 0.167,
+          "max": 0.167
+        },
+        "presentationPrepareMs": {
+          "count": 30,
+          "p95": 1.0898,
+          "p99": 1.9533,
+          "max": 1.9533
+        },
+        "resumeMs": {
+          "count": 30,
+          "p95": 0.3908,
+          "p99": 0.5221,
+          "max": 0.5221
+        },
+        "preflightMs": {
+          "count": 30,
+          "p95": 1.1484,
+          "p99": 4.211,
+          "max": 4.211
+        },
+        "publicationMs": {
+          "count": 30,
+          "p95": 0.0059,
+          "p99": 0.0063,
+          "max": 0.0063
+        },
+        "referenceCommitMs": {
+          "count": 30,
+          "p95": 0.0007,
+          "p99": 0.0009,
+          "max": 0.0009
+        },
+        "presentationCommitMs": {
+          "count": 30,
+          "p95": 0.0035,
+          "p99": 0.0036,
+          "max": 0.0036
+        },
+        "inputToDrawMs": {
+          "count": 30,
+          "p95": 4.1896,
+          "p99": 7.0583,
+          "max": 7.0583
+        },
+        "above100Ms": 0,
+        "above300Ms": 0
+      },
+      "upgrades": {
+        "workerQueueMs": {
+          "count": 30,
+          "p95": 0.0095,
+          "p99": 0.0098,
+          "max": 0.0098
+        },
+        "workerMs": {
+          "count": 30,
+          "p95": 4.8663,
+          "p99": 4.8728,
+          "max": 4.8728
+        },
+        "domainMs": {
+          "count": 30,
+          "p95": 2.16,
+          "p99": 2.7781,
+          "max": 2.7781
+        },
+        "presentationPrepareMs": {
+          "count": 30,
+          "p95": 2.7523,
+          "p99": 2.7597,
+          "max": 2.7597
+        },
+        "resumeMs": {
+          "count": 30,
+          "p95": 0.7144,
+          "p99": 0.7941,
+          "max": 0.7941
+        },
+        "preflightMs": {
+          "count": 30,
+          "p95": 1.1359,
+          "p99": 1.2068,
+          "max": 1.2068
+        },
+        "publicationMs": {
+          "count": 30,
+          "p95": 0.0056,
+          "p99": 0.0059,
+          "max": 0.0059
+        },
+        "referenceCommitMs": {
+          "count": 30,
+          "p95": 0.0006,
+          "p99": 0.0008,
+          "max": 0.0008
+        },
+        "presentationCommitMs": {
+          "count": 30,
+          "p95": 0.0035,
+          "p99": 0.0036,
+          "max": 0.0036
+        },
+        "inputToDrawMs": {
+          "count": 30,
+          "p95": 6.9158,
+          "p99": 7.0122,
+          "max": 7.0122
+        },
+        "above100Ms": 0,
+        "above300Ms": 0
+      }
+    },
+    "cancellation": {
+      "cancelled": 10,
+      "lostRace": 0,
+      "escapeToIdleMs": {
+        "count": 10,
+        "p95": 0.857,
+        "p99": 0.857,
+        "max": 0.857
+      }
+    }
+  },
+  {
+    "cell": 200,
+    "fixture": {
+      "cell": 200,
+      "edges": 240,
+      "historyEntries": 0,
+      "indices": 4110,
+      "nodes": 109,
+      "points": 491,
+      "surfacePieces": 1119,
+      "vertices": 3608
+    },
+    "frames": {
+      "idle": {
+        "count": 20727,
+        "p95": 0.754,
+        "p99": 0.904,
+        "max": 1.514,
+        "overBudget": 0
+      },
+      "panHover": {
+        "count": 19002,
+        "p95": 0.648,
+        "p99": 0.785,
+        "max": 32.361,
+        "overBudget": 5
+      },
+      "operationFrames": {
+        "count": 699,
+        "p95": 2.295,
+        "p99": 2.548,
+        "max": 8.878,
+        "overBudget": 1
+      }
+    },
+    "operations": {
+      "builds": {
+        "workerQueueMs": {
+          "count": 30,
+          "p95": 0.0086,
+          "p99": 0.0095,
+          "max": 0.0095
+        },
+        "workerMs": {
+          "count": 30,
+          "p95": 3.3268,
+          "p99": 4.9429,
+          "max": 4.9429
+        },
+        "domainMs": {
+          "count": 30,
+          "p95": 2.3819,
+          "p99": 2.4639,
+          "max": 2.4639
+        },
+        "presentationPrepareMs": {
+          "count": 30,
+          "p95": 0.9227,
+          "p99": 2.7621,
+          "max": 2.7621
+        },
+        "resumeMs": {
+          "count": 30,
+          "p95": 0.4804,
+          "p99": 0.5739,
+          "max": 0.5739
+        },
+        "preflightMs": {
+          "count": 30,
+          "p95": 1.2346,
+          "p99": 1.2578,
+          "max": 1.2578
+        },
+        "publicationMs": {
+          "count": 30,
+          "p95": 0.0059,
+          "p99": 0.0061,
+          "max": 0.0061
+        },
+        "referenceCommitMs": {
+          "count": 30,
+          "p95": 0.0008,
+          "p99": 0.0009,
+          "max": 0.0009
+        },
+        "presentationCommitMs": {
+          "count": 30,
+          "p95": 0.0032,
+          "p99": 0.0032,
+          "max": 0.0032
+        },
+        "inputToDrawMs": {
+          "count": 30,
+          "p95": 6.3709,
+          "p99": 7.8444,
+          "max": 7.8444
+        },
+        "above100Ms": 0,
+        "above300Ms": 0
+      },
+      "undos": {
+        "workerQueueMs": {
+          "count": 30,
+          "p95": 0.0089,
+          "p99": 0.0089,
+          "max": 0.0089
+        },
+        "workerMs": {
+          "count": 30,
+          "p95": 1.0845,
+          "p99": 1.9984,
+          "max": 1.9984
+        },
+        "domainMs": {
+          "count": 30,
+          "p95": 0.1629,
+          "p99": 1.1449,
+          "max": 1.1449
+        },
+        "presentationPrepareMs": {
+          "count": 30,
+          "p95": 0.901,
+          "p99": 0.9423,
+          "max": 0.9423
+        },
+        "resumeMs": {
+          "count": 30,
+          "p95": 0.2386,
+          "p99": 0.2541,
+          "max": 0.2541
+        },
+        "preflightMs": {
+          "count": 30,
+          "p95": 2.4223,
+          "p99": 7.2624,
+          "max": 7.2624
+        },
+        "publicationMs": {
+          "count": 30,
+          "p95": 0.0052,
+          "p99": 0.0071,
+          "max": 0.0071
+        },
+        "referenceCommitMs": {
+          "count": 30,
+          "p95": 0.0005,
+          "p99": 0.0006,
+          "max": 0.0006
+        },
+        "presentationCommitMs": {
+          "count": 30,
+          "p95": 0.0035,
+          "p99": 0.0038,
+          "max": 0.0038
+        },
+        "inputToDrawMs": {
+          "count": 30,
+          "p95": 4.8446,
+          "p99": 9.9168,
+          "max": 9.9168
+        },
+        "above100Ms": 0,
+        "above300Ms": 0
+      },
+      "upgrades": {
+        "workerQueueMs": {
+          "count": 30,
+          "p95": 0.0103,
+          "p99": 0.0106,
+          "max": 0.0106
+        },
+        "workerMs": {
+          "count": 30,
+          "p95": 3.1347,
+          "p99": 4.9059,
+          "max": 4.9059
+        },
+        "domainMs": {
+          "count": 30,
+          "p95": 2.1334,
+          "p99": 2.1658,
+          "max": 2.1658
+        },
+        "presentationPrepareMs": {
+          "count": 30,
+          "p95": 1.0556,
+          "p99": 2.7745,
+          "max": 2.7745
+        },
+        "resumeMs": {
+          "count": 30,
+          "p95": 0.4627,
+          "p99": 0.5979,
+          "max": 0.5979
+        },
+        "preflightMs": {
+          "count": 30,
+          "p95": 2.3367,
+          "p99": 3.1722,
+          "max": 3.1722
+        },
+        "publicationMs": {
+          "count": 30,
+          "p95": 0.007,
+          "p99": 0.0078,
+          "max": 0.0078
+        },
+        "referenceCommitMs": {
+          "count": 30,
+          "p95": 0.0009,
+          "p99": 0.001,
+          "max": 0.001
+        },
+        "presentationCommitMs": {
+          "count": 30,
+          "p95": 0.0039,
+          "p99": 0.004,
+          "max": 0.004
+        },
+        "inputToDrawMs": {
+          "count": 30,
+          "p95": 6.9854,
+          "p99": 7.4051,
+          "max": 7.4051
+        },
+        "above100Ms": 0,
+        "above300Ms": 0
+      }
+    },
+    "cancellation": {
+      "cancelled": 10,
+      "lostRace": 0,
+      "escapeToIdleMs": {
+        "count": 10,
+        "p95": 0.86,
+        "p99": 0.86,
+        "max": 0.86
+      }
+    }
+  }
+]

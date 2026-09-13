@@ -59,6 +59,21 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
     public string BuildSourceToken => _buildSourceToken;
     public string BuildPresentedToken => _buildPresentedToken;
 
+    public Godot.Collections.Dictionary GetOperationTimings() => new()
+    {
+        ["phase"] = BuildPhase, ["sourceToken"] = BuildSourceToken, ["presentedToken"] = BuildPresentedToken,
+        ["workerQueueMs"] = _buildOperation.WorkerQueueMilliseconds,
+        ["workerMs"] = _buildOperation.WorkerMilliseconds,
+        ["resumeMs"] = _buildOperation.ResumeMilliseconds,
+        ["preflightMs"] = _buildOperation.PreflightMilliseconds,
+        ["publicationMs"] = _buildOperation.PublicationMilliseconds,
+        ["domainMs"] = _buildOperation.DomainMilliseconds,
+        ["presentationPrepareMs"] = _buildOperation.PresentationPrepareMilliseconds,
+        ["referenceCommitMs"] = _buildOperation.ReferenceCommitMilliseconds,
+        ["presentationCommitMs"] = _buildOperation.PresentationCommitMilliseconds,
+        ["inputToDrawMs"] = BuildDrawnElapsedMilliseconds,
+    };
+
     public override void _Ready()
     {
         _saveManager = GetNode<SaveManager>("/root/SaveManager");
@@ -513,18 +528,22 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
 #endif
         try
         {
-            (PlannedRoadOperation Result, RoadSurfaceData? Surface) prepared = await Task.Run(() =>
+            long queuedAt = Stopwatch.GetTimestamp();
+            var prepared = await Task.Run(() =>
             {
+                long startedAt = Stopwatch.GetTimestamp();
 #if DEBUG
                 beforeWork?.Invoke();
 #endif
                 token.ThrowIfCancellationRequested();
                 PlannedRoadOperation result = prepare(network, token);
+                long domainFinishedAt = Stopwatch.GetTimestamp();
                 RoadSurfaceData? surface = result.Plan is RoadPlan target
                     ? RoadPresentation.Prepare(target.Target.Nodes, target.Target.Edges, token) : null;
                 token.ThrowIfCancellationRequested();
-                return (result, surface);
+                return (Result: result, Surface: surface, StartedAt: startedAt, DomainFinishedAt: domainFinishedAt, FinishedAt: Stopwatch.GetTimestamp());
             });
+            _buildOperation.RecordWorker(queuedAt, prepared.StartedAt, prepared.DomainFinishedAt, prepared.FinishedAt);
             if (!IsSceneAlive || !_buildOperation.CanPublish)
             {
                 if (IsSceneAlive) _status.Text = "已取消";
@@ -535,15 +554,21 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
                 _status.Text = prepared.Result.NoChange ? noChangeText : prepared.Result.Reason;
                 return;
             }
+            long preflightAt = Stopwatch.GetTimestamp();
             display = _view.PrepareDisplay(plan.Target, prepared.Surface);
+            _buildOperation.RecordPreflight(preflightAt);
             if (!network.CanCommit(plan) || !_buildOperation.CanPublish) return;
             // No await or callbacks between the validated reference publications.
+            long publicationAt = Stopwatch.GetTimestamp();
             committed = _buildOperation.TryCommit(() => network.TryCommit(plan));
+            long referenceFinishedAt = Stopwatch.GetTimestamp();
             if (!committed) return;
             _view.PublishDisplay(display);
+            long displayFinishedAt = Stopwatch.GetTimestamp();
             display = null;
             _buildPresentedToken = plan.Target.Token.ToString();
             _displayPhase = DisplayPhase.AwaitingDraw;
+            _buildOperation.RecordPublication(publicationAt, referenceFinishedAt, displayFinishedAt);
             _status.Text = "道路已提交，正在更新显示…";
             UpdateMapInfo();
         }

@@ -1,0 +1,2 @@
+ORIGINAL null
+SURFACE_CHECK_PASS: all 240-edge fixture pieces remain convex after binary32 conversion.
