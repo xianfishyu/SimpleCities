@@ -24,13 +24,15 @@ internal static class RoadMutationDraft
         RoadTopology.Validate(source.Map, orderedNodes, edges, nextNode, nextEdge, cancellationToken);
         RoadStateToken token = source.Token with
         {
-            ContentRevision = source.Token.ContentRevision + 1,
+            ContentRevision = owner.NextContentRevision(source),
             ChangeSequence = source.Token.ChangeSequence + 1,
         };
         var target = new RoadSnapshot(source.Map, token, nextNode, nextEdge, orderedNodes, edges);
         cancellationToken.ThrowIfCancellationRequested();
-        return new RoadPlan(owner, source, target, checked((int)(nextNode - source.NextNodeId)),
+        var plan = new RoadPlan(owner, source, target, checked((int)(nextNode - source.NextNodeId)),
             checked((int)(nextEdge - source.NextEdgeId)));
+        cancellationToken.ThrowIfCancellationRequested();
+        return plan;
     }
 
     internal static long Allocate(ref long next)

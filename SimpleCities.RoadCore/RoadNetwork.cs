@@ -41,13 +41,76 @@ public sealed class RoadSnapshot
 /// <summary>核心公开操作入口；发布由单一调用线程负责，快照可跨线程读取。</summary>
 public sealed class RoadNetwork
 {
+    private volatile RoadPublishedState _published;
+
     public RoadNetwork(MapDefinition? map = null)
     {
-        Snapshot = new RoadSnapshot(map ?? new MapDefinition(),
+        var snapshot = new RoadSnapshot(map ?? new MapDefinition(),
             new RoadStateToken(Guid.NewGuid(), Guid.NewGuid(), 1, 0));
+        _published = new(snapshot, RoadEditHistory.Empty, snapshot.Token.ContentRevision);
     }
 
-    public RoadSnapshot Snapshot { get; private set; }
+    public RoadSnapshot Snapshot => _published.Snapshot;
+    public RoadEditHistory History => _published.History;
+    internal RoadPublishedState Published => _published;
+
+    internal long NextContentRevision(RoadSnapshot source)
+    {
+        RoadPublishedState published = _published;
+        long watermark = ReferenceEquals(source, published.Snapshot)
+            ? published.RevisionWatermark : source.Token.ContentRevision;
+        if (watermark >= long.MaxValue - 1)
+            throw new InvalidDataException("道路身份或版本已耗尽");
+        return watermark + 1;
+    }
+
+    public RoadEditResult PlanUndo(CancellationToken cancellationToken = default) => PlanHistory(true, cancellationToken);
+    public RoadEditResult PlanRedo(CancellationToken cancellationToken = default) => PlanHistory(false, cancellationToken);
+
+    private RoadEditResult PlanHistory(bool undo, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        RoadPublishedState published = _published;
+        RoadSnapshot before = published.Snapshot;
+        RoadChangeSet? change = undo ? published.History.UndoChange : published.History.RedoChange;
+        if (change is null) return new(RoadEditStatus.NoChange, null, "");
+        RoadChangeMetadata expected = undo ? change.After : change.Before;
+        if (expected.Token.NetworkInstance != before.Token.NetworkInstance || expected.Token.Lineage != before.Token.Lineage ||
+            expected.Token.ContentRevision != before.Token.ContentRevision)
+            return new(RoadEditStatus.Rejected, null, "道路历史来源已过期");
+        if (before.Token.ChangeSequence == long.MaxValue)
+            return new(RoadEditStatus.Rejected, null, "道路身份或版本已耗尽");
+
+        var nodes = before.Nodes.ToDictionary(node => node.Id);
+        foreach (RoadNodeChange node in change.Nodes)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            nodes.Remove(node.Id);
+            RoadNode? restored = undo ? node.Before : node.After;
+            if (restored is not null) nodes.Add(node.Id, restored);
+        }
+        var edges = before.Edges.ToDictionary(edge => edge.Id);
+        foreach (RoadEdgeChange edge in change.Edges)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            edges.Remove(edge.Id);
+            RoadEdge? restored = undo ? edge.Before : edge.After;
+            if (restored is not null) edges.Add(edge.Id, restored);
+        }
+        RoadChangeMetadata desired = undo ? change.Before : change.After;
+        RoadStateToken token = before.Token with
+        {
+            ContentRevision = desired.Token.ContentRevision,
+            ChangeSequence = before.Token.ChangeSequence + 1,
+        };
+        var target = new RoadSnapshot(desired.Map, token,
+            Math.Max(before.NextNodeId, desired.NextNodeId), Math.Max(before.NextEdgeId, desired.NextEdgeId),
+            nodes.Values.OrderBy(node => node.Id.Value), edges.Values.OrderBy(edge => edge.Id.Value));
+        cancellationToken.ThrowIfCancellationRequested();
+        var plan = new RoadPlan(this, published, target, published.History.Move(undo), published.RevisionWatermark);
+        cancellationToken.ThrowIfCancellationRequested();
+        return new(RoadEditStatus.Ready, plan, "");
+    }
 
     public RoadEditResult PlanRemove(RoadGridSpan span, CancellationToken cancellationToken = default) =>
         PlanRemove(new[] { span }, cancellationToken);
@@ -64,11 +127,13 @@ public sealed class RoadNetwork
     public RoadPlan PlanLoad(PreparedRoadState prepared)
     {
         ArgumentNullException.ThrowIfNull(prepared);
-        RoadSnapshot before = Snapshot;
+        RoadPublishedState published = _published;
+        RoadSnapshot before = published.Snapshot;
         var token = new RoadStateToken(before.Token.NetworkInstance, Guid.NewGuid(),
             prepared.ContentRevision, checked(before.Token.ChangeSequence + 1));
-        return new RoadPlan(this, before, new RoadSnapshot(prepared.Map, token,
-            prepared.NextNodeId, prepared.NextEdgeId, prepared.Nodes, prepared.Edges));
+        return new RoadPlan(this, published, new RoadSnapshot(prepared.Map, token,
+            prepared.NextNodeId, prepared.NextEdgeId, prepared.Nodes, prepared.Edges),
+            RoadEditHistory.Empty, prepared.ContentRevision);
     }
 
     public RoadBuildResult PlanBuild(RoadBuildRequest request, CancellationToken cancellationToken = default)
@@ -99,14 +164,15 @@ public sealed class RoadNetwork
     }
 
     public bool CanCommit(RoadPlan plan) =>
-        ReferenceEquals(plan.Owner, this) && ReferenceEquals(plan.Source, Snapshot);
+        ReferenceEquals(plan.Owner, this) && ReferenceEquals(plan.Source, Snapshot) &&
+        ReferenceEquals(plan.SourceState, _published);
 
     /// <summary>单写者在预检后发布；过期计划无副作用，成功时仅交换引用。</summary>
     public bool TryCommit(RoadPlan plan)
     {
         if (!CanCommit(plan))
             return false;
-        Snapshot = plan.Target;
+        _published = plan.TargetState;
         return true;
     }
 }
@@ -121,10 +187,26 @@ public sealed class RoadPlan
         AddedNodeCount = addedNodeCount;
         AddedEdgeCount = addedEdgeCount;
         ChangeSet = new RoadChangeSet(source, target);
+        SourceState = owner.Published;
+        TargetState = new(target, SourceState.History.Append(ChangeSet),
+            Math.Max(SourceState.RevisionWatermark, target.Token.ContentRevision));
+    }
+
+    internal RoadPlan(RoadNetwork owner, RoadPublishedState source, RoadSnapshot target,
+        RoadEditHistory history, long revisionWatermark)
+    {
+        Owner = owner;
+        Source = source.Snapshot;
+        SourceState = source;
+        Target = target;
+        ChangeSet = new RoadChangeSet(Source, target);
+        TargetState = new(target, history, revisionWatermark);
     }
 
     internal RoadNetwork Owner { get; }
     internal RoadSnapshot Source { get; }
+    internal RoadPublishedState SourceState { get; }
+    internal RoadPublishedState TargetState { get; }
     public RoadSnapshot Target { get; }
     public RoadChangeSet ChangeSet { get; }
     public RoadStateToken SourceToken => Source.Token;
