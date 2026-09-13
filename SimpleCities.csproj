@@ -17,6 +17,7 @@
   </ItemGroup>
   <ItemGroup Condition="'$(Configuration)' == 'Debug'">
     <Compile Include="tests/godot/V4OperationWorkProbe.cs" />
+    <Compile Include="tests/godot/V4LoadWorkProbe.cs" />
     <Compile Include="tests/godot/SceneStoragePolicyProbe.cs" />
     <Compile Include="tests/godot/SaveDeleteCleanupFailureProbe.cs" />
     <Compile Include="tests/godot/SaveDeleteOperationProbe.cs" />

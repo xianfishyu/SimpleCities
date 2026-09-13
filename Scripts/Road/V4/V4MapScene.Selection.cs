@@ -5,7 +5,7 @@ using SimpleCities.RoadCore;
 
 public partial class V4MapScene
 {
-    private readonly RoadSpanSelectionSession _selectionSession = new();
+    private RoadSpanSelectionSession _selectionSession = new();
     private OptionButton _toolMode = null!;
     private Vector2? _selectionLastWorld;
     private bool IsSelectionTool => _toolMode.Selected != 0;

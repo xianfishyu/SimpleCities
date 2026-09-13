@@ -1,0 +1,51 @@
+[
+  {
+    "file": "load-preview-green.stdout.log",
+    "rowCount": 39,
+    "passed": true,
+    "failed": [],
+    "observables": null
+  },
+  {
+    "file": "v4_async_operation_runtime_contract.stdout.log",
+    "rowCount": 0,
+    "passed": true,
+    "failed": [],
+    "observables": {
+      "camera_responsive": true,
+      "cancelling": true,
+      "committed_retained": true,
+      "drawn": true,
+      "drawn_elapsed_ms": 409.2783,
+      "exit_safe": true,
+      "immediate_cancel": true,
+      "immediate_cancel_elapsed_ms": 0.0821,
+      "late_rejected": true,
+      "passed": true,
+      "published_not_drawn": true,
+      "single_writer": true,
+      "waiting": true
+    }
+  },
+  {
+    "file": "v4_history_runtime_contract.stdout.log",
+    "rowCount": 39,
+    "passed": true,
+    "failed": [],
+    "observables": null
+  },
+  {
+    "file": "v4_overlap_runtime_contract.stdout.log",
+    "rowCount": 4,
+    "passed": true,
+    "failed": [],
+    "observables": null
+  },
+  {
+    "file": "v4_span_selection_runtime_contract.stdout.log",
+    "rowCount": 35,
+    "passed": true,
+    "failed": [],
+    "observables": null
+  }
+]

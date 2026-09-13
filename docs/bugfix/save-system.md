@@ -587,3 +587,91 @@ V4-03 尚未提交的场景存储策略实现中，在保存根 A 获取槽位�
 - 修复后完整 `dotnet test SimpleCities.sln --no-restore --verbosity minimal`：核心48/48、既有965/965通过。三项边界测试通过公开Read、PlanLoad、TryCommit、PlanBuild和Write入口验证拒绝、状态不变与原内容往返。
 - Debug与ExportRelease构建0警告0错误，Roslyn compiler/analyzer诊断为空；Standards与Spec均确认原问题已修复。
 - 本故障属于纯核心数值与codec契约，真实Vulkan道路及空图回归另见 `.scratch/v4-05-qa/verification.md`，不把该运行证据扩展为已测试引擎中的极限ID输入。
+
+---
+
+## BUG-18：V4加载预检失败后丢失原道路选择
+
+> 修复日期：2026-09-13
+> 影响文件：`Scripts/Road/V4/V4MapScene.cs`、`tests/godot/v4_load_runtime_contract.gd`
+> 关联事项：GitHub #18
+
+### 症状
+
+当前图保留undo与redo、按住选中三个格段时开始加载，加载期间松开鼠标、经过UI或按Esc会清除选择。随后目标预检失败，路网和槽位未改变，但原工具状态已经丢失。
+
+### 根因分析
+
+加载准入通过 `CanEdit` 阻止新提交，但 `_Input` 的取消、选择抬起和UI悬停清理分支不检查准入。后台准备期间这些分支仍直接修改活动会话。
+
+### 修复方案
+
+工具持有Load admission时，`_Input` 不处理道路手势。选择、草稿及其反馈保持原状，由联合加载的提交或放弃决定后续状态；相机仍通过 `_UnhandledInput` 响应缩放和平移。
+
+### 影响范围
+
+影响V4联合加载期间的工具冻结与失败保留，不改变普通道路编辑的Esc取消边界，不改变V3加载流程。
+
+## BUG-18 验证状态
+
+- `load-red.stdout.log` 中加载期间保持选择及预检失败后保持完整状态两项失败，选择从3变为0；相同13项在 `load-selection-green.stdout.log` 全部通过。
+- 最终真实Forward+/Vulkan加载契约39/39通过，验证后台工作、相机响应，以及失败后原路网、历史、格长、选择和当前槽位保持一致。证据目录为 `.scratch/v4-17-qa/`。
+
+---
+
+## BUG-19：V4加载已经提交但旧工具状态要等通知才清空
+
+> 修复日期：2026-09-13
+> 影响文件：`Scripts/Road/V4/V4MapScene.cs`、`Scripts/Road/V4/V4MapScene.Selection.cs`、`Scripts/Road/V4/V4MapView.cs`
+> 关联事项：GitHub #18
+
+### 症状
+
+加载目标路网及历史已经发布，最先执行的外部通知仍能观察到旧选择或预览状态。通知阶段承担必要清理，使完整状态切换依赖后续代码执行。
+
+### 根因分析
+
+旧 `ToolAdmission.CommitReferences()` 只清除草稿起点，`PublishNotifications()` 才调用 `CancelDraft()` 和 `ClearRoadSelection()`。表现引用替换也没有同时清空旧预览。
+
+### 修复方案
+
+准入阶段预备空选择会话，引用提交同步替换会话、清空草稿/预览请求、完成结果及选择轨迹；表现引用切换时同时清空预览。可能调用取消回调的旧预览令牌取消移到 `CompleteCommit`，在finally释放准入。通知只请求重绘，不承担必要状态重置。
+
+### 影响范围
+
+影响V4路网、工具、表现和槽位的联合发布一致性；Load仍采用新lineage并清空历史，失败预检不修改活动状态。
+
+## BUG-19 验证状态
+
+- `load-notification-red.stdout.log` 的 `first_notification_observes_already_clean_tools_and_history` 失败；修复后相同19项全部通过，见 `load-notification-green.stdout.log`。
+- 首个外部通知读取公开状态后故意抛错，加载仍报告已提交且带warning；通知入口已经观察到清空后的工具和历史，50米目标格长、路网、表面owner及当前槽位一致。最终39项契约与编辑器实际保存→选择→加载流程均通过。
+
+---
+
+## BUG-20：加载期间完成的预览在失败后不恢复或提前覆盖工具状态
+
+> 修复日期：2026-09-13
+> 影响文件：`Scripts/Road/V4/V4MapScene.cs`、`tests/godot/V4OperationWorkProbe.cs`、`tests/godot/v4_load_runtime_contract.gd`
+> 关联事项：GitHub #18提交前双轴审查
+
+### 症状
+
+建造预览先于Load完成时，成功结果被丢弃；Load预检失败后，鼠标停在原端点会一直显示Pending。预览异常则走另一条路径，在Load期间提前将被冻结的预览改为Rejected。
+
+### 根因分析
+
+成功分支因 `!CanEdit` 丢弃结果，而队列已取出该请求，相同端点不会再排队。异常分支没有相同门禁，直接修改显示与工具状态。两个分支都没有处理加载结束后的恢复。
+
+### 修复方案
+
+成功和异常统一经过 `CompletePreview`，只暂存当前request及来源匹配的一份完成结果；准入释放且允许编辑后再核对来源并发布。失败Load后无需移动鼠标即可恢复结果，自动恢复不覆盖加载失败提示。新请求、取消或成功Load清除暂存结果，旧代任务不能覆盖新图。
+
+### 影响范围
+
+影响V4预览与加载交错时的恢复和代际隔离，不增加预览worker或改变核心发布路径。
+
+## BUG-20 验证状态
+
+- `load-preview-red.stdout.log` 重现Ready路径永久Pending与Rejected路径提前修改两项失败；修复后相同39项全部通过，见 `load-preview-green.stdout.log`。
+- 测试分别让预览成功/抛错先完成，持续观察Load期间整个Pending字典保持不变，再让Load失败，在无鼠标移动时恢复当前500米草稿的Ready/Rejected结果。成功Load之后释放旧预览也不能污染新图或下一笔预览。
+- 完整核心318/318、应用968/968通过，Debug/ExportRelease均0警告0错误；7个改动C#及2个加载消费者的Roslyn诊断为空，全方案分析器、新GDScript LSP无诊断。历史、选择、异步操作和重叠预览回归通过；Standards与Spec原P2均已关闭。完整证据见 `.scratch/v4-17-qa/verification.md`。

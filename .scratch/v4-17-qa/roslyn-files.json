@@ -1,0 +1,101 @@
+[
+  {
+    "status": "fulfilled",
+    "value": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\Scripts\\\\Road\\\\V4\\\\V4MapScene.cs\",\"project\":\"SimpleCities\",\"typesDefined\":[\"V4MapScene\",\"CompletedPreview\",\"PlannedRoadOperation\",\"ToolAdmission\"],\"diagnostics\":[]}"
+        }
+      ]
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\Scripts\\\\Road\\\\V4\\\\V4MapScene.Selection.cs\",\"project\":\"SimpleCities\",\"typesDefined\":[\"V4MapScene\"],\"diagnostics\":[]}"
+        }
+      ]
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\Scripts\\\\Road\\\\V4\\\\V4MapView.cs\",\"project\":\"SimpleCities\",\"typesDefined\":[\"V4MapView\",\"PreviewSegment\",\"Presentation\",\"Preparer\",\"Admission\",\"CommitPlan\"],\"diagnostics\":[]}"
+        }
+      ]
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\tests\\\\godot\\\\RoadLoadPreflightResourceFailureProbe.cs\",\"project\":\"SimpleCities\",\"typesDefined\":[\"RoadLoadPreflightResourceFailureProbe\",\"SaveManager\",\"AggregateLoadRendererPreflightProbeState\",\"AggregateLoadRendererPreflightObservation\",\"AggregateLoadGraphBoundaryInvalidatingLease\",\"AggregateLoadRendererBoundaryInvalidatingLease\",\"AggregateLoadToolBoundaryInvalidatingLease\",\"AggregateLoadSlotTargetBoundaryInvalidatingLease\",\"RoadGraph\",\"ToolManager\",\"ToolBoundaryInvalidatingLease\",\"ToolTrackingLoadCommitPlan\",\"RoadRenderer\",\"AggregateLoadRoadMeshFactoryFailureIndices\",\"AggregateLoadNodeBatchFactoryFailureMarkers\",\"BoundaryInvalidatingLease\",\"TrackingLoadCommitPlan\",\"ThrowingRoadMeshInitializer\",\"ThrowingNodeMarkerList\"],\"diagnostics\":[]}"
+        }
+      ]
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\tests\\\\godot\\\\V4OperationWorkProbe.cs\",\"project\":\"SimpleCities\",\"typesDefined\":[\"V4OperationWorkProbe\"],\"diagnostics\":[]}"
+        }
+      ]
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\tests\\\\godot\\\\V4LoadWorkProbe.cs\",\"project\":\"SimpleCities\",\"typesDefined\":[\"V4LoadWorkProbe\",\"Observer\"],\"diagnostics\":[]}"
+        }
+      ]
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\tests\\\\SimpleCities.RoadCore.Tests\\\\V4LoadValidationTests.cs\",\"project\":\"SimpleCities.RoadCore.Tests\",\"typesDefined\":[\"V4LoadValidationTests\"],\"diagnostics\":[]}"
+        }
+      ]
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\Scripts\\\\Road\\\\V4\\\\RoadSaveParticipant.cs\",\"project\":\"SimpleCities\",\"typesDefined\":[\"RoadSaveParticipant\",\"Prepared\",\"Target\",\"Snapshot\",\"Reader\",\"Admission\",\"CommitPlan\"],\"diagnostics\":[]}"
+        }
+      ]
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"filePath\":\"D:\\\\Code\\\\GodotProject\\\\simple-cities\\\\Scripts\\\\Core\\\\SaveManager.cs\",\"project\":\"SimpleCities\",\"typesDefined\":[\"SaveManager\",\"SceneRequest\",\"TrackedOperation\",\"SceneLoadContext\",\"LoadPerformanceMetrics\",\"SlotTargetLoadCommitPlan\"],\"diagnostics\":[]}"
+        }
+      ]
+    }
+  }
+]

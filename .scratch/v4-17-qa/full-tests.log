@@ -1,0 +1,19 @@
+  SimpleCities.RoadCore -> D:\Code\GodotProject\simple-cities\SimpleCities.RoadCore\bin\Debug\net10.0\SimpleCities.RoadCore.dll
+  SimpleCities -> D:\Code\GodotProject\simple-cities\.godot\mono\temp\bin\Debug\SimpleCities.dll
+  SimpleCities.RoadCore.Tests -> D:\Code\GodotProject\simple-cities\tests\SimpleCities.RoadCore.Tests\bin\Debug\net10.0\SimpleCities.RoadCore.Tests.dll
+D:\Code\GodotProject\simple-cities\tests\SimpleCities.RoadCore.Tests\bin\Debug\net10.0\SimpleCities.RoadCore.Tests.dll (.NETCoreApp,Version=v10.0)的测试运行
+VSTest 版本 18.0.1 (x64)
+
+正在启动测试执行，请稍候...
+总共 1 个测试文件与指定模式相匹配。
+  SimpleCities.SaveLockProbe -> D:\Code\GodotProject\simple-cities\tests\SimpleCities.SaveLockProbe\bin\Debug\net10.0\SimpleCities.SaveLockProbe.dll
+  SimpleCities.RoadGraph.Tests -> D:\Code\GodotProject\simple-cities\tests\SimpleCities.RoadGraph.Tests\bin\Debug\net10.0\SimpleCities.RoadGraph.Tests.dll
+D:\Code\GodotProject\simple-cities\tests\SimpleCities.RoadGraph.Tests\bin\Debug\net10.0\SimpleCities.RoadGraph.Tests.dll (.NETCoreApp,Version=v10.0)的测试运行
+VSTest 版本 18.0.1 (x64)
+
+正在启动测试执行，请稍候...
+总共 1 个测试文件与指定模式相匹配。
+
+已通过! - 失败:     0，通过:   318，已跳过:     0，总计:   318，持续时间: 556 ms - SimpleCities.RoadCore.Tests.dll (net10.0)
+
+已通过! - 失败:     0，通过:   968，已跳过:     0，总计:   968，持续时间: 2 s - SimpleCities.RoadGraph.Tests.dll (net10.0)

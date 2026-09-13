@@ -36,6 +36,7 @@ public partial class V4MapView : Node2D, IScenePresentationLoadParticipant
     {
         V4RoadDisplay? previous = _display;
         _display = target;
+        _preview = [];
         _selection.Clear();
         return previous;
     }

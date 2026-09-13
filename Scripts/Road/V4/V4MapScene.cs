@@ -31,6 +31,8 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
     private CoreRoadBuildRequest? _previewRequest;
     private CoreRoadBuildRequest? _queuedPreview;
     private CoreRoadBuildResult? _previewResult;
+    private sealed record CompletedPreview(CoreRoadBuildRequest Request, CoreRoadBuildResult Result, string Status);
+    private CompletedPreview? _completedPreview;
     private CancellationTokenSource? _previewCancellation;
     private bool _previewWorkerRunning;
     private readonly V4RoadOperation _buildOperation = new();
@@ -142,6 +144,7 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
             RefreshSlots();
             UpdateMapInfo();
         }
+        PublishCompletedPreview(updateStatus: false);
         bool busy = _saveManager.IsOperationBusy || _pendingOperation.Length != 0 || _buildOperation.IsBusy;
         _toolMode.Disabled = busy;
         if (_selectionSession.Source is RoadStateToken selectionSource && _roads is not null && selectionSource != _roads.Network.Snapshot.Token)
@@ -187,6 +190,7 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
         _previewRequest = null;
         _queuedPreview = null;
         _previewResult = null;
+        _completedPreview = null;
         _previewCancellation?.Cancel();
         _view.ShowPreview(null, null, null);
     }
@@ -206,6 +210,7 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
         _previewCancellation?.Cancel();
         _previewRequest = request;
         _previewResult = null;
+        _completedPreview = null;
         _queuedPreview = request;
         _view.ShowPreview(start, end, null);
         _status.Text = "正在检查建造范围…";
@@ -238,27 +243,19 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
 #endif
                         return network.PlanBuild(request, token);
                     });
-                    if (token.IsCancellationRequested || !IsSceneAlive || !CanEdit || request != _previewRequest ||
-                        !_draftStart.HasValue || request.Source != _roads!.Network.Snapshot.Token)
-                        continue;
-                    _previewResult = result;
-                    _view.ShowPreview(request.Start, request.End, result);
-                    _status.Text = result.Status switch
+                    if (token.IsCancellationRequested) continue;
+                    CompletePreview(request, result, result.Status switch
                     {
                         RoadBuildStatus.Ready => "松开以建造道路",
                         RoadBuildStatus.NoChange => "拖动以预览道路",
                         _ => result.Reason,
-                    };
+                    });
                 }
                 catch (OperationCanceledException) when (token.IsCancellationRequested) { }
                 catch (Exception exception)
                 {
-                    if (IsSceneAlive && request == _previewRequest && _draftStart.HasValue)
-                    {
-                        _previewResult = new CoreRoadBuildResult(RoadBuildStatus.Rejected, null, "建造预览检查失败");
-                        _view.ShowPreview(request.Start, request.End, _previewResult);
-                        _status.Text = $"建造预览检查失败：{exception.Message}";
-                    }
+                    CompletePreview(request, new CoreRoadBuildResult(RoadBuildStatus.Rejected, null, "建造预览检查失败"),
+                        $"建造预览检查失败：{exception.Message}");
                 }
                 finally
                 {
@@ -269,8 +266,31 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
         finally { _previewWorkerRunning = false; }
     }
 
+    private void CompletePreview(CoreRoadBuildRequest request, CoreRoadBuildResult result, string status)
+    {
+        if (!IsSceneAlive || request != _previewRequest || !_draftStart.HasValue ||
+            request.Source != _roads!.Network.Snapshot.Token) return;
+        // Load holds the visible tool state. Keep only the current request's completion until it releases admission.
+        _completedPreview = new(request, result, status);
+        PublishCompletedPreview();
+    }
+
+    private void PublishCompletedPreview(bool updateStatus = true)
+    {
+        if (_completedPreview is not CompletedPreview completed || !CanEdit) return;
+        _completedPreview = null;
+        if (completed.Request != _previewRequest || !_draftStart.HasValue ||
+            completed.Request.Source != _roads!.Network.Snapshot.Token) return;
+        _previewResult = completed.Result;
+        _view.ShowPreview(completed.Request.Start, completed.Request.End, completed.Result);
+        if (updateStatus) _status.Text = completed.Status;
+    }
+
     public override void _Input(InputEvent @event)
     {
+        // Load admission preserves the captured tool state until the aggregate commits or abandons it.
+        // Camera input still flows through _UnhandledInput while these road gestures are suspended.
+        if (_toolAdmission is not null) return;
         if (@event is InputEventKey { Pressed: true, Keycode: Key.Escape })
         {
             CancelDraft();
@@ -552,6 +572,8 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
 
     private sealed class ToolAdmission(V4MapScene owner, long generation) : ISceneToolLoadAdmission, INonThrowingLoadCommitPlan
     {
+        private readonly RoadSpanSelectionSession _emptySelection = new();
+        private CancellationTokenSource? _previewToCancel;
         public string ParticipantID => "v4-tools";
         public bool IsGenerationCurrent => ReferenceEquals(owner._toolAdmission, this) &&
             owner._saveManager.SceneGeneration == generation;
@@ -561,14 +583,36 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
                 throw new LoadPreflightInvalidException("V4 tool admission is stale.");
             return this;
         }
-        public void CommitReferences() => owner._draftStart = null;
+        public void CommitReferences()
+        {
+            owner._draftStart = null;
+            owner._draftSource = default;
+            owner._draftProfile = default;
+            owner._previewRequest = null;
+            owner._queuedPreview = null;
+            owner._previewResult = null;
+            owner._completedPreview = null;
+            _previewToCancel = owner._previewCancellation;
+            owner._previewCancellation = null;
+            owner._selectionSession = _emptySelection;
+            owner._selectionLastWorld = null;
+            owner._selectionProfile = default;
+        }
         public IReadOnlyList<string> PublishNotifications()
         {
-            owner.CancelDraft();
-            owner.ClearRoadSelection();
+            owner._view.QueueRedraw();
             return Array.Empty<string>();
         }
-        public void CompleteCommit() => Dispose();
+        public void CompleteCommit()
+        {
+            // Callback-capable cancellation runs after all reference swaps; stale results are already detached.
+            try { _previewToCancel?.Cancel(); }
+            finally
+            {
+                _previewToCancel = null;
+                Dispose();
+            }
+        }
         public void Dispose()
         {
             if (ReferenceEquals(owner._toolAdmission, this))

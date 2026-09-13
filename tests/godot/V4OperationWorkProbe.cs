@@ -28,6 +28,16 @@ public partial class V4OperationWorkProbe : RefCounted
         scene.BeforePreviewWork = Wait;
     }
 
+    public void InstallPreviewFailure(V4MapScene scene)
+    {
+        _mainThread = System.Environment.CurrentManagedThreadId;
+        scene.BeforePreviewWork = () =>
+        {
+            Wait();
+            throw new InvalidOperationException("Injected V4 preview worker failure.");
+        };
+    }
+
     public void RemovePreview(V4MapScene scene)
     {
         scene.BeforePreviewWork = null;

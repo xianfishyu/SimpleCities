@@ -1594,6 +1594,7 @@ public partial class SaveManager
 
     partial void ProbeAggregateLoadWorkerEntryFailure()
     {
+        V4LoadWorkProbe.AtWorkerEntry(this);
         if (!_aggregateLoadWorkerEntryFailureArmed)
             return;
 
@@ -2879,6 +2880,7 @@ public partial class SaveManager
         IPreparedSaveState targetState,
         PreparedSceneLoad preparedLoad)
     {
+        V4LoadWorkProbe.AfterPreflight(this, preflightPlans);
         if (!_aggregateLoadPostSlotPreflightFailureArmed)
             return;
 
