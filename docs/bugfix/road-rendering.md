@@ -306,3 +306,35 @@ owner-dense 10k Vulkan 契约已经完成 Load、EdgeRibbon、TerminalCap 和 Se
 - 真实Vulkan故障契约对普通编辑及不同格长Load的首个失败帧作像素区域对照，覆盖旧道路不消失、新道路不混入、Load仍报告已提交及新lineage成立；重试不重复加载或增加历史。
 - `display-isolated.stdout.log`：92/92通过、进程退出0、stderr为空；相邻加载39项、历史39项、选择35项及异步操作回归通过。双轴审查原Load首帧P2已关闭。
 - 编辑器/DAP收尾结果见BUG-10及`.scratch/v4-18-qa/verification.md`。执行桥超时未宣称已修复，收尾采用临时场景直接驱动真实输入，未修改生产代码或重启用户编辑器。
+
+---
+
+<a id="road-rendering-bug-12"></a>
+## BUG-12：偏移格心路口的近重复包络角点造成显示三角形退化
+
+> 修复日期：2026-09-13
+> 影响文件：`SimpleCities.RoadCore/RoadPresentation.cs`
+> 关联事项：V4-20 / GitHub #21
+
+### 症状
+
+25 米格长下，建造 `(50,50)→(75,75)` 和 `(50,75)→(75,50)` 两条对角道路后，合法格心路口的显示预检报 `V4 road surface is degenerate or non-convex after display conversion.`。同一问题阻止了四档性能夹具中的 25 米档载入。
+
+### 根因分析
+
+不同道路口的法线和口部坐标计算得到同一理论角点，却相差一个 binary64 ULP，例如 `62.5` 和 `62.50000000000001`。精确 `DistinctBy` 保留两点，凸包由此形成极短边及极薄三角形；转换为 Godot binary32 后两点相同，严格退化检查正确拒绝该表现。最小复现的切分参数为 `[0,1]`，不是重复角度切分或普通折线 Join 造成。
+
+### 修复方案
+
+在表现凸包生成之前，按稳定排序合并两个轴上都处于 binary64 舍入误差界内的近重复角点。误差界为 `16 × 2^-52 × max(1, 路口坐标绝对值, 路宽半径)`，保留原角点坐标，不改变道路拓扑、建造容差或身份。扇区仍按所有端接方向分配 owner，Godot 的凸性及退化预检保持原有拒绝规则。
+
+### 影响范围
+
+修复纯表现准备的格心/多分支路口包络，影响普通编辑与加载使用的同一准备器。领域路网、历史、Codec schema 和生产容量不变。
+
+## BUG-12 验证状态
+
+- 新增四档格长、负坐标、原点、偏移坐标及地图边缘公开表现回归，检查 binary32 转换后的严格凸性、四个端接 owner 与中心四象限覆盖；修复前四档理论测试 1 项失败，修复后核心 322/322、应用 968/968 通过。
+- `V4DisplayPreflightProbe` 四档偏移格心通过真实 `ArrayMesh` 准备；`junction-red.log` 记录 25 米失败，最终 `display-regression.log` 全部通过。最终四档 240 边 GPU 基线和异步取消回归均退出 0。
+- Debug、ExportRelease 构建 0 警告/0 错误；改动 C# 的 Roslyn 诊断及全方案分析器为空，双轴审查无剩余发现。
+- 编辑器内实际运行 25 米、240 边夹具并通过鼠标输入新增道路，DAP `V4_PERFORMANCE_EDITOR` 为 `passed=true`、状态 Drawn；stderr 为空。编辑器 LSP 客户端重复打开文件日志作为工具问题保留，不宣称编辑器日志完全为空。测试进程和临时场景已清理，证据在 `.scratch/v4-20-qa/`。

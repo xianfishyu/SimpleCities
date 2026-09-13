@@ -142,13 +142,26 @@ public static class RoadPresentation
 
         // The convex envelope joins unequal-width mouths without unbounded miters.
         // Including both sides at the node also encloses its center for one-sided forks.
-        JunctionCorner[] ordered = corners.OrderBy(corner => corner.Point.X).ThenBy(corner => corner.Point.Y)
+        IEnumerable<JunctionCorner> ordered = corners.OrderBy(corner => corner.Point.X).ThenBy(corner => corner.Point.Y)
             .ThenBy(corner => corner.Edge.Id.Value).ThenBy(corner => corner.Parameter)
-            .DistinctBy(corner => corner.Point).ToArray();
+            .DistinctBy(corner => corner.Point);
+        // Mouth and normal arithmetic can reach the same theoretical corner by
+        // different additions. Collapse only binary64 roundoff before the hull:
+        // otherwise a one-ulp hull side produces a zero-area display triangle.
+        // This is a presentation-only error bound, not a road geometry tolerance.
+        double roundoff = 16 * Math.ScaleB(1.0, -52) *
+            Math.Max(reach, Math.Max(1, Math.Max(Math.Abs(center.X), Math.Abs(center.Y))));
+        var distinctCorners = new List<JunctionCorner>();
+        foreach (JunctionCorner corner in ordered)
+        {
+            if (distinctCorners.Any(existing => Math.Abs(existing.Point.X - corner.Point.X) <= roundoff &&
+                Math.Abs(existing.Point.Y - corner.Point.Y) <= roundoff)) continue;
+            distinctCorners.Add(corner);
+        }
         var lower = new List<JunctionCorner>();
         var upper = new List<JunctionCorner>();
-        foreach (JunctionCorner corner in ordered) Append(lower, corner);
-        foreach (JunctionCorner corner in ordered.Reverse()) Append(upper, corner);
+        foreach (JunctionCorner corner in distinctCorners) Append(lower, corner);
+        foreach (JunctionCorner corner in distinctCorners.AsEnumerable().Reverse()) Append(upper, corner);
         lower.RemoveAt(lower.Count - 1);
         upper.RemoveAt(upper.Count - 1);
         lower.AddRange(upper);
