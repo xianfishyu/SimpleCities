@@ -2,6 +2,43 @@ namespace SimpleCities.RoadCore.Tests;
 
 public sealed class PrimaryJunctionPresentationTests
 {
+    [Theory]
+    [InlineData(25)]
+    [InlineData(50)]
+    [InlineData(100)]
+    [InlineData(200)]
+    public void OffsetCellCenterCross_HasRepresentablePatchesForEveryIncidence(int cell)
+    {
+        foreach (int offset in new[] { -3, 0, 2, 4000 / cell - 1 })
+        {
+            var network = new RoadNetwork(new MapDefinition(cell));
+            double a = offset * cell, b = a + cell;
+            Build(network, new(a, a), new(b, b), RoadProfileId.Street);
+            Build(network, new(a, b), new(b, a), RoadProfileId.Street);
+            RoadSnapshot snapshot = network.Snapshot;
+            RoadNode center = Assert.Single(snapshot.Nodes, node => node.Position == new RoadPoint(a + cell / 2d, a + cell / 2d));
+            RoadSurfaceData surface = RoadPresentation.Prepare(snapshot.Nodes, snapshot.Edges)!;
+            RoadSurfacePiece[] patches = surface.Pieces.Where(piece => piece.JunctionNode == center.Id).ToArray();
+            Assert.Equal(4, patches.Select(piece => piece.Edge.Id).Distinct().Count());
+            Assert.All(surface.Pieces, piece =>
+            {
+                RoadPoint[] converted = piece.Corners.Select(point => new RoadPoint((float)point.X, (float)point.Y)).ToArray();
+                int winding = 0;
+                for (int i = 0; i < converted.Length; i++)
+                {
+                    RoadPoint p = converted[i], q = converted[(i + 1) % converted.Length], r = converted[(i + 2) % converted.Length];
+                    double cross = (q.X - p.X) * (r.Y - q.Y) - (q.Y - p.Y) * (r.X - q.X);
+                    Assert.NotEqual(0, cross);
+                    if (winding != 0) Assert.Equal(winding, Math.Sign(cross));
+                    winding = Math.Sign(cross);
+                }
+            });
+            foreach (int sx in new[] { -1, 1 })
+            foreach (int sy in new[] { -1, 1 })
+                Assert.Contains(patches, piece => Contains(piece.Corners, new(center.Position.X + sx, center.Position.Y + sy)));
+        }
+    }
+
     [Fact]
     public void Cross_HasAnExplicitContinuousJunctionSurface()
     {

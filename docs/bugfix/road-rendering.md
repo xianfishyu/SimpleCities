@@ -306,3 +306,34 @@ owner-dense 10k Vulkan 契约已经完成 Load、EdgeRibbon、TerminalCap 和 Se
 - 真实Vulkan故障契约对普通编辑及不同格长Load的首个失败帧作像素区域对照，覆盖旧道路不消失、新道路不混入、Load仍报告已提交及新lineage成立；重试不重复加载或增加历史。
 - `display-isolated.stdout.log`：92/92通过、进程退出0、stderr为空；相邻加载39项、历史39项、选择35项及异步操作回归通过。双轴审查原Load首帧P2已关闭。
 - 编辑器/DAP收尾结果见BUG-10及`.scratch/v4-18-qa/verification.md`。执行桥超时未宣称已修复，收尾采用临时场景直接驱动真实输入，未修改生产代码或重启用户编辑器。
+
+---
+
+<a id="road-rendering-bug-12"></a>
+## BUG-12：偏移格心路口的近重合角点产生退化三角形
+
+> 修复日期：2026-09-21
+> 影响文件：`SimpleCities.RoadCore/RoadPresentation.cs`、`tests/SimpleCities.RoadCore.Tests/PrimaryJunctionPresentationTests.cs`、`tests/godot/V4DisplayPreflightProbe.cs`
+> 关联事项：回退后重新执行V4-20 / GitHub #21
+
+### 症状
+
+在25米格长、偏移位置的合法对角交叉路口，纯表现数据含有仅相差一个binary64 ULP的两个凸包角点。它们转换为Godot使用的binary32坐标后重合，产生零面积三角形，导致整份合法路网被表现预检拒绝。
+
+### 根因分析
+
+路口口部沿方向延伸与法线偏移可通过不同浮点运算得到同一理论角点。凸包前的精确坐标去重无法消除其舍入差，短凸包边随后被分配owner并构造成表面三角形。错误属于表现准备，不是道路拓扑或格心身份不合法。
+
+### 修复方案
+
+在构建凸包之前，以`16 × 2^-52 × max(reach, |center.X|, |center.Y|, 1)`为舍入误差界合并近重合角点，再保留原凸包与端接owner分区流程。此误差界仅用于表现角点，不改变主格点/格心身份、道路几何或规划准入容差，也不放宽Godot资源预检。
+
+### 影响范围
+
+影响V4偏移路口表面的可表示性，包含小格长及地图边缘；道路核心状态、存档格式和资源容量上限保持不变。修复按当前源码重新复现并验证，历史提交中的旧成绩没有代替本次结果。
+
+## BUG-12 验证状态
+
+- 新增四档及四种偏移的`OffsetCellCenterCross_HasRepresentablePatchesForEveryIncidence`：修复前25米档失败，4个表面片转换后零面积；修复后所在路口套件11/11通过。检查转换后非退化与一致绕向、四端接来源和路口覆盖，证据为本轮`junction-red.log`、`junction-green.log`。
+- 完整核心322/322、应用968/968通过；Debug/ExportRelease构建0警告0错误。真实Vulkan表现故障契约96项、历史39项及异步操作回归通过，进程退出0、stderr为空；四档240边性能夹具均通过严格codec与表现预检。
+- 当前会话未提供Roslyn、Godot编辑器及DAP工具，未运行对应专项诊断；本记录仅声明上述本地编译、单元测试和真实独立Vulkan证据，不将其称为编辑器输入验证。完整范围见`.scratch/v4-20-20260921/verification.md`。

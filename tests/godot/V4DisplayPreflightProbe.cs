@@ -55,6 +55,9 @@ public partial class V4DisplayPreflightProbe : RefCounted
                 [(new(-cell, 0), new(cell, 0), RoadProfileId.Highway), (new(-cell, -cell), new(0, 0), RoadProfileId.Dirt)]);
             Accept($"valid_diagonal_cell_{cell}", new MapDefinition(cell),
                 [(new(0, 0), new(cell, cell), RoadProfileId.Dirt)]);
+            Accept($"valid_offset_cell_center_{cell}", new MapDefinition(cell),
+                [(new(2 * cell, 2 * cell), new(3 * cell, 3 * cell), RoadProfileId.Street),
+                 (new(2 * cell, 3 * cell), new(3 * cell, 2 * cell), RoadProfileId.Street)]);
         }
         Accept("valid_boundary_junction", new MapDefinition(),
             [(new(4000, -100), new(4000, 100), RoadProfileId.Highway), (new(3900, 0), new(4000, 0), RoadProfileId.Dirt)]);

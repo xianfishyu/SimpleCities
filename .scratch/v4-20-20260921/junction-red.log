@@ -1,0 +1,33 @@
+  SimpleCities.RoadCore -> D:\Code\GodotProject\simple-cities\SimpleCities.RoadCore\bin\Debug\net10.0\SimpleCities.RoadCore.dll
+  SimpleCities.RoadCore.Tests -> D:\Code\GodotProject\simple-cities\tests\SimpleCities.RoadCore.Tests\bin\Debug\net10.0\SimpleCities.RoadCore.Tests.dll
+D:\Code\GodotProject\simple-cities\tests\SimpleCities.RoadCore.Tests\bin\Debug\net10.0\SimpleCities.RoadCore.Tests.dll (.NETCoreApp,Version=v10.0)的测试运行
+VSTest 版本 18.0.2 (x64)
+
+正在启动测试执行，请稍候...
+总共 1 个测试文件与指定模式相匹配。
+[xUnit.net 00:00:00.19]     SimpleCities.RoadCore.Tests.PrimaryJunctionPresentationTests.OffsetCellCenterCross_HasRepresentablePatchesForEveryIncidence(cell: 25) [FAIL]
+  失败 SimpleCities.RoadCore.Tests.PrimaryJunctionPresentationTests.OffsetCellCenterCross_HasRepresentablePatchesForEveryIncidence(cell: 25) [55 ms]
+  错误消息:
+   Assert.All() Failure: 4 out of 12 items in the collection did not pass.
+[5]:  Item:  RoadSurfacePiece { Corners = [RoadPoint { X = -62.5, Y = -62.5, IsFinite = True }, RoadPoint { X = -62.50000000000001, Y = -70.98528137423858, IsFinite = True }, RoadPoint { X = -62.5, Y = -70.98528137423858, IsFinite = True }], Edge = RoadEdge { Id = EdgeId { Value = 1 }, Start = NodeId { Value = 1 }, End = NodeId { Value = 5 }, Profile = RoadProfileId { Value = street, IsValid = True }, Points = System.Collections.ObjectModel.ReadOnlyCollection`1[SimpleCities.RoadCore.RoadPoint], Length = 17.67766952966369 }, End = RoadPoint { X = -62.5, Y = -62.5, IsFinite = True }, EndParameter = 1, JunctionNode = NodeId { Value = 5 }, ··· }
+      Error: Assert.NotEqual() Failure: Values are equal
+             Expected: Not 0
+             Actual:       0
+[7]:  Item:  RoadSurfacePiece { Corners = [RoadPoint { X = -62.5, Y = -62.5, IsFinite = True }, RoadPoint { X = -54.01471862576143, Y = -62.50000000000001, IsFinite = True }, RoadPoint { X = -54.01471862576143, Y = -62.5, IsFinite = True }], Edge = RoadEdge { Id = EdgeId { Value = 2 }, Start = NodeId { Value = 2 }, End = NodeId { Value = 5 }, Profile = RoadProfileId { Value = street, IsValid = True }, Points = System.Collections.ObjectModel.ReadOnlyCollection`1[SimpleCities.RoadCore.RoadPoint], Length = 17.67766952966369 }, End = RoadPoint { X = -62.5, Y = -62.5, IsFinite = True }, EndParameter = 1, JunctionNode = NodeId { Value = 5 }, ··· }
+      Error: Assert.NotEqual() Failure: Values are equal
+             Expected: Not 0
+             Actual:       0
+[9]:  Item:  RoadSurfacePiece { Corners = [RoadPoint { X = -62.5, Y = -62.5, IsFinite = True }, RoadPoint { X = -62.5, Y = -54.01471862576143, IsFinite = True }, RoadPoint { X = -62.50000000000001, Y = -54.01471862576143, IsFinite = True }], Edge = RoadEdge { Id = EdgeId { Value = 2 }, Start = NodeId { Value = 2 }, End = NodeId { Value = 5 }, Profile = RoadProfileId { Value = street, IsValid = True }, Points = System.Collections.ObjectModel.ReadOnlyCollection`1[SimpleCities.RoadCore.RoadPoint], Length = 17.67766952966369 }, End = RoadPoint { X = -62.5, Y = -62.5, IsFinite = True }, EndParameter = 1, JunctionNode = NodeId { Value = 5 }, ··· }
+      Error: Assert.NotEqual() Failure: Values are equal
+             Expected: Not 0
+             Actual:       0
+[11]: Item:  RoadSurfacePiece { Corners = [RoadPoint { X = -62.5, Y = -62.5, IsFinite = True }, RoadPoint { X = -70.98528137423858, Y = -62.5, IsFinite = True }, RoadPoint { X = -70.98528137423858, Y = -62.50000000000001, IsFinite = True }], Edge = RoadEdge { Id = EdgeId { Value = 1 }, Start = NodeId { Value = 1 }, End = NodeId { Value = 5 }, Profile = RoadProfileId { Value = street, IsValid = True }, Points = System.Collections.ObjectModel.ReadOnlyCollection`1[SimpleCities.RoadCore.RoadPoint], Length = 17.67766952966369 }, End = RoadPoint { X = -62.5, Y = -62.5, IsFinite = True }, EndParameter = 1, JunctionNode = NodeId { Value = 5 }, ··· }
+      Error: Assert.NotEqual() Failure: Values are equal
+             Expected: Not 0
+             Actual:       -0
+  堆栈跟踪:
+     at SimpleCities.RoadCore.Tests.PrimaryJunctionPresentationTests.OffsetCellCenterCross_HasRepresentablePatchesForEveryIncidence(Int32 cell) in D:\Code\GodotProject\simple-cities\tests\SimpleCities.RoadCore.Tests\PrimaryJunctionPresentationTests.cs:line 23
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeDirectByRefWithFewArgs(Object obj, Span`1 copyOfArgs, BindingFlags invokeAttr)
+
+失败!  - 失败:     1，通过:     3，已跳过:     0，总计:     4，持续时间: 73 ms - SimpleCities.RoadCore.Tests.dll (net10.0)
