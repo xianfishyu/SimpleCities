@@ -1,0 +1,2696 @@
+{
+  "frames": [
+    {
+      "cell": 25,
+      "phase": "idle",
+      "seconds": 10.000238,
+      "count": 24585,
+      "p95": 0.569,
+      "p99": 0.803,
+      "max": 76.053,
+      "overBudget": 2,
+      "ratio": 8.13504169208867E-05,
+      "visibility": "foreground",
+      "focused": 24585,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 25,
+      "phase": "panHover",
+      "seconds": 10.000427,
+      "count": 24599,
+      "p95": 0.613,
+      "p99": 0.741,
+      "max": 11.631,
+      "overBudget": 1,
+      "ratio": 4.06520590267897E-05,
+      "visibility": "foreground",
+      "focused": 24599,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 25,
+      "phase": "polylineView",
+      "seconds": 10.00044,
+      "count": 24837,
+      "p95": 0.559,
+      "p99": 0.757,
+      "max": 1.539,
+      "overBudget": 0,
+      "ratio": 0.0,
+      "visibility": "foreground",
+      "focused": 24837,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 25,
+      "phase": "buildUndoFrames",
+      "seconds": 10.014471,
+      "count": 11914,
+      "p95": 2.094,
+      "p99": 3.255,
+      "max": 40.833,
+      "overBudget": 5,
+      "ratio": 0.000419674332717811,
+      "visibility": "foreground",
+      "focused": 11914,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 25,
+      "phase": "upgradeFrames",
+      "seconds": 10.101115,
+      "count": 24006,
+      "p95": 0.649,
+      "p99": 1.328,
+      "max": 12.798,
+      "overBudget": 7,
+      "ratio": 0.000291593768224611,
+      "visibility": "foreground",
+      "focused": 24006,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 25,
+      "phase": "deleteUndoFrames",
+      "seconds": 4.387479,
+      "count": 10263,
+      "p95": 0.684,
+      "p99": 1.348,
+      "max": 10.482,
+      "overBudget": 5,
+      "ratio": 0.000487186982363831,
+      "visibility": "foreground",
+      "focused": 10263,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 25,
+      "phase": "cancellationFrames",
+      "seconds": 0.038729,
+      "count": 39,
+      "p95": 1.34,
+      "p99": 11.799,
+      "max": 11.799,
+      "overBudget": 1,
+      "ratio": 0.0256410256410256,
+      "visibility": "foreground",
+      "focused": 39,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 50,
+      "phase": "idle",
+      "seconds": 10.00014,
+      "count": 24455,
+      "p95": 0.575,
+      "p99": 0.788,
+      "max": 60.247,
+      "overBudget": 2,
+      "ratio": 8.17828664894705E-05,
+      "visibility": "foreground",
+      "focused": 24455,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 50,
+      "phase": "panHover",
+      "seconds": 10.000133,
+      "count": 24600,
+      "p95": 0.605,
+      "p99": 0.743,
+      "max": 13.143,
+      "overBudget": 1,
+      "ratio": 4.0650406504065E-05,
+      "visibility": "foreground",
+      "focused": 24600,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 50,
+      "phase": "polylineView",
+      "seconds": 10.000259,
+      "count": 25020,
+      "p95": 0.552,
+      "p99": 0.731,
+      "max": 48.8,
+      "overBudget": 1,
+      "ratio": 3.99680255795364E-05,
+      "visibility": "foreground",
+      "focused": 25020,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 50,
+      "phase": "buildUndoFrames",
+      "seconds": 10.011967,
+      "count": 11728,
+      "p95": 2.121,
+      "p99": 3.203,
+      "max": 43.978,
+      "overBudget": 5,
+      "ratio": 0.000426330150068213,
+      "visibility": "foreground",
+      "focused": 11728,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 50,
+      "phase": "upgradeFrames",
+      "seconds": 10.07611,
+      "count": 24336,
+      "p95": 0.625,
+      "p99": 1.293,
+      "max": 12.899,
+      "overBudget": 6,
+      "ratio": 0.0002465483234714,
+      "visibility": "foreground",
+      "focused": 24336,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 50,
+      "phase": "deleteUndoFrames",
+      "seconds": 4.396759,
+      "count": 10389,
+      "p95": 0.672,
+      "p99": 1.327,
+      "max": 12.536,
+      "overBudget": 5,
+      "ratio": 0.000481278275098662,
+      "visibility": "foreground",
+      "focused": 10389,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 50,
+      "phase": "cancellationFrames",
+      "seconds": 0.028362,
+      "count": 41,
+      "p95": 0.925,
+      "p99": 1.323,
+      "max": 1.323,
+      "overBudget": 0,
+      "ratio": 0.0,
+      "visibility": "foreground",
+      "focused": 41,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 100,
+      "phase": "idle",
+      "seconds": 10.000132,
+      "count": 24634,
+      "p95": 0.574,
+      "p99": 0.802,
+      "max": 59.377,
+      "overBudget": 2,
+      "ratio": 8.11886011204027E-05,
+      "visibility": "foreground",
+      "focused": 24634,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 100,
+      "phase": "panHover",
+      "seconds": 10.000129,
+      "count": 24813,
+      "p95": 0.604,
+      "p99": 0.731,
+      "max": 12.053,
+      "overBudget": 1,
+      "ratio": 4.03014548825213E-05,
+      "visibility": "foreground",
+      "focused": 24813,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 100,
+      "phase": "polylineView",
+      "seconds": 10.000153,
+      "count": 24902,
+      "p95": 0.561,
+      "p99": 0.742,
+      "max": 55.914,
+      "overBudget": 1,
+      "ratio": 4.01574170749337E-05,
+      "visibility": "foreground",
+      "focused": 24902,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 100,
+      "phase": "buildUndoFrames",
+      "seconds": 10.004017,
+      "count": 11709,
+      "p95": 2.145,
+      "p99": 3.153,
+      "max": 37.239,
+      "overBudget": 4,
+      "ratio": 0.00034161755914254,
+      "visibility": "foreground",
+      "focused": 11709,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 100,
+      "phase": "upgradeFrames",
+      "seconds": 10.111971,
+      "count": 24193,
+      "p95": 0.655,
+      "p99": 1.319,
+      "max": 12.984,
+      "overBudget": 6,
+      "ratio": 0.000248005621460753,
+      "visibility": "foreground",
+      "focused": 24193,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 100,
+      "phase": "deleteUndoFrames",
+      "seconds": 4.39291,
+      "count": 10402,
+      "p95": 0.677,
+      "p99": 1.331,
+      "max": 12.915,
+      "overBudget": 4,
+      "ratio": 0.00038454143433955,
+      "visibility": "foreground",
+      "focused": 10402,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 100,
+      "phase": "cancellationFrames",
+      "seconds": 0.030051,
+      "count": 41,
+      "p95": 1.033,
+      "p99": 1.519,
+      "max": 1.519,
+      "overBudget": 0,
+      "ratio": 0.0,
+      "visibility": "foreground",
+      "focused": 41,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 200,
+      "phase": "idle",
+      "seconds": 10.000193,
+      "count": 24713,
+      "p95": 0.566,
+      "p99": 0.798,
+      "max": 59.877,
+      "overBudget": 2,
+      "ratio": 8.09290656739368E-05,
+      "visibility": "foreground",
+      "focused": 24713,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 200,
+      "phase": "panHover",
+      "seconds": 10.000161,
+      "count": 24883,
+      "p95": 0.602,
+      "p99": 0.736,
+      "max": 12.987,
+      "overBudget": 1,
+      "ratio": 4.01880802154081E-05,
+      "visibility": "foreground",
+      "focused": 24883,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 200,
+      "phase": "polylineView",
+      "seconds": 10.000222,
+      "count": 25001,
+      "p95": 0.552,
+      "p99": 0.739,
+      "max": 60.279,
+      "overBudget": 1,
+      "ratio": 3.99984000639974E-05,
+      "visibility": "foreground",
+      "focused": 25001,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 200,
+      "phase": "buildUndoFrames",
+      "seconds": 10.010881,
+      "count": 11521,
+      "p95": 2.249,
+      "p99": 3.473,
+      "max": 36.5,
+      "overBudget": 4,
+      "ratio": 0.000347192084020484,
+      "visibility": "foreground",
+      "focused": 11521,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 200,
+      "phase": "upgradeFrames",
+      "seconds": 10.100944,
+      "count": 24302,
+      "p95": 0.625,
+      "p99": 1.293,
+      "max": 13.557,
+      "overBudget": 6,
+      "ratio": 0.000246893259814007,
+      "visibility": "foreground",
+      "focused": 24302,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 200,
+      "phase": "deleteUndoFrames",
+      "seconds": 4.404856,
+      "count": 10337,
+      "p95": 0.69,
+      "p99": 1.351,
+      "max": 11.303,
+      "overBudget": 5,
+      "ratio": 0.000483699332494921,
+      "visibility": "foreground",
+      "focused": 10337,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 200,
+      "phase": "cancellationFrames",
+      "seconds": 0.028883,
+      "count": 39,
+      "p95": 1.051,
+      "p99": 1.202,
+      "max": 1.202,
+      "overBudget": 0,
+      "ratio": 0.0,
+      "visibility": "foreground",
+      "focused": 39,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    }
+  ],
+  "responses": [
+    {
+      "cell": 25,
+      "operation": "builds",
+      "count": 591,
+      "p95": 6.7938,
+      "p99": 9.9246,
+      "max": 49.8013,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 25,
+      "operation": "undos",
+      "count": 1212,
+      "p95": 4.6353,
+      "p99": 6.7428,
+      "max": 19.2257,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 25,
+      "operation": "redos",
+      "count": 591,
+      "p95": 4.5323,
+      "p99": 6.563,
+      "max": 7.187,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 25,
+      "operation": "upgrades",
+      "count": 71,
+      "p95": 17.4904,
+      "p99": 23.5247,
+      "max": 23.5247,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 25,
+      "operation": "deletes",
+      "count": 30,
+      "p95": 14.6163,
+      "p99": 15.1996,
+      "max": 15.1996,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 50,
+      "operation": "builds",
+      "count": 595,
+      "p95": 6.8887,
+      "p99": 9.3965,
+      "max": 48.9232,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 50,
+      "operation": "undos",
+      "count": 1220,
+      "p95": 4.5677,
+      "p99": 6.6309,
+      "max": 13.3417,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 50,
+      "operation": "redos",
+      "count": 595,
+      "p95": 4.5521,
+      "p99": 6.048,
+      "max": 18.622,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 50,
+      "operation": "upgrades",
+      "count": 71,
+      "p95": 15.13,
+      "p99": 17.5594,
+      "max": 17.5594,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 50,
+      "operation": "deletes",
+      "count": 30,
+      "p95": 14.447,
+      "p99": 16.9317,
+      "max": 16.9317,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 100,
+      "operation": "builds",
+      "count": 590,
+      "p95": 6.7331,
+      "p99": 9.6041,
+      "max": 17.444,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 100,
+      "operation": "undos",
+      "count": 1210,
+      "p95": 4.5603,
+      "p99": 6.3633,
+      "max": 15.8497,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 100,
+      "operation": "redos",
+      "count": 590,
+      "p95": 4.5589,
+      "p99": 6.7619,
+      "max": 43.9944,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 100,
+      "operation": "upgrades",
+      "count": 71,
+      "p95": 17.2897,
+      "p99": 22.8678,
+      "max": 22.8678,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 100,
+      "operation": "deletes",
+      "count": 30,
+      "p95": 15.0355,
+      "p99": 16.2957,
+      "max": 16.2957,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 200,
+      "operation": "builds",
+      "count": 574,
+      "p95": 6.9495,
+      "p99": 9.5133,
+      "max": 17.1379,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 200,
+      "operation": "undos",
+      "count": 1178,
+      "p95": 4.762,
+      "p99": 7.0876,
+      "max": 43.0888,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 200,
+      "operation": "redos",
+      "count": 574,
+      "p95": 4.7567,
+      "p99": 6.5066,
+      "max": 7.7378,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 200,
+      "operation": "upgrades",
+      "count": 71,
+      "p95": 16.5402,
+      "p99": 17.3132,
+      "max": 17.3132,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 200,
+      "operation": "deletes",
+      "count": 30,
+      "p95": 6.4083,
+      "p99": 15.0772,
+      "max": 15.0772,
+      "over100": 0,
+      "over300": 0
+    }
+  ],
+  "stages": [
+    {
+      "cell": 25,
+      "operation": "builds",
+      "field": "inputPreparationMs",
+      "p95": 0.0077,
+      "p99": 0.014,
+      "max": 1.2179
+    },
+    {
+      "cell": 25,
+      "operation": "builds",
+      "field": "workerQueueMs",
+      "p95": 0.0091,
+      "p99": 0.0155,
+      "max": 0.4352
+    },
+    {
+      "cell": 25,
+      "operation": "builds",
+      "field": "domainMs",
+      "p95": 2.4579,
+      "p99": 3.2698,
+      "max": 3.4885
+    },
+    {
+      "cell": 25,
+      "operation": "builds",
+      "field": "presentationPrepareMs",
+      "p95": 1.9261,
+      "p99": 2.3665,
+      "max": 41.9425
+    },
+    {
+      "cell": 25,
+      "operation": "builds",
+      "field": "resumeMs",
+      "p95": 0.3888,
+      "p99": 0.5345,
+      "max": 0.8167
+    },
+    {
+      "cell": 25,
+      "operation": "builds",
+      "field": "preflightMs",
+      "p95": 2.1859,
+      "p99": 2.6756,
+      "max": 4.0088
+    },
+    {
+      "cell": 25,
+      "operation": "builds",
+      "field": "referenceCommitMs",
+      "p95": 0.0008,
+      "p99": 0.0011,
+      "max": 0.0676
+    },
+    {
+      "cell": 25,
+      "operation": "builds",
+      "field": "presentationCommitMs",
+      "p95": 0.0029,
+      "p99": 0.0042,
+      "max": 0.0654
+    },
+    {
+      "cell": 25,
+      "operation": "builds",
+      "field": "publishToDrawMs",
+      "p95": 1.3527,
+      "p99": 1.7336,
+      "max": 7.4994
+    },
+    {
+      "cell": 25,
+      "operation": "builds",
+      "field": "inputToDrawMs",
+      "p95": 6.7938,
+      "p99": 9.9246,
+      "max": 49.8013
+    },
+    {
+      "cell": 25,
+      "operation": "undos",
+      "field": "inputPreparationMs",
+      "p95": 0.0078,
+      "p99": 0.0098,
+      "max": 0.0171
+    },
+    {
+      "cell": 25,
+      "operation": "undos",
+      "field": "workerQueueMs",
+      "p95": 0.0111,
+      "p99": 0.0169,
+      "max": 0.0439
+    },
+    {
+      "cell": 25,
+      "operation": "undos",
+      "field": "domainMs",
+      "p95": 0.2022,
+      "p99": 0.4572,
+      "max": 8.9049
+    },
+    {
+      "cell": 25,
+      "operation": "undos",
+      "field": "presentationPrepareMs",
+      "p95": 1.8338,
+      "p99": 2.2761,
+      "max": 8.8562
+    },
+    {
+      "cell": 25,
+      "operation": "undos",
+      "field": "resumeMs",
+      "p95": 0.358,
+      "p99": 0.5226,
+      "max": 0.6843
+    },
+    {
+      "cell": 25,
+      "operation": "undos",
+      "field": "preflightMs",
+      "p95": 2.0893,
+      "p99": 2.5261,
+      "max": 14.5737
+    },
+    {
+      "cell": 25,
+      "operation": "undos",
+      "field": "referenceCommitMs",
+      "p95": 0.0007,
+      "p99": 0.0009,
+      "max": 0.0014
+    },
+    {
+      "cell": 25,
+      "operation": "undos",
+      "field": "presentationCommitMs",
+      "p95": 0.0025,
+      "p99": 0.0031,
+      "max": 0.007
+    },
+    {
+      "cell": 25,
+      "operation": "undos",
+      "field": "publishToDrawMs",
+      "p95": 1.3101,
+      "p99": 1.6241,
+      "max": 2.6869
+    },
+    {
+      "cell": 25,
+      "operation": "undos",
+      "field": "inputToDrawMs",
+      "p95": 4.6353,
+      "p99": 6.7428,
+      "max": 19.2257
+    },
+    {
+      "cell": 25,
+      "operation": "redos",
+      "field": "inputPreparationMs",
+      "p95": 0.008,
+      "p99": 0.0104,
+      "max": 0.0141
+    },
+    {
+      "cell": 25,
+      "operation": "redos",
+      "field": "workerQueueMs",
+      "p95": 0.0105,
+      "p99": 0.0175,
+      "max": 0.0672
+    },
+    {
+      "cell": 25,
+      "operation": "redos",
+      "field": "domainMs",
+      "p95": 0.1803,
+      "p99": 0.4599,
+      "max": 1.1534
+    },
+    {
+      "cell": 25,
+      "operation": "redos",
+      "field": "presentationPrepareMs",
+      "p95": 1.7788,
+      "p99": 2.1661,
+      "max": 2.9962
+    },
+    {
+      "cell": 25,
+      "operation": "redos",
+      "field": "resumeMs",
+      "p95": 0.3672,
+      "p99": 0.4697,
+      "max": 0.555
+    },
+    {
+      "cell": 25,
+      "operation": "redos",
+      "field": "preflightMs",
+      "p95": 2.0469,
+      "p99": 2.5659,
+      "max": 2.8098
+    },
+    {
+      "cell": 25,
+      "operation": "redos",
+      "field": "referenceCommitMs",
+      "p95": 0.0006,
+      "p99": 0.0009,
+      "max": 0.0016
+    },
+    {
+      "cell": 25,
+      "operation": "redos",
+      "field": "presentationCommitMs",
+      "p95": 0.0024,
+      "p99": 0.0034,
+      "max": 0.0041
+    },
+    {
+      "cell": 25,
+      "operation": "redos",
+      "field": "publishToDrawMs",
+      "p95": 1.266,
+      "p99": 1.3988,
+      "max": 1.7236
+    },
+    {
+      "cell": 25,
+      "operation": "redos",
+      "field": "inputToDrawMs",
+      "p95": 4.5323,
+      "p99": 6.563,
+      "max": 7.187
+    },
+    {
+      "cell": 25,
+      "operation": "upgrades",
+      "field": "inputPreparationMs",
+      "p95": 0.1037,
+      "p99": 0.4566,
+      "max": 0.4566
+    },
+    {
+      "cell": 25,
+      "operation": "upgrades",
+      "field": "workerQueueMs",
+      "p95": 0.0151,
+      "p99": 0.0163,
+      "max": 0.0163
+    },
+    {
+      "cell": 25,
+      "operation": "upgrades",
+      "field": "domainMs",
+      "p95": 2.4223,
+      "p99": 13.9788,
+      "max": 13.9788
+    },
+    {
+      "cell": 25,
+      "operation": "upgrades",
+      "field": "presentationPrepareMs",
+      "p95": 1.2606,
+      "p99": 13.0583,
+      "max": 13.0583
+    },
+    {
+      "cell": 25,
+      "operation": "upgrades",
+      "field": "resumeMs",
+      "p95": 0.4003,
+      "p99": 0.6012,
+      "max": 0.6012
+    },
+    {
+      "cell": 25,
+      "operation": "upgrades",
+      "field": "preflightMs",
+      "p95": 1.4635,
+      "p99": 7.4578,
+      "max": 7.4578
+    },
+    {
+      "cell": 25,
+      "operation": "upgrades",
+      "field": "referenceCommitMs",
+      "p95": 0.0012,
+      "p99": 0.0024,
+      "max": 0.0024
+    },
+    {
+      "cell": 25,
+      "operation": "upgrades",
+      "field": "presentationCommitMs",
+      "p95": 0.0046,
+      "p99": 0.0049,
+      "max": 0.0049
+    },
+    {
+      "cell": 25,
+      "operation": "upgrades",
+      "field": "publishToDrawMs",
+      "p95": 1.3005,
+      "p99": 1.6524,
+      "max": 1.6524
+    },
+    {
+      "cell": 25,
+      "operation": "upgrades",
+      "field": "inputToDrawMs",
+      "p95": 17.4904,
+      "p99": 23.5247,
+      "max": 23.5247
+    },
+    {
+      "cell": 25,
+      "operation": "deletes",
+      "field": "inputPreparationMs",
+      "p95": 0.0794,
+      "p99": 0.0861,
+      "max": 0.0861
+    },
+    {
+      "cell": 25,
+      "operation": "deletes",
+      "field": "workerQueueMs",
+      "p95": 0.023,
+      "p99": 0.0243,
+      "max": 0.0243
+    },
+    {
+      "cell": 25,
+      "operation": "deletes",
+      "field": "domainMs",
+      "p95": 2.3722,
+      "p99": 2.4139,
+      "max": 2.4139
+    },
+    {
+      "cell": 25,
+      "operation": "deletes",
+      "field": "presentationPrepareMs",
+      "p95": 9.3961,
+      "p99": 9.6037,
+      "max": 9.6037
+    },
+    {
+      "cell": 25,
+      "operation": "deletes",
+      "field": "resumeMs",
+      "p95": 0.4103,
+      "p99": 1.3854,
+      "max": 1.3854
+    },
+    {
+      "cell": 25,
+      "operation": "deletes",
+      "field": "preflightMs",
+      "p95": 1.1016,
+      "p99": 1.2776,
+      "max": 1.2776
+    },
+    {
+      "cell": 25,
+      "operation": "deletes",
+      "field": "referenceCommitMs",
+      "p95": 0.0013,
+      "p99": 0.0013,
+      "max": 0.0013
+    },
+    {
+      "cell": 25,
+      "operation": "deletes",
+      "field": "presentationCommitMs",
+      "p95": 0.0044,
+      "p99": 0.0048,
+      "max": 0.0048
+    },
+    {
+      "cell": 25,
+      "operation": "deletes",
+      "field": "publishToDrawMs",
+      "p95": 1.8092,
+      "p99": 1.9073,
+      "max": 1.9073
+    },
+    {
+      "cell": 25,
+      "operation": "deletes",
+      "field": "inputToDrawMs",
+      "p95": 14.6163,
+      "p99": 15.1996,
+      "max": 15.1996
+    },
+    {
+      "cell": 50,
+      "operation": "builds",
+      "field": "inputPreparationMs",
+      "p95": 0.0087,
+      "p99": 0.0161,
+      "max": 1.1291
+    },
+    {
+      "cell": 50,
+      "operation": "builds",
+      "field": "workerQueueMs",
+      "p95": 0.0098,
+      "p99": 0.0156,
+      "max": 0.4423
+    },
+    {
+      "cell": 50,
+      "operation": "builds",
+      "field": "domainMs",
+      "p95": 2.4532,
+      "p99": 3.3307,
+      "max": 4.2666
+    },
+    {
+      "cell": 50,
+      "operation": "builds",
+      "field": "presentationPrepareMs",
+      "p95": 1.6786,
+      "p99": 2.3085,
+      "max": 2.4211
+    },
+    {
+      "cell": 50,
+      "operation": "builds",
+      "field": "resumeMs",
+      "p95": 0.401,
+      "p99": 0.5389,
+      "max": 1.7457
+    },
+    {
+      "cell": 50,
+      "operation": "builds",
+      "field": "preflightMs",
+      "p95": 2.153,
+      "p99": 2.7034,
+      "max": 41.8365
+    },
+    {
+      "cell": 50,
+      "operation": "builds",
+      "field": "referenceCommitMs",
+      "p95": 0.0006,
+      "p99": 0.0009,
+      "max": 0.1271
+    },
+    {
+      "cell": 50,
+      "operation": "builds",
+      "field": "presentationCommitMs",
+      "p95": 0.003,
+      "p99": 0.0041,
+      "max": 0.0753
+    },
+    {
+      "cell": 50,
+      "operation": "builds",
+      "field": "publishToDrawMs",
+      "p95": 1.382,
+      "p99": 1.7802,
+      "max": 7.4835
+    },
+    {
+      "cell": 50,
+      "operation": "builds",
+      "field": "inputToDrawMs",
+      "p95": 6.8887,
+      "p99": 9.3965,
+      "max": 48.9232
+    },
+    {
+      "cell": 50,
+      "operation": "undos",
+      "field": "inputPreparationMs",
+      "p95": 0.0079,
+      "p99": 0.0099,
+      "max": 0.0148
+    },
+    {
+      "cell": 50,
+      "operation": "undos",
+      "field": "workerQueueMs",
+      "p95": 0.0111,
+      "p99": 0.0157,
+      "max": 0.0517
+    },
+    {
+      "cell": 50,
+      "operation": "undos",
+      "field": "domainMs",
+      "p95": 0.189,
+      "p99": 0.4402,
+      "max": 2.1137
+    },
+    {
+      "cell": 50,
+      "operation": "undos",
+      "field": "presentationPrepareMs",
+      "p95": 1.3812,
+      "p99": 2.2818,
+      "max": 9.8293
+    },
+    {
+      "cell": 50,
+      "operation": "undos",
+      "field": "resumeMs",
+      "p95": 0.363,
+      "p99": 0.4679,
+      "max": 0.744
+    },
+    {
+      "cell": 50,
+      "operation": "undos",
+      "field": "preflightMs",
+      "p95": 2.0041,
+      "p99": 2.5913,
+      "max": 10.4934
+    },
+    {
+      "cell": 50,
+      "operation": "undos",
+      "field": "referenceCommitMs",
+      "p95": 0.0005,
+      "p99": 0.0008,
+      "max": 0.0013
+    },
+    {
+      "cell": 50,
+      "operation": "undos",
+      "field": "presentationCommitMs",
+      "p95": 0.0026,
+      "p99": 0.0035,
+      "max": 0.0044
+    },
+    {
+      "cell": 50,
+      "operation": "undos",
+      "field": "publishToDrawMs",
+      "p95": 1.3112,
+      "p99": 1.7094,
+      "max": 2.2682
+    },
+    {
+      "cell": 50,
+      "operation": "undos",
+      "field": "inputToDrawMs",
+      "p95": 4.5677,
+      "p99": 6.6309,
+      "max": 13.3417
+    },
+    {
+      "cell": 50,
+      "operation": "redos",
+      "field": "inputPreparationMs",
+      "p95": 0.0076,
+      "p99": 0.0097,
+      "max": 0.011
+    },
+    {
+      "cell": 50,
+      "operation": "redos",
+      "field": "workerQueueMs",
+      "p95": 0.0114,
+      "p99": 0.0165,
+      "max": 0.0865
+    },
+    {
+      "cell": 50,
+      "operation": "redos",
+      "field": "domainMs",
+      "p95": 0.1981,
+      "p99": 0.4611,
+      "max": 1.4869
+    },
+    {
+      "cell": 50,
+      "operation": "redos",
+      "field": "presentationPrepareMs",
+      "p95": 1.6514,
+      "p99": 2.271,
+      "max": 13.5712
+    },
+    {
+      "cell": 50,
+      "operation": "redos",
+      "field": "resumeMs",
+      "p95": 0.3722,
+      "p99": 0.4342,
+      "max": 0.5616
+    },
+    {
+      "cell": 50,
+      "operation": "redos",
+      "field": "preflightMs",
+      "p95": 2.0546,
+      "p99": 2.5899,
+      "max": 2.8803
+    },
+    {
+      "cell": 50,
+      "operation": "redos",
+      "field": "referenceCommitMs",
+      "p95": 0.0005,
+      "p99": 0.0008,
+      "max": 0.001
+    },
+    {
+      "cell": 50,
+      "operation": "redos",
+      "field": "presentationCommitMs",
+      "p95": 0.0026,
+      "p99": 0.0032,
+      "max": 0.0048
+    },
+    {
+      "cell": 50,
+      "operation": "redos",
+      "field": "publishToDrawMs",
+      "p95": 1.3317,
+      "p99": 1.5538,
+      "max": 1.9222
+    },
+    {
+      "cell": 50,
+      "operation": "redos",
+      "field": "inputToDrawMs",
+      "p95": 4.5521,
+      "p99": 6.048,
+      "max": 18.622
+    },
+    {
+      "cell": 50,
+      "operation": "upgrades",
+      "field": "inputPreparationMs",
+      "p95": 0.1115,
+      "p99": 0.4967,
+      "max": 0.4967
+    },
+    {
+      "cell": 50,
+      "operation": "upgrades",
+      "field": "workerQueueMs",
+      "p95": 0.0146,
+      "p99": 0.0242,
+      "max": 0.0242
+    },
+    {
+      "cell": 50,
+      "operation": "upgrades",
+      "field": "domainMs",
+      "p95": 2.367,
+      "p99": 14.0484,
+      "max": 14.0484
+    },
+    {
+      "cell": 50,
+      "operation": "upgrades",
+      "field": "presentationPrepareMs",
+      "p95": 0.9675,
+      "p99": 12.8539,
+      "max": 12.8539
+    },
+    {
+      "cell": 50,
+      "operation": "upgrades",
+      "field": "resumeMs",
+      "p95": 0.4199,
+      "p99": 0.5579,
+      "max": 0.5579
+    },
+    {
+      "cell": 50,
+      "operation": "upgrades",
+      "field": "preflightMs",
+      "p95": 1.1967,
+      "p99": 10.5264,
+      "max": 10.5264
+    },
+    {
+      "cell": 50,
+      "operation": "upgrades",
+      "field": "referenceCommitMs",
+      "p95": 0.0013,
+      "p99": 0.0016,
+      "max": 0.0016
+    },
+    {
+      "cell": 50,
+      "operation": "upgrades",
+      "field": "presentationCommitMs",
+      "p95": 0.0042,
+      "p99": 0.0048,
+      "max": 0.0048
+    },
+    {
+      "cell": 50,
+      "operation": "upgrades",
+      "field": "publishToDrawMs",
+      "p95": 1.163,
+      "p99": 1.4518,
+      "max": 1.4518
+    },
+    {
+      "cell": 50,
+      "operation": "upgrades",
+      "field": "inputToDrawMs",
+      "p95": 15.13,
+      "p99": 17.5594,
+      "max": 17.5594
+    },
+    {
+      "cell": 50,
+      "operation": "deletes",
+      "field": "inputPreparationMs",
+      "p95": 0.0871,
+      "p99": 0.0893,
+      "max": 0.0893
+    },
+    {
+      "cell": 50,
+      "operation": "deletes",
+      "field": "workerQueueMs",
+      "p95": 0.0146,
+      "p99": 0.0228,
+      "max": 0.0228
+    },
+    {
+      "cell": 50,
+      "operation": "deletes",
+      "field": "domainMs",
+      "p95": 2.3919,
+      "p99": 12.9962,
+      "max": 12.9962
+    },
+    {
+      "cell": 50,
+      "operation": "deletes",
+      "field": "presentationPrepareMs",
+      "p95": 1.3133,
+      "p99": 9.4641,
+      "max": 9.4641
+    },
+    {
+      "cell": 50,
+      "operation": "deletes",
+      "field": "resumeMs",
+      "p95": 0.3747,
+      "p99": 0.5162,
+      "max": 0.5162
+    },
+    {
+      "cell": 50,
+      "operation": "deletes",
+      "field": "preflightMs",
+      "p95": 1.0979,
+      "p99": 9.4269,
+      "max": 9.4269
+    },
+    {
+      "cell": 50,
+      "operation": "deletes",
+      "field": "referenceCommitMs",
+      "p95": 0.0013,
+      "p99": 0.0034,
+      "max": 0.0034
+    },
+    {
+      "cell": 50,
+      "operation": "deletes",
+      "field": "presentationCommitMs",
+      "p95": 0.0042,
+      "p99": 0.0056,
+      "max": 0.0056
+    },
+    {
+      "cell": 50,
+      "operation": "deletes",
+      "field": "publishToDrawMs",
+      "p95": 1.6153,
+      "p99": 1.6612,
+      "max": 1.6612
+    },
+    {
+      "cell": 50,
+      "operation": "deletes",
+      "field": "inputToDrawMs",
+      "p95": 14.447,
+      "p99": 16.9317,
+      "max": 16.9317
+    },
+    {
+      "cell": 100,
+      "operation": "builds",
+      "field": "inputPreparationMs",
+      "p95": 0.0074,
+      "p99": 0.0145,
+      "max": 1.1593
+    },
+    {
+      "cell": 100,
+      "operation": "builds",
+      "field": "workerQueueMs",
+      "p95": 0.0092,
+      "p99": 0.0109,
+      "max": 0.4537
+    },
+    {
+      "cell": 100,
+      "operation": "builds",
+      "field": "domainMs",
+      "p95": 2.3435,
+      "p99": 3.2575,
+      "max": 3.5837
+    },
+    {
+      "cell": 100,
+      "operation": "builds",
+      "field": "presentationPrepareMs",
+      "p95": 1.7055,
+      "p99": 2.3599,
+      "max": 2.6194
+    },
+    {
+      "cell": 100,
+      "operation": "builds",
+      "field": "resumeMs",
+      "p95": 0.4028,
+      "p99": 0.5213,
+      "max": 0.7657
+    },
+    {
+      "cell": 100,
+      "operation": "builds",
+      "field": "preflightMs",
+      "p95": 2.1711,
+      "p99": 2.6382,
+      "max": 2.9072
+    },
+    {
+      "cell": 100,
+      "operation": "builds",
+      "field": "referenceCommitMs",
+      "p95": 0.0005,
+      "p99": 0.0008,
+      "max": 0.0649
+    },
+    {
+      "cell": 100,
+      "operation": "builds",
+      "field": "presentationCommitMs",
+      "p95": 0.0027,
+      "p99": 0.0037,
+      "max": 0.0617
+    },
+    {
+      "cell": 100,
+      "operation": "builds",
+      "field": "publishToDrawMs",
+      "p95": 1.3301,
+      "p99": 1.5217,
+      "max": 7.312
+    },
+    {
+      "cell": 100,
+      "operation": "builds",
+      "field": "inputToDrawMs",
+      "p95": 6.7331,
+      "p99": 9.6041,
+      "max": 17.444
+    },
+    {
+      "cell": 100,
+      "operation": "undos",
+      "field": "inputPreparationMs",
+      "p95": 0.0078,
+      "p99": 0.0098,
+      "max": 0.0169
+    },
+    {
+      "cell": 100,
+      "operation": "undos",
+      "field": "workerQueueMs",
+      "p95": 0.0108,
+      "p99": 0.0171,
+      "max": 0.0602
+    },
+    {
+      "cell": 100,
+      "operation": "undos",
+      "field": "domainMs",
+      "p95": 0.1936,
+      "p99": 1.1064,
+      "max": 2.1487
+    },
+    {
+      "cell": 100,
+      "operation": "undos",
+      "field": "presentationPrepareMs",
+      "p95": 1.1637,
+      "p99": 2.2712,
+      "max": 3.8936
+    },
+    {
+      "cell": 100,
+      "operation": "undos",
+      "field": "resumeMs",
+      "p95": 0.3516,
+      "p99": 0.502,
+      "max": 0.9594
+    },
+    {
+      "cell": 100,
+      "operation": "undos",
+      "field": "preflightMs",
+      "p95": 2.0578,
+      "p99": 2.5774,
+      "max": 10.8687
+    },
+    {
+      "cell": 100,
+      "operation": "undos",
+      "field": "referenceCommitMs",
+      "p95": 0.0005,
+      "p99": 0.0008,
+      "max": 0.0012
+    },
+    {
+      "cell": 100,
+      "operation": "undos",
+      "field": "presentationCommitMs",
+      "p95": 0.0026,
+      "p99": 0.0031,
+      "max": 0.0046
+    },
+    {
+      "cell": 100,
+      "operation": "undos",
+      "field": "publishToDrawMs",
+      "p95": 1.2606,
+      "p99": 1.4598,
+      "max": 2.0268
+    },
+    {
+      "cell": 100,
+      "operation": "undos",
+      "field": "inputToDrawMs",
+      "p95": 4.5603,
+      "p99": 6.3633,
+      "max": 15.8497
+    },
+    {
+      "cell": 100,
+      "operation": "redos",
+      "field": "inputPreparationMs",
+      "p95": 0.0076,
+      "p99": 0.0097,
+      "max": 0.0533
+    },
+    {
+      "cell": 100,
+      "operation": "redos",
+      "field": "workerQueueMs",
+      "p95": 0.0106,
+      "p99": 0.0155,
+      "max": 0.046
+    },
+    {
+      "cell": 100,
+      "operation": "redos",
+      "field": "domainMs",
+      "p95": 0.1954,
+      "p99": 1.1603,
+      "max": 1.2534
+    },
+    {
+      "cell": 100,
+      "operation": "redos",
+      "field": "presentationPrepareMs",
+      "p95": 1.736,
+      "p99": 2.2981,
+      "max": 38.3015
+    },
+    {
+      "cell": 100,
+      "operation": "redos",
+      "field": "resumeMs",
+      "p95": 0.3671,
+      "p99": 0.5315,
+      "max": 0.6858
+    },
+    {
+      "cell": 100,
+      "operation": "redos",
+      "field": "preflightMs",
+      "p95": 1.6945,
+      "p99": 2.7141,
+      "max": 2.7855
+    },
+    {
+      "cell": 100,
+      "operation": "redos",
+      "field": "referenceCommitMs",
+      "p95": 0.0005,
+      "p99": 0.0006,
+      "max": 0.0008
+    },
+    {
+      "cell": 100,
+      "operation": "redos",
+      "field": "presentationCommitMs",
+      "p95": 0.0025,
+      "p99": 0.0033,
+      "max": 0.0049
+    },
+    {
+      "cell": 100,
+      "operation": "redos",
+      "field": "publishToDrawMs",
+      "p95": 1.2597,
+      "p99": 1.4885,
+      "max": 2.1089
+    },
+    {
+      "cell": 100,
+      "operation": "redos",
+      "field": "inputToDrawMs",
+      "p95": 4.5589,
+      "p99": 6.7619,
+      "max": 43.9944
+    },
+    {
+      "cell": 100,
+      "operation": "upgrades",
+      "field": "inputPreparationMs",
+      "p95": 0.1166,
+      "p99": 0.4871,
+      "max": 0.4871
+    },
+    {
+      "cell": 100,
+      "operation": "upgrades",
+      "field": "workerQueueMs",
+      "p95": 0.0169,
+      "p99": 0.0293,
+      "max": 0.0293
+    },
+    {
+      "cell": 100,
+      "operation": "upgrades",
+      "field": "domainMs",
+      "p95": 2.3722,
+      "p99": 14.5827,
+      "max": 14.5827
+    },
+    {
+      "cell": 100,
+      "operation": "upgrades",
+      "field": "presentationPrepareMs",
+      "p95": 9.4851,
+      "p99": 12.868,
+      "max": 12.868
+    },
+    {
+      "cell": 100,
+      "operation": "upgrades",
+      "field": "resumeMs",
+      "p95": 0.4709,
+      "p99": 0.5408,
+      "max": 0.5408
+    },
+    {
+      "cell": 100,
+      "operation": "upgrades",
+      "field": "preflightMs",
+      "p95": 1.1703,
+      "p99": 1.222,
+      "max": 1.222
+    },
+    {
+      "cell": 100,
+      "operation": "upgrades",
+      "field": "referenceCommitMs",
+      "p95": 0.0012,
+      "p99": 0.0025,
+      "max": 0.0025
+    },
+    {
+      "cell": 100,
+      "operation": "upgrades",
+      "field": "presentationCommitMs",
+      "p95": 0.0044,
+      "p99": 0.0051,
+      "max": 0.0051
+    },
+    {
+      "cell": 100,
+      "operation": "upgrades",
+      "field": "publishToDrawMs",
+      "p95": 1.3048,
+      "p99": 1.7743,
+      "max": 1.7743
+    },
+    {
+      "cell": 100,
+      "operation": "upgrades",
+      "field": "inputToDrawMs",
+      "p95": 17.2897,
+      "p99": 22.8678,
+      "max": 22.8678
+    },
+    {
+      "cell": 100,
+      "operation": "deletes",
+      "field": "inputPreparationMs",
+      "p95": 0.0852,
+      "p99": 0.0931,
+      "max": 0.0931
+    },
+    {
+      "cell": 100,
+      "operation": "deletes",
+      "field": "workerQueueMs",
+      "p95": 0.0155,
+      "p99": 0.0279,
+      "max": 0.0279
+    },
+    {
+      "cell": 100,
+      "operation": "deletes",
+      "field": "domainMs",
+      "p95": 2.2886,
+      "p99": 2.4027,
+      "max": 2.4027
+    },
+    {
+      "cell": 100,
+      "operation": "deletes",
+      "field": "presentationPrepareMs",
+      "p95": 1.0471,
+      "p99": 1.1348,
+      "max": 1.1348
+    },
+    {
+      "cell": 100,
+      "operation": "deletes",
+      "field": "resumeMs",
+      "p95": 0.4268,
+      "p99": 0.4904,
+      "max": 0.4904
+    },
+    {
+      "cell": 100,
+      "operation": "deletes",
+      "field": "preflightMs",
+      "p95": 9.6074,
+      "p99": 11.1336,
+      "max": 11.1336
+    },
+    {
+      "cell": 100,
+      "operation": "deletes",
+      "field": "referenceCommitMs",
+      "p95": 0.0011,
+      "p99": 0.0011,
+      "max": 0.0011
+    },
+    {
+      "cell": 100,
+      "operation": "deletes",
+      "field": "presentationCommitMs",
+      "p95": 0.0044,
+      "p99": 0.0044,
+      "max": 0.0044
+    },
+    {
+      "cell": 100,
+      "operation": "deletes",
+      "field": "publishToDrawMs",
+      "p95": 1.8013,
+      "p99": 2.3571,
+      "max": 2.3571
+    },
+    {
+      "cell": 100,
+      "operation": "deletes",
+      "field": "inputToDrawMs",
+      "p95": 15.0355,
+      "p99": 16.2957,
+      "max": 16.2957
+    },
+    {
+      "cell": 200,
+      "operation": "builds",
+      "field": "inputPreparationMs",
+      "p95": 0.008,
+      "p99": 0.0137,
+      "max": 1.0535
+    },
+    {
+      "cell": 200,
+      "operation": "builds",
+      "field": "workerQueueMs",
+      "p95": 0.009,
+      "p99": 0.0141,
+      "max": 0.436
+    },
+    {
+      "cell": 200,
+      "operation": "builds",
+      "field": "domainMs",
+      "p95": 2.4776,
+      "p99": 3.3179,
+      "max": 8.5543
+    },
+    {
+      "cell": 200,
+      "operation": "builds",
+      "field": "presentationPrepareMs",
+      "p95": 1.6352,
+      "p99": 2.1727,
+      "max": 2.4012
+    },
+    {
+      "cell": 200,
+      "operation": "builds",
+      "field": "resumeMs",
+      "p95": 0.4115,
+      "p99": 0.5467,
+      "max": 0.6832
+    },
+    {
+      "cell": 200,
+      "operation": "builds",
+      "field": "preflightMs",
+      "p95": 2.374,
+      "p99": 2.8406,
+      "max": 4.6397
+    },
+    {
+      "cell": 200,
+      "operation": "builds",
+      "field": "referenceCommitMs",
+      "p95": 0.0008,
+      "p99": 0.001,
+      "max": 0.0686
+    },
+    {
+      "cell": 200,
+      "operation": "builds",
+      "field": "presentationCommitMs",
+      "p95": 0.003,
+      "p99": 0.0039,
+      "max": 0.0631
+    },
+    {
+      "cell": 200,
+      "operation": "builds",
+      "field": "publishToDrawMs",
+      "p95": 1.3117,
+      "p99": 1.5066,
+      "max": 7.155
+    },
+    {
+      "cell": 200,
+      "operation": "builds",
+      "field": "inputToDrawMs",
+      "p95": 6.9495,
+      "p99": 9.5133,
+      "max": 17.1379
+    },
+    {
+      "cell": 200,
+      "operation": "undos",
+      "field": "inputPreparationMs",
+      "p95": 0.0078,
+      "p99": 0.0101,
+      "max": 0.0128
+    },
+    {
+      "cell": 200,
+      "operation": "undos",
+      "field": "workerQueueMs",
+      "p95": 0.0104,
+      "p99": 0.016,
+      "max": 0.0311
+    },
+    {
+      "cell": 200,
+      "operation": "undos",
+      "field": "domainMs",
+      "p95": 0.2034,
+      "p99": 0.4901,
+      "max": 8.0226
+    },
+    {
+      "cell": 200,
+      "operation": "undos",
+      "field": "presentationPrepareMs",
+      "p95": 1.6262,
+      "p99": 2.2303,
+      "max": 37.6224
+    },
+    {
+      "cell": 200,
+      "operation": "undos",
+      "field": "resumeMs",
+      "p95": 0.3643,
+      "p99": 0.4718,
+      "max": 0.6082
+    },
+    {
+      "cell": 200,
+      "operation": "undos",
+      "field": "preflightMs",
+      "p95": 2.3287,
+      "p99": 2.7989,
+      "max": 9.1361
+    },
+    {
+      "cell": 200,
+      "operation": "undos",
+      "field": "referenceCommitMs",
+      "p95": 0.0007,
+      "p99": 0.0009,
+      "max": 0.0013
+    },
+    {
+      "cell": 200,
+      "operation": "undos",
+      "field": "presentationCommitMs",
+      "p95": 0.0026,
+      "p99": 0.0032,
+      "max": 0.0039
+    },
+    {
+      "cell": 200,
+      "operation": "undos",
+      "field": "publishToDrawMs",
+      "p95": 1.2551,
+      "p99": 1.4321,
+      "max": 2.1179
+    },
+    {
+      "cell": 200,
+      "operation": "undos",
+      "field": "inputToDrawMs",
+      "p95": 4.762,
+      "p99": 7.0876,
+      "max": 43.0888
+    },
+    {
+      "cell": 200,
+      "operation": "redos",
+      "field": "inputPreparationMs",
+      "p95": 0.0076,
+      "p99": 0.0094,
+      "max": 0.0105
+    },
+    {
+      "cell": 200,
+      "operation": "redos",
+      "field": "workerQueueMs",
+      "p95": 0.0101,
+      "p99": 0.015,
+      "max": 0.0293
+    },
+    {
+      "cell": 200,
+      "operation": "redos",
+      "field": "domainMs",
+      "p95": 0.2174,
+      "p99": 0.4578,
+      "max": 1.2504
+    },
+    {
+      "cell": 200,
+      "operation": "redos",
+      "field": "presentationPrepareMs",
+      "p95": 1.647,
+      "p99": 2.2752,
+      "max": 2.5598
+    },
+    {
+      "cell": 200,
+      "operation": "redos",
+      "field": "resumeMs",
+      "p95": 0.3874,
+      "p99": 0.4659,
+      "max": 0.8229
+    },
+    {
+      "cell": 200,
+      "operation": "redos",
+      "field": "preflightMs",
+      "p95": 2.2724,
+      "p99": 2.825,
+      "max": 3.7619
+    },
+    {
+      "cell": 200,
+      "operation": "redos",
+      "field": "referenceCommitMs",
+      "p95": 0.0007,
+      "p99": 0.0009,
+      "max": 0.0024
+    },
+    {
+      "cell": 200,
+      "operation": "redos",
+      "field": "presentationCommitMs",
+      "p95": 0.0025,
+      "p99": 0.0032,
+      "max": 0.0207
+    },
+    {
+      "cell": 200,
+      "operation": "redos",
+      "field": "publishToDrawMs",
+      "p95": 1.2478,
+      "p99": 1.368,
+      "max": 2.2335
+    },
+    {
+      "cell": 200,
+      "operation": "redos",
+      "field": "inputToDrawMs",
+      "p95": 4.7567,
+      "p99": 6.5066,
+      "max": 7.7378
+    },
+    {
+      "cell": 200,
+      "operation": "upgrades",
+      "field": "inputPreparationMs",
+      "p95": 0.1107,
+      "p99": 0.4812,
+      "max": 0.4812
+    },
+    {
+      "cell": 200,
+      "operation": "upgrades",
+      "field": "workerQueueMs",
+      "p95": 0.0156,
+      "p99": 0.0235,
+      "max": 0.0235
+    },
+    {
+      "cell": 200,
+      "operation": "upgrades",
+      "field": "domainMs",
+      "p95": 2.3797,
+      "p99": 9.1258,
+      "max": 9.1258
+    },
+    {
+      "cell": 200,
+      "operation": "upgrades",
+      "field": "presentationPrepareMs",
+      "p95": 1.0748,
+      "p99": 12.2099,
+      "max": 12.2099
+    },
+    {
+      "cell": 200,
+      "operation": "upgrades",
+      "field": "resumeMs",
+      "p95": 0.4258,
+      "p99": 0.5061,
+      "max": 0.5061
+    },
+    {
+      "cell": 200,
+      "operation": "upgrades",
+      "field": "preflightMs",
+      "p95": 1.3501,
+      "p99": 12.211,
+      "max": 12.211
+    },
+    {
+      "cell": 200,
+      "operation": "upgrades",
+      "field": "referenceCommitMs",
+      "p95": 0.0012,
+      "p99": 0.0014,
+      "max": 0.0014
+    },
+    {
+      "cell": 200,
+      "operation": "upgrades",
+      "field": "presentationCommitMs",
+      "p95": 0.0039,
+      "p99": 0.0046,
+      "max": 0.0046
+    },
+    {
+      "cell": 200,
+      "operation": "upgrades",
+      "field": "publishToDrawMs",
+      "p95": 1.1063,
+      "p99": 1.3718,
+      "max": 1.3718
+    },
+    {
+      "cell": 200,
+      "operation": "upgrades",
+      "field": "inputToDrawMs",
+      "p95": 16.5402,
+      "p99": 17.3132,
+      "max": 17.3132
+    },
+    {
+      "cell": 200,
+      "operation": "deletes",
+      "field": "inputPreparationMs",
+      "p95": 0.081,
+      "p99": 0.0821,
+      "max": 0.0821
+    },
+    {
+      "cell": 200,
+      "operation": "deletes",
+      "field": "workerQueueMs",
+      "p95": 0.0156,
+      "p99": 0.0168,
+      "max": 0.0168
+    },
+    {
+      "cell": 200,
+      "operation": "deletes",
+      "field": "domainMs",
+      "p95": 2.3976,
+      "p99": 2.4323,
+      "max": 2.4323
+    },
+    {
+      "cell": 200,
+      "operation": "deletes",
+      "field": "presentationPrepareMs",
+      "p95": 1.0325,
+      "p99": 9.5156,
+      "max": 9.5156
+    },
+    {
+      "cell": 200,
+      "operation": "deletes",
+      "field": "resumeMs",
+      "p95": 0.4534,
+      "p99": 0.4685,
+      "max": 0.4685
+    },
+    {
+      "cell": 200,
+      "operation": "deletes",
+      "field": "preflightMs",
+      "p95": 1.2709,
+      "p99": 1.3016,
+      "max": 1.3016
+    },
+    {
+      "cell": 200,
+      "operation": "deletes",
+      "field": "referenceCommitMs",
+      "p95": 0.0012,
+      "p99": 0.0017,
+      "max": 0.0017
+    },
+    {
+      "cell": 200,
+      "operation": "deletes",
+      "field": "presentationCommitMs",
+      "p95": 0.0042,
+      "p99": 0.0042,
+      "max": 0.0042
+    },
+    {
+      "cell": 200,
+      "operation": "deletes",
+      "field": "publishToDrawMs",
+      "p95": 1.7567,
+      "p99": 1.7701,
+      "max": 1.7701
+    },
+    {
+      "cell": 200,
+      "operation": "deletes",
+      "field": "inputToDrawMs",
+      "p95": 6.4083,
+      "p99": 15.0772,
+      "max": 15.0772
+    }
+  ],
+  "cancellations": [
+    {
+      "cell": 25,
+      "samples": [
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 1.371,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.633,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.796,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.701,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.584,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.57,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.607,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.574,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.566,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.761,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        }
+      ]
+    },
+    {
+      "cell": 50,
+      "samples": [
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 2.158,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.574,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.693,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.592,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.567,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.606,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.604,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.548,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.557,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.72,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        }
+      ]
+    },
+    {
+      "cell": 100,
+      "samples": [
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 2.307,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.638,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.629,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.58,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.705,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.632,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.84,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.688,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.832,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.611,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        }
+      ]
+    },
+    {
+      "cell": 200,
+      "samples": [
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 1.233,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.632,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.582,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.722,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.602,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.617,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.895,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.651,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.693,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "escapeToIdleMs": 0.62,
+          "historyPreserved": true,
+          "lostRace": false,
+          "phase": "Cancelled"
+        }
+      ]
+    }
+  ],
+  "fixtures": [
+    {
+      "cell": 25,
+      "edges": 240,
+      "historyEntries": 0,
+      "indices": 4173,
+      "junctions": 85,
+      "maximumPointsPerEdge": 3,
+      "nodes": 109,
+      "points": 491,
+      "polylineEdges": 11,
+      "setup": "public planner plus strict codec roundtrip; setup excluded from sampled windows",
+      "surfacePieces": 1140,
+      "vertices": 3671
+    },
+    {
+      "cell": 50,
+      "edges": 240,
+      "historyEntries": 0,
+      "indices": 4110,
+      "junctions": 85,
+      "maximumPointsPerEdge": 3,
+      "nodes": 109,
+      "points": 491,
+      "polylineEdges": 11,
+      "setup": "public planner plus strict codec roundtrip; setup excluded from sampled windows",
+      "surfacePieces": 1119,
+      "vertices": 3608
+    },
+    {
+      "cell": 100,
+      "edges": 240,
+      "historyEntries": 0,
+      "indices": 4110,
+      "junctions": 85,
+      "maximumPointsPerEdge": 3,
+      "nodes": 109,
+      "points": 491,
+      "polylineEdges": 11,
+      "setup": "public planner plus strict codec roundtrip; setup excluded from sampled windows",
+      "surfacePieces": 1119,
+      "vertices": 3608
+    },
+    {
+      "cell": 200,
+      "edges": 240,
+      "historyEntries": 0,
+      "indices": 4110,
+      "junctions": 85,
+      "maximumPointsPerEdge": 3,
+      "nodes": 109,
+      "points": 491,
+      "polylineEdges": 11,
+      "setup": "public planner plus strict codec roundtrip; setup excluded from sampled windows",
+      "surfacePieces": 1119,
+      "vertices": 3608
+    }
+  ]
+}

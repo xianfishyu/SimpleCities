@@ -1,0 +1,42 @@
+{
+  "baseCommit": "2b942a922bc0a3303bb80287d695385ecfb001b6",
+  "recordedUtc": "2026-09-21T10:38:34.9904696Z",
+  "files": [
+    {
+      "path": "Scripts/Road/V4/V4MapScene.cs",
+      "sha256": "C2E9C079ACCF32740D026B37358BE2500D80F7B09ED7BB0E83A48B3A6F4FA569"
+    },
+    {
+      "path": "Scripts/Road/V4/V4MapScene.History.cs",
+      "sha256": "BA863B7B4ECA498B28608C16B6CF25406E962A2AAB8088BA2DBBBBAC6905FB04"
+    },
+    {
+      "path": "Scripts/Road/V4/V4RoadOperation.cs",
+      "sha256": "24486E42C044F0756CBF4FC6FA026F7D9362F4C6BB329EC493CC69D0D9B716F6"
+    },
+    {
+      "path": "SimpleCities.RoadCore/RoadPresentation.cs",
+      "sha256": "FA507B6A4C8EC05D11EC826D9387EDA4DBB9DDBB04E53C0761F2423AAE83BB51"
+    },
+    {
+      "path": "tests/godot/V4PerformanceProbe.cs",
+      "sha256": "9CD8462FD146C01BDED95ADE229CD28060F31AEE10AE40EC4091A33123CEC7A7"
+    },
+    {
+      "path": "tests/godot/v4_performance_baseline.gd",
+      "sha256": "141F7316562C3848AEC6ABBB38ABCEE53236E7CD431539A864B46C7F4AFC7613"
+    },
+    {
+      "path": "tests/SimpleCities.RoadCore.Performance/Program.cs",
+      "sha256": "9C0CE020B16DE2D2E81C35EEBCE2526B42A11B02FB9B0D2DA37C4F6AC4802044"
+    },
+    {
+      "path": ".godot/mono/temp/bin/Debug/SimpleCities.dll",
+      "sha256": "530A19AA788A9166757D84963119B2A51F9A9468D05020625E99A35BF51C1750"
+    },
+    {
+      "path": ".godot/mono/temp/bin/Debug/SimpleCities.RoadCore.dll",
+      "sha256": "E97EA6A18CBCD31F5A0BC91BE295C9757E77260F11FFE9641DEDF7C3201EEC36"
+    }
+  ]
+}

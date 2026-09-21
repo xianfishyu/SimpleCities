@@ -1,0 +1,9 @@
+{
+  "cell": 25,
+  "pid": 55140,
+  "startUtc": "2026-09-21T10:37:53.2482642Z",
+  "endUtc": "2026-09-21T10:37:57.4043901Z",
+  "exitCode": 0,
+  "passed": true,
+  "smoke": true
+}

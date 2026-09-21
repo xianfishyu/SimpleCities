@@ -39,6 +39,8 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
     private CancellationTokenSource? _buildCancellation;
     private string _buildSourceToken = "";
     private string _buildPresentedToken = "";
+    private long _operationInputDrawFrame = -1;
+    private long _operationResultDrawFrame = -1;
     private string _operationCompletedText = "道路已建造";
 #if DEBUG
     internal Action? BeforeBuildWork { get; set; }
@@ -58,6 +60,28 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
     public double BuildDrawnElapsedMilliseconds => _buildOperation.DrawnElapsedMilliseconds;
     public string BuildSourceToken => _buildSourceToken;
     public string BuildPresentedToken => _buildPresentedToken;
+
+    public Godot.Collections.Dictionary GetOperationTimings() => new()
+    {
+        ["phase"] = BuildPhase, ["sourceToken"] = BuildSourceToken, ["presentedToken"] = BuildPresentedToken,
+        ["desiredToken"] = StateToken, ["failureReason"] = PresentationError,
+        ["inputDrawFrame"] = _operationInputDrawFrame,
+        ["resultDrawFrame"] = _operationResultDrawFrame,
+        ["renderFrameDelta"] = _operationResultDrawFrame < 0 ? -1 : _operationResultDrawFrame - _operationInputDrawFrame,
+        ["inputPreparationMs"] = _buildOperation.InputPreparationMilliseconds,
+        ["workerQueueMs"] = _buildOperation.WorkerQueueMilliseconds,
+        ["workerMs"] = _buildOperation.WorkerMilliseconds,
+        ["domainMs"] = _buildOperation.DomainMilliseconds,
+        ["presentationPrepareMs"] = _buildOperation.PresentationPrepareMilliseconds,
+        ["resumeMs"] = _buildOperation.ResumeMilliseconds,
+        ["preflightMs"] = _buildOperation.PreflightMilliseconds,
+        ["publicationMs"] = _buildOperation.PublicationMilliseconds,
+        ["referenceCommitMs"] = _buildOperation.ReferenceCommitMilliseconds,
+        ["presentationCommitMs"] = _buildOperation.PresentationCommitMilliseconds,
+        // Includes main-thread completion bookkeeping and the wait for the first matching draw.
+        ["publishToDrawMs"] = _buildOperation.DrawWaitMilliseconds,
+        ["inputToDrawMs"] = BuildDrawnElapsedMilliseconds,
+    };
 
     public override void _Ready()
     {
@@ -499,6 +523,8 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
     {
         RoadNetwork network = _roads!.Network;
         if (!_buildOperation.TryBegin(inputTimestamp)) return;
+        _operationInputDrawFrame = Engine.GetFramesDrawn();
+        _operationResultDrawFrame = -1;
         using var cancellation = new CancellationTokenSource();
         _buildCancellation = cancellation;
         CancellationToken token = cancellation.Token;
@@ -513,18 +539,23 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
 #endif
         try
         {
-            (PlannedRoadOperation Result, RoadSurfaceData? Surface) prepared = await Task.Run(() =>
+            long queuedAt = Stopwatch.GetTimestamp();
+            var prepared = await Task.Run(() =>
             {
+                long startedAt = Stopwatch.GetTimestamp();
 #if DEBUG
                 beforeWork?.Invoke();
 #endif
                 token.ThrowIfCancellationRequested();
                 PlannedRoadOperation result = prepare(network, token);
+                long domainFinishedAt = Stopwatch.GetTimestamp();
                 RoadSurfaceData? surface = result.Plan is RoadPlan target
                     ? RoadPresentation.Prepare(target.Target.Nodes, target.Target.Edges, token) : null;
                 token.ThrowIfCancellationRequested();
-                return (result, surface);
+                return (Result: result, Surface: surface, StartedAt: startedAt,
+                    DomainFinishedAt: domainFinishedAt, FinishedAt: Stopwatch.GetTimestamp());
             });
+            _buildOperation.RecordWorker(queuedAt, prepared.StartedAt, prepared.DomainFinishedAt, prepared.FinishedAt);
             if (!IsSceneAlive || !_buildOperation.CanPublish)
             {
                 if (IsSceneAlive) _status.Text = "已取消";
@@ -535,15 +566,21 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
                 _status.Text = prepared.Result.NoChange ? noChangeText : prepared.Result.Reason;
                 return;
             }
+            long preflightAt = Stopwatch.GetTimestamp();
             display = _view.PrepareDisplay(plan.Target, prepared.Surface);
+            _buildOperation.RecordPreflight(preflightAt);
             if (!network.CanCommit(plan) || !_buildOperation.CanPublish) return;
             // No await or callbacks between the validated reference publications.
+            long publicationAt = Stopwatch.GetTimestamp();
             committed = _buildOperation.TryCommit(() => network.TryCommit(plan));
+            long referenceFinishedAt = Stopwatch.GetTimestamp();
             if (!committed) return;
             _view.PublishDisplay(display);
+            long displayFinishedAt = Stopwatch.GetTimestamp();
             display = null;
             _buildPresentedToken = plan.Target.Token.ToString();
             _displayPhase = DisplayPhase.AwaitingDraw;
+            _buildOperation.RecordPublication(publicationAt, referenceFinishedAt, displayFinishedAt);
             _status.Text = "道路已提交，正在更新显示…";
             UpdateMapInfo();
         }
@@ -581,6 +618,7 @@ public partial class V4MapScene : Node2D, ISceneToolLoadParticipant
             return;
         if (_buildOperation.RecordFirstDraw())
         {
+            _operationResultDrawFrame = Engine.GetFramesDrawn();
             _status.Text = $"{_operationCompletedText} · {_buildOperation.DrawnElapsedMilliseconds:F1} ms";
             UpdateHistoryControls();
         }

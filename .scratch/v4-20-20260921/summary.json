@@ -1,0 +1,2936 @@
+{
+  "frames": [
+    {
+      "cell": 25,
+      "phase": "idle",
+      "seconds": 10.000125,
+      "count": 24584,
+      "p95": 0.567,
+      "p99": 0.769,
+      "max": 60.166,
+      "overBudget": 2,
+      "ratio": 8.13537260006508E-05,
+      "visibility": "foreground",
+      "focused": 24584,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 25,
+      "phase": "panHover",
+      "seconds": 10.000353,
+      "count": 24597,
+      "p95": 0.609,
+      "p99": 0.749,
+      "max": 13.065,
+      "overBudget": 1,
+      "ratio": 4.06553644753425E-05,
+      "visibility": "foreground",
+      "focused": 24597,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 25,
+      "phase": "polylineView",
+      "seconds": 10.000111,
+      "count": 24952,
+      "p95": 0.558,
+      "p99": 0.728,
+      "max": 1.598,
+      "overBudget": 0,
+      "ratio": 0.0,
+      "visibility": "foreground",
+      "focused": 24952,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 25,
+      "phase": "buildUndoFrames",
+      "seconds": 10.005198,
+      "count": 11997,
+      "p95": 2.068,
+      "p99": 3.165,
+      "max": 39.451,
+      "overBudget": 4,
+      "ratio": 0.00033341668750521,
+      "visibility": "foreground",
+      "focused": 11997,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 25,
+      "phase": "upgradeFrames",
+      "seconds": 10.084928,
+      "count": 24076,
+      "p95": 0.636,
+      "p99": 1.299,
+      "max": 14.223,
+      "overBudget": 6,
+      "ratio": 0.00024921083236418,
+      "visibility": "foreground",
+      "focused": 24076,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 25,
+      "phase": "deleteUndoFrames",
+      "seconds": 4.387251,
+      "count": 10302,
+      "p95": 0.679,
+      "p99": 1.34,
+      "max": 10.193,
+      "overBudget": 4,
+      "ratio": 0.0003882741215298,
+      "visibility": "foreground",
+      "focused": 10302,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 25,
+      "phase": "cancellationFrames",
+      "seconds": 0.028545,
+      "count": 41,
+      "p95": 1.028,
+      "p99": 1.274,
+      "max": 1.274,
+      "overBudget": 0,
+      "ratio": 0.0,
+      "visibility": "foreground",
+      "focused": 41,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 50,
+      "phase": "idle",
+      "seconds": 10.000272,
+      "count": 24639,
+      "p95": 0.564,
+      "p99": 0.791,
+      "max": 59.771,
+      "overBudget": 2,
+      "ratio": 8.1172125492106E-05,
+      "visibility": "foreground",
+      "focused": 24639,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 50,
+      "phase": "panHover",
+      "seconds": 10.000385,
+      "count": 24650,
+      "p95": 0.606,
+      "p99": 0.744,
+      "max": 12.869,
+      "overBudget": 1,
+      "ratio": 4.05679513184584E-05,
+      "visibility": "foreground",
+      "focused": 24650,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 50,
+      "phase": "polylineView",
+      "seconds": 10.000715,
+      "count": 24983,
+      "p95": 0.551,
+      "p99": 0.728,
+      "max": 49.133,
+      "overBudget": 1,
+      "ratio": 4.00272185085858E-05,
+      "visibility": "foreground",
+      "focused": 24983,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 50,
+      "phase": "buildUndoFrames",
+      "seconds": 10.013681,
+      "count": 11968,
+      "p95": 2.065,
+      "p99": 3.136,
+      "max": 44.825,
+      "overBudget": 4,
+      "ratio": 0.000334224598930481,
+      "visibility": "foreground",
+      "focused": 11968,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 50,
+      "phase": "upgradeFrames",
+      "seconds": 10.085276,
+      "count": 24273,
+      "p95": 0.643,
+      "p99": 1.301,
+      "max": 13.744,
+      "overBudget": 5,
+      "ratio": 0.000205990194866724,
+      "visibility": "foreground",
+      "focused": 24273,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 50,
+      "phase": "deleteUndoFrames",
+      "seconds": 4.397793,
+      "count": 10352,
+      "p95": 0.679,
+      "p99": 1.351,
+      "max": 13.814,
+      "overBudget": 5,
+      "ratio": 0.000482998454404946,
+      "visibility": "foreground",
+      "focused": 10352,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 50,
+      "phase": "cancellationFrames",
+      "seconds": 0.028437,
+      "count": 39,
+      "p95": 1.255,
+      "p99": 1.38,
+      "max": 1.38,
+      "overBudget": 0,
+      "ratio": 0.0,
+      "visibility": "foreground",
+      "focused": 39,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 100,
+      "phase": "idle",
+      "seconds": 10.000068,
+      "count": 24599,
+      "p95": 0.571,
+      "p99": 0.795,
+      "max": 59.825,
+      "overBudget": 2,
+      "ratio": 8.13041180535794E-05,
+      "visibility": "foreground",
+      "focused": 24599,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 100,
+      "phase": "panHover",
+      "seconds": 10.000155,
+      "count": 24713,
+      "p95": 0.605,
+      "p99": 0.738,
+      "max": 13.044,
+      "overBudget": 1,
+      "ratio": 4.04645328369684E-05,
+      "visibility": "foreground",
+      "focused": 24713,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 100,
+      "phase": "polylineView",
+      "seconds": 10.000102,
+      "count": 24927,
+      "p95": 0.55,
+      "p99": 0.736,
+      "max": 55.641,
+      "overBudget": 1,
+      "ratio": 4.01171420548E-05,
+      "visibility": "foreground",
+      "focused": 24927,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 100,
+      "phase": "buildUndoFrames",
+      "seconds": 10.004936,
+      "count": 11670,
+      "p95": 2.15,
+      "p99": 3.272,
+      "max": 38.83,
+      "overBudget": 4,
+      "ratio": 0.000342759211653813,
+      "visibility": "foreground",
+      "focused": 11670,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 100,
+      "phase": "upgradeFrames",
+      "seconds": 10.094792,
+      "count": 24253,
+      "p95": 0.637,
+      "p99": 1.3,
+      "max": 12.528,
+      "overBudget": 5,
+      "ratio": 0.000206160062672659,
+      "visibility": "foreground",
+      "focused": 24253,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 100,
+      "phase": "deleteUndoFrames",
+      "seconds": 4.409198,
+      "count": 10356,
+      "p95": 0.681,
+      "p99": 1.344,
+      "max": 12.042,
+      "overBudget": 5,
+      "ratio": 0.000482811896485129,
+      "visibility": "foreground",
+      "focused": 10356,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 100,
+      "phase": "cancellationFrames",
+      "seconds": 0.042453,
+      "count": 42,
+      "p95": 1.323,
+      "p99": 11.609,
+      "max": 11.609,
+      "overBudget": 1,
+      "ratio": 0.0238095238095238,
+      "visibility": "foreground",
+      "focused": 42,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 200,
+      "phase": "idle",
+      "seconds": 10.000472,
+      "count": 24777,
+      "p95": 0.565,
+      "p99": 0.782,
+      "max": 61.16,
+      "overBudget": 2,
+      "ratio": 8.07200226016063E-05,
+      "visibility": "foreground",
+      "focused": 24777,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 200,
+      "phase": "panHover",
+      "seconds": 10.000193,
+      "count": 24957,
+      "p95": 0.595,
+      "p99": 0.732,
+      "max": 13.015,
+      "overBudget": 1,
+      "ratio": 4.00689185398886E-05,
+      "visibility": "foreground",
+      "focused": 24957,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 200,
+      "phase": "polylineView",
+      "seconds": 10.000199,
+      "count": 25186,
+      "p95": 0.548,
+      "p99": 0.72,
+      "max": 59.778,
+      "overBudget": 1,
+      "ratio": 3.97045977924244E-05,
+      "visibility": "foreground",
+      "focused": 25186,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 200,
+      "phase": "buildUndoFrames",
+      "seconds": 10.013805,
+      "count": 11417,
+      "p95": 2.276,
+      "p99": 3.487,
+      "max": 35.898,
+      "overBudget": 5,
+      "ratio": 0.000437943417710432,
+      "visibility": "foreground",
+      "focused": 11417,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 200,
+      "phase": "upgradeFrames",
+      "seconds": 10.101226,
+      "count": 24176,
+      "p95": 0.656,
+      "p99": 1.317,
+      "max": 14.038,
+      "overBudget": 6,
+      "ratio": 0.000248180013236267,
+      "visibility": "foreground",
+      "focused": 24176,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 200,
+      "phase": "deleteUndoFrames",
+      "seconds": 4.413383,
+      "count": 10406,
+      "p95": 0.671,
+      "p99": 1.33,
+      "max": 13.85,
+      "overBudget": 5,
+      "ratio": 0.000480492023832404,
+      "visibility": "foreground",
+      "focused": 10406,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    },
+    {
+      "cell": 200,
+      "phase": "cancellationFrames",
+      "seconds": 0.040294,
+      "count": 39,
+      "p95": 1.488,
+      "p99": 11.92,
+      "max": 11.92,
+      "overBudget": 1,
+      "ratio": 0.0256410256410256,
+      "visibility": "foreground",
+      "focused": 39,
+      "unfocused": 0,
+      "minimized": 0,
+      "p95Pass": true
+    }
+  ],
+  "responses": [
+    {
+      "cell": 25,
+      "operation": "builds",
+      "count": 596,
+      "p95": 6.6649,
+      "p99": 9.7061,
+      "max": 47.8707,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 25,
+      "operation": "undos",
+      "count": 1222,
+      "p95": 4.5663,
+      "p99": 6.7525,
+      "max": 18.8267,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 25,
+      "operation": "redos",
+      "count": 596,
+      "p95": 4.5789,
+      "p99": 6.7038,
+      "max": 7.6117,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 25,
+      "operation": "upgrades",
+      "count": 71,
+      "p95": 16.5917,
+      "p99": 17.6146,
+      "max": 17.6146,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 25,
+      "operation": "deletes",
+      "count": 30,
+      "p95": 6.3438,
+      "p99": 14.8001,
+      "max": 14.8001,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 50,
+      "operation": "builds",
+      "count": 602,
+      "p95": 6.7037,
+      "p99": 8.9078,
+      "max": 49.9653,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 50,
+      "operation": "undos",
+      "count": 1234,
+      "p95": 4.4795,
+      "p99": 6.8294,
+      "max": 14.9652,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 50,
+      "operation": "redos",
+      "count": 602,
+      "p95": 4.5833,
+      "p99": 5.9942,
+      "max": 17.6269,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 50,
+      "operation": "upgrades",
+      "count": 71,
+      "p95": 15.0602,
+      "p99": 17.7547,
+      "max": 17.7547,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 50,
+      "operation": "deletes",
+      "count": 30,
+      "p95": 14.6409,
+      "p99": 15.0627,
+      "max": 15.0627,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 100,
+      "operation": "builds",
+      "count": 589,
+      "p95": 6.8192,
+      "p99": 8.9584,
+      "max": 17.2345,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 100,
+      "operation": "undos",
+      "count": 1208,
+      "p95": 4.6566,
+      "p99": 6.8166,
+      "max": 15.7032,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 100,
+      "operation": "redos",
+      "count": 589,
+      "p95": 4.5689,
+      "p99": 6.5477,
+      "max": 45.143,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 100,
+      "operation": "upgrades",
+      "count": 71,
+      "p95": 17.4558,
+      "p99": 18.0756,
+      "max": 18.0756,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 100,
+      "operation": "deletes",
+      "count": 30,
+      "p95": 15.0685,
+      "p99": 18.095,
+      "max": 18.095,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 200,
+      "operation": "builds",
+      "count": 568,
+      "p95": 7.0676,
+      "p99": 9.3912,
+      "max": 18.2204,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 200,
+      "operation": "undos",
+      "count": 1166,
+      "p95": 4.7772,
+      "p99": 7.0222,
+      "max": 42.7038,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 200,
+      "operation": "redos",
+      "count": 568,
+      "p95": 4.7274,
+      "p99": 6.8817,
+      "max": 7.4286,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 200,
+      "operation": "upgrades",
+      "count": 71,
+      "p95": 15.369,
+      "p99": 17.456,
+      "max": 17.456,
+      "over100": 0,
+      "over300": 0
+    },
+    {
+      "cell": 200,
+      "operation": "deletes",
+      "count": 30,
+      "p95": 14.8615,
+      "p99": 16.4043,
+      "max": 16.4043,
+      "over100": 0,
+      "over300": 0
+    }
+  ],
+  "stages": [
+    {
+      "cell": 25,
+      "operation": "builds",
+      "field": "inputPreparationMs",
+      "p95": 0.0086,
+      "p99": 0.0147,
+      "max": 1.1641
+    },
+    {
+      "cell": 25,
+      "operation": "builds",
+      "field": "workerQueueMs",
+      "p95": 0.0094,
+      "p99": 0.0122,
+      "max": 0.4232
+    },
+    {
+      "cell": 25,
+      "operation": "builds",
+      "field": "domainMs",
+      "p95": 2.3603,
+      "p99": 3.2966,
+      "max": 3.4739
+    },
+    {
+      "cell": 25,
+      "operation": "builds",
+      "field": "presentationPrepareMs",
+      "p95": 1.682,
+      "p99": 2.377,
+      "max": 40.5188
+    },
+    {
+      "cell": 25,
+      "operation": "builds",
+      "field": "resumeMs",
+      "p95": 0.4016,
+      "p99": 0.5291,
+      "max": 0.6688
+    },
+    {
+      "cell": 25,
+      "operation": "builds",
+      "field": "preflightMs",
+      "p95": 2.0796,
+      "p99": 2.6885,
+      "max": 3.8768
+    },
+    {
+      "cell": 25,
+      "operation": "builds",
+      "field": "referenceCommitMs",
+      "p95": 0.0006,
+      "p99": 0.0008,
+      "max": 0.0721
+    },
+    {
+      "cell": 25,
+      "operation": "builds",
+      "field": "presentationCommitMs",
+      "p95": 0.0024,
+      "p99": 0.0029,
+      "max": 0.0634
+    },
+    {
+      "cell": 25,
+      "operation": "builds",
+      "field": "publishToDrawMs",
+      "p95": 1.3083,
+      "p99": 1.6112,
+      "max": 7.5751
+    },
+    {
+      "cell": 25,
+      "operation": "builds",
+      "field": "inputToDrawMs",
+      "p95": 6.6649,
+      "p99": 9.7061,
+      "max": 47.8707
+    },
+    {
+      "cell": 25,
+      "operation": "undos",
+      "field": "inputPreparationMs",
+      "p95": 0.0082,
+      "p99": 0.0101,
+      "max": 0.0188
+    },
+    {
+      "cell": 25,
+      "operation": "undos",
+      "field": "workerQueueMs",
+      "p95": 0.0103,
+      "p99": 0.0151,
+      "max": 0.0264
+    },
+    {
+      "cell": 25,
+      "operation": "undos",
+      "field": "domainMs",
+      "p95": 0.1781,
+      "p99": 0.4491,
+      "max": 2.0987
+    },
+    {
+      "cell": 25,
+      "operation": "undos",
+      "field": "presentationPrepareMs",
+      "p95": 1.6893,
+      "p99": 2.2727,
+      "max": 9.2502
+    },
+    {
+      "cell": 25,
+      "operation": "undos",
+      "field": "resumeMs",
+      "p95": 0.3678,
+      "p99": 0.4637,
+      "max": 0.6265
+    },
+    {
+      "cell": 25,
+      "operation": "undos",
+      "field": "preflightMs",
+      "p95": 1.9779,
+      "p99": 2.5114,
+      "max": 14.4852
+    },
+    {
+      "cell": 25,
+      "operation": "undos",
+      "field": "referenceCommitMs",
+      "p95": 0.0006,
+      "p99": 0.0008,
+      "max": 0.0013
+    },
+    {
+      "cell": 25,
+      "operation": "undos",
+      "field": "presentationCommitMs",
+      "p95": 0.0023,
+      "p99": 0.0028,
+      "max": 0.0043
+    },
+    {
+      "cell": 25,
+      "operation": "undos",
+      "field": "publishToDrawMs",
+      "p95": 1.2563,
+      "p99": 1.5065,
+      "max": 1.9404
+    },
+    {
+      "cell": 25,
+      "operation": "undos",
+      "field": "inputToDrawMs",
+      "p95": 4.5663,
+      "p99": 6.7525,
+      "max": 18.8267
+    },
+    {
+      "cell": 25,
+      "operation": "redos",
+      "field": "inputPreparationMs",
+      "p95": 0.0077,
+      "p99": 0.0094,
+      "max": 0.0151
+    },
+    {
+      "cell": 25,
+      "operation": "redos",
+      "field": "workerQueueMs",
+      "p95": 0.0105,
+      "p99": 0.0182,
+      "max": 0.0267
+    },
+    {
+      "cell": 25,
+      "operation": "redos",
+      "field": "domainMs",
+      "p95": 0.1836,
+      "p99": 0.494,
+      "max": 1.271
+    },
+    {
+      "cell": 25,
+      "operation": "redos",
+      "field": "presentationPrepareMs",
+      "p95": 1.6323,
+      "p99": 2.2882,
+      "max": 2.4982
+    },
+    {
+      "cell": 25,
+      "operation": "redos",
+      "field": "resumeMs",
+      "p95": 0.3742,
+      "p99": 0.5184,
+      "max": 0.5931
+    },
+    {
+      "cell": 25,
+      "operation": "redos",
+      "field": "preflightMs",
+      "p95": 2.0079,
+      "p99": 2.6095,
+      "max": 3.0279
+    },
+    {
+      "cell": 25,
+      "operation": "redos",
+      "field": "referenceCommitMs",
+      "p95": 0.0005,
+      "p99": 0.0007,
+      "max": 0.0018
+    },
+    {
+      "cell": 25,
+      "operation": "redos",
+      "field": "presentationCommitMs",
+      "p95": 0.0023,
+      "p99": 0.0027,
+      "max": 0.0043
+    },
+    {
+      "cell": 25,
+      "operation": "redos",
+      "field": "publishToDrawMs",
+      "p95": 1.2749,
+      "p99": 1.5408,
+      "max": 1.8109
+    },
+    {
+      "cell": 25,
+      "operation": "redos",
+      "field": "inputToDrawMs",
+      "p95": 4.5789,
+      "p99": 6.7038,
+      "max": 7.6117
+    },
+    {
+      "cell": 25,
+      "operation": "upgrades",
+      "field": "inputPreparationMs",
+      "p95": 0.1149,
+      "p99": 0.5558,
+      "max": 0.5558
+    },
+    {
+      "cell": 25,
+      "operation": "upgrades",
+      "field": "workerQueueMs",
+      "p95": 0.015,
+      "p99": 0.016,
+      "max": 0.016
+    },
+    {
+      "cell": 25,
+      "operation": "upgrades",
+      "field": "domainMs",
+      "p95": 2.2832,
+      "p99": 8.8611,
+      "max": 8.8611
+    },
+    {
+      "cell": 25,
+      "operation": "upgrades",
+      "field": "presentationPrepareMs",
+      "p95": 1.0334,
+      "p99": 9.3717,
+      "max": 9.3717
+    },
+    {
+      "cell": 25,
+      "operation": "upgrades",
+      "field": "resumeMs",
+      "p95": 0.4843,
+      "p99": 0.7202,
+      "max": 0.7202
+    },
+    {
+      "cell": 25,
+      "operation": "upgrades",
+      "field": "preflightMs",
+      "p95": 11.9065,
+      "p99": 12.849,
+      "max": 12.849
+    },
+    {
+      "cell": 25,
+      "operation": "upgrades",
+      "field": "referenceCommitMs",
+      "p95": 0.0015,
+      "p99": 0.0025,
+      "max": 0.0025
+    },
+    {
+      "cell": 25,
+      "operation": "upgrades",
+      "field": "presentationCommitMs",
+      "p95": 0.0039,
+      "p99": 0.005,
+      "max": 0.005
+    },
+    {
+      "cell": 25,
+      "operation": "upgrades",
+      "field": "publishToDrawMs",
+      "p95": 1.299,
+      "p99": 1.3964,
+      "max": 1.3964
+    },
+    {
+      "cell": 25,
+      "operation": "upgrades",
+      "field": "inputToDrawMs",
+      "p95": 16.5917,
+      "p99": 17.6146,
+      "max": 17.6146
+    },
+    {
+      "cell": 25,
+      "operation": "deletes",
+      "field": "inputPreparationMs",
+      "p95": 0.0915,
+      "p99": 0.1023,
+      "max": 0.1023
+    },
+    {
+      "cell": 25,
+      "operation": "deletes",
+      "field": "workerQueueMs",
+      "p95": 0.0154,
+      "p99": 0.0235,
+      "max": 0.0235
+    },
+    {
+      "cell": 25,
+      "operation": "deletes",
+      "field": "domainMs",
+      "p95": 2.3636,
+      "p99": 2.3909,
+      "max": 2.3909
+    },
+    {
+      "cell": 25,
+      "operation": "deletes",
+      "field": "presentationPrepareMs",
+      "p95": 1.0835,
+      "p99": 9.4635,
+      "max": 9.4635
+    },
+    {
+      "cell": 25,
+      "operation": "deletes",
+      "field": "resumeMs",
+      "p95": 0.3699,
+      "p99": 0.4517,
+      "max": 0.4517
+    },
+    {
+      "cell": 25,
+      "operation": "deletes",
+      "field": "preflightMs",
+      "p95": 1.1254,
+      "p99": 1.1542,
+      "max": 1.1542
+    },
+    {
+      "cell": 25,
+      "operation": "deletes",
+      "field": "referenceCommitMs",
+      "p95": 0.0014,
+      "p99": 0.0015,
+      "max": 0.0015
+    },
+    {
+      "cell": 25,
+      "operation": "deletes",
+      "field": "presentationCommitMs",
+      "p95": 0.0043,
+      "p99": 0.0048,
+      "max": 0.0048
+    },
+    {
+      "cell": 25,
+      "operation": "deletes",
+      "field": "publishToDrawMs",
+      "p95": 1.6626,
+      "p99": 1.6655,
+      "max": 1.6655
+    },
+    {
+      "cell": 25,
+      "operation": "deletes",
+      "field": "inputToDrawMs",
+      "p95": 6.3438,
+      "p99": 14.8001,
+      "max": 14.8001
+    },
+    {
+      "cell": 50,
+      "operation": "builds",
+      "field": "inputPreparationMs",
+      "p95": 0.0079,
+      "p99": 0.0119,
+      "max": 1.1702
+    },
+    {
+      "cell": 50,
+      "operation": "builds",
+      "field": "workerQueueMs",
+      "p95": 0.0091,
+      "p99": 0.0131,
+      "max": 0.4474
+    },
+    {
+      "cell": 50,
+      "operation": "builds",
+      "field": "domainMs",
+      "p95": 2.3429,
+      "p99": 3.2559,
+      "max": 3.5389
+    },
+    {
+      "cell": 50,
+      "operation": "builds",
+      "field": "presentationPrepareMs",
+      "p95": 1.6782,
+      "p99": 2.2311,
+      "max": 2.4414
+    },
+    {
+      "cell": 50,
+      "operation": "builds",
+      "field": "resumeMs",
+      "p95": 0.395,
+      "p99": 0.5209,
+      "max": 0.8158
+    },
+    {
+      "cell": 50,
+      "operation": "builds",
+      "field": "preflightMs",
+      "p95": 2.0726,
+      "p99": 2.6403,
+      "max": 42.6839
+    },
+    {
+      "cell": 50,
+      "operation": "builds",
+      "field": "referenceCommitMs",
+      "p95": 0.0007,
+      "p99": 0.001,
+      "max": 0.0644
+    },
+    {
+      "cell": 50,
+      "operation": "builds",
+      "field": "presentationCommitMs",
+      "p95": 0.0028,
+      "p99": 0.0034,
+      "max": 0.063
+    },
+    {
+      "cell": 50,
+      "operation": "builds",
+      "field": "publishToDrawMs",
+      "p95": 1.2976,
+      "p99": 1.4882,
+      "max": 7.4672
+    },
+    {
+      "cell": 50,
+      "operation": "builds",
+      "field": "inputToDrawMs",
+      "p95": 6.7037,
+      "p99": 8.9078,
+      "max": 49.9653
+    },
+    {
+      "cell": 50,
+      "operation": "undos",
+      "field": "inputPreparationMs",
+      "p95": 0.0081,
+      "p99": 0.0107,
+      "max": 0.0237
+    },
+    {
+      "cell": 50,
+      "operation": "undos",
+      "field": "workerQueueMs",
+      "p95": 0.0107,
+      "p99": 0.015,
+      "max": 0.0489
+    },
+    {
+      "cell": 50,
+      "operation": "undos",
+      "field": "domainMs",
+      "p95": 0.1907,
+      "p99": 0.4837,
+      "max": 9.6179
+    },
+    {
+      "cell": 50,
+      "operation": "undos",
+      "field": "presentationPrepareMs",
+      "p95": 1.308,
+      "p99": 2.2972,
+      "max": 9.0785
+    },
+    {
+      "cell": 50,
+      "operation": "undos",
+      "field": "resumeMs",
+      "p95": 0.362,
+      "p99": 0.4803,
+      "max": 0.7875
+    },
+    {
+      "cell": 50,
+      "operation": "undos",
+      "field": "preflightMs",
+      "p95": 2.0236,
+      "p99": 2.4871,
+      "max": 12.0714
+    },
+    {
+      "cell": 50,
+      "operation": "undos",
+      "field": "referenceCommitMs",
+      "p95": 0.0005,
+      "p99": 0.0009,
+      "max": 0.0015
+    },
+    {
+      "cell": 50,
+      "operation": "undos",
+      "field": "presentationCommitMs",
+      "p95": 0.0023,
+      "p99": 0.0027,
+      "max": 0.048
+    },
+    {
+      "cell": 50,
+      "operation": "undos",
+      "field": "publishToDrawMs",
+      "p95": 1.2299,
+      "p99": 1.4186,
+      "max": 1.7712
+    },
+    {
+      "cell": 50,
+      "operation": "undos",
+      "field": "inputToDrawMs",
+      "p95": 4.4795,
+      "p99": 6.8294,
+      "max": 14.9652
+    },
+    {
+      "cell": 50,
+      "operation": "redos",
+      "field": "inputPreparationMs",
+      "p95": 0.0079,
+      "p99": 0.0093,
+      "max": 0.0162
+    },
+    {
+      "cell": 50,
+      "operation": "redos",
+      "field": "workerQueueMs",
+      "p95": 0.0099,
+      "p99": 0.0153,
+      "max": 0.0439
+    },
+    {
+      "cell": 50,
+      "operation": "redos",
+      "field": "domainMs",
+      "p95": 0.1911,
+      "p99": 0.4517,
+      "max": 1.502
+    },
+    {
+      "cell": 50,
+      "operation": "redos",
+      "field": "presentationPrepareMs",
+      "p95": 1.725,
+      "p99": 2.2639,
+      "max": 12.8154
+    },
+    {
+      "cell": 50,
+      "operation": "redos",
+      "field": "resumeMs",
+      "p95": 0.3582,
+      "p99": 0.4423,
+      "max": 0.5815
+    },
+    {
+      "cell": 50,
+      "operation": "redos",
+      "field": "preflightMs",
+      "p95": 2.0125,
+      "p99": 2.5692,
+      "max": 2.7991
+    },
+    {
+      "cell": 50,
+      "operation": "redos",
+      "field": "referenceCommitMs",
+      "p95": 0.0005,
+      "p99": 0.0008,
+      "max": 0.0014
+    },
+    {
+      "cell": 50,
+      "operation": "redos",
+      "field": "presentationCommitMs",
+      "p95": 0.0023,
+      "p99": 0.003,
+      "max": 0.0039
+    },
+    {
+      "cell": 50,
+      "operation": "redos",
+      "field": "publishToDrawMs",
+      "p95": 1.2465,
+      "p99": 1.3428,
+      "max": 2.3575
+    },
+    {
+      "cell": 50,
+      "operation": "redos",
+      "field": "inputToDrawMs",
+      "p95": 4.5833,
+      "p99": 5.9942,
+      "max": 17.6269
+    },
+    {
+      "cell": 50,
+      "operation": "upgrades",
+      "field": "inputPreparationMs",
+      "p95": 0.1145,
+      "p99": 0.529,
+      "max": 0.529
+    },
+    {
+      "cell": 50,
+      "operation": "upgrades",
+      "field": "workerQueueMs",
+      "p95": 0.0159,
+      "p99": 0.0241,
+      "max": 0.0241
+    },
+    {
+      "cell": 50,
+      "operation": "upgrades",
+      "field": "domainMs",
+      "p95": 2.3482,
+      "p99": 13.9048,
+      "max": 13.9048
+    },
+    {
+      "cell": 50,
+      "operation": "upgrades",
+      "field": "presentationPrepareMs",
+      "p95": 0.9853,
+      "p99": 13.126,
+      "max": 13.126
+    },
+    {
+      "cell": 50,
+      "operation": "upgrades",
+      "field": "resumeMs",
+      "p95": 0.4503,
+      "p99": 0.6198,
+      "max": 0.6198
+    },
+    {
+      "cell": 50,
+      "operation": "upgrades",
+      "field": "preflightMs",
+      "p95": 1.2548,
+      "p99": 10.3087,
+      "max": 10.3087
+    },
+    {
+      "cell": 50,
+      "operation": "upgrades",
+      "field": "referenceCommitMs",
+      "p95": 0.0013,
+      "p99": 0.0031,
+      "max": 0.0031
+    },
+    {
+      "cell": 50,
+      "operation": "upgrades",
+      "field": "presentationCommitMs",
+      "p95": 0.004,
+      "p99": 0.0063,
+      "max": 0.0063
+    },
+    {
+      "cell": 50,
+      "operation": "upgrades",
+      "field": "publishToDrawMs",
+      "p95": 1.2491,
+      "p99": 1.5074,
+      "max": 1.5074
+    },
+    {
+      "cell": 50,
+      "operation": "upgrades",
+      "field": "inputToDrawMs",
+      "p95": 15.0602,
+      "p99": 17.7547,
+      "max": 17.7547
+    },
+    {
+      "cell": 50,
+      "operation": "deletes",
+      "field": "inputPreparationMs",
+      "p95": 0.0838,
+      "p99": 0.0907,
+      "max": 0.0907
+    },
+    {
+      "cell": 50,
+      "operation": "deletes",
+      "field": "workerQueueMs",
+      "p95": 0.0158,
+      "p99": 0.0229,
+      "max": 0.0229
+    },
+    {
+      "cell": 50,
+      "operation": "deletes",
+      "field": "domainMs",
+      "p95": 2.2804,
+      "p99": 2.3754,
+      "max": 2.3754
+    },
+    {
+      "cell": 50,
+      "operation": "deletes",
+      "field": "presentationPrepareMs",
+      "p95": 9.4791,
+      "p99": 9.6856,
+      "max": 9.6856
+    },
+    {
+      "cell": 50,
+      "operation": "deletes",
+      "field": "resumeMs",
+      "p95": 0.4237,
+      "p99": 0.4372,
+      "max": 0.4372
+    },
+    {
+      "cell": 50,
+      "operation": "deletes",
+      "field": "preflightMs",
+      "p95": 1.1947,
+      "p99": 1.2246,
+      "max": 1.2246
+    },
+    {
+      "cell": 50,
+      "operation": "deletes",
+      "field": "referenceCommitMs",
+      "p95": 0.0015,
+      "p99": 0.0015,
+      "max": 0.0015
+    },
+    {
+      "cell": 50,
+      "operation": "deletes",
+      "field": "presentationCommitMs",
+      "p95": 0.0033,
+      "p99": 0.0034,
+      "max": 0.0034
+    },
+    {
+      "cell": 50,
+      "operation": "deletes",
+      "field": "publishToDrawMs",
+      "p95": 1.6409,
+      "p99": 1.7331,
+      "max": 1.7331
+    },
+    {
+      "cell": 50,
+      "operation": "deletes",
+      "field": "inputToDrawMs",
+      "p95": 14.6409,
+      "p99": 15.0627,
+      "max": 15.0627
+    },
+    {
+      "cell": 100,
+      "operation": "builds",
+      "field": "inputPreparationMs",
+      "p95": 0.0077,
+      "p99": 0.0143,
+      "max": 1.2392
+    },
+    {
+      "cell": 100,
+      "operation": "builds",
+      "field": "workerQueueMs",
+      "p95": 0.009,
+      "p99": 0.0122,
+      "max": 0.4543
+    },
+    {
+      "cell": 100,
+      "operation": "builds",
+      "field": "domainMs",
+      "p95": 2.3702,
+      "p99": 3.3217,
+      "max": 4.1851
+    },
+    {
+      "cell": 100,
+      "operation": "builds",
+      "field": "presentationPrepareMs",
+      "p95": 1.6523,
+      "p99": 2.2342,
+      "max": 2.4549
+    },
+    {
+      "cell": 100,
+      "operation": "builds",
+      "field": "resumeMs",
+      "p95": 0.3823,
+      "p99": 0.5794,
+      "max": 0.6821
+    },
+    {
+      "cell": 100,
+      "operation": "builds",
+      "field": "preflightMs",
+      "p95": 2.1478,
+      "p99": 2.5718,
+      "max": 3.0113
+    },
+    {
+      "cell": 100,
+      "operation": "builds",
+      "field": "referenceCommitMs",
+      "p95": 0.0005,
+      "p99": 0.0008,
+      "max": 0.0639
+    },
+    {
+      "cell": 100,
+      "operation": "builds",
+      "field": "presentationCommitMs",
+      "p95": 0.0028,
+      "p99": 0.0034,
+      "max": 0.0612
+    },
+    {
+      "cell": 100,
+      "operation": "builds",
+      "field": "publishToDrawMs",
+      "p95": 1.3188,
+      "p99": 1.5057,
+      "max": 7.2649
+    },
+    {
+      "cell": 100,
+      "operation": "builds",
+      "field": "inputToDrawMs",
+      "p95": 6.8192,
+      "p99": 8.9584,
+      "max": 17.2345
+    },
+    {
+      "cell": 100,
+      "operation": "undos",
+      "field": "inputPreparationMs",
+      "p95": 0.0077,
+      "p99": 0.0092,
+      "max": 0.0177
+    },
+    {
+      "cell": 100,
+      "operation": "undos",
+      "field": "workerQueueMs",
+      "p95": 0.0106,
+      "p99": 0.0137,
+      "max": 0.0276
+    },
+    {
+      "cell": 100,
+      "operation": "undos",
+      "field": "domainMs",
+      "p95": 0.1784,
+      "p99": 0.4307,
+      "max": 2.1672
+    },
+    {
+      "cell": 100,
+      "operation": "undos",
+      "field": "presentationPrepareMs",
+      "p95": 1.606,
+      "p99": 2.2614,
+      "max": 10.3409
+    },
+    {
+      "cell": 100,
+      "operation": "undos",
+      "field": "resumeMs",
+      "p95": 0.3516,
+      "p99": 0.4508,
+      "max": 0.6552
+    },
+    {
+      "cell": 100,
+      "operation": "undos",
+      "field": "preflightMs",
+      "p95": 2.0952,
+      "p99": 2.5782,
+      "max": 10.8217
+    },
+    {
+      "cell": 100,
+      "operation": "undos",
+      "field": "referenceCommitMs",
+      "p95": 0.0005,
+      "p99": 0.0008,
+      "max": 0.0013
+    },
+    {
+      "cell": 100,
+      "operation": "undos",
+      "field": "presentationCommitMs",
+      "p95": 0.0024,
+      "p99": 0.0031,
+      "max": 0.0049
+    },
+    {
+      "cell": 100,
+      "operation": "undos",
+      "field": "publishToDrawMs",
+      "p95": 1.2706,
+      "p99": 1.5109,
+      "max": 2.2681
+    },
+    {
+      "cell": 100,
+      "operation": "undos",
+      "field": "inputToDrawMs",
+      "p95": 4.6566,
+      "p99": 6.8166,
+      "max": 15.7032
+    },
+    {
+      "cell": 100,
+      "operation": "redos",
+      "field": "inputPreparationMs",
+      "p95": 0.0078,
+      "p99": 0.0102,
+      "max": 0.0197
+    },
+    {
+      "cell": 100,
+      "operation": "redos",
+      "field": "workerQueueMs",
+      "p95": 0.0106,
+      "p99": 0.0159,
+      "max": 0.0483
+    },
+    {
+      "cell": 100,
+      "operation": "redos",
+      "field": "domainMs",
+      "p95": 0.1754,
+      "p99": 0.4814,
+      "max": 1.296
+    },
+    {
+      "cell": 100,
+      "operation": "redos",
+      "field": "presentationPrepareMs",
+      "p95": 1.1333,
+      "p99": 2.3327,
+      "max": 39.7407
+    },
+    {
+      "cell": 100,
+      "operation": "redos",
+      "field": "resumeMs",
+      "p95": 0.3486,
+      "p99": 0.4567,
+      "max": 0.5917
+    },
+    {
+      "cell": 100,
+      "operation": "redos",
+      "field": "preflightMs",
+      "p95": 2.1424,
+      "p99": 2.5994,
+      "max": 2.7464
+    },
+    {
+      "cell": 100,
+      "operation": "redos",
+      "field": "referenceCommitMs",
+      "p95": 0.0005,
+      "p99": 0.0007,
+      "max": 0.0013
+    },
+    {
+      "cell": 100,
+      "operation": "redos",
+      "field": "presentationCommitMs",
+      "p95": 0.0024,
+      "p99": 0.0028,
+      "max": 0.0049
+    },
+    {
+      "cell": 100,
+      "operation": "redos",
+      "field": "publishToDrawMs",
+      "p95": 1.2344,
+      "p99": 1.4378,
+      "max": 1.9886
+    },
+    {
+      "cell": 100,
+      "operation": "redos",
+      "field": "inputToDrawMs",
+      "p95": 4.5689,
+      "p99": 6.5477,
+      "max": 45.143
+    },
+    {
+      "cell": 100,
+      "operation": "upgrades",
+      "field": "inputPreparationMs",
+      "p95": 0.1204,
+      "p99": 0.5147,
+      "max": 0.5147
+    },
+    {
+      "cell": 100,
+      "operation": "upgrades",
+      "field": "workerQueueMs",
+      "p95": 0.0167,
+      "p99": 0.0228,
+      "max": 0.0228
+    },
+    {
+      "cell": 100,
+      "operation": "upgrades",
+      "field": "domainMs",
+      "p95": 2.4041,
+      "p99": 9.0806,
+      "max": 9.0806
+    },
+    {
+      "cell": 100,
+      "operation": "upgrades",
+      "field": "presentationPrepareMs",
+      "p95": 12.2806,
+      "p99": 12.8471,
+      "max": 12.8471
+    },
+    {
+      "cell": 100,
+      "operation": "upgrades",
+      "field": "resumeMs",
+      "p95": 0.5177,
+      "p99": 0.6363,
+      "max": 0.6363
+    },
+    {
+      "cell": 100,
+      "operation": "upgrades",
+      "field": "preflightMs",
+      "p95": 1.1806,
+      "p99": 1.3123,
+      "max": 1.3123
+    },
+    {
+      "cell": 100,
+      "operation": "upgrades",
+      "field": "referenceCommitMs",
+      "p95": 0.0013,
+      "p99": 0.0019,
+      "max": 0.0019
+    },
+    {
+      "cell": 100,
+      "operation": "upgrades",
+      "field": "presentationCommitMs",
+      "p95": 0.0041,
+      "p99": 0.0047,
+      "max": 0.0047
+    },
+    {
+      "cell": 100,
+      "operation": "upgrades",
+      "field": "publishToDrawMs",
+      "p95": 1.2282,
+      "p99": 1.3792,
+      "max": 1.3792
+    },
+    {
+      "cell": 100,
+      "operation": "upgrades",
+      "field": "inputToDrawMs",
+      "p95": 17.4558,
+      "p99": 18.0756,
+      "max": 18.0756
+    },
+    {
+      "cell": 100,
+      "operation": "deletes",
+      "field": "inputPreparationMs",
+      "p95": 0.0843,
+      "p99": 0.0851,
+      "max": 0.0851
+    },
+    {
+      "cell": 100,
+      "operation": "deletes",
+      "field": "workerQueueMs",
+      "p95": 0.0179,
+      "p99": 0.0246,
+      "max": 0.0246
+    },
+    {
+      "cell": 100,
+      "operation": "deletes",
+      "field": "domainMs",
+      "p95": 2.3998,
+      "p99": 2.4189,
+      "max": 2.4189
+    },
+    {
+      "cell": 100,
+      "operation": "deletes",
+      "field": "presentationPrepareMs",
+      "p95": 9.7979,
+      "p99": 12.605,
+      "max": 12.605
+    },
+    {
+      "cell": 100,
+      "operation": "deletes",
+      "field": "resumeMs",
+      "p95": 0.4392,
+      "p99": 0.4591,
+      "max": 0.4591
+    },
+    {
+      "cell": 100,
+      "operation": "deletes",
+      "field": "preflightMs",
+      "p95": 1.1431,
+      "p99": 1.1945,
+      "max": 1.1945
+    },
+    {
+      "cell": 100,
+      "operation": "deletes",
+      "field": "referenceCommitMs",
+      "p95": 0.0013,
+      "p99": 0.0013,
+      "max": 0.0013
+    },
+    {
+      "cell": 100,
+      "operation": "deletes",
+      "field": "presentationCommitMs",
+      "p95": 0.0039,
+      "p99": 0.0044,
+      "max": 0.0044
+    },
+    {
+      "cell": 100,
+      "operation": "deletes",
+      "field": "publishToDrawMs",
+      "p95": 1.8516,
+      "p99": 1.9545,
+      "max": 1.9545
+    },
+    {
+      "cell": 100,
+      "operation": "deletes",
+      "field": "inputToDrawMs",
+      "p95": 15.0685,
+      "p99": 18.095,
+      "max": 18.095
+    },
+    {
+      "cell": 200,
+      "operation": "builds",
+      "field": "inputPreparationMs",
+      "p95": 0.0077,
+      "p99": 0.0119,
+      "max": 1.176
+    },
+    {
+      "cell": 200,
+      "operation": "builds",
+      "field": "workerQueueMs",
+      "p95": 0.0092,
+      "p99": 0.0138,
+      "max": 0.4375
+    },
+    {
+      "cell": 200,
+      "operation": "builds",
+      "field": "domainMs",
+      "p95": 2.3598,
+      "p99": 3.3224,
+      "max": 9.3832
+    },
+    {
+      "cell": 200,
+      "operation": "builds",
+      "field": "presentationPrepareMs",
+      "p95": 1.7763,
+      "p99": 2.2508,
+      "max": 2.4116
+    },
+    {
+      "cell": 200,
+      "operation": "builds",
+      "field": "resumeMs",
+      "p95": 0.3732,
+      "p99": 0.5758,
+      "max": 0.7595
+    },
+    {
+      "cell": 200,
+      "operation": "builds",
+      "field": "preflightMs",
+      "p95": 2.3866,
+      "p99": 2.8363,
+      "max": 4.7946
+    },
+    {
+      "cell": 200,
+      "operation": "builds",
+      "field": "referenceCommitMs",
+      "p95": 0.0007,
+      "p99": 0.0009,
+      "max": 0.0634
+    },
+    {
+      "cell": 200,
+      "operation": "builds",
+      "field": "presentationCommitMs",
+      "p95": 0.0027,
+      "p99": 0.0033,
+      "max": 0.0606
+    },
+    {
+      "cell": 200,
+      "operation": "builds",
+      "field": "publishToDrawMs",
+      "p95": 1.3306,
+      "p99": 1.5686,
+      "max": 7.74
+    },
+    {
+      "cell": 200,
+      "operation": "builds",
+      "field": "inputToDrawMs",
+      "p95": 7.0676,
+      "p99": 9.3912,
+      "max": 18.2204
+    },
+    {
+      "cell": 200,
+      "operation": "undos",
+      "field": "inputPreparationMs",
+      "p95": 0.0079,
+      "p99": 0.0097,
+      "max": 0.0561
+    },
+    {
+      "cell": 200,
+      "operation": "undos",
+      "field": "workerQueueMs",
+      "p95": 0.0106,
+      "p99": 0.0151,
+      "max": 0.0572
+    },
+    {
+      "cell": 200,
+      "operation": "undos",
+      "field": "domainMs",
+      "p95": 0.1951,
+      "p99": 0.4362,
+      "max": 2.0959
+    },
+    {
+      "cell": 200,
+      "operation": "undos",
+      "field": "presentationPrepareMs",
+      "p95": 1.7516,
+      "p99": 2.2461,
+      "max": 37.0887
+    },
+    {
+      "cell": 200,
+      "operation": "undos",
+      "field": "resumeMs",
+      "p95": 0.3643,
+      "p99": 0.4509,
+      "max": 0.6252
+    },
+    {
+      "cell": 200,
+      "operation": "undos",
+      "field": "preflightMs",
+      "p95": 2.325,
+      "p99": 2.8772,
+      "max": 11.983
+    },
+    {
+      "cell": 200,
+      "operation": "undos",
+      "field": "referenceCommitMs",
+      "p95": 0.0006,
+      "p99": 0.0009,
+      "max": 0.0021
+    },
+    {
+      "cell": 200,
+      "operation": "undos",
+      "field": "presentationCommitMs",
+      "p95": 0.0025,
+      "p99": 0.0034,
+      "max": 0.0045
+    },
+    {
+      "cell": 200,
+      "operation": "undos",
+      "field": "publishToDrawMs",
+      "p95": 1.2762,
+      "p99": 1.4474,
+      "max": 2.0377
+    },
+    {
+      "cell": 200,
+      "operation": "undos",
+      "field": "inputToDrawMs",
+      "p95": 4.7772,
+      "p99": 7.0222,
+      "max": 42.7038
+    },
+    {
+      "cell": 200,
+      "operation": "redos",
+      "field": "inputPreparationMs",
+      "p95": 0.0077,
+      "p99": 0.0098,
+      "max": 0.0108
+    },
+    {
+      "cell": 200,
+      "operation": "redos",
+      "field": "workerQueueMs",
+      "p95": 0.0105,
+      "p99": 0.0163,
+      "max": 0.062
+    },
+    {
+      "cell": 200,
+      "operation": "redos",
+      "field": "domainMs",
+      "p95": 0.2027,
+      "p99": 0.4886,
+      "max": 1.2764
+    },
+    {
+      "cell": 200,
+      "operation": "redos",
+      "field": "presentationPrepareMs",
+      "p95": 1.8023,
+      "p99": 2.294,
+      "max": 2.6711
+    },
+    {
+      "cell": 200,
+      "operation": "redos",
+      "field": "resumeMs",
+      "p95": 0.3756,
+      "p99": 0.5235,
+      "max": 0.7519
+    },
+    {
+      "cell": 200,
+      "operation": "redos",
+      "field": "preflightMs",
+      "p95": 2.3259,
+      "p99": 2.7382,
+      "max": 3.6576
+    },
+    {
+      "cell": 200,
+      "operation": "redos",
+      "field": "referenceCommitMs",
+      "p95": 0.0005,
+      "p99": 0.0007,
+      "max": 0.0009
+    },
+    {
+      "cell": 200,
+      "operation": "redos",
+      "field": "presentationCommitMs",
+      "p95": 0.0024,
+      "p99": 0.0029,
+      "max": 0.0033
+    },
+    {
+      "cell": 200,
+      "operation": "redos",
+      "field": "publishToDrawMs",
+      "p95": 1.2533,
+      "p99": 1.4627,
+      "max": 1.6283
+    },
+    {
+      "cell": 200,
+      "operation": "redos",
+      "field": "inputToDrawMs",
+      "p95": 4.7274,
+      "p99": 6.8817,
+      "max": 7.4286
+    },
+    {
+      "cell": 200,
+      "operation": "upgrades",
+      "field": "inputPreparationMs",
+      "p95": 0.1079,
+      "p99": 0.5195,
+      "max": 0.5195
+    },
+    {
+      "cell": 200,
+      "operation": "upgrades",
+      "field": "workerQueueMs",
+      "p95": 0.0158,
+      "p99": 0.0241,
+      "max": 0.0241
+    },
+    {
+      "cell": 200,
+      "operation": "upgrades",
+      "field": "domainMs",
+      "p95": 2.3432,
+      "p99": 13.9557,
+      "max": 13.9557
+    },
+    {
+      "cell": 200,
+      "operation": "upgrades",
+      "field": "presentationPrepareMs",
+      "p95": 1.0029,
+      "p99": 12.1454,
+      "max": 12.1454
+    },
+    {
+      "cell": 200,
+      "operation": "upgrades",
+      "field": "resumeMs",
+      "p95": 0.4373,
+      "p99": 0.4889,
+      "max": 0.4889
+    },
+    {
+      "cell": 200,
+      "operation": "upgrades",
+      "field": "preflightMs",
+      "p95": 1.279,
+      "p99": 12.6586,
+      "max": 12.6586
+    },
+    {
+      "cell": 200,
+      "operation": "upgrades",
+      "field": "referenceCommitMs",
+      "p95": 0.0013,
+      "p99": 0.0014,
+      "max": 0.0014
+    },
+    {
+      "cell": 200,
+      "operation": "upgrades",
+      "field": "presentationCommitMs",
+      "p95": 0.004,
+      "p99": 0.0049,
+      "max": 0.0049
+    },
+    {
+      "cell": 200,
+      "operation": "upgrades",
+      "field": "publishToDrawMs",
+      "p95": 1.3887,
+      "p99": 1.6681,
+      "max": 1.6681
+    },
+    {
+      "cell": 200,
+      "operation": "upgrades",
+      "field": "inputToDrawMs",
+      "p95": 15.369,
+      "p99": 17.456,
+      "max": 17.456
+    },
+    {
+      "cell": 200,
+      "operation": "deletes",
+      "field": "inputPreparationMs",
+      "p95": 0.0841,
+      "p99": 0.0848,
+      "max": 0.0848
+    },
+    {
+      "cell": 200,
+      "operation": "deletes",
+      "field": "workerQueueMs",
+      "p95": 0.0146,
+      "p99": 0.0153,
+      "max": 0.0153
+    },
+    {
+      "cell": 200,
+      "operation": "deletes",
+      "field": "domainMs",
+      "p95": 2.2307,
+      "p99": 2.3695,
+      "max": 2.3695
+    },
+    {
+      "cell": 200,
+      "operation": "deletes",
+      "field": "presentationPrepareMs",
+      "p95": 1.0707,
+      "p99": 10.7538,
+      "max": 10.7538
+    },
+    {
+      "cell": 200,
+      "operation": "deletes",
+      "field": "resumeMs",
+      "p95": 0.566,
+      "p99": 0.6542,
+      "max": 0.6542
+    },
+    {
+      "cell": 200,
+      "operation": "deletes",
+      "field": "preflightMs",
+      "p95": 1.4802,
+      "p99": 9.6349,
+      "max": 9.6349
+    },
+    {
+      "cell": 200,
+      "operation": "deletes",
+      "field": "referenceCommitMs",
+      "p95": 0.0013,
+      "p99": 0.0013,
+      "max": 0.0013
+    },
+    {
+      "cell": 200,
+      "operation": "deletes",
+      "field": "presentationCommitMs",
+      "p95": 0.004,
+      "p99": 0.0047,
+      "max": 0.0047
+    },
+    {
+      "cell": 200,
+      "operation": "deletes",
+      "field": "publishToDrawMs",
+      "p95": 1.7015,
+      "p99": 1.9927,
+      "max": 1.9927
+    },
+    {
+      "cell": 200,
+      "operation": "deletes",
+      "field": "inputToDrawMs",
+      "p95": 14.8615,
+      "p99": 16.4043,
+      "max": 16.4043
+    }
+  ],
+  "cancellations": [
+    {
+      "cell": 25,
+      "samples": [
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = ec780e60-391e-4068-8cd7-1ded0a5080c0, Lineage = 3948ca79-bc88-4c03-b9c4-c6f64313f3c0, ContentRevision = 777, ChangeSequence = 2516 }",
+          "escapeToIdleMs": 2.203,
+          "historyPreserved": true,
+          "idleDrawFrame": 135523,
+          "inputDrawFrame": 135520,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = ec780e60-391e-4068-8cd7-1ded0a5080c0, Lineage = 3948ca79-bc88-4c03-b9c4-c6f64313f3c0, ContentRevision = 777, ChangeSequence = 2516 }",
+          "renderFrameDelta": 3,
+          "sourceToken": "RoadStateToken { NetworkInstance = ec780e60-391e-4068-8cd7-1ded0a5080c0, Lineage = 3948ca79-bc88-4c03-b9c4-c6f64313f3c0, ContentRevision = 777, ChangeSequence = 2516 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = ec780e60-391e-4068-8cd7-1ded0a5080c0, Lineage = 3948ca79-bc88-4c03-b9c4-c6f64313f3c0, ContentRevision = 777, ChangeSequence = 2516 }",
+          "escapeToIdleMs": 0.611,
+          "historyPreserved": true,
+          "idleDrawFrame": 135527,
+          "inputDrawFrame": 135526,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = ec780e60-391e-4068-8cd7-1ded0a5080c0, Lineage = 3948ca79-bc88-4c03-b9c4-c6f64313f3c0, ContentRevision = 777, ChangeSequence = 2516 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = ec780e60-391e-4068-8cd7-1ded0a5080c0, Lineage = 3948ca79-bc88-4c03-b9c4-c6f64313f3c0, ContentRevision = 777, ChangeSequence = 2516 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = ec780e60-391e-4068-8cd7-1ded0a5080c0, Lineage = 3948ca79-bc88-4c03-b9c4-c6f64313f3c0, ContentRevision = 777, ChangeSequence = 2516 }",
+          "escapeToIdleMs": 0.645,
+          "historyPreserved": true,
+          "idleDrawFrame": 135531,
+          "inputDrawFrame": 135530,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = ec780e60-391e-4068-8cd7-1ded0a5080c0, Lineage = 3948ca79-bc88-4c03-b9c4-c6f64313f3c0, ContentRevision = 777, ChangeSequence = 2516 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = ec780e60-391e-4068-8cd7-1ded0a5080c0, Lineage = 3948ca79-bc88-4c03-b9c4-c6f64313f3c0, ContentRevision = 777, ChangeSequence = 2516 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = ec780e60-391e-4068-8cd7-1ded0a5080c0, Lineage = 3948ca79-bc88-4c03-b9c4-c6f64313f3c0, ContentRevision = 777, ChangeSequence = 2516 }",
+          "escapeToIdleMs": 0.585,
+          "historyPreserved": true,
+          "idleDrawFrame": 135535,
+          "inputDrawFrame": 135534,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = ec780e60-391e-4068-8cd7-1ded0a5080c0, Lineage = 3948ca79-bc88-4c03-b9c4-c6f64313f3c0, ContentRevision = 777, ChangeSequence = 2516 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = ec780e60-391e-4068-8cd7-1ded0a5080c0, Lineage = 3948ca79-bc88-4c03-b9c4-c6f64313f3c0, ContentRevision = 777, ChangeSequence = 2516 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = ec780e60-391e-4068-8cd7-1ded0a5080c0, Lineage = 3948ca79-bc88-4c03-b9c4-c6f64313f3c0, ContentRevision = 777, ChangeSequence = 2516 }",
+          "escapeToIdleMs": 0.59,
+          "historyPreserved": true,
+          "idleDrawFrame": 135539,
+          "inputDrawFrame": 135538,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = ec780e60-391e-4068-8cd7-1ded0a5080c0, Lineage = 3948ca79-bc88-4c03-b9c4-c6f64313f3c0, ContentRevision = 777, ChangeSequence = 2516 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = ec780e60-391e-4068-8cd7-1ded0a5080c0, Lineage = 3948ca79-bc88-4c03-b9c4-c6f64313f3c0, ContentRevision = 777, ChangeSequence = 2516 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = ec780e60-391e-4068-8cd7-1ded0a5080c0, Lineage = 3948ca79-bc88-4c03-b9c4-c6f64313f3c0, ContentRevision = 777, ChangeSequence = 2516 }",
+          "escapeToIdleMs": 0.683,
+          "historyPreserved": true,
+          "idleDrawFrame": 135543,
+          "inputDrawFrame": 135542,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = ec780e60-391e-4068-8cd7-1ded0a5080c0, Lineage = 3948ca79-bc88-4c03-b9c4-c6f64313f3c0, ContentRevision = 777, ChangeSequence = 2516 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = ec780e60-391e-4068-8cd7-1ded0a5080c0, Lineage = 3948ca79-bc88-4c03-b9c4-c6f64313f3c0, ContentRevision = 777, ChangeSequence = 2516 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = ec780e60-391e-4068-8cd7-1ded0a5080c0, Lineage = 3948ca79-bc88-4c03-b9c4-c6f64313f3c0, ContentRevision = 777, ChangeSequence = 2516 }",
+          "escapeToIdleMs": 0.56,
+          "historyPreserved": true,
+          "idleDrawFrame": 135547,
+          "inputDrawFrame": 135546,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = ec780e60-391e-4068-8cd7-1ded0a5080c0, Lineage = 3948ca79-bc88-4c03-b9c4-c6f64313f3c0, ContentRevision = 777, ChangeSequence = 2516 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = ec780e60-391e-4068-8cd7-1ded0a5080c0, Lineage = 3948ca79-bc88-4c03-b9c4-c6f64313f3c0, ContentRevision = 777, ChangeSequence = 2516 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = ec780e60-391e-4068-8cd7-1ded0a5080c0, Lineage = 3948ca79-bc88-4c03-b9c4-c6f64313f3c0, ContentRevision = 777, ChangeSequence = 2516 }",
+          "escapeToIdleMs": 0.638,
+          "historyPreserved": true,
+          "idleDrawFrame": 135551,
+          "inputDrawFrame": 135550,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = ec780e60-391e-4068-8cd7-1ded0a5080c0, Lineage = 3948ca79-bc88-4c03-b9c4-c6f64313f3c0, ContentRevision = 777, ChangeSequence = 2516 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = ec780e60-391e-4068-8cd7-1ded0a5080c0, Lineage = 3948ca79-bc88-4c03-b9c4-c6f64313f3c0, ContentRevision = 777, ChangeSequence = 2516 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = ec780e60-391e-4068-8cd7-1ded0a5080c0, Lineage = 3948ca79-bc88-4c03-b9c4-c6f64313f3c0, ContentRevision = 777, ChangeSequence = 2516 }",
+          "escapeToIdleMs": 0.613,
+          "historyPreserved": true,
+          "idleDrawFrame": 135555,
+          "inputDrawFrame": 135554,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = ec780e60-391e-4068-8cd7-1ded0a5080c0, Lineage = 3948ca79-bc88-4c03-b9c4-c6f64313f3c0, ContentRevision = 777, ChangeSequence = 2516 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = ec780e60-391e-4068-8cd7-1ded0a5080c0, Lineage = 3948ca79-bc88-4c03-b9c4-c6f64313f3c0, ContentRevision = 777, ChangeSequence = 2516 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = ec780e60-391e-4068-8cd7-1ded0a5080c0, Lineage = 3948ca79-bc88-4c03-b9c4-c6f64313f3c0, ContentRevision = 777, ChangeSequence = 2516 }",
+          "escapeToIdleMs": 0.572,
+          "historyPreserved": true,
+          "idleDrawFrame": 135559,
+          "inputDrawFrame": 135558,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = ec780e60-391e-4068-8cd7-1ded0a5080c0, Lineage = 3948ca79-bc88-4c03-b9c4-c6f64313f3c0, ContentRevision = 777, ChangeSequence = 2516 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = ec780e60-391e-4068-8cd7-1ded0a5080c0, Lineage = 3948ca79-bc88-4c03-b9c4-c6f64313f3c0, ContentRevision = 777, ChangeSequence = 2516 }"
+        }
+      ]
+    },
+    {
+      "cell": 50,
+      "samples": [
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = fc4e75e5-333a-4d3f-84a4-5b6adfe7b906, Lineage = ea8a51fa-f32a-4100-9563-1da91d459909, ContentRevision = 783, ChangeSequence = 2540 }",
+          "escapeToIdleMs": 1.287,
+          "historyPreserved": true,
+          "idleDrawFrame": 136037,
+          "inputDrawFrame": 136036,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = fc4e75e5-333a-4d3f-84a4-5b6adfe7b906, Lineage = ea8a51fa-f32a-4100-9563-1da91d459909, ContentRevision = 783, ChangeSequence = 2540 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = fc4e75e5-333a-4d3f-84a4-5b6adfe7b906, Lineage = ea8a51fa-f32a-4100-9563-1da91d459909, ContentRevision = 783, ChangeSequence = 2540 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = fc4e75e5-333a-4d3f-84a4-5b6adfe7b906, Lineage = ea8a51fa-f32a-4100-9563-1da91d459909, ContentRevision = 783, ChangeSequence = 2540 }",
+          "escapeToIdleMs": 0.651,
+          "historyPreserved": true,
+          "idleDrawFrame": 136041,
+          "inputDrawFrame": 136040,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = fc4e75e5-333a-4d3f-84a4-5b6adfe7b906, Lineage = ea8a51fa-f32a-4100-9563-1da91d459909, ContentRevision = 783, ChangeSequence = 2540 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = fc4e75e5-333a-4d3f-84a4-5b6adfe7b906, Lineage = ea8a51fa-f32a-4100-9563-1da91d459909, ContentRevision = 783, ChangeSequence = 2540 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = fc4e75e5-333a-4d3f-84a4-5b6adfe7b906, Lineage = ea8a51fa-f32a-4100-9563-1da91d459909, ContentRevision = 783, ChangeSequence = 2540 }",
+          "escapeToIdleMs": 0.581,
+          "historyPreserved": true,
+          "idleDrawFrame": 136045,
+          "inputDrawFrame": 136044,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = fc4e75e5-333a-4d3f-84a4-5b6adfe7b906, Lineage = ea8a51fa-f32a-4100-9563-1da91d459909, ContentRevision = 783, ChangeSequence = 2540 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = fc4e75e5-333a-4d3f-84a4-5b6adfe7b906, Lineage = ea8a51fa-f32a-4100-9563-1da91d459909, ContentRevision = 783, ChangeSequence = 2540 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = fc4e75e5-333a-4d3f-84a4-5b6adfe7b906, Lineage = ea8a51fa-f32a-4100-9563-1da91d459909, ContentRevision = 783, ChangeSequence = 2540 }",
+          "escapeToIdleMs": 0.607,
+          "historyPreserved": true,
+          "idleDrawFrame": 136049,
+          "inputDrawFrame": 136048,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = fc4e75e5-333a-4d3f-84a4-5b6adfe7b906, Lineage = ea8a51fa-f32a-4100-9563-1da91d459909, ContentRevision = 783, ChangeSequence = 2540 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = fc4e75e5-333a-4d3f-84a4-5b6adfe7b906, Lineage = ea8a51fa-f32a-4100-9563-1da91d459909, ContentRevision = 783, ChangeSequence = 2540 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = fc4e75e5-333a-4d3f-84a4-5b6adfe7b906, Lineage = ea8a51fa-f32a-4100-9563-1da91d459909, ContentRevision = 783, ChangeSequence = 2540 }",
+          "escapeToIdleMs": 0.656,
+          "historyPreserved": true,
+          "idleDrawFrame": 136053,
+          "inputDrawFrame": 136052,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = fc4e75e5-333a-4d3f-84a4-5b6adfe7b906, Lineage = ea8a51fa-f32a-4100-9563-1da91d459909, ContentRevision = 783, ChangeSequence = 2540 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = fc4e75e5-333a-4d3f-84a4-5b6adfe7b906, Lineage = ea8a51fa-f32a-4100-9563-1da91d459909, ContentRevision = 783, ChangeSequence = 2540 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = fc4e75e5-333a-4d3f-84a4-5b6adfe7b906, Lineage = ea8a51fa-f32a-4100-9563-1da91d459909, ContentRevision = 783, ChangeSequence = 2540 }",
+          "escapeToIdleMs": 0.605,
+          "historyPreserved": true,
+          "idleDrawFrame": 136057,
+          "inputDrawFrame": 136056,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = fc4e75e5-333a-4d3f-84a4-5b6adfe7b906, Lineage = ea8a51fa-f32a-4100-9563-1da91d459909, ContentRevision = 783, ChangeSequence = 2540 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = fc4e75e5-333a-4d3f-84a4-5b6adfe7b906, Lineage = ea8a51fa-f32a-4100-9563-1da91d459909, ContentRevision = 783, ChangeSequence = 2540 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = fc4e75e5-333a-4d3f-84a4-5b6adfe7b906, Lineage = ea8a51fa-f32a-4100-9563-1da91d459909, ContentRevision = 783, ChangeSequence = 2540 }",
+          "escapeToIdleMs": 0.653,
+          "historyPreserved": true,
+          "idleDrawFrame": 136061,
+          "inputDrawFrame": 136060,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = fc4e75e5-333a-4d3f-84a4-5b6adfe7b906, Lineage = ea8a51fa-f32a-4100-9563-1da91d459909, ContentRevision = 783, ChangeSequence = 2540 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = fc4e75e5-333a-4d3f-84a4-5b6adfe7b906, Lineage = ea8a51fa-f32a-4100-9563-1da91d459909, ContentRevision = 783, ChangeSequence = 2540 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = fc4e75e5-333a-4d3f-84a4-5b6adfe7b906, Lineage = ea8a51fa-f32a-4100-9563-1da91d459909, ContentRevision = 783, ChangeSequence = 2540 }",
+          "escapeToIdleMs": 0.598,
+          "historyPreserved": true,
+          "idleDrawFrame": 136065,
+          "inputDrawFrame": 136064,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = fc4e75e5-333a-4d3f-84a4-5b6adfe7b906, Lineage = ea8a51fa-f32a-4100-9563-1da91d459909, ContentRevision = 783, ChangeSequence = 2540 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = fc4e75e5-333a-4d3f-84a4-5b6adfe7b906, Lineage = ea8a51fa-f32a-4100-9563-1da91d459909, ContentRevision = 783, ChangeSequence = 2540 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = fc4e75e5-333a-4d3f-84a4-5b6adfe7b906, Lineage = ea8a51fa-f32a-4100-9563-1da91d459909, ContentRevision = 783, ChangeSequence = 2540 }",
+          "escapeToIdleMs": 0.577,
+          "historyPreserved": true,
+          "idleDrawFrame": 136069,
+          "inputDrawFrame": 136068,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = fc4e75e5-333a-4d3f-84a4-5b6adfe7b906, Lineage = ea8a51fa-f32a-4100-9563-1da91d459909, ContentRevision = 783, ChangeSequence = 2540 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = fc4e75e5-333a-4d3f-84a4-5b6adfe7b906, Lineage = ea8a51fa-f32a-4100-9563-1da91d459909, ContentRevision = 783, ChangeSequence = 2540 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = fc4e75e5-333a-4d3f-84a4-5b6adfe7b906, Lineage = ea8a51fa-f32a-4100-9563-1da91d459909, ContentRevision = 783, ChangeSequence = 2540 }",
+          "escapeToIdleMs": 0.659,
+          "historyPreserved": true,
+          "idleDrawFrame": 136073,
+          "inputDrawFrame": 136072,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = fc4e75e5-333a-4d3f-84a4-5b6adfe7b906, Lineage = ea8a51fa-f32a-4100-9563-1da91d459909, ContentRevision = 783, ChangeSequence = 2540 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = fc4e75e5-333a-4d3f-84a4-5b6adfe7b906, Lineage = ea8a51fa-f32a-4100-9563-1da91d459909, ContentRevision = 783, ChangeSequence = 2540 }"
+        }
+      ]
+    },
+    {
+      "cell": 100,
+      "samples": [
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = 434a85d4-76b0-40c7-b7d9-0d61aa8f4d30, Lineage = 9d013e69-98e5-4d0c-a24a-5d142bf36ca8, ContentRevision = 770, ChangeSequence = 2488 }",
+          "escapeToIdleMs": 2.431,
+          "historyPreserved": true,
+          "idleDrawFrame": 135685,
+          "inputDrawFrame": 135681,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = 434a85d4-76b0-40c7-b7d9-0d61aa8f4d30, Lineage = 9d013e69-98e5-4d0c-a24a-5d142bf36ca8, ContentRevision = 770, ChangeSequence = 2488 }",
+          "renderFrameDelta": 4,
+          "sourceToken": "RoadStateToken { NetworkInstance = 434a85d4-76b0-40c7-b7d9-0d61aa8f4d30, Lineage = 9d013e69-98e5-4d0c-a24a-5d142bf36ca8, ContentRevision = 770, ChangeSequence = 2488 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = 434a85d4-76b0-40c7-b7d9-0d61aa8f4d30, Lineage = 9d013e69-98e5-4d0c-a24a-5d142bf36ca8, ContentRevision = 770, ChangeSequence = 2488 }",
+          "escapeToIdleMs": 1.1,
+          "historyPreserved": true,
+          "idleDrawFrame": 135689,
+          "inputDrawFrame": 135688,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = 434a85d4-76b0-40c7-b7d9-0d61aa8f4d30, Lineage = 9d013e69-98e5-4d0c-a24a-5d142bf36ca8, ContentRevision = 770, ChangeSequence = 2488 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = 434a85d4-76b0-40c7-b7d9-0d61aa8f4d30, Lineage = 9d013e69-98e5-4d0c-a24a-5d142bf36ca8, ContentRevision = 770, ChangeSequence = 2488 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = 434a85d4-76b0-40c7-b7d9-0d61aa8f4d30, Lineage = 9d013e69-98e5-4d0c-a24a-5d142bf36ca8, ContentRevision = 770, ChangeSequence = 2488 }",
+          "escapeToIdleMs": 0.741,
+          "historyPreserved": true,
+          "idleDrawFrame": 135693,
+          "inputDrawFrame": 135692,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = 434a85d4-76b0-40c7-b7d9-0d61aa8f4d30, Lineage = 9d013e69-98e5-4d0c-a24a-5d142bf36ca8, ContentRevision = 770, ChangeSequence = 2488 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = 434a85d4-76b0-40c7-b7d9-0d61aa8f4d30, Lineage = 9d013e69-98e5-4d0c-a24a-5d142bf36ca8, ContentRevision = 770, ChangeSequence = 2488 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = 434a85d4-76b0-40c7-b7d9-0d61aa8f4d30, Lineage = 9d013e69-98e5-4d0c-a24a-5d142bf36ca8, ContentRevision = 770, ChangeSequence = 2488 }",
+          "escapeToIdleMs": 0.751,
+          "historyPreserved": true,
+          "idleDrawFrame": 135697,
+          "inputDrawFrame": 135696,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = 434a85d4-76b0-40c7-b7d9-0d61aa8f4d30, Lineage = 9d013e69-98e5-4d0c-a24a-5d142bf36ca8, ContentRevision = 770, ChangeSequence = 2488 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = 434a85d4-76b0-40c7-b7d9-0d61aa8f4d30, Lineage = 9d013e69-98e5-4d0c-a24a-5d142bf36ca8, ContentRevision = 770, ChangeSequence = 2488 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = 434a85d4-76b0-40c7-b7d9-0d61aa8f4d30, Lineage = 9d013e69-98e5-4d0c-a24a-5d142bf36ca8, ContentRevision = 770, ChangeSequence = 2488 }",
+          "escapeToIdleMs": 0.894,
+          "historyPreserved": true,
+          "idleDrawFrame": 135701,
+          "inputDrawFrame": 135700,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = 434a85d4-76b0-40c7-b7d9-0d61aa8f4d30, Lineage = 9d013e69-98e5-4d0c-a24a-5d142bf36ca8, ContentRevision = 770, ChangeSequence = 2488 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = 434a85d4-76b0-40c7-b7d9-0d61aa8f4d30, Lineage = 9d013e69-98e5-4d0c-a24a-5d142bf36ca8, ContentRevision = 770, ChangeSequence = 2488 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = 434a85d4-76b0-40c7-b7d9-0d61aa8f4d30, Lineage = 9d013e69-98e5-4d0c-a24a-5d142bf36ca8, ContentRevision = 770, ChangeSequence = 2488 }",
+          "escapeToIdleMs": 0.574,
+          "historyPreserved": true,
+          "idleDrawFrame": 135705,
+          "inputDrawFrame": 135704,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = 434a85d4-76b0-40c7-b7d9-0d61aa8f4d30, Lineage = 9d013e69-98e5-4d0c-a24a-5d142bf36ca8, ContentRevision = 770, ChangeSequence = 2488 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = 434a85d4-76b0-40c7-b7d9-0d61aa8f4d30, Lineage = 9d013e69-98e5-4d0c-a24a-5d142bf36ca8, ContentRevision = 770, ChangeSequence = 2488 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = 434a85d4-76b0-40c7-b7d9-0d61aa8f4d30, Lineage = 9d013e69-98e5-4d0c-a24a-5d142bf36ca8, ContentRevision = 770, ChangeSequence = 2488 }",
+          "escapeToIdleMs": 0.694,
+          "historyPreserved": true,
+          "idleDrawFrame": 135709,
+          "inputDrawFrame": 135708,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = 434a85d4-76b0-40c7-b7d9-0d61aa8f4d30, Lineage = 9d013e69-98e5-4d0c-a24a-5d142bf36ca8, ContentRevision = 770, ChangeSequence = 2488 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = 434a85d4-76b0-40c7-b7d9-0d61aa8f4d30, Lineage = 9d013e69-98e5-4d0c-a24a-5d142bf36ca8, ContentRevision = 770, ChangeSequence = 2488 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = 434a85d4-76b0-40c7-b7d9-0d61aa8f4d30, Lineage = 9d013e69-98e5-4d0c-a24a-5d142bf36ca8, ContentRevision = 770, ChangeSequence = 2488 }",
+          "escapeToIdleMs": 0.584,
+          "historyPreserved": true,
+          "idleDrawFrame": 135713,
+          "inputDrawFrame": 135712,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = 434a85d4-76b0-40c7-b7d9-0d61aa8f4d30, Lineage = 9d013e69-98e5-4d0c-a24a-5d142bf36ca8, ContentRevision = 770, ChangeSequence = 2488 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = 434a85d4-76b0-40c7-b7d9-0d61aa8f4d30, Lineage = 9d013e69-98e5-4d0c-a24a-5d142bf36ca8, ContentRevision = 770, ChangeSequence = 2488 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = 434a85d4-76b0-40c7-b7d9-0d61aa8f4d30, Lineage = 9d013e69-98e5-4d0c-a24a-5d142bf36ca8, ContentRevision = 770, ChangeSequence = 2488 }",
+          "escapeToIdleMs": 0.583,
+          "historyPreserved": true,
+          "idleDrawFrame": 135717,
+          "inputDrawFrame": 135716,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = 434a85d4-76b0-40c7-b7d9-0d61aa8f4d30, Lineage = 9d013e69-98e5-4d0c-a24a-5d142bf36ca8, ContentRevision = 770, ChangeSequence = 2488 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = 434a85d4-76b0-40c7-b7d9-0d61aa8f4d30, Lineage = 9d013e69-98e5-4d0c-a24a-5d142bf36ca8, ContentRevision = 770, ChangeSequence = 2488 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = 434a85d4-76b0-40c7-b7d9-0d61aa8f4d30, Lineage = 9d013e69-98e5-4d0c-a24a-5d142bf36ca8, ContentRevision = 770, ChangeSequence = 2488 }",
+          "escapeToIdleMs": 0.652,
+          "historyPreserved": true,
+          "idleDrawFrame": 135721,
+          "inputDrawFrame": 135720,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = 434a85d4-76b0-40c7-b7d9-0d61aa8f4d30, Lineage = 9d013e69-98e5-4d0c-a24a-5d142bf36ca8, ContentRevision = 770, ChangeSequence = 2488 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = 434a85d4-76b0-40c7-b7d9-0d61aa8f4d30, Lineage = 9d013e69-98e5-4d0c-a24a-5d142bf36ca8, ContentRevision = 770, ChangeSequence = 2488 }"
+        }
+      ]
+    },
+    {
+      "cell": 200,
+      "samples": [
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = 26432817-e5b0-41d4-9cdc-ad0a42b2e882, Lineage = 3ff1599a-3186-4491-8418-8df3fdc05864, ContentRevision = 749, ChangeSequence = 2404 }",
+          "escapeToIdleMs": 1.393,
+          "historyPreserved": true,
+          "idleDrawFrame": 136206,
+          "inputDrawFrame": 136205,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = 26432817-e5b0-41d4-9cdc-ad0a42b2e882, Lineage = 3ff1599a-3186-4491-8418-8df3fdc05864, ContentRevision = 749, ChangeSequence = 2404 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = 26432817-e5b0-41d4-9cdc-ad0a42b2e882, Lineage = 3ff1599a-3186-4491-8418-8df3fdc05864, ContentRevision = 749, ChangeSequence = 2404 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = 26432817-e5b0-41d4-9cdc-ad0a42b2e882, Lineage = 3ff1599a-3186-4491-8418-8df3fdc05864, ContentRevision = 749, ChangeSequence = 2404 }",
+          "escapeToIdleMs": 0.656,
+          "historyPreserved": true,
+          "idleDrawFrame": 136210,
+          "inputDrawFrame": 136209,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = 26432817-e5b0-41d4-9cdc-ad0a42b2e882, Lineage = 3ff1599a-3186-4491-8418-8df3fdc05864, ContentRevision = 749, ChangeSequence = 2404 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = 26432817-e5b0-41d4-9cdc-ad0a42b2e882, Lineage = 3ff1599a-3186-4491-8418-8df3fdc05864, ContentRevision = 749, ChangeSequence = 2404 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = 26432817-e5b0-41d4-9cdc-ad0a42b2e882, Lineage = 3ff1599a-3186-4491-8418-8df3fdc05864, ContentRevision = 749, ChangeSequence = 2404 }",
+          "escapeToIdleMs": 0.865,
+          "historyPreserved": true,
+          "idleDrawFrame": 136214,
+          "inputDrawFrame": 136213,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = 26432817-e5b0-41d4-9cdc-ad0a42b2e882, Lineage = 3ff1599a-3186-4491-8418-8df3fdc05864, ContentRevision = 749, ChangeSequence = 2404 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = 26432817-e5b0-41d4-9cdc-ad0a42b2e882, Lineage = 3ff1599a-3186-4491-8418-8df3fdc05864, ContentRevision = 749, ChangeSequence = 2404 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = 26432817-e5b0-41d4-9cdc-ad0a42b2e882, Lineage = 3ff1599a-3186-4491-8418-8df3fdc05864, ContentRevision = 749, ChangeSequence = 2404 }",
+          "escapeToIdleMs": 0.656,
+          "historyPreserved": true,
+          "idleDrawFrame": 136218,
+          "inputDrawFrame": 136217,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = 26432817-e5b0-41d4-9cdc-ad0a42b2e882, Lineage = 3ff1599a-3186-4491-8418-8df3fdc05864, ContentRevision = 749, ChangeSequence = 2404 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = 26432817-e5b0-41d4-9cdc-ad0a42b2e882, Lineage = 3ff1599a-3186-4491-8418-8df3fdc05864, ContentRevision = 749, ChangeSequence = 2404 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = 26432817-e5b0-41d4-9cdc-ad0a42b2e882, Lineage = 3ff1599a-3186-4491-8418-8df3fdc05864, ContentRevision = 749, ChangeSequence = 2404 }",
+          "escapeToIdleMs": 0.611,
+          "historyPreserved": true,
+          "idleDrawFrame": 136222,
+          "inputDrawFrame": 136221,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = 26432817-e5b0-41d4-9cdc-ad0a42b2e882, Lineage = 3ff1599a-3186-4491-8418-8df3fdc05864, ContentRevision = 749, ChangeSequence = 2404 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = 26432817-e5b0-41d4-9cdc-ad0a42b2e882, Lineage = 3ff1599a-3186-4491-8418-8df3fdc05864, ContentRevision = 749, ChangeSequence = 2404 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = 26432817-e5b0-41d4-9cdc-ad0a42b2e882, Lineage = 3ff1599a-3186-4491-8418-8df3fdc05864, ContentRevision = 749, ChangeSequence = 2404 }",
+          "escapeToIdleMs": 0.628,
+          "historyPreserved": true,
+          "idleDrawFrame": 136226,
+          "inputDrawFrame": 136225,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = 26432817-e5b0-41d4-9cdc-ad0a42b2e882, Lineage = 3ff1599a-3186-4491-8418-8df3fdc05864, ContentRevision = 749, ChangeSequence = 2404 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = 26432817-e5b0-41d4-9cdc-ad0a42b2e882, Lineage = 3ff1599a-3186-4491-8418-8df3fdc05864, ContentRevision = 749, ChangeSequence = 2404 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = 26432817-e5b0-41d4-9cdc-ad0a42b2e882, Lineage = 3ff1599a-3186-4491-8418-8df3fdc05864, ContentRevision = 749, ChangeSequence = 2404 }",
+          "escapeToIdleMs": 0.692,
+          "historyPreserved": true,
+          "idleDrawFrame": 136230,
+          "inputDrawFrame": 136229,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = 26432817-e5b0-41d4-9cdc-ad0a42b2e882, Lineage = 3ff1599a-3186-4491-8418-8df3fdc05864, ContentRevision = 749, ChangeSequence = 2404 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = 26432817-e5b0-41d4-9cdc-ad0a42b2e882, Lineage = 3ff1599a-3186-4491-8418-8df3fdc05864, ContentRevision = 749, ChangeSequence = 2404 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = 26432817-e5b0-41d4-9cdc-ad0a42b2e882, Lineage = 3ff1599a-3186-4491-8418-8df3fdc05864, ContentRevision = 749, ChangeSequence = 2404 }",
+          "escapeToIdleMs": 0.579,
+          "historyPreserved": true,
+          "idleDrawFrame": 136234,
+          "inputDrawFrame": 136233,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = 26432817-e5b0-41d4-9cdc-ad0a42b2e882, Lineage = 3ff1599a-3186-4491-8418-8df3fdc05864, ContentRevision = 749, ChangeSequence = 2404 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = 26432817-e5b0-41d4-9cdc-ad0a42b2e882, Lineage = 3ff1599a-3186-4491-8418-8df3fdc05864, ContentRevision = 749, ChangeSequence = 2404 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = 26432817-e5b0-41d4-9cdc-ad0a42b2e882, Lineage = 3ff1599a-3186-4491-8418-8df3fdc05864, ContentRevision = 749, ChangeSequence = 2404 }",
+          "escapeToIdleMs": 0.589,
+          "historyPreserved": true,
+          "idleDrawFrame": 136238,
+          "inputDrawFrame": 136237,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = 26432817-e5b0-41d4-9cdc-ad0a42b2e882, Lineage = 3ff1599a-3186-4491-8418-8df3fdc05864, ContentRevision = 749, ChangeSequence = 2404 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = 26432817-e5b0-41d4-9cdc-ad0a42b2e882, Lineage = 3ff1599a-3186-4491-8418-8df3fdc05864, ContentRevision = 749, ChangeSequence = 2404 }"
+        },
+        {
+          "admittedBusy": true,
+          "admittedPhase": "Preparing",
+          "cancelled": true,
+          "desiredToken": "RoadStateToken { NetworkInstance = 26432817-e5b0-41d4-9cdc-ad0a42b2e882, Lineage = 3ff1599a-3186-4491-8418-8df3fdc05864, ContentRevision = 749, ChangeSequence = 2404 }",
+          "escapeToIdleMs": 0.674,
+          "historyPreserved": true,
+          "idleDrawFrame": 136242,
+          "inputDrawFrame": 136241,
+          "lostRace": false,
+          "phase": "Cancelled",
+          "presentedToken": "RoadStateToken { NetworkInstance = 26432817-e5b0-41d4-9cdc-ad0a42b2e882, Lineage = 3ff1599a-3186-4491-8418-8df3fdc05864, ContentRevision = 749, ChangeSequence = 2404 }",
+          "renderFrameDelta": 1,
+          "sourceToken": "RoadStateToken { NetworkInstance = 26432817-e5b0-41d4-9cdc-ad0a42b2e882, Lineage = 3ff1599a-3186-4491-8418-8df3fdc05864, ContentRevision = 749, ChangeSequence = 2404 }"
+        }
+      ]
+    }
+  ],
+  "fixtures": [
+    {
+      "cell": 25,
+      "edges": 240,
+      "historyEntries": 0,
+      "indices": 4173,
+      "junctions": 85,
+      "maximumPointsPerEdge": 3,
+      "nodes": 109,
+      "points": 491,
+      "polylineEdges": 11,
+      "setup": "public planner plus strict codec roundtrip; setup excluded from sampled windows",
+      "surfacePieces": 1140,
+      "vertices": 3671
+    },
+    {
+      "cell": 50,
+      "edges": 240,
+      "historyEntries": 0,
+      "indices": 4110,
+      "junctions": 85,
+      "maximumPointsPerEdge": 3,
+      "nodes": 109,
+      "points": 491,
+      "polylineEdges": 11,
+      "setup": "public planner plus strict codec roundtrip; setup excluded from sampled windows",
+      "surfacePieces": 1119,
+      "vertices": 3608
+    },
+    {
+      "cell": 100,
+      "edges": 240,
+      "historyEntries": 0,
+      "indices": 4110,
+      "junctions": 85,
+      "maximumPointsPerEdge": 3,
+      "nodes": 109,
+      "points": 491,
+      "polylineEdges": 11,
+      "setup": "public planner plus strict codec roundtrip; setup excluded from sampled windows",
+      "surfacePieces": 1119,
+      "vertices": 3608
+    },
+    {
+      "cell": 200,
+      "edges": 240,
+      "historyEntries": 0,
+      "indices": 4110,
+      "junctions": 85,
+      "maximumPointsPerEdge": 3,
+      "nodes": 109,
+      "points": 491,
+      "polylineEdges": 11,
+      "setup": "public planner plus strict codec roundtrip; setup excluded from sampled windows",
+      "surfacePieces": 1119,
+      "vertices": 3608
+    }
+  ]
+}

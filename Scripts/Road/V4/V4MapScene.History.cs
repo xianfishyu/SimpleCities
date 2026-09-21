@@ -27,6 +27,7 @@ public partial class V4MapScene
 
     private bool SubmitHistory(bool redo)
     {
+        long inputTimestamp = Stopwatch.GetTimestamp();
         if (!CanUseHistory || (redo ? _roads!.Network.History.RedoCount : _roads!.Network.History.UndoCount) == 0)
             return false;
         ClearRoadSelection();
@@ -34,7 +35,7 @@ public partial class V4MapScene
         {
             RoadEditResult result = redo ? network.PlanRedo(token) : network.PlanUndo(token);
             return new PlannedRoadOperation(result.Plan, result.Status == RoadEditStatus.NoChange, result.Reason);
-        }, Stopwatch.GetTimestamp(), redo ? "道路操作已重做" : "道路操作已撤销", "");
+        }, inputTimestamp, redo ? "道路操作已重做" : "道路操作已撤销", "");
         return true;
     }
 
