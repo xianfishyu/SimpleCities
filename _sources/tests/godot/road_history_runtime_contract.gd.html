@@ -1,0 +1,209 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>tests/godot/road_history_runtime_contract.gd · SimpleCities 源码</title><link rel="stylesheet" href="../../../assets/source.css"><header><a href="../../../index.html">← 文档首页</a><h1>tests/godot/road_history_runtime_contract.gd</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">extends &quot;res://tests/godot/road_single_span_edit_runtime_contract.gd&quot;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code"></code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">func run() -&gt; void:</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code">	var map = load(&quot;res://Scenes/RoadMap.tscn&quot;).instantiate()</code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code">	root.add_child(map)</code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">	current_scene = map</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">	await process_frame</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">	check(&quot;history_map_created&quot;, map.CreateMap(100))</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">	var undo: Button = map.get_node(&quot;HUD/Panel/Margin/Controls/History/Undo&quot;)</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">	var redo: Button = map.get_node(&quot;HUD/Panel/Margin/Controls/History/Redo&quot;)</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">	await process_frame</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">	check(&quot;new_map_has_empty_disabled_history&quot;, history_counts(map, 0, 0) and undo.disabled and redo.disabled and map.GetHistoryState().get(&quot;estimatedRetainedBytes&quot;, -1) == 0)</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">	var empty_history: Dictionary = map.GetHistoryState()</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">	check(&quot;empty_history_requests_are_silent&quot;, not map.UndoRoadEdit() and not map.RedoRoadEdit() and map.GetHistoryState() == empty_history and not map.IsBuildBusy)</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code">	focus(map, Vector2(250, 0), 1.2)</code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">	await process_frame</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">	check(&quot;history_road_built&quot;, await build(map, Vector2.ZERO, Vector2(500, 0)))</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code">	var built: Dictionary = map.GetRoadState()</code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">	var built_history: Dictionary = map.GetHistoryState()</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code">	check(&quot;one_build_is_one_history_entry&quot;, history_counts(map, 1, 0) and built_history.get(&quot;estimatedRetainedBytes&quot;, 0) &gt; 0 and not undo.disabled and redo.disabled, {&quot;history&quot;: built_history, &quot;undoDisabled&quot;: undo.disabled, &quot;redoDisabled&quot;: redo.disabled})</code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">	shortcut(KEY_Z)</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">	await settle(map)</code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code">	check(&quot;control_z_undoes_entire_build&quot;, map.GetRoadState().get(&quot;edges&quot;, []).is_empty() and map.IsPresentationCurrent, map.GetRoadState())</code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">	check(&quot;undo_reuses_previous_display_content&quot;, map.GetOperationMetrics().get(&quot;reusedDisplayContent&quot;, false))</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code">	check(&quot;undo_moves_entry_without_rewinding_identity&quot;, history_counts(map, 0, 1) and history_transition_matches(built_history, map.GetHistoryState()) and map.GetHistoryState().get(&quot;estimatedRetainedBytes&quot;) == built_history.get(&quot;estimatedRetainedBytes&quot;) and undo.disabled and not redo.disabled, {&quot;history&quot;: map.GetHistoryState(), &quot;undoDisabled&quot;: undo.disabled, &quot;redoDisabled&quot;: redo.disabled})</code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">	shortcut(KEY_Z, true)</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">	await settle(map)</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code">	check(&quot;control_shift_z_restores_exact_build&quot;, content_matches(map, built) and history_counts(map, 1, 0) and map.StateToken != built.get(&quot;sourceToken&quot;), map.GetHistoryState())</code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">	check(&quot;redo_reuses_previous_display_content_with_new_pick_token&quot;, map.GetOperationMetrics().get(&quot;reusedDisplayContent&quot;, false) and map.PickRoad(Vector2(250, 0)).get(&quot;sourceToken&quot;) == map.StateToken)</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">	await click_control(undo)</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code">	await settle(map)</code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">	check(&quot;undo_button_removes_build&quot;, map.GetRoadState().is_empty() and history_counts(map, 0, 1))</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code">	shortcut(KEY_Y)</code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code">	await settle(map)</code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code">	check(&quot;control_y_restores_build&quot;, content_matches(map, built) and history_counts(map, 1, 0))</code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code">	shortcut(KEY_Z)</code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code">	await settle(map)</code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code">	await click_control(redo)</code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code">	await settle(map)</code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code">	check(&quot;redo_button_restores_build&quot;, content_matches(map, built) and history_counts(map, 1, 0))</code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code">	await batch_history(map, built)</code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code">	await cancelled_history(map)</code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code">	await loop_history_and_load(map)</code></span>
+<span class="line" id="L44"><a class="number" href="#L44">44</a><code class="code">	await RenderingServer.frame_post_draw</code></span>
+<span class="line" id="L45"><a class="number" href="#L45">45</a><code class="code">	var capture_path: String = OS.get_environment(&quot;V4_QA_OUTPUT&quot;)</code></span>
+<span class="line" id="L46"><a class="number" href="#L46">46</a><code class="code">	var capture_dir: String = ProjectSettings.globalize_path(capture_path if not capture_path.is_empty() else &quot;res://.scratch/v4-15-qa&quot;)</code></span>
+<span class="line" id="L47"><a class="number" href="#L47">47</a><code class="code">	var directory_error: int = DirAccess.make_dir_recursive_absolute(capture_dir)</code></span>
+<span class="line" id="L48"><a class="number" href="#L48">48</a><code class="code">	check(&quot;restored_loop_screenshot&quot;, (directory_error == OK or directory_error == ERR_ALREADY_EXISTS) and root.get_texture().get_image().save_png(capture_dir.path_join(&quot;history-restored-loop.png&quot;)) == OK)</code></span>
+<span class="line" id="L49"><a class="number" href="#L49">49</a><code class="code">	print(&quot;V4_HISTORY_RESULT &quot;, JSON.stringify({&quot;rows&quot;: _rows, &quot;passed&quot;: _passed}))</code></span>
+<span class="line" id="L50"><a class="number" href="#L50">50</a><code class="code">	map.queue_free()</code></span>
+<span class="line" id="L51"><a class="number" href="#L51">51</a><code class="code">	await process_frame</code></span>
+<span class="line" id="L52"><a class="number" href="#L52">52</a><code class="code">	if _passed:</code></span>
+<span class="line" id="L53"><a class="number" href="#L53">53</a><code class="code">		print(&quot;PASS V4 history runtime contract&quot;)</code></span>
+<span class="line" id="L54"><a class="number" href="#L54">54</a><code class="code">		quit(0)</code></span>
+<span class="line" id="L55"><a class="number" href="#L55">55</a><code class="code">	else:</code></span>
+<span class="line" id="L56"><a class="number" href="#L56">56</a><code class="code">		push_error(&quot;FAIL V4 history runtime contract&quot;)</code></span>
+<span class="line" id="L57"><a class="number" href="#L57">57</a><code class="code">		quit(1)</code></span>
+<span class="line" id="L58"><a class="number" href="#L58">58</a><code class="code"></code></span>
+<span class="line" id="L59"><a class="number" href="#L59">59</a><code class="code">func batch_history(map: Node, built: Dictionary) -&gt; void:</code></span>
+<span class="line" id="L60"><a class="number" href="#L60">60</a><code class="code">	check(&quot;batch_change_mode&quot;, map.SetToolMode(3))</code></span>
+<span class="line" id="L61"><a class="number" href="#L61">61</a><code class="code">	var profile: OptionButton = map.get_node(&quot;HUD/Panel/Margin/Controls/Profile&quot;)</code></span>
+<span class="line" id="L62"><a class="number" href="#L62">62</a><code class="code">	profile.select(3)</code></span>
+<span class="line" id="L63"><a class="number" href="#L63">63</a><code class="code">	press(map, Vector2(150, 0))</code></span>
+<span class="line" id="L64"><a class="number" href="#L64">64</a><code class="code">	await process_frame</code></span>
+<span class="line" id="L65"><a class="number" href="#L65">65</a><code class="code">	motion(map, Vector2(350, 0))</code></span>
+<span class="line" id="L66"><a class="number" href="#L66">66</a><code class="code">	await process_frame</code></span>
+<span class="line" id="L67"><a class="number" href="#L67">67</a><code class="code">	check(&quot;held_batch_does_not_add_history&quot;, map.GetSelectionState().get(&quot;selectedCount&quot;) == 3 and content_matches(map, built) and history_counts(map, 1, 0))</code></span>
+<span class="line" id="L68"><a class="number" href="#L68">68</a><code class="code">	release(map, Vector2(350, 0))</code></span>
+<span class="line" id="L69"><a class="number" href="#L69">69</a><code class="code">	await settle(map)</code></span>
+<span class="line" id="L70"><a class="number" href="#L70">70</a><code class="code">	var changed: Dictionary = map.GetRoadState()</code></span>
+<span class="line" id="L71"><a class="number" href="#L71">71</a><code class="code">	check(&quot;batch_change_adds_one_entry&quot;, history_counts(map, 2, 0) and [150, 250, 350].all(func(x): return map.PickRoad(Vector2(x, 0)).get(&quot;profile&quot;) == &quot;highway&quot;) and [50, 450].all(func(x): return map.PickRoad(Vector2(x, 0)).get(&quot;profile&quot;) == &quot;street&quot;))</code></span>
+<span class="line" id="L72"><a class="number" href="#L72">72</a><code class="code">	shortcut(KEY_Z)</code></span>
+<span class="line" id="L73"><a class="number" href="#L73">73</a><code class="code">	await settle(map)</code></span>
+<span class="line" id="L74"><a class="number" href="#L74">74</a><code class="code">	check(&quot;one_undo_restores_entire_profile_batch&quot;, content_matches(map, built) and history_counts(map, 1, 1))</code></span>
+<span class="line" id="L75"><a class="number" href="#L75">75</a><code class="code">	shortcut(KEY_Y)</code></span>
+<span class="line" id="L76"><a class="number" href="#L76">76</a><code class="code">	await settle(map)</code></span>
+<span class="line" id="L77"><a class="number" href="#L77">77</a><code class="code">	check(&quot;one_redo_restores_entire_profile_batch&quot;, content_matches(map, changed) and history_counts(map, 2, 0))</code></span>
+<span class="line" id="L78"><a class="number" href="#L78">78</a><code class="code">	# Undo/redo restores content under a fresh sequence. No-change must preserve this</code></span>
+<span class="line" id="L79"><a class="number" href="#L79">79</a><code class="code">	# newly published snapshot, including its token, rather than the pre-undo token.</code></span>
+<span class="line" id="L80"><a class="number" href="#L80">80</a><code class="code">	changed = map.GetRoadState()</code></span>
+<span class="line" id="L81"><a class="number" href="#L81">81</a><code class="code">	var history_before: Dictionary = map.GetHistoryState()</code></span>
+<span class="line" id="L82"><a class="number" href="#L82">82</a><code class="code">	var phase_before: String = map.BuildPhase</code></span>
+<span class="line" id="L83"><a class="number" href="#L83">83</a><code class="code">	press(map, Vector2(150, 0))</code></span>
+<span class="line" id="L84"><a class="number" href="#L84">84</a><code class="code">	await process_frame</code></span>
+<span class="line" id="L85"><a class="number" href="#L85">85</a><code class="code">	motion(map, Vector2(350, 0))</code></span>
+<span class="line" id="L86"><a class="number" href="#L86">86</a><code class="code">	await process_frame</code></span>
+<span class="line" id="L87"><a class="number" href="#L87">87</a><code class="code">	release(map, Vector2(350, 0))</code></span>
+<span class="line" id="L88"><a class="number" href="#L88">88</a><code class="code">	await settle(map)</code></span>
+<span class="line" id="L89"><a class="number" href="#L89">89</a><code class="code">	check(&quot;same_profile_batch_keeps_history_and_version&quot;, map.GetHistoryState() == history_before and map.GetRoadState() == changed and map.BuildPhase == phase_before and not map.IsBuildBusy)</code></span>
+<span class="line" id="L90"><a class="number" href="#L90">90</a><code class="code">	check(&quot;batch_delete_mode&quot;, map.SetToolMode(2))</code></span>
+<span class="line" id="L91"><a class="number" href="#L91">91</a><code class="code">	press(map, Vector2(50, 0))</code></span>
+<span class="line" id="L92"><a class="number" href="#L92">92</a><code class="code">	await process_frame</code></span>
+<span class="line" id="L93"><a class="number" href="#L93">93</a><code class="code">	motion(map, Vector2(250, 0))</code></span>
+<span class="line" id="L94"><a class="number" href="#L94">94</a><code class="code">	await process_frame</code></span>
+<span class="line" id="L95"><a class="number" href="#L95">95</a><code class="code">	check(&quot;held_delete_crosses_profile_edges_without_history_write&quot;, map.GetSelectionState().get(&quot;selectedCount&quot;) == 3 and map.GetRoadState() == changed and map.GetHistoryState() == history_before)</code></span>
+<span class="line" id="L96"><a class="number" href="#L96">96</a><code class="code">	release(map, Vector2(250, 0))</code></span>
+<span class="line" id="L97"><a class="number" href="#L97">97</a><code class="code">	await settle(map)</code></span>
+<span class="line" id="L98"><a class="number" href="#L98">98</a><code class="code">	var deleted: Dictionary = map.GetRoadState()</code></span>
+<span class="line" id="L99"><a class="number" href="#L99">99</a><code class="code">	check(&quot;batch_delete_adds_one_entry_and_preserves_remainder&quot;, history_counts(map, 3, 0) and [50, 150, 250].all(func(x): return map.PickRoad(Vector2(x, 0)).is_empty()) and map.PickRoad(Vector2(350, 0)).get(&quot;profile&quot;) == &quot;highway&quot; and map.PickRoad(Vector2(450, 0)).get(&quot;profile&quot;) == &quot;street&quot;)</code></span>
+<span class="line" id="L100"><a class="number" href="#L100">100</a><code class="code">	shortcut(KEY_Z)</code></span>
+<span class="line" id="L101"><a class="number" href="#L101">101</a><code class="code">	await settle(map)</code></span>
+<span class="line" id="L102"><a class="number" href="#L102">102</a><code class="code">	check(&quot;one_undo_restores_entire_delete_batch&quot;, content_matches(map, changed) and history_counts(map, 2, 1))</code></span>
+<span class="line" id="L103"><a class="number" href="#L103">103</a><code class="code">	shortcut(KEY_Z, true)</code></span>
+<span class="line" id="L104"><a class="number" href="#L104">104</a><code class="code">	await settle(map)</code></span>
+<span class="line" id="L105"><a class="number" href="#L105">105</a><code class="code">	check(&quot;one_redo_restores_entire_delete_batch&quot;, content_matches(map, deleted) and history_counts(map, 3, 0))</code></span>
+<span class="line" id="L106"><a class="number" href="#L106">106</a><code class="code">	shortcut(KEY_Z)</code></span>
+<span class="line" id="L107"><a class="number" href="#L107">107</a><code class="code">	await settle(map)</code></span>
+<span class="line" id="L108"><a class="number" href="#L108">108</a><code class="code">	check(&quot;new_build_after_undo_clears_redo&quot;, map.SetToolMode(0) and await build(map, Vector2(0, 200), Vector2(500, 200)) and history_counts(map, 3, 0) and not map.RedoRoadEdit() and map.PickRoad(Vector2(250, 200)).get(&quot;profile&quot;) == &quot;highway&quot;)</code></span>
+<span class="line" id="L109"><a class="number" href="#L109">109</a><code class="code"></code></span>
+<span class="line" id="L110"><a class="number" href="#L110">110</a><code class="code">func cancelled_history(map: Node) -&gt; void:</code></span>
+<span class="line" id="L111"><a class="number" href="#L111">111</a><code class="code">	var before: Dictionary = map.GetRoadState()</code></span>
+<span class="line" id="L112"><a class="number" href="#L112">112</a><code class="code">	var history_before: Dictionary = map.GetHistoryState()</code></span>
+<span class="line" id="L113"><a class="number" href="#L113">113</a><code class="code">	var probe = WORK_PROBE.new()</code></span>
+<span class="line" id="L114"><a class="number" href="#L114">114</a><code class="code">	probe.Install(map)</code></span>
+<span class="line" id="L115"><a class="number" href="#L115">115</a><code class="code">	var accepted: bool = map.UndoRoadEdit()</code></span>
+<span class="line" id="L116"><a class="number" href="#L116">116</a><code class="code">	var deadline: int = Time.get_ticks_msec() + 5000</code></span>
+<span class="line" id="L117"><a class="number" href="#L117">117</a><code class="code">	while Time.get_ticks_msec() &lt; deadline and (not probe.Started or map.BuildElapsedMilliseconds &lt;= 350):</code></span>
+<span class="line" id="L118"><a class="number" href="#L118">118</a><code class="code">		await process_frame</code></span>
+<span class="line" id="L119"><a class="number" href="#L119">119</a><code class="code">	var status: Label = map.get_node(&quot;HUD/Panel/Margin/Controls/Status&quot;)</code></span>
+<span class="line" id="L120"><a class="number" href="#L120">120</a><code class="code">	var undo: Button = map.get_node(&quot;HUD/Panel/Margin/Controls/History/Undo&quot;)</code></span>
+<span class="line" id="L121"><a class="number" href="#L121">121</a><code class="code">	var redo: Button = map.get_node(&quot;HUD/Panel/Margin/Controls/History/Redo&quot;)</code></span>
+<span class="line" id="L122"><a class="number" href="#L122">122</a><code class="code">	check(&quot;pending_undo_keeps_history_and_shows_escape_hint&quot;, accepted and probe.Started and probe.UsedBackgroundThread and map.IsBuildBusy and map.BuildPhase == &quot;Preparing&quot; and status.text.contains(&quot;等待&quot;) and status.text.contains(&quot;Esc&quot;) and map.GetHistoryState() == history_before and map.GetRoadState() == before)</code></span>
+<span class="line" id="L123"><a class="number" href="#L123">123</a><code class="code">	check(&quot;pending_undo_rejects_second_history_operation&quot;, undo.disabled and redo.disabled and not map.UndoRoadEdit() and not map.RedoRoadEdit() and map.GetHistoryState() == history_before)</code></span>
+<span class="line" id="L124"><a class="number" href="#L124">124</a><code class="code">	escape()</code></span>
+<span class="line" id="L125"><a class="number" href="#L125">125</a><code class="code">	await process_frame</code></span>
+<span class="line" id="L126"><a class="number" href="#L126">126</a><code class="code">	check(&quot;escape_cancels_pending_undo_without_moving_stacks&quot;, map.BuildPhase == &quot;Cancelling&quot; and map.IsBuildBusy and map.GetHistoryState() == history_before and map.GetRoadState() == before)</code></span>
+<span class="line" id="L127"><a class="number" href="#L127">127</a><code class="code">	probe.Release()</code></span>
+<span class="line" id="L128"><a class="number" href="#L128">128</a><code class="code">	var completed: bool = await settle(map)</code></span>
+<span class="line" id="L129"><a class="number" href="#L129">129</a><code class="code">	probe.Remove(map)</code></span>
+<span class="line" id="L130"><a class="number" href="#L130">130</a><code class="code">	check(&quot;cancelled_undo_rejects_late_result_and_keeps_all_history&quot;, completed and probe.Completed and map.BuildPhase == &quot;Cancelled&quot; and map.GetHistoryState() == history_before and map.GetRoadState() == before and not undo.disabled)</code></span>
+<span class="line" id="L131"><a class="number" href="#L131">131</a><code class="code">	if probe.Completed: probe.Cleanup()</code></span>
+<span class="line" id="L132"><a class="number" href="#L132">132</a><code class="code">	shortcut(KEY_Z)</code></span>
+<span class="line" id="L133"><a class="number" href="#L133">133</a><code class="code">	await settle(map)</code></span>
+<span class="line" id="L134"><a class="number" href="#L134">134</a><code class="code">	var committed: Dictionary = map.GetHistoryState()</code></span>
+<span class="line" id="L135"><a class="number" href="#L135">135</a><code class="code">	escape()</code></span>
+<span class="line" id="L136"><a class="number" href="#L136">136</a><code class="code">	await process_frame</code></span>
+<span class="line" id="L137"><a class="number" href="#L137">137</a><code class="code">	check(&quot;escape_after_completed_undo_does_not_undo_again&quot;, history_counts(map, 2, 1) and map.GetHistoryState() == committed and map.PickRoad(Vector2(250, 200)).is_empty() and map.PickRoad(Vector2(250, 0)).get(&quot;profile&quot;) == &quot;highway&quot; and not status.text.contains(&quot;Esc&quot;))</code></span>
+<span class="line" id="L138"><a class="number" href="#L138">138</a><code class="code"></code></span>
+<span class="line" id="L139"><a class="number" href="#L139">139</a><code class="code">func loop_history_and_load(map: Node) -&gt; void:</code></span>
+<span class="line" id="L140"><a class="number" href="#L140">140</a><code class="code">	check(&quot;new_map_resets_existing_history&quot;, map.SetToolMode(0) and map.CreateMap(100) and history_counts(map, 0, 0))</code></span>
+<span class="line" id="L141"><a class="number" href="#L141">141</a><code class="code">	var profile: OptionButton = map.get_node(&quot;HUD/Panel/Margin/Controls/Profile&quot;)</code></span>
+<span class="line" id="L142"><a class="number" href="#L142">142</a><code class="code">	profile.select(1)</code></span>
+<span class="line" id="L143"><a class="number" href="#L143">143</a><code class="code">	focus(map, Vector2(300, 200), 0.6)</code></span>
+<span class="line" id="L144"><a class="number" href="#L144">144</a><code class="code">	await process_frame</code></span>
+<span class="line" id="L145"><a class="number" href="#L145">145</a><code class="code">	var built: bool = await build(map, Vector2.ZERO, Vector2(400, 0))</code></span>
+<span class="line" id="L146"><a class="number" href="#L146">146</a><code class="code">	built = await build(map, Vector2(400, 0), Vector2(400, 400)) and built</code></span>
+<span class="line" id="L147"><a class="number" href="#L147">147</a><code class="code">	built = await build(map, Vector2(400, 400), Vector2(0, 400)) and built</code></span>
+<span class="line" id="L148"><a class="number" href="#L148">148</a><code class="code">	built = await build(map, Vector2(0, 400), Vector2.ZERO) and built</code></span>
+<span class="line" id="L149"><a class="number" href="#L149">149</a><code class="code">	var pure: Dictionary = map.GetRoadState()</code></span>
+<span class="line" id="L150"><a class="number" href="#L150">150</a><code class="code">	var edges: Array = pure.get(&quot;edges&quot;, [])</code></span>
+<span class="line" id="L151"><a class="number" href="#L151">151</a><code class="code">	check(&quot;loop_gestures_have_four_entries&quot;, built and history_counts(map, 4, 0) and pure.get(&quot;nodeCount&quot;) == 1 and edges.size() == 1 and edges[0].get(&quot;startNodeId&quot;) == edges[0].get(&quot;endNodeId&quot;))</code></span>
+<span class="line" id="L152"><a class="number" href="#L152">152</a><code class="code">	check(&quot;branch_moves_loop_seam_as_one_edit&quot;, await build(map, Vector2(400, 400), Vector2(600, 400)) and history_counts(map, 5, 0) and map.GetRoadState().get(&quot;nodeCount&quot;) == 2 and map.GetRoadState().get(&quot;edges&quot;, []).size() == 2)</code></span>
+<span class="line" id="L153"><a class="number" href="#L153">153</a><code class="code">	var branched: Dictionary = map.GetRoadState()</code></span>
+<span class="line" id="L154"><a class="number" href="#L154">154</a><code class="code">	shortcut(KEY_Z)</code></span>
+<span class="line" id="L155"><a class="number" href="#L155">155</a><code class="code">	await settle(map)</code></span>
+<span class="line" id="L156"><a class="number" href="#L156">156</a><code class="code">	check(&quot;undo_restores_loop_seam_and_visible_owner&quot;, content_matches(map, pure) and history_counts(map, 4, 1) and map.PickRoad(Vector2(500, 400)).is_empty() and map.PickRoad(Vector2(200, 0)).get(&quot;sourceToken&quot;) == map.StateToken)</code></span>
+<span class="line" id="L157"><a class="number" href="#L157">157</a><code class="code">	shortcut(KEY_Y)</code></span>
+<span class="line" id="L158"><a class="number" href="#L158">158</a><code class="code">	await settle(map)</code></span>
+<span class="line" id="L159"><a class="number" href="#L159">159</a><code class="code">	check(&quot;redo_restores_loop_branch_and_visible_owner&quot;, content_matches(map, branched) and history_counts(map, 5, 0) and map.PickRoad(Vector2(500, 400)).get(&quot;sourceToken&quot;) == map.StateToken)</code></span>
+<span class="line" id="L160"><a class="number" href="#L160">160</a><code class="code">	shortcut(KEY_Z)</code></span>
+<span class="line" id="L161"><a class="number" href="#L161">161</a><code class="code">	await settle(map)</code></span>
+<span class="line" id="L162"><a class="number" href="#L162">162</a><code class="code">	var history_before: Dictionary = map.GetHistoryState()</code></span>
+<span class="line" id="L163"><a class="number" href="#L163">163</a><code class="code">	var manager: Node = root.get_node(&quot;SaveManager&quot;)</code></span>
+<span class="line" id="L164"><a class="number" href="#L164">164</a><code class="code">	var saved: bool = await SAVE.save_as(manager, &quot;V4 history restored loop QA&quot;)</code></span>
+<span class="line" id="L165"><a class="number" href="#L165">165</a><code class="code">	check(&quot;save_preserves_undone_loop_and_session_history&quot;, saved and content_matches(map, pure) and history_counts(map, 4, 1) and map.GetHistoryState() == history_before)</code></span>
+<span class="line" id="L166"><a class="number" href="#L166">166</a><code class="code">	if not saved: return</code></span>
+<span class="line" id="L167"><a class="number" href="#L167">167</a><code class="code">	var slot: String = manager.CurrentSlotID</code></span>
+<span class="line" id="L168"><a class="number" href="#L168">168</a><code class="code">	var payload_path: String = &quot;user://saves-v4/&quot; + slot + &quot;/road_network_v4.json&quot;</code></span>
+<span class="line" id="L169"><a class="number" href="#L169">169</a><code class="code">	var bytes: PackedByteArray = FileAccess.get_file_as_bytes(payload_path)</code></span>
+<span class="line" id="L170"><a class="number" href="#L170">170</a><code class="code">	shortcut(KEY_Y)</code></span>
+<span class="line" id="L171"><a class="number" href="#L171">171</a><code class="code">	await settle(map)</code></span>
+<span class="line" id="L172"><a class="number" href="#L172">172</a><code class="code">	check(&quot;redo_after_save_restores_branch&quot;, content_matches(map, branched) and history_counts(map, 5, 0))</code></span>
+<span class="line" id="L173"><a class="number" href="#L173">173</a><code class="code">	var loaded: bool = await SAVE.operation_succeeded(manager, map.LoadSlot(slot))</code></span>
+<span class="line" id="L174"><a class="number" href="#L174">174</a><code class="code">	await process_frame</code></span>
+<span class="line" id="L175"><a class="number" href="#L175">175</a><code class="code">	check(&quot;load_restores_saved_loop_with_empty_history&quot;, loaded and content_matches(map, pure) and history_counts(map, 0, 0) and map.GetHistoryState().get(&quot;estimatedRetainedBytes&quot;, -1) == 0 and map.StateToken != history_before.get(&quot;sourceToken&quot;) and not map.UndoRoadEdit() and not map.RedoRoadEdit())</code></span>
+<span class="line" id="L176"><a class="number" href="#L176">176</a><code class="code">	var resaved: bool = await SAVE.save(manager, slot)</code></span>
+<span class="line" id="L177"><a class="number" href="#L177">177</a><code class="code">	check(&quot;history_is_not_serialized_into_codec&quot;, resaved and not bytes.is_empty() and FileAccess.get_file_as_bytes(payload_path) == bytes)</code></span>
+<span class="line" id="L178"><a class="number" href="#L178">178</a><code class="code">	var deleted: bool = await SAVE.delete_slot(manager, slot)</code></span>
+<span class="line" id="L179"><a class="number" href="#L179">179</a><code class="code">	check(&quot;history_save_fixture_deleted&quot;, deleted and not DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(&quot;user://saves-v4/&quot; + slot)))</code></span>
+<span class="line" id="L180"><a class="number" href="#L180">180</a><code class="code"></code></span>
+<span class="line" id="L181"><a class="number" href="#L181">181</a><code class="code">func history_counts(map: Node, undo_count: int, redo_count: int) -&gt; bool:</code></span>
+<span class="line" id="L182"><a class="number" href="#L182">182</a><code class="code">	var state: Dictionary = map.GetHistoryState()</code></span>
+<span class="line" id="L183"><a class="number" href="#L183">183</a><code class="code">	return state.get(&quot;undoCount&quot;, -1) == undo_count and state.get(&quot;redoCount&quot;, -1) == redo_count and state.get(&quot;retainedCount&quot;, -1) == undo_count + redo_count</code></span>
+<span class="line" id="L184"><a class="number" href="#L184">184</a><code class="code"></code></span>
+<span class="line" id="L185"><a class="number" href="#L185">185</a><code class="code">func history_transition_matches(before: Dictionary, after: Dictionary) -&gt; bool:</code></span>
+<span class="line" id="L186"><a class="number" href="#L186">186</a><code class="code">	return after.get(&quot;sourceToken&quot;) != before.get(&quot;sourceToken&quot;) and after.get(&quot;changeSequence&quot;, 0) == before.get(&quot;changeSequence&quot;, 0) + 1 and after.get(&quot;nextNodeId&quot;, 0) &gt;= before.get(&quot;nextNodeId&quot;, 0) and after.get(&quot;nextEdgeId&quot;, 0) &gt;= before.get(&quot;nextEdgeId&quot;, 0)</code></span>
+<span class="line" id="L187"><a class="number" href="#L187">187</a><code class="code"></code></span>
+<span class="line" id="L188"><a class="number" href="#L188">188</a><code class="code">func content_matches(map: Node, expected: Dictionary) -&gt; bool:</code></span>
+<span class="line" id="L189"><a class="number" href="#L189">189</a><code class="code">	var actual: Dictionary = map.GetRoadState()</code></span>
+<span class="line" id="L190"><a class="number" href="#L190">190</a><code class="code">	return map.IsPresentationCurrent and actual.get(&quot;edges&quot;, []) == expected.get(&quot;edges&quot;, []) and actual.get(&quot;nodeCount&quot;, 0) == expected.get(&quot;nodeCount&quot;, 0)</code></span>
+<span class="line" id="L191"><a class="number" href="#L191">191</a><code class="code"></code></span>
+<span class="line" id="L192"><a class="number" href="#L192">192</a><code class="code">func click_control(control: Control) -&gt; void:</code></span>
+<span class="line" id="L193"><a class="number" href="#L193">193</a><code class="code">	button(control.get_global_rect().get_center(), true)</code></span>
+<span class="line" id="L194"><a class="number" href="#L194">194</a><code class="code">	await process_frame</code></span>
+<span class="line" id="L195"><a class="number" href="#L195">195</a><code class="code">	button(control.get_global_rect().get_center(), false)</code></span>
+<span class="line" id="L196"><a class="number" href="#L196">196</a><code class="code">	await process_frame</code></span>
+<span class="line" id="L197"><a class="number" href="#L197">197</a><code class="code"></code></span>
+<span class="line" id="L198"><a class="number" href="#L198">198</a><code class="code">func shortcut(key: Key, shift: bool = false) -&gt; void:</code></span>
+<span class="line" id="L199"><a class="number" href="#L199">199</a><code class="code">	var event := InputEventKey.new()</code></span>
+<span class="line" id="L200"><a class="number" href="#L200">200</a><code class="code">	event.keycode = key</code></span>
+<span class="line" id="L201"><a class="number" href="#L201">201</a><code class="code">	event.ctrl_pressed = true</code></span>
+<span class="line" id="L202"><a class="number" href="#L202">202</a><code class="code">	event.shift_pressed = shift</code></span>
+<span class="line" id="L203"><a class="number" href="#L203">203</a><code class="code">	event.pressed = true</code></span>
+<span class="line" id="L204"><a class="number" href="#L204">204</a><code class="code">	Input.parse_input_event(event)</code></span>
+<span class="line" id="L205"><a class="number" href="#L205">205</a><code class="code">	var released := InputEventKey.new()</code></span>
+<span class="line" id="L206"><a class="number" href="#L206">206</a><code class="code">	released.keycode = key</code></span>
+<span class="line" id="L207"><a class="number" href="#L207">207</a><code class="code">	released.ctrl_pressed = true</code></span>
+<span class="line" id="L208"><a class="number" href="#L208">208</a><code class="code">	released.shift_pressed = shift</code></span>
+<span class="line" id="L209"><a class="number" href="#L209">209</a><code class="code">	Input.parse_input_event(released)</code></span></pre></main></html>

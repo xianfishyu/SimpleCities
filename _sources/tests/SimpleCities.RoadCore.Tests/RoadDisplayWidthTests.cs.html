@@ -1,0 +1,31 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>tests/SimpleCities.RoadCore.Tests/RoadDisplayWidthTests.cs · SimpleCities 源码</title><link rel="stylesheet" href="../../../assets/source.css"><header><a href="../../../index.html">← 文档首页</a><h1>tests/SimpleCities.RoadCore.Tests/RoadDisplayWidthTests.cs</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">namespace SimpleCities.RoadCore.Tests;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code"></code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">public sealed class RoadDisplayWidthTests</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code">{</code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code">    [Theory]</code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">    [InlineData(&quot;dirt&quot;, 2)]</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">    [InlineData(&quot;street&quot;, 3)]</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">    [InlineData(&quot;arterial&quot;, 6)]</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">    [InlineData(&quot;highway&quot;, 8)]</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">    public void TwentyFiveMetreGridUsesProportionalSymbolWidthsWithoutChangingRoadGeometry(string profile, double expectedWidth)</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">    {</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">        var network = new RoadNetwork(new MapDefinition(25));</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">        var build = network.PlanBuild(new(network.Snapshot.Token, new(0, 0), new(100, 0), new(profile)));</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">        Assert.Equal(RoadBuildStatus.Ready, build.Status);</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code">        Assert.True(network.TryCommit(build.Plan!));</code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">        RoadSnapshot snapshot = network.Snapshot;</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">        using var before = new MemoryStream();</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code">        RoadCodec.Write(before, snapshot);</code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code"></code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code">        RoadSurfacePiece ribbon = Assert.Single(RoadPresentation.Prepare(snapshot.Nodes, snapshot.Edges)!.Pieces);</code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">        Assert.Equal(expectedWidth, ribbon.Corners[0].DistanceTo(ribbon.Corners[3]), 8);</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">        Assert.Equal(new RoadPoint(0, 0), ribbon.Start);</code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code">        Assert.Equal(new RoadPoint(100, 0), ribbon.End);</code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">        Assert.Equal(100, ribbon.Edge.Length);</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code">        Assert.All(ribbon.Corners, corner =&gt; Assert.InRange(Math.Abs(corner.Y), 0, 4));</code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">        Assert.Same(snapshot, network.Snapshot);</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">        using var after = new MemoryStream();</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code">        RoadCodec.Write(after, network.Snapshot);</code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">        Assert.Equal(before.ToArray(), after.ToArray());</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">    }</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code">}</code></span></pre></main></html>

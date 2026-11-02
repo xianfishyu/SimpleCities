@@ -1,0 +1,198 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Scripts/Road/Runtime/RoadDisplay.cs · SimpleCities 源码</title><link rel="stylesheet" href="../../../../assets/source.css"><header><a href="../../../../index.html">← 文档首页</a><h1>Scripts/Road/Runtime/RoadDisplay.cs</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">using Godot;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code">using System;</code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">using System.Collections.Generic;</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code">using System.Linq;</code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code">using SimpleCities.RoadCore;</code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">using CoreRoadLocation = SimpleCities.RoadCore.RoadLocation;</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code"></code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">/// &lt;summary&gt;Immutable display revision; drawing and picking share ordered, reusable surface groups.&lt;/summary&gt;</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">internal sealed partial class RoadDisplay : IDisposable</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">{</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">    internal readonly record struct HitResult(CoreRoadLocation Location, NodeId? JunctionNode);</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code"></code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">    private static void ValidatePolygon(Vector2[] polygon)</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">    {</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code">        double winding = 0;</code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">        for (int i = 0; i &lt; polygon.Length; i++)</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">        {</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code">            Vector2 a = polygon[i], b = polygon[(i + 1) % polygon.Length], c = polygon[(i + 2) % polygon.Length];</code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">            // Compute from the shared binary32 vertices, widening before arithmetic so large</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code">            // world offsets do not hide a collapsed or concave triangle through cancellation.</code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">            double cross = ((double)b.X - a.X) * ((double)c.Y - b.Y) - ((double)b.Y - a.Y) * ((double)c.X - b.X);</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">            if (cross == 0 || (winding != 0 &amp;&amp; Math.Sign(cross) != winding))</code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code">                throw new InvalidOperationException(&quot;V4 road surface is degenerate or non-convex after display conversion.&quot;);</code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">            winding = Math.Sign(cross);</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code">        }</code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">    }</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code"></code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code">    private static Vector2 ToVector(RoadPoint point)</code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">    {</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">        var converted = new Vector2((float)point.X, (float)point.Y);</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code">        if (!converted.IsFinite()) throw new InvalidOperationException(&quot;V4 display conversion is non-finite.&quot;);</code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">        return converted;</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code">    }</code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code"></code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code">    internal SpatialQueryResult&lt;HitResult&gt; QueryHit(Vector2 world, SpatialQueryBudget? budget = null)</code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code">    {</code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code">        SpatialQueryBudget limits = budget ?? SpatialQueryBudget.Default;</code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code">        SpatialQueryResult&lt;Piece&gt; candidates = _index.QueryBounds(new(world.X, world.Y, world.X, world.Y), Snapshot.Token, limits);</code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code">        if (candidates.Status != SpatialQueryStatus.Ready)</code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code">            return new(Snapshot.Token, candidates.Status, [], candidates.Metrics, candidates.Reason);</code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code">        int exact = 0;</code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code">        // Last drawn polygon owns the visible surface where differently coloured pieces overlap.</code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code">        foreach (Piece piece in candidates.Results.Distinct().OrderByDescending(piece =&gt; piece, PaintComparer.Instance))</code></span>
+<span class="line" id="L44"><a class="number" href="#L44">44</a><code class="code">        {</code></span>
+<span class="line" id="L45"><a class="number" href="#L45">45</a><code class="code">            if (exact &gt;= limits.MaxExactTests)</code></span>
+<span class="line" id="L46"><a class="number" href="#L46">46</a><code class="code">                return new(Snapshot.Token, SpatialQueryStatus.BudgetExceeded, [], candidates.Metrics with { ExactGeometryTests = exact }, &quot;空间查询精确检查预算已耗尽&quot;);</code></span>
+<span class="line" id="L47"><a class="number" href="#L47">47</a><code class="code">            exact++;</code></span>
+<span class="line" id="L48"><a class="number" href="#L48">48</a><code class="code">            if (!Geometry2D.IsPointInPolygon(world, piece.Polygon)) continue;</code></span>
+<span class="line" id="L49"><a class="number" href="#L49">49</a><code class="code">            Vector2 direction = piece.End - piece.Start;</code></span>
+<span class="line" id="L50"><a class="number" href="#L50">50</a><code class="code">            double fraction = direction.LengthSquared() == 0 ? 0 : Mathf.Clamp((world - piece.Start).Dot(direction) / direction.LengthSquared(), 0, 1);</code></span>
+<span class="line" id="L51"><a class="number" href="#L51">51</a><code class="code">            double parameter = piece.StartParameter + fraction * (piece.EndParameter - piece.StartParameter);</code></span>
+<span class="line" id="L52"><a class="number" href="#L52">52</a><code class="code">            return new(Snapshot.Token, SpatialQueryStatus.Ready,</code></span>
+<span class="line" id="L53"><a class="number" href="#L53">53</a><code class="code">                [new HitResult(new CoreRoadLocation(Snapshot.Token, piece.Edge, parameter), piece.JunctionNode)],</code></span>
+<span class="line" id="L54"><a class="number" href="#L54">54</a><code class="code">                candidates.Metrics with { ExactGeometryTests = exact, Hits = 1 }, &quot;&quot;);</code></span>
+<span class="line" id="L55"><a class="number" href="#L55">55</a><code class="code">        }</code></span>
+<span class="line" id="L56"><a class="number" href="#L56">56</a><code class="code">        return new(Snapshot.Token, SpatialQueryStatus.Ready, [], candidates.Metrics with { ExactGeometryTests = exact }, &quot;&quot;);</code></span>
+<span class="line" id="L57"><a class="number" href="#L57">57</a><code class="code">    }</code></span>
+<span class="line" id="L58"><a class="number" href="#L58">58</a><code class="code"></code></span>
+<span class="line" id="L59"><a class="number" href="#L59">59</a><code class="code">    internal SpatialQueryResult&lt;RoadGridSpan&gt; QuerySpan(Vector2 world, SpatialQueryBudget? budget = null)</code></span>
+<span class="line" id="L60"><a class="number" href="#L60">60</a><code class="code">    {</code></span>
+<span class="line" id="L61"><a class="number" href="#L61">61</a><code class="code">        SpatialQueryResult&lt;HitResult&gt; result = QueryHit(world, budget);</code></span>
+<span class="line" id="L62"><a class="number" href="#L62">62</a><code class="code">        HitResult? hit = result.Results.Cast&lt;HitResult?&gt;().FirstOrDefault();</code></span>
+<span class="line" id="L63"><a class="number" href="#L63">63</a><code class="code">        // A junction patch has several incidences. Only the visible branch outside it selects a span.</code></span>
+<span class="line" id="L64"><a class="number" href="#L64">64</a><code class="code">        RoadGridSpan? span = hit is HitResult picked &amp;&amp; picked.JunctionNode is null</code></span>
+<span class="line" id="L65"><a class="number" href="#L65">65</a><code class="code">            ? RoadSpanQuery.Pick(Snapshot, picked.Location) : null;</code></span>
+<span class="line" id="L66"><a class="number" href="#L66">66</a><code class="code">        return new(Snapshot.Token, result.Status, span is null ? [] : [span],</code></span>
+<span class="line" id="L67"><a class="number" href="#L67">67</a><code class="code">            result.Metrics with { Hits = span is null ? 0 : 1 }, result.Reason);</code></span>
+<span class="line" id="L68"><a class="number" href="#L68">68</a><code class="code">    }</code></span>
+<span class="line" id="L69"><a class="number" href="#L69">69</a><code class="code"></code></span>
+<span class="line" id="L70"><a class="number" href="#L70">70</a><code class="code">    internal SpatialQueryResult&lt;RoadGridSpan&gt; QueryTraceSpans(Vector2 from, Vector2 to, SpatialQueryBudget? budget = null)</code></span>
+<span class="line" id="L71"><a class="number" href="#L71">71</a><code class="code">    {</code></span>
+<span class="line" id="L72"><a class="number" href="#L72">72</a><code class="code">        if (from == to) return QuerySpan(from, budget);</code></span>
+<span class="line" id="L73"><a class="number" href="#L73">73</a><code class="code">        SpatialQueryBudget limits = budget ?? SpatialQueryBudget.Default;</code></span>
+<span class="line" id="L74"><a class="number" href="#L74">74</a><code class="code">        SpatialQueryResult&lt;Piece&gt; candidates = _index.QuerySegment(new(from.X, from.Y), new(to.X, to.Y), Snapshot.Token, limits);</code></span>
+<span class="line" id="L75"><a class="number" href="#L75">75</a><code class="code">        if (candidates.Status != SpatialQueryStatus.Ready)</code></span>
+<span class="line" id="L76"><a class="number" href="#L76">76</a><code class="code">            return new(Snapshot.Token, candidates.Status, [], candidates.Metrics, candidates.Reason);</code></span>
+<span class="line" id="L77"><a class="number" href="#L77">77</a><code class="code">        SpatialQueryMetrics metrics = candidates.Metrics;</code></span>
+<span class="line" id="L78"><a class="number" href="#L78">78</a><code class="code">        var result = new List&lt;RoadGridSpan&gt;();</code></span>
+<span class="line" id="L79"><a class="number" href="#L79">79</a><code class="code">        var seen = new HashSet&lt;RoadSpanKey&gt;();</code></span>
+<span class="line" id="L80"><a class="number" href="#L80">80</a><code class="code"></code></span>
+<span class="line" id="L81"><a class="number" href="#L81">81</a><code class="code">        // Partition the pointer segment at every visible polygon boundary and grid-span boundary.</code></span>
+<span class="line" id="L82"><a class="number" href="#L82">82</a><code class="code">        // This captures every crossed span even when an input event traverses the entire map.</code></span>
+<span class="line" id="L83"><a class="number" href="#L83">83</a><code class="code">        var breaks = new List&lt;double&gt; { 0, 1 };</code></span>
+<span class="line" id="L84"><a class="number" href="#L84">84</a><code class="code">        Vector2 travel = to - from;</code></span>
+<span class="line" id="L85"><a class="number" href="#L85">85</a><code class="code">        foreach (Piece piece in candidates.Results.Distinct())</code></span>
+<span class="line" id="L86"><a class="number" href="#L86">86</a><code class="code">        {</code></span>
+<span class="line" id="L87"><a class="number" href="#L87">87</a><code class="code">            if (metrics.ExactGeometryTests &gt;= limits.MaxExactTests) return Exhausted();</code></span>
+<span class="line" id="L88"><a class="number" href="#L88">88</a><code class="code">            metrics = metrics with { ExactGeometryTests = metrics.ExactGeometryTests + 1 };</code></span>
+<span class="line" id="L89"><a class="number" href="#L89">89</a><code class="code">            if (!Clip(piece.Polygon, from, travel, out double entry, out double exit)) continue;</code></span>
+<span class="line" id="L90"><a class="number" href="#L90">90</a><code class="code">            breaks.Add(entry);</code></span>
+<span class="line" id="L91"><a class="number" href="#L91">91</a><code class="code">            breaks.Add(exit);</code></span>
+<span class="line" id="L92"><a class="number" href="#L92">92</a><code class="code">            Vector2 axis = piece.End - piece.Start;</code></span>
+<span class="line" id="L93"><a class="number" href="#L93">93</a><code class="code">            double lengthSquared = axis.LengthSquared();</code></span>
+<span class="line" id="L94"><a class="number" href="#L94">94</a><code class="code">            if (lengthSquared == 0 || piece.JunctionNode is not null) continue;</code></span>
+<span class="line" id="L95"><a class="number" href="#L95">95</a><code class="code">            double fractionStart = (from - piece.Start).Dot(axis) / lengthSquared;</code></span>
+<span class="line" id="L96"><a class="number" href="#L96">96</a><code class="code">            double fractionDelta = travel.Dot(axis) / lengthSquared;</code></span>
+<span class="line" id="L97"><a class="number" href="#L97">97</a><code class="code">            if (fractionDelta == 0) continue;</code></span>
+<span class="line" id="L98"><a class="number" href="#L98">98</a><code class="code">            // All eight supported directions cross one main-grid line per span. For diagonals</code></span>
+<span class="line" id="L99"><a class="number" href="#L99">99</a><code class="code">            // either coordinate gives the same crossing, so use the dominant coordinate only.</code></span>
+<span class="line" id="L100"><a class="number" href="#L100">100</a><code class="code">            double origin = Math.Abs(axis.X) &gt;= Math.Abs(axis.Y) ? piece.Start.X : piece.Start.Y;</code></span>
+<span class="line" id="L101"><a class="number" href="#L101">101</a><code class="code">            double extent = Math.Abs(axis.X) &gt;= Math.Abs(axis.Y) ? axis.X : axis.Y;</code></span>
+<span class="line" id="L102"><a class="number" href="#L102">102</a><code class="code">            double startCoordinate = origin + extent * fractionStart;</code></span>
+<span class="line" id="L103"><a class="number" href="#L103">103</a><code class="code">            double coordinateDelta = extent * fractionDelta;</code></span>
+<span class="line" id="L104"><a class="number" href="#L104">104</a><code class="code">            double low = Math.Max(Math.Min(origin, origin + extent), Math.Min(startCoordinate + coordinateDelta * entry, startCoordinate + coordinateDelta * exit));</code></span>
+<span class="line" id="L105"><a class="number" href="#L105">105</a><code class="code">            double high = Math.Min(Math.Max(origin, origin + extent), Math.Max(startCoordinate + coordinateDelta * entry, startCoordinate + coordinateDelta * exit));</code></span>
+<span class="line" id="L106"><a class="number" href="#L106">106</a><code class="code">            int cell = Snapshot.Map.CellSizeMetres;</code></span>
+<span class="line" id="L107"><a class="number" href="#L107">107</a><code class="code">            for (int grid = (int)Math.Ceiling(low / cell); grid &lt;= Math.Floor(high / cell); grid++)</code></span>
+<span class="line" id="L108"><a class="number" href="#L108">108</a><code class="code">            {</code></span>
+<span class="line" id="L109"><a class="number" href="#L109">109</a><code class="code">                double t = (grid * cell - startCoordinate) / coordinateDelta;</code></span>
+<span class="line" id="L110"><a class="number" href="#L110">110</a><code class="code">                if (t &gt; entry &amp;&amp; t &lt; exit) breaks.Add(t);</code></span>
+<span class="line" id="L111"><a class="number" href="#L111">111</a><code class="code">            }</code></span>
+<span class="line" id="L112"><a class="number" href="#L112">112</a><code class="code">        }</code></span>
+<span class="line" id="L113"><a class="number" href="#L113">113</a><code class="code">        breaks.Sort();</code></span>
+<span class="line" id="L114"><a class="number" href="#L114">114</a><code class="code">        if (!Add(from)) return Exhausted();</code></span>
+<span class="line" id="L115"><a class="number" href="#L115">115</a><code class="code">        for (int i = 1; i &lt; breaks.Count; i++)</code></span>
+<span class="line" id="L116"><a class="number" href="#L116">116</a><code class="code">        {</code></span>
+<span class="line" id="L117"><a class="number" href="#L117">117</a><code class="code">            double left = breaks[i - 1], right = breaks[i];</code></span>
+<span class="line" id="L118"><a class="number" href="#L118">118</a><code class="code">            if (right &gt; left &amp;&amp; !Add(from + travel * (float)((left + right) / 2))) return Exhausted();</code></span>
+<span class="line" id="L119"><a class="number" href="#L119">119</a><code class="code">        }</code></span>
+<span class="line" id="L120"><a class="number" href="#L120">120</a><code class="code">        if (!Add(to)) return Exhausted();</code></span>
+<span class="line" id="L121"><a class="number" href="#L121">121</a><code class="code">        return new(Snapshot.Token, SpatialQueryStatus.Ready, result.AsReadOnly(),</code></span>
+<span class="line" id="L122"><a class="number" href="#L122">122</a><code class="code">            metrics with { Hits = result.Select(span =&gt; span.Edge).Distinct().Count() }, &quot;&quot;);</code></span>
+<span class="line" id="L123"><a class="number" href="#L123">123</a><code class="code"></code></span>
+<span class="line" id="L124"><a class="number" href="#L124">124</a><code class="code">        bool Add(Vector2 point)</code></span>
+<span class="line" id="L125"><a class="number" href="#L125">125</a><code class="code">        {</code></span>
+<span class="line" id="L126"><a class="number" href="#L126">126</a><code class="code">            var remaining = new SpatialQueryBudget(limits.MaxBuckets - metrics.BucketsVisited,</code></span>
+<span class="line" id="L127"><a class="number" href="#L127">127</a><code class="code">                limits.MaxCandidates - metrics.FragmentCandidates, limits.MaxExactTests - metrics.ExactGeometryTests);</code></span>
+<span class="line" id="L128"><a class="number" href="#L128">128</a><code class="code">            if (!remaining.IsValid) return false;</code></span>
+<span class="line" id="L129"><a class="number" href="#L129">129</a><code class="code">            SpatialQueryResult&lt;RoadGridSpan&gt; picked = QuerySpan(point, remaining);</code></span>
+<span class="line" id="L130"><a class="number" href="#L130">130</a><code class="code">            metrics = new(metrics.BucketsVisited + picked.Metrics.BucketsVisited,</code></span>
+<span class="line" id="L131"><a class="number" href="#L131">131</a><code class="code">                metrics.FragmentCandidates + picked.Metrics.FragmentCandidates,</code></span>
+<span class="line" id="L132"><a class="number" href="#L132">132</a><code class="code">                metrics.ExactGeometryTests + picked.Metrics.ExactGeometryTests, 0, 0);</code></span>
+<span class="line" id="L133"><a class="number" href="#L133">133</a><code class="code">            if (picked.Status != SpatialQueryStatus.Ready) return false;</code></span>
+<span class="line" id="L134"><a class="number" href="#L134">134</a><code class="code">            RoadGridSpan? span = picked.Results.FirstOrDefault();</code></span>
+<span class="line" id="L135"><a class="number" href="#L135">135</a><code class="code">            if (span is not null &amp;&amp; seen.Add(span.Key)) result.Add(span);</code></span>
+<span class="line" id="L136"><a class="number" href="#L136">136</a><code class="code">            return true;</code></span>
+<span class="line" id="L137"><a class="number" href="#L137">137</a><code class="code">        }</code></span>
+<span class="line" id="L138"><a class="number" href="#L138">138</a><code class="code"></code></span>
+<span class="line" id="L139"><a class="number" href="#L139">139</a><code class="code">        SpatialQueryResult&lt;RoadGridSpan&gt; Exhausted() =&gt; new(Snapshot.Token, SpatialQueryStatus.BudgetExceeded,</code></span>
+<span class="line" id="L140"><a class="number" href="#L140">140</a><code class="code">            [], metrics with { Hits = 0 }, &quot;拖选查询预算已耗尽，本次手势不可提交&quot;);</code></span>
+<span class="line" id="L141"><a class="number" href="#L141">141</a><code class="code">    }</code></span>
+<span class="line" id="L142"><a class="number" href="#L142">142</a><code class="code"></code></span>
+<span class="line" id="L143"><a class="number" href="#L143">143</a><code class="code">    internal static bool SameSpan(RoadGridSpan left, RoadGridSpan right) =&gt; left.Key == right.Key;</code></span>
+<span class="line" id="L144"><a class="number" href="#L144">144</a><code class="code"></code></span>
+<span class="line" id="L145"><a class="number" href="#L145">145</a><code class="code">    private static bool Clip(Vector2[] polygon, Vector2 from, Vector2 travel, out double entry, out double exit)</code></span>
+<span class="line" id="L146"><a class="number" href="#L146">146</a><code class="code">    {</code></span>
+<span class="line" id="L147"><a class="number" href="#L147">147</a><code class="code">        entry = 0;</code></span>
+<span class="line" id="L148"><a class="number" href="#L148">148</a><code class="code">        exit = 1;</code></span>
+<span class="line" id="L149"><a class="number" href="#L149">149</a><code class="code">        double area = 0;</code></span>
+<span class="line" id="L150"><a class="number" href="#L150">150</a><code class="code">        for (int i = 0; i &lt; polygon.Length; i++) area += polygon[i].Cross(polygon[(i + 1) % polygon.Length]);</code></span>
+<span class="line" id="L151"><a class="number" href="#L151">151</a><code class="code">        double winding = Math.Sign(area);</code></span>
+<span class="line" id="L152"><a class="number" href="#L152">152</a><code class="code">        if (winding == 0) return false;</code></span>
+<span class="line" id="L153"><a class="number" href="#L153">153</a><code class="code">        for (int i = 0; i &lt; polygon.Length; i++)</code></span>
+<span class="line" id="L154"><a class="number" href="#L154">154</a><code class="code">        {</code></span>
+<span class="line" id="L155"><a class="number" href="#L155">155</a><code class="code">            Vector2 start = polygon[i], side = polygon[(i + 1) % polygon.Length] - start;</code></span>
+<span class="line" id="L156"><a class="number" href="#L156">156</a><code class="code">            double value = winding * side.Cross(from - start);</code></span>
+<span class="line" id="L157"><a class="number" href="#L157">157</a><code class="code">            double slope = winding * side.Cross(travel);</code></span>
+<span class="line" id="L158"><a class="number" href="#L158">158</a><code class="code">            if (slope == 0)</code></span>
+<span class="line" id="L159"><a class="number" href="#L159">159</a><code class="code">            {</code></span>
+<span class="line" id="L160"><a class="number" href="#L160">160</a><code class="code">                if (value &lt; 0) return false;</code></span>
+<span class="line" id="L161"><a class="number" href="#L161">161</a><code class="code">                continue;</code></span>
+<span class="line" id="L162"><a class="number" href="#L162">162</a><code class="code">            }</code></span>
+<span class="line" id="L163"><a class="number" href="#L163">163</a><code class="code">            double crossing = -value / slope;</code></span>
+<span class="line" id="L164"><a class="number" href="#L164">164</a><code class="code">            if (slope &gt; 0) entry = Math.Max(entry, crossing);</code></span>
+<span class="line" id="L165"><a class="number" href="#L165">165</a><code class="code">            else exit = Math.Min(exit, crossing);</code></span>
+<span class="line" id="L166"><a class="number" href="#L166">166</a><code class="code">            if (entry &gt; exit) return false;</code></span>
+<span class="line" id="L167"><a class="number" href="#L167">167</a><code class="code">        }</code></span>
+<span class="line" id="L168"><a class="number" href="#L168">168</a><code class="code">        return true;</code></span>
+<span class="line" id="L169"><a class="number" href="#L169">169</a><code class="code">    }</code></span>
+<span class="line" id="L170"><a class="number" href="#L170">170</a><code class="code"></code></span>
+<span class="line" id="L171"><a class="number" href="#L171">171</a><code class="code">    internal Vector2 SurfaceCenter(CoreRoadLocation location)</code></span>
+<span class="line" id="L172"><a class="number" href="#L172">172</a><code class="code">    {</code></span>
+<span class="line" id="L173"><a class="number" href="#L173">173</a><code class="code">        if (location.Source != Snapshot.Token) throw new InvalidOperationException(&quot;V4 surface location is stale.&quot;);</code></span>
+<span class="line" id="L174"><a class="number" href="#L174">174</a><code class="code">        GeometryGroup? group = FindGeometryGroup(new(RoadSurfaceLayer.Ribbon, location.Edge.Value));</code></span>
+<span class="line" id="L175"><a class="number" href="#L175">175</a><code class="code">        if (group is null)</code></span>
+<span class="line" id="L176"><a class="number" href="#L176">176</a><code class="code">            throw new InvalidOperationException(&quot;V4 surface location does not belong to the displayed road.&quot;);</code></span>
+<span class="line" id="L177"><a class="number" href="#L177">177</a><code class="code">        if (!double.IsFinite(location.Parameter) || location.Parameter &lt; 0 || location.Parameter &gt; 1)</code></span>
+<span class="line" id="L178"><a class="number" href="#L178">178</a><code class="code">            throw new InvalidOperationException(&quot;V4 surface parameter is invalid.&quot;);</code></span>
+<span class="line" id="L179"><a class="number" href="#L179">179</a><code class="code">        Piece[] edgePieces = group.Pieces;</code></span>
+<span class="line" id="L180"><a class="number" href="#L180">180</a><code class="code">        int low = 0, high = edgePieces.Length;</code></span>
+<span class="line" id="L181"><a class="number" href="#L181">181</a><code class="code">        while (low + 1 &lt; high)</code></span>
+<span class="line" id="L182"><a class="number" href="#L182">182</a><code class="code">        {</code></span>
+<span class="line" id="L183"><a class="number" href="#L183">183</a><code class="code">            int middle = (low + high) / 2;</code></span>
+<span class="line" id="L184"><a class="number" href="#L184">184</a><code class="code">            if (edgePieces[middle].StartParameter &lt;= location.Parameter) low = middle;</code></span>
+<span class="line" id="L185"><a class="number" href="#L185">185</a><code class="code">            else high = middle;</code></span>
+<span class="line" id="L186"><a class="number" href="#L186">186</a><code class="code">        }</code></span>
+<span class="line" id="L187"><a class="number" href="#L187">187</a><code class="code">        Piece piece = edgePieces[low];</code></span>
+<span class="line" id="L188"><a class="number" href="#L188">188</a><code class="code">        double range = piece.EndParameter - piece.StartParameter;</code></span>
+<span class="line" id="L189"><a class="number" href="#L189">189</a><code class="code">        return range == 0 ? piece.Start : piece.Start.Lerp(piece.End, (float)((location.Parameter - piece.StartParameter) / range));</code></span>
+<span class="line" id="L190"><a class="number" href="#L190">190</a><code class="code">    }</code></span>
+<span class="line" id="L191"><a class="number" href="#L191">191</a><code class="code">    public void Dispose()</code></span>
+<span class="line" id="L192"><a class="number" href="#L192">192</a><code class="code">    {</code></span>
+<span class="line" id="L193"><a class="number" href="#L193">193</a><code class="code">        if (_disposed) return;</code></span>
+<span class="line" id="L194"><a class="number" href="#L194">194</a><code class="code">        _disposed = true;</code></span>
+<span class="line" id="L195"><a class="number" href="#L195">195</a><code class="code">        _resources?.Release();</code></span>
+<span class="line" id="L196"><a class="number" href="#L196">196</a><code class="code">        _resources = null;</code></span>
+<span class="line" id="L197"><a class="number" href="#L197">197</a><code class="code">    }</code></span>
+<span class="line" id="L198"><a class="number" href="#L198">198</a><code class="code">}</code></span></pre></main></html>

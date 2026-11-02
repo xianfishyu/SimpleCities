@@ -1,0 +1,252 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Scripts/Core/SaveSlotJsonStreamReader.cs · SimpleCities 源码</title><link rel="stylesheet" href="../../../assets/source.css"><header><a href="../../../index.html">← 文档首页</a><h1>Scripts/Core/SaveSlotJsonStreamReader.cs</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">using System;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code">using System.Buffers;</code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">using System.IO;</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code">using System.Text;</code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code">using System.Text.Json;</code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code"></code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">internal readonly record struct SaveSlotJsonReaderBudget(</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">    long MaximumEncodedBytes,</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">    long MaximumTokens,</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">    int MaximumDepth,</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">    int MaximumPropertyNameBytes,</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">    int MaximumStringTokenBytes,</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">    int MaximumNumberTokenBytes)</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">{</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code">    internal void Validate()</code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">    {</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">        if (MaximumEncodedBytes &lt;= 0)</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code">            throw new ArgumentOutOfRangeException(nameof(MaximumEncodedBytes));</code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">        if (MaximumTokens &lt;= 0)</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code">            throw new ArgumentOutOfRangeException(nameof(MaximumTokens));</code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">        if (MaximumDepth &lt;= 0)</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">            throw new ArgumentOutOfRangeException(nameof(MaximumDepth));</code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code">        if (MaximumPropertyNameBytes &lt;= 0)</code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">            throw new ArgumentOutOfRangeException(nameof(MaximumPropertyNameBytes));</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code">        if (MaximumStringTokenBytes &lt;= 0)</code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">            throw new ArgumentOutOfRangeException(nameof(MaximumStringTokenBytes));</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">        if (MaximumNumberTokenBytes &lt;= 0)</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code">            throw new ArgumentOutOfRangeException(nameof(MaximumNumberTokenBytes));</code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">    }</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">}</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code"></code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">internal static class SaveSlotStorageBudget</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code">{</code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code">    internal const long MaximumManifestEncodedBytes = 64 * 1024;</code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code">    internal const int MaximumManifestFiles = 64;</code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code">    internal const long MaximumPayloadEncodedBytes = 8L * 1024 * 1024 * 1024;</code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code">    internal const long MaximumSlotEncodedBytes = 16L * 1024 * 1024 * 1024;</code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code">    internal const long MaximumThumbnailEncodedBytes = 16L * 1024 * 1024;</code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code">    internal const long MaximumThumbnailDecodedBytes = 128L * 1024 * 1024;</code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code">    internal const int MaximumThumbnailDimension = 4096;</code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code">    internal const long MaximumThumbnailPixels = 16_777_216;</code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code"></code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code">    internal static SaveSlotJsonReaderBudget ManifestJson { get; } = new(</code></span>
+<span class="line" id="L44"><a class="number" href="#L44">44</a><code class="code">        MaximumManifestEncodedBytes,</code></span>
+<span class="line" id="L45"><a class="number" href="#L45">45</a><code class="code">        2_048,</code></span>
+<span class="line" id="L46"><a class="number" href="#L46">46</a><code class="code">        16,</code></span>
+<span class="line" id="L47"><a class="number" href="#L47">47</a><code class="code">        64,</code></span>
+<span class="line" id="L48"><a class="number" href="#L48">48</a><code class="code">        4 * 1024,</code></span>
+<span class="line" id="L49"><a class="number" href="#L49">49</a><code class="code">        64);</code></span>
+<span class="line" id="L50"><a class="number" href="#L50">50</a><code class="code"></code></span>
+<span class="line" id="L51"><a class="number" href="#L51">51</a><code class="code"></code></span>
+<span class="line" id="L52"><a class="number" href="#L52">52</a><code class="code">}</code></span>
+<span class="line" id="L53"><a class="number" href="#L53">53</a><code class="code"></code></span>
+<span class="line" id="L54"><a class="number" href="#L54">54</a><code class="code">internal sealed class SaveSlotJsonStreamReader : IDisposable</code></span>
+<span class="line" id="L55"><a class="number" href="#L55">55</a><code class="code">{</code></span>
+<span class="line" id="L56"><a class="number" href="#L56">56</a><code class="code">    private const int BufferSize = 8 * 1024;</code></span>
+<span class="line" id="L57"><a class="number" href="#L57">57</a><code class="code"></code></span>
+<span class="line" id="L58"><a class="number" href="#L58">58</a><code class="code">    private readonly Stream _source;</code></span>
+<span class="line" id="L59"><a class="number" href="#L59">59</a><code class="code">    private readonly SaveSlotJsonReaderBudget _budget;</code></span>
+<span class="line" id="L60"><a class="number" href="#L60">60</a><code class="code">    private readonly byte[] _buffer = ArrayPool&lt;byte&gt;.Shared.Rent(BufferSize);</code></span>
+<span class="line" id="L61"><a class="number" href="#L61">61</a><code class="code">    private readonly byte[] _overflowProbe = new byte[1];</code></span>
+<span class="line" id="L62"><a class="number" href="#L62">62</a><code class="code">    private JsonReaderState _state;</code></span>
+<span class="line" id="L63"><a class="number" href="#L63">63</a><code class="code">    private int _buffered;</code></span>
+<span class="line" id="L64"><a class="number" href="#L64">64</a><code class="code">    private int _consumed;</code></span>
+<span class="line" id="L65"><a class="number" href="#L65">65</a><code class="code">    private long _discarded;</code></span>
+<span class="line" id="L66"><a class="number" href="#L66">66</a><code class="code">    private long _bytesRead;</code></span>
+<span class="line" id="L67"><a class="number" href="#L67">67</a><code class="code">    private long _tokenCount;</code></span>
+<span class="line" id="L68"><a class="number" href="#L68">68</a><code class="code">    private bool _isFinalBlock;</code></span>
+<span class="line" id="L69"><a class="number" href="#L69">69</a><code class="code">    private bool _finished;</code></span>
+<span class="line" id="L70"><a class="number" href="#L70">70</a><code class="code">    private bool _returnedBuffer;</code></span>
+<span class="line" id="L71"><a class="number" href="#L71">71</a><code class="code">    private string? _textValue;</code></span>
+<span class="line" id="L72"><a class="number" href="#L72">72</a><code class="code"></code></span>
+<span class="line" id="L73"><a class="number" href="#L73">73</a><code class="code">    internal SaveSlotJsonStreamReader(Stream source, SaveSlotJsonReaderBudget budget)</code></span>
+<span class="line" id="L74"><a class="number" href="#L74">74</a><code class="code">    {</code></span>
+<span class="line" id="L75"><a class="number" href="#L75">75</a><code class="code">        ArgumentNullException.ThrowIfNull(source);</code></span>
+<span class="line" id="L76"><a class="number" href="#L76">76</a><code class="code">        if (!source.CanRead)</code></span>
+<span class="line" id="L77"><a class="number" href="#L77">77</a><code class="code">            throw new ArgumentException(&quot;JSON source must be readable.&quot;, nameof(source));</code></span>
+<span class="line" id="L78"><a class="number" href="#L78">78</a><code class="code">        budget.Validate();</code></span>
+<span class="line" id="L79"><a class="number" href="#L79">79</a><code class="code">        _source = source;</code></span>
+<span class="line" id="L80"><a class="number" href="#L80">80</a><code class="code">        _budget = budget;</code></span>
+<span class="line" id="L81"><a class="number" href="#L81">81</a><code class="code">        _state = new JsonReaderState(new JsonReaderOptions</code></span>
+<span class="line" id="L82"><a class="number" href="#L82">82</a><code class="code">        {</code></span>
+<span class="line" id="L83"><a class="number" href="#L83">83</a><code class="code">            AllowTrailingCommas = false,</code></span>
+<span class="line" id="L84"><a class="number" href="#L84">84</a><code class="code">            CommentHandling = JsonCommentHandling.Disallow,</code></span>
+<span class="line" id="L85"><a class="number" href="#L85">85</a><code class="code">            MaxDepth = budget.MaximumDepth,</code></span>
+<span class="line" id="L86"><a class="number" href="#L86">86</a><code class="code">        });</code></span>
+<span class="line" id="L87"><a class="number" href="#L87">87</a><code class="code">    }</code></span>
+<span class="line" id="L88"><a class="number" href="#L88">88</a><code class="code"></code></span>
+<span class="line" id="L89"><a class="number" href="#L89">89</a><code class="code">    ~SaveSlotJsonStreamReader() =&gt; ReturnBuffer();</code></span>
+<span class="line" id="L90"><a class="number" href="#L90">90</a><code class="code"></code></span>
+<span class="line" id="L91"><a class="number" href="#L91">91</a><code class="code">    internal JsonTokenType TokenType { get; private set; }</code></span>
+<span class="line" id="L92"><a class="number" href="#L92">92</a><code class="code">    internal long BytesRead =&gt; _bytesRead;</code></span>
+<span class="line" id="L93"><a class="number" href="#L93">93</a><code class="code">    internal long BytesConsumed =&gt; _discarded + _consumed;</code></span>
+<span class="line" id="L94"><a class="number" href="#L94">94</a><code class="code">    internal long TokenCount =&gt; _tokenCount;</code></span>
+<span class="line" id="L95"><a class="number" href="#L95">95</a><code class="code"></code></span>
+<span class="line" id="L96"><a class="number" href="#L96">96</a><code class="code">    internal bool Read()</code></span>
+<span class="line" id="L97"><a class="number" href="#L97">97</a><code class="code">    {</code></span>
+<span class="line" id="L98"><a class="number" href="#L98">98</a><code class="code">        if (_finished)</code></span>
+<span class="line" id="L99"><a class="number" href="#L99">99</a><code class="code">            return false;</code></span>
+<span class="line" id="L100"><a class="number" href="#L100">100</a><code class="code">        _textValue = null;</code></span>
+<span class="line" id="L101"><a class="number" href="#L101">101</a><code class="code"></code></span>
+<span class="line" id="L102"><a class="number" href="#L102">102</a><code class="code">        while (true)</code></span>
+<span class="line" id="L103"><a class="number" href="#L103">103</a><code class="code">        {</code></span>
+<span class="line" id="L104"><a class="number" href="#L104">104</a><code class="code">            CompactConsumedBytes();</code></span>
+<span class="line" id="L105"><a class="number" href="#L105">105</a><code class="code">            FillAvailableBuffer();</code></span>
+<span class="line" id="L106"><a class="number" href="#L106">106</a><code class="code"></code></span>
+<span class="line" id="L107"><a class="number" href="#L107">107</a><code class="code">            var reader = new Utf8JsonReader(</code></span>
+<span class="line" id="L108"><a class="number" href="#L108">108</a><code class="code">                _buffer.AsSpan(0, _buffered),</code></span>
+<span class="line" id="L109"><a class="number" href="#L109">109</a><code class="code">                _isFinalBlock,</code></span>
+<span class="line" id="L110"><a class="number" href="#L110">110</a><code class="code">                _state);</code></span>
+<span class="line" id="L111"><a class="number" href="#L111">111</a><code class="code">            if (reader.Read())</code></span>
+<span class="line" id="L112"><a class="number" href="#L112">112</a><code class="code">            {</code></span>
+<span class="line" id="L113"><a class="number" href="#L113">113</a><code class="code">                _state = reader.CurrentState;</code></span>
+<span class="line" id="L114"><a class="number" href="#L114">114</a><code class="code">                _consumed = checked((int)reader.BytesConsumed);</code></span>
+<span class="line" id="L115"><a class="number" href="#L115">115</a><code class="code">                TokenType = reader.TokenType;</code></span>
+<span class="line" id="L116"><a class="number" href="#L116">116</a><code class="code">                _tokenCount++;</code></span>
+<span class="line" id="L117"><a class="number" href="#L117">117</a><code class="code">                if (_tokenCount &gt; _budget.MaximumTokens)</code></span>
+<span class="line" id="L118"><a class="number" href="#L118">118</a><code class="code">                    throw new JsonException(&quot;JSON token budget is exceeded.&quot;);</code></span>
+<span class="line" id="L119"><a class="number" href="#L119">119</a><code class="code">                CaptureTokenValue(ref reader);</code></span>
+<span class="line" id="L120"><a class="number" href="#L120">120</a><code class="code">                return true;</code></span>
+<span class="line" id="L121"><a class="number" href="#L121">121</a><code class="code">            }</code></span>
+<span class="line" id="L122"><a class="number" href="#L122">122</a><code class="code"></code></span>
+<span class="line" id="L123"><a class="number" href="#L123">123</a><code class="code">            _state = reader.CurrentState;</code></span>
+<span class="line" id="L124"><a class="number" href="#L124">124</a><code class="code">            _consumed = checked((int)reader.BytesConsumed);</code></span>
+<span class="line" id="L125"><a class="number" href="#L125">125</a><code class="code">            if (_isFinalBlock)</code></span>
+<span class="line" id="L126"><a class="number" href="#L126">126</a><code class="code">            {</code></span>
+<span class="line" id="L127"><a class="number" href="#L127">127</a><code class="code">                _finished = true;</code></span>
+<span class="line" id="L128"><a class="number" href="#L128">128</a><code class="code">                ReturnBuffer();</code></span>
+<span class="line" id="L129"><a class="number" href="#L129">129</a><code class="code">                return false;</code></span>
+<span class="line" id="L130"><a class="number" href="#L130">130</a><code class="code">            }</code></span>
+<span class="line" id="L131"><a class="number" href="#L131">131</a><code class="code">            if (_consumed == 0 &amp;&amp; _buffered == _buffer.Length)</code></span>
+<span class="line" id="L132"><a class="number" href="#L132">132</a><code class="code">                throw new JsonException(&quot;JSON token exceeds its bounded reader buffer.&quot;);</code></span>
+<span class="line" id="L133"><a class="number" href="#L133">133</a><code class="code">        }</code></span>
+<span class="line" id="L134"><a class="number" href="#L134">134</a><code class="code">    }</code></span>
+<span class="line" id="L135"><a class="number" href="#L135">135</a><code class="code"></code></span>
+<span class="line" id="L136"><a class="number" href="#L136">136</a><code class="code">    internal void ReadRequired(string context)</code></span>
+<span class="line" id="L137"><a class="number" href="#L137">137</a><code class="code">    {</code></span>
+<span class="line" id="L138"><a class="number" href="#L138">138</a><code class="code">        if (!Read())</code></span>
+<span class="line" id="L139"><a class="number" href="#L139">139</a><code class="code">            throw new JsonException($&quot;{context} ended before its required JSON token.&quot;);</code></span>
+<span class="line" id="L140"><a class="number" href="#L140">140</a><code class="code">    }</code></span>
+<span class="line" id="L141"><a class="number" href="#L141">141</a><code class="code"></code></span>
+<span class="line" id="L142"><a class="number" href="#L142">142</a><code class="code">    internal void Expect(JsonTokenType expected, string context)</code></span>
+<span class="line" id="L143"><a class="number" href="#L143">143</a><code class="code">    {</code></span>
+<span class="line" id="L144"><a class="number" href="#L144">144</a><code class="code">        if (TokenType != expected)</code></span>
+<span class="line" id="L145"><a class="number" href="#L145">145</a><code class="code">            throw new JsonException($&quot;{context} must be {expected}, not {TokenType}.&quot;);</code></span>
+<span class="line" id="L146"><a class="number" href="#L146">146</a><code class="code">    }</code></span>
+<span class="line" id="L147"><a class="number" href="#L147">147</a><code class="code"></code></span>
+<span class="line" id="L148"><a class="number" href="#L148">148</a><code class="code">    internal string GetPropertyName(string context)</code></span>
+<span class="line" id="L149"><a class="number" href="#L149">149</a><code class="code">    {</code></span>
+<span class="line" id="L150"><a class="number" href="#L150">150</a><code class="code">        Expect(JsonTokenType.PropertyName, context);</code></span>
+<span class="line" id="L151"><a class="number" href="#L151">151</a><code class="code">        return _textValue ?? throw new JsonException($&quot;{context} property name is unavailable.&quot;);</code></span>
+<span class="line" id="L152"><a class="number" href="#L152">152</a><code class="code">    }</code></span>
+<span class="line" id="L153"><a class="number" href="#L153">153</a><code class="code"></code></span>
+<span class="line" id="L154"><a class="number" href="#L154">154</a><code class="code">    internal string GetString(string context)</code></span>
+<span class="line" id="L155"><a class="number" href="#L155">155</a><code class="code">    {</code></span>
+<span class="line" id="L156"><a class="number" href="#L156">156</a><code class="code">        Expect(JsonTokenType.String, context);</code></span>
+<span class="line" id="L157"><a class="number" href="#L157">157</a><code class="code">        return _textValue ?? throw new JsonException($&quot;{context} string value cannot be null.&quot;);</code></span>
+<span class="line" id="L158"><a class="number" href="#L158">158</a><code class="code">    }</code></span>
+<span class="line" id="L159"><a class="number" href="#L159">159</a><code class="code"></code></span>
+<span class="line" id="L160"><a class="number" href="#L160">160</a><code class="code">    internal string GetNumberToken(string context)</code></span>
+<span class="line" id="L161"><a class="number" href="#L161">161</a><code class="code">    {</code></span>
+<span class="line" id="L162"><a class="number" href="#L162">162</a><code class="code">        Expect(JsonTokenType.Number, context);</code></span>
+<span class="line" id="L163"><a class="number" href="#L163">163</a><code class="code">        return _textValue ?? throw new JsonException($&quot;{context} number token is unavailable.&quot;);</code></span>
+<span class="line" id="L164"><a class="number" href="#L164">164</a><code class="code">    }</code></span>
+<span class="line" id="L165"><a class="number" href="#L165">165</a><code class="code"></code></span>
+<span class="line" id="L166"><a class="number" href="#L166">166</a><code class="code">    internal void RequireEndOfDocument(string context)</code></span>
+<span class="line" id="L167"><a class="number" href="#L167">167</a><code class="code">    {</code></span>
+<span class="line" id="L168"><a class="number" href="#L168">168</a><code class="code">        if (Read())</code></span>
+<span class="line" id="L169"><a class="number" href="#L169">169</a><code class="code">            throw new JsonException($&quot;{context} contains more than one JSON value.&quot;);</code></span>
+<span class="line" id="L170"><a class="number" href="#L170">170</a><code class="code">        if (BytesConsumed != BytesRead)</code></span>
+<span class="line" id="L171"><a class="number" href="#L171">171</a><code class="code">            throw new JsonException($&quot;{context} was not consumed to EOF.&quot;);</code></span>
+<span class="line" id="L172"><a class="number" href="#L172">172</a><code class="code">    }</code></span>
+<span class="line" id="L173"><a class="number" href="#L173">173</a><code class="code"></code></span>
+<span class="line" id="L174"><a class="number" href="#L174">174</a><code class="code">    public void Dispose()</code></span>
+<span class="line" id="L175"><a class="number" href="#L175">175</a><code class="code">    {</code></span>
+<span class="line" id="L176"><a class="number" href="#L176">176</a><code class="code">        ReturnBuffer();</code></span>
+<span class="line" id="L177"><a class="number" href="#L177">177</a><code class="code">        GC.SuppressFinalize(this);</code></span>
+<span class="line" id="L178"><a class="number" href="#L178">178</a><code class="code">    }</code></span>
+<span class="line" id="L179"><a class="number" href="#L179">179</a><code class="code"></code></span>
+<span class="line" id="L180"><a class="number" href="#L180">180</a><code class="code">    private void CaptureTokenValue(ref Utf8JsonReader reader)</code></span>
+<span class="line" id="L181"><a class="number" href="#L181">181</a><code class="code">    {</code></span>
+<span class="line" id="L182"><a class="number" href="#L182">182</a><code class="code">        ReadOnlySpan&lt;byte&gt; value = reader.HasValueSequence</code></span>
+<span class="line" id="L183"><a class="number" href="#L183">183</a><code class="code">            ? reader.ValueSequence.ToArray()</code></span>
+<span class="line" id="L184"><a class="number" href="#L184">184</a><code class="code">            : reader.ValueSpan;</code></span>
+<span class="line" id="L185"><a class="number" href="#L185">185</a><code class="code">        switch (reader.TokenType)</code></span>
+<span class="line" id="L186"><a class="number" href="#L186">186</a><code class="code">        {</code></span>
+<span class="line" id="L187"><a class="number" href="#L187">187</a><code class="code">            case JsonTokenType.PropertyName:</code></span>
+<span class="line" id="L188"><a class="number" href="#L188">188</a><code class="code">                if (reader.ValueIsEscaped || value.Length &gt; _budget.MaximumPropertyNameBytes)</code></span>
+<span class="line" id="L189"><a class="number" href="#L189">189</a><code class="code">                    throw new JsonException(&quot;JSON property name exceeds its raw UTF-8 budget or is escaped.&quot;);</code></span>
+<span class="line" id="L190"><a class="number" href="#L190">190</a><code class="code">                _textValue = Encoding.UTF8.GetString(value);</code></span>
+<span class="line" id="L191"><a class="number" href="#L191">191</a><code class="code">                break;</code></span>
+<span class="line" id="L192"><a class="number" href="#L192">192</a><code class="code">            case JsonTokenType.String:</code></span>
+<span class="line" id="L193"><a class="number" href="#L193">193</a><code class="code">                if (value.Length &gt; _budget.MaximumStringTokenBytes)</code></span>
+<span class="line" id="L194"><a class="number" href="#L194">194</a><code class="code">                    throw new JsonException(&quot;JSON string token exceeds its raw UTF-8 budget.&quot;);</code></span>
+<span class="line" id="L195"><a class="number" href="#L195">195</a><code class="code">                _textValue = reader.GetString();</code></span>
+<span class="line" id="L196"><a class="number" href="#L196">196</a><code class="code">                break;</code></span>
+<span class="line" id="L197"><a class="number" href="#L197">197</a><code class="code">            case JsonTokenType.Number:</code></span>
+<span class="line" id="L198"><a class="number" href="#L198">198</a><code class="code">                if (value.Length &gt; _budget.MaximumNumberTokenBytes)</code></span>
+<span class="line" id="L199"><a class="number" href="#L199">199</a><code class="code">                    throw new JsonException(&quot;JSON number token exceeds its lexeme budget.&quot;);</code></span>
+<span class="line" id="L200"><a class="number" href="#L200">200</a><code class="code">                _textValue = Encoding.UTF8.GetString(value);</code></span>
+<span class="line" id="L201"><a class="number" href="#L201">201</a><code class="code">                break;</code></span>
+<span class="line" id="L202"><a class="number" href="#L202">202</a><code class="code">        }</code></span>
+<span class="line" id="L203"><a class="number" href="#L203">203</a><code class="code">    }</code></span>
+<span class="line" id="L204"><a class="number" href="#L204">204</a><code class="code"></code></span>
+<span class="line" id="L205"><a class="number" href="#L205">205</a><code class="code">    private void CompactConsumedBytes()</code></span>
+<span class="line" id="L206"><a class="number" href="#L206">206</a><code class="code">    {</code></span>
+<span class="line" id="L207"><a class="number" href="#L207">207</a><code class="code">        if (_consumed == 0)</code></span>
+<span class="line" id="L208"><a class="number" href="#L208">208</a><code class="code">            return;</code></span>
+<span class="line" id="L209"><a class="number" href="#L209">209</a><code class="code">        int remaining = _buffered - _consumed;</code></span>
+<span class="line" id="L210"><a class="number" href="#L210">210</a><code class="code">        if (remaining &gt; 0)</code></span>
+<span class="line" id="L211"><a class="number" href="#L211">211</a><code class="code">            Buffer.BlockCopy(_buffer, _consumed, _buffer, 0, remaining);</code></span>
+<span class="line" id="L212"><a class="number" href="#L212">212</a><code class="code">        _discarded += _consumed;</code></span>
+<span class="line" id="L213"><a class="number" href="#L213">213</a><code class="code">        _buffered = remaining;</code></span>
+<span class="line" id="L214"><a class="number" href="#L214">214</a><code class="code">        _consumed = 0;</code></span>
+<span class="line" id="L215"><a class="number" href="#L215">215</a><code class="code">    }</code></span>
+<span class="line" id="L216"><a class="number" href="#L216">216</a><code class="code"></code></span>
+<span class="line" id="L217"><a class="number" href="#L217">217</a><code class="code">    private void FillAvailableBuffer()</code></span>
+<span class="line" id="L218"><a class="number" href="#L218">218</a><code class="code">    {</code></span>
+<span class="line" id="L219"><a class="number" href="#L219">219</a><code class="code">        if (_isFinalBlock || _buffered == _buffer.Length)</code></span>
+<span class="line" id="L220"><a class="number" href="#L220">220</a><code class="code">            return;</code></span>
+<span class="line" id="L221"><a class="number" href="#L221">221</a><code class="code"></code></span>
+<span class="line" id="L222"><a class="number" href="#L222">222</a><code class="code">        long remainingBudget = _budget.MaximumEncodedBytes - _bytesRead;</code></span>
+<span class="line" id="L223"><a class="number" href="#L223">223</a><code class="code">        if (remainingBudget &lt;= 0)</code></span>
+<span class="line" id="L224"><a class="number" href="#L224">224</a><code class="code">        {</code></span>
+<span class="line" id="L225"><a class="number" href="#L225">225</a><code class="code">            int overflow = _source.Read(_overflowProbe, 0, 1);</code></span>
+<span class="line" id="L226"><a class="number" href="#L226">226</a><code class="code">            if (overflow == 0)</code></span>
+<span class="line" id="L227"><a class="number" href="#L227">227</a><code class="code">            {</code></span>
+<span class="line" id="L228"><a class="number" href="#L228">228</a><code class="code">                _isFinalBlock = true;</code></span>
+<span class="line" id="L229"><a class="number" href="#L229">229</a><code class="code">                return;</code></span>
+<span class="line" id="L230"><a class="number" href="#L230">230</a><code class="code">            }</code></span>
+<span class="line" id="L231"><a class="number" href="#L231">231</a><code class="code">            throw new JsonException(&quot;JSON encoded byte budget is exceeded.&quot;);</code></span>
+<span class="line" id="L232"><a class="number" href="#L232">232</a><code class="code">        }</code></span>
+<span class="line" id="L233"><a class="number" href="#L233">233</a><code class="code"></code></span>
+<span class="line" id="L234"><a class="number" href="#L234">234</a><code class="code">        int requested = (int)Math.Min(_buffer.Length - _buffered, remainingBudget);</code></span>
+<span class="line" id="L235"><a class="number" href="#L235">235</a><code class="code">        int read = _source.Read(_buffer, _buffered, requested);</code></span>
+<span class="line" id="L236"><a class="number" href="#L236">236</a><code class="code">        if (read == 0)</code></span>
+<span class="line" id="L237"><a class="number" href="#L237">237</a><code class="code">        {</code></span>
+<span class="line" id="L238"><a class="number" href="#L238">238</a><code class="code">            _isFinalBlock = true;</code></span>
+<span class="line" id="L239"><a class="number" href="#L239">239</a><code class="code">            return;</code></span>
+<span class="line" id="L240"><a class="number" href="#L240">240</a><code class="code">        }</code></span>
+<span class="line" id="L241"><a class="number" href="#L241">241</a><code class="code">        _buffered += read;</code></span>
+<span class="line" id="L242"><a class="number" href="#L242">242</a><code class="code">        _bytesRead += read;</code></span>
+<span class="line" id="L243"><a class="number" href="#L243">243</a><code class="code">    }</code></span>
+<span class="line" id="L244"><a class="number" href="#L244">244</a><code class="code"></code></span>
+<span class="line" id="L245"><a class="number" href="#L245">245</a><code class="code">    private void ReturnBuffer()</code></span>
+<span class="line" id="L246"><a class="number" href="#L246">246</a><code class="code">    {</code></span>
+<span class="line" id="L247"><a class="number" href="#L247">247</a><code class="code">        if (_returnedBuffer)</code></span>
+<span class="line" id="L248"><a class="number" href="#L248">248</a><code class="code">            return;</code></span>
+<span class="line" id="L249"><a class="number" href="#L249">249</a><code class="code">        _returnedBuffer = true;</code></span>
+<span class="line" id="L250"><a class="number" href="#L250">250</a><code class="code">        ArrayPool&lt;byte&gt;.Shared.Return(_buffer);</code></span>
+<span class="line" id="L251"><a class="number" href="#L251">251</a><code class="code">    }</code></span>
+<span class="line" id="L252"><a class="number" href="#L252">252</a><code class="code">}</code></span></pre></main></html>

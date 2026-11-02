@@ -1,0 +1,11525 @@
+
+<!doctype html>
+<html lang="zh" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="项目类型、接口、调用约束和系统手册">
+      
+      
+      
+        <link rel="canonical" href="https://xianfishyu.github.io/SimpleCities/docs/archives/todo-index-20261021.html">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+    
+    
+      
+        <title>Todo index 20261021 - SimpleCities 类参考</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/site.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="light-blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#系统待办索引" class="md-skip">
+          跳转至
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="页眉">
+    <a href="../../index.html" title="SimpleCities 类参考" class="md-header__button md-logo" aria-label="SimpleCities 类参考" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            SimpleCities 类参考
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Todo index 20261021
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="light-blue"  aria-label="切换浅色主题"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="切换浅色主题" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="light-blue"  aria-label="切换深色主题"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="切换深色主题" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="搜索" placeholder="搜索" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="查找">
+        
+        <button type="reset" class="md-search__icon md-icon" title="清空当前内容" aria-label="清空当前内容" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            正在初始化搜索引擎
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="导航栏" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../index.html" title="SimpleCities 类参考" class="md-nav__button md-logo" aria-label="SimpleCities 类参考" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    SimpleCities 类参考
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../index.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    首页
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/overview.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    类参考说明
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/type-index.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    类型总索引
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/usage.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    调用与示例
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    道路纯核心
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    道路纯核心
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/overview.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    模块总览
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/EdgeId.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    EdgeId
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/MapDefinition.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MapDefinition
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/NodeId.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    NodeId
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/PreparedRoadState.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PreparedRoadState
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadBuildPlanner.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadBuildPlanner
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadBuildRequest.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadBuildRequest
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadBuildResult.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadBuildResult
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadBuildStatus.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadBuildStatus
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadChangeMetadata.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadChangeMetadata
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadChangeSet.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadChangeSet
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadCodec.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadCodec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadConflictSpan.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadConflictSpan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadEdge.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadEdge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadEdgeChange.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadEdgeChange
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadEditHistory.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadEditHistory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadEditHistory.Entry.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadEditHistory.Entry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadEditResult.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadEditResult
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadEditStatus.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadEditStatus
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadEndRole.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadEndRole
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadGridSpan.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadGridSpan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadIncidence.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadIncidence
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadIncidenceKey.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadIncidenceKey
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadJunctionQuery.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadJunctionQuery
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadJunctionReadModel.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadJunctionReadModel
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadLocation.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadLocation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadMutationDraft.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadMutationDraft
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadMutationDraft.IncidentPieces.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadMutationDraft.IncidentPieces
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadMutationDraft.Piece.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadMutationDraft.Piece
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadNetwork.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadNetwork
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadNode.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadNode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadNodeChange.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadNodeChange
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadOverlap.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadOverlap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadPlan.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadPlan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadPoint.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadPoint
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadPresentation.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadPresentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadPresentation.EndConnection.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadPresentation.EndConnection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadPresentation.JunctionCorner.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadPresentation.JunctionCorner
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadProfile.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadProfile
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadProfileId.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadProfileId
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadProfiles.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadProfiles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadPublishedState.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadPublishedState
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadQueryFragment.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadQueryFragment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadQueryHit.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadQueryHit
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadSnapshot.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSnapshot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadSnapshotQueryData.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSnapshotQueryData
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadSnapshotQueryData.ArcData.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSnapshotQueryData.ArcData
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadSnapshotQueryData.Boundary.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSnapshotQueryData.Boundary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadSnapshotQueryData.EdgeLookup.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSnapshotQueryData.EdgeLookup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadSnapshotQueryData.NodeLookup.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSnapshotQueryData.NodeLookup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadSpanEditPlanner.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSpanEditPlanner
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadSpanKey.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSpanKey
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadSpanQuery.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSpanQuery
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadSpanRange.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSpanRange
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadSpanSelectionSession.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSpanSelectionSession
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadSpatialQueryIndex.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSpatialQueryIndex
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadSpatialQueryIndex.SourceSegment.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSpatialQueryIndex.SourceSegment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadStateToken.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadStateToken
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadSurfaceData.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSurfaceData
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadSurfaceGroup.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSurfaceGroup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadSurfaceGroupKey.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSurfaceGroupKey
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadSurfaceLayer.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSurfaceLayer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadSurfacePiece.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSurfacePiece
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadSurfaceRevision.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSurfaceRevision
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadSurfaceUpdate.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSurfaceUpdate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadTopology.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadTopology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadTopology.NodeUse.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadTopology.NodeUse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadTopology.Occupant.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadTopology.Occupant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadTopology.Occupants.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadTopology.Occupants
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadTopology.PooledBuffer.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadTopology.PooledBuffer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadTopology.Segment.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadTopology.Segment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadTurnMovement.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadTurnMovement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/RoadVector.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadVector
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/SpatialBounds.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SpatialBounds
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/SpatialFragment.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SpatialFragment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/SpatialQueryBudget.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SpatialQueryBudget
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/SpatialQueryIndex.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SpatialQueryIndex
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/SpatialQueryIndex.Query.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SpatialQueryIndex.Query
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/SpatialQueryMetrics.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SpatialQueryMetrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/SpatialQueryResult.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SpatialQueryResult
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-core/SpatialQueryStatus.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SpatialQueryStatus
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Godot 运行适配
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Godot 运行适配
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/overview.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    模块总览
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/PreparedRoadPresentation.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PreparedRoadPresentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/RoadDisplay.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadDisplay
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/RoadDisplay.Fragment.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadDisplay.Fragment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/RoadDisplay.GeometryGroup.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadDisplay.GeometryGroup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/RoadDisplay.GeometryPage.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadDisplay.GeometryPage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/RoadDisplay.HitResult.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadDisplay.HitResult
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/RoadDisplay.MeshArrays.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadDisplay.MeshArrays
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/RoadDisplay.PageKey.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadDisplay.PageKey
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/RoadDisplay.PageMeshes.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadDisplay.PageMeshes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/RoadDisplay.PaintComparer.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadDisplay.PaintComparer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/RoadDisplay.Piece.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadDisplay.Piece
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/RoadDisplay.PieceIndex.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadDisplay.PieceIndex
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/RoadDisplay.PieceIndex.Query.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadDisplay.PieceIndex.Query
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/RoadDisplay.PreparedGeometry.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadDisplay.PreparedGeometry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/RoadDisplay.ResourceSet.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadDisplay.ResourceSet
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/RoadLoadPresentationPreparer.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadLoadPresentationPreparer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/RoadMapScene.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadMapScene
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/RoadMapScene.CompletedPreview.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadMapScene.CompletedPreview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/RoadMapScene.DisplayPhase.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadMapScene.DisplayPhase
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/RoadMapScene.PlannedRoadOperation.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadMapScene.PlannedRoadOperation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/RoadMapScene.ToolAdmission.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadMapScene.ToolAdmission
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/RoadMapView.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadMapView
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/RoadMapView.Admission.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadMapView.Admission
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/RoadMapView.CommitPlan.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadMapView.CommitPlan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/RoadMapView.PreviewSegment.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadMapView.PreviewSegment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/RoadOperation.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadOperation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/RoadSaveParticipant.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSaveParticipant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/RoadSaveParticipant.Admission.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSaveParticipant.Admission
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/RoadSaveParticipant.CommitPlan.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSaveParticipant.CommitPlan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/RoadSaveParticipant.Prepared.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSaveParticipant.Prepared
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/RoadSaveParticipant.Reader.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSaveParticipant.Reader
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/RoadSaveParticipant.Snapshot.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSaveParticipant.Snapshot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/RoadSaveParticipant.Target.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSaveParticipant.Target
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/RoadSelectionDisplay.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSelectionDisplay
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/RoadSelectionDisplay.Stroke.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSelectionDisplay.Stroke
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/road-runtime/RoadStatistics.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadStatistics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    持久化
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    持久化
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/overview.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    模块总览
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/AutosaveController.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AutosaveController
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/AutosaveController.AutosaveCompletedEventHandler.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AutosaveController.AutosaveCompletedEventHandler
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/CapturedLoadParticipant.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CapturedLoadParticipant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/CapturedSaveParticipant.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CapturedSaveParticipant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/INonThrowingLoadCommitPlan.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INonThrowingLoadCommitPlan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/IPreparedSaveState.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IPreparedSaveState
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/IPreparedScenePresentation.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IPreparedScenePresentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/ISaveFileParticipant.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ISaveFileParticipant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/ISaveSnapshot.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ISaveSnapshot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/ISceneNetworkLoadAdmission.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ISceneNetworkLoadAdmission
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/ISceneNetworkLoadParticipant.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ISceneNetworkLoadParticipant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/IScenePresentationLoadAdmission.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IScenePresentationLoadAdmission
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/IScenePresentationLoadParticipant.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IScenePresentationLoadParticipant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/IScenePresentationPreparer.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IScenePresentationPreparer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/ISceneToolLoadAdmission.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ISceneToolLoadAdmission
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/ISceneToolLoadParticipant.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ISceneToolLoadParticipant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/IStorageOperationLease.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IStorageOperationLease
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/IStreamingLoadReader.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IStreamingLoadReader
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/IStreamingLoadTarget.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IStreamingLoadTarget
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/IStreamingSaveable.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IStreamingSaveable
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/IStreamingSaveParticipant.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IStreamingSaveParticipant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/LoadPreflightInvalidException.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LoadPreflightInvalidException
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/PreparedAggregateLoad.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PreparedAggregateLoad
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/PreparedSaveParticipant.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PreparedSaveParticipant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/PreparedSaveSlot.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PreparedSaveSlot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/PreparedSceneLoad.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PreparedSceneLoad
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveDeleteResult.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveDeleteResult
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveDeleteResultKind.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveDeleteResultKind
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveDeletionAuthorization.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveDeletionAuthorization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveDeletionDescriptor.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveDeletionDescriptor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveDeletionDescriptorCodec.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveDeletionDescriptorCodec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveDeletionRecoveryException.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveDeletionRecoveryException
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveJson.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveJson
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveManager.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveManager
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveManager.LoadPerformanceMetrics.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveManager.LoadPerformanceMetrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveManager.SaveOperationCompletedEventHandler.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveManager.SaveOperationCompletedEventHandler
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveManager.SaveOperationStateChangedEventHandler.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveManager.SaveOperationStateChangedEventHandler
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveManager.SceneLoadContext.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveManager.SceneLoadContext
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveManager.SceneRequest.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveManager.SceneRequest
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveManager.SlotTargetLoadCommitPlan.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveManager.SlotTargetLoadCommitPlan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveManager.TrackedOperation.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveManager.TrackedOperation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveOperationAdmission.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveOperationAdmission
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveOperationCoordinator.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveOperationCoordinator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveOperationKind.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveOperationKind
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveOperationLease.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveOperationLease
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveOperationPhase.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveOperationPhase
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveOperationResult.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveOperationResult
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveOperationResultKind.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveOperationResultKind
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveOperationState.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveOperationState
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveOperationWriteStream.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveOperationWriteStream
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SavePreviewPngValidator.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SavePreviewPngValidator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SavePublicationDescriptor.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SavePublicationDescriptor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SavePublicationDescriptorCodec.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SavePublicationDescriptorCodec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SavePublicationPhase.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SavePublicationPhase
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SavePublicationRecoveryException.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SavePublicationRecoveryException
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SavePublishResult.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SavePublishResult
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SavePublishResultKind.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SavePublishResultKind
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveRootBusyException.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveRootBusyException
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveSlotClassification.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveSlotClassification
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveSlotJson.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveSlotJson
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveSlotJsonReaderBudget.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveSlotJsonReaderBudget
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveSlotJsonStreamReader.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveSlotJsonStreamReader
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveSlotManifest.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveSlotManifest
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveSlotManifestCodec.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveSlotManifestCodec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveSlotManifestFile.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveSlotManifestFile
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveSlotOccupantKind.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveSlotOccupantKind
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveSlotStorageBudget.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveSlotStorageBudget
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveSlotStore.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveSlotStore
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveSlotStore.OccupantDigestKind.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveSlotStore.OccupantDigestKind
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveSlotStore.OccupantDigestState.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveSlotStore.OccupantDigestState
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveSlotStore.PathDigestKind.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveSlotStore.PathDigestKind
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveSlotStore.PathDigestState.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveSlotStore.PathDigestState
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveSlotStore.SaveParticipant.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveSlotStore.SaveParticipant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveSlotStore.SaveParticipantDefinition.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveSlotStore.SaveParticipantDefinition
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveSlotStore.SlotEntrySnapshot.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveSlotStore.SlotEntrySnapshot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveSlotSummary.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveSlotSummary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SaveVerifiedReadStream.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveVerifiedReadStream
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SceneLoadParticipants.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SceneLoadParticipants
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SceneLoadPreparationContext.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SceneLoadPreparationContext
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/SceneStoragePolicy.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SceneStoragePolicy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/persistence/UncoordinatedStorageOperationLease.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    UncoordinatedStorageOperationLease
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    界面
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    界面
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/ui/overview.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    模块总览
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/ui/ConstructionCategoryDefinition.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ConstructionCategoryDefinition
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/ui/ConstructionDock.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ConstructionDock
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/ui/ConstructionDock.BuiltInToolPresentation.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ConstructionDock.BuiltInToolPresentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/ui/ConstructionDock.CategoryDescriptor.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ConstructionDock.CategoryDescriptor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/ui/ConstructionDock.PlaceholderDescriptor.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ConstructionDock.PlaceholderDescriptor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/ui/ConstructionDockButton.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ConstructionDockButton
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/ui/ConstructionDockButton.PresentationColors.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ConstructionDockButton.PresentationColors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/ui/ConstructionDockButtonVisualRole.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ConstructionDockButtonVisualRole
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/ui/ConstructionToolDefinition.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ConstructionToolDefinition
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/ui/DebugPanel.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DebugPanel
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/ui/GameHUD.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GameHUD
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/ui/MainMenu.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MainMenu
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/ui/PauseMenu.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PauseMenu
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/ui/PauseMenu.ConfirmationAction.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PauseMenu.ConfirmationAction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/ui/PauseMenu.MenuOperationAction.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PauseMenu.MenuOperationAction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/ui/PauseMenu.MenuView.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PauseMenu.MenuView
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/ui/ToolContextPanel.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ToolContextPanel
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/ui/ToolContextPanel.RoadTypePresentation.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ToolContextPanel.RoadTypePresentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/ui/UIManager.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    UIManager
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    输入与地图
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    输入与地图
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/input-map/overview.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    模块总览
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/input-map/InputBindingManager.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    InputBindingManager
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/input-map/InputBindingManager.BindingDefinition.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    InputBindingManager.BindingDefinition
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/input-map/MainCamera.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MainCamera
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/input-map/MapBackground.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MapBackground
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/input-map/RoadConfig.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadConfig
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/input-map/RoadToolManager.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadToolManager
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/input-map/RoadType.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadType
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/input-map/RoadTypeContract.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadTypeContract
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/input-map/RoadTypeStyle.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadTypeStyle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/input-map/RoadTypeStyleDefinition.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadTypeStyleDefinition
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/input-map/ToolType.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ToolType
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    测试与诊断
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    测试与诊断
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/overview.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    模块总览
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/CandidateHolder.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CandidateHolder
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/HistoryHolder.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HistoryHolder
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Performance.CapacityRunner.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CapacityRunner
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Performance.HistoryPolicyRunner.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HistoryPolicyRunner
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Performance.HistoryPolicyRunner.CancellationMeasurement.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HistoryPolicyRunner.CancellationMeasurement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Performance.HistoryPolicyRunner.CandidateHolder.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HistoryPolicyRunner.CandidateHolder
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Performance.HistoryPolicyRunner.HistoryHolder.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HistoryPolicyRunner.HistoryHolder
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Performance.HistoryPolicyRunner.HistoryMeasurement.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HistoryPolicyRunner.HistoryMeasurement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Performance.HistoryPolicyRunner.ObservedSpans.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HistoryPolicyRunner.ObservedSpans
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Performance.HistoryPolicyRunner.ReleaseMeasurement.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HistoryPolicyRunner.ReleaseMeasurement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Performance.HistoryPolicyRunner.Sharing.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HistoryPolicyRunner.Sharing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Performance.RoadBaselineFixtures.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadBaselineFixtures
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Performance.RoadCapacityDatasets.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadCapacityDatasets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/RoadDisplayFailureProbe.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadDisplayFailureProbe
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/RoadDisplayPreflightProbe.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadDisplayPreflightProbe
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/RoadFrameAllocationProbe.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadFrameAllocationProbe
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/RoadFrameAllocationProbe.Sample.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadFrameAllocationProbe.Sample
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/RoadFrameAllocationProbe.Window.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadFrameAllocationProbe.Window
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/RoadHistoryReuseProbe.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadHistoryReuseProbe
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/RoadIncrementalDisplayProbe.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadIncrementalDisplayProbe
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/RoadLoadWorkProbe.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadLoadWorkProbe
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/RoadLoadWorkProbe.Observer.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadLoadWorkProbe.Observer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/RoadOperationTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadOperationTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/RoadOperationWorkProbe.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadOperationWorkProbe
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SaveDeleteCleanupFailureProbe.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveDeleteCleanupFailureProbe
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SaveDeleteOperationProbe.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveDeleteOperationProbe
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SaveLoadEarlyFailureProbe.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveLoadEarlyFailureProbe
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SavePublishCleanupFailureProbe.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SavePublishCleanupFailureProbe
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SavePublishOperationProbe.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SavePublishOperationProbe
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SceneStoragePolicyProbe.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SceneStoragePolicyProbe
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.AutosaveContractTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AutosaveContractTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.ConstructionCategoryDefinitionTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ConstructionCategoryDefinitionTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.ConstructionDockContractTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ConstructionDockContractTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.ExportPresetContractTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ExportPresetContractTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.GameHUDCompositionContractTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GameHUDCompositionContractTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.InputBindingManagerContractTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    InputBindingManagerContractTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.PauseMenuContractTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PauseMenuContractTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.PngTestData.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PngTestData
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.PreparedAggregateLoadTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PreparedAggregateLoadTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.PreparedAggregateLoadTests.BoundaryInvalidatingLease.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PreparedAggregateLoadTests.BoundaryInvalidatingLease
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.PreparedAggregateLoadTests.FakePlan.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PreparedAggregateLoadTests.FakePlan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.PreparedAggregateLoadTests.NotificationPlan.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PreparedAggregateLoadTests.NotificationPlan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.PreparedAggregateLoadTests.TrackingPlan.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PreparedAggregateLoadTests.TrackingPlan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.RoadSaveTestFixture.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSaveTestFixture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.RoadTypeStyleTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadTypeStyleTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.SaveDeletionDescriptorCodecTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveDeletionDescriptorCodecTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.SaveManagerManifestVersionTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveManagerManifestVersionTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.SaveManagerManifestVersionTests.ChunkedNonSeekableStream.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveManagerManifestVersionTests.ChunkedNonSeekableStream
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.SaveManagerSlotContractTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveManagerSlotContractTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.SaveManagerSlotContractTests.DiskFullAfterPartialWriteSaveable.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveManagerSlotContractTests.DiskFullAfterPartialWriteSaveable
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.SaveManagerSlotContractTests.LegacyFileSnapshot.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveManagerSlotContractTests.LegacyFileSnapshot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.SaveManagerSlotContractTests.LegacyRootSnapshot.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveManagerSlotContractTests.LegacyRootSnapshot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.SaveManagerSlotContractTests.PublicationFixture.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveManagerSlotContractTests.PublicationFixture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.SaveManagerSlotContractTests.TestPreparedState.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveManagerSlotContractTests.TestPreparedState
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.SaveManagerSlotContractTests.TestSaveable.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveManagerSlotContractTests.TestSaveable
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.SaveManagerSlotContractTests.TestSnapshot.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveManagerSlotContractTests.TestSnapshot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.SaveManagerSlotContractTests.ThrowingCaptureSaveable.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveManagerSlotContractTests.ThrowingCaptureSaveable
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.SaveManagerSlotContractTests.ThrowingWriteSaveable.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveManagerSlotContractTests.ThrowingWriteSaveable
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.SaveOperationCoordinatorTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveOperationCoordinatorTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.SaveOperationCoordinatorTests.Prepared.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveOperationCoordinatorTests.Prepared
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.SaveOperationCoordinatorTests.Snapshot.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveOperationCoordinatorTests.Snapshot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.SaveOperationCoordinatorTests.ThreadRecordingLoadReader.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveOperationCoordinatorTests.ThreadRecordingLoadReader
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.SaveOperationCoordinatorTests.ThreadRecordingSaveable.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaveOperationCoordinatorTests.ThreadRecordingSaveable
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.SavePreviewPngValidatorTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SavePreviewPngValidatorTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.SavePublicationDescriptorCodecTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SavePublicationDescriptorCodecTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.Application.Tests.SceneLoadPreparationTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SceneLoadPreparationTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.BaselineDatasetTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    BaselineDatasetTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.CapacityBoundaryFixture.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CapacityBoundaryFixture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.CapacityDatasetTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CapacityDatasetTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.CellCenterCodecTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CellCenterCodecTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.CellCenterRoadTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CellCenterRoadTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.DraftIncidenceTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DraftIncidenceTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.EmptyMapRejectionTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    EmptyMapRejectionTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.EmptyMapTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    EmptyMapTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.EndpointContinuationTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    EndpointContinuationTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.HistoryContentReuseTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HistoryContentReuseTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.IndependentRoadTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IndependentRoadTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.JunctionOwnerSelectionTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JunctionOwnerSelectionTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.JunctionQueryTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JunctionQueryTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.LoopCodecTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LoopCodecTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.LoopRoadTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LoopRoadTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.PolylineCodecTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PolylineCodecTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.PolylineCodecTests.ChunkedReadStream.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PolylineCodecTests.ChunkedReadStream
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.PolylinePresentationTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PolylinePresentationTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.PrimaryJunctionCodecTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PrimaryJunctionCodecTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.PrimaryJunctionPlannerTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PrimaryJunctionPlannerTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.PrimaryJunctionPresentationTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PrimaryJunctionPresentationTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.RoadCancellationTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadCancellationTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.RoadCapacityTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadCapacityTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.RoadCapacityTests.PaddedStream.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadCapacityTests.PaddedStream
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.RoadChangeSetTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadChangeSetTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.RoadDisplayWidthTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadDisplayWidthTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.RoadDraftReuseTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadDraftReuseTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.RoadEdgeLengthTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadEdgeLengthTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.RoadEditHistoryTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadEditHistoryTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.RoadLoadValidationTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadLoadValidationTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.RoadOverlapTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadOverlapTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.RoadProfileLookupTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadProfileLookupTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.RoadSpanBatchEditTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSpanBatchEditTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.RoadSpanEditTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSpanEditTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.RoadSpanQueryTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSpanQueryTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.RoadSpanSelectionTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSpanSelectionTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.RoadSpatialQueryTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSpatialQueryTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.RoadSurfaceRevisionTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSurfaceRevisionTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.RoadTopologyAllocationTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadTopologyAllocationTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/testing/types/SimpleCities.RoadCore.Tests.SnapshotQueryReuseTests.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SnapshotQueryReuseTests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    其他语言
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    其他语言
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/other-languages/GitBlobs.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitBlobs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/other-languages/RoadSaveFixture.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadSaveFixture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/other-languages/RoadTargetPerformance.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RoadTargetPerformance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/other-languages/WheelConsumer.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WheelConsumer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../class-reference/other-languages/ClassReferenceRenderer.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ClassReferenceRenderer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    系统手册
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    系统手册
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    工程架构
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../road-system.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    道路系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../save-system.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    存档
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ui.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    界面与输入
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../product.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    产品
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../simulation.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    模拟草案
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../verification.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    验证
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="目录">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目录
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#导航" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        导航
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="导航">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#2026-10-13-文档更新计划及-2026-10-21-执行结果" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2026-10-13 文档更新计划及 2026-10-21 执行结果
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#原有道路系统导航历史范围" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        原有道路系统导航（历史范围）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#组合说明与集成负责人" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        组合说明与集成负责人
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#遗留来源-key-映射" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        遗留来源 Key 映射
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#总体依赖说明" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        总体依赖说明
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<blockquote>
+<p>历史快照：原待办索引及来源映射，记录 2026-10-21 的整理结果；日常工作从<a href="../todo/overview.html">系统待办</a>进入。</p>
+</blockquote>
+<h1 id="系统待办索引">系统待办索引<a class="headerlink" href="#系统待办索引" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>复核日期：2026-10-21（导航/文档更新）；原 V2 来源映射复核日期：2026-08-13
+来源：<code>.omo/backups/system-doc-split/docs/todo/todolist.md</code>、<code>.omo/evidence/split-system-docs/task-3/ownership-map.json</code>、当前根层系统路线图与 <code>docs/todo/v3/README.md</code>。
+范围：仅包含导航、遗留 source key 映射、组合说明、集成负责人和总体依赖说明。本 README 不包含独立要求。</p>
+</blockquote>
+<h2 id="导航">导航<a class="headerlink" href="#导航" title="Permanent link">&para;</a></h2>
+<h3 id="2026-10-13-文档更新计划及-2026-10-21-执行结果">2026-10-13 文档更新计划及 2026-10-21 执行结果<a class="headerlink" href="#2026-10-13-文档更新计划及-2026-10-21-执行结果" title="Permanent link">&para;</a></h3>
+<p>本轮已经更新现行契约、历史边界、导航和命令；执行状态与验证依据保留在各所属系统的完成条目中，具体范围和验收不在本索引重复维护：</p>
+<table>
+<thead>
+<tr>
+<th>系统</th>
+<th>文档任务</th>
+<th>路线图</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>road-graph</td>
+<td>9.1 当前模型/状态、9.2 历史源码访问</td>
+<td><a href="tasks/road-graph.html#road-graph9.1">road-graph.md</a></td>
+</tr>
+<tr>
+<td>save-system</td>
+<td>9.1 V4 异步存档当前参考</td>
+<td><a href="tasks/save-system.html#save-system9.1">save-system.md</a></td>
+</tr>
+<tr>
+<td>tool-input</td>
+<td>9.1 当前交互/取消/历史</td>
+<td><a href="tasks/tool-input.html#tool-input9.1">tool-input.md</a></td>
+</tr>
+<tr>
+<td>grid-rendering</td>
+<td>9.1 网格/表现、9.2 未来 A* 说明</td>
+<td><a href="tasks/grid-rendering.html#grid-rendering9.1">grid-rendering.md</a></td>
+</tr>
+<tr>
+<td>traffic-simulation</td>
+<td>9.1 延期理由与读取边界</td>
+<td><a href="tasks/traffic-simulation.html#traffic-simulation9.1">traffic-simulation.md</a></td>
+</tr>
+<tr>
+<td>ui</td>
+<td>0.1 当前 UI 契约</td>
+<td><a href="tasks/ui.html#ui0.1">ui.md</a></td>
+</tr>
+<tr>
+<td>godot-integration</td>
+<td>0.1 工具链说明、0.2 验证命令</td>
+<td><a href="tasks/godot-integration.html#godot-integration0.1">godot-integration.md</a></td>
+</tr>
+<tr>
+<td>documentation</td>
+<td>0.1 导航/摘要、0.2 归档访问、2.1 最终集成复核</td>
+<td><a href="tasks/documentation.html#documentation0.1">documentation.md</a></td>
+</tr>
+</tbody>
+</table>
+<p>最终集成负责人是 <code>documentation:2.1</code>。原根层 V2 条目、<code>v3/</code> 完成状态和下面的遗留 source key 映射保留历史范围，不作为当前 V4 生产 API 或活动实现要求。</p>
+<h3 id="原有道路系统导航历史范围">原有道路系统导航（历史范围）<a class="headerlink" href="#原有道路系统导航历史范围" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p>以下保留原 V2/V3 导航与 带日期的工单说明；当前 V4 入口见<a href="../architecture.html">工程目录</a>和<a href="road-system-v4-design.html">V4 指南</a>。本索引导航第二代与既有后续系统；第三代道路路线图使用独立索引 <a href="tasks/v3/overview.html">docs/todo/v3/README.md</a>。</p>
+</blockquote>
+<p>第四代的活动规格、验收与依赖以 <a href="https://github.com/xianfishyu/SimpleCities/issues/1">GitHub #1</a> 及其子票为准，遵循 <a href="../agents/issue-tracker.html">issue tracker 工作流</a>。2026-09-29 从 #19/#20 检查点恢复推进的当前容量基线见 <a href="https://github.com/xianfishyu/SimpleCities/issues/21">#21</a> 与 <a href="performance/v4-20-baseline.html">测量报告</a>；此处只提供导航，不复制工单验收状态。</p>
+<p>后续 <a href="https://github.com/xianfishyu/SimpleCities/issues/24">#24</a> 的容量预算、四档目标数据集及本地复验见 <a href="performance/v4-24-capacity.html">容量报告</a>。远程工单状态、独立审核与 #25/#26 剩余门禁仍在各自票据管理。</p>
+<ul>
+<li><code>road-graph</code>: <a href="../todo/road-graph.html">docs/todo/road-graph.md</a></li>
+<li><code>save-system</code>: <a href="../todo/save-system.html">docs/todo/save-system.md</a></li>
+<li><code>grid-rendering</code>: <a href="../todo/grid-rendering.html">docs/todo/grid-rendering.md</a></li>
+<li><code>tool-input</code>: <a href="../todo/tool-input.html">docs/todo/tool-input.md</a></li>
+<li><code>traffic-simulation</code>: <a href="../todo/traffic-simulation.html">docs/todo/traffic-simulation.md</a></li>
+</ul>
+<h2 id="组合说明与集成负责人">组合说明与集成负责人<a class="headerlink" href="#组合说明与集成负责人" title="Permanent link">&para;</a></h2>
+<ul>
+<li>第二代最终范围和未完成事项保存在 <code>docs/manuals/road-system-v2-gen.md</code> 附录 D；最终集成负责人是 <code>road-graph:7.1</code>，完成后保留附录作为历史验收记录。</li>
+<li>根层 D5.1～D5.3、原问题 9 和 P6.5 只保留已取代的历史指针；全部可执行 V3 工作只存在于 <code>docs/todo/v3/</code>，最终集成负责人是 <code>v3-road-graph:8.6</code>。V3 可完全重写架构且不向后兼容，V2 存档根不进入其读取或迁移范围。</li>
+<li><code>todo:item:5.3</code> 的第二代活动范围只保留 <code>save-system:5.3</code> 的新 Node/Edge/Group schema；旧存档不兼容。<code>grid-rendering:5.3</code> 是非阻塞资源命名清理，不计入第二代完成条件。</li>
+</ul>
+<h2 id="遗留来源-key-映射">遗留来源 Key 映射<a class="headerlink" href="#遗留来源-key-映射" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p>下表的“遗留文本或 ID”仅用于追溯拆分前的原文，不代表当前要求；与活动系统待办或附录 D 冲突时，以后两者为准。</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>遗留 source key</th>
+<th>类型</th>
+<th>遗留文本或 ID</th>
+<th>目标引用</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>todo:summary:1</code></td>
+<td><code>summary_table_row</code></td>
+<td>| 1 | <code>AddRoad</code> 返回 <code>-1</code> 时泄漏副作用 | 已修复 | 补回归测试，不再修改流程 |</td>
+<td><a href="tasks/road-graph.html#road-graph1">road-graph:1</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:summary:2</code></td>
+<td><code>summary_table_row</code></td>
+<td>| 2 | 存档丢失 <code>RoadType</code> | 已修复；v2 命名迁移未完成 | 补兼容性测试；字段改名延期 |</td>
+<td><a href="tasks/save-system.html#save-system2">save-system:2</a></td>
+<td>遗留原文已取代：V2 已移除 RoadType 与旧类型回退；V3 独立格式工作见 <code>v3-save-system:2.1</code>。</td>
+</tr>
+<tr>
+<td><code>todo:summary:3</code></td>
+<td><code>summary_table_row</code></td>
+<td>| 3 | 几何查询仍有全表扫描 | 成立 | 优化候选边查询并建立性能基线 |</td>
+<td><a href="tasks/road-graph.html#road-graph3">road-graph:3</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:summary:4</code></td>
+<td><code>summary_table_row</code></td>
+<td>| 4 | 数据层强制 8 方向 | 成立 | 将方向约束移回 <code>RoadBuilder</code> |</td>
+<td><a href="tasks/road-graph.html#road-graph4">road-graph:4</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:summary:5</code></td>
+<td><code>summary_table_row</code></td>
+<td>| 5 | <code>RemoveEdge</code> 自动清理节点导致合并补回节点 | 部分成立，属于架构债务 | 在行为测试保护下重构删除事务 |</td>
+<td><a href="tasks/road-graph.html#road-graph5">road-graph:5</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:summary:6</code></td>
+<td><code>summary_table_row</code></td>
+<td>| 6 | <code>RoadGroup</code> 在合并时丢失用户操作语义 | 成立 | 禁止跨 Group/Type 自动合并 |</td>
+<td><a href="tasks/road-graph.html#road-graph6">road-graph:6</a></td>
+<td>遗留原文中的 Type 不再属于 V2；V3 连续 Edge 规范化见 <code>v3-road-graph:8.2</code>～<code>8.5</code>。</td>
+</tr>
+<tr>
+<td><code>todo:summary:7</code></td>
+<td><code>summary_table_row</code></td>
+<td>| 7 | <code>FindClosestEdge</code> 只命中离散采样点 | 成立 | 改为候选筛选 + 点到折线精确距离 |</td>
+<td><a href="tasks/road-graph.html#road-graph7">road-graph:7</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:summary:8</code></td>
+<td><code>summary_table_row</code></td>
+<td>| 8 | <code>RoadBuilder</code> 仍有半格特殊分支 | 事实成立，但属于 UI 约束 | 当前不改；连续输入需求出现时再设计 |</td>
+<td><a href="tasks/tool-input.html#tool-input8">tool-input:8</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:summary:9</code></td>
+<td><code>summary_table_row</code></td>
+<td>| 9 | <code>GetNeighborIDs().Distinct()</code> 隐藏平行边 | 当前为设计选择 | 保留；明确邻居查询与边查询语义 |</td>
+<td><a href="tasks/road-graph.html#road-graph9">road-graph:9</a></td>
+<td>V2 历史决定；V3 的 self-loop/parallel Edge 活动项见 <code>v3-road-graph:8.1</code>～<code>8.3</code>。</td>
+</tr>
+<tr>
+<td><code>todo:summary:10</code></td>
+<td><code>summary_table_row</code></td>
+<td>| 10 | 交点判断使用严格浮点相等 | 成立，低风险 | 统一改用 epsilon 判断 |</td>
+<td><a href="tasks/road-graph.html#road-graph10">road-graph:10</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:summary:11</code></td>
+<td><code>summary_table_row</code></td>
+<td>| 11 | 命名过时且 <code>RoadType</code> 视觉样式未落地 | 事实成立；RoadType 产品功能暂不需要 | 命名迁移独立处理；分级样式和类型选择延期 |</td>
+<td><a href="tasks/save-system.html#save-system11">save-system:11</a></td>
+<td>遗留原文已取代；V3 分级表现与交互分别见 <code>v3-grid-rendering</code>、<code>v3-tool-input</code> 和 <code>v3-ui</code>。</td>
+</tr>
+<tr>
+<td><code>todo:summary:P1</code></td>
+<td><code>summary_table_row</code></td>
+<td>| P1 | 图是节点、边和分组的唯一事实来源 | 主体已完成；一致性未自动验证 | 保留为基线；由 0.1、0.5、4.1、4.2 验证和收紧 |</td>
+<td><a href="tasks/road-graph.html#road-graphp1">road-graph:P1</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:summary:P2</code></td>
+<td><code>summary_table_row</code></td>
+<td>| P2 | 连续空间、离散输入留在 UI 层 | 部分完成 | 由 0.7、2.1～2.3 清除数据层方向约束并固定节点容差 |</td>
+<td><a href="tasks/tool-input.html#tool-inputp2">tool-input:P2</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:summary:P3</code></td>
+<td><code>summary_table_row</code></td>
+<td>| P3 | SpatialIndex 是可重建查询服务 | 部分完成；尚未表达线段占据范围 | 由 1.2、3.1～3.3 完成真实边查询和局部候选 |</td>
+<td><a href="tasks/road-graph.html#road-graphp3">road-graph:P3</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:summary:P4</code></td>
+<td><code>summary_table_row</code></td>
+<td>| P4 | 删除操作不触发拓扑修复链 | 未完成 | 由 0.6、4.1、4.3、4.4 移除删除后的自动合并 |</td>
+<td><a href="tasks/road-graph.html#road-graphp4">road-graph:P4</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:summary:P5</code></td>
+<td><code>summary_table_row</code></td>
+<td>| P5 | 最小化并可验证图不变式 | 部分完成；缺少自动化入口 | 由阶段 0 与阶段 4 建立校验、事务和封装边界 |</td>
+<td><a href="tasks/road-graph.html#road-graphp5">road-graph:P5</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:summary:API</code></td>
+<td><code>summary_table_row</code></td>
+<td>| API | 文档定义的公共 <code>AddEdge</code> 契约 | 未实现 | 2.4 先验证契约，再实现或明确以文档修订取代 |</td>
+<td><a href="tasks/road-graph.html#road-graphapi">road-graph:API</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:summary:RoadType</code></td>
+<td><code>summary_table_row</code></td>
+<td>| RoadType | 第二代运行时与存档已移除；视觉、选择与升级当前不需要 | 第三代产品功能延期 | V3 活动项在产品需求确认后按独立路线图启用 |</td>
+<td><a href="tasks/save-system.html#save-systemroadtype">save-system:RoadType</a></td>
+<td>遗留原文已失效：V2 已移除 RoadType；V3 活动项见 <a href="tasks/v3/overview.html">独立索引</a>。</td>
+</tr>
+<tr>
+<td><code>todo:summary:SaveSystem</code></td>
+<td><code>summary_table_row</code></td>
+<td>| SaveSystem | 当前保存路径、槽名输入和整槽加载事务边界不满足生产存档安全 | 未完成 | 0.9～0.11 在 0.1、0.5、0.8 基础上补测试、路径迁移、槽名校验和整槽预检 |</td>
+<td><a href="tasks/save-system.html#save-systemsavesystem">save-system:SaveSystem</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:summary:Phase 6</code></td>
+<td><code>summary_table_row</code></td>
+<td>| Phase 6 | <code>TrafficGraph</code>、A*、拥堵和增量同步 | 未实现，按路线图延期 | 第二代 RoadGraph 前置契约已完成；P6.1～P6.4 等待 <code>v3-road-graph:8.6</code>，P6.5 已由 V3 道路改造项取代 |</td>
+<td><a href="tasks/traffic-simulation.html#traffic-simulationphase-6">traffic-simulation:Phase 6</a></td>
+<td>遗留原文已取代：P6.1～P6.4 属于 V3 之后的交通模拟；P6.5 已由 V3 道路改造项取代。</td>
+</tr>
+<tr>
+<td><code>todo:design-matrix:8e20b5c5228b</code></td>
+<td><code>design_matrix_row</code></td>
+<td>| §2 P1、§3 纯图架构、§4 数据结构 | <code>RoadGraph</code>、<code>GraphNode</code>、<code>GraphEdge</code>、<code>RoadGroup</code> 已落地；仍需封装可变状态并验证跨容器一致性 | 0.1、0.5、4.1、4.2；...</td>
+<td><a href="tasks/road-graph.html#road-graph8e20b5c5228b">road-graph:8e20b5c5228b</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:design-matrix:3c3216c8f123</code></td>
+<td><code>design_matrix_row</code></td>
+<td>| §2 P2 连续空间 | <code>CellSize</code> 已退出数据层 API，但 <code>RoadGraph</code> 仍依赖 <code>DirectionUtil</code>，节点身份容差未形成公开契约 | 0.7、2.1～2.3 |</td>
+<td><a href="tasks/tool-input.html#tool-input3c3216c8f123">tool-input:3c3216c8f123</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:design-matrix:adbff35eb926</code></td>
+<td><code>design_matrix_row</code></td>
+<td>| §2 P3、§5 SpatialIndex | <code>UniformGrid</code> 可从图重建，但边只按端点/waypoint 索引，查询仍有全表扫描 | 1.2、3.1～3.3 |</td>
+<td><a href="tasks/road-graph.html#road-graphadbff35eb926">road-graph:adbff35eb926</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:design-matrix:5a1f82051412</code></td>
+<td><code>design_matrix_row</code></td>
+<td>| §2 P4、§6.2 删除算法 | 旧位置字典和连通分量拆分已删除，但单边和整组删除仍触发 <code>TryMergeAtNode</code> | 0.6、4.1、4.3、4.4 |</td>
+<td><a href="tasks/road-graph.html#road-graph5a1f82051412">road-graph:5a1f82051412</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:design-matrix:07fc815075a3</code></td>
+<td><code>design_matrix_row</code></td>
+<td>| §2 P5 不变式最小化 | 旧位置字典不变式已消失；节点邻接、Group、空间引用、事件和存档仍需事务性同步 | 0.4～0.7、4.1～4.4 |</td>
+<td><a href="tasks/road-graph.html#road-graph07fc815075a3">road-graph:07fc815075a3</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:design-matrix:6c685ce73a7e</code></td>
+<td><code>design_matrix_row</code></td>
+<td>| §6.1 AddRoad 与交叉/覆盖算法 | 主流程已落地；完整覆盖检查已前置，交叉与 waypoint 拆分已有修复 | 0.2、0.6、2.1～2.4、3.3；已解决基线 |</td>
+<td><a href="tasks/road-graph.html#road-graph6c685ce73a7e">road-graph:6c685ce73a7e</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:design-matrix:541e1cb3f3d8</code></td>
+<td><code>design_matrix_row</code></td>
+<td>| §6.3、§7 查询和公共 API | 最近节点 API 已有；最近边语义不完整；文档中的公共 <code>AddEdge</code> 缺失 | 1.2、2.4、3.2、4.2 |</td>
+<td><a href="tasks/road-graph.html#road-graph541e1cb3f3d8">road-graph:541e1cb3f3d8</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:design-matrix:7a82ab6271cd</code></td>
+<td><code>design_matrix_row</code></td>
+<td>| §8 渲染与道路分级 | 事件驱动渲染和节点绘制已完成；道路分级视觉和类型选择按当前需求延期 | 0.3；已解决基线；延期 D5.1～D5.3 |</td>
+<td><a href="tasks/grid-rendering.html#grid-rendering7a82ab6271cd">grid-rendering:7a82ab6271cd</a></td>
+<td>遗留 D5.1～D5.3 已取代；活动项只在 V3 独立路线图中。</td>
+</tr>
+<tr>
+<td><code>todo:design-matrix:111e2827dafb</code></td>
+<td><code>design_matrix_row</code></td>
+<td>| §10 迁移与存档兼容 | 编辑器与导出版本的存档根目录和槽名边界已实现；仍缺少版本拒绝、损坏数据保护、真实导出包验证和整槽事务...</td>
+<td><a href="tasks/save-system.html#save-system111e2827dafb">save-system:111e2827dafb</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:design-matrix:95732cb62c0e</code></td>
+<td><code>design_matrix_row</code></td>
+<td>| §9、§10 阶段 C、§11 Phase 6 | <code>TrafficGraph</code>、A*、拥堵、增量同步和道路升级工具均未实现 | 延期 P6.1～P6.5 |</td>
+<td><a href="tasks/traffic-simulation.html#traffic-simulation95732cb62c0e">traffic-simulation:95732cb62c0e</a></td>
+<td>遗留原文已取代：只延期 P6.1～P6.4；P6.5 已迁至 V3 道路改造。</td>
+</tr>
+<tr>
+<td><code>todo:item:0.1</code></td>
+<td><code>todo_checkbox_heading</code></td>
+<td>0.1 建立 RoadGraph 自动化测试入口</td>
+<td><a href="tasks/road-graph.html#road-graph0.1">road-graph:0.1</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:item:0.2</code></td>
+<td><code>todo_checkbox_heading</code></td>
+<td>0.2 固化已修复的 <code>AddRoad</code> 无副作用行为（原问题 1）</td>
+<td><a href="tasks/road-graph.html#road-graph0.2">road-graph:0.2</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:item:0.3</code></td>
+<td><code>todo_checkbox_heading</code></td>
+<td>0.3 固化 <code>RoadType</code> 存档往返行为（原问题 2）</td>
+<td><a href="tasks/save-system.html#save-system0.3">save-system:0.3</a></td>
+<td>遗留标题已取代；当前 V2 结论是移除 RoadType，V3 重新引入由 <code>v3-save-system:2.1</code> 跟踪。</td>
+</tr>
+<tr>
+<td><code>todo:item:0.4</code></td>
+<td><code>todo_checkbox_heading</code></td>
+<td>0.4 固化路网与清单的存档版本策略</td>
+<td><a href="tasks/save-system.html#save-system0.4">save-system:0.4</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:item:0.5</code></td>
+<td><code>todo_checkbox_heading</code></td>
+<td>0.5 为 <code>RoadGraph</code> 恢复增加引用校验与失败保护</td>
+<td><a href="tasks/save-system.html#save-system0.5">save-system:0.5</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:item:0.6</code></td>
+<td><code>todo_checkbox_heading</code></td>
+<td>0.6 固化交叉、waypoint 拆分和删除不自动合并的目标行为</td>
+<td><a href="tasks/road-graph.html#road-graph0.6">road-graph:0.6</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:item:0.7</code></td>
+<td><code>todo_checkbox_heading</code></td>
+<td>0.7 明确并固化节点身份吸附半径</td>
+<td><a href="tasks/road-graph.html#road-graph0.7">road-graph:0.7</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:item:0.8</code></td>
+<td><code>todo_checkbox_heading</code></td>
+<td>0.8 为 <code>SaveManager</code> 增加注销机制并绑定场景生命周期</td>
+<td><a href="tasks/save-system.html#save-system0.8">save-system:0.8</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:item:0.9</code></td>
+<td><code>todo_checkbox_heading</code></td>
+<td>0.9 建立 <code>SaveManager</code> 自动化契约测试</td>
+<td><a href="tasks/save-system.html#save-system0.9">save-system:0.9</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:item:0.10</code></td>
+<td><code>todo_checkbox_heading</code></td>
+<td>0.10 固化编辑器与导出版本的存档根目录和槽名边界</td>
+<td><a href="tasks/save-system.html#save-system0.10">save-system:0.10</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:item:0.11</code></td>
+<td><code>todo_checkbox_heading</code></td>
+<td>0.11 建立整槽加载预检与提交边界</td>
+<td><a href="tasks/save-system.html#save-system0.11">save-system:0.11</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:item:1.1</code></td>
+<td><code>todo_checkbox_heading</code></td>
+<td>1.1 禁止跨 <code>RoadGroup</code> 或跨 <code>RoadType</code> 自动合并（原问题 6）</td>
+<td><a href="tasks/road-graph.html#road-graph1.1">road-graph:1.1</a></td>
+<td>遗留标题中的 RoadType 已退出 V2；该 V2 基线只保留 Group 边界。</td>
+</tr>
+<tr>
+<td><code>todo:item:1.2</code></td>
+<td><code>todo_checkbox_heading</code></td>
+<td>1.2 将 <code>FindClosestEdge</code> 改为真实折线距离查询（原问题 7）</td>
+<td><a href="tasks/road-graph.html#road-graph1.2">road-graph:1.2</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:item:1.3</code></td>
+<td><code>todo_checkbox_heading</code></td>
+<td>1.3 用 epsilon 替代交点端点的严格相等（原问题 10）</td>
+<td><a href="tasks/road-graph.html#road-graph1.3">road-graph:1.3</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:item:2.1</code></td>
+<td><code>todo_checkbox_heading</code></td>
+<td>2.1 为任意 R² 折线路径补数据层测试（原问题 4）</td>
+<td><a href="tasks/road-graph.html#road-graph2.1">road-graph:2.1</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:item:2.2</code></td>
+<td><code>todo_checkbox_heading</code></td>
+<td>2.2 从 <code>RoadGraph.IsPathValid</code> 移除 8 方向判断</td>
+<td><a href="tasks/road-graph.html#road-graph2.2">road-graph:2.2</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:item:2.3</code></td>
+<td><code>todo_checkbox_heading</code></td>
+<td>2.3 复核依赖方向枚举的合并逻辑</td>
+<td><a href="tasks/road-graph.html#road-graph2.3">road-graph:2.3</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:item:2.4</code></td>
+<td><code>todo_checkbox_heading</code></td>
+<td>2.4 落实设计文档定义的公共 <code>AddEdge</code> 契约</td>
+<td><a href="tasks/road-graph.html#road-graph2.4">road-graph:2.4</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:item:3.1</code></td>
+<td><code>todo_checkbox_heading</code></td>
+<td>3.1 建立当前 <code>AddRoad</code> 性能基线（原问题 3）</td>
+<td><a href="tasks/road-graph.html#road-graph3.1">road-graph:3.1</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:item:3.2</code></td>
+<td><code>todo_checkbox_heading</code></td>
+<td>3.2 为“线段经过的空间桶”建立候选查询能力</td>
+<td><a href="tasks/road-graph.html#road-graph3.2">road-graph:3.2</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:item:3.3</code></td>
+<td><code>todo_checkbox_heading</code></td>
+<td>3.3 优化覆盖与交点查询</td>
+<td><a href="tasks/road-graph.html#road-graph3.3">road-graph:3.3</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:item:4.1</code></td>
+<td><code>todo_checkbox_heading</code></td>
+<td>4.1 为删除过程定义并验证图不变式</td>
+<td><a href="tasks/road-graph.html#road-graph4.1">road-graph:4.1</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:item:4.2</code></td>
+<td><code>todo_checkbox_heading</code></td>
+<td>4.2 封闭 <code>RoadGraph</code> 的可变内部状态暴露</td>
+<td><a href="tasks/road-graph.html#road-graph4.2">road-graph:4.2</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:item:4.3</code></td>
+<td><code>todo_checkbox_heading</code></td>
+<td>4.3 将底层删边与孤立节点清理解耦</td>
+<td><a href="tasks/road-graph.html#road-graph4.3">road-graph:4.3</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:item:4.4</code></td>
+<td><code>todo_checkbox_heading</code></td>
+<td>4.4 统一单边删除、整组删除、拆分与合并的清理阶段</td>
+<td><a href="tasks/road-graph.html#road-graph4.4">road-graph:4.4</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:item:5.3</code></td>
+<td><code>todo_checkbox_heading</code></td>
+<td>5.3 独立处理 Junction → Node 命名迁移</td>
+<td><a href="tasks/save-system.html#save-system5.3">save-system:5.3</a><br><a href="tasks/grid-rendering.html#grid-rendering5.3">grid-rendering:5.3</a></td>
+<td>遗留 5.3 已拆分为 save-system 和 grid-rendering 条目，集成负责人为 <code>save-system</code>。</td>
+</tr>
+<tr>
+<td><code>todo:item:6.1</code></td>
+<td><code>todo_checkbox_heading</code></td>
+<td>6.1 区分历史架构、当前实现与未来路线图</td>
+<td><a href="tasks/road-graph.html#road-graph6.1">road-graph:6.1</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:item:6.2</code></td>
+<td><code>todo_checkbox_heading</code></td>
+<td>6.2 同步当前合并、命中和空间索引语义</td>
+<td><a href="tasks/road-graph.html#road-graph6.2">road-graph:6.2</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:item:6.3</code></td>
+<td><code>todo_checkbox_heading</code></td>
+<td>6.3 同步活动存档 schema 与迁移策略</td>
+<td><a href="tasks/save-system.html#save-system6.3">save-system:6.3</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:deferred-section:b75f1d496647</code></td>
+<td><code>deferred_heading</code></td>
+<td>RoadType 产品功能</td>
+<td><a href="tasks/grid-rendering.html#grid-renderingb75f1d496647">grid-rendering:b75f1d496647</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:deferred:D5.1</code></td>
+<td><code>deferred_checkbox_heading</code></td>
+<td>D5.1 按产品需求定义 <code>RoadType</code> 分级样式</td>
+<td><a href="tasks/grid-rendering.html#grid-renderingd5.1">grid-rendering:D5.1</a></td>
+<td>已取代；活动项为 <code>v3-grid-rendering:2.1</code>。</td>
+</tr>
+<tr>
+<td><code>todo:deferred:D5.2</code></td>
+<td><code>deferred_checkbox_heading</code></td>
+<td>D5.2 让 <code>RoadRenderer</code> 按 <code>edge.Type</code> 渲染</td>
+<td><a href="tasks/grid-rendering.html#grid-renderingd5.2">grid-rendering:D5.2</a></td>
+<td>已取代；活动项为 <code>v3-grid-rendering:2.2</code>～<code>2.3</code>。</td>
+</tr>
+<tr>
+<td><code>todo:deferred:D5.3</code></td>
+<td><code>deferred_checkbox_heading</code></td>
+<td>D5.3 让 <code>RoadBuilder</code> 提交用户选择的 <code>RoadType</code></td>
+<td><a href="tasks/tool-input.html#tool-inputd5.3">tool-input:D5.3</a></td>
+<td>已取代；活动项为 <code>v3-tool-input:2.1</code>～<code>2.2</code> 与 <code>v3-ui:1.1</code>～<code>1.2</code>。</td>
+</tr>
+<tr>
+<td><code>todo:deferred-section:35b9c59e1fd7</code></td>
+<td><code>deferred_heading</code></td>
+<td>原问题 8：RoadBuilder 半格分支</td>
+<td><a href="tasks/tool-input.html#tool-input35b9c59e1fd7">tool-input:35b9c59e1fd7</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:deferred:a371ae88d7d5</code></td>
+<td><code>deferred_checkbox_heading</code></td>
+<td>需求触发后再重新设计连续输入</td>
+<td><a href="tasks/tool-input.html#tool-inputa371ae88d7d5">tool-input:a371ae88d7d5</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:deferred-section:121c26a6947a</code></td>
+<td><code>deferred_heading</code></td>
+<td>原问题 9：<code>GetNeighborIDs().Distinct()</code></td>
+<td><a href="tasks/road-graph.html#road-graph121c26a6947a">road-graph:121c26a6947a</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:deferred:31883cfb1c78</code></td>
+<td><code>deferred_checkbox_heading</code></td>
+<td>交通模拟设计时明确平行边策略</td>
+<td><a href="tasks/road-graph.html#road-graph31883cfb1c78">road-graph:31883cfb1c78</a></td>
+<td>已取代；V3 允许平行 Edge，模拟层只定义映射。</td>
+</tr>
+<tr>
+<td><code>todo:deferred-section:def6b8230b9f</code></td>
+<td><code>deferred_heading</code></td>
+<td>产品阶段 6：交通模拟与道路升级</td>
+<td><a href="tasks/traffic-simulation.html#traffic-simulationdef6b8230b9f">traffic-simulation:def6b8230b9f</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:deferred:P6.1</code></td>
+<td><code>deferred_checkbox_heading</code></td>
+<td>P6.1 构建 <code>TrafficGraph</code> 只读带权有向视图</td>
+<td><a href="../todo/traffic-simulation.html#traffic-simulationp6.1">traffic-simulation:P6.1</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:deferred:P6.2</code></td>
+<td><code>deferred_checkbox_heading</code></td>
+<td>P6.2 实现 A* 寻路与确定的不可达行为</td>
+<td><a href="../todo/traffic-simulation.html#traffic-simulationp6.2">traffic-simulation:P6.2</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:deferred:P6.3</code></td>
+<td><code>deferred_checkbox_heading</code></td>
+<td>P6.3 建立 RoadType 通行权重、容量与拥堵重算</td>
+<td><a href="../todo/traffic-simulation.html#traffic-simulationp6.3">traffic-simulation:P6.3</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:deferred:P6.4</code></td>
+<td><code>deferred_checkbox_heading</code></td>
+<td>P6.4 按已提交的 RoadGraph 变更增量同步模拟图</td>
+<td><a href="../todo/traffic-simulation.html#traffic-simulationp6.4">traffic-simulation:P6.4</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:deferred:P6.5</code></td>
+<td><code>deferred_checkbox_heading</code></td>
+<td>P6.5 实现既有道路升级工具</td>
+<td><a href="tasks/traffic-simulation.html#traffic-simulationp6.5">traffic-simulation:P6.5</a></td>
+<td>已取代；活动项为 <code>v3-road-graph:8.5</code>、<code>v3-tool-input:2.2</code> 和 <code>v3-ui:1.2</code>。</td>
+</tr>
+<tr>
+<td><code>todo:baseline:cb2d49752724</code></td>
+<td><code>solved_baseline_checkbox</code></td>
+<td>原问题 1：覆盖路径检查已前置。 <code>Scripts/Road/RoadGraph.cs:48</code></td>
+<td><a href="tasks/road-graph.html#road-graphcb2d49752724">road-graph:cb2d49752724</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:baseline:878b6f92c0cc</code></td>
+<td><code>solved_baseline_checkbox</code></td>
+<td>原问题 2：Edge/Group 的 <code>RoadType</code> 已写入并兼容恢复。 <code>Scripts/Road/RoadGraph.cs:195</code>、<code>Scripts/Road/RoadGraph.cs:211</code>、`Scripts/Road...</td>
+<td><a href="tasks/save-system.html#save-system878b6f92c0cc">save-system:878b6f92c0cc</a></td>
+<td>遗留原文已取代；当前 V2 已移除类型字段和兼容回退。</td>
+</tr>
+<tr>
+<td><code>todo:baseline:b3bbd674df7c</code></td>
+<td><code>solved_baseline_checkbox</code></td>
+<td>waypoint 交叉、锚点拆分和 waypoint 精确拆边已有修复。 <code>Scripts/Road/RoadGraph.cs:401</code>、<code>Scripts/Road/RoadGraph.cs:464</code>、`Scripts/Road/Ro...</td>
+<td><a href="tasks/road-graph.html#road-graphb3bbd674df7c">road-graph:b3bbd674df7c</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:baseline:4efd03c22f37</code></td>
+<td><code>solved_baseline_checkbox</code></td>
+<td>P1 主体和纯图数据模型已经落地。 权威实体位于 <code>_nodes</code>、<code>_edges</code>、<code>_groups</code>；旧位置字典已移除，空间索引可重建。</td>
+<td><a href="tasks/road-graph.html#road-graph4efd03c22f37">road-graph:4efd03c22f37</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:baseline:df59848d1fce</code></td>
+<td><code>solved_baseline_checkbox</code></td>
+<td><code>CellSize</code> 已从 RoadGraph API 移除。 网格吸附和半格输入留在 <code>RoadBuilder</code> / <code>GridSystem</code>。</td>
+<td><a href="tasks/tool-input.html#tool-inputdf59848d1fce">tool-input:df59848d1fce</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:baseline:0854f0250cc2</code></td>
+<td><code>solved_baseline_checkbox</code></td>
+<td>事件驱动 Edge 渲染与加载后全量重建已经落地。 <code>RoadRenderer.SetGraph</code> 监听 <code>EdgeAdded</code>、<code>EdgeRemoved</code>、<code>GraphCleared</code>。</td>
+<td><a href="tasks/grid-rendering.html#grid-rendering0854f0250cc2">grid-rendering:0854f0250cc2</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:completion:822fd09c14ca</code></td>
+<td><code>completion_criterion</code></td>
+<td>1. 当前清理里程碑要求阶段 0～6 中保留的活动项全部完成，包括 2.4；RoadType 产品功能 D5.1～D5.3、<code>P6.*</code> 与其他需求触发项明确排除，直到满足各自启用条件。</td>
+<td><a href="tasks/road-graph.html#road-graph822fd09c14ca">road-graph:822fd09c14ca</a></td>
+<td>遗留 V2 标准；D5.1～D5.3 已由 V3 独立路线图取代，P6.1～P6.4 仍属于 V3 之后。</td>
+</tr>
+<tr>
+<td><code>todo:completion:57b3e1c6c3fa</code></td>
+<td><code>completion_criterion</code></td>
+<td>2. 每个行为项先有失败的自动化测试，再做最小实现并通过完整回归；不能仅凭源码检查标记完成。</td>
+<td><a href="tasks/road-graph.html#road-graph57b3e1c6c3fa">road-graph:57b3e1c6c3fa</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:completion:936efe9cdd8b</code></td>
+<td><code>completion_criterion</code></td>
+<td>3. 几何、拓扑、删除事务、存档兼容、<code>SaveManager</code> 契约、保存路径边界、整槽加载预检和公共 API 测试全部通过；当前只要求 RoadType 数据/旧存档兼容回归，不要求类型样式或选择 UI。</td>
+<td><a href="tasks/road-graph.html#road-graph936efe9cdd8b">road-graph:936efe9cdd8b</a></td>
+<td>遗留 V2 标准已取代：V2 不再保存 RoadType，也不接受旧类型回退。</td>
+</tr>
+<tr>
+<td><code>todo:completion:c78164d23e9b</code></td>
+<td><code>completion_criterion</code></td>
+<td>4. <code>dotnet build</code> 退出码为 0，修改文件无新增诊断；构建成功不能替代自动化或运行时测试证据。</td>
+<td><a href="tasks/road-graph.html#road-graphc78164d23e9b">road-graph:c78164d23e9b</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:completion:af4fd4e8bade</code></td>
+<td><code>completion_criterion</code></td>
+<td>5. 在 Godot 主场景真实完成铺路、交叉、拆除、保存、加载、非法槽名拒绝和加载失败保护验证，并记录实际观察结果；RoadType 产品功能启用后再增加类型选择和样式验证。</td>
+<td><a href="tasks/save-system.html#save-systemaf4fd4e8bade">save-system:af4fd4e8bade</a></td>
+<td>遗留 V2 标准；RoadType 选择与样式现由 V3 独立路线图验收。</td>
+</tr>
+<tr>
+<td><code>todo:completion:bfd7554b1b07</code></td>
+<td><code>completion_criterion</code></td>
+<td>6. 10k+ Edge 性能场景有可复现的优化前后数据，且局部查询不再随全图规模线性退化。</td>
+<td><a href="tasks/road-graph.html#road-graphbfd7554b1b07">road-graph:bfd7554b1b07</a></td>
+<td></td>
+</tr>
+<tr>
+<td><code>todo:completion:cb8d79634afd</code></td>
+<td><code>completion_criterion</code></td>
+<td>7. 文档项必须引用最终代码或测试事实；只有在对应测试和必要的 Godot 运行验证完成后，才能把目标描述为已实现。</td>
+<td><a href="tasks/road-graph.html#road-graphcb8d79634afd">road-graph:cb8d79634afd</a></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="总体依赖说明">总体依赖说明<a class="headerlink" href="#总体依赖说明" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>save-system:0.9</code> 依赖 <code>road-graph:0.1</code> 提供自动化测试入口。</li>
+<li><code>road-graph:4.4</code> 已提供事务后稳定事件，作为交通模拟的第二代基线；<code>traffic-simulation:P6.1</code>～<code>P6.4</code> 仍等待 <code>v3-road-graph:8.6</code>。</li>
+<li><code>traffic-simulation:P6.3</code> 还等待 P6.1、P6.2 和独立的模拟参数决策。</li>
+<li><code>traffic-simulation:P6.5</code> 已由 <code>v3-road-graph:8.5</code>、<code>v3-tool-input:2.2</code> 和 <code>v3-ui:1.2</code> 取代；根层 D5.1～D5.3 不再是它的活动依赖。</li>
+<li><code>grid-rendering:5.3</code> 与 <code>save-system:5.3</code> 关联；最终兼容性验收由 <code>save-system</code> 负责。</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  回到页面顶部
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "search.highlight", "search.suggest", "content.code.copy"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "\u5df2\u590d\u5236", "clipboard.copy": "\u590d\u5236", "search.result.more.one": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.more.other": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 # \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.term.missing": "\u7f3a\u5c11", "select.version": "\u9009\u62e9\u5f53\u524d\u7248\u672c"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      
+        <script src="../../assets/mermaid.min.js"></script>
+      
+        <script src="../../assets/site.js"></script>
+      
+    
+  </body>
+</html>

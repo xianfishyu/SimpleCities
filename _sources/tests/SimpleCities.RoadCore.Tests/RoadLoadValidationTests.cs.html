@@ -1,0 +1,61 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>tests/SimpleCities.RoadCore.Tests/RoadLoadValidationTests.cs · SimpleCities 源码</title><link rel="stylesheet" href="../../../assets/source.css"><header><a href="../../../index.html">← 文档首页</a><h1>tests/SimpleCities.RoadCore.Tests/RoadLoadValidationTests.cs</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">using System.Text;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code"></code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">namespace SimpleCities.RoadCore.Tests;</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code"></code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code">public sealed class RoadLoadValidationTests</code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">{</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">    // 独立编写的规范载荷；非法输入直接变更原始 JSON，以保留重复字段。</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">    private const string Valid = &quot;&quot;&quot;</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">        {&quot;formatFamily&quot;:&quot;simple-cities-v4&quot;,&quot;payloadType&quot;:&quot;road-network&quot;,&quot;schemaVersion&quot;:6,</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">        &quot;contentRevision&quot;:2,&quot;nextNodeId&quot;:3,&quot;nextEdgeId&quot;:2,&quot;profileCatalogVersion&quot;:1,</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">        &quot;map&quot;:{&quot;widthMetres&quot;:8000,&quot;heightMetres&quot;:8000,&quot;origin&quot;:&quot;center&quot;,&quot;metresPerUnit&quot;:1,&quot;grid&quot;:&quot;square-eight&quot;,&quot;cellSizeMetres&quot;:100},</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">        &quot;nodes&quot;:[{&quot;id&quot;:1,&quot;x&quot;:0,&quot;y&quot;:0},{&quot;id&quot;:2,&quot;x&quot;:100,&quot;y&quot;:0}],</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">        &quot;edges&quot;:[{&quot;id&quot;:1,&quot;startNodeId&quot;:1,&quot;endNodeId&quot;:2,&quot;profile&quot;:&quot;street&quot;,&quot;points&quot;:[{&quot;x&quot;:0,&quot;y&quot;:0},{&quot;x&quot;:100,&quot;y&quot;:0}]}]}</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">        &quot;&quot;&quot;;</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code"></code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">    [Theory]</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">    [InlineData(&quot;\&quot;x\&quot;:100,\&quot;y\&quot;:0&quot;, &quot;\&quot;x\&quot;:4100,\&quot;y\&quot;:0&quot;)]</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code">    [InlineData(&quot;\&quot;x\&quot;:100,\&quot;y\&quot;:0&quot;, &quot;\&quot;x\&quot;:100,\&quot;y\&quot;:200&quot;)]</code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">    [InlineData(&quot;\&quot;nextEdgeId\&quot;:2&quot;, &quot;\&quot;nextEdgeId\&quot;:1&quot;)]</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code">    [InlineData(&quot;\&quot;profile\&quot;:\&quot;street\&quot;&quot;, &quot;\&quot;profile\&quot;:\&quot;street\&quot;,\&quot;profile\&quot;:\&quot;street\&quot;&quot;)]</code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">    [InlineData(&quot;\&quot;profile\&quot;:\&quot;street\&quot;&quot;, &quot;\&quot;profile\&quot;:\&quot;street\&quot;,\&quot;geometryKind\&quot;:\&quot;bezier\&quot;&quot;)]</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">    public void InvalidLoadPreservesActiveRoadContentAndBothHistoryDirections(string original, string replacement)</code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code">    {</code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">        var network = new RoadNetwork(new MapDefinition(25));</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code">        Build(network, new(-200, 0), new(-100, 0));</code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">        Build(network, new(-200, 100), new(-100, 100));</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">        Assert.True(network.TryCommit(network.PlanUndo().Plan!));</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code">        RoadSnapshot before = network.Snapshot;</code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">        RoadEditHistory history = network.History;</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">        byte[] saved = Save(before);</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code">        Assert.Equal(1, history.UndoCount);</code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">        Assert.Equal(1, history.RedoCount);</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code"></code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code">        using (var validSource = new MemoryStream(Encoding.UTF8.GetBytes(Valid)))</code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code">            Assert.Single(RoadCodec.Read(validSource).Edges);</code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code">        Assert.Contains(original, Valid);</code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code">        using var source = new MemoryStream(Encoding.UTF8.GetBytes(Valid.Replace(original, replacement)));</code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code"></code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code">        Assert.Throws&lt;InvalidDataException&gt;(() =&gt; network.PlanLoad(RoadCodec.Read(source)));</code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code"></code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code">        Assert.Same(before, network.Snapshot);</code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code">        Assert.Same(history, network.History);</code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code">        Assert.Equal(saved, Save(network.Snapshot));</code></span>
+<span class="line" id="L44"><a class="number" href="#L44">44</a><code class="code">        Assert.Equal(1, network.History.UndoCount);</code></span>
+<span class="line" id="L45"><a class="number" href="#L45">45</a><code class="code">        Assert.Equal(1, network.History.RedoCount);</code></span>
+<span class="line" id="L46"><a class="number" href="#L46">46</a><code class="code">    }</code></span>
+<span class="line" id="L47"><a class="number" href="#L47">47</a><code class="code"></code></span>
+<span class="line" id="L48"><a class="number" href="#L48">48</a><code class="code">    private static void Build(RoadNetwork network, RoadPoint start, RoadPoint end)</code></span>
+<span class="line" id="L49"><a class="number" href="#L49">49</a><code class="code">    {</code></span>
+<span class="line" id="L50"><a class="number" href="#L50">50</a><code class="code">        RoadBuildResult result = network.PlanBuild(new(network.Snapshot.Token, start, end, RoadProfileId.Street));</code></span>
+<span class="line" id="L51"><a class="number" href="#L51">51</a><code class="code">        Assert.Equal(RoadBuildStatus.Ready, result.Status);</code></span>
+<span class="line" id="L52"><a class="number" href="#L52">52</a><code class="code">        Assert.True(network.TryCommit(result.Plan!));</code></span>
+<span class="line" id="L53"><a class="number" href="#L53">53</a><code class="code">    }</code></span>
+<span class="line" id="L54"><a class="number" href="#L54">54</a><code class="code"></code></span>
+<span class="line" id="L55"><a class="number" href="#L55">55</a><code class="code">    private static byte[] Save(RoadSnapshot snapshot)</code></span>
+<span class="line" id="L56"><a class="number" href="#L56">56</a><code class="code">    {</code></span>
+<span class="line" id="L57"><a class="number" href="#L57">57</a><code class="code">        using var stream = new MemoryStream();</code></span>
+<span class="line" id="L58"><a class="number" href="#L58">58</a><code class="code">        RoadCodec.Write(stream, snapshot);</code></span>
+<span class="line" id="L59"><a class="number" href="#L59">59</a><code class="code">        return stream.ToArray();</code></span>
+<span class="line" id="L60"><a class="number" href="#L60">60</a><code class="code">    }</code></span>
+<span class="line" id="L61"><a class="number" href="#L61">61</a><code class="code">}</code></span></pre></main></html>

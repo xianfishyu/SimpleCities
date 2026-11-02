@@ -1,0 +1,211 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>SimpleCities.RoadCore/RoadMutationDraft.cs · SimpleCities 源码</title><link rel="stylesheet" href="../../assets/source.css"><header><a href="../../index.html">← 文档首页</a><h1>SimpleCities.RoadCore/RoadMutationDraft.cs</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">using System.Runtime.InteropServices;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code"></code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">namespace SimpleCities.RoadCore;</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code"></code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code">/// &lt;summary&gt;建造与格段编辑共用的私有切分和规范化操作，不发布活动状态。&lt;/summary&gt;</code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">internal static class RoadMutationDraft</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">{</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">    internal sealed record Piece(EdgeId? Id, NodeId Start, NodeId End, RoadProfileId Profile, IReadOnlyList&lt;RoadPoint&gt; Points);</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code"></code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">    internal static RoadPlan Freeze(RoadNetwork owner, RoadSnapshot source, Dictionary&lt;RoadPoint, RoadNode&gt; nodes,</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">        List&lt;Piece&gt; pieces, long nextNode, long nextEdge, CancellationToken cancellationToken)</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">    {</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">        var edges = new List&lt;RoadEdge&gt;(pieces.Count);</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">        foreach (Piece piece in pieces)</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code">        {</code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">            cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">            EdgeId id = piece.Id ?? new EdgeId(Allocate(ref nextEdge));</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code">            bool forward = piece.Start.Value &lt; piece.End.Value ||</code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">                (piece.Start == piece.End &amp;&amp; RoadTopology.IsCanonicalLoopDirection(piece.Points));</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code">            RoadEdge? previous = source.FindEdge(id);</code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">            if (previous is not null &amp;&amp; previous.Start == (forward ? piece.Start : piece.End) &amp;&amp;</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">                previous.End == (forward ? piece.End : piece.Start) &amp;&amp; previous.Profile == piece.Profile &amp;&amp;</code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code">                SamePoints(previous.Points, piece.Points, forward))</code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">            {</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code">                edges.Add(previous);</code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">                continue;</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">            }</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code">            edges.Add(forward</code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">                ? new RoadEdge(id, piece.Start, piece.End, piece.Profile, piece.Points)</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">                : new RoadEdge(id, piece.End, piece.Start, piece.Profile, piece.Points.AsEnumerable().Reverse()));</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code">        }</code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">        RoadNode[] orderedNodes = nodes.Values.OrderBy(node =&gt; node.Id.Value).ToArray();</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code">        edges.Sort((a, b) =&gt; a.Id.Value.CompareTo(b.Id.Value));</code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code">        RoadTopology.Validate(source.Map, orderedNodes, edges, nextNode, nextEdge, cancellationToken);</code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code">        RoadStateToken token = source.Token with</code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code">        {</code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code">            ContentRevision = owner.NextContentRevision(source),</code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code">            ChangeSequence = source.Token.ChangeSequence + 1,</code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code">        };</code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code">        var target = new RoadSnapshot(source.Map, token, nextNode, nextEdge, orderedNodes, edges,</code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code">            source, cancellationToken);</code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code">        cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code">        var plan = new RoadPlan(owner, source, target, checked((int)(nextNode - source.NextNodeId)),</code></span>
+<span class="line" id="L44"><a class="number" href="#L44">44</a><code class="code">            checked((int)(nextEdge - source.NextEdgeId)), cancellationToken);</code></span>
+<span class="line" id="L45"><a class="number" href="#L45">45</a><code class="code">        cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L46"><a class="number" href="#L46">46</a><code class="code">        return plan;</code></span>
+<span class="line" id="L47"><a class="number" href="#L47">47</a><code class="code">    }</code></span>
+<span class="line" id="L48"><a class="number" href="#L48">48</a><code class="code"></code></span>
+<span class="line" id="L49"><a class="number" href="#L49">49</a><code class="code">    private static bool SamePoints(IReadOnlyList&lt;RoadPoint&gt; before, IReadOnlyList&lt;RoadPoint&gt; after, bool forward)</code></span>
+<span class="line" id="L50"><a class="number" href="#L50">50</a><code class="code">    {</code></span>
+<span class="line" id="L51"><a class="number" href="#L51">51</a><code class="code">        if (forward &amp;&amp; ReferenceEquals(before, after)) return true;</code></span>
+<span class="line" id="L52"><a class="number" href="#L52">52</a><code class="code">        if (before.Count != after.Count) return false;</code></span>
+<span class="line" id="L53"><a class="number" href="#L53">53</a><code class="code">        for (int i = 0; i &lt; before.Count; i++)</code></span>
+<span class="line" id="L54"><a class="number" href="#L54">54</a><code class="code">            if (before[i] != after[forward ? i : after.Count - 1 - i]) return false;</code></span>
+<span class="line" id="L55"><a class="number" href="#L55">55</a><code class="code">        return true;</code></span>
+<span class="line" id="L56"><a class="number" href="#L56">56</a><code class="code">    }</code></span>
+<span class="line" id="L57"><a class="number" href="#L57">57</a><code class="code"></code></span>
+<span class="line" id="L58"><a class="number" href="#L58">58</a><code class="code">    internal static long Allocate(ref long next)</code></span>
+<span class="line" id="L59"><a class="number" href="#L59">59</a><code class="code">    {</code></span>
+<span class="line" id="L60"><a class="number" href="#L60">60</a><code class="code">        if (next &gt;= long.MaxValue - 1) throw new InvalidDataException(&quot;道路身份或版本已耗尽&quot;);</code></span>
+<span class="line" id="L61"><a class="number" href="#L61">61</a><code class="code">        return next++;</code></span>
+<span class="line" id="L62"><a class="number" href="#L62">62</a><code class="code">    }</code></span>
+<span class="line" id="L63"><a class="number" href="#L63">63</a><code class="code"></code></span>
+<span class="line" id="L64"><a class="number" href="#L64">64</a><code class="code">    internal static void Split(EdgeId? originalId, RoadProfileId profile, IReadOnlyList&lt;RoadPoint&gt; points,</code></span>
+<span class="line" id="L65"><a class="number" href="#L65">65</a><code class="code">        HashSet&lt;RoadPoint&gt; cuts, Dictionary&lt;RoadPoint, RoadNode&gt; nodes, List&lt;Piece&gt; destination,</code></span>
+<span class="line" id="L66"><a class="number" href="#L66">66</a><code class="code">        CancellationToken cancellationToken)</code></span>
+<span class="line" id="L67"><a class="number" href="#L67">67</a><code class="code">    {</code></span>
+<span class="line" id="L68"><a class="number" href="#L68">68</a><code class="code">        var current = new List&lt;RoadPoint&gt; { points[0] };</code></span>
+<span class="line" id="L69"><a class="number" href="#L69">69</a><code class="code">        EdgeId? id = originalId;</code></span>
+<span class="line" id="L70"><a class="number" href="#L70">70</a><code class="code">        for (int i = 1; i &lt; points.Count; i++)</code></span>
+<span class="line" id="L71"><a class="number" href="#L71">71</a><code class="code">        {</code></span>
+<span class="line" id="L72"><a class="number" href="#L72">72</a><code class="code">            cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L73"><a class="number" href="#L73">73</a><code class="code">            RoadPoint a = points[i - 1], b = points[i];</code></span>
+<span class="line" id="L74"><a class="number" href="#L74">74</a><code class="code">            IEnumerable&lt;RoadPoint&gt; ordered = cuts.Where(point =&gt; point != a &amp;&amp; OnSegment(point, a, b))</code></span>
+<span class="line" id="L75"><a class="number" href="#L75">75</a><code class="code">                .Append(b).Distinct().OrderBy(point =&gt; Parameter(point, a, b));</code></span>
+<span class="line" id="L76"><a class="number" href="#L76">76</a><code class="code">            foreach (RoadPoint point in ordered)</code></span>
+<span class="line" id="L77"><a class="number" href="#L77">77</a><code class="code">            {</code></span>
+<span class="line" id="L78"><a class="number" href="#L78">78</a><code class="code">                current.Add(point);</code></span>
+<span class="line" id="L79"><a class="number" href="#L79">79</a><code class="code">                if (!cuts.Contains(point)) continue;</code></span>
+<span class="line" id="L80"><a class="number" href="#L80">80</a><code class="code">                destination.Add(new Piece(id, nodes[current[0]].Id, nodes[point].Id, profile, current));</code></span>
+<span class="line" id="L81"><a class="number" href="#L81">81</a><code class="code">                id = null;</code></span>
+<span class="line" id="L82"><a class="number" href="#L82">82</a><code class="code">                current = [point];</code></span>
+<span class="line" id="L83"><a class="number" href="#L83">83</a><code class="code">            }</code></span>
+<span class="line" id="L84"><a class="number" href="#L84">84</a><code class="code">        }</code></span>
+<span class="line" id="L85"><a class="number" href="#L85">85</a><code class="code">    }</code></span>
+<span class="line" id="L86"><a class="number" href="#L86">86</a><code class="code"></code></span>
+<span class="line" id="L87"><a class="number" href="#L87">87</a><code class="code">    internal static void Normalize(Dictionary&lt;RoadPoint, RoadNode&gt; nodes, List&lt;Piece&gt; pieces,</code></span>
+<span class="line" id="L88"><a class="number" href="#L88">88</a><code class="code">        CancellationToken cancellationToken)</code></span>
+<span class="line" id="L89"><a class="number" href="#L89">89</a><code class="code">    {</code></span>
+<span class="line" id="L90"><a class="number" href="#L90">90</a><code class="code">        cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L91"><a class="number" href="#L91">91</a><code class="code">        if (pieces.Count == 0)</code></span>
+<span class="line" id="L92"><a class="number" href="#L92">92</a><code class="code">        {</code></span>
+<span class="line" id="L93"><a class="number" href="#L93">93</a><code class="code">            nodes.Clear();</code></span>
+<span class="line" id="L94"><a class="number" href="#L94">94</a><code class="code">            return;</code></span>
+<span class="line" id="L95"><a class="number" href="#L95">95</a><code class="code">        }</code></span>
+<span class="line" id="L96"><a class="number" href="#L96">96</a><code class="code">        var incident = new Dictionary&lt;NodeId, IncidentPieces&gt;(nodes.Count);</code></span>
+<span class="line" id="L97"><a class="number" href="#L97">97</a><code class="code">        foreach (RoadNode node in nodes.Values)</code></span>
+<span class="line" id="L98"><a class="number" href="#L98">98</a><code class="code">        {</code></span>
+<span class="line" id="L99"><a class="number" href="#L99">99</a><code class="code">            cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L100"><a class="number" href="#L100">100</a><code class="code">            incident.Add(node.Id, default);</code></span>
+<span class="line" id="L101"><a class="number" href="#L101">101</a><code class="code">        }</code></span>
+<span class="line" id="L102"><a class="number" href="#L102">102</a><code class="code">        for (int i = 0; i &lt; pieces.Count; i++)</code></span>
+<span class="line" id="L103"><a class="number" href="#L103">103</a><code class="code">        {</code></span>
+<span class="line" id="L104"><a class="number" href="#L104">104</a><code class="code">            cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L105"><a class="number" href="#L105">105</a><code class="code">            // Endpoints were allocated before the pieces; the map cannot grow here.</code></span>
+<span class="line" id="L106"><a class="number" href="#L106">106</a><code class="code">            CollectionsMarshal.GetValueRefOrNullRef(incident, pieces[i].Start).Add(i);</code></span>
+<span class="line" id="L107"><a class="number" href="#L107">107</a><code class="code">            CollectionsMarshal.GetValueRefOrNullRef(incident, pieces[i].End).Add(i);</code></span>
+<span class="line" id="L108"><a class="number" href="#L108">108</a><code class="code">        }</code></span>
+<span class="line" id="L109"><a class="number" href="#L109">109</a><code class="code">        List&lt;RoadPoint&gt;? unused = null;</code></span>
+<span class="line" id="L110"><a class="number" href="#L110">110</a><code class="code">        var candidates = new List&lt;RoadNode&gt;();</code></span>
+<span class="line" id="L111"><a class="number" href="#L111">111</a><code class="code">        foreach (RoadNode node in nodes.Values)</code></span>
+<span class="line" id="L112"><a class="number" href="#L112">112</a><code class="code">        {</code></span>
+<span class="line" id="L113"><a class="number" href="#L113">113</a><code class="code">            cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L114"><a class="number" href="#L114">114</a><code class="code">            IncidentPieces ends = incident[node.Id];</code></span>
+<span class="line" id="L115"><a class="number" href="#L115">115</a><code class="code">            if (ends.Count == 0)</code></span>
+<span class="line" id="L116"><a class="number" href="#L116">116</a><code class="code">            {</code></span>
+<span class="line" id="L117"><a class="number" href="#L117">117</a><code class="code">                (unused ??= []).Add(node.Position);</code></span>
+<span class="line" id="L118"><a class="number" href="#L118">118</a><code class="code">                continue;</code></span>
+<span class="line" id="L119"><a class="number" href="#L119">119</a><code class="code">            }</code></span>
+<span class="line" id="L120"><a class="number" href="#L120">120</a><code class="code">            if (ends.Count == 2 &amp;&amp; !ReferenceEquals(pieces[ends.First], pieces[ends.Second]) &amp;&amp;</code></span>
+<span class="line" id="L121"><a class="number" href="#L121">121</a><code class="code">                pieces[ends.First].Profile == pieces[ends.Second].Profile)</code></span>
+<span class="line" id="L122"><a class="number" href="#L122">122</a><code class="code">                candidates.Add(node);</code></span>
+<span class="line" id="L123"><a class="number" href="#L123">123</a><code class="code">        }</code></span>
+<span class="line" id="L124"><a class="number" href="#L124">124</a><code class="code">        if (unused is not null)</code></span>
+<span class="line" id="L125"><a class="number" href="#L125">125</a><code class="code">            foreach (RoadPoint position in unused)</code></span>
+<span class="line" id="L126"><a class="number" href="#L126">126</a><code class="code">            {</code></span>
+<span class="line" id="L127"><a class="number" href="#L127">127</a><code class="code">                cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L128"><a class="number" href="#L128">128</a><code class="code">                incident.Remove(nodes[position].Id);</code></span>
+<span class="line" id="L129"><a class="number" href="#L129">129</a><code class="code">                nodes.Remove(position);</code></span>
+<span class="line" id="L130"><a class="number" href="#L130">130</a><code class="code">            }</code></span>
+<span class="line" id="L131"><a class="number" href="#L131">131</a><code class="code">        if (candidates.Count == 0) return;</code></span>
+<span class="line" id="L132"><a class="number" href="#L132">132</a><code class="code">        // Contraction preserves every other node&#x27;s degree and profiles. It cannot</code></span>
+<span class="line" id="L133"><a class="number" href="#L133">133</a><code class="code">        // create a new candidate, but can turn one into a non-removable self-loop.</code></span>
+<span class="line" id="L134"><a class="number" href="#L134">134</a><code class="code">        // Higher IDs disappear first, retaining the smallest seam of an isolated ring.</code></span>
+<span class="line" id="L135"><a class="number" href="#L135">135</a><code class="code">        candidates.Sort((a, b) =&gt; b.Id.Value.CompareTo(a.Id.Value));</code></span>
+<span class="line" id="L136"><a class="number" href="#L136">136</a><code class="code">        var work = new List&lt;Piece?&gt;(checked(pieces.Count * 2));</code></span>
+<span class="line" id="L137"><a class="number" href="#L137">137</a><code class="code">        work.AddRange(pieces);</code></span>
+<span class="line" id="L138"><a class="number" href="#L138">138</a><code class="code">        pieces.Clear();</code></span>
+<span class="line" id="L139"><a class="number" href="#L139">139</a><code class="code">        foreach (RoadNode removable in candidates)</code></span>
+<span class="line" id="L140"><a class="number" href="#L140">140</a><code class="code">        {</code></span>
+<span class="line" id="L141"><a class="number" href="#L141">141</a><code class="code">            cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L142"><a class="number" href="#L142">142</a><code class="code">            IncidentPieces ends = incident[removable.Id];</code></span>
+<span class="line" id="L143"><a class="number" href="#L143">143</a><code class="code">            Piece a = work[ends.First] ?? throw new InvalidOperationException(&quot;Missing normalization incidence.&quot;);</code></span>
+<span class="line" id="L144"><a class="number" href="#L144">144</a><code class="code">            Piece b = work[ends.Second] ?? throw new InvalidOperationException(&quot;Missing normalization incidence.&quot;);</code></span>
+<span class="line" id="L145"><a class="number" href="#L145">145</a><code class="code">            if (ReferenceEquals(a, b)) continue;</code></span>
+<span class="line" id="L146"><a class="number" href="#L146">146</a><code class="code">            NodeId start = a.Start == removable.Id ? a.End : a.Start;</code></span>
+<span class="line" id="L147"><a class="number" href="#L147">147</a><code class="code">            NodeId end = b.Start == removable.Id ? b.End : b.Start;</code></span>
+<span class="line" id="L148"><a class="number" href="#L148">148</a><code class="code">            IEnumerable&lt;RoadPoint&gt; first = a.End == removable.Id ? a.Points : a.Points.AsEnumerable().Reverse();</code></span>
+<span class="line" id="L149"><a class="number" href="#L149">149</a><code class="code">            IEnumerable&lt;RoadPoint&gt; second = b.Start == removable.Id ? b.Points : b.Points.AsEnumerable().Reverse();</code></span>
+<span class="line" id="L150"><a class="number" href="#L150">150</a><code class="code">            var joined = new List&lt;RoadPoint&gt;();</code></span>
+<span class="line" id="L151"><a class="number" href="#L151">151</a><code class="code">            foreach (RoadPoint point in first.Concat(second.Skip(1)))</code></span>
+<span class="line" id="L152"><a class="number" href="#L152">152</a><code class="code">            {</code></span>
+<span class="line" id="L153"><a class="number" href="#L153">153</a><code class="code">                cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L154"><a class="number" href="#L154">154</a><code class="code">                while (joined.Count &gt;= 2 &amp;&amp; RoadTopology.IsForwardCollinear(joined[^2], joined[^1], point))</code></span>
+<span class="line" id="L155"><a class="number" href="#L155">155</a><code class="code">                    joined.RemoveAt(joined.Count - 1);</code></span>
+<span class="line" id="L156"><a class="number" href="#L156">156</a><code class="code">                joined.Add(point);</code></span>
+<span class="line" id="L157"><a class="number" href="#L157">157</a><code class="code">            }</code></span>
+<span class="line" id="L158"><a class="number" href="#L158">158</a><code class="code">            EdgeId? retained = a.Id.HasValue &amp;&amp; b.Id.HasValue</code></span>
+<span class="line" id="L159"><a class="number" href="#L159">159</a><code class="code">                ? (a.Id.Value.Value &lt; b.Id.Value.Value ? a.Id : b.Id) : a.Id ?? b.Id;</code></span>
+<span class="line" id="L160"><a class="number" href="#L160">160</a><code class="code">            int replacement = work.Count;</code></span>
+<span class="line" id="L161"><a class="number" href="#L161">161</a><code class="code">            work[ends.First] = null;</code></span>
+<span class="line" id="L162"><a class="number" href="#L162">162</a><code class="code">            work[ends.Second] = null;</code></span>
+<span class="line" id="L163"><a class="number" href="#L163">163</a><code class="code">            work.Add(new Piece(retained, start, end, a.Profile, joined));</code></span>
+<span class="line" id="L164"><a class="number" href="#L164">164</a><code class="code">            CollectionsMarshal.GetValueRefOrNullRef(incident, start).Replace(ends.First, ends.Second, replacement);</code></span>
+<span class="line" id="L165"><a class="number" href="#L165">165</a><code class="code">            if (end != start)</code></span>
+<span class="line" id="L166"><a class="number" href="#L166">166</a><code class="code">                CollectionsMarshal.GetValueRefOrNullRef(incident, end).Replace(ends.First, ends.Second, replacement);</code></span>
+<span class="line" id="L167"><a class="number" href="#L167">167</a><code class="code">            incident.Remove(removable.Id);</code></span>
+<span class="line" id="L168"><a class="number" href="#L168">168</a><code class="code">            nodes.Remove(removable.Position);</code></span>
+<span class="line" id="L169"><a class="number" href="#L169">169</a><code class="code">        }</code></span>
+<span class="line" id="L170"><a class="number" href="#L170">170</a><code class="code">        // Surviving original pieces retain their order; merged pieces were appended</code></span>
+<span class="line" id="L171"><a class="number" href="#L171">171</a><code class="code">        // in the same order as before. Freeze therefore assigns the same new IDs.</code></span>
+<span class="line" id="L172"><a class="number" href="#L172">172</a><code class="code">        foreach (Piece? piece in work)</code></span>
+<span class="line" id="L173"><a class="number" href="#L173">173</a><code class="code">        {</code></span>
+<span class="line" id="L174"><a class="number" href="#L174">174</a><code class="code">            cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L175"><a class="number" href="#L175">175</a><code class="code">            if (piece is not null) pieces.Add(piece);</code></span>
+<span class="line" id="L176"><a class="number" href="#L176">176</a><code class="code">        }</code></span>
+<span class="line" id="L177"><a class="number" href="#L177">177</a><code class="code">    }</code></span>
+<span class="line" id="L178"><a class="number" href="#L178">178</a><code class="code"></code></span>
+<span class="line" id="L179"><a class="number" href="#L179">179</a><code class="code">    private struct IncidentPieces</code></span>
+<span class="line" id="L180"><a class="number" href="#L180">180</a><code class="code">    {</code></span>
+<span class="line" id="L181"><a class="number" href="#L181">181</a><code class="code">        internal int Count;</code></span>
+<span class="line" id="L182"><a class="number" href="#L182">182</a><code class="code">        internal int First;</code></span>
+<span class="line" id="L183"><a class="number" href="#L183">183</a><code class="code">        internal int Second;</code></span>
+<span class="line" id="L184"><a class="number" href="#L184">184</a><code class="code">        internal void Add(int index)</code></span>
+<span class="line" id="L185"><a class="number" href="#L185">185</a><code class="code">        {</code></span>
+<span class="line" id="L186"><a class="number" href="#L186">186</a><code class="code">            if (Count == 0) First = index;</code></span>
+<span class="line" id="L187"><a class="number" href="#L187">187</a><code class="code">            else if (Count == 1) Second = index;</code></span>
+<span class="line" id="L188"><a class="number" href="#L188">188</a><code class="code">            Count++;</code></span>
+<span class="line" id="L189"><a class="number" href="#L189">189</a><code class="code">        }</code></span>
+<span class="line" id="L190"><a class="number" href="#L190">190</a><code class="code">        internal void Replace(int a, int b, int replacement)</code></span>
+<span class="line" id="L191"><a class="number" href="#L191">191</a><code class="code">        {</code></span>
+<span class="line" id="L192"><a class="number" href="#L192">192</a><code class="code">            // Only degree-two nodes can be considered later. Their degree and</code></span>
+<span class="line" id="L193"><a class="number" href="#L193">193</a><code class="code">            // profiles do not change; keep the newly appended piece last.</code></span>
+<span class="line" id="L194"><a class="number" href="#L194">194</a><code class="code">            if (Count != 2) return;</code></span>
+<span class="line" id="L195"><a class="number" href="#L195">195</a><code class="code">            if (First == a || First == b) First = replacement;</code></span>
+<span class="line" id="L196"><a class="number" href="#L196">196</a><code class="code">            if (Second == a || Second == b) Second = replacement;</code></span>
+<span class="line" id="L197"><a class="number" href="#L197">197</a><code class="code">            if (First &gt; Second) (First, Second) = (Second, First);</code></span>
+<span class="line" id="L198"><a class="number" href="#L198">198</a><code class="code">        }</code></span>
+<span class="line" id="L199"><a class="number" href="#L199">199</a><code class="code">    }</code></span>
+<span class="line" id="L200"><a class="number" href="#L200">200</a><code class="code"></code></span>
+<span class="line" id="L201"><a class="number" href="#L201">201</a><code class="code">    internal static double Parameter(RoadPoint p, RoadPoint a, RoadPoint b) =&gt;</code></span>
+<span class="line" id="L202"><a class="number" href="#L202">202</a><code class="code">        a.X != b.X ? (p.X - a.X) / (b.X - a.X) : (p.Y - a.Y) / (b.Y - a.Y);</code></span>
+<span class="line" id="L203"><a class="number" href="#L203">203</a><code class="code"></code></span>
+<span class="line" id="L204"><a class="number" href="#L204">204</a><code class="code">    internal static bool OnSegment(RoadPoint p, RoadPoint a, RoadPoint b) =&gt;</code></span>
+<span class="line" id="L205"><a class="number" href="#L205">205</a><code class="code">        Cross(p.X - a.X, p.Y - a.Y, b.X - a.X, b.Y - a.Y) == 0 &amp;&amp;</code></span>
+<span class="line" id="L206"><a class="number" href="#L206">206</a><code class="code">        p.X &gt;= Math.Min(a.X, b.X) &amp;&amp; p.X &lt;= Math.Max(a.X, b.X) &amp;&amp;</code></span>
+<span class="line" id="L207"><a class="number" href="#L207">207</a><code class="code">        p.Y &gt;= Math.Min(a.Y, b.Y) &amp;&amp; p.Y &lt;= Math.Max(a.Y, b.Y);</code></span>
+<span class="line" id="L208"><a class="number" href="#L208">208</a><code class="code"></code></span>
+<span class="line" id="L209"><a class="number" href="#L209">209</a><code class="code">    internal static double Cross(double ax, double ay, double bx, double by) =&gt; ax * by - ay * bx;</code></span>
+<span class="line" id="L210"><a class="number" href="#L210">210</a><code class="code"></code></span>
+<span class="line" id="L211"><a class="number" href="#L211">211</a><code class="code">}</code></span></pre></main></html>

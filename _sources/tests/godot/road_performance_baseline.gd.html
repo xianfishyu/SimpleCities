@@ -1,0 +1,360 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>tests/godot/road_performance_baseline.gd · SimpleCities 源码</title><link rel="stylesheet" href="../../../assets/source.css"><header><a href="../../../index.html">← 文档首页</a><h1>tests/godot/road_performance_baseline.gd</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">extends SceneTree</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code"></code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">const SAVE := preload(&quot;res://tests/godot/road_save_fixture.gd&quot;)</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code">var _map: Node</code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code">var _slot := &quot;&quot;</code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">var _cell := 100</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">var _seconds := 10.0</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">var _warmup := 5.0</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">var _cycles := 20</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">var _output := &quot;res://.scratch/v4-21-20260929&quot;</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">var _passed := true</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">var _checks: Array = []</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">var _windows: Array = []</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">var _operations: Array = []</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code">var _cancellations: Array = []</code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">var _sampling := false</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">var _last_draw := 0</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code">var _origin := 0</code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">var _window_wall_start_ms := 0.0</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code">var _focused_frames := 0</code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">var _active_window := &quot;setup&quot;</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">var _frame_ms := PackedFloat64Array()</code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code">var _frame_us := PackedInt64Array()</code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">var _frame_timeline := false</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code">var _process_at := 0</code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">var _pre_draw_at := 0</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">var _process_us := PackedInt64Array()</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code">var _pre_draw_us := PackedInt64Array()</code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">var _drawn_frames := PackedInt64Array()</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">var _sync_calls: Array = []</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code"></code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">func _initialize() -&gt; void:</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code">	for argument in OS.get_cmdline_user_args():</code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code">		if argument.begins_with(&quot;--cell=&quot;): _cell = int(argument.trim_prefix(&quot;--cell=&quot;))</code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code">		if argument.begins_with(&quot;--seconds=&quot;): _seconds = float(argument.trim_prefix(&quot;--seconds=&quot;))</code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code">		if argument.begins_with(&quot;--warmup=&quot;): _warmup = float(argument.trim_prefix(&quot;--warmup=&quot;))</code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code">		if argument.begins_with(&quot;--cycles=&quot;): _cycles = int(argument.trim_prefix(&quot;--cycles=&quot;))</code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code">		if argument.begins_with(&quot;--output=&quot;): _output = argument.trim_prefix(&quot;--output=&quot;)</code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code">		if argument == &quot;--frame-timeline&quot;: _frame_timeline = true</code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code">	if _frame_timeline:</code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code">		process_frame.connect(on_process_marker)</code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code">		RenderingServer.frame_pre_draw.connect(on_pre_draw_marker)</code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code">	run.call_deferred()</code></span>
+<span class="line" id="L44"><a class="number" href="#L44">44</a><code class="code"></code></span>
+<span class="line" id="L45"><a class="number" href="#L45">45</a><code class="code">func run() -&gt; void:</code></span>
+<span class="line" id="L46"><a class="number" href="#L46">46</a><code class="code">	Engine.max_fps = 0</code></span>
+<span class="line" id="L47"><a class="number" href="#L47">47</a><code class="code">	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)</code></span>
+<span class="line" id="L48"><a class="number" href="#L48">48</a><code class="code">	_map = load(&quot;res://Scenes/RoadMap.tscn&quot;).instantiate()</code></span>
+<span class="line" id="L49"><a class="number" href="#L49">49</a><code class="code">	root.add_child(_map)</code></span>
+<span class="line" id="L50"><a class="number" href="#L50">50</a><code class="code">	current_scene = _map</code></span>
+<span class="line" id="L51"><a class="number" href="#L51">51</a><code class="code">	RenderingServer.frame_post_draw.connect(on_draw)</code></span>
+<span class="line" id="L52"><a class="number" href="#L52">52</a><code class="code">	await process_frame</code></span>
+<span class="line" id="L53"><a class="number" href="#L53">53</a><code class="code">	await process_frame</code></span>
+<span class="line" id="L54"><a class="number" href="#L54">54</a><code class="code">	if await load_fixture(&quot;mixed&quot;, 240):</code></span>
+<span class="line" id="L55"><a class="number" href="#L55">55</a><code class="code">		focus(Vector2(2.5, 2.5) * _cell, 50.0 / _cell)</code></span>
+<span class="line" id="L56"><a class="number" href="#L56">56</a><code class="code">		await idle_for(_warmup)</code></span>
+<span class="line" id="L57"><a class="number" href="#L57">57</a><code class="code">		await motion_window(&quot;idle&quot;, 0)</code></span>
+<span class="line" id="L58"><a class="number" href="#L58">58</a><code class="code">		await motion_window(&quot;camera&quot;, 1)</code></span>
+<span class="line" id="L59"><a class="number" href="#L59">59</a><code class="code">		await motion_window(&quot;visibleHover&quot;, 2)</code></span>
+<span class="line" id="L60"><a class="number" href="#L60">60</a><code class="code">		await motion_window(&quot;cameraAndHover&quot;, 3)</code></span>
+<span class="line" id="L61"><a class="number" href="#L61">61</a><code class="code">		await operation_window()</code></span>
+<span class="line" id="L62"><a class="number" href="#L62">62</a><code class="code">		await cancellation_window()</code></span>
+<span class="line" id="L63"><a class="number" href="#L63">63</a><code class="code">		if await load_fixture(&quot;polylines&quot;, 20):</code></span>
+<span class="line" id="L64"><a class="number" href="#L64">64</a><code class="code">			focus(Vector2.ZERO, 12.0 / _cell)</code></span>
+<span class="line" id="L65"><a class="number" href="#L65">65</a><code class="code">			await idle_for(_warmup)</code></span>
+<span class="line" id="L66"><a class="number" href="#L66">66</a><code class="code">			await motion_window(&quot;polylineIdle&quot;, 0)</code></span>
+<span class="line" id="L67"><a class="number" href="#L67">67</a><code class="code">			await motion_window(&quot;polylineCamera&quot;, 1)</code></span>
+<span class="line" id="L68"><a class="number" href="#L68">68</a><code class="code">	await finish()</code></span>
+<span class="line" id="L69"><a class="number" href="#L69">69</a><code class="code"></code></span>
+<span class="line" id="L70"><a class="number" href="#L70">70</a><code class="code">func load_fixture(kind: String, expected: int) -&gt; bool:</code></span>
+<span class="line" id="L71"><a class="number" href="#L71">71</a><code class="code">	var manager: Node = root.get_node(&quot;SaveManager&quot;)</code></span>
+<span class="line" id="L72"><a class="number" href="#L72">72</a><code class="code">	if _slot.is_empty():</code></span>
+<span class="line" id="L73"><a class="number" href="#L73">73</a><code class="code">		if not check(&quot;create_fixture_slot&quot;, await SAVE.save_as(manager, &quot;V4 baseline temporary %s&quot; % _cell)):</code></span>
+<span class="line" id="L74"><a class="number" href="#L74">74</a><code class="code">			return false</code></span>
+<span class="line" id="L75"><a class="number" href="#L75">75</a><code class="code">		_slot = manager.CurrentSlotID</code></span>
+<span class="line" id="L76"><a class="number" href="#L76">76</a><code class="code">	var payload := FileAccess.get_file_as_bytes(_output.path_join(&quot;datasets/%s-%d.json&quot; % [kind, _cell]))</code></span>
+<span class="line" id="L77"><a class="number" href="#L77">77</a><code class="code">	if not check(&quot;read_fixture_%s&quot; % kind, not payload.is_empty()): return false</code></span>
+<span class="line" id="L78"><a class="number" href="#L78">78</a><code class="code">	var base := &quot;user://saves-v4/&quot; + _slot</code></span>
+<span class="line" id="L79"><a class="number" href="#L79">79</a><code class="code">	var file := FileAccess.open(base.path_join(&quot;road_network_v4.json&quot;), FileAccess.WRITE)</code></span>
+<span class="line" id="L80"><a class="number" href="#L80">80</a><code class="code">	if not check(&quot;write_fixture_%s&quot; % kind, file != null): return false</code></span>
+<span class="line" id="L81"><a class="number" href="#L81">81</a><code class="code">	file.store_buffer(payload)</code></span>
+<span class="line" id="L82"><a class="number" href="#L82">82</a><code class="code">	file.close()</code></span>
+<span class="line" id="L83"><a class="number" href="#L83">83</a><code class="code">	var manifest: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(base.path_join(&quot;manifest.json&quot;)))</code></span>
+<span class="line" id="L84"><a class="number" href="#L84">84</a><code class="code">	manifest.schemaVersion = int(manifest.schemaVersion)</code></span>
+<span class="line" id="L85"><a class="number" href="#L85">85</a><code class="code">	var payload_hash := HashingContext.new()</code></span>
+<span class="line" id="L86"><a class="number" href="#L86">86</a><code class="code">	payload_hash.start(HashingContext.HASH_SHA256)</code></span>
+<span class="line" id="L87"><a class="number" href="#L87">87</a><code class="code">	payload_hash.update(payload)</code></span>
+<span class="line" id="L88"><a class="number" href="#L88">88</a><code class="code">	manifest.files[0].encodedLength = payload.size()</code></span>
+<span class="line" id="L89"><a class="number" href="#L89">89</a><code class="code">	manifest.files[0].sha256 = payload_hash.finish().hex_encode()</code></span>
+<span class="line" id="L90"><a class="number" href="#L90">90</a><code class="code">	file = FileAccess.open(base.path_join(&quot;manifest.json&quot;), FileAccess.WRITE)</code></span>
+<span class="line" id="L91"><a class="number" href="#L91">91</a><code class="code">	if not check(&quot;write_manifest_%s&quot; % kind, file != null): return false</code></span>
+<span class="line" id="L92"><a class="number" href="#L92">92</a><code class="code">	file.store_string(JSON.stringify(manifest))</code></span>
+<span class="line" id="L93"><a class="number" href="#L93">93</a><code class="code">	file.close()</code></span>
+<span class="line" id="L94"><a class="number" href="#L94">94</a><code class="code">	var loaded := await SAVE.operation_succeeded(manager, _map.LoadSlot(_slot))</code></span>
+<span class="line" id="L95"><a class="number" href="#L95">95</a><code class="code">	await RenderingServer.frame_post_draw</code></span>
+<span class="line" id="L96"><a class="number" href="#L96">96</a><code class="code">	return check(&quot;normal_load_%s&quot; % kind, loaded and _map.RoadCount == expected and _map.CellSizeMetres == _cell and _map.IsPresentationCurrent,</code></span>
+<span class="line" id="L97"><a class="number" href="#L97">97</a><code class="code">		{&quot;loaded&quot;: loaded, &quot;roadCount&quot;: _map.RoadCount, &quot;status&quot;: _map.get_node(&quot;HUD/Panel/Margin/Controls/Status&quot;).text})</code></span>
+<span class="line" id="L98"><a class="number" href="#L98">98</a><code class="code"></code></span>
+<span class="line" id="L99"><a class="number" href="#L99">99</a><code class="code">func focus(world: Vector2, zoom: float) -&gt; void:</code></span>
+<span class="line" id="L100"><a class="number" href="#L100">100</a><code class="code">	var camera: Camera2D = _map.get_node(&quot;Camera2D&quot;)</code></span>
+<span class="line" id="L101"><a class="number" href="#L101">101</a><code class="code">	camera.zoom = Vector2.ONE * zoom</code></span>
+<span class="line" id="L102"><a class="number" href="#L102">102</a><code class="code">	camera.position = world - Vector2(170.0 / zoom, 0)</code></span>
+<span class="line" id="L103"><a class="number" href="#L103">103</a><code class="code">	camera.force_update_scroll()</code></span>
+<span class="line" id="L104"><a class="number" href="#L104">104</a><code class="code"></code></span>
+<span class="line" id="L105"><a class="number" href="#L105">105</a><code class="code">func screen(world: Vector2) -&gt; Vector2:</code></span>
+<span class="line" id="L106"><a class="number" href="#L106">106</a><code class="code">	return _map.get_canvas_transform() * world</code></span>
+<span class="line" id="L107"><a class="number" href="#L107">107</a><code class="code"></code></span>
+<span class="line" id="L108"><a class="number" href="#L108">108</a><code class="code">func on_draw() -&gt; void:</code></span>
+<span class="line" id="L109"><a class="number" href="#L109">109</a><code class="code">	if not _sampling: return</code></span>
+<span class="line" id="L110"><a class="number" href="#L110">110</a><code class="code">	var now := Time.get_ticks_usec()</code></span>
+<span class="line" id="L111"><a class="number" href="#L111">111</a><code class="code">	if _last_draw != 0:</code></span>
+<span class="line" id="L112"><a class="number" href="#L112">112</a><code class="code">		_frame_ms.append((now - _last_draw) / 1000.0)</code></span>
+<span class="line" id="L113"><a class="number" href="#L113">113</a><code class="code">		_frame_us.append(now - _origin)</code></span>
+<span class="line" id="L114"><a class="number" href="#L114">114</a><code class="code">		if _frame_timeline:</code></span>
+<span class="line" id="L115"><a class="number" href="#L115">115</a><code class="code">			_process_us.append(_process_at - _origin)</code></span>
+<span class="line" id="L116"><a class="number" href="#L116">116</a><code class="code">			_pre_draw_us.append(_pre_draw_at - _origin)</code></span>
+<span class="line" id="L117"><a class="number" href="#L117">117</a><code class="code">			_drawn_frames.append(Engine.get_frames_drawn())</code></span>
+<span class="line" id="L118"><a class="number" href="#L118">118</a><code class="code">		if DisplayServer.window_is_focused(): _focused_frames += 1</code></span>
+<span class="line" id="L119"><a class="number" href="#L119">119</a><code class="code">	_last_draw = now</code></span>
+<span class="line" id="L120"><a class="number" href="#L120">120</a><code class="code"></code></span>
+<span class="line" id="L121"><a class="number" href="#L121">121</a><code class="code"># These are callback timestamps, not pure CPU/GPU timings. In particular, the</code></span>
+<span class="line" id="L122"><a class="number" href="#L122">122</a><code class="code"># map&#x27;s earlier frame_post_draw subscriber can do work before on_draw runs.</code></span>
+<span class="line" id="L123"><a class="number" href="#L123">123</a><code class="code">func on_process_marker() -&gt; void:</code></span>
+<span class="line" id="L124"><a class="number" href="#L124">124</a><code class="code">	if _sampling: _process_at = Time.get_ticks_usec()</code></span>
+<span class="line" id="L125"><a class="number" href="#L125">125</a><code class="code"></code></span>
+<span class="line" id="L126"><a class="number" href="#L126">126</a><code class="code">func on_pre_draw_marker() -&gt; void:</code></span>
+<span class="line" id="L127"><a class="number" href="#L127">127</a><code class="code">	if _sampling: _pre_draw_at = Time.get_ticks_usec()</code></span>
+<span class="line" id="L128"><a class="number" href="#L128">128</a><code class="code"></code></span>
+<span class="line" id="L129"><a class="number" href="#L129">129</a><code class="code">func probe_call_start() -&gt; int:</code></span>
+<span class="line" id="L130"><a class="number" href="#L130">130</a><code class="code">	return Time.get_ticks_usec() if _frame_timeline and _sampling else 0</code></span>
+<span class="line" id="L131"><a class="number" href="#L131">131</a><code class="code"></code></span>
+<span class="line" id="L132"><a class="number" href="#L132">132</a><code class="code">func probe_call_end(name: String, started: int) -&gt; void:</code></span>
+<span class="line" id="L133"><a class="number" href="#L133">133</a><code class="code">	if started == 0: return</code></span>
+<span class="line" id="L134"><a class="number" href="#L134">134</a><code class="code">	var ended := Time.get_ticks_usec()</code></span>
+<span class="line" id="L135"><a class="number" href="#L135">135</a><code class="code">	_sync_calls.append({&quot;call&quot;: name, &quot;startUs&quot;: started - _origin, &quot;endUs&quot;: ended - _origin})</code></span>
+<span class="line" id="L136"><a class="number" href="#L136">136</a><code class="code"></code></span>
+<span class="line" id="L137"><a class="number" href="#L137">137</a><code class="code">func set_tool_mode(mode: int) -&gt; void:</code></span>
+<span class="line" id="L138"><a class="number" href="#L138">138</a><code class="code">	var started := probe_call_start()</code></span>
+<span class="line" id="L139"><a class="number" href="#L139">139</a><code class="code">	_map.SetToolMode(mode)</code></span>
+<span class="line" id="L140"><a class="number" href="#L140">140</a><code class="code">	if started != 0: probe_call_end(&quot;SetToolMode:%d&quot; % mode, started)</code></span>
+<span class="line" id="L141"><a class="number" href="#L141">141</a><code class="code"></code></span>
+<span class="line" id="L142"><a class="number" href="#L142">142</a><code class="code">func select_profile(profile: int) -&gt; void:</code></span>
+<span class="line" id="L143"><a class="number" href="#L143">143</a><code class="code">	var started := probe_call_start()</code></span>
+<span class="line" id="L144"><a class="number" href="#L144">144</a><code class="code">	_map.get_node(&quot;HUD/Panel/Margin/Controls/Profile&quot;).select(profile)</code></span>
+<span class="line" id="L145"><a class="number" href="#L145">145</a><code class="code">	if started != 0: probe_call_end(&quot;selectProfile:%d&quot; % profile, started)</code></span>
+<span class="line" id="L146"><a class="number" href="#L146">146</a><code class="code"></code></span>
+<span class="line" id="L147"><a class="number" href="#L147">147</a><code class="code">func begin_window(name: String) -&gt; void:</code></span>
+<span class="line" id="L148"><a class="number" href="#L148">148</a><code class="code">	_active_window = name</code></span>
+<span class="line" id="L149"><a class="number" href="#L149">149</a><code class="code">	_focused_frames = 0</code></span>
+<span class="line" id="L150"><a class="number" href="#L150">150</a><code class="code">	_frame_ms = PackedFloat64Array()</code></span>
+<span class="line" id="L151"><a class="number" href="#L151">151</a><code class="code">	_frame_us = PackedInt64Array()</code></span>
+<span class="line" id="L152"><a class="number" href="#L152">152</a><code class="code">	if _frame_timeline:</code></span>
+<span class="line" id="L153"><a class="number" href="#L153">153</a><code class="code">		_process_us = PackedInt64Array()</code></span>
+<span class="line" id="L154"><a class="number" href="#L154">154</a><code class="code">		_pre_draw_us = PackedInt64Array()</code></span>
+<span class="line" id="L155"><a class="number" href="#L155">155</a><code class="code">		_drawn_frames = PackedInt64Array()</code></span>
+<span class="line" id="L156"><a class="number" href="#L156">156</a><code class="code">		_sync_calls = []</code></span>
+<span class="line" id="L157"><a class="number" href="#L157">157</a><code class="code">		_process_at = 0</code></span>
+<span class="line" id="L158"><a class="number" href="#L158">158</a><code class="code">		_pre_draw_at = 0</code></span>
+<span class="line" id="L159"><a class="number" href="#L159">159</a><code class="code">	_last_draw = 0</code></span>
+<span class="line" id="L160"><a class="number" href="#L160">160</a><code class="code">	_origin = Time.get_ticks_usec()</code></span>
+<span class="line" id="L161"><a class="number" href="#L161">161</a><code class="code">	_window_wall_start_ms = Time.get_unix_time_from_system() * 1000.0</code></span>
+<span class="line" id="L162"><a class="number" href="#L162">162</a><code class="code">	_sampling = true</code></span>
+<span class="line" id="L163"><a class="number" href="#L163">163</a><code class="code"></code></span>
+<span class="line" id="L164"><a class="number" href="#L164">164</a><code class="code">func end_window(name: String) -&gt; void:</code></span>
+<span class="line" id="L165"><a class="number" href="#L165">165</a><code class="code">	_sampling = false</code></span>
+<span class="line" id="L166"><a class="number" href="#L166">166</a><code class="code">	var wall_end_ms := Time.get_unix_time_from_system() * 1000.0</code></span>
+<span class="line" id="L167"><a class="number" href="#L167">167</a><code class="code">	var duration := (Time.get_ticks_usec() - _origin) / 1000000.0</code></span>
+<span class="line" id="L168"><a class="number" href="#L168">168</a><code class="code">	var sorted := _frame_ms.duplicate()</code></span>
+<span class="line" id="L169"><a class="number" href="#L169">169</a><code class="code">	sorted.sort()</code></span>
+<span class="line" id="L170"><a class="number" href="#L170">170</a><code class="code">	var over := 0</code></span>
+<span class="line" id="L171"><a class="number" href="#L171">171</a><code class="code">	for ms in _frame_ms:</code></span>
+<span class="line" id="L172"><a class="number" href="#L172">172</a><code class="code">		if ms &gt; 1000.0 / 144.0: over += 1</code></span>
+<span class="line" id="L173"><a class="number" href="#L173">173</a><code class="code">	var row := {&quot;phase&quot;: name, &quot;startedAtUs&quot;: _origin, &quot;focusedFrames&quot;: _focused_frames, &quot;seconds&quot;: duration, &quot;frames&quot;: _frame_ms.size(), &quot;p95Ms&quot;: percentile(sorted, 0.95),</code></span>
+<span class="line" id="L174"><a class="number" href="#L174">174</a><code class="code">		&quot;wallStartUnixMs&quot;: _window_wall_start_ms, &quot;wallEndUnixMs&quot;: wall_end_ms,</code></span>
+<span class="line" id="L175"><a class="number" href="#L175">175</a><code class="code">		&quot;p99Ms&quot;: percentile(sorted, 0.99), &quot;maxMs&quot;: percentile(sorted, 1.0), &quot;overBudget&quot;: over,</code></span>
+<span class="line" id="L176"><a class="number" href="#L176">176</a><code class="code">		&quot;frameMs&quot;: _frame_ms, &quot;frameTimeUs&quot;: _frame_us}</code></span>
+<span class="line" id="L177"><a class="number" href="#L177">177</a><code class="code">	if _frame_timeline:</code></span>
+<span class="line" id="L178"><a class="number" href="#L178">178</a><code class="code">		row.frameTimeline = {&quot;processFrameUs&quot;: _process_us, &quot;preDrawUs&quot;: _pre_draw_us,</code></span>
+<span class="line" id="L179"><a class="number" href="#L179">179</a><code class="code">			&quot;drawnFrame&quot;: _drawn_frames, &quot;syncCalls&quot;: _sync_calls}</code></span>
+<span class="line" id="L180"><a class="number" href="#L180">180</a><code class="code">	_windows.append(row)</code></span>
+<span class="line" id="L181"><a class="number" href="#L181">181</a><code class="code">	print(&quot;BASELINE_WINDOW cell=%d phase=%s frames=%d p95=%.4f p99=%.4f max=%.4f over=%d&quot; %</code></span>
+<span class="line" id="L182"><a class="number" href="#L182">182</a><code class="code">		[_cell, name, row.frames, row.p95Ms, row.p99Ms, row.maxMs, over])</code></span>
+<span class="line" id="L183"><a class="number" href="#L183">183</a><code class="code"></code></span>
+<span class="line" id="L184"><a class="number" href="#L184">184</a><code class="code">func percentile(sorted: PackedFloat64Array, fraction: float) -&gt; float:</code></span>
+<span class="line" id="L185"><a class="number" href="#L185">185</a><code class="code">	if sorted.is_empty(): return -1</code></span>
+<span class="line" id="L186"><a class="number" href="#L186">186</a><code class="code">	return sorted[clampi(int(ceil(sorted.size() * fraction)) - 1, 0, sorted.size() - 1)]</code></span>
+<span class="line" id="L187"><a class="number" href="#L187">187</a><code class="code"></code></span>
+<span class="line" id="L188"><a class="number" href="#L188">188</a><code class="code">func idle_for(seconds: float) -&gt; void:</code></span>
+<span class="line" id="L189"><a class="number" href="#L189">189</a><code class="code">	var until := Time.get_ticks_usec() + int(seconds * 1000000)</code></span>
+<span class="line" id="L190"><a class="number" href="#L190">190</a><code class="code">	while Time.get_ticks_usec() &lt; until: await process_frame</code></span>
+<span class="line" id="L191"><a class="number" href="#L191">191</a><code class="code"></code></span>
+<span class="line" id="L192"><a class="number" href="#L192">192</a><code class="code">func motion_window(name: String, mode: int) -&gt; void:</code></span>
+<span class="line" id="L193"><a class="number" href="#L193">193</a><code class="code">	set_tool_mode(1 if mode &gt;= 2 else 0)</code></span>
+<span class="line" id="L194"><a class="number" href="#L194">194</a><code class="code">	await process_frame</code></span>
+<span class="line" id="L195"><a class="number" href="#L195">195</a><code class="code">	begin_window(name)</code></span>
+<span class="line" id="L196"><a class="number" href="#L196">196</a><code class="code">	var tick := _origin</code></span>
+<span class="line" id="L197"><a class="number" href="#L197">197</a><code class="code">	var until := _origin + int(_seconds * 1000000)</code></span>
+<span class="line" id="L198"><a class="number" href="#L198">198</a><code class="code">	var index := 0</code></span>
+<span class="line" id="L199"><a class="number" href="#L199">199</a><code class="code">	var visible_hover_observed := false</code></span>
+<span class="line" id="L200"><a class="number" href="#L200">200</a><code class="code">	while Time.get_ticks_usec() &lt; until:</code></span>
+<span class="line" id="L201"><a class="number" href="#L201">201</a><code class="code">		var now := Time.get_ticks_usec()</code></span>
+<span class="line" id="L202"><a class="number" href="#L202">202</a><code class="code">		if now &gt;= tick and mode != 0:</code></span>
+<span class="line" id="L203"><a class="number" href="#L203">203</a><code class="code">			tick = now + 16667</code></span>
+<span class="line" id="L204"><a class="number" href="#L204">204</a><code class="code">			index += 1</code></span>
+<span class="line" id="L205"><a class="number" href="#L205">205</a><code class="code">			if mode == 1 or mode == 3:</code></span>
+<span class="line" id="L206"><a class="number" href="#L206">206</a><code class="code">				motion(Vector2(1000, 800), Vector2(0.6 if index % 120 &lt; 60 else -0.6, 0), MOUSE_BUTTON_MASK_MIDDLE)</code></span>
+<span class="line" id="L207"><a class="number" href="#L207">207</a><code class="code">			if mode &gt;= 2:</code></span>
+<span class="line" id="L208"><a class="number" href="#L208">208</a><code class="code">				motion(screen(Vector2(2.48 if index % 2 == 0 else 2.52, 3.0) * _cell))</code></span>
+<span class="line" id="L209"><a class="number" href="#L209">209</a><code class="code">				if index == 10: visible_hover_observed = _map.GetSelectionState().hasHover</code></span>
+<span class="line" id="L210"><a class="number" href="#L210">210</a><code class="code">		await process_frame</code></span>
+<span class="line" id="L211"><a class="number" href="#L211">211</a><code class="code">	end_window(name)</code></span>
+<span class="line" id="L212"><a class="number" href="#L212">212</a><code class="code">	if mode &gt;= 2: check(name + &quot;_actually_highlights&quot;, visible_hover_observed)</code></span>
+<span class="line" id="L213"><a class="number" href="#L213">213</a><code class="code"></code></span>
+<span class="line" id="L214"><a class="number" href="#L214">214</a><code class="code">func operation_window() -&gt; void:</code></span>
+<span class="line" id="L215"><a class="number" href="#L215">215</a><code class="code">	focus(Vector2(2, -2) * _cell, 65.0 / _cell)</code></span>
+<span class="line" id="L216"><a class="number" href="#L216">216</a><code class="code">	await process_frame</code></span>
+<span class="line" id="L217"><a class="number" href="#L217">217</a><code class="code">	begin_window(&quot;editsAndHistory&quot;)</code></span>
+<span class="line" id="L218"><a class="number" href="#L218">218</a><code class="code">	for cycle in range(_cycles):</code></span>
+<span class="line" id="L219"><a class="number" href="#L219">219</a><code class="code">		set_tool_mode(0)</code></span>
+<span class="line" id="L220"><a class="number" href="#L220">220</a><code class="code">		select_profile(1)</code></span>
+<span class="line" id="L221"><a class="number" href="#L221">221</a><code class="code">		if not await gesture(&quot;build4&quot;, Vector2(0, -2), Vector2(4, -2)): break</code></span>
+<span class="line" id="L222"><a class="number" href="#L222">222</a><code class="code">		if not await history(&quot;undoBuild&quot;, KEY_Z): break</code></span>
+<span class="line" id="L223"><a class="number" href="#L223">223</a><code class="code">		if not await history(&quot;redoBuild&quot;, KEY_Y): break</code></span>
+<span class="line" id="L224"><a class="number" href="#L224">224</a><code class="code">		set_tool_mode(3)</code></span>
+<span class="line" id="L225"><a class="number" href="#L225">225</a><code class="code">		select_profile(3)</code></span>
+<span class="line" id="L226"><a class="number" href="#L226">226</a><code class="code">		if not await gesture(&quot;change3&quot;, Vector2(0.5, -2), Vector2(2.5, -2), 3): break</code></span>
+<span class="line" id="L227"><a class="number" href="#L227">227</a><code class="code">		if not await history(&quot;undoChange&quot;, KEY_Z): break</code></span>
+<span class="line" id="L228"><a class="number" href="#L228">228</a><code class="code">		if not await history(&quot;redoChange&quot;, KEY_Y): break</code></span>
+<span class="line" id="L229"><a class="number" href="#L229">229</a><code class="code">		set_tool_mode(2)</code></span>
+<span class="line" id="L230"><a class="number" href="#L230">230</a><code class="code">		if not await gesture(&quot;delete3&quot;, Vector2(0.5, -2), Vector2(2.5, -2), 3): break</code></span>
+<span class="line" id="L231"><a class="number" href="#L231">231</a><code class="code">		if not await history(&quot;undoDelete&quot;, KEY_Z): break</code></span>
+<span class="line" id="L232"><a class="number" href="#L232">232</a><code class="code">		if not await history(&quot;redoDelete&quot;, KEY_Y): break</code></span>
+<span class="line" id="L233"><a class="number" href="#L233">233</a><code class="code">		if not await history(&quot;undoDeleteReset&quot;, KEY_Z): break</code></span>
+<span class="line" id="L234"><a class="number" href="#L234">234</a><code class="code">		if not await history(&quot;undoChangeReset&quot;, KEY_Z): break</code></span>
+<span class="line" id="L235"><a class="number" href="#L235">235</a><code class="code">		if not await history(&quot;undoBuildReset&quot;, KEY_Z): break</code></span>
+<span class="line" id="L236"><a class="number" href="#L236">236</a><code class="code">	end_window(&quot;editsAndHistory&quot;)</code></span>
+<span class="line" id="L237"><a class="number" href="#L237">237</a><code class="code">	check(&quot;cycles_restore_fixture&quot;, _map.RoadCount == 240)</code></span>
+<span class="line" id="L238"><a class="number" href="#L238">238</a><code class="code"></code></span>
+<span class="line" id="L239"><a class="number" href="#L239">239</a><code class="code">func gesture(name: String, from: Vector2, to: Vector2, expected_selection: int = 0) -&gt; bool:</code></span>
+<span class="line" id="L240"><a class="number" href="#L240">240</a><code class="code">	var source: String = _map.StateToken</code></span>
+<span class="line" id="L241"><a class="number" href="#L241">241</a><code class="code">	button(screen(from * _cell), true)</code></span>
+<span class="line" id="L242"><a class="number" href="#L242">242</a><code class="code">	await process_frame</code></span>
+<span class="line" id="L243"><a class="number" href="#L243">243</a><code class="code">	motion(screen(to * _cell), Vector2.ZERO, MOUSE_BUTTON_MASK_LEFT)</code></span>
+<span class="line" id="L244"><a class="number" href="#L244">244</a><code class="code">	await process_frame</code></span>
+<span class="line" id="L245"><a class="number" href="#L245">245</a><code class="code">	if expected_selection &gt; 0:</code></span>
+<span class="line" id="L246"><a class="number" href="#L246">246</a><code class="code">		check(name + &quot;_selection&quot;, _map.GetSelectionState().selectedCount == expected_selection)</code></span>
+<span class="line" id="L247"><a class="number" href="#L247">247</a><code class="code">	var injected := Time.get_ticks_usec()</code></span>
+<span class="line" id="L248"><a class="number" href="#L248">248</a><code class="code">	button(screen(to * _cell), false)</code></span>
+<span class="line" id="L249"><a class="number" href="#L249">249</a><code class="code">	return await record_operation(name, source, injected)</code></span>
+<span class="line" id="L250"><a class="number" href="#L250">250</a><code class="code"></code></span>
+<span class="line" id="L251"><a class="number" href="#L251">251</a><code class="code">func history(name: String, key: Key) -&gt; bool:</code></span>
+<span class="line" id="L252"><a class="number" href="#L252">252</a><code class="code">	var source: String = _map.StateToken</code></span>
+<span class="line" id="L253"><a class="number" href="#L253">253</a><code class="code">	var injected := Time.get_ticks_usec()</code></span>
+<span class="line" id="L254"><a class="number" href="#L254">254</a><code class="code">	keyboard(key, true)</code></span>
+<span class="line" id="L255"><a class="number" href="#L255">255</a><code class="code">	return await record_operation(name, source, injected)</code></span>
+<span class="line" id="L256"><a class="number" href="#L256">256</a><code class="code"></code></span>
+<span class="line" id="L257"><a class="number" href="#L257">257</a><code class="code">func record_operation(name: String, source: String, injected: int) -&gt; bool:</code></span>
+<span class="line" id="L258"><a class="number" href="#L258">258</a><code class="code">	var until := Time.get_ticks_msec() + 10000</code></span>
+<span class="line" id="L259"><a class="number" href="#L259">259</a><code class="code">	while Time.get_ticks_msec() &lt; until:</code></span>
+<span class="line" id="L260"><a class="number" href="#L260">260</a><code class="code">		await process_frame</code></span>
+<span class="line" id="L261"><a class="number" href="#L261">261</a><code class="code">		if not _map.IsBuildBusy and _map.StateToken != source and _map.BuildPhase == &quot;Drawn&quot;: break</code></span>
+<span class="line" id="L262"><a class="number" href="#L262">262</a><code class="code">	var metrics: Dictionary = _map.GetOperationMetrics()</code></span>
+<span class="line" id="L263"><a class="number" href="#L263">263</a><code class="code">	metrics.operation = name</code></span>
+<span class="line" id="L264"><a class="number" href="#L264">264</a><code class="code">	metrics.sampleWindow = _active_window if _sampling else &quot;setup&quot;</code></span>
+<span class="line" id="L265"><a class="number" href="#L265">265</a><code class="code">	metrics.inputInjectionAtUs = injected</code></span>
+<span class="line" id="L266"><a class="number" href="#L266">266</a><code class="code">	metrics.inputInjectionUs = injected - _origin</code></span>
+<span class="line" id="L267"><a class="number" href="#L267">267</a><code class="code">	metrics.injectionToObservedCompletionMs = (Time.get_ticks_usec() - injected) / 1000.0</code></span>
+<span class="line" id="L268"><a class="number" href="#L268">268</a><code class="code">	metrics.renderFrame = Engine.get_frames_drawn()</code></span>
+<span class="line" id="L269"><a class="number" href="#L269">269</a><code class="code">	var stages := float(metrics.domainMs) + float(metrics.surfaceMs) + float(metrics.get(&quot;geometryMs&quot;, 0)) + float(metrics.preflightMs) + float(metrics.referenceCommitMs) + float(metrics.presentationPublishMs)</code></span>
+<span class="line" id="L270"><a class="number" href="#L270">270</a><code class="code">	var valid: bool = not _map.IsBuildBusy and metrics.phase == &quot;Drawn&quot; and source != _map.StateToken and _map.IsPresentationCurrent and metrics.presentedToken == _map.StateToken and metrics.inputToDrawMs &gt;= stages</code></span>
+<span class="line" id="L271"><a class="number" href="#L271">271</a><code class="code">	_operations.append(metrics)</code></span>
+<span class="line" id="L272"><a class="number" href="#L272">272</a><code class="code">	return check(name + &quot;_drawn&quot;, valid, metrics if not valid else {})</code></span>
+<span class="line" id="L273"><a class="number" href="#L273">273</a><code class="code"></code></span>
+<span class="line" id="L274"><a class="number" href="#L274">274</a><code class="code">func cancellation_window() -&gt; void:</code></span>
+<span class="line" id="L275"><a class="number" href="#L275">275</a><code class="code">	set_tool_mode(0)</code></span>
+<span class="line" id="L276"><a class="number" href="#L276">276</a><code class="code">	if not await gesture(&quot;cancelFixture&quot;, Vector2(0, -2), Vector2(4, -2)): return</code></span>
+<span class="line" id="L277"><a class="number" href="#L277">277</a><code class="code">	begin_window(&quot;escapeCancellation&quot;)</code></span>
+<span class="line" id="L278"><a class="number" href="#L278">278</a><code class="code">	for attempt in range(20):</code></span>
+<span class="line" id="L279"><a class="number" href="#L279">279</a><code class="code">		var source: String = _map.StateToken</code></span>
+<span class="line" id="L280"><a class="number" href="#L280">280</a><code class="code">		keyboard(KEY_Z, true)</code></span>
+<span class="line" id="L281"><a class="number" href="#L281">281</a><code class="code">		var phase_before: String = _map.BuildPhase</code></span>
+<span class="line" id="L282"><a class="number" href="#L282">282</a><code class="code">		keyboard(KEY_ESCAPE)</code></span>
+<span class="line" id="L283"><a class="number" href="#L283">283</a><code class="code">		await process_frame</code></span>
+<span class="line" id="L284"><a class="number" href="#L284">284</a><code class="code">		var until := Time.get_ticks_msec() + 10000</code></span>
+<span class="line" id="L285"><a class="number" href="#L285">285</a><code class="code">		while _map.IsBuildBusy and Time.get_ticks_msec() &lt; until: await process_frame</code></span>
+<span class="line" id="L286"><a class="number" href="#L286">286</a><code class="code">		var metrics: Dictionary = _map.GetOperationMetrics()</code></span>
+<span class="line" id="L287"><a class="number" href="#L287">287</a><code class="code">		var accepted: bool = metrics.phase == &quot;Cancelled&quot;</code></span>
+<span class="line" id="L288"><a class="number" href="#L288">288</a><code class="code">		metrics.accepted = accepted</code></span>
+<span class="line" id="L289"><a class="number" href="#L289">289</a><code class="code">		metrics.phaseBeforeEscape = phase_before</code></span>
+<span class="line" id="L290"><a class="number" href="#L290">290</a><code class="code">		metrics.stateUnchanged = source == _map.StateToken</code></span>
+<span class="line" id="L291"><a class="number" href="#L291">291</a><code class="code">		_cancellations.append(metrics)</code></span>
+<span class="line" id="L292"><a class="number" href="#L292">292</a><code class="code">		if accepted:</code></span>
+<span class="line" id="L293"><a class="number" href="#L293">293</a><code class="code">			check(&quot;cancel_keeps_state&quot;, not _map.IsBuildBusy and metrics.stateUnchanged and metrics.phase == &quot;Cancelled&quot; and metrics.cancelToToolReadyMs &gt;= 0 and metrics.cancelToWorkerExitMs &gt;= 0)</code></span>
+<span class="line" id="L294"><a class="number" href="#L294">294</a><code class="code">		else:</code></span>
+<span class="line" id="L295"><a class="number" href="#L295">295</a><code class="code">			check(&quot;commit_race_not_cancelled&quot;, metrics.phase == &quot;Drawn&quot;)</code></span>
+<span class="line" id="L296"><a class="number" href="#L296">296</a><code class="code">			if not await history(&quot;redoAfterCancelRace&quot;, KEY_Y): break</code></span>
+<span class="line" id="L297"><a class="number" href="#L297">297</a><code class="code">	end_window(&quot;escapeCancellation&quot;)</code></span>
+<span class="line" id="L298"><a class="number" href="#L298">298</a><code class="code"></code></span>
+<span class="line" id="L299"><a class="number" href="#L299">299</a><code class="code">func motion(position: Vector2, relative := Vector2.ZERO, mask: int = 0) -&gt; void:</code></span>
+<span class="line" id="L300"><a class="number" href="#L300">300</a><code class="code">	var started := probe_call_start()</code></span>
+<span class="line" id="L301"><a class="number" href="#L301">301</a><code class="code">	var event := InputEventMouseMotion.new()</code></span>
+<span class="line" id="L302"><a class="number" href="#L302">302</a><code class="code">	event.position = position</code></span>
+<span class="line" id="L303"><a class="number" href="#L303">303</a><code class="code">	event.relative = relative</code></span>
+<span class="line" id="L304"><a class="number" href="#L304">304</a><code class="code">	event.button_mask = mask</code></span>
+<span class="line" id="L305"><a class="number" href="#L305">305</a><code class="code">	Input.parse_input_event(event)</code></span>
+<span class="line" id="L306"><a class="number" href="#L306">306</a><code class="code">	Input.flush_buffered_events()</code></span>
+<span class="line" id="L307"><a class="number" href="#L307">307</a><code class="code">	probe_call_end(&quot;motion&quot;, started)</code></span>
+<span class="line" id="L308"><a class="number" href="#L308">308</a><code class="code"></code></span>
+<span class="line" id="L309"><a class="number" href="#L309">309</a><code class="code">func button(position: Vector2, pressed: bool) -&gt; void:</code></span>
+<span class="line" id="L310"><a class="number" href="#L310">310</a><code class="code">	var started := probe_call_start()</code></span>
+<span class="line" id="L311"><a class="number" href="#L311">311</a><code class="code">	var event := InputEventMouseButton.new()</code></span>
+<span class="line" id="L312"><a class="number" href="#L312">312</a><code class="code">	event.position = position</code></span>
+<span class="line" id="L313"><a class="number" href="#L313">313</a><code class="code">	event.button_index = MOUSE_BUTTON_LEFT</code></span>
+<span class="line" id="L314"><a class="number" href="#L314">314</a><code class="code">	event.pressed = pressed</code></span>
+<span class="line" id="L315"><a class="number" href="#L315">315</a><code class="code">	Input.parse_input_event(event)</code></span>
+<span class="line" id="L316"><a class="number" href="#L316">316</a><code class="code">	Input.flush_buffered_events()</code></span>
+<span class="line" id="L317"><a class="number" href="#L317">317</a><code class="code">	probe_call_end(&quot;buttonPress&quot; if pressed else &quot;buttonRelease&quot;, started)</code></span>
+<span class="line" id="L318"><a class="number" href="#L318">318</a><code class="code"></code></span>
+<span class="line" id="L319"><a class="number" href="#L319">319</a><code class="code">func keyboard(key: Key, control: bool = false) -&gt; void:</code></span>
+<span class="line" id="L320"><a class="number" href="#L320">320</a><code class="code">	var started := probe_call_start()</code></span>
+<span class="line" id="L321"><a class="number" href="#L321">321</a><code class="code">	var event := InputEventKey.new()</code></span>
+<span class="line" id="L322"><a class="number" href="#L322">322</a><code class="code">	event.keycode = key</code></span>
+<span class="line" id="L323"><a class="number" href="#L323">323</a><code class="code">	event.ctrl_pressed = control</code></span>
+<span class="line" id="L324"><a class="number" href="#L324">324</a><code class="code">	event.pressed = true</code></span>
+<span class="line" id="L325"><a class="number" href="#L325">325</a><code class="code">	Input.parse_input_event(event)</code></span>
+<span class="line" id="L326"><a class="number" href="#L326">326</a><code class="code">	var released := InputEventKey.new()</code></span>
+<span class="line" id="L327"><a class="number" href="#L327">327</a><code class="code">	released.keycode = key</code></span>
+<span class="line" id="L328"><a class="number" href="#L328">328</a><code class="code">	released.ctrl_pressed = control</code></span>
+<span class="line" id="L329"><a class="number" href="#L329">329</a><code class="code">	Input.parse_input_event(released)</code></span>
+<span class="line" id="L330"><a class="number" href="#L330">330</a><code class="code">	Input.flush_buffered_events()</code></span>
+<span class="line" id="L331"><a class="number" href="#L331">331</a><code class="code">	if started != 0: probe_call_end(&quot;keyboard:%d&quot; % key, started)</code></span>
+<span class="line" id="L332"><a class="number" href="#L332">332</a><code class="code"></code></span>
+<span class="line" id="L333"><a class="number" href="#L333">333</a><code class="code">func check(name: String, passed: bool, detail: Dictionary = {}) -&gt; bool:</code></span>
+<span class="line" id="L334"><a class="number" href="#L334">334</a><code class="code">	_checks.append({&quot;name&quot;: name, &quot;passed&quot;: passed, &quot;detail&quot;: detail})</code></span>
+<span class="line" id="L335"><a class="number" href="#L335">335</a><code class="code">	_passed = _passed and passed</code></span>
+<span class="line" id="L336"><a class="number" href="#L336">336</a><code class="code">	if not passed: print(&quot;BASELINE_CHECK_FAILED &quot;, name, &quot; &quot;, JSON.stringify(detail))</code></span>
+<span class="line" id="L337"><a class="number" href="#L337">337</a><code class="code">	return passed</code></span>
+<span class="line" id="L338"><a class="number" href="#L338">338</a><code class="code"></code></span>
+<span class="line" id="L339"><a class="number" href="#L339">339</a><code class="code">func finish() -&gt; void:</code></span>
+<span class="line" id="L340"><a class="number" href="#L340">340</a><code class="code">	_sampling = false</code></span>
+<span class="line" id="L341"><a class="number" href="#L341">341</a><code class="code">	if not _slot.is_empty():</code></span>
+<span class="line" id="L342"><a class="number" href="#L342">342</a><code class="code">		check(&quot;temporary_slot_deleted&quot;, await SAVE.delete_slot(root.get_node(&quot;SaveManager&quot;), _slot))</code></span>
+<span class="line" id="L343"><a class="number" href="#L343">343</a><code class="code">		_slot = &quot;&quot;</code></span>
+<span class="line" id="L344"><a class="number" href="#L344">344</a><code class="code">	var report := {&quot;passed&quot;: _passed, &quot;cell&quot;: _cell, &quot;engine&quot;: Engine.get_version_info(),</code></span>
+<span class="line" id="L345"><a class="number" href="#L345">345</a><code class="code">		&quot;processId&quot;: OS.get_process_id(), &quot;executable&quot;: OS.get_executable_path(), &quot;cpu&quot;: OS.get_processor_name(),</code></span>
+<span class="line" id="L346"><a class="number" href="#L346">346</a><code class="code">		&quot;adapter&quot;: RenderingServer.get_video_adapter_name(), &quot;vendor&quot;: RenderingServer.get_video_adapter_vendor(),</code></span>
+<span class="line" id="L347"><a class="number" href="#L347">347</a><code class="code">		&quot;driver&quot;: RenderingServer.get_current_rendering_driver_name(), &quot;method&quot;: RenderingServer.get_current_rendering_method(),</code></span>
+<span class="line" id="L348"><a class="number" href="#L348">348</a><code class="code">		&quot;resolution&quot;: DisplayServer.window_get_size(), &quot;vsync&quot;: DisplayServer.window_get_vsync_mode(),</code></span>
+<span class="line" id="L349"><a class="number" href="#L349">349</a><code class="code">		&quot;maxFps&quot;: Engine.max_fps, &quot;debugBuild&quot;: OS.is_debug_build(), &quot;warmupSeconds&quot;: _warmup, &quot;requestedWindowSeconds&quot;: _seconds,</code></span>
+<span class="line" id="L350"><a class="number" href="#L350">350</a><code class="code">		&quot;frameTimelineEnabled&quot;: _frame_timeline,</code></span>
+<span class="line" id="L351"><a class="number" href="#L351">351</a><code class="code">		&quot;checks&quot;: _checks, &quot;windows&quot;: _windows, &quot;operations&quot;: _operations, &quot;cancellations&quot;: _cancellations}</code></span>
+<span class="line" id="L352"><a class="number" href="#L352">352</a><code class="code">	var file := FileAccess.open(_output.path_join(&quot;render-%d.json&quot; % _cell), FileAccess.WRITE)</code></span>
+<span class="line" id="L353"><a class="number" href="#L353">353</a><code class="code">	if file != null:</code></span>
+<span class="line" id="L354"><a class="number" href="#L354">354</a><code class="code">		file.store_string(JSON.stringify(report))</code></span>
+<span class="line" id="L355"><a class="number" href="#L355">355</a><code class="code">		file.close()</code></span>
+<span class="line" id="L356"><a class="number" href="#L356">356</a><code class="code">	else: _passed = false</code></span>
+<span class="line" id="L357"><a class="number" href="#L357">357</a><code class="code">	print(&quot;V4_BASELINE_RESULT &quot;, JSON.stringify({&quot;passed&quot;: _passed, &quot;cell&quot;: _cell, &quot;checks&quot;: _checks.size(), &quot;operations&quot;: _operations.size(), &quot;windows&quot;: _windows.size()}))</code></span>
+<span class="line" id="L358"><a class="number" href="#L358">358</a><code class="code">	_map.queue_free()</code></span>
+<span class="line" id="L359"><a class="number" href="#L359">359</a><code class="code">	await process_frame</code></span>
+<span class="line" id="L360"><a class="number" href="#L360">360</a><code class="code">	quit(0 if _passed else 1)</code></span></pre></main></html>

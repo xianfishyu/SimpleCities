@@ -1,0 +1,12 @@
+:root { color-scheme: dark; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; background: #202733; color: #e0e8f2; }
+body { margin: 0; }
+header { position: sticky; top: 0; background: #29384a; padding: 1rem 1.5rem; border-bottom: 1px solid #4c617b; z-index: 1; }
+header a { color: #9bd9ff; margin-right: 1rem; }
+h1 { display: inline; font-size: 1rem; font-weight: 600; overflow-wrap: anywhere; }
+.source { margin: 0; padding: .8rem 0 2rem; overflow-x: auto; tab-size: 4; }
+.line { display: flex; min-width: max-content; line-height: 1.6; scroll-margin-top: 4.5rem; }
+.line:target { background: #577d3f77; }
+.number { color: #7e90a7; min-width: 4rem; padding-right: 1rem; text-align: right; text-decoration: none; user-select: none; }
+.code { padding-right: 2rem; white-space: pre; font: .82rem/1.6 Consolas, "Cascadia Code", monospace; }
+.notice { max-width: 60rem; margin: 2rem auto; padding: 1.5rem; line-height: 1.8; background: #2a3545; border-radius: .5rem; }
+.notice code { overflow-wrap: anywhere; }

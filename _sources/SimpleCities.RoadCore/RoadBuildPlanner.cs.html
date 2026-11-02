@@ -1,0 +1,83 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>SimpleCities.RoadCore/RoadBuildPlanner.cs · SimpleCities 源码</title><link rel="stylesheet" href="../../assets/source.css"><header><a href="../../index.html">← 文档首页</a><h1>SimpleCities.RoadCore/RoadBuildPlanner.cs</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">using static SimpleCities.RoadCore.RoadMutationDraft;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code"></code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">namespace SimpleCities.RoadCore;</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code"></code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code">/// &lt;summary&gt;在私有内容中切分点交叉并恢复规范边，完成验证后才产生可发布计划。&lt;/summary&gt;</code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">internal static class RoadBuildPlanner</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">{</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code"></code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">    internal static RoadBuildResult Plan(RoadNetwork owner, RoadSnapshot source, RoadBuildRequest request,</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">        CancellationToken cancellationToken)</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">    {</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">        var draftCuts = new HashSet&lt;RoadPoint&gt; { request.Start, request.End };</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">        var edgeCuts = new Dictionary&lt;EdgeId, HashSet&lt;RoadPoint&gt;&gt;();</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">        foreach (RoadEdge edge in source.Edges)</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code">        {</code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">            HashSet&lt;RoadPoint&gt;? cuts = null;</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">            for (int i = 1; i &lt; edge.Points.Count; i++)</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code">            {</code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">                cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code">                RoadPoint? intersection = Intersect(request.Start, request.End, edge.Points[i - 1], edge.Points[i]);</code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">                if (!intersection.HasValue) continue;</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">                if (!source.Map.IsBuildPoint(intersection.Value))</code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code">                    throw new InvalidDataException(&quot;道路交叉位置必须是地图内的主格点或格心&quot;);</code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">                draftCuts.Add(intersection.Value);</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code">                // Endpoint connections still split the new road, but do not split</code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">                // the old edge. Only interior cuts need a mutable cutting set.</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">                if (intersection.Value == edge.Points[0] || intersection.Value == edge.Points[^1]) continue;</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code">                cuts ??= new HashSet&lt;RoadPoint&gt; { edge.Points[0], edge.Points[^1] };</code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">                cuts.Add(intersection.Value);</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">            }</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code">            if (cuts is not null) edgeCuts.Add(edge.Id, cuts);</code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">        }</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code"></code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code">        long nextNode = source.NextNodeId, nextEdge = source.NextEdgeId;</code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code">        var nodes = source.Nodes.ToDictionary(node =&gt; node.Position);</code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code">        // 端点优先，再沿草稿顺序分配交点身份；不依赖集合的枚举顺序。</code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code">        IEnumerable&lt;RoadPoint&gt; allocationOrder = new[] { request.Start, request.End }.Concat(draftCuts</code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code">            .Where(point =&gt; point != request.Start &amp;&amp; point != request.End)</code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code">            .OrderBy(point =&gt; Parameter(point, request.Start, request.End)));</code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code">        foreach (RoadPoint position in allocationOrder)</code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code">        {</code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code">            cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code">            if (!nodes.ContainsKey(position))</code></span>
+<span class="line" id="L44"><a class="number" href="#L44">44</a><code class="code">                nodes.Add(position, new RoadNode(new NodeId(Allocate(ref nextNode)), position));</code></span>
+<span class="line" id="L45"><a class="number" href="#L45">45</a><code class="code">        }</code></span>
+<span class="line" id="L46"><a class="number" href="#L46">46</a><code class="code">        var pieces = new List&lt;Piece&gt;(Math.Max(4, source.EdgeCount + 1));</code></span>
+<span class="line" id="L47"><a class="number" href="#L47">47</a><code class="code">        foreach (RoadEdge edge in source.Edges)</code></span>
+<span class="line" id="L48"><a class="number" href="#L48">48</a><code class="code">        {</code></span>
+<span class="line" id="L49"><a class="number" href="#L49">49</a><code class="code">            cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L50"><a class="number" href="#L50">50</a><code class="code">            if (edgeCuts.TryGetValue(edge.Id, out HashSet&lt;RoadPoint&gt;? cuts))</code></span>
+<span class="line" id="L51"><a class="number" href="#L51">51</a><code class="code">                Split(edge.Id, edge.Profile, edge.Points, cuts, nodes, pieces, cancellationToken);</code></span>
+<span class="line" id="L52"><a class="number" href="#L52">52</a><code class="code">            else</code></span>
+<span class="line" id="L53"><a class="number" href="#L53">53</a><code class="code">                pieces.Add(new(edge.Id, edge.Start, edge.End, edge.Profile, edge.Points));</code></span>
+<span class="line" id="L54"><a class="number" href="#L54">54</a><code class="code">        }</code></span>
+<span class="line" id="L55"><a class="number" href="#L55">55</a><code class="code">        Split(null, request.Profile, [request.Start, request.End], draftCuts, nodes, pieces, cancellationToken);</code></span>
+<span class="line" id="L56"><a class="number" href="#L56">56</a><code class="code">        Normalize(nodes, pieces, cancellationToken);</code></span>
+<span class="line" id="L57"><a class="number" href="#L57">57</a><code class="code"></code></span>
+<span class="line" id="L58"><a class="number" href="#L58">58</a><code class="code">        return new(RoadBuildStatus.Ready, Freeze(owner, source, nodes, pieces, nextNode, nextEdge, cancellationToken), &quot;&quot;);</code></span>
+<span class="line" id="L59"><a class="number" href="#L59">59</a><code class="code">    }</code></span>
+<span class="line" id="L60"><a class="number" href="#L60">60</a><code class="code"></code></span>
+<span class="line" id="L61"><a class="number" href="#L61">61</a><code class="code">    private static RoadPoint? Intersect(RoadPoint a, RoadPoint b, RoadPoint c, RoadPoint d)</code></span>
+<span class="line" id="L62"><a class="number" href="#L62">62</a><code class="code">    {</code></span>
+<span class="line" id="L63"><a class="number" href="#L63">63</a><code class="code">        double rx = b.X - a.X, ry = b.Y - a.Y, sx = d.X - c.X, sy = d.Y - c.Y;</code></span>
+<span class="line" id="L64"><a class="number" href="#L64">64</a><code class="code">        double denominator = Cross(rx, ry, sx, sy);</code></span>
+<span class="line" id="L65"><a class="number" href="#L65">65</a><code class="code">        if (denominator == 0)</code></span>
+<span class="line" id="L66"><a class="number" href="#L66">66</a><code class="code">        {</code></span>
+<span class="line" id="L67"><a class="number" href="#L67">67</a><code class="code">            // 调用入口已优先拒绝正长度共线重叠，此处仅余端点触碰。</code></span>
+<span class="line" id="L68"><a class="number" href="#L68">68</a><code class="code">            if (OnSegment(a, c, d)) return a;</code></span>
+<span class="line" id="L69"><a class="number" href="#L69">69</a><code class="code">            if (OnSegment(b, c, d)) return b;</code></span>
+<span class="line" id="L70"><a class="number" href="#L70">70</a><code class="code">            return null;</code></span>
+<span class="line" id="L71"><a class="number" href="#L71">71</a><code class="code">        }</code></span>
+<span class="line" id="L72"><a class="number" href="#L72">72</a><code class="code">        double numerator = Cross(c.X - a.X, c.Y - a.Y, sx, sy);</code></span>
+<span class="line" id="L73"><a class="number" href="#L73">73</a><code class="code">        double other = Cross(c.X - a.X, c.Y - a.Y, rx, ry);</code></span>
+<span class="line" id="L74"><a class="number" href="#L74">74</a><code class="code">        if (denominator &gt; 0</code></span>
+<span class="line" id="L75"><a class="number" href="#L75">75</a><code class="code">            ? numerator &lt; 0 || numerator &gt; denominator || other &lt; 0 || other &gt; denominator</code></span>
+<span class="line" id="L76"><a class="number" href="#L76">76</a><code class="code">            : numerator &gt; 0 || numerator &lt; denominator || other &gt; 0 || other &lt; denominator)</code></span>
+<span class="line" id="L77"><a class="number" href="#L77">77</a><code class="code">            return null;</code></span>
+<span class="line" id="L78"><a class="number" href="#L78">78</a><code class="code">        // 四档格长在 ±4000 m 内仅产生整数或半整数米坐标，行列式及乘加均可精确表示。</code></span>
+<span class="line" id="L79"><a class="number" href="#L79">79</a><code class="code">        // 先相乘相加后相除，避免 t 插值引入格点误差。</code></span>
+<span class="line" id="L80"><a class="number" href="#L80">80</a><code class="code">        return new RoadPoint((a.X * denominator + rx * numerator) / denominator,</code></span>
+<span class="line" id="L81"><a class="number" href="#L81">81</a><code class="code">            (a.Y * denominator + ry * numerator) / denominator);</code></span>
+<span class="line" id="L82"><a class="number" href="#L82">82</a><code class="code">    }</code></span>
+<span class="line" id="L83"><a class="number" href="#L83">83</a><code class="code">}</code></span></pre></main></html>

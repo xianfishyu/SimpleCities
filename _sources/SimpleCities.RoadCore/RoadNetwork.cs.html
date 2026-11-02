@@ -1,0 +1,258 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>SimpleCities.RoadCore/RoadNetwork.cs · SimpleCities 源码</title><link rel="stylesheet" href="../../assets/source.css"><header><a href="../../index.html">← 文档首页</a><h1>SimpleCities.RoadCore/RoadNetwork.cs</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">namespace SimpleCities.RoadCore;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code"></code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">public readonly record struct RoadStateToken(</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code">    Guid NetworkInstance, Guid Lineage, long ContentRevision, long ChangeSequence);</code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code"></code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">/// &lt;summary&gt;只读权威内容，规范道路边可跨多个直线格段和转弯。&lt;/summary&gt;</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">public sealed class RoadSnapshot</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">{</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">    internal RoadSnapshot(MapDefinition map, RoadStateToken token, long nextNodeId = 1, long nextEdgeId = 1,</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">        IEnumerable&lt;RoadNode&gt;? nodes = null, IEnumerable&lt;RoadEdge&gt;? edges = null,</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">        RoadSnapshot? previous = null, CancellationToken cancellationToken = default)</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">    {</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">        cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">        Map = map;</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code">        Token = token;</code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">        NextNodeId = nextNodeId;</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">        NextEdgeId = nextEdgeId;</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code">        Nodes = Array.AsReadOnly(nodes?.ToArray() ?? []);</code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">        cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code">        Edges = Array.AsReadOnly(edges?.ToArray() ?? []);</code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">        QueryData = new RoadSnapshotQueryData(this, previous?.QueryData, cancellationToken);</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">    }</code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code"></code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">    private RoadSnapshot(RoadSnapshot content, RoadStateToken token, long nextNodeId, long nextEdgeId)</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code">    {</code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">        Map = content.Map;</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">        Token = token;</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code">        NextNodeId = nextNodeId;</code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">        NextEdgeId = nextEdgeId;</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">        Nodes = content.Nodes;</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code">        Edges = content.Edges;</code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">        QueryData = content.QueryData;</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code">    }</code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code"></code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code">    internal RoadSnapshot Republish(RoadStateToken token, long nextNodeId, long nextEdgeId) =&gt;</code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code">        new(this, token, nextNodeId, nextEdgeId);</code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code"></code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code">    public MapDefinition Map { get; }</code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code">    public RoadStateToken Token { get; }</code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code">    public long NextNodeId { get; }</code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code">    public long NextEdgeId { get; }</code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code">    public IReadOnlyList&lt;RoadNode&gt; Nodes { get; }</code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code">    public IReadOnlyList&lt;RoadEdge&gt; Edges { get; }</code></span>
+<span class="line" id="L44"><a class="number" href="#L44">44</a><code class="code">    public int NodeCount =&gt; Nodes.Count;</code></span>
+<span class="line" id="L45"><a class="number" href="#L45">45</a><code class="code">    public int EdgeCount =&gt; Edges.Count;</code></span>
+<span class="line" id="L46"><a class="number" href="#L46">46</a><code class="code">    internal RoadSnapshotQueryData QueryData { get; }</code></span>
+<span class="line" id="L47"><a class="number" href="#L47">47</a><code class="code"></code></span>
+<span class="line" id="L48"><a class="number" href="#L48">48</a><code class="code">    public RoadEdge? FindEdge(EdgeId id) =&gt; QueryData.FindEdge(id);</code></span>
+<span class="line" id="L49"><a class="number" href="#L49">49</a><code class="code"></code></span>
+<span class="line" id="L50"><a class="number" href="#L50">50</a><code class="code">    public RoadPoint? Resolve(RoadLocation location)</code></span>
+<span class="line" id="L51"><a class="number" href="#L51">51</a><code class="code">    {</code></span>
+<span class="line" id="L52"><a class="number" href="#L52">52</a><code class="code">        if (location.Source != Token || !double.IsFinite(location.Parameter) || location.Parameter &lt; 0 || location.Parameter &gt; 1)</code></span>
+<span class="line" id="L53"><a class="number" href="#L53">53</a><code class="code">            return null;</code></span>
+<span class="line" id="L54"><a class="number" href="#L54">54</a><code class="code">        return QueryData.Resolve(location);</code></span>
+<span class="line" id="L55"><a class="number" href="#L55">55</a><code class="code">    }</code></span>
+<span class="line" id="L56"><a class="number" href="#L56">56</a><code class="code">}</code></span>
+<span class="line" id="L57"><a class="number" href="#L57">57</a><code class="code"></code></span>
+<span class="line" id="L58"><a class="number" href="#L58">58</a><code class="code">/// &lt;summary&gt;核心公开操作入口；发布由单一调用线程负责，快照可跨线程读取。&lt;/summary&gt;</code></span>
+<span class="line" id="L59"><a class="number" href="#L59">59</a><code class="code">public sealed class RoadNetwork</code></span>
+<span class="line" id="L60"><a class="number" href="#L60">60</a><code class="code">{</code></span>
+<span class="line" id="L61"><a class="number" href="#L61">61</a><code class="code">    private volatile RoadPublishedState _published;</code></span>
+<span class="line" id="L62"><a class="number" href="#L62">62</a><code class="code"></code></span>
+<span class="line" id="L63"><a class="number" href="#L63">63</a><code class="code">    public RoadNetwork(MapDefinition? map = null)</code></span>
+<span class="line" id="L64"><a class="number" href="#L64">64</a><code class="code">    {</code></span>
+<span class="line" id="L65"><a class="number" href="#L65">65</a><code class="code">        var snapshot = new RoadSnapshot(map ?? new MapDefinition(),</code></span>
+<span class="line" id="L66"><a class="number" href="#L66">66</a><code class="code">            new RoadStateToken(Guid.NewGuid(), Guid.NewGuid(), 1, 0));</code></span>
+<span class="line" id="L67"><a class="number" href="#L67">67</a><code class="code">        _published = new(snapshot, RoadEditHistory.Empty, snapshot.Token.ContentRevision);</code></span>
+<span class="line" id="L68"><a class="number" href="#L68">68</a><code class="code">    }</code></span>
+<span class="line" id="L69"><a class="number" href="#L69">69</a><code class="code"></code></span>
+<span class="line" id="L70"><a class="number" href="#L70">70</a><code class="code">    public RoadSnapshot Snapshot =&gt; _published.Snapshot;</code></span>
+<span class="line" id="L71"><a class="number" href="#L71">71</a><code class="code">    public RoadEditHistory History =&gt; _published.History;</code></span>
+<span class="line" id="L72"><a class="number" href="#L72">72</a><code class="code">    internal RoadPublishedState Published =&gt; _published;</code></span>
+<span class="line" id="L73"><a class="number" href="#L73">73</a><code class="code"></code></span>
+<span class="line" id="L74"><a class="number" href="#L74">74</a><code class="code">    internal long NextContentRevision(RoadSnapshot source)</code></span>
+<span class="line" id="L75"><a class="number" href="#L75">75</a><code class="code">    {</code></span>
+<span class="line" id="L76"><a class="number" href="#L76">76</a><code class="code">        RoadPublishedState published = _published;</code></span>
+<span class="line" id="L77"><a class="number" href="#L77">77</a><code class="code">        long watermark = ReferenceEquals(source, published.Snapshot)</code></span>
+<span class="line" id="L78"><a class="number" href="#L78">78</a><code class="code">            ? published.RevisionWatermark : source.Token.ContentRevision;</code></span>
+<span class="line" id="L79"><a class="number" href="#L79">79</a><code class="code">        if (watermark &gt;= long.MaxValue - 1)</code></span>
+<span class="line" id="L80"><a class="number" href="#L80">80</a><code class="code">            throw new InvalidDataException(&quot;道路身份或版本已耗尽&quot;);</code></span>
+<span class="line" id="L81"><a class="number" href="#L81">81</a><code class="code">        return watermark + 1;</code></span>
+<span class="line" id="L82"><a class="number" href="#L82">82</a><code class="code">    }</code></span>
+<span class="line" id="L83"><a class="number" href="#L83">83</a><code class="code"></code></span>
+<span class="line" id="L84"><a class="number" href="#L84">84</a><code class="code">    public RoadEditResult PlanUndo(CancellationToken cancellationToken = default) =&gt; PlanHistory(true, cancellationToken);</code></span>
+<span class="line" id="L85"><a class="number" href="#L85">85</a><code class="code">    public RoadEditResult PlanRedo(CancellationToken cancellationToken = default) =&gt; PlanHistory(false, cancellationToken);</code></span>
+<span class="line" id="L86"><a class="number" href="#L86">86</a><code class="code"></code></span>
+<span class="line" id="L87"><a class="number" href="#L87">87</a><code class="code">    private RoadEditResult PlanHistory(bool undo, CancellationToken cancellationToken)</code></span>
+<span class="line" id="L88"><a class="number" href="#L88">88</a><code class="code">    {</code></span>
+<span class="line" id="L89"><a class="number" href="#L89">89</a><code class="code">        cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L90"><a class="number" href="#L90">90</a><code class="code">        RoadPublishedState published = _published;</code></span>
+<span class="line" id="L91"><a class="number" href="#L91">91</a><code class="code">        RoadSnapshot before = published.Snapshot;</code></span>
+<span class="line" id="L92"><a class="number" href="#L92">92</a><code class="code">        RoadChangeSet? change = undo ? published.History.UndoChange : published.History.RedoChange;</code></span>
+<span class="line" id="L93"><a class="number" href="#L93">93</a><code class="code">        if (change is null) return new(RoadEditStatus.NoChange, null, &quot;&quot;);</code></span>
+<span class="line" id="L94"><a class="number" href="#L94">94</a><code class="code">        RoadChangeMetadata expected = undo ? change.After : change.Before;</code></span>
+<span class="line" id="L95"><a class="number" href="#L95">95</a><code class="code">        if (expected.Token.NetworkInstance != before.Token.NetworkInstance || expected.Token.Lineage != before.Token.Lineage ||</code></span>
+<span class="line" id="L96"><a class="number" href="#L96">96</a><code class="code">            expected.Token.ContentRevision != before.Token.ContentRevision)</code></span>
+<span class="line" id="L97"><a class="number" href="#L97">97</a><code class="code">            return new(RoadEditStatus.Rejected, null, &quot;道路历史来源已过期&quot;);</code></span>
+<span class="line" id="L98"><a class="number" href="#L98">98</a><code class="code">        if (before.Token.ChangeSequence == long.MaxValue)</code></span>
+<span class="line" id="L99"><a class="number" href="#L99">99</a><code class="code">            return new(RoadEditStatus.Rejected, null, &quot;道路身份或版本已耗尽&quot;);</code></span>
+<span class="line" id="L100"><a class="number" href="#L100">100</a><code class="code"></code></span>
+<span class="line" id="L101"><a class="number" href="#L101">101</a><code class="code">        RoadChangeMetadata desired = undo ? change.Before : change.After;</code></span>
+<span class="line" id="L102"><a class="number" href="#L102">102</a><code class="code">        RoadStateToken token = before.Token with</code></span>
+<span class="line" id="L103"><a class="number" href="#L103">103</a><code class="code">        {</code></span>
+<span class="line" id="L104"><a class="number" href="#L104">104</a><code class="code">            ContentRevision = desired.Token.ContentRevision,</code></span>
+<span class="line" id="L105"><a class="number" href="#L105">105</a><code class="code">            ChangeSequence = before.Token.ChangeSequence + 1,</code></span>
+<span class="line" id="L106"><a class="number" href="#L106">106</a><code class="code">        };</code></span>
+<span class="line" id="L107"><a class="number" href="#L107">107</a><code class="code">        long nextNode = Math.Max(before.NextNodeId, desired.NextNodeId), nextEdge = Math.Max(before.NextEdgeId, desired.NextEdgeId);</code></span>
+<span class="line" id="L108"><a class="number" href="#L108">108</a><code class="code">        RoadSnapshot target;</code></span>
+<span class="line" id="L109"><a class="number" href="#L109">109</a><code class="code">        // A display or reader may still own the preceding content. The network</code></span>
+<span class="line" id="L110"><a class="number" href="#L110">110</a><code class="code">        // itself keeps only a weak reference, never a chain of old derived data.</code></span>
+<span class="line" id="L111"><a class="number" href="#L111">111</a><code class="code">        if (published.PreviousContent is not null &amp;&amp; published.PreviousContent.TryGetTarget(out RoadSnapshot? observed) &amp;&amp;</code></span>
+<span class="line" id="L112"><a class="number" href="#L112">112</a><code class="code">            observed.Token.NetworkInstance == token.NetworkInstance &amp;&amp; observed.Token.Lineage == token.Lineage &amp;&amp;</code></span>
+<span class="line" id="L113"><a class="number" href="#L113">113</a><code class="code">            observed.Token.ContentRevision == token.ContentRevision &amp;&amp; observed.Map == desired.Map)</code></span>
+<span class="line" id="L114"><a class="number" href="#L114">114</a><code class="code">        {</code></span>
+<span class="line" id="L115"><a class="number" href="#L115">115</a><code class="code">            target = observed.Republish(token, nextNode, nextEdge);</code></span>
+<span class="line" id="L116"><a class="number" href="#L116">116</a><code class="code">        }</code></span>
+<span class="line" id="L117"><a class="number" href="#L117">117</a><code class="code">        else</code></span>
+<span class="line" id="L118"><a class="number" href="#L118">118</a><code class="code">        {</code></span>
+<span class="line" id="L119"><a class="number" href="#L119">119</a><code class="code">            var nodes = new Dictionary&lt;NodeId, RoadNode&gt;(before.NodeCount);</code></span>
+<span class="line" id="L120"><a class="number" href="#L120">120</a><code class="code">            foreach (RoadNode node in before.Nodes)</code></span>
+<span class="line" id="L121"><a class="number" href="#L121">121</a><code class="code">            {</code></span>
+<span class="line" id="L122"><a class="number" href="#L122">122</a><code class="code">                cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L123"><a class="number" href="#L123">123</a><code class="code">                nodes.Add(node.Id, node);</code></span>
+<span class="line" id="L124"><a class="number" href="#L124">124</a><code class="code">            }</code></span>
+<span class="line" id="L125"><a class="number" href="#L125">125</a><code class="code">            foreach (RoadNodeChange node in change.Nodes)</code></span>
+<span class="line" id="L126"><a class="number" href="#L126">126</a><code class="code">            {</code></span>
+<span class="line" id="L127"><a class="number" href="#L127">127</a><code class="code">                cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L128"><a class="number" href="#L128">128</a><code class="code">                nodes.Remove(node.Id);</code></span>
+<span class="line" id="L129"><a class="number" href="#L129">129</a><code class="code">                RoadNode? restored = undo ? node.Before : node.After;</code></span>
+<span class="line" id="L130"><a class="number" href="#L130">130</a><code class="code">                if (restored is not null) nodes.Add(node.Id, restored);</code></span>
+<span class="line" id="L131"><a class="number" href="#L131">131</a><code class="code">            }</code></span>
+<span class="line" id="L132"><a class="number" href="#L132">132</a><code class="code">            var edges = new Dictionary&lt;EdgeId, RoadEdge&gt;(before.EdgeCount);</code></span>
+<span class="line" id="L133"><a class="number" href="#L133">133</a><code class="code">            foreach (RoadEdge edge in before.Edges)</code></span>
+<span class="line" id="L134"><a class="number" href="#L134">134</a><code class="code">            {</code></span>
+<span class="line" id="L135"><a class="number" href="#L135">135</a><code class="code">                cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L136"><a class="number" href="#L136">136</a><code class="code">                edges.Add(edge.Id, edge);</code></span>
+<span class="line" id="L137"><a class="number" href="#L137">137</a><code class="code">            }</code></span>
+<span class="line" id="L138"><a class="number" href="#L138">138</a><code class="code">            foreach (RoadEdgeChange edge in change.Edges)</code></span>
+<span class="line" id="L139"><a class="number" href="#L139">139</a><code class="code">            {</code></span>
+<span class="line" id="L140"><a class="number" href="#L140">140</a><code class="code">                cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L141"><a class="number" href="#L141">141</a><code class="code">                edges.Remove(edge.Id);</code></span>
+<span class="line" id="L142"><a class="number" href="#L142">142</a><code class="code">                RoadEdge? restored = undo ? edge.Before : edge.After;</code></span>
+<span class="line" id="L143"><a class="number" href="#L143">143</a><code class="code">                if (restored is not null) edges.Add(edge.Id, restored);</code></span>
+<span class="line" id="L144"><a class="number" href="#L144">144</a><code class="code">            }</code></span>
+<span class="line" id="L145"><a class="number" href="#L145">145</a><code class="code">            target = new RoadSnapshot(desired.Map, token, nextNode, nextEdge,</code></span>
+<span class="line" id="L146"><a class="number" href="#L146">146</a><code class="code">                nodes.Values.OrderBy(node =&gt; node.Id.Value), edges.Values.OrderBy(edge =&gt; edge.Id.Value),</code></span>
+<span class="line" id="L147"><a class="number" href="#L147">147</a><code class="code">                before, cancellationToken);</code></span>
+<span class="line" id="L148"><a class="number" href="#L148">148</a><code class="code">        }</code></span>
+<span class="line" id="L149"><a class="number" href="#L149">149</a><code class="code">        cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L150"><a class="number" href="#L150">150</a><code class="code">        var plan = new RoadPlan(this, published, target, published.History.Move(undo), published.RevisionWatermark,</code></span>
+<span class="line" id="L151"><a class="number" href="#L151">151</a><code class="code">            new RoadChangeSet(before, target, change, undo, cancellationToken));</code></span>
+<span class="line" id="L152"><a class="number" href="#L152">152</a><code class="code">        cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L153"><a class="number" href="#L153">153</a><code class="code">        return new(RoadEditStatus.Ready, plan, &quot;&quot;);</code></span>
+<span class="line" id="L154"><a class="number" href="#L154">154</a><code class="code">    }</code></span>
+<span class="line" id="L155"><a class="number" href="#L155">155</a><code class="code"></code></span>
+<span class="line" id="L156"><a class="number" href="#L156">156</a><code class="code">    public RoadEditResult PlanRemove(RoadGridSpan span, CancellationToken cancellationToken = default) =&gt;</code></span>
+<span class="line" id="L157"><a class="number" href="#L157">157</a><code class="code">        PlanRemove(new[] { span }, cancellationToken);</code></span>
+<span class="line" id="L158"><a class="number" href="#L158">158</a><code class="code"></code></span>
+<span class="line" id="L159"><a class="number" href="#L159">159</a><code class="code">    public RoadEditResult PlanRemove(IReadOnlyList&lt;RoadGridSpan&gt; spans, CancellationToken cancellationToken = default) =&gt;</code></span>
+<span class="line" id="L160"><a class="number" href="#L160">160</a><code class="code">        RoadSpanEditPlanner.Plan(this, Snapshot, spans, null, cancellationToken);</code></span>
+<span class="line" id="L161"><a class="number" href="#L161">161</a><code class="code"></code></span>
+<span class="line" id="L162"><a class="number" href="#L162">162</a><code class="code">    public RoadEditResult PlanChangeProfile(RoadGridSpan span, RoadProfileId profile, CancellationToken cancellationToken = default) =&gt;</code></span>
+<span class="line" id="L163"><a class="number" href="#L163">163</a><code class="code">        PlanChangeProfile(new[] { span }, profile, cancellationToken);</code></span>
+<span class="line" id="L164"><a class="number" href="#L164">164</a><code class="code"></code></span>
+<span class="line" id="L165"><a class="number" href="#L165">165</a><code class="code">    public RoadEditResult PlanChangeProfile(IReadOnlyList&lt;RoadGridSpan&gt; spans, RoadProfileId profile, CancellationToken cancellationToken = default) =&gt;</code></span>
+<span class="line" id="L166"><a class="number" href="#L166">166</a><code class="code">        RoadSpanEditPlanner.Plan(this, Snapshot, spans, profile, cancellationToken);</code></span>
+<span class="line" id="L167"><a class="number" href="#L167">167</a><code class="code"></code></span>
+<span class="line" id="L168"><a class="number" href="#L168">168</a><code class="code">    public RoadPlan PlanLoad(PreparedRoadState prepared)</code></span>
+<span class="line" id="L169"><a class="number" href="#L169">169</a><code class="code">    {</code></span>
+<span class="line" id="L170"><a class="number" href="#L170">170</a><code class="code">        ArgumentNullException.ThrowIfNull(prepared);</code></span>
+<span class="line" id="L171"><a class="number" href="#L171">171</a><code class="code">        RoadPublishedState published = _published;</code></span>
+<span class="line" id="L172"><a class="number" href="#L172">172</a><code class="code">        RoadSnapshot before = published.Snapshot;</code></span>
+<span class="line" id="L173"><a class="number" href="#L173">173</a><code class="code">        var token = new RoadStateToken(before.Token.NetworkInstance, Guid.NewGuid(),</code></span>
+<span class="line" id="L174"><a class="number" href="#L174">174</a><code class="code">            prepared.ContentRevision, checked(before.Token.ChangeSequence + 1));</code></span>
+<span class="line" id="L175"><a class="number" href="#L175">175</a><code class="code">        return new RoadPlan(this, published, new RoadSnapshot(prepared.Map, token,</code></span>
+<span class="line" id="L176"><a class="number" href="#L176">176</a><code class="code">            prepared.NextNodeId, prepared.NextEdgeId, prepared.Nodes, prepared.Edges),</code></span>
+<span class="line" id="L177"><a class="number" href="#L177">177</a><code class="code">            RoadEditHistory.Empty, prepared.ContentRevision);</code></span>
+<span class="line" id="L178"><a class="number" href="#L178">178</a><code class="code">    }</code></span>
+<span class="line" id="L179"><a class="number" href="#L179">179</a><code class="code"></code></span>
+<span class="line" id="L180"><a class="number" href="#L180">180</a><code class="code">    public RoadBuildResult PlanBuild(RoadBuildRequest request, CancellationToken cancellationToken = default)</code></span>
+<span class="line" id="L181"><a class="number" href="#L181">181</a><code class="code">    {</code></span>
+<span class="line" id="L182"><a class="number" href="#L182">182</a><code class="code">        cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L183"><a class="number" href="#L183">183</a><code class="code">        RoadSnapshot before = Snapshot;</code></span>
+<span class="line" id="L184"><a class="number" href="#L184">184</a><code class="code">        if (request.Source != before.Token)</code></span>
+<span class="line" id="L185"><a class="number" href="#L185">185</a><code class="code">            return new(RoadBuildStatus.Rejected, null, &quot;道路来源版本已过期&quot;);</code></span>
+<span class="line" id="L186"><a class="number" href="#L186">186</a><code class="code">        if (!request.Profile.IsValid || !before.Map.IsBuildPoint(request.Start) || !before.Map.IsBuildPoint(request.End))</code></span>
+<span class="line" id="L187"><a class="number" href="#L187">187</a><code class="code">            return new(RoadBuildStatus.Rejected, null, &quot;请选择地图内的主格点或格心和有效道路类型&quot;);</code></span>
+<span class="line" id="L188"><a class="number" href="#L188">188</a><code class="code">        if (request.Start == request.End)</code></span>
+<span class="line" id="L189"><a class="number" href="#L189">189</a><code class="code">            return new(RoadBuildStatus.NoChange, null, &quot;&quot;);</code></span>
+<span class="line" id="L190"><a class="number" href="#L190">190</a><code class="code">        if (!before.Map.IsBuildSegment(request.Start, request.End))</code></span>
+<span class="line" id="L191"><a class="number" href="#L191">191</a><code class="code">            return new(RoadBuildStatus.Rejected, null, &quot;主格点道路仅支持米字网格八方向，格心仅允许对角方向&quot;);</code></span>
+<span class="line" id="L192"><a class="number" href="#L192">192</a><code class="code">        IReadOnlyList&lt;RoadConflictSpan&gt; conflicts = RoadOverlap.Find(before, request.Start, request.End, cancellationToken);</code></span>
+<span class="line" id="L193"><a class="number" href="#L193">193</a><code class="code">        if (conflicts.Count != 0)</code></span>
+<span class="line" id="L194"><a class="number" href="#L194">194</a><code class="code">            return new(RoadBuildStatus.Rejected, null, &quot;与已有道路重叠，整笔不可建造&quot;, conflicts);</code></span>
+<span class="line" id="L195"><a class="number" href="#L195">195</a><code class="code">        if (before.Token.ContentRevision &gt;= long.MaxValue - 1 || before.Token.ChangeSequence == long.MaxValue)</code></span>
+<span class="line" id="L196"><a class="number" href="#L196">196</a><code class="code">            return new(RoadBuildStatus.Rejected, null, &quot;道路身份或版本已耗尽&quot;);</code></span>
+<span class="line" id="L197"><a class="number" href="#L197">197</a><code class="code">        try</code></span>
+<span class="line" id="L198"><a class="number" href="#L198">198</a><code class="code">        {</code></span>
+<span class="line" id="L199"><a class="number" href="#L199">199</a><code class="code">            return RoadBuildPlanner.Plan(this, before, request, cancellationToken);</code></span>
+<span class="line" id="L200"><a class="number" href="#L200">200</a><code class="code">        }</code></span>
+<span class="line" id="L201"><a class="number" href="#L201">201</a><code class="code">        catch (InvalidDataException exception)</code></span>
+<span class="line" id="L202"><a class="number" href="#L202">202</a><code class="code">        {</code></span>
+<span class="line" id="L203"><a class="number" href="#L203">203</a><code class="code">            return new(RoadBuildStatus.Rejected, null, exception.Message);</code></span>
+<span class="line" id="L204"><a class="number" href="#L204">204</a><code class="code">        }</code></span>
+<span class="line" id="L205"><a class="number" href="#L205">205</a><code class="code">    }</code></span>
+<span class="line" id="L206"><a class="number" href="#L206">206</a><code class="code"></code></span>
+<span class="line" id="L207"><a class="number" href="#L207">207</a><code class="code">    public bool CanCommit(RoadPlan plan) =&gt;</code></span>
+<span class="line" id="L208"><a class="number" href="#L208">208</a><code class="code">        ReferenceEquals(plan.Owner, this) &amp;&amp; ReferenceEquals(plan.Source, Snapshot) &amp;&amp;</code></span>
+<span class="line" id="L209"><a class="number" href="#L209">209</a><code class="code">        ReferenceEquals(plan.SourceState, _published);</code></span>
+<span class="line" id="L210"><a class="number" href="#L210">210</a><code class="code"></code></span>
+<span class="line" id="L211"><a class="number" href="#L211">211</a><code class="code">    /// &lt;summary&gt;单写者在预检后发布；过期计划无副作用，成功时仅交换引用。&lt;/summary&gt;</code></span>
+<span class="line" id="L212"><a class="number" href="#L212">212</a><code class="code">    public bool TryCommit(RoadPlan plan)</code></span>
+<span class="line" id="L213"><a class="number" href="#L213">213</a><code class="code">    {</code></span>
+<span class="line" id="L214"><a class="number" href="#L214">214</a><code class="code">        if (!CanCommit(plan))</code></span>
+<span class="line" id="L215"><a class="number" href="#L215">215</a><code class="code">            return false;</code></span>
+<span class="line" id="L216"><a class="number" href="#L216">216</a><code class="code">        _published = plan.TargetState;</code></span>
+<span class="line" id="L217"><a class="number" href="#L217">217</a><code class="code">        return true;</code></span>
+<span class="line" id="L218"><a class="number" href="#L218">218</a><code class="code">    }</code></span>
+<span class="line" id="L219"><a class="number" href="#L219">219</a><code class="code">}</code></span>
+<span class="line" id="L220"><a class="number" href="#L220">220</a><code class="code"></code></span>
+<span class="line" id="L221"><a class="number" href="#L221">221</a><code class="code">public sealed class RoadPlan</code></span>
+<span class="line" id="L222"><a class="number" href="#L222">222</a><code class="code">{</code></span>
+<span class="line" id="L223"><a class="number" href="#L223">223</a><code class="code">    internal RoadPlan(RoadNetwork owner, RoadSnapshot source, RoadSnapshot target, int addedNodeCount = 0,</code></span>
+<span class="line" id="L224"><a class="number" href="#L224">224</a><code class="code">        int addedEdgeCount = 0, CancellationToken cancellationToken = default)</code></span>
+<span class="line" id="L225"><a class="number" href="#L225">225</a><code class="code">    {</code></span>
+<span class="line" id="L226"><a class="number" href="#L226">226</a><code class="code">        Owner = owner;</code></span>
+<span class="line" id="L227"><a class="number" href="#L227">227</a><code class="code">        Source = source;</code></span>
+<span class="line" id="L228"><a class="number" href="#L228">228</a><code class="code">        Target = target;</code></span>
+<span class="line" id="L229"><a class="number" href="#L229">229</a><code class="code">        AddedNodeCount = addedNodeCount;</code></span>
+<span class="line" id="L230"><a class="number" href="#L230">230</a><code class="code">        AddedEdgeCount = addedEdgeCount;</code></span>
+<span class="line" id="L231"><a class="number" href="#L231">231</a><code class="code">        ChangeSet = new RoadChangeSet(source, target, cancellationToken);</code></span>
+<span class="line" id="L232"><a class="number" href="#L232">232</a><code class="code">        SourceState = owner.Published;</code></span>
+<span class="line" id="L233"><a class="number" href="#L233">233</a><code class="code">        TargetState = new(target, SourceState.History.Append(ChangeSet),</code></span>
+<span class="line" id="L234"><a class="number" href="#L234">234</a><code class="code">            Math.Max(SourceState.RevisionWatermark, target.Token.ContentRevision), new(source));</code></span>
+<span class="line" id="L235"><a class="number" href="#L235">235</a><code class="code">    }</code></span>
+<span class="line" id="L236"><a class="number" href="#L236">236</a><code class="code"></code></span>
+<span class="line" id="L237"><a class="number" href="#L237">237</a><code class="code">    internal RoadPlan(RoadNetwork owner, RoadPublishedState source, RoadSnapshot target,</code></span>
+<span class="line" id="L238"><a class="number" href="#L238">238</a><code class="code">        RoadEditHistory history, long revisionWatermark, RoadChangeSet? replayedChange = null)</code></span>
+<span class="line" id="L239"><a class="number" href="#L239">239</a><code class="code">    {</code></span>
+<span class="line" id="L240"><a class="number" href="#L240">240</a><code class="code">        Owner = owner;</code></span>
+<span class="line" id="L241"><a class="number" href="#L241">241</a><code class="code">        Source = source.Snapshot;</code></span>
+<span class="line" id="L242"><a class="number" href="#L242">242</a><code class="code">        SourceState = source;</code></span>
+<span class="line" id="L243"><a class="number" href="#L243">243</a><code class="code">        Target = target;</code></span>
+<span class="line" id="L244"><a class="number" href="#L244">244</a><code class="code">        ChangeSet = replayedChange ?? new RoadChangeSet(Source, target);</code></span>
+<span class="line" id="L245"><a class="number" href="#L245">245</a><code class="code">        TargetState = new(target, history, revisionWatermark,</code></span>
+<span class="line" id="L246"><a class="number" href="#L246">246</a><code class="code">            Source.Token.NetworkInstance == target.Token.NetworkInstance &amp;&amp; Source.Token.Lineage == target.Token.Lineage ? new(Source) : null);</code></span>
+<span class="line" id="L247"><a class="number" href="#L247">247</a><code class="code">    }</code></span>
+<span class="line" id="L248"><a class="number" href="#L248">248</a><code class="code"></code></span>
+<span class="line" id="L249"><a class="number" href="#L249">249</a><code class="code">    internal RoadNetwork Owner { get; }</code></span>
+<span class="line" id="L250"><a class="number" href="#L250">250</a><code class="code">    internal RoadSnapshot Source { get; }</code></span>
+<span class="line" id="L251"><a class="number" href="#L251">251</a><code class="code">    internal RoadPublishedState SourceState { get; }</code></span>
+<span class="line" id="L252"><a class="number" href="#L252">252</a><code class="code">    internal RoadPublishedState TargetState { get; }</code></span>
+<span class="line" id="L253"><a class="number" href="#L253">253</a><code class="code">    public RoadSnapshot Target { get; }</code></span>
+<span class="line" id="L254"><a class="number" href="#L254">254</a><code class="code">    public RoadChangeSet ChangeSet { get; }</code></span>
+<span class="line" id="L255"><a class="number" href="#L255">255</a><code class="code">    public RoadStateToken SourceToken =&gt; Source.Token;</code></span>
+<span class="line" id="L256"><a class="number" href="#L256">256</a><code class="code">    public int AddedNodeCount { get; }</code></span>
+<span class="line" id="L257"><a class="number" href="#L257">257</a><code class="code">    public int AddedEdgeCount { get; }</code></span>
+<span class="line" id="L258"><a class="number" href="#L258">258</a><code class="code">}</code></span></pre></main></html>

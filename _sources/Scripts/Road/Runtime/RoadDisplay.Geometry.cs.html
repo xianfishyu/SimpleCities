@@ -1,0 +1,477 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Scripts/Road/Runtime/RoadDisplay.Geometry.cs · SimpleCities 源码</title><link rel="stylesheet" href="../../../../assets/source.css"><header><a href="../../../../index.html">← 文档首页</a><h1>Scripts/Road/Runtime/RoadDisplay.Geometry.cs</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">using Godot;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code">using System;</code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">using System.Collections.Generic;</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code">using System.Collections.Immutable;</code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code">using System.Diagnostics;</code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">using System.Linq;</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">using System.Threading;</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">using SimpleCities.RoadCore;</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code"></code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">internal sealed partial class RoadDisplay</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">{</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">    private const int OwnersPerPage = 64;</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">    private const int MinimumOwnersPerPage = OwnersPerPage / 2;</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">    private const int VerticesPerMesh = 2048;</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code">    internal readonly record struct PageKey(RoadSurfaceLayer Layer, long FirstOwner) : IComparable&lt;PageKey&gt;</code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">    {</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">        public int CompareTo(PageKey other)</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code">        {</code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">            int layer = ((int)Layer).CompareTo((int)other.Layer);</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code">            return layer == 0 ? FirstOwner.CompareTo(other.FirstOwner) : layer;</code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">        }</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">    }</code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code"></code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">    private sealed class Piece(GeometryGroup group, int order, EdgeId edge, Vector2[] polygon, Vector2 start, Vector2 end,</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code">        double startParameter, double endParameter, NodeId? junctionNode)</code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">    {</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">        internal GeometryGroup Group { get; } = group;</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code">        internal int Order { get; } = order;</code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">        internal EdgeId Edge { get; } = edge;</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">        internal Vector2[] Polygon { get; } = polygon;</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code">        internal Vector2 Start { get; } = start;</code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">        internal Vector2 End { get; } = end;</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code">        internal double StartParameter { get; } = startParameter;</code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code">        internal double EndParameter { get; } = endParameter;</code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code">        internal NodeId? JunctionNode { get; } = junctionNode;</code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code">    }</code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code"></code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code">    private sealed class PaintComparer : IComparer&lt;Piece&gt;</code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code">    {</code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code">        internal static PaintComparer Instance { get; } = new();</code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code">        public int Compare(Piece? left, Piece? right)</code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code">        {</code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code">            if (ReferenceEquals(left, right)) return 0;</code></span>
+<span class="line" id="L44"><a class="number" href="#L44">44</a><code class="code">            if (left is null) return -1;</code></span>
+<span class="line" id="L45"><a class="number" href="#L45">45</a><code class="code">            if (right is null) return 1;</code></span>
+<span class="line" id="L46"><a class="number" href="#L46">46</a><code class="code">            int group = left.Group.Source.Key.CompareTo(right.Group.Source.Key);</code></span>
+<span class="line" id="L47"><a class="number" href="#L47">47</a><code class="code">            return group == 0 ? left.Order.CompareTo(right.Order) : group;</code></span>
+<span class="line" id="L48"><a class="number" href="#L48">48</a><code class="code">        }</code></span>
+<span class="line" id="L49"><a class="number" href="#L49">49</a><code class="code">    }</code></span>
+<span class="line" id="L50"><a class="number" href="#L50">50</a><code class="code"></code></span>
+<span class="line" id="L51"><a class="number" href="#L51">51</a><code class="code">    private sealed class GeometryGroup</code></span>
+<span class="line" id="L52"><a class="number" href="#L52">52</a><code class="code">    {</code></span>
+<span class="line" id="L53"><a class="number" href="#L53">53</a><code class="code">        internal RoadSurfaceGroup Source { get; }</code></span>
+<span class="line" id="L54"><a class="number" href="#L54">54</a><code class="code">        internal Piece[] Pieces { get; }</code></span>
+<span class="line" id="L55"><a class="number" href="#L55">55</a><code class="code">        internal Fragment[] Fragments { get; }</code></span>
+<span class="line" id="L56"><a class="number" href="#L56">56</a><code class="code">        internal GeometryGroup(RoadSurfaceGroup source, CancellationToken token)</code></span>
+<span class="line" id="L57"><a class="number" href="#L57">57</a><code class="code">        {</code></span>
+<span class="line" id="L58"><a class="number" href="#L58">58</a><code class="code">            Source = source;</code></span>
+<span class="line" id="L59"><a class="number" href="#L59">59</a><code class="code">            Pieces = new Piece[source.Pieces.Count];</code></span>
+<span class="line" id="L60"><a class="number" href="#L60">60</a><code class="code">            int fragmentCount = 0;</code></span>
+<span class="line" id="L61"><a class="number" href="#L61">61</a><code class="code">            for (int i = 0; i &lt; Pieces.Length; i++)</code></span>
+<span class="line" id="L62"><a class="number" href="#L62">62</a><code class="code">            {</code></span>
+<span class="line" id="L63"><a class="number" href="#L63">63</a><code class="code">                token.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L64"><a class="number" href="#L64">64</a><code class="code">                RoadSurfacePiece item = source.Pieces[i];</code></span>
+<span class="line" id="L65"><a class="number" href="#L65">65</a><code class="code">                var polygon = new Vector2[item.Corners.Count];</code></span>
+<span class="line" id="L66"><a class="number" href="#L66">66</a><code class="code">                for (int c = 0; c &lt; polygon.Length; c++) polygon[c] = ToVector(item.Corners[c]);</code></span>
+<span class="line" id="L67"><a class="number" href="#L67">67</a><code class="code">                ValidatePolygon(polygon);</code></span>
+<span class="line" id="L68"><a class="number" href="#L68">68</a><code class="code">                var piece = new Piece(this, i, item.Edge.Id, polygon, ToVector(item.Start), ToVector(item.End),</code></span>
+<span class="line" id="L69"><a class="number" href="#L69">69</a><code class="code">                    item.StartParameter, item.EndParameter, item.JunctionNode);</code></span>
+<span class="line" id="L70"><a class="number" href="#L70">70</a><code class="code">                Pieces[i] = piece;</code></span>
+<span class="line" id="L71"><a class="number" href="#L71">71</a><code class="code">                fragmentCount = checked(fragmentCount + FragmentCount(piece));</code></span>
+<span class="line" id="L72"><a class="number" href="#L72">72</a><code class="code">            }</code></span>
+<span class="line" id="L73"><a class="number" href="#L73">73</a><code class="code">            Fragments = new Fragment[fragmentCount];</code></span>
+<span class="line" id="L74"><a class="number" href="#L74">74</a><code class="code">            int offset = 0;</code></span>
+<span class="line" id="L75"><a class="number" href="#L75">75</a><code class="code">            foreach (Piece piece in Pieces)</code></span>
+<span class="line" id="L76"><a class="number" href="#L76">76</a><code class="code">            {</code></span>
+<span class="line" id="L77"><a class="number" href="#L77">77</a><code class="code">                int count = FragmentCount(piece);</code></span>
+<span class="line" id="L78"><a class="number" href="#L78">78</a><code class="code">                for (int part = 0; part &lt; count; part++)</code></span>
+<span class="line" id="L79"><a class="number" href="#L79">79</a><code class="code">                {</code></span>
+<span class="line" id="L80"><a class="number" href="#L80">80</a><code class="code">                    token.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L81"><a class="number" href="#L81">81</a><code class="code">                    Fragments[offset++] = new(piece, FragmentBounds(piece, part, count));</code></span>
+<span class="line" id="L82"><a class="number" href="#L82">82</a><code class="code">                }</code></span>
+<span class="line" id="L83"><a class="number" href="#L83">83</a><code class="code">            }</code></span>
+<span class="line" id="L84"><a class="number" href="#L84">84</a><code class="code">        }</code></span>
+<span class="line" id="L85"><a class="number" href="#L85">85</a><code class="code">    }</code></span>
+<span class="line" id="L86"><a class="number" href="#L86">86</a><code class="code"></code></span>
+<span class="line" id="L87"><a class="number" href="#L87">87</a><code class="code">    private sealed record GeometryPage(PageKey Key, GeometryGroup[] Groups);</code></span>
+<span class="line" id="L88"><a class="number" href="#L88">88</a><code class="code">    internal sealed record MeshArrays(Vector3[] Vertices, Color[] Colors, int[] Indices);</code></span>
+<span class="line" id="L89"><a class="number" href="#L89">89</a><code class="code"></code></span>
+<span class="line" id="L90"><a class="number" href="#L90">90</a><code class="code">    // Resource ownership is main-thread only. A whole-content replay shares the set in O(1);</code></span>
+<span class="line" id="L91"><a class="number" href="#L91">91</a><code class="code">    // incremental revisions share individual pages, without ever modifying a published mesh.</code></span>
+<span class="line" id="L92"><a class="number" href="#L92">92</a><code class="code">    private sealed class PageMeshes(GeometryPage content, ArrayMesh[] meshes)</code></span>
+<span class="line" id="L93"><a class="number" href="#L93">93</a><code class="code">    {</code></span>
+<span class="line" id="L94"><a class="number" href="#L94">94</a><code class="code">        private int _owners = 1;</code></span>
+<span class="line" id="L95"><a class="number" href="#L95">95</a><code class="code">        internal GeometryPage Content { get; } = content;</code></span>
+<span class="line" id="L96"><a class="number" href="#L96">96</a><code class="code">        internal ArrayMesh[] Meshes { get; } = meshes;</code></span>
+<span class="line" id="L97"><a class="number" href="#L97">97</a><code class="code">        internal PageMeshes Acquire() { ObjectDisposedException.ThrowIf(_owners == 0, this); _owners++; return this; }</code></span>
+<span class="line" id="L98"><a class="number" href="#L98">98</a><code class="code">        internal void Release() { if (--_owners == 0) foreach (ArrayMesh mesh in Meshes) mesh.Dispose(); }</code></span>
+<span class="line" id="L99"><a class="number" href="#L99">99</a><code class="code">    }</code></span>
+<span class="line" id="L100"><a class="number" href="#L100">100</a><code class="code">    private sealed class ResourceSet(Dictionary&lt;PageKey, PageMeshes&gt; pages, ArrayMesh[] meshes)</code></span>
+<span class="line" id="L101"><a class="number" href="#L101">101</a><code class="code">    {</code></span>
+<span class="line" id="L102"><a class="number" href="#L102">102</a><code class="code">        private int _owners = 1;</code></span>
+<span class="line" id="L103"><a class="number" href="#L103">103</a><code class="code">        internal Dictionary&lt;PageKey, PageMeshes&gt; Pages { get; } = pages;</code></span>
+<span class="line" id="L104"><a class="number" href="#L104">104</a><code class="code">        internal IReadOnlyList&lt;ArrayMesh&gt; Meshes { get; } = Array.AsReadOnly(meshes);</code></span>
+<span class="line" id="L105"><a class="number" href="#L105">105</a><code class="code">        internal ResourceSet Acquire() { _owners++; return this; }</code></span>
+<span class="line" id="L106"><a class="number" href="#L106">106</a><code class="code">        internal void Draw(CanvasItem owner, RoadStateToken source)</code></span>
+<span class="line" id="L107"><a class="number" href="#L107">107</a><code class="code">        {</code></span>
+<span class="line" id="L108"><a class="number" href="#L108">108</a><code class="code">            for (int i = 0; i &lt; meshes.Length; i++)</code></span>
+<span class="line" id="L109"><a class="number" href="#L109">109</a><code class="code">            {</code></span>
+<span class="line" id="L110"><a class="number" href="#L110">110</a><code class="code">                owner.DrawMesh(meshes[i], null, modulate: Colors.White);</code></span>
+<span class="line" id="L111"><a class="number" href="#L111">111</a><code class="code">#if DEBUG</code></span>
+<span class="line" id="L112"><a class="number" href="#L112">112</a><code class="code">                AfterMeshDraw?.Invoke(source, i);</code></span>
+<span class="line" id="L113"><a class="number" href="#L113">113</a><code class="code">#endif</code></span>
+<span class="line" id="L114"><a class="number" href="#L114">114</a><code class="code">            }</code></span>
+<span class="line" id="L115"><a class="number" href="#L115">115</a><code class="code">        }</code></span>
+<span class="line" id="L116"><a class="number" href="#L116">116</a><code class="code">        internal void Release() { if (--_owners == 0) foreach (PageMeshes page in Pages.Values) page.Release(); }</code></span>
+<span class="line" id="L117"><a class="number" href="#L117">117</a><code class="code">    }</code></span>
+<span class="line" id="L118"><a class="number" href="#L118">118</a><code class="code"></code></span>
+<span class="line" id="L119"><a class="number" href="#L119">119</a><code class="code">    private readonly RoadSurfaceRevision _surface;</code></span>
+<span class="line" id="L120"><a class="number" href="#L120">120</a><code class="code">    private readonly ImmutableList&lt;GeometryPage&gt; _pages;</code></span>
+<span class="line" id="L121"><a class="number" href="#L121">121</a><code class="code">    internal int QueryFragmentCount</code></span>
+<span class="line" id="L122"><a class="number" href="#L122">122</a><code class="code">    {</code></span>
+<span class="line" id="L123"><a class="number" href="#L123">123</a><code class="code">        get</code></span>
+<span class="line" id="L124"><a class="number" href="#L124">124</a><code class="code">        {</code></span>
+<span class="line" id="L125"><a class="number" href="#L125">125</a><code class="code">            int count = 0;</code></span>
+<span class="line" id="L126"><a class="number" href="#L126">126</a><code class="code">            foreach (GeometryPage page in _pages)</code></span>
+<span class="line" id="L127"><a class="number" href="#L127">127</a><code class="code">                foreach (GeometryGroup group in page.Groups) count = checked(count + group.Fragments.Length);</code></span>
+<span class="line" id="L128"><a class="number" href="#L128">128</a><code class="code">            return count;</code></span>
+<span class="line" id="L129"><a class="number" href="#L129">129</a><code class="code">        }</code></span>
+<span class="line" id="L130"><a class="number" href="#L130">130</a><code class="code">    }</code></span>
+<span class="line" id="L131"><a class="number" href="#L131">131</a><code class="code">    private readonly PieceIndex _index;</code></span>
+<span class="line" id="L132"><a class="number" href="#L132">132</a><code class="code">    private ResourceSet? _resources;</code></span>
+<span class="line" id="L133"><a class="number" href="#L133">133</a><code class="code">    private volatile bool _disposed;</code></span>
+<span class="line" id="L134"><a class="number" href="#L134">134</a><code class="code">    internal RoadSnapshot Snapshot =&gt; _surface.Snapshot;</code></span>
+<span class="line" id="L135"><a class="number" href="#L135">135</a><code class="code">    internal IReadOnlyList&lt;ArrayMesh&gt; Meshes =&gt; _resources?.Meshes ?? Array.Empty&lt;ArrayMesh&gt;();</code></span>
+<span class="line" id="L136"><a class="number" href="#L136">136</a><code class="code">    internal int MeshSurfaceCount =&gt; Meshes.Count;</code></span>
+<span class="line" id="L137"><a class="number" href="#L137">137</a><code class="code">    internal void Draw(CanvasItem owner) =&gt; _resources?.Draw(owner, Snapshot.Token);</code></span>
+<span class="line" id="L138"><a class="number" href="#L138">138</a><code class="code">#if DEBUG</code></span>
+<span class="line" id="L139"><a class="number" href="#L139">139</a><code class="code">    internal static Action&lt;ArrayMesh, int&gt;? AfterMeshUpload { get; set; }</code></span>
+<span class="line" id="L140"><a class="number" href="#L140">140</a><code class="code">    internal static Action&lt;RoadStateToken, int&gt;? AfterMeshDraw { get; set; }</code></span>
+<span class="line" id="L141"><a class="number" href="#L141">141</a><code class="code">#endif</code></span>
+<span class="line" id="L142"><a class="number" href="#L142">142</a><code class="code"></code></span>
+<span class="line" id="L143"><a class="number" href="#L143">143</a><code class="code">    private RoadDisplay(RoadSurfaceRevision surface, ImmutableList&lt;GeometryPage&gt; pages, PieceIndex index)</code></span>
+<span class="line" id="L144"><a class="number" href="#L144">144</a><code class="code">    { _surface = surface; _pages = pages; _index = index; }</code></span>
+<span class="line" id="L145"><a class="number" href="#L145">145</a><code class="code"></code></span>
+<span class="line" id="L146"><a class="number" href="#L146">146</a><code class="code">    internal sealed class PreparedGeometry</code></span>
+<span class="line" id="L147"><a class="number" href="#L147">147</a><code class="code">    {</code></span>
+<span class="line" id="L148"><a class="number" href="#L148">148</a><code class="code">        private readonly RoadDisplay _target;</code></span>
+<span class="line" id="L149"><a class="number" href="#L149">149</a><code class="code">        private readonly RoadDisplay? _basis;</code></span>
+<span class="line" id="L150"><a class="number" href="#L150">150</a><code class="code">        private Dictionary&lt;PageKey, MeshArrays[]&gt;? _uploads;</code></span>
+<span class="line" id="L151"><a class="number" href="#L151">151</a><code class="code">        private bool _uploaded;</code></span>
+<span class="line" id="L152"><a class="number" href="#L152">152</a><code class="code">        internal double SurfacePreparationMilliseconds { get; }</code></span>
+<span class="line" id="L153"><a class="number" href="#L153">153</a><code class="code">        internal int ChangedPageCount =&gt; _uploads?.Count ?? 0;</code></span>
+<span class="line" id="L154"><a class="number" href="#L154">154</a><code class="code">        internal long UploadBytes =&gt; _uploads?.Values.Sum(parts =&gt; parts.Sum(part =&gt; part.Vertices.Length * 28L + part.Indices.Length * 4L)) ?? 0;</code></span>
+<span class="line" id="L155"><a class="number" href="#L155">155</a><code class="code"></code></span>
+<span class="line" id="L156"><a class="number" href="#L156">156</a><code class="code">        internal PreparedGeometry(RoadDisplay target, RoadDisplay? basis, Dictionary&lt;PageKey, MeshArrays[]&gt; uploads, double surfaceMilliseconds)</code></span>
+<span class="line" id="L157"><a class="number" href="#L157">157</a><code class="code">        { _target = target; _basis = basis; _uploads = uploads; SurfacePreparationMilliseconds = surfaceMilliseconds; }</code></span>
+<span class="line" id="L158"><a class="number" href="#L158">158</a><code class="code"></code></span>
+<span class="line" id="L159"><a class="number" href="#L159">159</a><code class="code">        internal RoadDisplay Upload()</code></span>
+<span class="line" id="L160"><a class="number" href="#L160">160</a><code class="code">        {</code></span>
+<span class="line" id="L161"><a class="number" href="#L161">161</a><code class="code">            if (_uploaded) throw new InvalidOperationException(&quot;V4 display geometry was already uploaded.&quot;);</code></span>
+<span class="line" id="L162"><a class="number" href="#L162">162</a><code class="code">            _uploaded = true;</code></span>
+<span class="line" id="L163"><a class="number" href="#L163">163</a><code class="code">            if (_basis is not null) ObjectDisposedException.ThrowIf(_basis._disposed, _basis);</code></span>
+<span class="line" id="L164"><a class="number" href="#L164">164</a><code class="code">            if (_basis is not null &amp;&amp; ReferenceEquals(_target._pages, _basis._pages))</code></span>
+<span class="line" id="L165"><a class="number" href="#L165">165</a><code class="code">            {</code></span>
+<span class="line" id="L166"><a class="number" href="#L166">166</a><code class="code">                _target._resources = (_basis._resources ?? throw new InvalidOperationException(&quot;V4 source resources were not uploaded.&quot;)).Acquire();</code></span>
+<span class="line" id="L167"><a class="number" href="#L167">167</a><code class="code">                _uploads = null;</code></span>
+<span class="line" id="L168"><a class="number" href="#L168">168</a><code class="code">                return _target;</code></span>
+<span class="line" id="L169"><a class="number" href="#L169">169</a><code class="code">            }</code></span>
+<span class="line" id="L170"><a class="number" href="#L170">170</a><code class="code">            var owned = new Dictionary&lt;PageKey, PageMeshes&gt;(_target._pages.Count);</code></span>
+<span class="line" id="L171"><a class="number" href="#L171">171</a><code class="code">            var meshes = new List&lt;ArrayMesh&gt;();</code></span>
+<span class="line" id="L172"><a class="number" href="#L172">172</a><code class="code">            int ordinal = 0;</code></span>
+<span class="line" id="L173"><a class="number" href="#L173">173</a><code class="code">            try</code></span>
+<span class="line" id="L174"><a class="number" href="#L174">174</a><code class="code">            {</code></span>
+<span class="line" id="L175"><a class="number" href="#L175">175</a><code class="code">                foreach (GeometryPage content in _target._pages)</code></span>
+<span class="line" id="L176"><a class="number" href="#L176">176</a><code class="code">                {</code></span>
+<span class="line" id="L177"><a class="number" href="#L177">177</a><code class="code">                    PageMeshes page;</code></span>
+<span class="line" id="L178"><a class="number" href="#L178">178</a><code class="code">                    if (_basis is not null &amp;&amp; _basis._resources!.Pages.TryGetValue(content.Key, out PageMeshes? previous) &amp;&amp; ReferenceEquals(previous.Content, content))</code></span>
+<span class="line" id="L179"><a class="number" href="#L179">179</a><code class="code">                        page = previous.Acquire();</code></span>
+<span class="line" id="L180"><a class="number" href="#L180">180</a><code class="code">                    else</code></span>
+<span class="line" id="L181"><a class="number" href="#L181">181</a><code class="code">                    {</code></span>
+<span class="line" id="L182"><a class="number" href="#L182">182</a><code class="code">                        MeshArrays[] arrays = _uploads![content.Key];</code></span>
+<span class="line" id="L183"><a class="number" href="#L183">183</a><code class="code">                        var created = new ArrayMesh[arrays.Length];</code></span>
+<span class="line" id="L184"><a class="number" href="#L184">184</a><code class="code">                        try</code></span>
+<span class="line" id="L185"><a class="number" href="#L185">185</a><code class="code">                        {</code></span>
+<span class="line" id="L186"><a class="number" href="#L186">186</a><code class="code">                            for (int i = 0; i &lt; created.Length; i++)</code></span>
+<span class="line" id="L187"><a class="number" href="#L187">187</a><code class="code">                            {</code></span>
+<span class="line" id="L188"><a class="number" href="#L188">188</a><code class="code">                                created[i] = UploadMesh(arrays[i]);</code></span>
+<span class="line" id="L189"><a class="number" href="#L189">189</a><code class="code">#if DEBUG</code></span>
+<span class="line" id="L190"><a class="number" href="#L190">190</a><code class="code">                                AfterMeshUpload?.Invoke(created[i], ordinal);</code></span>
+<span class="line" id="L191"><a class="number" href="#L191">191</a><code class="code">#endif</code></span>
+<span class="line" id="L192"><a class="number" href="#L192">192</a><code class="code">                                ordinal++;</code></span>
+<span class="line" id="L193"><a class="number" href="#L193">193</a><code class="code">                            }</code></span>
+<span class="line" id="L194"><a class="number" href="#L194">194</a><code class="code">                            page = new(content, created);</code></span>
+<span class="line" id="L195"><a class="number" href="#L195">195</a><code class="code">                        }</code></span>
+<span class="line" id="L196"><a class="number" href="#L196">196</a><code class="code">                        catch { foreach (ArrayMesh? mesh in created) mesh?.Dispose(); throw; }</code></span>
+<span class="line" id="L197"><a class="number" href="#L197">197</a><code class="code">                    }</code></span>
+<span class="line" id="L198"><a class="number" href="#L198">198</a><code class="code">                    try { owned.Add(content.Key, page); }</code></span>
+<span class="line" id="L199"><a class="number" href="#L199">199</a><code class="code">                    catch { page.Release(); throw; }</code></span>
+<span class="line" id="L200"><a class="number" href="#L200">200</a><code class="code">                    meshes.AddRange(page.Meshes);</code></span>
+<span class="line" id="L201"><a class="number" href="#L201">201</a><code class="code">                }</code></span>
+<span class="line" id="L202"><a class="number" href="#L202">202</a><code class="code">                _target._resources = new(owned, meshes.ToArray());</code></span>
+<span class="line" id="L203"><a class="number" href="#L203">203</a><code class="code">                return _target;</code></span>
+<span class="line" id="L204"><a class="number" href="#L204">204</a><code class="code">            }</code></span>
+<span class="line" id="L205"><a class="number" href="#L205">205</a><code class="code">            catch { foreach (PageMeshes page in owned.Values) page.Release(); throw; }</code></span>
+<span class="line" id="L206"><a class="number" href="#L206">206</a><code class="code">            finally { _uploads = null; }</code></span>
+<span class="line" id="L207"><a class="number" href="#L207">207</a><code class="code">        }</code></span>
+<span class="line" id="L208"><a class="number" href="#L208">208</a><code class="code"></code></span>
+<span class="line" id="L209"><a class="number" href="#L209">209</a><code class="code">        private static ArrayMesh UploadMesh(MeshArrays data)</code></span>
+<span class="line" id="L210"><a class="number" href="#L210">210</a><code class="code">        {</code></span>
+<span class="line" id="L211"><a class="number" href="#L211">211</a><code class="code">            var mesh = new ArrayMesh();</code></span>
+<span class="line" id="L212"><a class="number" href="#L212">212</a><code class="code">            try</code></span>
+<span class="line" id="L213"><a class="number" href="#L213">213</a><code class="code">            {</code></span>
+<span class="line" id="L214"><a class="number" href="#L214">214</a><code class="code">                using var arrays = new Godot.Collections.Array();</code></span>
+<span class="line" id="L215"><a class="number" href="#L215">215</a><code class="code">                arrays.Resize((int)Godot.Mesh.ArrayType.Max);</code></span>
+<span class="line" id="L216"><a class="number" href="#L216">216</a><code class="code">                arrays[(int)Godot.Mesh.ArrayType.Vertex] = data.Vertices;</code></span>
+<span class="line" id="L217"><a class="number" href="#L217">217</a><code class="code">                arrays[(int)Godot.Mesh.ArrayType.Color] = data.Colors;</code></span>
+<span class="line" id="L218"><a class="number" href="#L218">218</a><code class="code">                arrays[(int)Godot.Mesh.ArrayType.Index] = data.Indices;</code></span>
+<span class="line" id="L219"><a class="number" href="#L219">219</a><code class="code">                mesh.AddSurfaceFromArrays(Godot.Mesh.PrimitiveType.Triangles, arrays);</code></span>
+<span class="line" id="L220"><a class="number" href="#L220">220</a><code class="code">                if (mesh.GetSurfaceCount() != 1 || mesh.SurfaceGetArrayLen(0) != data.Vertices.Length || mesh.SurfaceGetArrayIndexLen(0) != data.Indices.Length)</code></span>
+<span class="line" id="L221"><a class="number" href="#L221">221</a><code class="code">                    throw new InvalidOperationException(&quot;V4 road mesh preflight failed.&quot;);</code></span>
+<span class="line" id="L222"><a class="number" href="#L222">222</a><code class="code">                return mesh;</code></span>
+<span class="line" id="L223"><a class="number" href="#L223">223</a><code class="code">            }</code></span>
+<span class="line" id="L224"><a class="number" href="#L224">224</a><code class="code">            catch { mesh.Dispose(); throw; }</code></span>
+<span class="line" id="L225"><a class="number" href="#L225">225</a><code class="code">        }</code></span>
+<span class="line" id="L226"><a class="number" href="#L226">226</a><code class="code">    }</code></span>
+<span class="line" id="L227"><a class="number" href="#L227">227</a><code class="code"></code></span>
+<span class="line" id="L228"><a class="number" href="#L228">228</a><code class="code">    internal static RoadDisplay Prepare(RoadSnapshot snapshot, RoadSurfaceData? surface) =&gt; PrepareGeometry(snapshot, surface).Upload();</code></span>
+<span class="line" id="L229"><a class="number" href="#L229">229</a><code class="code"></code></span>
+<span class="line" id="L230"><a class="number" href="#L230">230</a><code class="code">    internal static PreparedGeometry PrepareFull(RoadSnapshot snapshot, CancellationToken cancellationToken = default)</code></span>
+<span class="line" id="L231"><a class="number" href="#L231">231</a><code class="code">    {</code></span>
+<span class="line" id="L232"><a class="number" href="#L232">232</a><code class="code">        long start = Stopwatch.GetTimestamp();</code></span>
+<span class="line" id="L233"><a class="number" href="#L233">233</a><code class="code">        RoadSurfaceRevision revision = RoadSurfaceRevision.Prepare(snapshot, cancellationToken);</code></span>
+<span class="line" id="L234"><a class="number" href="#L234">234</a><code class="code">        return PrepareRevision(revision, cancellationToken, Stopwatch.GetElapsedTime(start).TotalMilliseconds);</code></span>
+<span class="line" id="L235"><a class="number" href="#L235">235</a><code class="code">    }</code></span>
+<span class="line" id="L236"><a class="number" href="#L236">236</a><code class="code"></code></span>
+<span class="line" id="L237"><a class="number" href="#L237">237</a><code class="code">    internal static PreparedGeometry PrepareGeometry(RoadSnapshot snapshot, RoadSurfaceData? surface, CancellationToken cancellationToken = default)</code></span>
+<span class="line" id="L238"><a class="number" href="#L238">238</a><code class="code">    {</code></span>
+<span class="line" id="L239"><a class="number" href="#L239">239</a><code class="code">        long start = Stopwatch.GetTimestamp();</code></span>
+<span class="line" id="L240"><a class="number" href="#L240">240</a><code class="code">        RoadSurfaceRevision revision = RoadSurfaceRevision.FromSurface(snapshot, surface, cancellationToken);</code></span>
+<span class="line" id="L241"><a class="number" href="#L241">241</a><code class="code">        return PrepareRevision(revision, cancellationToken, Stopwatch.GetElapsedTime(start).TotalMilliseconds);</code></span>
+<span class="line" id="L242"><a class="number" href="#L242">242</a><code class="code">    }</code></span>
+<span class="line" id="L243"><a class="number" href="#L243">243</a><code class="code"></code></span>
+<span class="line" id="L244"><a class="number" href="#L244">244</a><code class="code">    private static PreparedGeometry PrepareRevision(RoadSurfaceRevision revision, CancellationToken cancellationToken, double surfaceMs)</code></span>
+<span class="line" id="L245"><a class="number" href="#L245">245</a><code class="code">    {</code></span>
+<span class="line" id="L246"><a class="number" href="#L246">246</a><code class="code">        var pages = ImmutableList.CreateBuilder&lt;GeometryPage&gt;();</code></span>
+<span class="line" id="L247"><a class="number" href="#L247">247</a><code class="code">        var groups = new List&lt;GeometryGroup&gt;(OwnersPerPage);</code></span>
+<span class="line" id="L248"><a class="number" href="#L248">248</a><code class="code">        RoadSurfaceLayer? active = null;</code></span>
+<span class="line" id="L249"><a class="number" href="#L249">249</a><code class="code">        foreach (RoadSurfaceGroup source in revision.Groups.Values)</code></span>
+<span class="line" id="L250"><a class="number" href="#L250">250</a><code class="code">        {</code></span>
+<span class="line" id="L251"><a class="number" href="#L251">251</a><code class="code">            cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L252"><a class="number" href="#L252">252</a><code class="code">            if (active is RoadSurfaceLayer previous &amp;&amp; previous != source.Key.Layer) Flush();</code></span>
+<span class="line" id="L253"><a class="number" href="#L253">253</a><code class="code">            active = source.Key.Layer;</code></span>
+<span class="line" id="L254"><a class="number" href="#L254">254</a><code class="code">            groups.Add(new(source, cancellationToken));</code></span>
+<span class="line" id="L255"><a class="number" href="#L255">255</a><code class="code">            if (groups.Count == OwnersPerPage) Flush();</code></span>
+<span class="line" id="L256"><a class="number" href="#L256">256</a><code class="code">        }</code></span>
+<span class="line" id="L257"><a class="number" href="#L257">257</a><code class="code">        Flush();</code></span>
+<span class="line" id="L258"><a class="number" href="#L258">258</a><code class="code">        ImmutableList&lt;GeometryPage&gt; immutable = pages.ToImmutable();</code></span>
+<span class="line" id="L259"><a class="number" href="#L259">259</a><code class="code">        PieceIndex index = PieceIndex.Create(immutable.SelectMany(page =&gt; page.Groups), cancellationToken);</code></span>
+<span class="line" id="L260"><a class="number" href="#L260">260</a><code class="code">        var uploads = new Dictionary&lt;PageKey, MeshArrays[]&gt;(immutable.Count);</code></span>
+<span class="line" id="L261"><a class="number" href="#L261">261</a><code class="code">        foreach (GeometryPage page in immutable) uploads.Add(page.Key, PrepareMeshArrays(page, cancellationToken));</code></span>
+<span class="line" id="L262"><a class="number" href="#L262">262</a><code class="code">        return new PreparedGeometry(new(revision, immutable, index), null, uploads, surfaceMs);</code></span>
+<span class="line" id="L263"><a class="number" href="#L263">263</a><code class="code"></code></span>
+<span class="line" id="L264"><a class="number" href="#L264">264</a><code class="code">        void Flush()</code></span>
+<span class="line" id="L265"><a class="number" href="#L265">265</a><code class="code">        {</code></span>
+<span class="line" id="L266"><a class="number" href="#L266">266</a><code class="code">            if (groups.Count == 0) return;</code></span>
+<span class="line" id="L267"><a class="number" href="#L267">267</a><code class="code">            pages.Add(MakePage(groups, 0, groups.Count));</code></span>
+<span class="line" id="L268"><a class="number" href="#L268">268</a><code class="code">            groups.Clear();</code></span>
+<span class="line" id="L269"><a class="number" href="#L269">269</a><code class="code">            BalancePage(pages, pages.Count - 1);</code></span>
+<span class="line" id="L270"><a class="number" href="#L270">270</a><code class="code">        }</code></span>
+<span class="line" id="L271"><a class="number" href="#L271">271</a><code class="code">    }</code></span>
+<span class="line" id="L272"><a class="number" href="#L272">272</a><code class="code"></code></span>
+<span class="line" id="L273"><a class="number" href="#L273">273</a><code class="code">    internal static PreparedGeometry PrepareChange(RoadDisplay basis, RoadPlan plan, CancellationToken token)</code></span>
+<span class="line" id="L274"><a class="number" href="#L274">274</a><code class="code">    {</code></span>
+<span class="line" id="L275"><a class="number" href="#L275">275</a><code class="code">        ObjectDisposedException.ThrowIf(basis._disposed, basis);</code></span>
+<span class="line" id="L276"><a class="number" href="#L276">276</a><code class="code">        long start = Stopwatch.GetTimestamp();</code></span>
+<span class="line" id="L277"><a class="number" href="#L277">277</a><code class="code">        RoadSurfaceUpdate update = basis._surface.Apply(plan, token);</code></span>
+<span class="line" id="L278"><a class="number" href="#L278">278</a><code class="code">        double surfaceMs = Stopwatch.GetElapsedTime(start).TotalMilliseconds;</code></span>
+<span class="line" id="L279"><a class="number" href="#L279">279</a><code class="code">        var pages = basis._pages.ToBuilder();</code></span>
+<span class="line" id="L280"><a class="number" href="#L280">280</a><code class="code">        var removed = new List&lt;GeometryGroup&gt;();</code></span>
+<span class="line" id="L281"><a class="number" href="#L281">281</a><code class="code">        var added = new List&lt;GeometryGroup&gt;();</code></span>
+<span class="line" id="L282"><a class="number" href="#L282">282</a><code class="code">        foreach (RoadSurfaceGroupKey key in update.ChangedGroups.Order())</code></span>
+<span class="line" id="L283"><a class="number" href="#L283">283</a><code class="code">        {</code></span>
+<span class="line" id="L284"><a class="number" href="#L284">284</a><code class="code">            token.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L285"><a class="number" href="#L285">285</a><code class="code">            int pageIndex = FindPageIndex(pages, key);</code></span>
+<span class="line" id="L286"><a class="number" href="#L286">286</a><code class="code">            RoadSurfaceGroup? source = update.Target.FindGroup(key);</code></span>
+<span class="line" id="L287"><a class="number" href="#L287">287</a><code class="code">            if (pageIndex &lt; 0)</code></span>
+<span class="line" id="L288"><a class="number" href="#L288">288</a><code class="code">            {</code></span>
+<span class="line" id="L289"><a class="number" href="#L289">289</a><code class="code">                if (source is null) throw new InvalidOperationException(&quot;V4 source surface group is missing.&quot;);</code></span>
+<span class="line" id="L290"><a class="number" href="#L290">290</a><code class="code">                var fresh = new GeometryGroup(source, token);</code></span>
+<span class="line" id="L291"><a class="number" href="#L291">291</a><code class="code">                added.Add(fresh);</code></span>
+<span class="line" id="L292"><a class="number" href="#L292">292</a><code class="code">                pages.Insert(~pageIndex, MakePage(new[] { fresh }, 0, 1));</code></span>
+<span class="line" id="L293"><a class="number" href="#L293">293</a><code class="code">                continue;</code></span>
+<span class="line" id="L294"><a class="number" href="#L294">294</a><code class="code">            }</code></span>
+<span class="line" id="L295"><a class="number" href="#L295">295</a><code class="code">            GeometryPage previous = pages[pageIndex];</code></span>
+<span class="line" id="L296"><a class="number" href="#L296">296</a><code class="code">            int groupIndex = FindGroupIndex(previous.Groups, key.Owner);</code></span>
+<span class="line" id="L297"><a class="number" href="#L297">297</a><code class="code">            GeometryGroup? old = groupIndex &gt;= 0 ? previous.Groups[groupIndex] : null;</code></span>
+<span class="line" id="L298"><a class="number" href="#L298">298</a><code class="code">            if (old is not null &amp;&amp; ReferenceEquals(old.Source, source)) continue;</code></span>
+<span class="line" id="L299"><a class="number" href="#L299">299</a><code class="code">            var groups = previous.Groups.ToList();</code></span>
+<span class="line" id="L300"><a class="number" href="#L300">300</a><code class="code">            if (old is not null) { removed.Add(old); groups.RemoveAt(groupIndex); }</code></span>
+<span class="line" id="L301"><a class="number" href="#L301">301</a><code class="code">            if (source is not null)</code></span>
+<span class="line" id="L302"><a class="number" href="#L302">302</a><code class="code">            {</code></span>
+<span class="line" id="L303"><a class="number" href="#L303">303</a><code class="code">                var fresh = new GeometryGroup(source, token);</code></span>
+<span class="line" id="L304"><a class="number" href="#L304">304</a><code class="code">                added.Add(fresh);</code></span>
+<span class="line" id="L305"><a class="number" href="#L305">305</a><code class="code">                groups.Insert(groupIndex &gt;= 0 ? groupIndex : ~groupIndex, fresh);</code></span>
+<span class="line" id="L306"><a class="number" href="#L306">306</a><code class="code">            }</code></span>
+<span class="line" id="L307"><a class="number" href="#L307">307</a><code class="code">            else if (old is null) throw new InvalidOperationException(&quot;V4 source surface group is missing.&quot;);</code></span>
+<span class="line" id="L308"><a class="number" href="#L308">308</a><code class="code">            if (groups.Count == 0) pages.RemoveAt(pageIndex);</code></span>
+<span class="line" id="L309"><a class="number" href="#L309">309</a><code class="code">            else if (groups.Count &gt; OwnersPerPage)</code></span>
+<span class="line" id="L310"><a class="number" href="#L310">310</a><code class="code">            {</code></span>
+<span class="line" id="L311"><a class="number" href="#L311">311</a><code class="code">                int middle = groups.Count / 2;</code></span>
+<span class="line" id="L312"><a class="number" href="#L312">312</a><code class="code">                pages[pageIndex] = MakePage(groups, 0, middle);</code></span>
+<span class="line" id="L313"><a class="number" href="#L313">313</a><code class="code">                pages.Insert(pageIndex + 1, MakePage(groups, middle, groups.Count - middle));</code></span>
+<span class="line" id="L314"><a class="number" href="#L314">314</a><code class="code">            }</code></span>
+<span class="line" id="L315"><a class="number" href="#L315">315</a><code class="code">            else</code></span>
+<span class="line" id="L316"><a class="number" href="#L316">316</a><code class="code">            {</code></span>
+<span class="line" id="L317"><a class="number" href="#L317">317</a><code class="code">                pages[pageIndex] = MakePage(groups, 0, groups.Count);</code></span>
+<span class="line" id="L318"><a class="number" href="#L318">318</a><code class="code">                BalancePage(pages, pageIndex);</code></span>
+<span class="line" id="L319"><a class="number" href="#L319">319</a><code class="code">            }</code></span>
+<span class="line" id="L320"><a class="number" href="#L320">320</a><code class="code">        }</code></span>
+<span class="line" id="L321"><a class="number" href="#L321">321</a><code class="code">        ImmutableList&lt;GeometryPage&gt; targetPages = pages.ToImmutable();</code></span>
+<span class="line" id="L322"><a class="number" href="#L322">322</a><code class="code">        var uploads = new Dictionary&lt;PageKey, MeshArrays[]&gt;();</code></span>
+<span class="line" id="L323"><a class="number" href="#L323">323</a><code class="code">        foreach (GeometryPage page in targetPages)</code></span>
+<span class="line" id="L324"><a class="number" href="#L324">324</a><code class="code">        {</code></span>
+<span class="line" id="L325"><a class="number" href="#L325">325</a><code class="code">            token.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L326"><a class="number" href="#L326">326</a><code class="code">            int previous = FindPageIndex(basis._pages, new(page.Key.Layer, page.Key.FirstOwner));</code></span>
+<span class="line" id="L327"><a class="number" href="#L327">327</a><code class="code">            if (previous &lt; 0 || !ReferenceEquals(basis._pages[previous], page))</code></span>
+<span class="line" id="L328"><a class="number" href="#L328">328</a><code class="code">                uploads.Add(page.Key, PrepareMeshArrays(page, token));</code></span>
+<span class="line" id="L329"><a class="number" href="#L329">329</a><code class="code">        }</code></span>
+<span class="line" id="L330"><a class="number" href="#L330">330</a><code class="code">        PieceIndex index = basis._index.Replace(removed, added, token);</code></span>
+<span class="line" id="L331"><a class="number" href="#L331">331</a><code class="code">        token.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L332"><a class="number" href="#L332">332</a><code class="code">        return new PreparedGeometry(new(update.Target, targetPages, index), basis, uploads, surfaceMs);</code></span>
+<span class="line" id="L333"><a class="number" href="#L333">333</a><code class="code">    }</code></span>
+<span class="line" id="L334"><a class="number" href="#L334">334</a><code class="code"></code></span>
+<span class="line" id="L335"><a class="number" href="#L335">335</a><code class="code">    private static GeometryPage MakePage(IReadOnlyList&lt;GeometryGroup&gt; groups, int first, int count)</code></span>
+<span class="line" id="L336"><a class="number" href="#L336">336</a><code class="code">    {</code></span>
+<span class="line" id="L337"><a class="number" href="#L337">337</a><code class="code">        var values = new GeometryGroup[count];</code></span>
+<span class="line" id="L338"><a class="number" href="#L338">338</a><code class="code">        for (int i = 0; i &lt; count; i++) values[i] = groups[first + i];</code></span>
+<span class="line" id="L339"><a class="number" href="#L339">339</a><code class="code">        RoadSurfaceGroupKey firstKey = values[0].Source.Key;</code></span>
+<span class="line" id="L340"><a class="number" href="#L340">340</a><code class="code">        return new(new(firstKey.Layer, firstKey.Owner), values);</code></span>
+<span class="line" id="L341"><a class="number" href="#L341">341</a><code class="code">    }</code></span>
+<span class="line" id="L342"><a class="number" href="#L342">342</a><code class="code"></code></span>
+<span class="line" id="L343"><a class="number" href="#L343">343</a><code class="code">    // Pages contain actual owners, not numeric ID slots. Local redistribution bounds</code></span>
+<span class="line" id="L344"><a class="number" href="#L344">344</a><code class="code">    // draw calls even when a legal archive has sparse IDs or editing leaves ID gaps.</code></span>
+<span class="line" id="L345"><a class="number" href="#L345">345</a><code class="code">    private static void BalancePage(ImmutableList&lt;GeometryPage&gt;.Builder pages, int index)</code></span>
+<span class="line" id="L346"><a class="number" href="#L346">346</a><code class="code">    {</code></span>
+<span class="line" id="L347"><a class="number" href="#L347">347</a><code class="code">        GeometryPage page = pages[index];</code></span>
+<span class="line" id="L348"><a class="number" href="#L348">348</a><code class="code">        if (page.Groups.Length &gt;= MinimumOwnersPerPage) return;</code></span>
+<span class="line" id="L349"><a class="number" href="#L349">349</a><code class="code">        int left;</code></span>
+<span class="line" id="L350"><a class="number" href="#L350">350</a><code class="code">        if (index &gt; 0 &amp;&amp; pages[index - 1].Key.Layer == page.Key.Layer) left = index - 1;</code></span>
+<span class="line" id="L351"><a class="number" href="#L351">351</a><code class="code">        else if (index + 1 &lt; pages.Count &amp;&amp; pages[index + 1].Key.Layer == page.Key.Layer) left = index;</code></span>
+<span class="line" id="L352"><a class="number" href="#L352">352</a><code class="code">        else return;</code></span>
+<span class="line" id="L353"><a class="number" href="#L353">353</a><code class="code">        var combined = new List&lt;GeometryGroup&gt;(pages[left].Groups.Length + pages[left + 1].Groups.Length);</code></span>
+<span class="line" id="L354"><a class="number" href="#L354">354</a><code class="code">        combined.AddRange(pages[left].Groups);</code></span>
+<span class="line" id="L355"><a class="number" href="#L355">355</a><code class="code">        combined.AddRange(pages[left + 1].Groups);</code></span>
+<span class="line" id="L356"><a class="number" href="#L356">356</a><code class="code">        if (combined.Count &lt;= OwnersPerPage)</code></span>
+<span class="line" id="L357"><a class="number" href="#L357">357</a><code class="code">        {</code></span>
+<span class="line" id="L358"><a class="number" href="#L358">358</a><code class="code">            pages[left] = MakePage(combined, 0, combined.Count);</code></span>
+<span class="line" id="L359"><a class="number" href="#L359">359</a><code class="code">            pages.RemoveAt(left + 1);</code></span>
+<span class="line" id="L360"><a class="number" href="#L360">360</a><code class="code">        }</code></span>
+<span class="line" id="L361"><a class="number" href="#L361">361</a><code class="code">        else</code></span>
+<span class="line" id="L362"><a class="number" href="#L362">362</a><code class="code">        {</code></span>
+<span class="line" id="L363"><a class="number" href="#L363">363</a><code class="code">            int middle = combined.Count / 2;</code></span>
+<span class="line" id="L364"><a class="number" href="#L364">364</a><code class="code">            pages[left] = MakePage(combined, 0, middle);</code></span>
+<span class="line" id="L365"><a class="number" href="#L365">365</a><code class="code">            pages[left + 1] = MakePage(combined, middle, combined.Count - middle);</code></span>
+<span class="line" id="L366"><a class="number" href="#L366">366</a><code class="code">        }</code></span>
+<span class="line" id="L367"><a class="number" href="#L367">367</a><code class="code">    }</code></span>
+<span class="line" id="L368"><a class="number" href="#L368">368</a><code class="code"></code></span>
+<span class="line" id="L369"><a class="number" href="#L369">369</a><code class="code">    // A negative result is the insertion point for a layer that has no page yet.</code></span>
+<span class="line" id="L370"><a class="number" href="#L370">370</a><code class="code">    // Within a layer, IDs in a gap select the predecessor page, then group lookup</code></span>
+<span class="line" id="L371"><a class="number" href="#L371">371</a><code class="code">    // separately proves whether that owner exists.</code></span>
+<span class="line" id="L372"><a class="number" href="#L372">372</a><code class="code">    private static int FindPageIndex(IReadOnlyList&lt;GeometryPage&gt; pages, RoadSurfaceGroupKey group)</code></span>
+<span class="line" id="L373"><a class="number" href="#L373">373</a><code class="code">    {</code></span>
+<span class="line" id="L374"><a class="number" href="#L374">374</a><code class="code">        var key = new PageKey(group.Layer, group.Owner);</code></span>
+<span class="line" id="L375"><a class="number" href="#L375">375</a><code class="code">        int low = 0, high = pages.Count;</code></span>
+<span class="line" id="L376"><a class="number" href="#L376">376</a><code class="code">        while (low &lt; high)</code></span>
+<span class="line" id="L377"><a class="number" href="#L377">377</a><code class="code">        {</code></span>
+<span class="line" id="L378"><a class="number" href="#L378">378</a><code class="code">            int middle = low + (high - low) / 2;</code></span>
+<span class="line" id="L379"><a class="number" href="#L379">379</a><code class="code">            if (pages[middle].Key.CompareTo(key) &lt;= 0) low = middle + 1;</code></span>
+<span class="line" id="L380"><a class="number" href="#L380">380</a><code class="code">            else high = middle;</code></span>
+<span class="line" id="L381"><a class="number" href="#L381">381</a><code class="code">        }</code></span>
+<span class="line" id="L382"><a class="number" href="#L382">382</a><code class="code">        int previous = low - 1;</code></span>
+<span class="line" id="L383"><a class="number" href="#L383">383</a><code class="code">        if (previous &gt;= 0 &amp;&amp; pages[previous].Key.Layer == group.Layer) return previous;</code></span>
+<span class="line" id="L384"><a class="number" href="#L384">384</a><code class="code">        if (low &lt; pages.Count &amp;&amp; pages[low].Key.Layer == group.Layer) return low;</code></span>
+<span class="line" id="L385"><a class="number" href="#L385">385</a><code class="code">        return ~low;</code></span>
+<span class="line" id="L386"><a class="number" href="#L386">386</a><code class="code">    }</code></span>
+<span class="line" id="L387"><a class="number" href="#L387">387</a><code class="code"></code></span>
+<span class="line" id="L388"><a class="number" href="#L388">388</a><code class="code">    internal PreparedGeometry? TryPrepareReuse(RoadSnapshot snapshot, CancellationToken cancellationToken)</code></span>
+<span class="line" id="L389"><a class="number" href="#L389">389</a><code class="code">    {</code></span>
+<span class="line" id="L390"><a class="number" href="#L390">390</a><code class="code">        cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L391"><a class="number" href="#L391">391</a><code class="code">        if (_disposed || Snapshot.Token.NetworkInstance != snapshot.Token.NetworkInstance || Snapshot.Token.Lineage != snapshot.Token.Lineage ||</code></span>
+<span class="line" id="L392"><a class="number" href="#L392">392</a><code class="code">            Snapshot.Token.ContentRevision != snapshot.Token.ContentRevision || Snapshot.Map != snapshot.Map ||</code></span>
+<span class="line" id="L393"><a class="number" href="#L393">393</a><code class="code">            !ReferenceEquals(Snapshot.Nodes, snapshot.Nodes) || !ReferenceEquals(Snapshot.Edges, snapshot.Edges)) return null;</code></span>
+<span class="line" id="L394"><a class="number" href="#L394">394</a><code class="code">        return new PreparedGeometry(new(_surface.Rebind(snapshot), _pages, _index), this, new(), 0);</code></span>
+<span class="line" id="L395"><a class="number" href="#L395">395</a><code class="code">    }</code></span>
+<span class="line" id="L396"><a class="number" href="#L396">396</a><code class="code"></code></span>
+<span class="line" id="L397"><a class="number" href="#L397">397</a><code class="code">    private GeometryGroup? FindGeometryGroup(RoadSurfaceGroupKey key)</code></span>
+<span class="line" id="L398"><a class="number" href="#L398">398</a><code class="code">    {</code></span>
+<span class="line" id="L399"><a class="number" href="#L399">399</a><code class="code">        int pageIndex = FindPageIndex(_pages, key);</code></span>
+<span class="line" id="L400"><a class="number" href="#L400">400</a><code class="code">        if (pageIndex &lt; 0) return null;</code></span>
+<span class="line" id="L401"><a class="number" href="#L401">401</a><code class="code">        GeometryGroup[] groups = _pages[pageIndex].Groups;</code></span>
+<span class="line" id="L402"><a class="number" href="#L402">402</a><code class="code">        int groupIndex = FindGroupIndex(groups, key.Owner);</code></span>
+<span class="line" id="L403"><a class="number" href="#L403">403</a><code class="code">        return groupIndex &lt; 0 ? null : groups[groupIndex];</code></span>
+<span class="line" id="L404"><a class="number" href="#L404">404</a><code class="code">    }</code></span>
+<span class="line" id="L405"><a class="number" href="#L405">405</a><code class="code"></code></span>
+<span class="line" id="L406"><a class="number" href="#L406">406</a><code class="code">    private static int FindGroupIndex(IReadOnlyList&lt;GeometryGroup&gt; groups, long owner)</code></span>
+<span class="line" id="L407"><a class="number" href="#L407">407</a><code class="code">    {</code></span>
+<span class="line" id="L408"><a class="number" href="#L408">408</a><code class="code">        int low = 0, high = groups.Count - 1;</code></span>
+<span class="line" id="L409"><a class="number" href="#L409">409</a><code class="code">        while (low &lt;= high)</code></span>
+<span class="line" id="L410"><a class="number" href="#L410">410</a><code class="code">        {</code></span>
+<span class="line" id="L411"><a class="number" href="#L411">411</a><code class="code">            int middle = low + (high - low) / 2;</code></span>
+<span class="line" id="L412"><a class="number" href="#L412">412</a><code class="code">            if (groups[middle].Source.Key.Owner == owner) return middle;</code></span>
+<span class="line" id="L413"><a class="number" href="#L413">413</a><code class="code">            if (groups[middle].Source.Key.Owner &lt; owner) low = middle + 1;</code></span>
+<span class="line" id="L414"><a class="number" href="#L414">414</a><code class="code">            else high = middle - 1;</code></span>
+<span class="line" id="L415"><a class="number" href="#L415">415</a><code class="code">        }</code></span>
+<span class="line" id="L416"><a class="number" href="#L416">416</a><code class="code">        return ~low;</code></span>
+<span class="line" id="L417"><a class="number" href="#L417">417</a><code class="code">    }</code></span>
+<span class="line" id="L418"><a class="number" href="#L418">418</a><code class="code"></code></span>
+<span class="line" id="L419"><a class="number" href="#L419">419</a><code class="code">    private static MeshArrays[] PrepareMeshArrays(GeometryPage page, CancellationToken token)</code></span>
+<span class="line" id="L420"><a class="number" href="#L420">420</a><code class="code">    {</code></span>
+<span class="line" id="L421"><a class="number" href="#L421">421</a><code class="code">        var chunks = new List&lt;MeshArrays&gt;();</code></span>
+<span class="line" id="L422"><a class="number" href="#L422">422</a><code class="code">        int capacity = Math.Min(VerticesPerMesh / 3, page.Groups.Sum(group =&gt; group.Pieces.Length));</code></span>
+<span class="line" id="L423"><a class="number" href="#L423">423</a><code class="code">        var pieces = new List&lt;Piece&gt;(capacity);</code></span>
+<span class="line" id="L424"><a class="number" href="#L424">424</a><code class="code">        int vertices = 0, indices = 0;</code></span>
+<span class="line" id="L425"><a class="number" href="#L425">425</a><code class="code">        foreach (GeometryGroup group in page.Groups)</code></span>
+<span class="line" id="L426"><a class="number" href="#L426">426</a><code class="code">            foreach (Piece piece in group.Pieces)</code></span>
+<span class="line" id="L427"><a class="number" href="#L427">427</a><code class="code">            {</code></span>
+<span class="line" id="L428"><a class="number" href="#L428">428</a><code class="code">                token.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L429"><a class="number" href="#L429">429</a><code class="code">                if (vertices + piece.Polygon.Length &gt; VerticesPerMesh) Flush();</code></span>
+<span class="line" id="L430"><a class="number" href="#L430">430</a><code class="code">                pieces.Add(piece);</code></span>
+<span class="line" id="L431"><a class="number" href="#L431">431</a><code class="code">                vertices += piece.Polygon.Length;</code></span>
+<span class="line" id="L432"><a class="number" href="#L432">432</a><code class="code">                indices += 3 * (piece.Polygon.Length - 2);</code></span>
+<span class="line" id="L433"><a class="number" href="#L433">433</a><code class="code">            }</code></span>
+<span class="line" id="L434"><a class="number" href="#L434">434</a><code class="code">        Flush();</code></span>
+<span class="line" id="L435"><a class="number" href="#L435">435</a><code class="code">        return chunks.ToArray();</code></span>
+<span class="line" id="L436"><a class="number" href="#L436">436</a><code class="code"></code></span>
+<span class="line" id="L437"><a class="number" href="#L437">437</a><code class="code">        void Flush()</code></span>
+<span class="line" id="L438"><a class="number" href="#L438">438</a><code class="code">        {</code></span>
+<span class="line" id="L439"><a class="number" href="#L439">439</a><code class="code">            if (pieces.Count == 0) return;</code></span>
+<span class="line" id="L440"><a class="number" href="#L440">440</a><code class="code">            var data = new MeshArrays(new Vector3[vertices], new Color[vertices], new int[indices]);</code></span>
+<span class="line" id="L441"><a class="number" href="#L441">441</a><code class="code">            int vertex = 0, index = 0;</code></span>
+<span class="line" id="L442"><a class="number" href="#L442">442</a><code class="code">            foreach (Piece piece in pieces)</code></span>
+<span class="line" id="L443"><a class="number" href="#L443">443</a><code class="code">            {</code></span>
+<span class="line" id="L444"><a class="number" href="#L444">444</a><code class="code">                token.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L445"><a class="number" href="#L445">445</a><code class="code">                RoadProfile profile = RoadProfiles.Get(piece.Group.Source.Pieces[piece.Order].Edge.Profile);</code></span>
+<span class="line" id="L446"><a class="number" href="#L446">446</a><code class="code">                var color = new Color(profile.Red / 255f, profile.Green / 255f, profile.Blue / 255f);</code></span>
+<span class="line" id="L447"><a class="number" href="#L447">447</a><code class="code">                int offset = vertex;</code></span>
+<span class="line" id="L448"><a class="number" href="#L448">448</a><code class="code">                foreach (Vector2 point in piece.Polygon) { data.Vertices[vertex] = new(point.X, point.Y, 0); data.Colors[vertex++] = color; }</code></span>
+<span class="line" id="L449"><a class="number" href="#L449">449</a><code class="code">                for (int corner = 1; corner &lt; piece.Polygon.Length - 1; corner++)</code></span>
+<span class="line" id="L450"><a class="number" href="#L450">450</a><code class="code">                { data.Indices[index++] = offset; data.Indices[index++] = offset + corner; data.Indices[index++] = offset + corner + 1; }</code></span>
+<span class="line" id="L451"><a class="number" href="#L451">451</a><code class="code">            }</code></span>
+<span class="line" id="L452"><a class="number" href="#L452">452</a><code class="code">            chunks.Add(data);</code></span>
+<span class="line" id="L453"><a class="number" href="#L453">453</a><code class="code">            pieces.Clear();</code></span>
+<span class="line" id="L454"><a class="number" href="#L454">454</a><code class="code">            vertices = indices = 0;</code></span>
+<span class="line" id="L455"><a class="number" href="#L455">455</a><code class="code">        }</code></span>
+<span class="line" id="L456"><a class="number" href="#L456">456</a><code class="code">    }</code></span>
+<span class="line" id="L457"><a class="number" href="#L457">457</a><code class="code"></code></span>
+<span class="line" id="L458"><a class="number" href="#L458">458</a><code class="code">    private static int FragmentCount(Piece piece) =&gt; piece.Polygon.Length == 4 ? Math.Max(1,</code></span>
+<span class="line" id="L459"><a class="number" href="#L459">459</a><code class="code">        (int)Math.Ceiling(Math.Max(piece.Polygon[0].DistanceTo(piece.Polygon[1]), piece.Polygon[3].DistanceTo(piece.Polygon[2])) / 100)) : 1;</code></span>
+<span class="line" id="L460"><a class="number" href="#L460">460</a><code class="code"></code></span>
+<span class="line" id="L461"><a class="number" href="#L461">461</a><code class="code">    private static SpatialBounds FragmentBounds(Piece piece, int part, int count)</code></span>
+<span class="line" id="L462"><a class="number" href="#L462">462</a><code class="code">    {</code></span>
+<span class="line" id="L463"><a class="number" href="#L463">463</a><code class="code">        Vector2[] polygon = piece.Polygon;</code></span>
+<span class="line" id="L464"><a class="number" href="#L464">464</a><code class="code">        Vector2 a = polygon[0], b = polygon[1], c = polygon[2], d = polygon[^1];</code></span>
+<span class="line" id="L465"><a class="number" href="#L465">465</a><code class="code">        if (count &gt; 1)</code></span>
+<span class="line" id="L466"><a class="number" href="#L466">466</a><code class="code">        {</code></span>
+<span class="line" id="L467"><a class="number" href="#L467">467</a><code class="code">            a = polygon[0].Lerp(polygon[1], (float)part / count);</code></span>
+<span class="line" id="L468"><a class="number" href="#L468">468</a><code class="code">            b = polygon[0].Lerp(polygon[1], (float)(part + 1) / count);</code></span>
+<span class="line" id="L469"><a class="number" href="#L469">469</a><code class="code">            c = polygon[3].Lerp(polygon[2], (float)(part + 1) / count);</code></span>
+<span class="line" id="L470"><a class="number" href="#L470">470</a><code class="code">            d = polygon[3].Lerp(polygon[2], (float)part / count);</code></span>
+<span class="line" id="L471"><a class="number" href="#L471">471</a><code class="code">        }</code></span>
+<span class="line" id="L472"><a class="number" href="#L472">472</a><code class="code">        return new(Math.Min(Math.Min(a.X, b.X), Math.Min(c.X, d.X)) - 0.001,</code></span>
+<span class="line" id="L473"><a class="number" href="#L473">473</a><code class="code">            Math.Min(Math.Min(a.Y, b.Y), Math.Min(c.Y, d.Y)) - 0.001,</code></span>
+<span class="line" id="L474"><a class="number" href="#L474">474</a><code class="code">            Math.Max(Math.Max(a.X, b.X), Math.Max(c.X, d.X)) + 0.001,</code></span>
+<span class="line" id="L475"><a class="number" href="#L475">475</a><code class="code">            Math.Max(Math.Max(a.Y, b.Y), Math.Max(c.Y, d.Y)) + 0.001);</code></span>
+<span class="line" id="L476"><a class="number" href="#L476">476</a><code class="code">    }</code></span>
+<span class="line" id="L477"><a class="number" href="#L477">477</a><code class="code">}</code></span></pre></main></html>

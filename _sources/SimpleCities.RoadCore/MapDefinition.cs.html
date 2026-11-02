@@ -1,0 +1,74 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>SimpleCities.RoadCore/MapDefinition.cs · SimpleCities 源码</title><link rel="stylesheet" href="../../assets/source.css"><header><a href="../../index.html">← 文档首页</a><h1>SimpleCities.RoadCore/MapDefinition.cs</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">namespace SimpleCities.RoadCore;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code"></code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">/// &lt;summary&gt;固定米制地图参数；调整格长需要创建另一张地图。&lt;/summary&gt;</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code">public sealed record MapDefinition</code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code">{</code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">    public MapDefinition(int cellSizeMetres = 100)</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">    {</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">        if (cellSizeMetres is not (25 or 50 or 100 or 200))</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">            throw new ArgumentOutOfRangeException(nameof(cellSizeMetres), &quot;Cell size must be 25, 50, 100 or 200 metres.&quot;);</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">        CellSizeMetres = cellSizeMetres;</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">    }</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code"></code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">    public int CellSizeMetres { get; }</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">    public int MinimumMetres =&gt; -4000;</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code">    public int MaximumMetres =&gt; 4000;</code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code"></code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">    public bool IsPrimaryPoint(RoadPoint point) =&gt; point.IsFinite &amp;&amp;</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code">        point.X &gt;= MinimumMetres &amp;&amp; point.X &lt;= MaximumMetres &amp;&amp; point.Y &gt;= MinimumMetres &amp;&amp; point.Y &lt;= MaximumMetres &amp;&amp;</code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">        point.X % CellSizeMetres == 0 &amp;&amp; point.Y % CellSizeMetres == 0;</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code"></code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">    public bool IsCellCenter(RoadPoint point) =&gt; point.IsFinite &amp;&amp;</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">        point.X &gt;= MinimumMetres &amp;&amp; point.X &lt;= MaximumMetres &amp;&amp; point.Y &gt;= MinimumMetres &amp;&amp; point.Y &lt;= MaximumMetres &amp;&amp;</code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code">        Math.Abs(point.X % CellSizeMetres) == CellSizeMetres / 2d &amp;&amp;</code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">        Math.Abs(point.Y % CellSizeMetres) == CellSizeMetres / 2d;</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code"></code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">    public bool IsBuildPoint(RoadPoint point) =&gt; IsPrimaryPoint(point) || IsCellCenter(point);</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code"></code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code">    internal bool IsBuildSegment(RoadPoint a, RoadPoint b) =&gt;</code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">        IsBuildPoint(a) &amp;&amp; IsBuildPoint(b) &amp;&amp; a != b &amp;&amp; IsEightDirection(a, b) &amp;&amp;</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">        (!(IsCellCenter(a) || IsCellCenter(b)) || Math.Abs(b.X - a.X) == Math.Abs(b.Y - a.Y));</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code"></code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">    internal bool IsEightDirection(RoadPoint a, RoadPoint b) =&gt;</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code">        a.X == b.X || a.Y == b.Y || Math.Abs(b.X - a.X) == Math.Abs(b.Y - a.Y);</code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code"></code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code">    public RoadPoint SnapPrimary(RoadPoint point) =&gt; new(</code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code">        Math.Clamp(Math.Round(point.X / CellSizeMetres, MidpointRounding.AwayFromZero) * CellSizeMetres, MinimumMetres, MaximumMetres),</code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code">        Math.Clamp(Math.Round(point.Y / CellSizeMetres, MidpointRounding.AwayFromZero) * CellSizeMetres, MinimumMetres, MaximumMetres));</code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code"></code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code">    /// &lt;summary&gt;选择地图内最近的主格点或格心；两组格点等距时优先主格点。&lt;/summary&gt;</code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code">    public RoadPoint SnapBuildPoint(RoadPoint point)</code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code">    {</code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code">        if (!point.IsFinite) return point;</code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code">        RoadPoint primary = SnapPrimary(point);</code></span>
+<span class="line" id="L44"><a class="number" href="#L44">44</a><code class="code">        double half = CellSizeMetres / 2d;</code></span>
+<span class="line" id="L45"><a class="number" href="#L45">45</a><code class="code">        var center = new RoadPoint(</code></span>
+<span class="line" id="L46"><a class="number" href="#L46">46</a><code class="code">            Math.Clamp(Math.Round((point.X - half) / CellSizeMetres, MidpointRounding.AwayFromZero) * CellSizeMetres + half,</code></span>
+<span class="line" id="L47"><a class="number" href="#L47">47</a><code class="code">                MinimumMetres + half, MaximumMetres - half),</code></span>
+<span class="line" id="L48"><a class="number" href="#L48">48</a><code class="code">            Math.Clamp(Math.Round((point.Y - half) / CellSizeMetres, MidpointRounding.AwayFromZero) * CellSizeMetres + half,</code></span>
+<span class="line" id="L49"><a class="number" href="#L49">49</a><code class="code">                MinimumMetres + half, MaximumMetres - half));</code></span>
+<span class="line" id="L50"><a class="number" href="#L50">50</a><code class="code">        double primaryDistance = Math.Pow(primary.X - point.X, 2) + Math.Pow(primary.Y - point.Y, 2);</code></span>
+<span class="line" id="L51"><a class="number" href="#L51">51</a><code class="code">        double centerDistance = Math.Pow(center.X - point.X, 2) + Math.Pow(center.Y - point.Y, 2);</code></span>
+<span class="line" id="L52"><a class="number" href="#L52">52</a><code class="code">        return primaryDistance &lt;= centerDistance ? primary : center;</code></span>
+<span class="line" id="L53"><a class="number" href="#L53">53</a><code class="code">    }</code></span>
+<span class="line" id="L54"><a class="number" href="#L54">54</a><code class="code"></code></span>
+<span class="line" id="L55"><a class="number" href="#L55">55</a><code class="code">    /// &lt;summary&gt;按最近八方向投影；后续核心校验方向合法性，不将格心横竖拖动偷偷改为对角。&lt;/summary&gt;</code></span>
+<span class="line" id="L56"><a class="number" href="#L56">56</a><code class="code">    public RoadPoint SnapDragEnd(RoadPoint start, RoadPoint cursor)</code></span>
+<span class="line" id="L57"><a class="number" href="#L57">57</a><code class="code">    {</code></span>
+<span class="line" id="L58"><a class="number" href="#L58">58</a><code class="code">        if (!IsBuildPoint(start) || !cursor.IsFinite)</code></span>
+<span class="line" id="L59"><a class="number" href="#L59">59</a><code class="code">            return start;</code></span>
+<span class="line" id="L60"><a class="number" href="#L60">60</a><code class="code">        double dx = cursor.X - start.X;</code></span>
+<span class="line" id="L61"><a class="number" href="#L61">61</a><code class="code">        double dy = cursor.Y - start.Y;</code></span>
+<span class="line" id="L62"><a class="number" href="#L62">62</a><code class="code">        double angle = Math.Atan2(dy, dx);</code></span>
+<span class="line" id="L63"><a class="number" href="#L63">63</a><code class="code">        int direction = (int)Math.Round(angle / (Math.PI / 4));</code></span>
+<span class="line" id="L64"><a class="number" href="#L64">64</a><code class="code">        int sx = Math.Sign(Math.Round(Math.Cos(direction * Math.PI / 4)));</code></span>
+<span class="line" id="L65"><a class="number" href="#L65">65</a><code class="code">        int sy = Math.Sign(Math.Round(Math.Sin(direction * Math.PI / 4)));</code></span>
+<span class="line" id="L66"><a class="number" href="#L66">66</a><code class="code">        double step = sx != 0 &amp;&amp; sy != 0 ? CellSizeMetres / 2d : CellSizeMetres;</code></span>
+<span class="line" id="L67"><a class="number" href="#L67">67</a><code class="code">        double projectedSteps = (dx * sx + dy * sy) / ((sx * sx + sy * sy) * step);</code></span>
+<span class="line" id="L68"><a class="number" href="#L68">68</a><code class="code">        double maximum = double.PositiveInfinity;</code></span>
+<span class="line" id="L69"><a class="number" href="#L69">69</a><code class="code">        if (sx != 0) maximum = Math.Min(maximum, (sx &gt; 0 ? MaximumMetres - start.X : start.X - MinimumMetres) / step);</code></span>
+<span class="line" id="L70"><a class="number" href="#L70">70</a><code class="code">        if (sy != 0) maximum = Math.Min(maximum, (sy &gt; 0 ? MaximumMetres - start.Y : start.Y - MinimumMetres) / step);</code></span>
+<span class="line" id="L71"><a class="number" href="#L71">71</a><code class="code">        double steps = Math.Clamp(Math.Round(projectedSteps, MidpointRounding.AwayFromZero), 0, Math.Floor(maximum));</code></span>
+<span class="line" id="L72"><a class="number" href="#L72">72</a><code class="code">        return new RoadPoint(start.X + sx * steps * step, start.Y + sy * steps * step);</code></span>
+<span class="line" id="L73"><a class="number" href="#L73">73</a><code class="code">    }</code></span>
+<span class="line" id="L74"><a class="number" href="#L74">74</a><code class="code">}</code></span></pre></main></html>

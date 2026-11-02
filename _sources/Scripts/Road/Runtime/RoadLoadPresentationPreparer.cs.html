@@ -1,0 +1,14 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Scripts/Road/Runtime/RoadLoadPresentationPreparer.cs · SimpleCities 源码</title><link rel="stylesheet" href="../../../../assets/source.css"><header><a href="../../../../index.html">← 文档首页</a><h1>Scripts/Road/Runtime/RoadLoadPresentationPreparer.cs</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">using SimpleCities.RoadCore;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code"></code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">/// &lt;summary&gt;加载worker的纯V4表现准备；引擎资源仍在主线程预检时上传。&lt;/summary&gt;</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code">internal sealed class RoadLoadPresentationPreparer : IScenePresentationPreparer</code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code">{</code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">    public IPreparedScenePresentation Prepare(IPreparedSaveState state)</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">    {</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">        RoadSnapshot target = ((RoadSaveParticipant.Prepared)state).Plan.Target;</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">        return new PreparedRoadPresentation(target, RoadDisplay.PrepareFull(target));</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">    }</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">}</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code"></code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">internal sealed record PreparedRoadPresentation(</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">    RoadSnapshot Target, RoadDisplay.PreparedGeometry Geometry) : IPreparedScenePresentation;</code></span></pre></main></html>

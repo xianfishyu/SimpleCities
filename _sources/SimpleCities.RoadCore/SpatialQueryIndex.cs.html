@@ -1,0 +1,183 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>SimpleCities.RoadCore/SpatialQueryIndex.cs · SimpleCities 源码</title><link rel="stylesheet" href="../../assets/source.css"><header><a href="../../index.html">← 文档首页</a><h1>SimpleCities.RoadCore/SpatialQueryIndex.cs</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">namespace SimpleCities.RoadCore;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code"></code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">public enum SpatialQueryStatus { Ready, BudgetExceeded, InvalidParameters }</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code">/// &lt;summary&gt;一次公开查询的累计工作上限；零或负数为非法参数。&lt;/summary&gt;</code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code">public readonly record struct SpatialQueryBudget(int MaxBuckets = 4096, int MaxCandidates = 4096, int MaxExactTests = 16384)</code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">{</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">    public static SpatialQueryBudget Default =&gt; new(4096, 4096, 16384);</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">    public bool IsValid =&gt; MaxBuckets &gt; 0 &amp;&amp; MaxCandidates &gt; 0 &amp;&amp; MaxExactTests &gt; 0;</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">}</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">/// &lt;summary&gt;桶访问、消费的粗筛片段、精确距离/相交/表面检查、整边遍历和最终不同 Edge 数。</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">/// 复合拖选累计各次实际查询工作；候选和命中数分别统计。&lt;/summary&gt;</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">public readonly record struct SpatialQueryMetrics(int BucketsVisited, int FragmentCandidates,</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">    int ExactGeometryTests, int FullEdgeVisits, int Hits);</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code"></code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code">/// &lt;summary&gt;非 Ready 时 Results 为空，不能解释为一次成功的空查询。&lt;/summary&gt;</code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">public sealed record SpatialQueryResult&lt;T&gt;(RoadStateToken Source, SpatialQueryStatus Status,</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">    IReadOnlyList&lt;T&gt; Results, SpatialQueryMetrics Metrics, string Reason);</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code"></code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">public readonly record struct SpatialBounds(double MinX, double MinY, double MaxX, double MaxY)</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code">{</code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">    public bool IsValid =&gt; double.IsFinite(MinX) &amp;&amp; double.IsFinite(MinY) &amp;&amp; double.IsFinite(MaxX) &amp;&amp;</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">        double.IsFinite(MaxY) &amp;&amp; MinX &lt;= MaxX &amp;&amp; MinY &lt;= MaxY;</code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code">    internal bool Intersects(SpatialBounds other) =&gt; MinX &lt;= other.MaxX &amp;&amp; MaxX &gt;= other.MinX &amp;&amp;</code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">        MinY &lt;= other.MaxY &amp;&amp; MaxY &gt;= other.MinY;</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code">    public static SpatialBounds Between(RoadPoint start, RoadPoint end) =&gt; new(</code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">        Math.Min(start.X, end.X), Math.Min(start.Y, end.Y), Math.Max(start.X, end.X), Math.Max(start.Y, end.Y));</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">}</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code">public readonly record struct SpatialFragment&lt;T&gt;(T Value, SpatialBounds Bounds);</code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code"></code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">/// &lt;summary&gt;不可变、有界片段的粗筛索引。直线路径逐格遍历，不扫描路径包围盒或全表。&lt;/summary&gt;</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code">public sealed class SpatialQueryIndex&lt;T&gt;</code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">{</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code">    private readonly Dictionary&lt;(int X, int Y), int[]&gt; _buckets;</code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code">    private readonly SpatialFragment&lt;T&gt;[] _fragments;</code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code">    private readonly double _bucketSize;</code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code">    private readonly RoadStateToken _source;</code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code"></code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code">    public SpatialQueryIndex(RoadStateToken source, IEnumerable&lt;SpatialFragment&lt;T&gt;&gt; fragments, double bucketSize = 100,</code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code">        CancellationToken cancellationToken = default)</code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code">    {</code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code">        ArgumentNullException.ThrowIfNull(fragments);</code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code">        if (!double.IsFinite(bucketSize) || bucketSize &lt;= 0) throw new ArgumentOutOfRangeException(nameof(bucketSize));</code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code">        _source = source;</code></span>
+<span class="line" id="L44"><a class="number" href="#L44">44</a><code class="code">        _bucketSize = bucketSize;</code></span>
+<span class="line" id="L45"><a class="number" href="#L45">45</a><code class="code">        cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L46"><a class="number" href="#L46">46</a><code class="code">        if (!cancellationToken.CanBeCanceled) _fragments = fragments.ToArray();</code></span>
+<span class="line" id="L47"><a class="number" href="#L47">47</a><code class="code">        else</code></span>
+<span class="line" id="L48"><a class="number" href="#L48">48</a><code class="code">        {</code></span>
+<span class="line" id="L49"><a class="number" href="#L49">49</a><code class="code">            var materialized = new List&lt;SpatialFragment&lt;T&gt;&gt;(fragments.TryGetNonEnumeratedCount(out int count) ? count : 0);</code></span>
+<span class="line" id="L50"><a class="number" href="#L50">50</a><code class="code">            foreach (var fragment in fragments)</code></span>
+<span class="line" id="L51"><a class="number" href="#L51">51</a><code class="code">            {</code></span>
+<span class="line" id="L52"><a class="number" href="#L52">52</a><code class="code">                cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L53"><a class="number" href="#L53">53</a><code class="code">                materialized.Add(fragment);</code></span>
+<span class="line" id="L54"><a class="number" href="#L54">54</a><code class="code">            }</code></span>
+<span class="line" id="L55"><a class="number" href="#L55">55</a><code class="code">            _fragments = materialized.ToArray();</code></span>
+<span class="line" id="L56"><a class="number" href="#L56">56</a><code class="code">        }</code></span>
+<span class="line" id="L57"><a class="number" href="#L57">57</a><code class="code">        var buckets = new Dictionary&lt;(int, int), List&lt;int&gt;&gt;();</code></span>
+<span class="line" id="L58"><a class="number" href="#L58">58</a><code class="code">        for (int i = 0; i &lt; _fragments.Length; i++)</code></span>
+<span class="line" id="L59"><a class="number" href="#L59">59</a><code class="code">        {</code></span>
+<span class="line" id="L60"><a class="number" href="#L60">60</a><code class="code">            cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L61"><a class="number" href="#L61">61</a><code class="code">            SpatialBounds bounds = _fragments[i].Bounds;</code></span>
+<span class="line" id="L62"><a class="number" href="#L62">62</a><code class="code">            if (!ValidBounds(bounds)) throw new ArgumentException(&quot;Invalid fragment bounds.&quot;, nameof(fragments));</code></span>
+<span class="line" id="L63"><a class="number" href="#L63">63</a><code class="code">            int left = Bucket(bounds.MinX), right = Bucket(bounds.MaxX), top = Bucket(bounds.MinY), bottom = Bucket(bounds.MaxY);</code></span>
+<span class="line" id="L64"><a class="number" href="#L64">64</a><code class="code">            // Every caller must fragment long geometry before indexing; never expand an unbounded rectangle.</code></span>
+<span class="line" id="L65"><a class="number" href="#L65">65</a><code class="code">            if (((long)right - left + 1) * ((long)bottom - top + 1) &gt; 64)</code></span>
+<span class="line" id="L66"><a class="number" href="#L66">66</a><code class="code">                throw new ArgumentException(&quot;Spatial fragment exceeds its bounded bucket coverage.&quot;, nameof(fragments));</code></span>
+<span class="line" id="L67"><a class="number" href="#L67">67</a><code class="code">            for (int x = left; x &lt;= right; x++)</code></span>
+<span class="line" id="L68"><a class="number" href="#L68">68</a><code class="code">                for (int y = top; y &lt;= bottom; y++)</code></span>
+<span class="line" id="L69"><a class="number" href="#L69">69</a><code class="code">                {</code></span>
+<span class="line" id="L70"><a class="number" href="#L70">70</a><code class="code">                    if (!buckets.TryGetValue((x, y), out List&lt;int&gt;? entries)) buckets.Add((x, y), entries = []);</code></span>
+<span class="line" id="L71"><a class="number" href="#L71">71</a><code class="code">                    entries.Add(i);</code></span>
+<span class="line" id="L72"><a class="number" href="#L72">72</a><code class="code">                }</code></span>
+<span class="line" id="L73"><a class="number" href="#L73">73</a><code class="code">        }</code></span>
+<span class="line" id="L74"><a class="number" href="#L74">74</a><code class="code">        _buckets = new(buckets.Count);</code></span>
+<span class="line" id="L75"><a class="number" href="#L75">75</a><code class="code">        foreach (var pair in buckets)</code></span>
+<span class="line" id="L76"><a class="number" href="#L76">76</a><code class="code">        {</code></span>
+<span class="line" id="L77"><a class="number" href="#L77">77</a><code class="code">            cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L78"><a class="number" href="#L78">78</a><code class="code">            _buckets.Add(pair.Key, pair.Value.ToArray());</code></span>
+<span class="line" id="L79"><a class="number" href="#L79">79</a><code class="code">        }</code></span>
+<span class="line" id="L80"><a class="number" href="#L80">80</a><code class="code">        cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L81"><a class="number" href="#L81">81</a><code class="code">    }</code></span>
+<span class="line" id="L82"><a class="number" href="#L82">82</a><code class="code"></code></span>
+<span class="line" id="L83"><a class="number" href="#L83">83</a><code class="code">    public SpatialQueryResult&lt;T&gt; QueryBounds(SpatialBounds bounds, SpatialQueryBudget? budget = null)</code></span>
+<span class="line" id="L84"><a class="number" href="#L84">84</a><code class="code">    {</code></span>
+<span class="line" id="L85"><a class="number" href="#L85">85</a><code class="code">        SpatialQueryBudget limits = budget ?? SpatialQueryBudget.Default;</code></span>
+<span class="line" id="L86"><a class="number" href="#L86">86</a><code class="code">        if (!limits.IsValid || !ValidBounds(bounds))</code></span>
+<span class="line" id="L87"><a class="number" href="#L87">87</a><code class="code">            return new(_source, SpatialQueryStatus.InvalidParameters, [], default, &quot;空间查询参数非法&quot;);</code></span>
+<span class="line" id="L88"><a class="number" href="#L88">88</a><code class="code">        int left = Bucket(bounds.MinX), right = Bucket(bounds.MaxX);</code></span>
+<span class="line" id="L89"><a class="number" href="#L89">89</a><code class="code">        int top = Bucket(bounds.MinY), bottom = Bucket(bounds.MaxY);</code></span>
+<span class="line" id="L90"><a class="number" href="#L90">90</a><code class="code">        if (left == right &amp;&amp; top == bottom) return QuerySingleBucket(bounds, left, top, limits);</code></span>
+<span class="line" id="L91"><a class="number" href="#L91">91</a><code class="code">        var query = new Query(this, limits, bounds);</code></span>
+<span class="line" id="L92"><a class="number" href="#L92">92</a><code class="code">        for (int x = left; x &lt;= right; x++)</code></span>
+<span class="line" id="L93"><a class="number" href="#L93">93</a><code class="code">            for (int y = top; y &lt;= bottom; y++)</code></span>
+<span class="line" id="L94"><a class="number" href="#L94">94</a><code class="code">                if (!query.Visit(x, y)) return query.Result();</code></span>
+<span class="line" id="L95"><a class="number" href="#L95">95</a><code class="code">        return query.Result();</code></span>
+<span class="line" id="L96"><a class="number" href="#L96">96</a><code class="code">    }</code></span>
+<span class="line" id="L97"><a class="number" href="#L97">97</a><code class="code"></code></span>
+<span class="line" id="L98"><a class="number" href="#L98">98</a><code class="code">    private SpatialQueryResult&lt;T&gt; QuerySingleBucket(SpatialBounds bounds, int x, int y, SpatialQueryBudget limits)</code></span>
+<span class="line" id="L99"><a class="number" href="#L99">99</a><code class="code">    {</code></span>
+<span class="line" id="L100"><a class="number" href="#L100">100</a><code class="code">        // Construction adds each fragment index only once to a given bucket.</code></span>
+<span class="line" id="L101"><a class="number" href="#L101">101</a><code class="code">        // A one-bucket query therefore needs neither bucket nor fragment deduplication sets.</code></span>
+<span class="line" id="L102"><a class="number" href="#L102">102</a><code class="code">        List&lt;T&gt;? results = null;</code></span>
+<span class="line" id="L103"><a class="number" href="#L103">103</a><code class="code">        int candidates = 0;</code></span>
+<span class="line" id="L104"><a class="number" href="#L104">104</a><code class="code">        if (_buckets.TryGetValue((x, y), out int[]? entries))</code></span>
+<span class="line" id="L105"><a class="number" href="#L105">105</a><code class="code">            foreach (int index in entries)</code></span>
+<span class="line" id="L106"><a class="number" href="#L106">106</a><code class="code">            {</code></span>
+<span class="line" id="L107"><a class="number" href="#L107">107</a><code class="code">                if (candidates &gt;= limits.MaxCandidates)</code></span>
+<span class="line" id="L108"><a class="number" href="#L108">108</a><code class="code">                    return new(_source, SpatialQueryStatus.BudgetExceeded, [], new(1, candidates, 0, 0, 0),</code></span>
+<span class="line" id="L109"><a class="number" href="#L109">109</a><code class="code">                        &quot;空间查询候选或分桶预算已耗尽&quot;);</code></span>
+<span class="line" id="L110"><a class="number" href="#L110">110</a><code class="code">                candidates++;</code></span>
+<span class="line" id="L111"><a class="number" href="#L111">111</a><code class="code">                SpatialFragment&lt;T&gt; fragment = _fragments[index];</code></span>
+<span class="line" id="L112"><a class="number" href="#L112">112</a><code class="code">                if (fragment.Bounds.Intersects(bounds)) (results ??= []).Add(fragment.Value);</code></span>
+<span class="line" id="L113"><a class="number" href="#L113">113</a><code class="code">            }</code></span>
+<span class="line" id="L114"><a class="number" href="#L114">114</a><code class="code">        return new(_source, SpatialQueryStatus.Ready, results is null ? [] : results.AsReadOnly(),</code></span>
+<span class="line" id="L115"><a class="number" href="#L115">115</a><code class="code">            new(1, candidates, 0, 0, 0), &quot;&quot;);</code></span>
+<span class="line" id="L116"><a class="number" href="#L116">116</a><code class="code">    }</code></span>
+<span class="line" id="L117"><a class="number" href="#L117">117</a><code class="code"></code></span>
+<span class="line" id="L118"><a class="number" href="#L118">118</a><code class="code">    public SpatialQueryResult&lt;T&gt; QuerySegment(RoadPoint from, RoadPoint to, SpatialQueryBudget? budget = null)</code></span>
+<span class="line" id="L119"><a class="number" href="#L119">119</a><code class="code">    {</code></span>
+<span class="line" id="L120"><a class="number" href="#L120">120</a><code class="code">        var query = new Query(this, budget ?? SpatialQueryBudget.Default, SpatialBounds.Between(from, to));</code></span>
+<span class="line" id="L121"><a class="number" href="#L121">121</a><code class="code">        if (!from.IsFinite || !to.IsFinite || !query.IsValid) return query.Invalid();</code></span>
+<span class="line" id="L122"><a class="number" href="#L122">122</a><code class="code">        int x = Bucket(from.X), y = Bucket(from.Y), endX = Bucket(to.X), endY = Bucket(to.Y);</code></span>
+<span class="line" id="L123"><a class="number" href="#L123">123</a><code class="code">        int stepX = Math.Sign(to.X - from.X), stepY = Math.Sign(to.Y - from.Y);</code></span>
+<span class="line" id="L124"><a class="number" href="#L124">124</a><code class="code">        double dx = to.X - from.X, dy = to.Y - from.Y;</code></span>
+<span class="line" id="L125"><a class="number" href="#L125">125</a><code class="code">        double nextX = stepX == 0 ? double.PositiveInfinity : ((x + (stepX &gt; 0 ? 1d : 0d)) * _bucketSize - from.X) / dx;</code></span>
+<span class="line" id="L126"><a class="number" href="#L126">126</a><code class="code">        double nextY = stepY == 0 ? double.PositiveInfinity : ((y + (stepY &gt; 0 ? 1d : 0d)) * _bucketSize - from.Y) / dy;</code></span>
+<span class="line" id="L127"><a class="number" href="#L127">127</a><code class="code">        double deltaX = stepX == 0 ? double.PositiveInfinity : _bucketSize / Math.Abs(dx);</code></span>
+<span class="line" id="L128"><a class="number" href="#L128">128</a><code class="code">        double deltaY = stepY == 0 ? double.PositiveInfinity : _bucketSize / Math.Abs(dy);</code></span>
+<span class="line" id="L129"><a class="number" href="#L129">129</a><code class="code">        while (true)</code></span>
+<span class="line" id="L130"><a class="number" href="#L130">130</a><code class="code">        {</code></span>
+<span class="line" id="L131"><a class="number" href="#L131">131</a><code class="code">            if (!query.Visit(x, y) || (x == endX &amp;&amp; y == endY)) return query.Result();</code></span>
+<span class="line" id="L132"><a class="number" href="#L132">132</a><code class="code">            // The terminal point belongs to floor(coordinate). A negative direction must not</code></span>
+<span class="line" id="L133"><a class="number" href="#L133">133</a><code class="code">            // cross its final grid boundary again when the other axis reaches the endpoint.</code></span>
+<span class="line" id="L134"><a class="number" href="#L134">134</a><code class="code">            if (x == endX) nextX = double.PositiveInfinity;</code></span>
+<span class="line" id="L135"><a class="number" href="#L135">135</a><code class="code">            if (y == endY) nextY = double.PositiveInfinity;</code></span>
+<span class="line" id="L136"><a class="number" href="#L136">136</a><code class="code">            if (nextX &lt; nextY) { x += stepX; nextX += deltaX; }</code></span>
+<span class="line" id="L137"><a class="number" href="#L137">137</a><code class="code">            else if (nextY &lt; nextX) { y += stepY; nextY += deltaY; }</code></span>
+<span class="line" id="L138"><a class="number" href="#L138">138</a><code class="code">            else</code></span>
+<span class="line" id="L139"><a class="number" href="#L139">139</a><code class="code">            {</code></span>
+<span class="line" id="L140"><a class="number" href="#L140">140</a><code class="code">                // A corner touch includes both side buckets, so surface endpoint ownership is retained.</code></span>
+<span class="line" id="L141"><a class="number" href="#L141">141</a><code class="code">                if (!query.Visit(x + stepX, y) || !query.Visit(x, y + stepY)) return query.Result();</code></span>
+<span class="line" id="L142"><a class="number" href="#L142">142</a><code class="code">                x += stepX; y += stepY; nextX += deltaX; nextY += deltaY;</code></span>
+<span class="line" id="L143"><a class="number" href="#L143">143</a><code class="code">            }</code></span>
+<span class="line" id="L144"><a class="number" href="#L144">144</a><code class="code">        }</code></span>
+<span class="line" id="L145"><a class="number" href="#L145">145</a><code class="code">    }</code></span>
+<span class="line" id="L146"><a class="number" href="#L146">146</a><code class="code"></code></span>
+<span class="line" id="L147"><a class="number" href="#L147">147</a><code class="code">    private int Bucket(double coordinate) =&gt; (int)Math.Floor(coordinate / _bucketSize);</code></span>
+<span class="line" id="L148"><a class="number" href="#L148">148</a><code class="code">    private bool ValidBounds(SpatialBounds bounds) =&gt; bounds.IsValid &amp;&amp;</code></span>
+<span class="line" id="L149"><a class="number" href="#L149">149</a><code class="code">        Math.Abs(bounds.MinX / _bucketSize) &lt; int.MaxValue / 2d &amp;&amp; Math.Abs(bounds.MaxX / _bucketSize) &lt; int.MaxValue / 2d &amp;&amp;</code></span>
+<span class="line" id="L150"><a class="number" href="#L150">150</a><code class="code">        Math.Abs(bounds.MinY / _bucketSize) &lt; int.MaxValue / 2d &amp;&amp; Math.Abs(bounds.MaxY / _bucketSize) &lt; int.MaxValue / 2d;</code></span>
+<span class="line" id="L151"><a class="number" href="#L151">151</a><code class="code"></code></span>
+<span class="line" id="L152"><a class="number" href="#L152">152</a><code class="code">    private sealed class Query(SpatialQueryIndex&lt;T&gt; owner, SpatialQueryBudget budget, SpatialBounds bounds)</code></span>
+<span class="line" id="L153"><a class="number" href="#L153">153</a><code class="code">    {</code></span>
+<span class="line" id="L154"><a class="number" href="#L154">154</a><code class="code">        private readonly HashSet&lt;(int, int)&gt; _visited = [];</code></span>
+<span class="line" id="L155"><a class="number" href="#L155">155</a><code class="code">        private readonly HashSet&lt;int&gt; _seen = [];</code></span>
+<span class="line" id="L156"><a class="number" href="#L156">156</a><code class="code">        private readonly List&lt;T&gt; _results = [];</code></span>
+<span class="line" id="L157"><a class="number" href="#L157">157</a><code class="code">        private SpatialQueryStatus _status = SpatialQueryStatus.Ready;</code></span>
+<span class="line" id="L158"><a class="number" href="#L158">158</a><code class="code">        internal bool IsValid =&gt; budget.IsValid &amp;&amp; owner.ValidBounds(bounds);</code></span>
+<span class="line" id="L159"><a class="number" href="#L159">159</a><code class="code">        internal bool Visit(int x, int y)</code></span>
+<span class="line" id="L160"><a class="number" href="#L160">160</a><code class="code">        {</code></span>
+<span class="line" id="L161"><a class="number" href="#L161">161</a><code class="code">            if (_visited.Contains((x, y))) return true;</code></span>
+<span class="line" id="L162"><a class="number" href="#L162">162</a><code class="code">            if (_visited.Count &gt;= budget.MaxBuckets) { _status = SpatialQueryStatus.BudgetExceeded; return false; }</code></span>
+<span class="line" id="L163"><a class="number" href="#L163">163</a><code class="code">            _visited.Add((x, y));</code></span>
+<span class="line" id="L164"><a class="number" href="#L164">164</a><code class="code">            if (!owner._buckets.TryGetValue((x, y), out int[]? entries)) return true;</code></span>
+<span class="line" id="L165"><a class="number" href="#L165">165</a><code class="code">            foreach (int index in entries)</code></span>
+<span class="line" id="L166"><a class="number" href="#L166">166</a><code class="code">            {</code></span>
+<span class="line" id="L167"><a class="number" href="#L167">167</a><code class="code">                if (_seen.Contains(index)) continue;</code></span>
+<span class="line" id="L168"><a class="number" href="#L168">168</a><code class="code">                if (_seen.Count &gt;= budget.MaxCandidates) { _status = SpatialQueryStatus.BudgetExceeded; return false; }</code></span>
+<span class="line" id="L169"><a class="number" href="#L169">169</a><code class="code">                _seen.Add(index);</code></span>
+<span class="line" id="L170"><a class="number" href="#L170">170</a><code class="code">                SpatialFragment&lt;T&gt; fragment = owner._fragments[index];</code></span>
+<span class="line" id="L171"><a class="number" href="#L171">171</a><code class="code">                if (fragment.Bounds.Intersects(bounds)) _results.Add(fragment.Value);</code></span>
+<span class="line" id="L172"><a class="number" href="#L172">172</a><code class="code">            }</code></span>
+<span class="line" id="L173"><a class="number" href="#L173">173</a><code class="code">            return true;</code></span>
+<span class="line" id="L174"><a class="number" href="#L174">174</a><code class="code">        }</code></span>
+<span class="line" id="L175"><a class="number" href="#L175">175</a><code class="code">        internal SpatialQueryResult&lt;T&gt; Invalid() =&gt; new(owner._source, SpatialQueryStatus.InvalidParameters, [], default, &quot;空间查询参数非法&quot;);</code></span>
+<span class="line" id="L176"><a class="number" href="#L176">176</a><code class="code">        internal SpatialQueryResult&lt;T&gt; Result()</code></span>
+<span class="line" id="L177"><a class="number" href="#L177">177</a><code class="code">        {</code></span>
+<span class="line" id="L178"><a class="number" href="#L178">178</a><code class="code">            if (!IsValid) return Invalid();</code></span>
+<span class="line" id="L179"><a class="number" href="#L179">179</a><code class="code">            return new(owner._source, _status, _status == SpatialQueryStatus.Ready ? _results.AsReadOnly() : [],</code></span>
+<span class="line" id="L180"><a class="number" href="#L180">180</a><code class="code">                new(_visited.Count, _seen.Count, 0, 0, 0), _status == SpatialQueryStatus.Ready ? &quot;&quot; : &quot;空间查询候选或分桶预算已耗尽&quot;);</code></span>
+<span class="line" id="L181"><a class="number" href="#L181">181</a><code class="code">        }</code></span>
+<span class="line" id="L182"><a class="number" href="#L182">182</a><code class="code">    }</code></span>
+<span class="line" id="L183"><a class="number" href="#L183">183</a><code class="code">}</code></span></pre></main></html>

@@ -1,0 +1,340 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Scripts/Docs/render_class_reference.py · SimpleCities 源码</title><link rel="stylesheet" href="../../../assets/source.css"><header><a href="../../../index.html">← 文档首页</a><h1>Scripts/Docs/render_class_reference.py</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">&quot;&quot;&quot;根据已审核的类参考清单生成 Godot 风格页面，或检查生成结果是否同步。&quot;&quot;&quot;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code"></code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">import argparse</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code">import html</code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code">import json</code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">import os</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">import re</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">from collections import defaultdict</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">from pathlib import Path</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code"></code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code"></code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">ROOT = Path(__file__).resolve().parents[2]</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">MANIFEST = ROOT / &quot;docs/class-reference/coverage.json&quot;</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">GROUPS = {</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code">    &quot;road-core&quot;: (&quot;道路纯核心&quot;, &quot;地图、领域模型、规划提交、历史、查询与纯表现数据。&quot;, &quot;docs/road-system.md&quot;),</code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">    &quot;road-runtime&quot;: (&quot;道路 Godot 运行适配&quot;, &quot;场景装配、操作、表现资源、命中及存储适配。&quot;, &quot;docs/architecture.md&quot;),</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">    &quot;persistence&quot;: (&quot;持久化与联合加载&quot;, &quot;参与者、槽事务、操作协调、联合引用提交和自动保存。&quot;, &quot;docs/save-system.md&quot;),</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code">    &quot;ui&quot;: (&quot;界面&quot;, &quot;HUD、建造目录、上下文、暂停菜单和面板生命周期。&quot;, &quot;docs/ui.md&quot;),</code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">    &quot;input-map&quot;: (&quot;输入、相机与显示配置&quot;, &quot;输入绑定、工具、相机、背景及道路样式资源。&quot;, &quot;docs/architecture.md&quot;),</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code">    &quot;testing&quot;: (&quot;测试、诊断与运行探针&quot;, &quot;测试类型、性能数据集与 Debug 探针；列入参考不表示本轮已经执行。&quot;, &quot;docs/verification.md&quot;),</code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">}</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">TITLES = {</code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code">    &quot;property&quot;: (&quot;属性&quot;, &quot;属性说明&quot;), &quot;field&quot;: (&quot;字段&quot;, &quot;字段说明&quot;),</code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">    &quot;constructor&quot;: (&quot;构造函数&quot;, &quot;构造函数说明&quot;), &quot;method&quot;: (&quot;方法&quot;, &quot;方法说明&quot;),</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code">    &quot;operator&quot;: (&quot;运算符&quot;, &quot;运算符说明&quot;), &quot;event&quot;: (&quot;C# 事件&quot;, &quot;C# 事件说明&quot;),</code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">    &quot;constant&quot;: (&quot;常量&quot;, &quot;常量说明&quot;), &quot;enumValue&quot;: (&quot;枚举值&quot;, &quot;枚举值说明&quot;),</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">    &quot;destructor&quot;: (&quot;析构函数&quot;, &quot;析构函数说明&quot;), &quot;other&quot;: (&quot;其他成员&quot;, &quot;其他成员说明&quot;),</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code">}</code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">ENGINE_BASES = {&quot;Node&quot;, &quot;Node2D&quot;, &quot;CanvasItem&quot;, &quot;CanvasLayer&quot;, &quot;Control&quot;, &quot;Button&quot;, &quot;PanelContainer&quot;, &quot;Camera2D&quot;, &quot;Resource&quot;, &quot;RefCounted&quot;, &quot;Object&quot;, &quot;SceneTree&quot;, &quot;Vector2&quot;, &quot;Vector3&quot;, &quot;Color&quot;, &quot;Texture2D&quot;, &quot;ArrayMesh&quot;, &quot;NodePath&quot;, &quot;InputEvent&quot;, &quot;InputEventKey&quot;, &quot;Timer&quot;, &quot;ShaderMaterial&quot;, &quot;ColorRect&quot;, &quot;Label&quot;}</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code"></code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code"></code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">def relative(page, target):</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code">    return os.path.relpath(ROOT / target, (ROOT / page).parent).replace(&quot;\\&quot;, &quot;/&quot;)</code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code"></code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code"></code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code">def cell(text):</code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code">    return str(text).replace(&quot;|&quot;, &quot;\\|&quot;).replace(&quot;\n&quot;, &quot; &quot;)</code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code"></code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code"></code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code">def code(text):</code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code">    return &quot;`&quot; + cell(text).replace(&quot;`&quot;, &quot;&amp;#96;&quot;) + &quot;`&quot;</code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code"></code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code"></code></span>
+<span class="line" id="L44"><a class="number" href="#L44">44</a><code class="code">def link(label, href):</code></span>
+<span class="line" id="L45"><a class="number" href="#L45">45</a><code class="code">    return &quot;[&quot; + html.escape(label).replace(&quot;[&quot;, &quot;&amp;#91;&quot;).replace(&quot;]&quot;, &quot;&amp;#93;&quot;) + &quot;](&quot; + href + &quot;)&quot;</code></span>
+<span class="line" id="L46"><a class="number" href="#L46">46</a><code class="code"></code></span>
+<span class="line" id="L47"><a class="number" href="#L47">47</a><code class="code"></code></span>
+<span class="line" id="L48"><a class="number" href="#L48">48</a><code class="code">def source_link(page, source, line, label=None):</code></span>
+<span class="line" id="L49"><a class="number" href="#L49">49</a><code class="code">    return link(label or f&quot;{source}:{line}&quot;, relative(page, source) + f&quot;#L{line}&quot;)</code></span>
+<span class="line" id="L50"><a class="number" href="#L50">50</a><code class="code"></code></span>
+<span class="line" id="L51"><a class="number" href="#L51">51</a><code class="code"></code></span>
+<span class="line" id="L52"><a class="number" href="#L52">52</a><code class="code">def is_exported(member):</code></span>
+<span class="line" id="L53"><a class="number" href="#L53">53</a><code class="code">    return any(a.rsplit(&quot;.&quot;, 1)[-1] in {&quot;Export&quot;, &quot;ExportAttribute&quot;} for a in member.get(&quot;attributes&quot;, []))</code></span>
+<span class="line" id="L54"><a class="number" href="#L54">54</a><code class="code"></code></span>
+<span class="line" id="L55"><a class="number" href="#L55">55</a><code class="code"></code></span>
+<span class="line" id="L56"><a class="number" href="#L56">56</a><code class="code">def qualifiers(member):</code></span>
+<span class="line" id="L57"><a class="number" href="#L57">57</a><code class="code">    values = [member.get(&quot;access&quot;, &quot;&quot;)]</code></span>
+<span class="line" id="L58"><a class="number" href="#L58">58</a><code class="code">    values += [m for m in member.get(&quot;modifiers&quot;, []) if m not in {&quot;public&quot;, &quot;protected&quot;, &quot;internal&quot;, &quot;private&quot;}]</code></span>
+<span class="line" id="L59"><a class="number" href="#L59">59</a><code class="code">    values += member.get(&quot;accessors&quot;, [])</code></span>
+<span class="line" id="L60"><a class="number" href="#L60">60</a><code class="code">    if is_exported(member):</code></span>
+<span class="line" id="L61"><a class="number" href="#L61">61</a><code class="code">        values.append(&quot;Export&quot;)</code></span>
+<span class="line" id="L62"><a class="number" href="#L62">62</a><code class="code">    if member.get(&quot;configurations&quot;) and set(member[&quot;configurations&quot;]) != {&quot;Debug&quot;, &quot;Release&quot;}:</code></span>
+<span class="line" id="L63"><a class="number" href="#L63">63</a><code class="code">        values.append(&quot; / &quot;.join(member[&quot;configurations&quot;]))</code></span>
+<span class="line" id="L64"><a class="number" href="#L64">64</a><code class="code">    if member.get(&quot;source&quot;, &quot;&quot;).startswith(&quot;tests/godot/&quot;):</code></span>
+<span class="line" id="L65"><a class="number" href="#L65">65</a><code class="code">        values.append(&quot;Debug 探针&quot;)</code></span>
+<span class="line" id="L66"><a class="number" href="#L66">66</a><code class="code">    return &quot; · &quot;.join(code(v) for v in values if v)</code></span>
+<span class="line" id="L67"><a class="number" href="#L67">67</a><code class="code"></code></span>
+<span class="line" id="L68"><a class="number" href="#L68">68</a><code class="code"></code></span>
+<span class="line" id="L69"><a class="number" href="#L69">69</a><code class="code">def initial_value(member):</code></span>
+<span class="line" id="L70"><a class="number" href="#L70">70</a><code class="code">    values = [x[&quot;value&quot;] for x in member.get(&quot;initializers&quot;, []) if x.get(&quot;value&quot;) is not None]</code></span>
+<span class="line" id="L71"><a class="number" href="#L71">71</a><code class="code">    if not values:</code></span>
+<span class="line" id="L72"><a class="number" href="#L72">72</a><code class="code">        return &quot;由构造或运行时决定&quot;</code></span>
+<span class="line" id="L73"><a class="number" href="#L73">73</a><code class="code">    result = &quot;, &quot;.join(values)</code></span>
+<span class="line" id="L74"><a class="number" href="#L74">74</a><code class="code">    return code(result) if len(result) &lt;= 100 and &quot;\n&quot; not in result else &quot;见源码初始化&quot;</code></span>
+<span class="line" id="L75"><a class="number" href="#L75">75</a><code class="code"></code></span>
+<span class="line" id="L76"><a class="number" href="#L76">76</a><code class="code"></code></span>
+<span class="line" id="L77"><a class="number" href="#L77">77</a><code class="code">def brief(text):</code></span>
+<span class="line" id="L78"><a class="number" href="#L78">78</a><code class="code">    return text.split(&quot;。&quot;, 1)[0] + (&quot;。&quot; if &quot;。&quot; in text else &quot;&quot;)</code></span>
+<span class="line" id="L79"><a class="number" href="#L79">79</a><code class="code"></code></span>
+<span class="line" id="L80"><a class="number" href="#L80">80</a><code class="code"></code></span>
+<span class="line" id="L81"><a class="number" href="#L81">81</a><code class="code">def table(rows, headers):</code></span>
+<span class="line" id="L82"><a class="number" href="#L82">82</a><code class="code">    return [&quot;| &quot; + &quot; | &quot;.join(headers) + &quot; |&quot;, &quot;| &quot; + &quot; | &quot;.join(&quot;---&quot; for _ in headers) + &quot; |&quot;] + [&quot;| &quot; + &quot; | &quot;.join(row) + &quot; |&quot; for row in rows] + [&quot;&quot;]</code></span>
+<span class="line" id="L83"><a class="number" href="#L83">83</a><code class="code"></code></span>
+<span class="line" id="L84"><a class="number" href="#L84">84</a><code class="code"></code></span>
+<span class="line" id="L85"><a class="number" href="#L85">85</a><code class="code">class ClassReferenceRenderer:</code></span>
+<span class="line" id="L86"><a class="number" href="#L86">86</a><code class="code">    def __init__(self, manifest):</code></span>
+<span class="line" id="L87"><a class="number" href="#L87">87</a><code class="code">        self.manifest = manifest</code></span>
+<span class="line" id="L88"><a class="number" href="#L88">88</a><code class="code">        self.types = {t[&quot;key&quot;]: t for t in manifest[&quot;types&quot;]}</code></span>
+<span class="line" id="L89"><a class="number" href="#L89">89</a><code class="code">        self.names = defaultdict(list)</code></span>
+<span class="line" id="L90"><a class="number" href="#L90">90</a><code class="code">        for key, typ in self.types.items():</code></span>
+<span class="line" id="L91"><a class="number" href="#L91">91</a><code class="code">            self.names[typ[&quot;name&quot;].rsplit(&quot;.&quot;, 1)[-1]].append(key)</code></span>
+<span class="line" id="L92"><a class="number" href="#L92">92</a><code class="code">        self.children = defaultdict(list)</code></span>
+<span class="line" id="L93"><a class="number" href="#L93">93</a><code class="code">        self.parents = {}</code></span>
+<span class="line" id="L94"><a class="number" href="#L94">94</a><code class="code">        self.derived = defaultdict(list)</code></span>
+<span class="line" id="L95"><a class="number" href="#L95">95</a><code class="code">        for key, typ in self.types.items():</code></span>
+<span class="line" id="L96"><a class="number" href="#L96">96</a><code class="code">            parent = key.rpartition(&quot;.&quot;)[0]</code></span>
+<span class="line" id="L97"><a class="number" href="#L97">97</a><code class="code">            if parent in self.types:</code></span>
+<span class="line" id="L98"><a class="number" href="#L98">98</a><code class="code">                self.parents[key] = parent</code></span>
+<span class="line" id="L99"><a class="number" href="#L99">99</a><code class="code">                self.children[parent].append(key)</code></span>
+<span class="line" id="L100"><a class="number" href="#L100">100</a><code class="code">            for base in typ.get(&quot;bases&quot;, []):</code></span>
+<span class="line" id="L101"><a class="number" href="#L101">101</a><code class="code">                resolved = self.resolve(base.split(&quot;&lt;&quot;, 1)[0], typ)</code></span>
+<span class="line" id="L102"><a class="number" href="#L102">102</a><code class="code">                if resolved:</code></span>
+<span class="line" id="L103"><a class="number" href="#L103">103</a><code class="code">                    self.derived[resolved].append(key)</code></span>
+<span class="line" id="L104"><a class="number" href="#L104">104</a><code class="code"></code></span>
+<span class="line" id="L105"><a class="number" href="#L105">105</a><code class="code">    def resolve(self, name, context):</code></span>
+<span class="line" id="L106"><a class="number" href="#L106">106</a><code class="code">        name = name.removeprefix(&quot;global::&quot;)</code></span>
+<span class="line" id="L107"><a class="number" href="#L107">107</a><code class="code">        for aliases in context.get(&quot;aliases&quot;, {}).values():</code></span>
+<span class="line" id="L108"><a class="number" href="#L108">108</a><code class="code">            if name in aliases:</code></span>
+<span class="line" id="L109"><a class="number" href="#L109">109</a><code class="code">                name = aliases[name]</code></span>
+<span class="line" id="L110"><a class="number" href="#L110">110</a><code class="code">                break</code></span>
+<span class="line" id="L111"><a class="number" href="#L111">111</a><code class="code">        if name in self.types:</code></span>
+<span class="line" id="L112"><a class="number" href="#L112">112</a><code class="code">            return name</code></span>
+<span class="line" id="L113"><a class="number" href="#L113">113</a><code class="code">        scope = context[&quot;key&quot;].split(&quot;.&quot;)[:-1]</code></span>
+<span class="line" id="L114"><a class="number" href="#L114">114</a><code class="code">        while scope:</code></span>
+<span class="line" id="L115"><a class="number" href="#L115">115</a><code class="code">            candidate = &quot;.&quot;.join(scope + [name])</code></span>
+<span class="line" id="L116"><a class="number" href="#L116">116</a><code class="code">            if candidate in self.types:</code></span>
+<span class="line" id="L117"><a class="number" href="#L117">117</a><code class="code">                return candidate</code></span>
+<span class="line" id="L118"><a class="number" href="#L118">118</a><code class="code">            scope.pop()</code></span>
+<span class="line" id="L119"><a class="number" href="#L119">119</a><code class="code">        matches = self.names.get(name, [])</code></span>
+<span class="line" id="L120"><a class="number" href="#L120">120</a><code class="code">        return matches[0] if len(matches) == 1 else None</code></span>
+<span class="line" id="L121"><a class="number" href="#L121">121</a><code class="code"></code></span>
+<span class="line" id="L122"><a class="number" href="#L122">122</a><code class="code">    def type_link(self, key, page, label=None):</code></span>
+<span class="line" id="L123"><a class="number" href="#L123">123</a><code class="code">        typ = self.types[key]</code></span>
+<span class="line" id="L124"><a class="number" href="#L124">124</a><code class="code">        target = &quot;&quot; if page == typ[&quot;page&quot;] else relative(page, typ[&quot;page&quot;])</code></span>
+<span class="line" id="L125"><a class="number" href="#L125">125</a><code class="code">        return link(label or typ[&quot;name&quot;] + typ.get(&quot;genericParameters&quot;, &quot;&quot;), target + &quot;#&quot; + typ[&quot;anchor&quot;])</code></span>
+<span class="line" id="L126"><a class="number" href="#L126">126</a><code class="code"></code></span>
+<span class="line" id="L127"><a class="number" href="#L127">127</a><code class="code">    def type_text(self, name, context):</code></span>
+<span class="line" id="L128"><a class="number" href="#L128">128</a><code class="code">        result = []</code></span>
+<span class="line" id="L129"><a class="number" href="#L129">129</a><code class="code">        previous = 0</code></span>
+<span class="line" id="L130"><a class="number" href="#L130">130</a><code class="code">        for token in re.finditer(r&quot;(?:global::)?[A-Za-z_][A-Za-z0-9_.]*&quot;, name):</code></span>
+<span class="line" id="L131"><a class="number" href="#L131">131</a><code class="code">            result.append(html.escape(name[previous:token.start()]))</code></span>
+<span class="line" id="L132"><a class="number" href="#L132">132</a><code class="code">            identifier = token[0]</code></span>
+<span class="line" id="L133"><a class="number" href="#L133">133</a><code class="code">            resolved = self.resolve(identifier, context)</code></span>
+<span class="line" id="L134"><a class="number" href="#L134">134</a><code class="code">            if resolved:</code></span>
+<span class="line" id="L135"><a class="number" href="#L135">135</a><code class="code">                result.append(self.type_link(resolved, context[&quot;page&quot;], identifier))</code></span>
+<span class="line" id="L136"><a class="number" href="#L136">136</a><code class="code">            elif identifier in ENGINE_BASES:</code></span>
+<span class="line" id="L137"><a class="number" href="#L137">137</a><code class="code">                result.append(link(identifier, &quot;https://docs.godotengine.org/en/stable/classes/class_&quot; + identifier.lower() + &quot;.html&quot;))</code></span>
+<span class="line" id="L138"><a class="number" href="#L138">138</a><code class="code">            else:</code></span>
+<span class="line" id="L139"><a class="number" href="#L139">139</a><code class="code">                result.append(html.escape(identifier))</code></span>
+<span class="line" id="L140"><a class="number" href="#L140">140</a><code class="code">            previous = token.end()</code></span>
+<span class="line" id="L141"><a class="number" href="#L141">141</a><code class="code">        result.append(html.escape(name[previous:]))</code></span>
+<span class="line" id="L142"><a class="number" href="#L142">142</a><code class="code">        return &quot;&quot;.join(result)</code></span>
+<span class="line" id="L143"><a class="number" href="#L143">143</a><code class="code"></code></span>
+<span class="line" id="L144"><a class="number" href="#L144">144</a><code class="code">    def nav(self, typ):</code></span>
+<span class="line" id="L145"><a class="number" href="#L145">145</a><code class="code">        page = typ[&quot;page&quot;]</code></span>
+<span class="line" id="L146"><a class="number" href="#L146">146</a><code class="code">        group = page.split(&quot;/&quot;)[2]</code></span>
+<span class="line" id="L147"><a class="number" href="#L147">147</a><code class="code">        return link(&quot;类参考首页&quot;, relative(page, &quot;docs/class-reference/README.md&quot;)) + &quot; · &quot; + link(GROUPS[group][0], relative(page, f&quot;docs/class-reference/{group}/README.md&quot;)) + &quot; · &quot; + link(&quot;类型索引&quot;, relative(page, &quot;docs/class-reference/type-index.md&quot;))</code></span>
+<span class="line" id="L148"><a class="number" href="#L148">148</a><code class="code"></code></span>
+<span class="line" id="L149"><a class="number" href="#L149">149</a><code class="code">    def member_name(self, member):</code></span>
+<span class="line" id="L150"><a class="number" href="#L150">150</a><code class="code">        name = member[&quot;name&quot;]</code></span>
+<span class="line" id="L151"><a class="number" href="#L151">151</a><code class="code">        if member[&quot;kind&quot;] in {&quot;method&quot;, &quot;constructor&quot;, &quot;operator&quot;, &quot;destructor&quot;}:</code></span>
+<span class="line" id="L152"><a class="number" href="#L152">152</a><code class="code">            return name + &quot;(&quot; + &quot;, &quot;.join(p[&quot;type&quot;] for p in member.get(&quot;parameters&quot;, [])) + &quot;)&quot;</code></span>
+<span class="line" id="L153"><a class="number" href="#L153">153</a><code class="code">        return name</code></span>
+<span class="line" id="L154"><a class="number" href="#L154">154</a><code class="code"></code></span>
+<span class="line" id="L155"><a class="number" href="#L155">155</a><code class="code">    def callable(self, member, typ):</code></span>
+<span class="line" id="L156"><a class="number" href="#L156">156</a><code class="code">        params = &quot;, &quot;.join(code(p[&quot;declaration&quot;]) for p in member.get(&quot;parameters&quot;, []))</code></span>
+<span class="line" id="L157"><a class="number" href="#L157">157</a><code class="code">        return link(member[&quot;name&quot;], &quot;#&quot; + member[&quot;anchor&quot;]) + &quot;(&quot; + params + &quot;)&quot;</code></span>
+<span class="line" id="L158"><a class="number" href="#L158">158</a><code class="code"></code></span>
+<span class="line" id="L159"><a class="number" href="#L159">159</a><code class="code">    def overview(self, kind, members, typ):</code></span>
+<span class="line" id="L160"><a class="number" href="#L160">160</a><code class="code">        if not members:</code></span>
+<span class="line" id="L161"><a class="number" href="#L161">161</a><code class="code">            return []</code></span>
+<span class="line" id="L162"><a class="number" href="#L162">162</a><code class="code">        lines = [&quot;## &quot; + TITLES[kind][0], &quot;&quot;]</code></span>
+<span class="line" id="L163"><a class="number" href="#L163">163</a><code class="code">        rows = []</code></span>
+<span class="line" id="L164"><a class="number" href="#L164">164</a><code class="code">        for member in sorted(members, key=lambda m: (m[&quot;name&quot;].lower(), m[&quot;signature&quot;])):</code></span>
+<span class="line" id="L165"><a class="number" href="#L165">165</a><code class="code">            result = self.type_text(member.get(&quot;returnType&quot;) or &quot;—&quot;, typ)</code></span>
+<span class="line" id="L166"><a class="number" href="#L166">166</a><code class="code">            if kind in {&quot;method&quot;, &quot;constructor&quot;, &quot;operator&quot;, &quot;destructor&quot;}:</code></span>
+<span class="line" id="L167"><a class="number" href="#L167">167</a><code class="code">                rows.append([result if kind != &quot;constructor&quot; else &quot;—&quot;, self.callable(member, typ), qualifiers(member)])</code></span>
+<span class="line" id="L168"><a class="number" href="#L168">168</a><code class="code">            elif kind in {&quot;constant&quot;, &quot;enumValue&quot;}:</code></span>
+<span class="line" id="L169"><a class="number" href="#L169">169</a><code class="code">                rows.append([result, link(member[&quot;name&quot;], &quot;#&quot; + member[&quot;anchor&quot;]), initial_value(member)])</code></span>
+<span class="line" id="L170"><a class="number" href="#L170">170</a><code class="code">            elif kind == &quot;event&quot;:</code></span>
+<span class="line" id="L171"><a class="number" href="#L171">171</a><code class="code">                rows.append([result, link(member[&quot;name&quot;], &quot;#&quot; + member[&quot;anchor&quot;]), qualifiers(member)])</code></span>
+<span class="line" id="L172"><a class="number" href="#L172">172</a><code class="code">            else:</code></span>
+<span class="line" id="L173"><a class="number" href="#L173">173</a><code class="code">                rows.append([result, link(member[&quot;name&quot;], &quot;#&quot; + member[&quot;anchor&quot;]), initial_value(member) if kind in {&quot;property&quot;, &quot;field&quot;} else qualifiers(member), qualifiers(member) if kind in {&quot;property&quot;, &quot;field&quot;} else &quot;&quot;])</code></span>
+<span class="line" id="L174"><a class="number" href="#L174">174</a><code class="code">        if kind in {&quot;method&quot;, &quot;constructor&quot;, &quot;operator&quot;, &quot;destructor&quot;}:</code></span>
+<span class="line" id="L175"><a class="number" href="#L175">175</a><code class="code">            return lines + table(rows, [&quot;返回类型&quot;, &quot;签名&quot;, &quot;限定符&quot;])</code></span>
+<span class="line" id="L176"><a class="number" href="#L176">176</a><code class="code">        if kind in {&quot;constant&quot;, &quot;enumValue&quot;}:</code></span>
+<span class="line" id="L177"><a class="number" href="#L177">177</a><code class="code">            return lines + table(rows, [&quot;类型&quot;, &quot;名称&quot;, &quot;值&quot;])</code></span>
+<span class="line" id="L178"><a class="number" href="#L178">178</a><code class="code">        if kind == &quot;event&quot;:</code></span>
+<span class="line" id="L179"><a class="number" href="#L179">179</a><code class="code">            return lines + table(rows, [&quot;类型&quot;, &quot;名称&quot;, &quot;访问与限定&quot;])</code></span>
+<span class="line" id="L180"><a class="number" href="#L180">180</a><code class="code">        return lines + table(rows, [&quot;类型&quot;, &quot;名称&quot;, &quot;源码初始值&quot; if kind in {&quot;property&quot;, &quot;field&quot;} else &quot;限定符&quot;, &quot;访问与限定&quot;])</code></span>
+<span class="line" id="L181"><a class="number" href="#L181">181</a><code class="code"></code></span>
+<span class="line" id="L182"><a class="number" href="#L182">182</a><code class="code">    def details(self, kind, members, typ):</code></span>
+<span class="line" id="L183"><a class="number" href="#L183">183</a><code class="code">        if not members:</code></span>
+<span class="line" id="L184"><a class="number" href="#L184">184</a><code class="code">            return []</code></span>
+<span class="line" id="L185"><a class="number" href="#L185">185</a><code class="code">        lines = [&quot;## &quot; + TITLES[kind][1], &quot;&quot;]</code></span>
+<span class="line" id="L186"><a class="number" href="#L186">186</a><code class="code">        for member in sorted(members, key=lambda m: (m[&quot;name&quot;].lower(), m[&quot;signature&quot;])):</code></span>
+<span class="line" id="L187"><a class="number" href="#L187">187</a><code class="code">            lines += [f&#x27;&lt;a id=&quot;{member[&quot;anchor&quot;]}&quot;&gt;&lt;/a&gt;&#x27;, &quot;&quot;, &quot;### &quot; + code(self.member_name(member)), &quot;&quot;, &quot;```csharp&quot;, member[&quot;signature&quot;], &quot;```&quot;, &quot;&quot;]</code></span>
+<span class="line" id="L188"><a class="number" href="#L188">188</a><code class="code">            text = member.get(&quot;description&quot;, &quot;—&quot;)</code></span>
+<span class="line" id="L189"><a class="number" href="#L189">189</a><code class="code">            lines += [text if text != &quot;—&quot; else &quot;本成员尚无独立的行为说明；调用边界以本类型描述和链接源码为准。&quot;, &quot;&quot;]</code></span>
+<span class="line" id="L190"><a class="number" href="#L190">190</a><code class="code">            if kind in {&quot;property&quot;, &quot;field&quot;, &quot;constant&quot;, &quot;enumValue&quot;}:</code></span>
+<span class="line" id="L191"><a class="number" href="#L191">191</a><code class="code">                lines += [&quot;源码初始值：&quot; + initial_value(member) + &quot;。&quot;, &quot;&quot;]</code></span>
+<span class="line" id="L192"><a class="number" href="#L192">192</a><code class="code">            lines += [&quot;访问与限定：&quot; + qualifiers(member) + &quot;。&quot;, &quot;&quot;]</code></span>
+<span class="line" id="L193"><a class="number" href="#L193">193</a><code class="code">            if member.get(&quot;parameters&quot;):</code></span>
+<span class="line" id="L194"><a class="number" href="#L194">194</a><code class="code">                rows = [[code(p[&quot;name&quot;]), self.type_text(p[&quot;type&quot;], typ), code(p[&quot;defaultValue&quot;]) if p.get(&quot;defaultValue&quot;) is not None else &quot;必填&quot;] for p in member[&quot;parameters&quot;]]</code></span>
+<span class="line" id="L195"><a class="number" href="#L195">195</a><code class="code">                lines += table(rows, [&quot;参数&quot;, &quot;类型&quot;, &quot;默认值&quot;])</code></span>
+<span class="line" id="L196"><a class="number" href="#L196">196</a><code class="code">            lines += [&quot;源码：&quot; + source_link(typ[&quot;page&quot;], member[&quot;source&quot;], member[&quot;line&quot;]) + &quot;。&quot;, &quot;&quot;]</code></span>
+<span class="line" id="L197"><a class="number" href="#L197">197</a><code class="code">        return lines</code></span>
+<span class="line" id="L198"><a class="number" href="#L198">198</a><code class="code"></code></span>
+<span class="line" id="L199"><a class="number" href="#L199">199</a><code class="code">    def render_type(self, typ):</code></span>
+<span class="line" id="L200"><a class="number" href="#L200">200</a><code class="code">        page = typ[&quot;page&quot;]</code></span>
+<span class="line" id="L201"><a class="number" href="#L201">201</a><code class="code">        name = typ[&quot;name&quot;] + typ.get(&quot;genericParameters&quot;, &quot;&quot;)</code></span>
+<span class="line" id="L202"><a class="number" href="#L202">202</a><code class="code">        lines = [&quot;# &quot; + html.escape(name), &quot;&quot;, self.nav(typ), &quot;&quot;, f&#x27;&lt;a id=&quot;{typ[&quot;anchor&quot;]}&quot;&gt;&lt;/a&gt;&#x27;, &quot;&quot;]</code></span>
+<span class="line" id="L203"><a class="number" href="#L203">203</a><code class="code">        bases = typ.get(&quot;bases&quot;, [])</code></span>
+<span class="line" id="L204"><a class="number" href="#L204">204</a><code class="code">        if bases:</code></span>
+<span class="line" id="L205"><a class="number" href="#L205">205</a><code class="code">            lines += [&quot;**继承 / 实现：** &quot; + &quot;、&quot;.join(self.type_text(b, typ) for b in bases), &quot;&quot;]</code></span>
+<span class="line" id="L206"><a class="number" href="#L206">206</a><code class="code">        elif typ[&quot;kind&quot;] != &quot;interface&quot;:</code></span>
+<span class="line" id="L207"><a class="number" href="#L207">207</a><code class="code">            base = &quot;System.ValueType&quot; if &quot;struct&quot; in typ[&quot;kind&quot;] else &quot;System.Enum&quot; if typ[&quot;kind&quot;] == &quot;enum&quot; else &quot;System.MulticastDelegate&quot; if typ[&quot;kind&quot;] == &quot;delegate&quot; else &quot;System.Object&quot;</code></span>
+<span class="line" id="L208"><a class="number" href="#L208">208</a><code class="code">            lines += [&quot;**基础类型：** &quot; + code(base), &quot;&quot;]</code></span>
+<span class="line" id="L209"><a class="number" href="#L209">209</a><code class="code">        if typ[&quot;key&quot;] in self.parents:</code></span>
+<span class="line" id="L210"><a class="number" href="#L210">210</a><code class="code">            lines += [&quot;**外层类型：** &quot; + self.type_link(self.parents[typ[&quot;key&quot;]], page), &quot;&quot;]</code></span>
+<span class="line" id="L211"><a class="number" href="#L211">211</a><code class="code">        derived = self.derived[typ[&quot;key&quot;]]</code></span>
+<span class="line" id="L212"><a class="number" href="#L212">212</a><code class="code">        if derived:</code></span>
+<span class="line" id="L213"><a class="number" href="#L213">213</a><code class="code">            lines += [&quot;**派生 / 实现类型：** &quot; + &quot;、&quot;.join(self.type_link(k, page) for k in sorted(derived)), &quot;&quot;]</code></span>
+<span class="line" id="L214"><a class="number" href="#L214">214</a><code class="code">        lines += [brief(typ[&quot;description&quot;]), &quot;&quot;, &quot;**种类：** &quot; + code(typ[&quot;kind&quot;]) + &quot;　**声明可见性：** &quot; + code(typ[&quot;access&quot;]) + &quot;　**命名空间：** &quot; + code(typ[&quot;namespace&quot;] or &quot;全局&quot;), &quot;&quot;, &quot;## 描述&quot;, &quot;&quot;, typ[&quot;description&quot;], &quot;&quot;]</code></span>
+<span class="line" id="L215"><a class="number" href="#L215">215</a><code class="code">        for paragraph in typ.get(&quot;remarks&quot;, []):</code></span>
+<span class="line" id="L216"><a class="number" href="#L216">216</a><code class="code">            lines += [paragraph, &quot;&quot;]</code></span>
+<span class="line" id="L217"><a class="number" href="#L217">217</a><code class="code">        if any(p[&quot;source&quot;].startswith(&quot;tests/godot/&quot;) for p in typ[&quot;parts&quot;]):</code></span>
+<span class="line" id="L218"><a class="number" href="#L218">218</a><code class="code">            lines += [&quot;&gt; **注意：** `tests/godot/` 中的声明由主项目 Debug 配置纳入。它们补充测试和故障注入接口，表中保留相应标记。&quot;, &quot;&quot;]</code></span>
+<span class="line" id="L219"><a class="number" href="#L219">219</a><code class="code">        lines += [&quot;&lt;details&gt;&quot;, &quot;&lt;summary&gt;C# 声明与源码&lt;/summary&gt;&quot;, &quot;&quot;]</code></span>
+<span class="line" id="L220"><a class="number" href="#L220">220</a><code class="code">        for signature in dict.fromkeys(p[&quot;signature&quot;] for p in typ[&quot;parts&quot;]):</code></span>
+<span class="line" id="L221"><a class="number" href="#L221">221</a><code class="code">            lines += [&quot;```csharp&quot;, signature, &quot;```&quot;, &quot;&quot;]</code></span>
+<span class="line" id="L222"><a class="number" href="#L222">222</a><code class="code">        for part in typ[&quot;parts&quot;]:</code></span>
+<span class="line" id="L223"><a class="number" href="#L223">223</a><code class="code">            lines += [&quot;- &quot; + source_link(page, part[&quot;source&quot;], part[&quot;line&quot;])]</code></span>
+<span class="line" id="L224"><a class="number" href="#L224">224</a><code class="code">        lines += [&quot;&quot;, &quot;&lt;/details&gt;&quot;, &quot;&quot;, &quot;## 教程与示例&quot;, &quot;&quot;, &quot;- &quot; + link(&quot;调用约束与纯核心示例&quot;, relative(page, &quot;docs/class-reference/usage.md&quot;)), &quot;- &quot; + link(&quot;所属系统手册&quot;, relative(page, GROUPS[page.split(&#x27;/&#x27;)[2]][2])), &quot;&quot;]</code></span>
+<span class="line" id="L225"><a class="number" href="#L225">225</a><code class="code">        members = typ[&quot;members&quot;]</code></span>
+<span class="line" id="L226"><a class="number" href="#L226">226</a><code class="code">        public = [m for m in members if m[&quot;access&quot;] != &quot;private&quot; or is_exported(m)]</code></span>
+<span class="line" id="L227"><a class="number" href="#L227">227</a><code class="code">        private = [m for m in members if m[&quot;access&quot;] == &quot;private&quot; and not is_exported(m)]</code></span>
+<span class="line" id="L228"><a class="number" href="#L228">228</a><code class="code">        grouped = {kind: [m for m in public if m[&quot;kind&quot;] == kind] for kind in TITLES}</code></span>
+<span class="line" id="L229"><a class="number" href="#L229">229</a><code class="code">        params = typ.get(&quot;parameters&quot;, []) if typ[&quot;kind&quot;] != &quot;delegate&quot; else []</code></span>
+<span class="line" id="L230"><a class="number" href="#L230">230</a><code class="code">        if params and typ[&quot;kind&quot;].startswith(&quot;record&quot;):</code></span>
+<span class="line" id="L231"><a class="number" href="#L231">231</a><code class="code">            lines += [&quot;## 位置属性&quot;, &quot;&quot;, &quot;以下属性由位置 record 参数生成，单独说明，不计入显式成员数量。&quot;, &quot;&quot;]</code></span>
+<span class="line" id="L232"><a class="number" href="#L232">232</a><code class="code">            lines += table([[self.type_text(p[&quot;type&quot;], typ), link(p[&quot;name&quot;], &quot;#position-&quot; + p[&quot;name&quot;].lower()), code(p[&quot;defaultValue&quot;]) if p.get(&quot;defaultValue&quot;) is not None else &quot;由构造参数提供&quot;] for p in params], [&quot;类型&quot;, &quot;名称&quot;, &quot;默认参数&quot;])</code></span>
+<span class="line" id="L233"><a class="number" href="#L233">233</a><code class="code">        for kind in [&quot;property&quot;, &quot;field&quot;, &quot;constructor&quot;, &quot;method&quot;, &quot;operator&quot;, &quot;event&quot;]:</code></span>
+<span class="line" id="L234"><a class="number" href="#L234">234</a><code class="code">            lines += self.overview(kind, grouped[kind], typ)</code></span>
+<span class="line" id="L235"><a class="number" href="#L235">235</a><code class="code">        children = self.children[typ[&quot;key&quot;]]</code></span>
+<span class="line" id="L236"><a class="number" href="#L236">236</a><code class="code">        signals = [self.types[k] for k in children if &quot;Signal&quot; in self.types[k].get(&quot;attributes&quot;, [])]</code></span>
+<span class="line" id="L237"><a class="number" href="#L237">237</a><code class="code">        enums = [self.types[k] for k in children if self.types[k][&quot;kind&quot;] == &quot;enum&quot;]</code></span>
+<span class="line" id="L238"><a class="number" href="#L238">238</a><code class="code">        other = [self.types[k] for k in children if k not in {t[&quot;key&quot;] for t in signals + enums}]</code></span>
+<span class="line" id="L239"><a class="number" href="#L239">239</a><code class="code">        for title, items in [(&quot;Godot 信号&quot;, signals), (&quot;枚举&quot;, enums), (&quot;嵌套类型&quot;, other)]:</code></span>
+<span class="line" id="L240"><a class="number" href="#L240">240</a><code class="code">            if not items:</code></span>
+<span class="line" id="L241"><a class="number" href="#L241">241</a><code class="code">                continue</code></span>
+<span class="line" id="L242"><a class="number" href="#L242">242</a><code class="code">            lines += [&quot;## &quot; + title, &quot;&quot;]</code></span>
+<span class="line" id="L243"><a class="number" href="#L243">243</a><code class="code">            rows = []</code></span>
+<span class="line" id="L244"><a class="number" href="#L244">244</a><code class="code">            for child in items:</code></span>
+<span class="line" id="L245"><a class="number" href="#L245">245</a><code class="code">                label = child[&quot;name&quot;].rsplit(&quot;.&quot;, 1)[-1]</code></span>
+<span class="line" id="L246"><a class="number" href="#L246">246</a><code class="code">                if title == &quot;Godot 信号&quot;:</code></span>
+<span class="line" id="L247"><a class="number" href="#L247">247</a><code class="code">                    label = label.removesuffix(&quot;EventHandler&quot;) + &quot;(&quot; + &quot;, &quot;.join(p[&quot;declaration&quot;] for p in child.get(&quot;parameters&quot;, [])) + &quot;)&quot;</code></span>
+<span class="line" id="L248"><a class="number" href="#L248">248</a><code class="code">                rows.append([self.type_link(child[&quot;key&quot;], page, label), brief(child[&quot;description&quot;])])</code></span>
+<span class="line" id="L249"><a class="number" href="#L249">249</a><code class="code">            lines += table(rows, [&quot;名称&quot;, &quot;说明&quot;])</code></span>
+<span class="line" id="L250"><a class="number" href="#L250">250</a><code class="code">        for kind in [&quot;constant&quot;, &quot;enumValue&quot;, &quot;destructor&quot;, &quot;other&quot;]:</code></span>
+<span class="line" id="L251"><a class="number" href="#L251">251</a><code class="code">            lines += self.overview(kind, grouped[kind], typ)</code></span>
+<span class="line" id="L252"><a class="number" href="#L252">252</a><code class="code">        if params:</code></span>
+<span class="line" id="L253"><a class="number" href="#L253">253</a><code class="code">            lines += [&#x27;&lt;a id=&quot;primary-constructor&quot;&gt;&lt;/a&gt;&#x27;, &quot;&quot;, &quot;## 主构造函数&quot;, &quot;&quot;, code(typ[&quot;name&quot;].rsplit(&quot;.&quot;, 1)[-1] + &quot;(&quot; + &quot;, &quot;.join(p[&quot;declaration&quot;] for p in params) + &quot;)&quot;), &quot;&quot;, &quot;位置 record 的同名属性由编译器生成；普通类/struct 的主构造参数是否成为成员，以显式声明为准。&quot;, &quot;&quot;]</code></span>
+<span class="line" id="L254"><a class="number" href="#L254">254</a><code class="code">            lines += table([[code(p[&quot;name&quot;]), self.type_text(p[&quot;type&quot;], typ), p.get(&quot;description&quot;) or &quot;构造输入；类型和默认值见声明。&quot;] for p in params], [&quot;参数&quot;, &quot;类型&quot;, &quot;含义&quot;])</code></span>
+<span class="line" id="L255"><a class="number" href="#L255">255</a><code class="code">        if params and typ[&quot;kind&quot;].startswith(&quot;record&quot;):</code></span>
+<span class="line" id="L256"><a class="number" href="#L256">256</a><code class="code">            lines += [&quot;## 位置属性说明&quot;, &quot;&quot;]</code></span>
+<span class="line" id="L257"><a class="number" href="#L257">257</a><code class="code">            for param in params:</code></span>
+<span class="line" id="L258"><a class="number" href="#L258">258</a><code class="code">                lines += [f&#x27;&lt;a id=&quot;position-{param[&quot;name&quot;].lower()}&quot;&gt;&lt;/a&gt;&#x27;, &quot;&quot;, &quot;### &quot; + param[&quot;name&quot;], &quot;&quot;, self.type_text(param[&quot;type&quot;], typ) + &quot; &quot; + code(param[&quot;name&quot;]), &quot;&quot;, param.get(&quot;description&quot;) or &quot;由同名位置构造参数初始化的属性。&quot;, &quot;&quot;]</code></span>
+<span class="line" id="L259"><a class="number" href="#L259">259</a><code class="code">        for kind in TITLES:</code></span>
+<span class="line" id="L260"><a class="number" href="#L260">260</a><code class="code">            lines += self.details(kind, grouped[kind], typ)</code></span>
+<span class="line" id="L261"><a class="number" href="#L261">261</a><code class="code">        if private:</code></span>
+<span class="line" id="L262"><a class="number" href="#L262">262</a><code class="code">            lines += [&quot;## 内部实现参考&quot;, &quot;&quot;, &quot;&lt;details&gt;&quot;, f&quot;&lt;summary&gt;私有成员（{len(private)} 处显式声明）&lt;/summary&gt;&quot;, &quot;&quot;, &quot;这些成员用于维护和定位实现；私有的真正 `[Export]` 配置已列入上方属性/字段。&quot;, &quot;&quot;]</code></span>
+<span class="line" id="L263"><a class="number" href="#L263">263</a><code class="code">            rows = []</code></span>
+<span class="line" id="L264"><a class="number" href="#L264">264</a><code class="code">            for member in private:</code></span>
+<span class="line" id="L265"><a class="number" href="#L265">265</a><code class="code">                note = member.get(&quot;description&quot;, &quot;—&quot;)</code></span>
+<span class="line" id="L266"><a class="number" href="#L266">266</a><code class="code">                rows.append([f&#x27;&lt;a id=&quot;{member[&quot;anchor&quot;]}&quot;&gt;&lt;/a&gt;&#x27; + code(member[&quot;signature&quot;]), cell(note), source_link(page, member[&quot;source&quot;], member[&quot;line&quot;], str(member[&quot;line&quot;]))])</code></span>
+<span class="line" id="L267"><a class="number" href="#L267">267</a><code class="code">            lines += table(rows, [&quot;声明&quot;, &quot;说明&quot;, &quot;源码行&quot;])</code></span>
+<span class="line" id="L268"><a class="number" href="#L268">268</a><code class="code">            lines += [&quot;&lt;/details&gt;&quot;, &quot;&quot;]</code></span>
+<span class="line" id="L269"><a class="number" href="#L269">269</a><code class="code">        if not members and not params:</code></span>
+<span class="line" id="L270"><a class="number" href="#L270">270</a><code class="code">            lines += [&quot;本类型没有额外的显式成员；使用其声明、继承接口或类型说明中的契约。&quot;, &quot;&quot;]</code></span>
+<span class="line" id="L271"><a class="number" href="#L271">271</a><code class="code">        if typ.get(&quot;aliases&quot;):</code></span>
+<span class="line" id="L272"><a class="number" href="#L272">272</a><code class="code">            lines += [&quot;## 源码别名&quot;, &quot;&quot;]</code></span>
+<span class="line" id="L273"><a class="number" href="#L273">273</a><code class="code">            aliases = {k: v for values in typ[&quot;aliases&quot;].values() for k, v in values.items()}</code></span>
+<span class="line" id="L274"><a class="number" href="#L274">274</a><code class="code">            lines += table([[code(k), self.type_text(v, typ)] for k, v in sorted(aliases.items())], [&quot;别名&quot;, &quot;实际类型&quot;])</code></span>
+<span class="line" id="L275"><a class="number" href="#L275">275</a><code class="code">        return &quot;\n&quot;.join(lines).rstrip() + &quot;\n&quot;</code></span>
+<span class="line" id="L276"><a class="number" href="#L276">276</a><code class="code"></code></span>
+<span class="line" id="L277"><a class="number" href="#L277">277</a><code class="code">    def render_other(self, typ):</code></span>
+<span class="line" id="L278"><a class="number" href="#L278">278</a><code class="code">        page = typ[&quot;page&quot;]</code></span>
+<span class="line" id="L279"><a class="number" href="#L279">279</a><code class="code">        language = &quot;python&quot; if typ[&quot;source&quot;].endswith(&quot;.py&quot;) else &quot;gdscript&quot;</code></span>
+<span class="line" id="L280"><a class="number" href="#L280">280</a><code class="code">        lines = [&quot;# &quot; + typ[&quot;name&quot;], &quot;&quot;, link(&quot;类参考首页&quot;, relative(page, &quot;docs/class-reference/README.md&quot;)) + &quot; · &quot; + link(&quot;其他语言类型&quot;, relative(page, &quot;docs/class-reference/other-languages.md&quot;)), &quot;&quot;, f&#x27;&lt;a id=&quot;{typ[&quot;anchor&quot;]}&quot;&gt;&lt;/a&gt;&#x27;, &quot;&quot;, brief(typ[&quot;description&quot;]), &quot;&quot;, &quot;## 描述&quot;, &quot;&quot;, typ[&quot;description&quot;], &quot;&quot;, &quot;```&quot; + language, typ[&quot;signature&quot;], &quot;```&quot;, &quot;&quot;, &quot;源码：&quot; + source_link(page, typ[&quot;source&quot;], typ[&quot;line&quot;]) + &quot;。&quot;, &quot;&quot;, &quot;## 成员&quot;, &quot;&quot;]</code></span>
+<span class="line" id="L281"><a class="number" href="#L281">281</a><code class="code">        lines += table([[link(m[&quot;signature&quot;], &quot;#&quot; + m[&quot;anchor&quot;]), cell(m[&quot;description&quot;])] for m in typ[&quot;members&quot;]], [&quot;声明&quot;, &quot;说明&quot;])</code></span>
+<span class="line" id="L282"><a class="number" href="#L282">282</a><code class="code">        lines += [&quot;## 成员说明&quot;, &quot;&quot;]</code></span>
+<span class="line" id="L283"><a class="number" href="#L283">283</a><code class="code">        for member in typ[&quot;members&quot;]:</code></span>
+<span class="line" id="L284"><a class="number" href="#L284">284</a><code class="code">            lines += [f&#x27;&lt;a id=&quot;{member[&quot;anchor&quot;]}&quot;&gt;&lt;/a&gt;&#x27;, &quot;&quot;, &quot;### &quot; + code(member[&quot;signature&quot;].split(&quot;(&quot;, 1)[0]), &quot;&quot;, &quot;```&quot; + language, member[&quot;signature&quot;], &quot;```&quot;, &quot;&quot;, member[&quot;description&quot;], &quot;&quot;, &quot;源码：&quot; + source_link(page, typ[&quot;source&quot;], member[&quot;line&quot;]) + &quot;。&quot;, &quot;&quot;]</code></span>
+<span class="line" id="L285"><a class="number" href="#L285">285</a><code class="code">        return &quot;\n&quot;.join(lines).rstrip() + &quot;\n&quot;</code></span>
+<span class="line" id="L286"><a class="number" href="#L286">286</a><code class="code"></code></span>
+<span class="line" id="L287"><a class="number" href="#L287">287</a><code class="code">    def render_index(self, page, title, keys, description):</code></span>
+<span class="line" id="L288"><a class="number" href="#L288">288</a><code class="code">        lines = [&quot;# &quot; + title, &quot;&quot;, link(&quot;类参考首页&quot;, relative(page, &quot;docs/class-reference/README.md&quot;)) + &quot; · &quot; + link(&quot;类型总索引&quot;, relative(page, &quot;docs/class-reference/type-index.md&quot;)), &quot;&quot;, description, &quot;&quot;]</code></span>
+<span class="line" id="L289"><a class="number" href="#L289">289</a><code class="code">        rows = [[self.type_link(k, page), code(self.types[k][&quot;kind&quot;]), code(self.types[k][&quot;access&quot;]), brief(self.types[k][&quot;description&quot;])] for k in sorted(keys, key=str.lower)]</code></span>
+<span class="line" id="L290"><a class="number" href="#L290">290</a><code class="code">        lines += table(rows, [&quot;类型&quot;, &quot;种类&quot;, &quot;声明可见性&quot;, &quot;用途&quot;])</code></span>
+<span class="line" id="L291"><a class="number" href="#L291">291</a><code class="code">        return &quot;\n&quot;.join(lines).rstrip() + &quot;\n&quot;</code></span>
+<span class="line" id="L292"><a class="number" href="#L292">292</a><code class="code"></code></span>
+<span class="line" id="L293"><a class="number" href="#L293">293</a><code class="code">    def pages(self):</code></span>
+<span class="line" id="L294"><a class="number" href="#L294">294</a><code class="code">        result = {t[&quot;page&quot;]: self.render_type(t) for t in self.types.values()}</code></span>
+<span class="line" id="L295"><a class="number" href="#L295">295</a><code class="code">        if len(result) != len(self.types):</code></span>
+<span class="line" id="L296"><a class="number" href="#L296">296</a><code class="code">            raise ValueError(&quot;类型页面路径重复。&quot;)</code></span>
+<span class="line" id="L297"><a class="number" href="#L297">297</a><code class="code">        for typ in self.manifest[&quot;otherTypes&quot;]:</code></span>
+<span class="line" id="L298"><a class="number" href="#L298">298</a><code class="code">            result[typ[&quot;page&quot;]] = self.render_other(typ)</code></span>
+<span class="line" id="L299"><a class="number" href="#L299">299</a><code class="code">        for group, (title, description, _) in GROUPS.items():</code></span>
+<span class="line" id="L300"><a class="number" href="#L300">300</a><code class="code">            page = f&quot;docs/class-reference/{group}/README.md&quot;</code></span>
+<span class="line" id="L301"><a class="number" href="#L301">301</a><code class="code">            keys = [k for k, t in self.types.items() if t[&quot;page&quot;].split(&quot;/&quot;)[2] == group]</code></span>
+<span class="line" id="L302"><a class="number" href="#L302">302</a><code class="code">            result[page] = self.render_index(page, title, keys, description)</code></span>
+<span class="line" id="L303"><a class="number" href="#L303">303</a><code class="code">        for legacy in self.manifest[&quot;legacyGroups&quot;]:</code></span>
+<span class="line" id="L304"><a class="number" href="#L304">304</a><code class="code">            page = legacy[&quot;page&quot;]</code></span>
+<span class="line" id="L305"><a class="number" href="#L305">305</a><code class="code">            if page not in result:</code></span>
+<span class="line" id="L306"><a class="number" href="#L306">306</a><code class="code">                result[page] = self.render_index(page, Path(page).stem + &quot; 类型导航&quot;, legacy[&quot;types&quot;], &quot;按原源码文件或测试集合保留的导航入口。每种类型的正文已放入独立页面。&quot;)</code></span>
+<span class="line" id="L307"><a class="number" href="#L307">307</a><code class="code">        page = &quot;docs/class-reference/type-index.md&quot;</code></span>
+<span class="line" id="L308"><a class="number" href="#L308">308</a><code class="code">        result[page] = self.render_index(page, &quot;类型总索引&quot;, self.types, &quot;按完整类型名查找。生产、内部和测试类型均保留，类型正文各自独立成页。&quot;)</code></span>
+<span class="line" id="L309"><a class="number" href="#L309">309</a><code class="code">        other = [&quot;&quot;, &quot;## GDScript 与 Python&quot;, &quot;&quot;] + table([[link(t[&quot;name&quot;], relative(page, t[&quot;page&quot;]) + &quot;#&quot; + t[&quot;anchor&quot;]), brief(t[&quot;description&quot;])] for t in self.manifest[&quot;otherTypes&quot;]], [&quot;类型&quot;, &quot;用途&quot;])</code></span>
+<span class="line" id="L310"><a class="number" href="#L310">310</a><code class="code">        result[page] += &quot;\n&quot;.join(other)</code></span>
+<span class="line" id="L311"><a class="number" href="#L311">311</a><code class="code">        page = &quot;docs/class-reference/other-languages.md&quot;</code></span>
+<span class="line" id="L312"><a class="number" href="#L312">312</a><code class="code">        result[page] = &quot;\n&quot;.join([&quot;# GDScript 与 Python 命名类&quot;, &quot;&quot;, link(&quot;类参考首页&quot;, &quot;README.md&quot;), &quot;&quot;, &quot;各命名类独立成页；未声明名称的脚本及模块函数不计入命名类型覆盖。&quot;, &quot;&quot;] + table([[link(t[&quot;name&quot;], relative(page, t[&quot;page&quot;]) + &quot;#&quot; + t[&quot;anchor&quot;]), brief(t[&quot;description&quot;])] for t in self.manifest[&quot;otherTypes&quot;]], [&quot;类型&quot;, &quot;用途&quot;]))</code></span>
+<span class="line" id="L313"><a class="number" href="#L313">313</a><code class="code">        return result</code></span>
+<span class="line" id="L314"><a class="number" href="#L314">314</a><code class="code"></code></span>
+<span class="line" id="L315"><a class="number" href="#L315">315</a><code class="code"></code></span>
+<span class="line" id="L316"><a class="number" href="#L316">316</a><code class="code">def main():</code></span>
+<span class="line" id="L317"><a class="number" href="#L317">317</a><code class="code">    parser = argparse.ArgumentParser(description=__doc__)</code></span>
+<span class="line" id="L318"><a class="number" href="#L318">318</a><code class="code">    parser.add_argument(&quot;--check&quot;, action=&quot;store_true&quot;, help=&quot;只检查，不修改页面&quot;)</code></span>
+<span class="line" id="L319"><a class="number" href="#L319">319</a><code class="code">    args = parser.parse_args()</code></span>
+<span class="line" id="L320"><a class="number" href="#L320">320</a><code class="code">    manifest = json.loads(MANIFEST.read_text(encoding=&quot;utf-8&quot;))</code></span>
+<span class="line" id="L321"><a class="number" href="#L321">321</a><code class="code">    if manifest.get(&quot;version&quot;) != 2:</code></span>
+<span class="line" id="L322"><a class="number" href="#L322">322</a><code class="code">        raise SystemExit(&quot;需要 version=2 的结构化类参考清单。&quot;)</code></span>
+<span class="line" id="L323"><a class="number" href="#L323">323</a><code class="code">    pages = ClassReferenceRenderer(manifest).pages()</code></span>
+<span class="line" id="L324"><a class="number" href="#L324">324</a><code class="code">    different = []</code></span>
+<span class="line" id="L325"><a class="number" href="#L325">325</a><code class="code">    for name, content in sorted(pages.items()):</code></span>
+<span class="line" id="L326"><a class="number" href="#L326">326</a><code class="code">        path = ROOT / name</code></span>
+<span class="line" id="L327"><a class="number" href="#L327">327</a><code class="code">        if not path.is_file() or path.read_text(encoding=&quot;utf-8&quot;) != content:</code></span>
+<span class="line" id="L328"><a class="number" href="#L328">328</a><code class="code">            different.append(name)</code></span>
+<span class="line" id="L329"><a class="number" href="#L329">329</a><code class="code">            if not args.check:</code></span>
+<span class="line" id="L330"><a class="number" href="#L330">330</a><code class="code">                path.parent.mkdir(parents=True, exist_ok=True)</code></span>
+<span class="line" id="L331"><a class="number" href="#L331">331</a><code class="code">                path.write_text(content, encoding=&quot;utf-8&quot;)</code></span>
+<span class="line" id="L332"><a class="number" href="#L332">332</a><code class="code">    if args.check:</code></span>
+<span class="line" id="L333"><a class="number" href="#L333">333</a><code class="code">        for name in different:</code></span>
+<span class="line" id="L334"><a class="number" href="#L334">334</a><code class="code">            print(&quot;页面未同步：&quot; + name)</code></span>
+<span class="line" id="L335"><a class="number" href="#L335">335</a><code class="code">    print(f&quot;类型参考页面：{len(pages)}；{&#x27;未同步&#x27; if args.check else &#x27;写入&#x27;}：{len(different)}&quot;)</code></span>
+<span class="line" id="L336"><a class="number" href="#L336">336</a><code class="code">    return bool(different) if args.check else False</code></span>
+<span class="line" id="L337"><a class="number" href="#L337">337</a><code class="code"></code></span>
+<span class="line" id="L338"><a class="number" href="#L338">338</a><code class="code"></code></span>
+<span class="line" id="L339"><a class="number" href="#L339">339</a><code class="code">if __name__ == &quot;__main__&quot;:</code></span>
+<span class="line" id="L340"><a class="number" href="#L340">340</a><code class="code">    raise SystemExit(main())</code></span></pre></main></html>

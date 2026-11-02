@@ -1,0 +1,50 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>SimpleCities.RoadCore/RoadOverlap.cs · SimpleCities 源码</title><link rel="stylesheet" href="../../assets/source.css"><header><a href="../../index.html">← 文档首页</a><h1>SimpleCities.RoadCore/RoadOverlap.cs</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">namespace SimpleCities.RoadCore;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code"></code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">/// &lt;summary&gt;只计算本次直线草稿与已发布道路的正长度共线覆盖。&lt;/summary&gt;</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code">internal static class RoadOverlap</code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code">{</code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">    // 调用方已验证非零合法米字网格草稿；快照中的道路也已通过拓扑验证。</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">    // 按半格轴向间隔覆盖主格点和格心，8 km / 12.5 m 使差分数组最多含 641 项，不建立逐格道路实体。</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">    internal static IReadOnlyList&lt;RoadConflictSpan&gt; Find(RoadSnapshot snapshot, RoadPoint start, RoadPoint end,</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">        CancellationToken cancellationToken)</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">    {</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">        double dx = end.X - start.X, dy = end.Y - start.Y;</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">        bool useX = dx != 0;</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">        double origin = useX ? start.X : start.Y;</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">        double step = Math.Sign(useX ? dx : dy) * (snapshot.Map.CellSizeMetres / 2d);</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code">        int count = (int)((useX ? dx : dy) / step);</code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">        var changes = new int[count + 1];</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">        foreach (RoadEdge edge in snapshot.Edges)</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code">        {</code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">            for (int i = 1; i &lt; edge.Points.Count; i++)</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code">            {</code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">                cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">                RoadPoint a = edge.Points[i - 1], b = edge.Points[i];</code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code">                // 当前有界整数或半整数米坐标的乘积可由 double 精确表达，不需扩大为容差带。</code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">                if (dx * (b.Y - a.Y) - dy * (b.X - a.X) != 0 ||</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code">                    dx * (a.Y - start.Y) - dy * (a.X - start.X) != 0)</code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">                    continue;</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">                int aIndex = (int)(((useX ? a.X : a.Y) - origin) / step);</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code">                int bIndex = (int)(((useX ? b.X : b.Y) - origin) / step);</code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">                int lower = Math.Max(0, Math.Min(aIndex, bIndex));</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">                int upper = Math.Min(count, Math.Max(aIndex, bIndex));</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code">                if (lower &gt;= upper) continue;</code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">                changes[lower]++;</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code">                changes[upper]--;</code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code">            }</code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code">        }</code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code"></code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code">        var conflicts = new List&lt;RoadConflictSpan&gt;();</code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code">        int coverage = 0, startIndex = 0;</code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code">        for (int i = 0; i &lt;= count; i++)</code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code">        {</code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code">            cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code">            int previous = coverage;</code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code">            coverage += changes[i];</code></span>
+<span class="line" id="L44"><a class="number" href="#L44">44</a><code class="code">            if (previous == 0 &amp;&amp; coverage &gt; 0) startIndex = i;</code></span>
+<span class="line" id="L45"><a class="number" href="#L45">45</a><code class="code">            if (previous &gt; 0 &amp;&amp; coverage == 0)</code></span>
+<span class="line" id="L46"><a class="number" href="#L46">46</a><code class="code">                conflicts.Add(new RoadConflictSpan((double)startIndex / count, (double)i / count));</code></span>
+<span class="line" id="L47"><a class="number" href="#L47">47</a><code class="code">        }</code></span>
+<span class="line" id="L48"><a class="number" href="#L48">48</a><code class="code">        return conflicts;</code></span>
+<span class="line" id="L49"><a class="number" href="#L49">49</a><code class="code">    }</code></span>
+<span class="line" id="L50"><a class="number" href="#L50">50</a><code class="code">}</code></span></pre></main></html>

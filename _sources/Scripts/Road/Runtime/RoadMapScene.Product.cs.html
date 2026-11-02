@@ -1,0 +1,86 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Scripts/Road/Runtime/RoadMapScene.Product.cs · SimpleCities 源码</title><link rel="stylesheet" href="../../../../assets/source.css"><header><a href="../../../../index.html">← 文档首页</a><h1>Scripts/Road/Runtime/RoadMapScene.Product.cs</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">using Godot;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code">using System.Collections.Generic;</code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">using System.Diagnostics;</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code">using SimpleCities.RoadCore;</code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code"></code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">public readonly record struct RoadStatistics(RoadStateToken Source, int NodeCount, int CanonicalEdgeCount,</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">    int GeometrySegmentCount, int QueryFragmentCount, int SelfLoopCount);</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code"></code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">public partial class RoadMapScene</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">{</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">    private RoadStatistics? _statistics;</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">    private string _roadStatus = &quot;准备地图…&quot;;</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">    private readonly HashSet&lt;RoadPoint&gt; _presentedNodePositions = [];</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code"></code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code">    private string StatusText</code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">    {</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">        get =&gt; _roadStatus;</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code">        set { _roadStatus = value; _status.Text = value; }</code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">    }</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code"></code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">    internal int ActiveToolMode =&gt; _roads is null ? 1 : _toolMode.Selected;</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">    internal RoadType SelectedRoadType =&gt; _roads is null ? RoadType.Street : (RoadType)_profileChoice.Selected;</code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code">    internal bool CanUndoRoadEdit =&gt; _roads is not null &amp;&amp; CanUseHistory &amp;&amp; _roads.Network.History.UndoCount != 0;</code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">    internal bool CanRedoRoadEdit =&gt; _roads is not null &amp;&amp; CanUseHistory &amp;&amp; _roads.Network.History.RedoCount != 0;</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code">    internal string RoadOperationStatus =&gt; _roads is null ? &quot;正在准备地图…&quot; : StatusText;</code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">    internal bool CanRetryRoadDisplay =&gt; CanRetryDisplay;</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">    internal bool RoadOperationPending =&gt; _buildOperation.IsBusy || _toolAdmission is not null || IsDisplayRetryBusy;</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code"></code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">    internal bool SetSelectedRoadType(RoadType type)</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">    {</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code">        if (!RoadTypeContract.IsDefined(type) || !CanEdit || _draftStart.HasValue || _selectionSession.IsSelecting)</code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">            return false;</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code">        _profileChoice.Select((int)type);</code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code">        return true;</code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code">    }</code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code"></code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code">    internal bool CancelRoadInteraction()</code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code">    {</code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code">        // Load admission owns the frozen gesture until it commits or rolls back.</code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code">        // Consume the tool cancel intent without changing that captured state.</code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code">        if (_toolAdmission is not null) return true;</code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code">        long inputAt = Stopwatch.GetTimestamp();</code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code">        bool active = _draftStart.HasValue || _selectionSession.IsSelecting ||</code></span>
+<span class="line" id="L44"><a class="number" href="#L44">44</a><code class="code">            _selectionSession.Selected.Count != 0 || _buildOperation.IsBusy;</code></span>
+<span class="line" id="L45"><a class="number" href="#L45">45</a><code class="code">        CancelDraft();</code></span>
+<span class="line" id="L46"><a class="number" href="#L46">46</a><code class="code">        ClearRoadSelection();</code></span>
+<span class="line" id="L47"><a class="number" href="#L47">47</a><code class="code">        if (_buildOperation.TryCancel())</code></span>
+<span class="line" id="L48"><a class="number" href="#L48">48</a><code class="code">        {</code></span>
+<span class="line" id="L49"><a class="number" href="#L49">49</a><code class="code">            _cancelInputAt = inputAt;</code></span>
+<span class="line" id="L50"><a class="number" href="#L50">50</a><code class="code">            _cancelRequestedAt = Stopwatch.GetTimestamp();</code></span>
+<span class="line" id="L51"><a class="number" href="#L51">51</a><code class="code">            _buildCancellation?.Cancel();</code></span>
+<span class="line" id="L52"><a class="number" href="#L52">52</a><code class="code">            StatusText = &quot;正在取消…&quot;;</code></span>
+<span class="line" id="L53"><a class="number" href="#L53">53</a><code class="code">        }</code></span>
+<span class="line" id="L54"><a class="number" href="#L54">54</a><code class="code">        return active;</code></span>
+<span class="line" id="L55"><a class="number" href="#L55">55</a><code class="code">    }</code></span>
+<span class="line" id="L56"><a class="number" href="#L56">56</a><code class="code"></code></span>
+<span class="line" id="L57"><a class="number" href="#L57">57</a><code class="code">    private bool IsPointerOverUi(Vector2 point) =&gt;</code></span>
+<span class="line" id="L58"><a class="number" href="#L58">58</a><code class="code">        (_hudPanel.IsVisibleInTree() &amp;&amp; _hudPanel.GetGlobalRect().HasPoint(point)) ||</code></span>
+<span class="line" id="L59"><a class="number" href="#L59">59</a><code class="code">        ProductUiContains?.Invoke(point) == true;</code></span>
+<span class="line" id="L60"><a class="number" href="#L60">60</a><code class="code"></code></span>
+<span class="line" id="L61"><a class="number" href="#L61">61</a><code class="code">    internal RoadStatistics? CaptureStatistics()</code></span>
+<span class="line" id="L62"><a class="number" href="#L62">62</a><code class="code">    {</code></span>
+<span class="line" id="L63"><a class="number" href="#L63">63</a><code class="code">        RoadMapView? view = _view;</code></span>
+<span class="line" id="L64"><a class="number" href="#L64">64</a><code class="code">        if (view is null || view.Presented is not RoadSnapshot snapshot) return null;</code></span>
+<span class="line" id="L65"><a class="number" href="#L65">65</a><code class="code">        if (_statistics?.Source == snapshot.Token) return _statistics;</code></span>
+<span class="line" id="L66"><a class="number" href="#L66">66</a><code class="code">        int segments = 0, loops = 0;</code></span>
+<span class="line" id="L67"><a class="number" href="#L67">67</a><code class="code">        foreach (RoadEdge edge in snapshot.Edges)</code></span>
+<span class="line" id="L68"><a class="number" href="#L68">68</a><code class="code">        {</code></span>
+<span class="line" id="L69"><a class="number" href="#L69">69</a><code class="code">            segments = checked(segments + edge.Points.Count - 1);</code></span>
+<span class="line" id="L70"><a class="number" href="#L70">70</a><code class="code">            if (edge.Start == edge.End) loops++;</code></span>
+<span class="line" id="L71"><a class="number" href="#L71">71</a><code class="code">        }</code></span>
+<span class="line" id="L72"><a class="number" href="#L72">72</a><code class="code">        _presentedNodePositions.Clear();</code></span>
+<span class="line" id="L73"><a class="number" href="#L73">73</a><code class="code">        foreach (RoadNode node in snapshot.Nodes) _presentedNodePositions.Add(node.Position);</code></span>
+<span class="line" id="L74"><a class="number" href="#L74">74</a><code class="code">        _statistics = new(snapshot.Token, snapshot.NodeCount, snapshot.EdgeCount, segments,</code></span>
+<span class="line" id="L75"><a class="number" href="#L75">75</a><code class="code">            view.CurrentDisplay?.QueryFragmentCount ?? 0, loops);</code></span>
+<span class="line" id="L76"><a class="number" href="#L76">76</a><code class="code">        return _statistics;</code></span>
+<span class="line" id="L77"><a class="number" href="#L77">77</a><code class="code">    }</code></span>
+<span class="line" id="L78"><a class="number" href="#L78">78</a><code class="code"></code></span>
+<span class="line" id="L79"><a class="number" href="#L79">79</a><code class="code">    internal (Vector2 Point, bool HasNode)? DescribeCursor(Vector2 world)</code></span>
+<span class="line" id="L80"><a class="number" href="#L80">80</a><code class="code">    {</code></span>
+<span class="line" id="L81"><a class="number" href="#L81">81</a><code class="code">        if (!world.IsFinite() || CaptureStatistics() is null || _view.Presented is not RoadSnapshot snapshot)</code></span>
+<span class="line" id="L82"><a class="number" href="#L82">82</a><code class="code">            return null;</code></span>
+<span class="line" id="L83"><a class="number" href="#L83">83</a><code class="code">        RoadPoint point = snapshot.Map.SnapBuildPoint(new(world.X, world.Y));</code></span>
+<span class="line" id="L84"><a class="number" href="#L84">84</a><code class="code">        return (new((float)point.X, (float)point.Y), _presentedNodePositions.Contains(point));</code></span>
+<span class="line" id="L85"><a class="number" href="#L85">85</a><code class="code">    }</code></span>
+<span class="line" id="L86"><a class="number" href="#L86">86</a><code class="code">}</code></span></pre></main></html>

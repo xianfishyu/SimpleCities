@@ -1,0 +1,611 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Scripts/UI/ConstructionDock.cs · SimpleCities 源码</title><link rel="stylesheet" href="../../../assets/source.css"><header><a href="../../../index.html">← 文档首页</a><h1>Scripts/UI/ConstructionDock.cs</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">using System;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code">using System.Collections.Generic;</code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">using Godot;</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code"></code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code">/// &lt;summary&gt;</code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">/// 常驻底部建造栏：预置分类按钮，按资源动态生成当前分类的工具按钮，并与 ToolManager 双向同步选中状态。</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">/// &lt;/summary&gt;</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">public partial class ConstructionDock : Control</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">{</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">    private const string RoadsCategoryId = &quot;roads&quot;;</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">    private const float CollapsedHeight = 76f;</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">    private const float ExpandedHeight = 140f;</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">    private const float CategoryBarHeight = 76f;</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">    private const float ToolTrayHeight = ExpandedHeight - CollapsedHeight;</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code">    private const float DockButtonWidth = 104f;</code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">    private const float DockButtonSeparation = 8f;</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">    private const float CompactToolIconSize = 24f;</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code"></code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">    // Select 与 RoadRemove 没有资源化定义，仍需在上下文面板中提供可读说明。</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code">    private static readonly IReadOnlyDictionary&lt;ToolType, BuiltInToolPresentation&gt; BuiltInToolPresentations =</code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">        new Dictionary&lt;ToolType, BuiltInToolPresentation&gt;</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">        {</code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code">            [ToolType.Select] = new(&quot;选择&quot;, &quot;查看当前状态。&quot;, string.Empty),</code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">            [ToolType.RoadRemove] = new(&quot;拆路&quot;, &quot;点击已有道路进行拆除。&quot;, string.Empty),</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code">        };</code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code"></code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">    [Export] public ConstructionCategoryDefinition? Category { get; set; }</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code">    [Export] public bool TrayVisibleOnReady { get; set; }</code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code"></code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">    public event Action&lt;bool&gt;? TrayVisibilityChanged;</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code">    public event Action&lt;string, bool&gt;? ContextDisplayChanged;</code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code"></code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code">    public bool IsTrayVisible =&gt; _toolTray?.Visible == true;</code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code">    public bool UsesCatalogContext =&gt; _activeCategoryId == RoadsCategoryId;</code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code"></code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code">    private sealed record CategoryDescriptor(</code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code">        string Id,</code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code">        string DisplayName,</code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code">        string NodeName,</code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code">        PlaceholderDescriptor[] Placeholders);</code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code"></code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code">    private sealed record PlaceholderDescriptor(string Id, string DisplayName, string NodeName);</code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code"></code></span>
+<span class="line" id="L44"><a class="number" href="#L44">44</a><code class="code">    private sealed record BuiltInToolPresentation(string DisplayName, string Description, string ShortcutHint);</code></span>
+<span class="line" id="L45"><a class="number" href="#L45">45</a><code class="code"></code></span>
+<span class="line" id="L46"><a class="number" href="#L46">46</a><code class="code">    private static readonly CategoryDescriptor[] Categories =</code></span>
+<span class="line" id="L47"><a class="number" href="#L47">47</a><code class="code">    [</code></span>
+<span class="line" id="L48"><a class="number" href="#L48">48</a><code class="code">        new(RoadsCategoryId, &quot;道路&quot;, &quot;RoadsCategoryButton&quot;, []),</code></span>
+<span class="line" id="L49"><a class="number" href="#L49">49</a><code class="code">        new(&quot;zoning&quot;, &quot;区域&quot;, &quot;ZoningCategoryButton&quot;,</code></span>
+<span class="line" id="L50"><a class="number" href="#L50">50</a><code class="code">        [</code></span>
+<span class="line" id="L51"><a class="number" href="#L51">51</a><code class="code">            new(&quot;residential-zone&quot;, &quot;住宅区&quot;, &quot;ResidentialZonePlaceholder&quot;),</code></span>
+<span class="line" id="L52"><a class="number" href="#L52">52</a><code class="code">            new(&quot;commercial-zone&quot;, &quot;商业区&quot;, &quot;CommercialZonePlaceholder&quot;),</code></span>
+<span class="line" id="L53"><a class="number" href="#L53">53</a><code class="code">        ]),</code></span>
+<span class="line" id="L54"><a class="number" href="#L54">54</a><code class="code">        new(&quot;facilities&quot;, &quot;公共设施&quot;, &quot;FacilitiesCategoryButton&quot;,</code></span>
+<span class="line" id="L55"><a class="number" href="#L55">55</a><code class="code">        [</code></span>
+<span class="line" id="L56"><a class="number" href="#L56">56</a><code class="code">            new(&quot;school&quot;, &quot;学校&quot;, &quot;SchoolPlaceholder&quot;),</code></span>
+<span class="line" id="L57"><a class="number" href="#L57">57</a><code class="code">            new(&quot;clinic&quot;, &quot;诊所&quot;, &quot;ClinicPlaceholder&quot;),</code></span>
+<span class="line" id="L58"><a class="number" href="#L58">58</a><code class="code">        ]),</code></span>
+<span class="line" id="L59"><a class="number" href="#L59">59</a><code class="code">        new(&quot;transit&quot;, &quot;交通&quot;, &quot;TransitCategoryButton&quot;,</code></span>
+<span class="line" id="L60"><a class="number" href="#L60">60</a><code class="code">        [</code></span>
+<span class="line" id="L61"><a class="number" href="#L61">61</a><code class="code">            new(&quot;bus-stop&quot;, &quot;公交站&quot;, &quot;BusStopPlaceholder&quot;),</code></span>
+<span class="line" id="L62"><a class="number" href="#L62">62</a><code class="code">            new(&quot;metro-station&quot;, &quot;地铁站&quot;, &quot;MetroStationPlaceholder&quot;),</code></span>
+<span class="line" id="L63"><a class="number" href="#L63">63</a><code class="code">        ]),</code></span>
+<span class="line" id="L64"><a class="number" href="#L64">64</a><code class="code">        new(&quot;landscaping&quot;, &quot;景观&quot;, &quot;LandscapingCategoryButton&quot;,</code></span>
+<span class="line" id="L65"><a class="number" href="#L65">65</a><code class="code">        [</code></span>
+<span class="line" id="L66"><a class="number" href="#L66">66</a><code class="code">            new(&quot;park&quot;, &quot;公园&quot;, &quot;ParkPlaceholder&quot;),</code></span>
+<span class="line" id="L67"><a class="number" href="#L67">67</a><code class="code">            new(&quot;plaza&quot;, &quot;广场&quot;, &quot;PlazaPlaceholder&quot;),</code></span>
+<span class="line" id="L68"><a class="number" href="#L68">68</a><code class="code">        ]),</code></span>
+<span class="line" id="L69"><a class="number" href="#L69">69</a><code class="code">    ];</code></span>
+<span class="line" id="L70"><a class="number" href="#L70">70</a><code class="code"></code></span>
+<span class="line" id="L71"><a class="number" href="#L71">71</a><code class="code">    private PanelContainer _dockPanel = null!;</code></span>
+<span class="line" id="L72"><a class="number" href="#L72">72</a><code class="code">    private PanelContainer _toolTray = null!;</code></span>
+<span class="line" id="L73"><a class="number" href="#L73">73</a><code class="code">    private ScrollContainer _toolScroll = null!;</code></span>
+<span class="line" id="L74"><a class="number" href="#L74">74</a><code class="code">    private ScrollContainer _categoryScroll = null!;</code></span>
+<span class="line" id="L75"><a class="number" href="#L75">75</a><code class="code">    private HBoxContainer _categoryBar = null!;</code></span>
+<span class="line" id="L76"><a class="number" href="#L76">76</a><code class="code">    private HBoxContainer _toolList = null!;</code></span>
+<span class="line" id="L77"><a class="number" href="#L77">77</a><code class="code">    private readonly Dictionary&lt;string, Button&gt; _categoryButtons = new(StringComparer.Ordinal);</code></span>
+<span class="line" id="L78"><a class="number" href="#L78">78</a><code class="code">    private readonly Dictionary&lt;ToolType, Button&gt; _toolButtons = new();</code></span>
+<span class="line" id="L79"><a class="number" href="#L79">79</a><code class="code">    private readonly Dictionary&lt;ToolType, ConstructionToolDefinition&gt; _toolDefinitions = new();</code></span>
+<span class="line" id="L80"><a class="number" href="#L80">80</a><code class="code">    private readonly List&lt;ToolType&gt; _toolOrder = [];</code></span>
+<span class="line" id="L81"><a class="number" href="#L81">81</a><code class="code">    private readonly List&lt;Action&gt; _disconnectActions = [];</code></span>
+<span class="line" id="L82"><a class="number" href="#L82">82</a><code class="code"></code></span>
+<span class="line" id="L83"><a class="number" href="#L83">83</a><code class="code">    private RoadToolManager? _toolManager;</code></span>
+<span class="line" id="L84"><a class="number" href="#L84">84</a><code class="code">    private ToolType _lastSyncedTool;</code></span>
+<span class="line" id="L85"><a class="number" href="#L85">85</a><code class="code">    private bool _hasSyncedTool;</code></span>
+<span class="line" id="L86"><a class="number" href="#L86">86</a><code class="code">    private bool _loggedMissingToolManager;</code></span>
+<span class="line" id="L87"><a class="number" href="#L87">87</a><code class="code">    private bool _categoryValid;</code></span>
+<span class="line" id="L88"><a class="number" href="#L88">88</a><code class="code">    private string _activeCategoryId = RoadsCategoryId;</code></span>
+<span class="line" id="L89"><a class="number" href="#L89">89</a><code class="code">    private NodePath _contextFocusPath = new();</code></span>
+<span class="line" id="L90"><a class="number" href="#L90">90</a><code class="code">    private NodePath _debugFocusPath = new();</code></span>
+<span class="line" id="L91"><a class="number" href="#L91">91</a><code class="code"></code></span>
+<span class="line" id="L92"><a class="number" href="#L92">92</a><code class="code">    /// &lt;summary&gt;每次进入场景树时重建运行时按钮和信号绑定，支持 HUD 被移除后再次加入。&lt;/summary&gt;</code></span>
+<span class="line" id="L93"><a class="number" href="#L93">93</a><code class="code">    public override void _EnterTree()</code></span>
+<span class="line" id="L94"><a class="number" href="#L94">94</a><code class="code">    {</code></span>
+<span class="line" id="L95"><a class="number" href="#L95">95</a><code class="code">        TeardownRuntimeState();</code></span>
+<span class="line" id="L96"><a class="number" href="#L96">96</a><code class="code">        ResolveNodes();</code></span>
+<span class="line" id="L97"><a class="number" href="#L97">97</a><code class="code">        _toolManager = GodotObject.IsInstanceValid(RoadToolManager.Instance) ? RoadToolManager.Instance : null;</code></span>
+<span class="line" id="L98"><a class="number" href="#L98">98</a><code class="code">        if (_toolManager == null) LogMissingToolManager();</code></span>
+<span class="line" id="L99"><a class="number" href="#L99">99</a><code class="code"></code></span>
+<span class="line" id="L100"><a class="number" href="#L100">100</a><code class="code">        _categoryValid = ValidateCategory();</code></span>
+<span class="line" id="L101"><a class="number" href="#L101">101</a><code class="code">        BuildCategoryBar();</code></span>
+<span class="line" id="L102"><a class="number" href="#L102">102</a><code class="code">        if (_categoryValid)</code></span>
+<span class="line" id="L103"><a class="number" href="#L103">103</a><code class="code">            RenderActiveMenu();</code></span>
+<span class="line" id="L104"><a class="number" href="#L104">104</a><code class="code">        else</code></span>
+<span class="line" id="L105"><a class="number" href="#L105">105</a><code class="code">            DisableInvalidCategory();</code></span>
+<span class="line" id="L106"><a class="number" href="#L106">106</a><code class="code"></code></span>
+<span class="line" id="L107"><a class="number" href="#L107">107</a><code class="code">        SetTrayVisible(TrayVisibleOnReady &amp;&amp; _categoryValid);</code></span>
+<span class="line" id="L108"><a class="number" href="#L108">108</a><code class="code">        SyncFromToolManager(force: true);</code></span>
+<span class="line" id="L109"><a class="number" href="#L109">109</a><code class="code">        ApplyDockLayout();</code></span>
+<span class="line" id="L110"><a class="number" href="#L110">110</a><code class="code">    }</code></span>
+<span class="line" id="L111"><a class="number" href="#L111">111</a><code class="code"></code></span>
+<span class="line" id="L112"><a class="number" href="#L112">112</a><code class="code">    public override void _Process(double delta) =&gt; SyncFromToolManager();</code></span>
+<span class="line" id="L113"><a class="number" href="#L113">113</a><code class="code"></code></span>
+<span class="line" id="L114"><a class="number" href="#L114">114</a><code class="code">    public bool ContainsPointer(Vector2 point) =&gt; IsVisibleInTree() &amp;&amp;</code></span>
+<span class="line" id="L115"><a class="number" href="#L115">115</a><code class="code">        ((_dockPanel.IsVisibleInTree() &amp;&amp; _dockPanel.GetGlobalRect().HasPoint(point)) ||</code></span>
+<span class="line" id="L116"><a class="number" href="#L116">116</a><code class="code">         (_toolTray.IsVisibleInTree() &amp;&amp; _toolTray.GetGlobalRect().HasPoint(point)));</code></span>
+<span class="line" id="L117"><a class="number" href="#L117">117</a><code class="code"></code></span>
+<span class="line" id="L118"><a class="number" href="#L118">118</a><code class="code">    public override void _Notification(int what)</code></span>
+<span class="line" id="L119"><a class="number" href="#L119">119</a><code class="code">    {</code></span>
+<span class="line" id="L120"><a class="number" href="#L120">120</a><code class="code">        if (what == NotificationResized) ApplyDockLayout();</code></span>
+<span class="line" id="L121"><a class="number" href="#L121">121</a><code class="code">    }</code></span>
+<span class="line" id="L122"><a class="number" href="#L122">122</a><code class="code"></code></span>
+<span class="line" id="L123"><a class="number" href="#L123">123</a><code class="code">    public override void _ExitTree()</code></span>
+<span class="line" id="L124"><a class="number" href="#L124">124</a><code class="code">    {</code></span>
+<span class="line" id="L125"><a class="number" href="#L125">125</a><code class="code">        TeardownRuntimeState();</code></span>
+<span class="line" id="L126"><a class="number" href="#L126">126</a><code class="code">        _dockPanel = null!;</code></span>
+<span class="line" id="L127"><a class="number" href="#L127">127</a><code class="code">        _toolTray = null!;</code></span>
+<span class="line" id="L128"><a class="number" href="#L128">128</a><code class="code">        _toolScroll = null!;</code></span>
+<span class="line" id="L129"><a class="number" href="#L129">129</a><code class="code">        _categoryScroll = null!;</code></span>
+<span class="line" id="L130"><a class="number" href="#L130">130</a><code class="code">        _categoryBar = null!;</code></span>
+<span class="line" id="L131"><a class="number" href="#L131">131</a><code class="code">        _toolList = null!;</code></span>
+<span class="line" id="L132"><a class="number" href="#L132">132</a><code class="code">    }</code></span>
+<span class="line" id="L133"><a class="number" href="#L133">133</a><code class="code"></code></span>
+<span class="line" id="L134"><a class="number" href="#L134">134</a><code class="code">    /// &lt;summary&gt;释放上一次进入场景树创建的按钮和事件订阅，避免重复绑定。&lt;/summary&gt;</code></span>
+<span class="line" id="L135"><a class="number" href="#L135">135</a><code class="code">    private void TeardownRuntimeState()</code></span>
+<span class="line" id="L136"><a class="number" href="#L136">136</a><code class="code">    {</code></span>
+<span class="line" id="L137"><a class="number" href="#L137">137</a><code class="code">        foreach (Action disconnect in _disconnectActions)</code></span>
+<span class="line" id="L138"><a class="number" href="#L138">138</a><code class="code">            disconnect();</code></span>
+<span class="line" id="L139"><a class="number" href="#L139">139</a><code class="code">        _disconnectActions.Clear();</code></span>
+<span class="line" id="L140"><a class="number" href="#L140">140</a><code class="code"></code></span>
+<span class="line" id="L141"><a class="number" href="#L141">141</a><code class="code">        if (_toolList != null)</code></span>
+<span class="line" id="L142"><a class="number" href="#L142">142</a><code class="code">            ClearToolList();</code></span>
+<span class="line" id="L143"><a class="number" href="#L143">143</a><code class="code"></code></span>
+<span class="line" id="L144"><a class="number" href="#L144">144</a><code class="code">        _categoryButtons.Clear();</code></span>
+<span class="line" id="L145"><a class="number" href="#L145">145</a><code class="code">        _toolOrder.Clear();</code></span>
+<span class="line" id="L146"><a class="number" href="#L146">146</a><code class="code">        _toolManager = null;</code></span>
+<span class="line" id="L147"><a class="number" href="#L147">147</a><code class="code">        _hasSyncedTool = false;</code></span>
+<span class="line" id="L148"><a class="number" href="#L148">148</a><code class="code">        _lastSyncedTool = default;</code></span>
+<span class="line" id="L149"><a class="number" href="#L149">149</a><code class="code">        _loggedMissingToolManager = false;</code></span>
+<span class="line" id="L150"><a class="number" href="#L150">150</a><code class="code">        _categoryValid = false;</code></span>
+<span class="line" id="L151"><a class="number" href="#L151">151</a><code class="code">        _activeCategoryId = RoadsCategoryId;</code></span>
+<span class="line" id="L152"><a class="number" href="#L152">152</a><code class="code">    }</code></span>
+<span class="line" id="L153"><a class="number" href="#L153">153</a><code class="code"></code></span>
+<span class="line" id="L154"><a class="number" href="#L154">154</a><code class="code">    public ConstructionToolDefinition? GetToolDefinition(ToolType toolType)</code></span>
+<span class="line" id="L155"><a class="number" href="#L155">155</a><code class="code">    {</code></span>
+<span class="line" id="L156"><a class="number" href="#L156">156</a><code class="code">        return _toolDefinitions.TryGetValue(toolType, out ConstructionToolDefinition? definition)</code></span>
+<span class="line" id="L157"><a class="number" href="#L157">157</a><code class="code">            ? definition</code></span>
+<span class="line" id="L158"><a class="number" href="#L158">158</a><code class="code">            : null;</code></span>
+<span class="line" id="L159"><a class="number" href="#L159">159</a><code class="code">    }</code></span>
+<span class="line" id="L160"><a class="number" href="#L160">160</a><code class="code"></code></span>
+<span class="line" id="L161"><a class="number" href="#L161">161</a><code class="code">    public static bool TryGetBuiltInToolPresentation(ToolType toolType, out string displayName, out string description, out string shortcutHint)</code></span>
+<span class="line" id="L162"><a class="number" href="#L162">162</a><code class="code">    {</code></span>
+<span class="line" id="L163"><a class="number" href="#L163">163</a><code class="code">        if (BuiltInToolPresentations.TryGetValue(toolType, out BuiltInToolPresentation? presentation))</code></span>
+<span class="line" id="L164"><a class="number" href="#L164">164</a><code class="code">        {</code></span>
+<span class="line" id="L165"><a class="number" href="#L165">165</a><code class="code">            displayName = presentation.DisplayName;</code></span>
+<span class="line" id="L166"><a class="number" href="#L166">166</a><code class="code">            description = presentation.Description;</code></span>
+<span class="line" id="L167"><a class="number" href="#L167">167</a><code class="code">            shortcutHint = presentation.ShortcutHint;</code></span>
+<span class="line" id="L168"><a class="number" href="#L168">168</a><code class="code">            return true;</code></span>
+<span class="line" id="L169"><a class="number" href="#L169">169</a><code class="code">        }</code></span>
+<span class="line" id="L170"><a class="number" href="#L170">170</a><code class="code"></code></span>
+<span class="line" id="L171"><a class="number" href="#L171">171</a><code class="code">        displayName = string.Empty;</code></span>
+<span class="line" id="L172"><a class="number" href="#L172">172</a><code class="code">        description = string.Empty;</code></span>
+<span class="line" id="L173"><a class="number" href="#L173">173</a><code class="code">        shortcutHint = string.Empty;</code></span>
+<span class="line" id="L174"><a class="number" href="#L174">174</a><code class="code">        return false;</code></span>
+<span class="line" id="L175"><a class="number" href="#L175">175</a><code class="code">    }</code></span>
+<span class="line" id="L176"><a class="number" href="#L176">176</a><code class="code"></code></span>
+<span class="line" id="L177"><a class="number" href="#L177">177</a><code class="code">    public Control? GetLastDockFocusControl()</code></span>
+<span class="line" id="L178"><a class="number" href="#L178">178</a><code class="code">    {</code></span>
+<span class="line" id="L179"><a class="number" href="#L179">179</a><code class="code">        if (_toolTray.Visible &amp;&amp; _toolOrder.Count &gt; 0 &amp;&amp;</code></span>
+<span class="line" id="L180"><a class="number" href="#L180">180</a><code class="code">            _toolButtons.TryGetValue(_toolOrder[^1], out Button? lastToolButton))</code></span>
+<span class="line" id="L181"><a class="number" href="#L181">181</a><code class="code">            return lastToolButton;</code></span>
+<span class="line" id="L182"><a class="number" href="#L182">182</a><code class="code"></code></span>
+<span class="line" id="L183"><a class="number" href="#L183">183</a><code class="code">        return _categoryButtons.TryGetValue(Categories[^1].Id, out Button? lastCategory)</code></span>
+<span class="line" id="L184"><a class="number" href="#L184">184</a><code class="code">            ? lastCategory</code></span>
+<span class="line" id="L185"><a class="number" href="#L185">185</a><code class="code">            : null;</code></span>
+<span class="line" id="L186"><a class="number" href="#L186">186</a><code class="code">    }</code></span>
+<span class="line" id="L187"><a class="number" href="#L187">187</a><code class="code"></code></span>
+<span class="line" id="L188"><a class="number" href="#L188">188</a><code class="code">    public void ConfigureFocusChain(NodePath contextFocusPath, NodePath debugFocusPath)</code></span>
+<span class="line" id="L189"><a class="number" href="#L189">189</a><code class="code">    {</code></span>
+<span class="line" id="L190"><a class="number" href="#L190">190</a><code class="code">        _contextFocusPath = contextFocusPath;</code></span>
+<span class="line" id="L191"><a class="number" href="#L191">191</a><code class="code">        _debugFocusPath = debugFocusPath;</code></span>
+<span class="line" id="L192"><a class="number" href="#L192">192</a><code class="code">        UpdateFocusChain();</code></span>
+<span class="line" id="L193"><a class="number" href="#L193">193</a><code class="code">    }</code></span>
+<span class="line" id="L194"><a class="number" href="#L194">194</a><code class="code"></code></span>
+<span class="line" id="L195"><a class="number" href="#L195">195</a><code class="code">    private void ResolveNodes()</code></span>
+<span class="line" id="L196"><a class="number" href="#L196">196</a><code class="code">    {</code></span>
+<span class="line" id="L197"><a class="number" href="#L197">197</a><code class="code">        _dockPanel = GetNode&lt;PanelContainer&gt;(&quot;DockPanel&quot;);</code></span>
+<span class="line" id="L198"><a class="number" href="#L198">198</a><code class="code">        _toolTray = GetNode&lt;PanelContainer&gt;(&quot;DockPanel/DockStack/ToolTray&quot;);</code></span>
+<span class="line" id="L199"><a class="number" href="#L199">199</a><code class="code">        _toolScroll = GetNode&lt;ScrollContainer&gt;(&quot;DockPanel/DockStack/ToolTray/TrayMargin/ToolScroll&quot;);</code></span>
+<span class="line" id="L200"><a class="number" href="#L200">200</a><code class="code">        _categoryScroll = GetNode&lt;ScrollContainer&gt;(&quot;DockPanel/DockStack/CategoryScroll&quot;);</code></span>
+<span class="line" id="L201"><a class="number" href="#L201">201</a><code class="code">        _categoryBar = GetNode&lt;HBoxContainer&gt;(&quot;DockPanel/DockStack/CategoryScroll/CategoryBar&quot;);</code></span>
+<span class="line" id="L202"><a class="number" href="#L202">202</a><code class="code">        _toolList = GetNode&lt;HBoxContainer&gt;(&quot;DockPanel/DockStack/ToolTray/TrayMargin/ToolScroll/ToolList&quot;);</code></span>
+<span class="line" id="L203"><a class="number" href="#L203">203</a><code class="code">    }</code></span>
+<span class="line" id="L204"><a class="number" href="#L204">204</a><code class="code"></code></span>
+<span class="line" id="L205"><a class="number" href="#L205">205</a><code class="code">    private bool ValidateCategory()</code></span>
+<span class="line" id="L206"><a class="number" href="#L206">206</a><code class="code">    {</code></span>
+<span class="line" id="L207"><a class="number" href="#L207">207</a><code class="code">        if (Category == null)</code></span>
+<span class="line" id="L208"><a class="number" href="#L208">208</a><code class="code">        {</code></span>
+<span class="line" id="L209"><a class="number" href="#L209">209</a><code class="code">            GD.PushWarning(&quot;ConstructionDock: Category resource is not assigned; construction tools are disabled.&quot;);</code></span>
+<span class="line" id="L210"><a class="number" href="#L210">210</a><code class="code">            return false;</code></span>
+<span class="line" id="L211"><a class="number" href="#L211">211</a><code class="code">        }</code></span>
+<span class="line" id="L212"><a class="number" href="#L212">212</a><code class="code"></code></span>
+<span class="line" id="L213"><a class="number" href="#L213">213</a><code class="code">        if (Category.TryValidate(out string error)) return true;</code></span>
+<span class="line" id="L214"><a class="number" href="#L214">214</a><code class="code"></code></span>
+<span class="line" id="L215"><a class="number" href="#L215">215</a><code class="code">        GD.PushWarning($&quot;ConstructionDock: Category resource is invalid: {error}&quot;);</code></span>
+<span class="line" id="L216"><a class="number" href="#L216">216</a><code class="code">        return false;</code></span>
+<span class="line" id="L217"><a class="number" href="#L217">217</a><code class="code">    }</code></span>
+<span class="line" id="L218"><a class="number" href="#L218">218</a><code class="code"></code></span>
+<span class="line" id="L219"><a class="number" href="#L219">219</a><code class="code">    /// &lt;summary&gt;为场景中预置的分类按钮写入显示数据，并登记各自的点击回调。&lt;/summary&gt;</code></span>
+<span class="line" id="L220"><a class="number" href="#L220">220</a><code class="code">    private void BuildCategoryBar()</code></span>
+<span class="line" id="L221"><a class="number" href="#L221">221</a><code class="code">    {</code></span>
+<span class="line" id="L222"><a class="number" href="#L222">222</a><code class="code">        foreach (CategoryDescriptor category in Categories)</code></span>
+<span class="line" id="L223"><a class="number" href="#L223">223</a><code class="code">        {</code></span>
+<span class="line" id="L224"><a class="number" href="#L224">224</a><code class="code">            Button button = GetNode&lt;Button&gt;($&quot;DockPanel/DockStack/CategoryScroll/CategoryBar/{category.NodeName}&quot;);</code></span>
+<span class="line" id="L225"><a class="number" href="#L225">225</a><code class="code">            if (button is ConstructionDockButton dockButton)</code></span>
+<span class="line" id="L226"><a class="number" href="#L226">226</a><code class="code">            {</code></span>
+<span class="line" id="L227"><a class="number" href="#L227">227</a><code class="code">                dockButton.DisplayText = category.DisplayName;</code></span>
+<span class="line" id="L228"><a class="number" href="#L228">228</a><code class="code">                dockButton.VisualRole = ConstructionDockButtonVisualRole.PrimaryCategory;</code></span>
+<span class="line" id="L229"><a class="number" href="#L229">229</a><code class="code">            }</code></span>
+<span class="line" id="L230"><a class="number" href="#L230">230</a><code class="code">            button.ToggleMode = true;</code></span>
+<span class="line" id="L231"><a class="number" href="#L231">231</a><code class="code">            button.FocusMode = FocusModeEnum.All;</code></span>
+<span class="line" id="L232"><a class="number" href="#L232">232</a><code class="code">            button.Disabled = false;</code></span>
+<span class="line" id="L233"><a class="number" href="#L233">233</a><code class="code">            button.TooltipText = string.Empty;</code></span>
+<span class="line" id="L234"><a class="number" href="#L234">234</a><code class="code">            string categoryId = category.Id;</code></span>
+<span class="line" id="L235"><a class="number" href="#L235">235</a><code class="code">            Action handler = () =&gt; OnCategoryPressed(categoryId);</code></span>
+<span class="line" id="L236"><a class="number" href="#L236">236</a><code class="code">            button.Pressed += handler;</code></span>
+<span class="line" id="L237"><a class="number" href="#L237">237</a><code class="code">            _disconnectActions.Add(() =&gt; button.Pressed -= handler);</code></span>
+<span class="line" id="L238"><a class="number" href="#L238">238</a><code class="code">            _categoryButtons[categoryId] = button;</code></span>
+<span class="line" id="L239"><a class="number" href="#L239">239</a><code class="code">        }</code></span>
+<span class="line" id="L240"><a class="number" href="#L240">240</a><code class="code">    }</code></span>
+<span class="line" id="L241"><a class="number" href="#L241">241</a><code class="code"></code></span>
+<span class="line" id="L242"><a class="number" href="#L242">242</a><code class="code">    /// &lt;summary&gt;清空旧工具列表后，根据当前分类生成道路工具或未实现功能的占位项。&lt;/summary&gt;</code></span>
+<span class="line" id="L243"><a class="number" href="#L243">243</a><code class="code">    private void RenderActiveMenu()</code></span>
+<span class="line" id="L244"><a class="number" href="#L244">244</a><code class="code">    {</code></span>
+<span class="line" id="L245"><a class="number" href="#L245">245</a><code class="code">        ClearToolList();</code></span>
+<span class="line" id="L246"><a class="number" href="#L246">246</a><code class="code">        if (_activeCategoryId == RoadsCategoryId)</code></span>
+<span class="line" id="L247"><a class="number" href="#L247">247</a><code class="code">            RenderRoadsMenu();</code></span>
+<span class="line" id="L248"><a class="number" href="#L248">248</a><code class="code">        else if (TryGetCategory(_activeCategoryId, out CategoryDescriptor? category))</code></span>
+<span class="line" id="L249"><a class="number" href="#L249">249</a><code class="code">            RenderPlaceholderMenu(category!);</code></span>
+<span class="line" id="L250"><a class="number" href="#L250">250</a><code class="code"></code></span>
+<span class="line" id="L251"><a class="number" href="#L251">251</a><code class="code">        SyncCategoryButtons();</code></span>
+<span class="line" id="L252"><a class="number" href="#L252">252</a><code class="code">        SyncSelectedTool(_toolManager?.CurrentTool);</code></span>
+<span class="line" id="L253"><a class="number" href="#L253">253</a><code class="code">        UpdateFocusChain();</code></span>
+<span class="line" id="L254"><a class="number" href="#L254">254</a><code class="code">    }</code></span>
+<span class="line" id="L255"><a class="number" href="#L255">255</a><code class="code"></code></span>
+<span class="line" id="L256"><a class="number" href="#L256">256</a><code class="code">    private void RenderRoadsMenu()</code></span>
+<span class="line" id="L257"><a class="number" href="#L257">257</a><code class="code">    {</code></span>
+<span class="line" id="L258"><a class="number" href="#L258">258</a><code class="code">        if (Category?.Tools == null) return;</code></span>
+<span class="line" id="L259"><a class="number" href="#L259">259</a><code class="code"></code></span>
+<span class="line" id="L260"><a class="number" href="#L260">260</a><code class="code">        var tools = new List&lt;ConstructionToolDefinition&gt;();</code></span>
+<span class="line" id="L261"><a class="number" href="#L261">261</a><code class="code">        foreach (ConstructionToolDefinition? tool in Category.Tools)</code></span>
+<span class="line" id="L262"><a class="number" href="#L262">262</a><code class="code">        {</code></span>
+<span class="line" id="L263"><a class="number" href="#L263">263</a><code class="code">            if (tool == null)</code></span>
+<span class="line" id="L264"><a class="number" href="#L264">264</a><code class="code">            {</code></span>
+<span class="line" id="L265"><a class="number" href="#L265">265</a><code class="code">                GD.PushWarning(&quot;ConstructionDock: Category contains an empty tool reference.&quot;);</code></span>
+<span class="line" id="L266"><a class="number" href="#L266">266</a><code class="code">                continue;</code></span>
+<span class="line" id="L267"><a class="number" href="#L267">267</a><code class="code">            }</code></span>
+<span class="line" id="L268"><a class="number" href="#L268">268</a><code class="code">            if (tool.ToolType is ToolType.Road or ToolType.RoadUpgrade)</code></span>
+<span class="line" id="L269"><a class="number" href="#L269">269</a><code class="code">                tools.Add(tool);</code></span>
+<span class="line" id="L270"><a class="number" href="#L270">270</a><code class="code">        }</code></span>
+<span class="line" id="L271"><a class="number" href="#L271">271</a><code class="code">        tools.Sort(static (left, right) =&gt; left.SortOrder.CompareTo(right.SortOrder));</code></span>
+<span class="line" id="L272"><a class="number" href="#L272">272</a><code class="code"></code></span>
+<span class="line" id="L273"><a class="number" href="#L273">273</a><code class="code">        foreach (ConstructionToolDefinition tool in tools)</code></span>
+<span class="line" id="L274"><a class="number" href="#L274">274</a><code class="code">            AddToolButton(tool);</code></span>
+<span class="line" id="L275"><a class="number" href="#L275">275</a><code class="code">    }</code></span>
+<span class="line" id="L276"><a class="number" href="#L276">276</a><code class="code"></code></span>
+<span class="line" id="L277"><a class="number" href="#L277">277</a><code class="code">    private void RenderPlaceholderMenu(CategoryDescriptor category)</code></span>
+<span class="line" id="L278"><a class="number" href="#L278">278</a><code class="code">    {</code></span>
+<span class="line" id="L279"><a class="number" href="#L279">279</a><code class="code">        foreach (PlaceholderDescriptor placeholder in category.Placeholders)</code></span>
+<span class="line" id="L280"><a class="number" href="#L280">280</a><code class="code">        {</code></span>
+<span class="line" id="L281"><a class="number" href="#L281">281</a><code class="code">            var button = new ConstructionDockButton</code></span>
+<span class="line" id="L282"><a class="number" href="#L282">282</a><code class="code">            {</code></span>
+<span class="line" id="L283"><a class="number" href="#L283">283</a><code class="code">                Name = placeholder.NodeName,</code></span>
+<span class="line" id="L284"><a class="number" href="#L284">284</a><code class="code">                DisplayText = placeholder.DisplayName,</code></span>
+<span class="line" id="L285"><a class="number" href="#L285">285</a><code class="code">                VisualRole = ConstructionDockButtonVisualRole.SecondaryTool,</code></span>
+<span class="line" id="L286"><a class="number" href="#L286">286</a><code class="code">                Disabled = true,</code></span>
+<span class="line" id="L287"><a class="number" href="#L287">287</a><code class="code">                FocusMode = FocusModeEnum.None,</code></span>
+<span class="line" id="L288"><a class="number" href="#L288">288</a><code class="code">                CustomMinimumSize = new Vector2(DockButtonWidth, ToolTrayHeight),</code></span>
+<span class="line" id="L289"><a class="number" href="#L289">289</a><code class="code">                TooltipText = &quot;尚未开放&quot;,</code></span>
+<span class="line" id="L290"><a class="number" href="#L290">290</a><code class="code">            };</code></span>
+<span class="line" id="L291"><a class="number" href="#L291">291</a><code class="code">            BuildDockButtonPresentation(button);</code></span>
+<span class="line" id="L292"><a class="number" href="#L292">292</a><code class="code">            _toolList.AddChild(button);</code></span>
+<span class="line" id="L293"><a class="number" href="#L293">293</a><code class="code">        }</code></span>
+<span class="line" id="L294"><a class="number" href="#L294">294</a><code class="code">    }</code></span>
+<span class="line" id="L295"><a class="number" href="#L295">295</a><code class="code"></code></span>
+<span class="line" id="L296"><a class="number" href="#L296">296</a><code class="code">    /// &lt;summary&gt;从资源定义创建可交互工具按钮，并将点击操作映射到对应 ToolType。&lt;/summary&gt;</code></span>
+<span class="line" id="L297"><a class="number" href="#L297">297</a><code class="code">    private void AddToolButton(ConstructionToolDefinition tool)</code></span>
+<span class="line" id="L298"><a class="number" href="#L298">298</a><code class="code">    {</code></span>
+<span class="line" id="L299"><a class="number" href="#L299">299</a><code class="code">        var button = new ConstructionDockButton</code></span>
+<span class="line" id="L300"><a class="number" href="#L300">300</a><code class="code">        {</code></span>
+<span class="line" id="L301"><a class="number" href="#L301">301</a><code class="code">            Name = ToolNodeName(tool.ToolType),</code></span>
+<span class="line" id="L302"><a class="number" href="#L302">302</a><code class="code">            DisplayText = tool.DisplayName,</code></span>
+<span class="line" id="L303"><a class="number" href="#L303">303</a><code class="code">            VisualRole = ConstructionDockButtonVisualRole.SecondaryTool,</code></span>
+<span class="line" id="L304"><a class="number" href="#L304">304</a><code class="code">            IconTexture = tool.Icon,</code></span>
+<span class="line" id="L305"><a class="number" href="#L305">305</a><code class="code">            ToggleMode = true,</code></span>
+<span class="line" id="L306"><a class="number" href="#L306">306</a><code class="code">            FocusMode = FocusModeEnum.All,</code></span>
+<span class="line" id="L307"><a class="number" href="#L307">307</a><code class="code">            CustomMinimumSize = new Vector2(DockButtonWidth, ToolTrayHeight),</code></span>
+<span class="line" id="L308"><a class="number" href="#L308">308</a><code class="code">            TooltipText = tool.Description,</code></span>
+<span class="line" id="L309"><a class="number" href="#L309">309</a><code class="code">        };</code></span>
+<span class="line" id="L310"><a class="number" href="#L310">310</a><code class="code">        BuildDockButtonPresentation(button);</code></span>
+<span class="line" id="L311"><a class="number" href="#L311">311</a><code class="code"></code></span>
+<span class="line" id="L312"><a class="number" href="#L312">312</a><code class="code">        ToolType toolType = tool.ToolType;</code></span>
+<span class="line" id="L313"><a class="number" href="#L313">313</a><code class="code">        Action handler = () =&gt; OnToolPressed(toolType);</code></span>
+<span class="line" id="L314"><a class="number" href="#L314">314</a><code class="code">        button.Pressed += handler;</code></span>
+<span class="line" id="L315"><a class="number" href="#L315">315</a><code class="code">        _toolList.AddChild(button);</code></span>
+<span class="line" id="L316"><a class="number" href="#L316">316</a><code class="code">        _toolButtons[toolType] = button;</code></span>
+<span class="line" id="L317"><a class="number" href="#L317">317</a><code class="code">        _toolDefinitions[toolType] = tool;</code></span>
+<span class="line" id="L318"><a class="number" href="#L318">318</a><code class="code">        _toolOrder.Add(toolType);</code></span>
+<span class="line" id="L319"><a class="number" href="#L319">319</a><code class="code">    }</code></span>
+<span class="line" id="L320"><a class="number" href="#L320">320</a><code class="code"></code></span>
+<span class="line" id="L321"><a class="number" href="#L321">321</a><code class="code">    /// &lt;summary&gt;为运行时生成的工具/占位按钮补齐图标、标签和分类选中指示器节点。&lt;/summary&gt;</code></span>
+<span class="line" id="L322"><a class="number" href="#L322">322</a><code class="code">    private static void BuildDockButtonPresentation(ConstructionDockButton button)</code></span>
+<span class="line" id="L323"><a class="number" href="#L323">323</a><code class="code">    {</code></span>
+<span class="line" id="L324"><a class="number" href="#L324">324</a><code class="code">        var presentation = new VBoxContainer</code></span>
+<span class="line" id="L325"><a class="number" href="#L325">325</a><code class="code">        {</code></span>
+<span class="line" id="L326"><a class="number" href="#L326">326</a><code class="code">            Name = &quot;Presentation&quot;,</code></span>
+<span class="line" id="L327"><a class="number" href="#L327">327</a><code class="code">            MouseFilter = MouseFilterEnum.Ignore,</code></span>
+<span class="line" id="L328"><a class="number" href="#L328">328</a><code class="code">            Alignment = BoxContainer.AlignmentMode.Center,</code></span>
+<span class="line" id="L329"><a class="number" href="#L329">329</a><code class="code">        };</code></span>
+<span class="line" id="L330"><a class="number" href="#L330">330</a><code class="code">        presentation.AddThemeConstantOverride(&quot;separation&quot;, 3);</code></span>
+<span class="line" id="L331"><a class="number" href="#L331">331</a><code class="code">        presentation.SetAnchorsPreset(LayoutPreset.FullRect);</code></span>
+<span class="line" id="L332"><a class="number" href="#L332">332</a><code class="code"></code></span>
+<span class="line" id="L333"><a class="number" href="#L333">333</a><code class="code">        var icon = new TextureRect</code></span>
+<span class="line" id="L334"><a class="number" href="#L334">334</a><code class="code">        {</code></span>
+<span class="line" id="L335"><a class="number" href="#L335">335</a><code class="code">            Name = &quot;Icon&quot;,</code></span>
+<span class="line" id="L336"><a class="number" href="#L336">336</a><code class="code">            CustomMinimumSize = new Vector2(CompactToolIconSize, CompactToolIconSize),</code></span>
+<span class="line" id="L337"><a class="number" href="#L337">337</a><code class="code">            SizeFlagsHorizontal = SizeFlags.ShrinkCenter,</code></span>
+<span class="line" id="L338"><a class="number" href="#L338">338</a><code class="code">            MouseFilter = MouseFilterEnum.Ignore,</code></span>
+<span class="line" id="L339"><a class="number" href="#L339">339</a><code class="code">            ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,</code></span>
+<span class="line" id="L340"><a class="number" href="#L340">340</a><code class="code">            StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,</code></span>
+<span class="line" id="L341"><a class="number" href="#L341">341</a><code class="code">        };</code></span>
+<span class="line" id="L342"><a class="number" href="#L342">342</a><code class="code"></code></span>
+<span class="line" id="L343"><a class="number" href="#L343">343</a><code class="code">        var label = new Label</code></span>
+<span class="line" id="L344"><a class="number" href="#L344">344</a><code class="code">        {</code></span>
+<span class="line" id="L345"><a class="number" href="#L345">345</a><code class="code">            Name = &quot;Label&quot;,</code></span>
+<span class="line" id="L346"><a class="number" href="#L346">346</a><code class="code">            SizeFlagsHorizontal = SizeFlags.ShrinkCenter,</code></span>
+<span class="line" id="L347"><a class="number" href="#L347">347</a><code class="code">            MouseFilter = MouseFilterEnum.Ignore,</code></span>
+<span class="line" id="L348"><a class="number" href="#L348">348</a><code class="code">            HorizontalAlignment = HorizontalAlignment.Center,</code></span>
+<span class="line" id="L349"><a class="number" href="#L349">349</a><code class="code">            VerticalAlignment = VerticalAlignment.Center,</code></span>
+<span class="line" id="L350"><a class="number" href="#L350">350</a><code class="code">        };</code></span>
+<span class="line" id="L351"><a class="number" href="#L351">351</a><code class="code"></code></span>
+<span class="line" id="L352"><a class="number" href="#L352">352</a><code class="code">        var primarySelectionIndicator = new ColorRect</code></span>
+<span class="line" id="L353"><a class="number" href="#L353">353</a><code class="code">        {</code></span>
+<span class="line" id="L354"><a class="number" href="#L354">354</a><code class="code">            Name = &quot;PrimarySelectionIndicator&quot;,</code></span>
+<span class="line" id="L355"><a class="number" href="#L355">355</a><code class="code">            Visible = false,</code></span>
+<span class="line" id="L356"><a class="number" href="#L356">356</a><code class="code">            MouseFilter = MouseFilterEnum.Ignore,</code></span>
+<span class="line" id="L357"><a class="number" href="#L357">357</a><code class="code">        };</code></span>
+<span class="line" id="L358"><a class="number" href="#L358">358</a><code class="code">        primarySelectionIndicator.AnchorLeft = 0f;</code></span>
+<span class="line" id="L359"><a class="number" href="#L359">359</a><code class="code">        primarySelectionIndicator.AnchorTop = 1f;</code></span>
+<span class="line" id="L360"><a class="number" href="#L360">360</a><code class="code">        primarySelectionIndicator.AnchorRight = 1f;</code></span>
+<span class="line" id="L361"><a class="number" href="#L361">361</a><code class="code">        primarySelectionIndicator.AnchorBottom = 1f;</code></span>
+<span class="line" id="L362"><a class="number" href="#L362">362</a><code class="code">        primarySelectionIndicator.OffsetLeft = 0f;</code></span>
+<span class="line" id="L363"><a class="number" href="#L363">363</a><code class="code">        primarySelectionIndicator.OffsetTop = -4f;</code></span>
+<span class="line" id="L364"><a class="number" href="#L364">364</a><code class="code">        primarySelectionIndicator.OffsetRight = 0f;</code></span>
+<span class="line" id="L365"><a class="number" href="#L365">365</a><code class="code">        primarySelectionIndicator.OffsetBottom = 0f;</code></span>
+<span class="line" id="L366"><a class="number" href="#L366">366</a><code class="code"></code></span>
+<span class="line" id="L367"><a class="number" href="#L367">367</a><code class="code">        presentation.AddChild(icon);</code></span>
+<span class="line" id="L368"><a class="number" href="#L368">368</a><code class="code">        presentation.AddChild(label);</code></span>
+<span class="line" id="L369"><a class="number" href="#L369">369</a><code class="code">        button.AddChild(presentation);</code></span>
+<span class="line" id="L370"><a class="number" href="#L370">370</a><code class="code">        button.AddChild(primarySelectionIndicator);</code></span>
+<span class="line" id="L371"><a class="number" href="#L371">371</a><code class="code">    }</code></span>
+<span class="line" id="L372"><a class="number" href="#L372">372</a><code class="code"></code></span>
+<span class="line" id="L373"><a class="number" href="#L373">373</a><code class="code">    private void DisableInvalidCategory()</code></span>
+<span class="line" id="L374"><a class="number" href="#L374">374</a><code class="code">    {</code></span>
+<span class="line" id="L375"><a class="number" href="#L375">375</a><code class="code">        ClearToolList();</code></span>
+<span class="line" id="L376"><a class="number" href="#L376">376</a><code class="code">        _toolTray.Visible = false;</code></span>
+<span class="line" id="L377"><a class="number" href="#L377">377</a><code class="code">        foreach (Button button in _categoryButtons.Values)</code></span>
+<span class="line" id="L378"><a class="number" href="#L378">378</a><code class="code">            button.Disabled = true;</code></span>
+<span class="line" id="L379"><a class="number" href="#L379">379</a><code class="code">    }</code></span>
+<span class="line" id="L380"><a class="number" href="#L380">380</a><code class="code"></code></span>
+<span class="line" id="L381"><a class="number" href="#L381">381</a><code class="code">    private void ClearToolList()</code></span>
+<span class="line" id="L382"><a class="number" href="#L382">382</a><code class="code">    {</code></span>
+<span class="line" id="L383"><a class="number" href="#L383">383</a><code class="code">        foreach (Node child in _toolList.GetChildren())</code></span>
+<span class="line" id="L384"><a class="number" href="#L384">384</a><code class="code">        {</code></span>
+<span class="line" id="L385"><a class="number" href="#L385">385</a><code class="code">            _toolList.RemoveChild(child);</code></span>
+<span class="line" id="L386"><a class="number" href="#L386">386</a><code class="code">            child.QueueFree();</code></span>
+<span class="line" id="L387"><a class="number" href="#L387">387</a><code class="code">        }</code></span>
+<span class="line" id="L388"><a class="number" href="#L388">388</a><code class="code">        _toolButtons.Clear();</code></span>
+<span class="line" id="L389"><a class="number" href="#L389">389</a><code class="code">        _toolDefinitions.Clear();</code></span>
+<span class="line" id="L390"><a class="number" href="#L390">390</a><code class="code">        _toolOrder.Clear();</code></span>
+<span class="line" id="L391"><a class="number" href="#L391">391</a><code class="code">    }</code></span>
+<span class="line" id="L392"><a class="number" href="#L392">392</a><code class="code"></code></span>
+<span class="line" id="L393"><a class="number" href="#L393">393</a><code class="code">    /// &lt;summary&gt;同类再次点击只切换托盘开关；切换分类则重建工具列表并展开托盘。&lt;/summary&gt;</code></span>
+<span class="line" id="L394"><a class="number" href="#L394">394</a><code class="code">    private void OnCategoryPressed(string categoryId)</code></span>
+<span class="line" id="L395"><a class="number" href="#L395">395</a><code class="code">    {</code></span>
+<span class="line" id="L396"><a class="number" href="#L396">396</a><code class="code">        if (!_categoryValid)</code></span>
+<span class="line" id="L397"><a class="number" href="#L397">397</a><code class="code">        {</code></span>
+<span class="line" id="L398"><a class="number" href="#L398">398</a><code class="code">            SetTrayVisible(false);</code></span>
+<span class="line" id="L399"><a class="number" href="#L399">399</a><code class="code">            return;</code></span>
+<span class="line" id="L400"><a class="number" href="#L400">400</a><code class="code">        }</code></span>
+<span class="line" id="L401"><a class="number" href="#L401">401</a><code class="code"></code></span>
+<span class="line" id="L402"><a class="number" href="#L402">402</a><code class="code">        if (categoryId == _activeCategoryId)</code></span>
+<span class="line" id="L403"><a class="number" href="#L403">403</a><code class="code">        {</code></span>
+<span class="line" id="L404"><a class="number" href="#L404">404</a><code class="code">            SetTrayVisible(!_toolTray.Visible);</code></span>
+<span class="line" id="L405"><a class="number" href="#L405">405</a><code class="code">            NotifyContextDisplay();</code></span>
+<span class="line" id="L406"><a class="number" href="#L406">406</a><code class="code">            return;</code></span>
+<span class="line" id="L407"><a class="number" href="#L407">407</a><code class="code">        }</code></span>
+<span class="line" id="L408"><a class="number" href="#L408">408</a><code class="code"></code></span>
+<span class="line" id="L409"><a class="number" href="#L409">409</a><code class="code">        _activeCategoryId = categoryId;</code></span>
+<span class="line" id="L410"><a class="number" href="#L410">410</a><code class="code">        RenderActiveMenu();</code></span>
+<span class="line" id="L411"><a class="number" href="#L411">411</a><code class="code">        SetTrayVisible(true);</code></span>
+<span class="line" id="L412"><a class="number" href="#L412">412</a><code class="code">        _categoryScroll.EnsureControlVisible(_categoryButtons[categoryId]);</code></span>
+<span class="line" id="L413"><a class="number" href="#L413">413</a><code class="code">        NotifyContextDisplay();</code></span>
+<span class="line" id="L414"><a class="number" href="#L414">414</a><code class="code">    }</code></span>
+<span class="line" id="L415"><a class="number" href="#L415">415</a><code class="code"></code></span>
+<span class="line" id="L416"><a class="number" href="#L416">416</a><code class="code">    /// &lt;summary&gt;由 UI 发起工具切换；实际建造输入仍由 ToolManager 转交 RoadBuilder。&lt;/summary&gt;</code></span>
+<span class="line" id="L417"><a class="number" href="#L417">417</a><code class="code">    private void OnToolPressed(ToolType toolType)</code></span>
+<span class="line" id="L418"><a class="number" href="#L418">418</a><code class="code">    {</code></span>
+<span class="line" id="L419"><a class="number" href="#L419">419</a><code class="code">        if (_toolManager == null)</code></span>
+<span class="line" id="L420"><a class="number" href="#L420">420</a><code class="code">        {</code></span>
+<span class="line" id="L421"><a class="number" href="#L421">421</a><code class="code">            LogMissingToolManager();</code></span>
+<span class="line" id="L422"><a class="number" href="#L422">422</a><code class="code">            SyncSelectedTool(toolType: null);</code></span>
+<span class="line" id="L423"><a class="number" href="#L423">423</a><code class="code">            return;</code></span>
+<span class="line" id="L424"><a class="number" href="#L424">424</a><code class="code">        }</code></span>
+<span class="line" id="L425"><a class="number" href="#L425">425</a><code class="code"></code></span>
+<span class="line" id="L426"><a class="number" href="#L426">426</a><code class="code">        _activeCategoryId = RoadsCategoryId;</code></span>
+<span class="line" id="L427"><a class="number" href="#L427">427</a><code class="code">        _toolManager.CurrentTool = toolType;</code></span>
+<span class="line" id="L428"><a class="number" href="#L428">428</a><code class="code">        SyncFromToolManager(force: true);</code></span>
+<span class="line" id="L429"><a class="number" href="#L429">429</a><code class="code">        NotifyContextDisplay();</code></span>
+<span class="line" id="L430"><a class="number" href="#L430">430</a><code class="code">    }</code></span>
+<span class="line" id="L431"><a class="number" href="#L431">431</a><code class="code"></code></span>
+<span class="line" id="L432"><a class="number" href="#L432">432</a><code class="code">    private void SetTrayVisible(bool visible)</code></span>
+<span class="line" id="L433"><a class="number" href="#L433">433</a><code class="code">    {</code></span>
+<span class="line" id="L434"><a class="number" href="#L434">434</a><code class="code">        _toolTray.Visible = visible;</code></span>
+<span class="line" id="L435"><a class="number" href="#L435">435</a><code class="code">        SyncCategoryButtons();</code></span>
+<span class="line" id="L436"><a class="number" href="#L436">436</a><code class="code">        ApplyDockLayout();</code></span>
+<span class="line" id="L437"><a class="number" href="#L437">437</a><code class="code">        UpdateFocusChain();</code></span>
+<span class="line" id="L438"><a class="number" href="#L438">438</a><code class="code">        TrayVisibilityChanged?.Invoke(visible);</code></span>
+<span class="line" id="L439"><a class="number" href="#L439">439</a><code class="code">    }</code></span>
+<span class="line" id="L440"><a class="number" href="#L440">440</a><code class="code"></code></span>
+<span class="line" id="L441"><a class="number" href="#L441">441</a><code class="code">    /// &lt;summary&gt;轮询外部工具切换，使底栏按钮与实际工具状态保持一致。&lt;/summary&gt;</code></span>
+<span class="line" id="L442"><a class="number" href="#L442">442</a><code class="code">    private void SyncFromToolManager(bool force = false)</code></span>
+<span class="line" id="L443"><a class="number" href="#L443">443</a><code class="code">    {</code></span>
+<span class="line" id="L444"><a class="number" href="#L444">444</a><code class="code">        if (!_categoryValid) return;</code></span>
+<span class="line" id="L445"><a class="number" href="#L445">445</a><code class="code"></code></span>
+<span class="line" id="L446"><a class="number" href="#L446">446</a><code class="code">        if (_toolManager == null)</code></span>
+<span class="line" id="L447"><a class="number" href="#L447">447</a><code class="code">        {</code></span>
+<span class="line" id="L448"><a class="number" href="#L448">448</a><code class="code">            _toolManager = GodotObject.IsInstanceValid(RoadToolManager.Instance) ? RoadToolManager.Instance : null;</code></span>
+<span class="line" id="L449"><a class="number" href="#L449">449</a><code class="code">            if (_toolManager == null)</code></span>
+<span class="line" id="L450"><a class="number" href="#L450">450</a><code class="code">            {</code></span>
+<span class="line" id="L451"><a class="number" href="#L451">451</a><code class="code">                LogMissingToolManager();</code></span>
+<span class="line" id="L452"><a class="number" href="#L452">452</a><code class="code">                return;</code></span>
+<span class="line" id="L453"><a class="number" href="#L453">453</a><code class="code">            }</code></span>
+<span class="line" id="L454"><a class="number" href="#L454">454</a><code class="code">        }</code></span>
+<span class="line" id="L455"><a class="number" href="#L455">455</a><code class="code"></code></span>
+<span class="line" id="L456"><a class="number" href="#L456">456</a><code class="code">        ToolType currentTool = _toolManager.CurrentTool;</code></span>
+<span class="line" id="L457"><a class="number" href="#L457">457</a><code class="code">        if (!force &amp;&amp; _hasSyncedTool &amp;&amp; currentTool == _lastSyncedTool) return;</code></span>
+<span class="line" id="L458"><a class="number" href="#L458">458</a><code class="code"></code></span>
+<span class="line" id="L459"><a class="number" href="#L459">459</a><code class="code">        _lastSyncedTool = currentTool;</code></span>
+<span class="line" id="L460"><a class="number" href="#L460">460</a><code class="code">        _hasSyncedTool = true;</code></span>
+<span class="line" id="L461"><a class="number" href="#L461">461</a><code class="code">        SyncSelectedTool(currentTool);</code></span>
+<span class="line" id="L462"><a class="number" href="#L462">462</a><code class="code">    }</code></span>
+<span class="line" id="L463"><a class="number" href="#L463">463</a><code class="code"></code></span>
+<span class="line" id="L464"><a class="number" href="#L464">464</a><code class="code">    private void SyncSelectedTool(ToolType? toolType)</code></span>
+<span class="line" id="L465"><a class="number" href="#L465">465</a><code class="code">    {</code></span>
+<span class="line" id="L466"><a class="number" href="#L466">466</a><code class="code">        foreach ((ToolType candidate, Button button) in _toolButtons)</code></span>
+<span class="line" id="L467"><a class="number" href="#L467">467</a><code class="code">        {</code></span>
+<span class="line" id="L468"><a class="number" href="#L468">468</a><code class="code">            button.ButtonPressed = toolType == candidate;</code></span>
+<span class="line" id="L469"><a class="number" href="#L469">469</a><code class="code">            if (button is ConstructionDockButton dockButton)</code></span>
+<span class="line" id="L470"><a class="number" href="#L470">470</a><code class="code">                dockButton.Selected = button.ButtonPressed;</code></span>
+<span class="line" id="L471"><a class="number" href="#L471">471</a><code class="code">        }</code></span>
+<span class="line" id="L472"><a class="number" href="#L472">472</a><code class="code">    }</code></span>
+<span class="line" id="L473"><a class="number" href="#L473">473</a><code class="code"></code></span>
+<span class="line" id="L474"><a class="number" href="#L474">474</a><code class="code">    private void SyncCategoryButtons()</code></span>
+<span class="line" id="L475"><a class="number" href="#L475">475</a><code class="code">    {</code></span>
+<span class="line" id="L476"><a class="number" href="#L476">476</a><code class="code">        foreach ((string categoryId, Button button) in _categoryButtons)</code></span>
+<span class="line" id="L477"><a class="number" href="#L477">477</a><code class="code">        {</code></span>
+<span class="line" id="L478"><a class="number" href="#L478">478</a><code class="code">            button.ButtonPressed = categoryId == _activeCategoryId;</code></span>
+<span class="line" id="L479"><a class="number" href="#L479">479</a><code class="code">            if (button is ConstructionDockButton dockButton)</code></span>
+<span class="line" id="L480"><a class="number" href="#L480">480</a><code class="code">                dockButton.Selected = button.ButtonPressed;</code></span>
+<span class="line" id="L481"><a class="number" href="#L481">481</a><code class="code">        }</code></span>
+<span class="line" id="L482"><a class="number" href="#L482">482</a><code class="code">    }</code></span>
+<span class="line" id="L483"><a class="number" href="#L483">483</a><code class="code"></code></span>
+<span class="line" id="L484"><a class="number" href="#L484">484</a><code class="code">    /// &lt;summary&gt;将底栏固定到视口底部，并根据展开状态及可用宽度计算可滚动分类栏的尺寸。&lt;/summary&gt;</code></span>
+<span class="line" id="L485"><a class="number" href="#L485">485</a><code class="code">    private void ApplyDockLayout()</code></span>
+<span class="line" id="L486"><a class="number" href="#L486">486</a><code class="code">    {</code></span>
+<span class="line" id="L487"><a class="number" href="#L487">487</a><code class="code">        if (_dockPanel == null || _toolTray == null || _toolScroll == null || _categoryScroll == null || _categoryBar == null)</code></span>
+<span class="line" id="L488"><a class="number" href="#L488">488</a><code class="code">            return;</code></span>
+<span class="line" id="L489"><a class="number" href="#L489">489</a><code class="code"></code></span>
+<span class="line" id="L490"><a class="number" href="#L490">490</a><code class="code">        float height = _toolTray.Visible ? ExpandedHeight : CollapsedHeight;</code></span>
+<span class="line" id="L491"><a class="number" href="#L491">491</a><code class="code"></code></span>
+<span class="line" id="L492"><a class="number" href="#L492">492</a><code class="code">        AnchorLeft = 0f;</code></span>
+<span class="line" id="L493"><a class="number" href="#L493">493</a><code class="code">        AnchorRight = 1f;</code></span>
+<span class="line" id="L494"><a class="number" href="#L494">494</a><code class="code">        AnchorTop = 1f;</code></span>
+<span class="line" id="L495"><a class="number" href="#L495">495</a><code class="code">        AnchorBottom = 1f;</code></span>
+<span class="line" id="L496"><a class="number" href="#L496">496</a><code class="code">        OffsetLeft = 0f;</code></span>
+<span class="line" id="L497"><a class="number" href="#L497">497</a><code class="code">        OffsetRight = 0f;</code></span>
+<span class="line" id="L498"><a class="number" href="#L498">498</a><code class="code">        OffsetBottom = 0f;</code></span>
+<span class="line" id="L499"><a class="number" href="#L499">499</a><code class="code">        OffsetTop = OffsetBottom - height;</code></span>
+<span class="line" id="L500"><a class="number" href="#L500">500</a><code class="code"></code></span>
+<span class="line" id="L501"><a class="number" href="#L501">501</a><code class="code">        _dockPanel.SetAnchorsPreset(LayoutPreset.FullRect);</code></span>
+<span class="line" id="L502"><a class="number" href="#L502">502</a><code class="code">        _dockPanel.OffsetLeft = 0f;</code></span>
+<span class="line" id="L503"><a class="number" href="#L503">503</a><code class="code">        _dockPanel.OffsetTop = 0f;</code></span>
+<span class="line" id="L504"><a class="number" href="#L504">504</a><code class="code">        _dockPanel.OffsetRight = 0f;</code></span>
+<span class="line" id="L505"><a class="number" href="#L505">505</a><code class="code">        _dockPanel.OffsetBottom = 0f;</code></span>
+<span class="line" id="L506"><a class="number" href="#L506">506</a><code class="code">        _toolTray.CustomMinimumSize = new Vector2(0f, ToolTrayHeight);</code></span>
+<span class="line" id="L507"><a class="number" href="#L507">507</a><code class="code">        _toolScroll.CustomMinimumSize = new Vector2(0f, ToolTrayHeight);</code></span>
+<span class="line" id="L508"><a class="number" href="#L508">508</a><code class="code">        _categoryScroll.CustomMinimumSize = new Vector2(0f, CategoryBarHeight);</code></span>
+<span class="line" id="L509"><a class="number" href="#L509">509</a><code class="code">        float categoryButtonWidth = Mathf.Min(</code></span>
+<span class="line" id="L510"><a class="number" href="#L510">510</a><code class="code">            DockButtonWidth,</code></span>
+<span class="line" id="L511"><a class="number" href="#L511">511</a><code class="code">            Mathf.Max(72f, Mathf.Floor((Size.X - (Categories.Length - 1) * DockButtonSeparation) / Categories.Length)));</code></span>
+<span class="line" id="L512"><a class="number" href="#L512">512</a><code class="code">        foreach (Button categoryButton in _categoryButtons.Values)</code></span>
+<span class="line" id="L513"><a class="number" href="#L513">513</a><code class="code">            categoryButton.CustomMinimumSize = new Vector2(categoryButtonWidth, CategoryBarHeight);</code></span>
+<span class="line" id="L514"><a class="number" href="#L514">514</a><code class="code">        _categoryBar.CustomMinimumSize = new Vector2(</code></span>
+<span class="line" id="L515"><a class="number" href="#L515">515</a><code class="code">            Categories.Length * categoryButtonWidth + (Categories.Length - 1) * DockButtonSeparation,</code></span>
+<span class="line" id="L516"><a class="number" href="#L516">516</a><code class="code">            CategoryBarHeight);</code></span>
+<span class="line" id="L517"><a class="number" href="#L517">517</a><code class="code">    }</code></span>
+<span class="line" id="L518"><a class="number" href="#L518">518</a><code class="code"></code></span>
+<span class="line" id="L519"><a class="number" href="#L519">519</a><code class="code">    /// &lt;summary&gt;把分类、展开后的当前工具和 HUD 其他面板串成可循环的键盘焦点顺序。&lt;/summary&gt;</code></span>
+<span class="line" id="L520"><a class="number" href="#L520">520</a><code class="code">    private void UpdateFocusChain()</code></span>
+<span class="line" id="L521"><a class="number" href="#L521">521</a><code class="code">    {</code></span>
+<span class="line" id="L522"><a class="number" href="#L522">522</a><code class="code">        if (!IsInsideTree()) return;</code></span>
+<span class="line" id="L523"><a class="number" href="#L523">523</a><code class="code">        if (!_categoryValid) return;</code></span>
+<span class="line" id="L524"><a class="number" href="#L524">524</a><code class="code">        if (_categoryButtons.Count == 0) return;</code></span>
+<span class="line" id="L525"><a class="number" href="#L525">525</a><code class="code"></code></span>
+<span class="line" id="L526"><a class="number" href="#L526">526</a><code class="code">        Button? previousCategory = null;</code></span>
+<span class="line" id="L527"><a class="number" href="#L527">527</a><code class="code">        for (int index = 0; index &lt; Categories.Length; index++)</code></span>
+<span class="line" id="L528"><a class="number" href="#L528">528</a><code class="code">        {</code></span>
+<span class="line" id="L529"><a class="number" href="#L529">529</a><code class="code">            CategoryDescriptor category = Categories[index];</code></span>
+<span class="line" id="L530"><a class="number" href="#L530">530</a><code class="code">            if (!_categoryButtons.TryGetValue(category.Id, out Button? button)) continue;</code></span>
+<span class="line" id="L531"><a class="number" href="#L531">531</a><code class="code">            if (!button.IsInsideTree()) return;</code></span>
+<span class="line" id="L532"><a class="number" href="#L532">532</a><code class="code"></code></span>
+<span class="line" id="L533"><a class="number" href="#L533">533</a><code class="code">            button.FocusPrevious = previousCategory?.GetPath() ?? _debugFocusPath;</code></span>
+<span class="line" id="L534"><a class="number" href="#L534">534</a><code class="code">            if (previousCategory != null)</code></span>
+<span class="line" id="L535"><a class="number" href="#L535">535</a><code class="code">                previousCategory.FocusNext = button.GetPath();</code></span>
+<span class="line" id="L536"><a class="number" href="#L536">536</a><code class="code">            previousCategory = button;</code></span>
+<span class="line" id="L537"><a class="number" href="#L537">537</a><code class="code">        }</code></span>
+<span class="line" id="L538"><a class="number" href="#L538">538</a><code class="code"></code></span>
+<span class="line" id="L539"><a class="number" href="#L539">539</a><code class="code">        if (previousCategory == null) return;</code></span>
+<span class="line" id="L540"><a class="number" href="#L540">540</a><code class="code"></code></span>
+<span class="line" id="L541"><a class="number" href="#L541">541</a><code class="code">        if (_toolTray.Visible &amp;&amp; _toolOrder.Count &gt; 0)</code></span>
+<span class="line" id="L542"><a class="number" href="#L542">542</a><code class="code">        {</code></span>
+<span class="line" id="L543"><a class="number" href="#L543">543</a><code class="code">            Button? previousToolButton = null;</code></span>
+<span class="line" id="L544"><a class="number" href="#L544">544</a><code class="code">            foreach (ToolType toolType in _toolOrder)</code></span>
+<span class="line" id="L545"><a class="number" href="#L545">545</a><code class="code">            {</code></span>
+<span class="line" id="L546"><a class="number" href="#L546">546</a><code class="code">                if (!_toolButtons.TryGetValue(toolType, out Button? toolButton) || !toolButton.IsInsideTree())</code></span>
+<span class="line" id="L547"><a class="number" href="#L547">547</a><code class="code">                    return;</code></span>
+<span class="line" id="L548"><a class="number" href="#L548">548</a><code class="code"></code></span>
+<span class="line" id="L549"><a class="number" href="#L549">549</a><code class="code">                toolButton.FocusPrevious = previousToolButton?.GetPath() ?? previousCategory.GetPath();</code></span>
+<span class="line" id="L550"><a class="number" href="#L550">550</a><code class="code">                if (previousToolButton != null)</code></span>
+<span class="line" id="L551"><a class="number" href="#L551">551</a><code class="code">                {</code></span>
+<span class="line" id="L552"><a class="number" href="#L552">552</a><code class="code">                    previousToolButton.FocusNext = toolButton.GetPath();</code></span>
+<span class="line" id="L553"><a class="number" href="#L553">553</a><code class="code">                    previousToolButton.FocusNeighborRight = toolButton.GetPath();</code></span>
+<span class="line" id="L554"><a class="number" href="#L554">554</a><code class="code">                    toolButton.FocusNeighborLeft = previousToolButton.GetPath();</code></span>
+<span class="line" id="L555"><a class="number" href="#L555">555</a><code class="code">                }</code></span>
+<span class="line" id="L556"><a class="number" href="#L556">556</a><code class="code"></code></span>
+<span class="line" id="L557"><a class="number" href="#L557">557</a><code class="code">                previousToolButton = toolButton;</code></span>
+<span class="line" id="L558"><a class="number" href="#L558">558</a><code class="code">            }</code></span>
+<span class="line" id="L559"><a class="number" href="#L559">559</a><code class="code"></code></span>
+<span class="line" id="L560"><a class="number" href="#L560">560</a><code class="code">            if (previousToolButton == null) return;</code></span>
+<span class="line" id="L561"><a class="number" href="#L561">561</a><code class="code">            previousCategory.FocusNext = _toolButtons[_toolOrder[0]].GetPath();</code></span>
+<span class="line" id="L562"><a class="number" href="#L562">562</a><code class="code">            previousToolButton.FocusNext = _contextFocusPath;</code></span>
+<span class="line" id="L563"><a class="number" href="#L563">563</a><code class="code">        }</code></span>
+<span class="line" id="L564"><a class="number" href="#L564">564</a><code class="code">        else</code></span>
+<span class="line" id="L565"><a class="number" href="#L565">565</a><code class="code">        {</code></span>
+<span class="line" id="L566"><a class="number" href="#L566">566</a><code class="code">            previousCategory.FocusNext = _contextFocusPath;</code></span>
+<span class="line" id="L567"><a class="number" href="#L567">567</a><code class="code">        }</code></span>
+<span class="line" id="L568"><a class="number" href="#L568">568</a><code class="code">    }</code></span>
+<span class="line" id="L569"><a class="number" href="#L569">569</a><code class="code"></code></span>
+<span class="line" id="L570"><a class="number" href="#L570">570</a><code class="code">    private void NotifyContextDisplay()</code></span>
+<span class="line" id="L571"><a class="number" href="#L571">571</a><code class="code">    {</code></span>
+<span class="line" id="L572"><a class="number" href="#L572">572</a><code class="code">        string displayName = TryGetCategory(_activeCategoryId, out CategoryDescriptor? category)</code></span>
+<span class="line" id="L573"><a class="number" href="#L573">573</a><code class="code">            ? category!.DisplayName</code></span>
+<span class="line" id="L574"><a class="number" href="#L574">574</a><code class="code">            : Category?.DisplayName ?? &quot;道路&quot;;</code></span>
+<span class="line" id="L575"><a class="number" href="#L575">575</a><code class="code">        ContextDisplayChanged?.Invoke(displayName, UsesCatalogContext);</code></span>
+<span class="line" id="L576"><a class="number" href="#L576">576</a><code class="code">    }</code></span>
+<span class="line" id="L577"><a class="number" href="#L577">577</a><code class="code"></code></span>
+<span class="line" id="L578"><a class="number" href="#L578">578</a><code class="code">    private bool TryGetCategory(string categoryId, out CategoryDescriptor? category)</code></span>
+<span class="line" id="L579"><a class="number" href="#L579">579</a><code class="code">    {</code></span>
+<span class="line" id="L580"><a class="number" href="#L580">580</a><code class="code">        foreach (CategoryDescriptor candidate in Categories)</code></span>
+<span class="line" id="L581"><a class="number" href="#L581">581</a><code class="code">        {</code></span>
+<span class="line" id="L582"><a class="number" href="#L582">582</a><code class="code">            if (candidate.Id != categoryId) continue;</code></span>
+<span class="line" id="L583"><a class="number" href="#L583">583</a><code class="code">            category = candidate;</code></span>
+<span class="line" id="L584"><a class="number" href="#L584">584</a><code class="code">            return true;</code></span>
+<span class="line" id="L585"><a class="number" href="#L585">585</a><code class="code">        }</code></span>
+<span class="line" id="L586"><a class="number" href="#L586">586</a><code class="code"></code></span>
+<span class="line" id="L587"><a class="number" href="#L587">587</a><code class="code">        category = null;</code></span>
+<span class="line" id="L588"><a class="number" href="#L588">588</a><code class="code">        return false;</code></span>
+<span class="line" id="L589"><a class="number" href="#L589">589</a><code class="code">    }</code></span>
+<span class="line" id="L590"><a class="number" href="#L590">590</a><code class="code"></code></span>
+<span class="line" id="L591"><a class="number" href="#L591">591</a><code class="code">    private void LogMissingToolManager()</code></span>
+<span class="line" id="L592"><a class="number" href="#L592">592</a><code class="code">    {</code></span>
+<span class="line" id="L593"><a class="number" href="#L593">593</a><code class="code">        if (_loggedMissingToolManager) return;</code></span>
+<span class="line" id="L594"><a class="number" href="#L594">594</a><code class="code">        _loggedMissingToolManager = true;</code></span>
+<span class="line" id="L595"><a class="number" href="#L595">595</a><code class="code">        GD.PushWarning(&quot;ConstructionDock: ToolManager.Instance is missing; tool commands are disabled until ToolManager exists.&quot;);</code></span>
+<span class="line" id="L596"><a class="number" href="#L596">596</a><code class="code">    }</code></span>
+<span class="line" id="L597"><a class="number" href="#L597">597</a><code class="code"></code></span>
+<span class="line" id="L598"><a class="number" href="#L598">598</a><code class="code">    private static string ToolButtonText(ConstructionToolDefinition tool)</code></span>
+<span class="line" id="L599"><a class="number" href="#L599">599</a><code class="code">    {</code></span>
+<span class="line" id="L600"><a class="number" href="#L600">600</a><code class="code">        return string.IsNullOrWhiteSpace(tool.ShortcutHint)</code></span>
+<span class="line" id="L601"><a class="number" href="#L601">601</a><code class="code">            ? tool.DisplayName</code></span>
+<span class="line" id="L602"><a class="number" href="#L602">602</a><code class="code">            : $&quot;{tool.DisplayName} {tool.ShortcutHint}&quot;;</code></span>
+<span class="line" id="L603"><a class="number" href="#L603">603</a><code class="code">    }</code></span>
+<span class="line" id="L604"><a class="number" href="#L604">604</a><code class="code"></code></span>
+<span class="line" id="L605"><a class="number" href="#L605">605</a><code class="code">    private static string ToolNodeName(ToolType toolType) =&gt; toolType switch</code></span>
+<span class="line" id="L606"><a class="number" href="#L606">606</a><code class="code">    {</code></span>
+<span class="line" id="L607"><a class="number" href="#L607">607</a><code class="code">        ToolType.Road =&gt; &quot;RoadToolButton&quot;,</code></span>
+<span class="line" id="L608"><a class="number" href="#L608">608</a><code class="code">        ToolType.RoadUpgrade =&gt; &quot;RoadUpgradeToolButton&quot;,</code></span>
+<span class="line" id="L609"><a class="number" href="#L609">609</a><code class="code">        _ =&gt; $&quot;{toolType}ToolButton&quot;,</code></span>
+<span class="line" id="L610"><a class="number" href="#L610">610</a><code class="code">    };</code></span>
+<span class="line" id="L611"><a class="number" href="#L611">611</a><code class="code">}</code></span></pre></main></html>

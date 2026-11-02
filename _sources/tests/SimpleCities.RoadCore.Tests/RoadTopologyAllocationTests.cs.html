@@ -1,0 +1,83 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>tests/SimpleCities.RoadCore.Tests/RoadTopologyAllocationTests.cs · SimpleCities 源码</title><link rel="stylesheet" href="../../../assets/source.css"><header><a href="../../../index.html">← 文档首页</a><h1>tests/SimpleCities.RoadCore.Tests/RoadTopologyAllocationTests.cs</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">using SimpleCities.RoadCore.Performance;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code">using System.Text;</code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code"></code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code">namespace SimpleCities.RoadCore.Tests;</code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code"></code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">public sealed class RoadTopologyAllocationTests(Xunit.Abstractions.ITestOutputHelper output)</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">{</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">    private const string CrossingWithoutJunction = &quot;&quot;&quot;</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">        {&quot;formatFamily&quot;:&quot;simple-cities-v4&quot;,&quot;payloadType&quot;:&quot;road-network&quot;,&quot;schemaVersion&quot;:6,</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">        &quot;contentRevision&quot;:2,&quot;nextNodeId&quot;:5,&quot;nextEdgeId&quot;:3,&quot;profileCatalogVersion&quot;:1,</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">        &quot;map&quot;:{&quot;widthMetres&quot;:8000,&quot;heightMetres&quot;:8000,&quot;origin&quot;:&quot;center&quot;,&quot;metresPerUnit&quot;:1,&quot;grid&quot;:&quot;square-eight&quot;,&quot;cellSizeMetres&quot;:100},</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">        &quot;nodes&quot;:[{&quot;id&quot;:1,&quot;x&quot;:0,&quot;y&quot;:0},{&quot;id&quot;:2,&quot;x&quot;:200,&quot;y&quot;:0},{&quot;id&quot;:3,&quot;x&quot;:100,&quot;y&quot;:-100},{&quot;id&quot;:4,&quot;x&quot;:100,&quot;y&quot;:100}],</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">        &quot;edges&quot;:[{&quot;id&quot;:1,&quot;startNodeId&quot;:1,&quot;endNodeId&quot;:2,&quot;profile&quot;:&quot;street&quot;,&quot;points&quot;:[{&quot;x&quot;:0,&quot;y&quot;:0},{&quot;x&quot;:200,&quot;y&quot;:0}]},</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">                 {&quot;id&quot;:2,&quot;startNodeId&quot;:3,&quot;endNodeId&quot;:4,&quot;profile&quot;:&quot;street&quot;,&quot;points&quot;:[{&quot;x&quot;:100,&quot;y&quot;:-100},{&quot;x&quot;:100,&quot;y&quot;:100}]}]}</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code">        &quot;&quot;&quot;;</code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code"></code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">    [Fact]</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code">    public void RepeatedLocalBuildDoesNotRematerializeFullValidationObjects()</code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">    {</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code">        RoadNetwork network = RoadBaselineFixtures.CreateMixed(25);</code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">        RoadSnapshot source = network.Snapshot;</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">        var request = new RoadBuildRequest(source.Token, new(3000, 3000), new(3025, 3000), RoadProfileId.Street);</code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code">        _ = network.PlanBuild(request);</code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">        long before = GC.GetAllocatedBytesForCurrentThread();</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code">        RoadPlan plan = network.PlanBuild(request).Plan!;</code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">        output.WriteLine($&quot;Repeated local build validation: {allocated} B&quot;);</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code">        Assert.True(allocated &lt; 128 * 1024, $&quot;Full validation allocated {allocated} B.&quot;);</code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">        Assert.Same(source, network.Snapshot);</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">        Assert.Equal(source.EdgeCount + 1, plan.Target.EdgeCount);</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code">        Assert.Single(plan.ChangeSet.Edges);</code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">    }</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code"></code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code">    [Fact]</code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code">    public void RejectedIntersectionsCannotContaminateLaterSmallOrLargeValidation()</code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code">    {</code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code">        RoadNetwork network = RoadBaselineFixtures.CreateMixed(25);</code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code">        RoadSnapshot before = network.Snapshot;</code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code">        RoadEditHistory history = network.History;</code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code">        for (int i = 0; i &lt; 24; i++)</code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code">        {</code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code">            RejectCrossing();</code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code">            var small = new RoadNetwork();</code></span>
+<span class="line" id="L44"><a class="number" href="#L44">44</a><code class="code">            RoadBaselineFixtures.Build(small, new(0, 0), new(100, 0));</code></span>
+<span class="line" id="L45"><a class="number" href="#L45">45</a><code class="code">            Assert.Single(small.Snapshot.Edges);</code></span>
+<span class="line" id="L46"><a class="number" href="#L46">46</a><code class="code">            RoadPlan plan = network.PlanBuild(new(before.Token, new(3000, 3000), new(3025, 3000), RoadProfileId.Street)).Plan!;</code></span>
+<span class="line" id="L47"><a class="number" href="#L47">47</a><code class="code">            Assert.Equal(before.EdgeCount + 1, plan.Target.EdgeCount);</code></span>
+<span class="line" id="L48"><a class="number" href="#L48">48</a><code class="code">            Assert.Same(before, network.Snapshot);</code></span>
+<span class="line" id="L49"><a class="number" href="#L49">49</a><code class="code">            Assert.Same(history, network.History);</code></span>
+<span class="line" id="L50"><a class="number" href="#L50">50</a><code class="code">        }</code></span>
+<span class="line" id="L51"><a class="number" href="#L51">51</a><code class="code">    }</code></span>
+<span class="line" id="L52"><a class="number" href="#L52">52</a><code class="code"></code></span>
+<span class="line" id="L53"><a class="number" href="#L53">53</a><code class="code">    [Fact]</code></span>
+<span class="line" id="L54"><a class="number" href="#L54">54</a><code class="code">    public async Task ConcurrentValidAndInvalidPlanningKeepsScratchOwnershipSeparate()</code></span>
+<span class="line" id="L55"><a class="number" href="#L55">55</a><code class="code">    {</code></span>
+<span class="line" id="L56"><a class="number" href="#L56">56</a><code class="code">        var source = new RoadNetwork();</code></span>
+<span class="line" id="L57"><a class="number" href="#L57">57</a><code class="code">        RoadBaselineFixtures.Build(source, new(0, 0), new(200, 0));</code></span>
+<span class="line" id="L58"><a class="number" href="#L58">58</a><code class="code">        RoadSnapshot before = source.Snapshot;</code></span>
+<span class="line" id="L59"><a class="number" href="#L59">59</a><code class="code">        await Task.WhenAll(Enumerable.Range(0, 8).Select(index =&gt; Task.Run(() =&gt;</code></span>
+<span class="line" id="L60"><a class="number" href="#L60">60</a><code class="code">        {</code></span>
+<span class="line" id="L61"><a class="number" href="#L61">61</a><code class="code">            for (int repeat = 0; repeat &lt; 32; repeat++)</code></span>
+<span class="line" id="L62"><a class="number" href="#L62">62</a><code class="code">            {</code></span>
+<span class="line" id="L63"><a class="number" href="#L63">63</a><code class="code">                RejectCrossing();</code></span>
+<span class="line" id="L64"><a class="number" href="#L64">64</a><code class="code">                var start = new RoadPoint(0, 200 + index * 100);</code></span>
+<span class="line" id="L65"><a class="number" href="#L65">65</a><code class="code">                var end = new RoadPoint(200, start.Y);</code></span>
+<span class="line" id="L66"><a class="number" href="#L66">66</a><code class="code">                RoadPlan plan = source.PlanBuild(new(before.Token, start, end, RoadProfileId.Street)).Plan!;</code></span>
+<span class="line" id="L67"><a class="number" href="#L67">67</a><code class="code">                Assert.Equal(2, plan.Target.EdgeCount);</code></span>
+<span class="line" id="L68"><a class="number" href="#L68">68</a><code class="code">                RoadEdge added = Assert.Single(plan.ChangeSet.Edges).After!;</code></span>
+<span class="line" id="L69"><a class="number" href="#L69">69</a><code class="code">                Assert.Equal(new[] { start, end }, added.Points);</code></span>
+<span class="line" id="L70"><a class="number" href="#L70">70</a><code class="code">                Assert.Same(before, source.Snapshot);</code></span>
+<span class="line" id="L71"><a class="number" href="#L71">71</a><code class="code">                Assert.Throws&lt;OperationCanceledException&gt;(() =&gt; source.PlanBuild(</code></span>
+<span class="line" id="L72"><a class="number" href="#L72">72</a><code class="code">                    new(before.Token, start, end, RoadProfileId.Street), new(true)));</code></span>
+<span class="line" id="L73"><a class="number" href="#L73">73</a><code class="code">            }</code></span>
+<span class="line" id="L74"><a class="number" href="#L74">74</a><code class="code">        })));</code></span>
+<span class="line" id="L75"><a class="number" href="#L75">75</a><code class="code">    }</code></span>
+<span class="line" id="L76"><a class="number" href="#L76">76</a><code class="code"></code></span>
+<span class="line" id="L77"><a class="number" href="#L77">77</a><code class="code">    private static void RejectCrossing()</code></span>
+<span class="line" id="L78"><a class="number" href="#L78">78</a><code class="code">    {</code></span>
+<span class="line" id="L79"><a class="number" href="#L79">79</a><code class="code">        using var input = new MemoryStream(Encoding.UTF8.GetBytes(CrossingWithoutJunction));</code></span>
+<span class="line" id="L80"><a class="number" href="#L80">80</a><code class="code">        InvalidDataException error = Assert.Throws&lt;InvalidDataException&gt;(() =&gt; RoadCodec.Read(input));</code></span>
+<span class="line" id="L81"><a class="number" href="#L81">81</a><code class="code">        Assert.Equal(&quot;道路交叉或接入位置缺少共同结构节点&quot;, error.Message);</code></span>
+<span class="line" id="L82"><a class="number" href="#L82">82</a><code class="code">    }</code></span>
+<span class="line" id="L83"><a class="number" href="#L83">83</a><code class="code">}</code></span></pre></main></html>

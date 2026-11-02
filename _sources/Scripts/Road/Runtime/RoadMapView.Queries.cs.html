@@ -1,0 +1,56 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Scripts/Road/Runtime/RoadMapView.Queries.cs · SimpleCities 源码</title><link rel="stylesheet" href="../../../../assets/source.css"><header><a href="../../../../index.html">← 文档首页</a><h1>Scripts/Road/Runtime/RoadMapView.Queries.cs</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">using Godot;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code">using SimpleCities.RoadCore;</code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code"></code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code">public partial class RoadMapView</code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code">{</code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">    private SpatialQueryStatus _queryStatus = SpatialQueryStatus.Ready;</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">    private SpatialQueryMetrics _queryMetrics;</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">    private RoadStateToken? _querySource;</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">    private string _queryReason = &quot;&quot;;</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code"></code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">    private SpatialQueryResult&lt;T&gt; RecordQuery&lt;T&gt;(SpatialQueryResult&lt;T&gt; result)</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">    {</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">        _queryStatus = result.Status;</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">        _queryMetrics = result.Metrics;</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code">        _querySource = result.Source;</code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">        _queryReason = result.Reason;</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">        return result;</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code">    }</code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code"></code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code">    private static SpatialQueryResult&lt;T&gt; Unavailable&lt;T&gt;() =&gt;</code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">        new(default, SpatialQueryStatus.InvalidParameters, [], default, &quot;道路显示尚未就绪&quot;);</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code"></code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code">    internal SpatialQueryResult&lt;RoadDisplay.HitResult&gt; QueryHit(Vector2 world, SpatialQueryBudget? budget) =&gt;</code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">        RecordQuery(_display?.QueryHit(world, budget) ?? Unavailable&lt;RoadDisplay.HitResult&gt;());</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code"></code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">    internal SpatialQueryResult&lt;RoadGridSpan&gt; QuerySpan(Vector2 world) =&gt;</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">        RecordQuery(_display?.QuerySpan(world) ?? Unavailable&lt;RoadGridSpan&gt;());</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code"></code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">    internal SpatialQueryResult&lt;RoadGridSpan&gt; QuerySpans(Vector2 from, Vector2 to, SpatialQueryBudget? budget = null) =&gt;</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">        RecordQuery(_display?.QueryTraceSpans(from, to, budget) ?? Unavailable&lt;RoadGridSpan&gt;());</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code"></code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">    internal Godot.Collections.Dictionary DescribeQuery() =&gt; new()</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code">    {</code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code">        [&quot;status&quot;] = _queryStatus.ToString(), [&quot;sourceToken&quot;] = _querySource?.ToString() ?? &quot;&quot;, [&quot;reason&quot;] = _queryReason,</code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code">        [&quot;bucketsVisited&quot;] = _queryMetrics.BucketsVisited,</code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code">        [&quot;fragmentCandidates&quot;] = _queryMetrics.FragmentCandidates,</code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code">        [&quot;exactGeometryTests&quot;] = _queryMetrics.ExactGeometryTests,</code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code">        [&quot;fullEdgeVisits&quot;] = _queryMetrics.FullEdgeVisits, [&quot;hits&quot;] = _queryMetrics.Hits,</code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code">    };</code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code"></code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code">    internal Godot.Collections.Dictionary QueryRoad(Vector2 world, SpatialQueryBudget budget)</code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code">    {</code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code">        var result = QueryHit(world, budget);</code></span>
+<span class="line" id="L44"><a class="number" href="#L44">44</a><code class="code">        var description = DescribeQuery();</code></span>
+<span class="line" id="L45"><a class="number" href="#L45">45</a><code class="code">        description[&quot;hit&quot;] = result.Results.Count == 0 ? new Godot.Collections.Dictionary() : DescribeHit(result.Results[0]);</code></span>
+<span class="line" id="L46"><a class="number" href="#L46">46</a><code class="code">        return description;</code></span>
+<span class="line" id="L47"><a class="number" href="#L47">47</a><code class="code">    }</code></span>
+<span class="line" id="L48"><a class="number" href="#L48">48</a><code class="code"></code></span>
+<span class="line" id="L49"><a class="number" href="#L49">49</a><code class="code">    internal Godot.Collections.Dictionary TraceRoadSpans(Vector2 from, Vector2 to, SpatialQueryBudget budget)</code></span>
+<span class="line" id="L50"><a class="number" href="#L50">50</a><code class="code">    {</code></span>
+<span class="line" id="L51"><a class="number" href="#L51">51</a><code class="code">        var result = QuerySpans(from, to, budget);</code></span>
+<span class="line" id="L52"><a class="number" href="#L52">52</a><code class="code">        var description = DescribeQuery();</code></span>
+<span class="line" id="L53"><a class="number" href="#L53">53</a><code class="code">        description[&quot;spanCount&quot;] = result.Results.Count;</code></span>
+<span class="line" id="L54"><a class="number" href="#L54">54</a><code class="code">        return description;</code></span>
+<span class="line" id="L55"><a class="number" href="#L55">55</a><code class="code">    }</code></span>
+<span class="line" id="L56"><a class="number" href="#L56">56</a><code class="code">}</code></span></pre></main></html>

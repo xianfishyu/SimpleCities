@@ -1,0 +1,22 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>tests/godot/road_capacity_runtime_contract.gd · SimpleCities 源码</title><link rel="stylesheet" href="../../../assets/source.css"><header><a href="../../../index.html">← 文档首页</a><h1>tests/godot/road_capacity_runtime_contract.gd</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">extends SceneTree</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code"></code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">func _initialize() -&gt; void:</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code">	run.call_deferred()</code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code"></code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">func run() -&gt; void:</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">	var output := &quot;res://.scratch/v4-24-20260930&quot;</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">	for argument in OS.get_cmdline_user_args():</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">		if argument.begins_with(&quot;--output=&quot;): output = argument.trim_prefix(&quot;--output=&quot;)</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">	var map = load(&quot;res://Scenes/RoadMap.tscn&quot;).instantiate()</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">	root.add_child(map)</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">	current_scene = map</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">	var bot = load(&quot;res://tests/godot/road_capacity_scenario.gd&quot;).new()</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">	root.add_child(bot)</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code">	await process_frame</code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">	bot.start(map, output, [[25,&quot;target&quot;,10000],[50,&quot;target&quot;,10000],[100,&quot;target&quot;,10000],[200,&quot;target&quot;,9680],[200,&quot;polylines&quot;,320]])</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">	await bot.completed</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code">	var passed: bool = bot.result.get(&quot;passed&quot;, false)</code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">	bot.queue_free()</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code">	map.queue_free()</code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">	await process_frame</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">	quit(0 if passed else 1)</code></span></pre></main></html>

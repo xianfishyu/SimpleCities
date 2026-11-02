@@ -1,0 +1,196 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>tests/godot/road_cell_center_runtime_contract.gd · SimpleCities 源码</title><link rel="stylesheet" href="../../../assets/source.css"><header><a href="../../../index.html">← 文档首页</a><h1>tests/godot/road_cell_center_runtime_contract.gd</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">extends SceneTree</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code"></code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">const SAVE := preload(&quot;res://tests/godot/road_save_fixture.gd&quot;)</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code">const CONTROLS := &quot;HUD/Panel/Margin/Controls/&quot;</code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code">const CELLS := [25, 50, 100, 200]</code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code"></code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">func _initialize() -&gt; void:</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">	run.call_deferred()</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code"></code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">func run() -&gt; void:</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">	var map = load(&quot;res://Scenes/RoadMap.tscn&quot;).instantiate()</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">	root.add_child(map)</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">	current_scene = map</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">	await process_frame</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code">	var manager = root.get_node(&quot;SaveManager&quot;)</code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">	var rows: Array = []</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">	var passed: bool = true</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code">	var screenshot: bool = false</code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">	for cell in CELLS:</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code">		var c: float = float(cell)</code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">		var center := Vector2(c / 2.0, c / 2.0)</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">		var created: bool = map.CreateMap(cell)</code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code">		focus(map, center, 200.0 / c)</code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">		await process_frame</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code">		# Crossing the two complete diagonals creates a structural node at the exact half-cell.</code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">		var first: bool = await build(map, Vector2.ZERO, Vector2(c, c))</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">		var second: bool = await build(map, Vector2(c, 0), Vector2(0, c))</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code">		var automatic: bool = created and first and second and junction_matches(map, center, 5, 4)</code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">		var before: Dictionary = map.GetRoadState()</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">		var junction_before: Dictionary = junction_at(before, center)</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code">		var junction_id: int = junction_before.get(&quot;nodeId&quot;, 0)</code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">		var saved: bool = await SAVE.save_as(manager, &quot;V4 cell-center %d m QA&quot; % cell)</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code">		var slot: String = manager.CurrentSlotID if saved else &quot;&quot;</code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code">		var round_trip: bool = false</code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code">		var deleted: bool = false</code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code">		if saved:</code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code">			var different: int = 25 if cell == 200 else 200</code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code">			var replacement_created: bool = map.CreateMap(different)</code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code">			var empty_token: String = map.StateToken</code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code">			var loaded: bool = await SAVE.operation_succeeded(manager, map.LoadSlot(slot))</code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code">			await process_frame</code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code">			await RenderingServer.frame_post_draw</code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code">			var after: Dictionary = map.GetRoadState()</code></span>
+<span class="line" id="L44"><a class="number" href="#L44">44</a><code class="code">			var junction_after: Dictionary = map.GetJunctionState(junction_id)</code></span>
+<span class="line" id="L45"><a class="number" href="#L45">45</a><code class="code">			round_trip = replacement_created and loaded and map.CellSizeMetres == cell and map.PresentedCellSizeMetres == cell and after.get(&quot;edges&quot;) == before.get(&quot;edges&quot;) and junction_after.get(&quot;nodeId&quot;) == junction_id and junction_after.get(&quot;position&quot;) == center and junction_after.get(&quot;incidences&quot;) == junction_before.get(&quot;incidences&quot;) and junction_after.get(&quot;turns&quot;) == junction_before.get(&quot;turns&quot;) and lineage(map.StateToken) != lineage(empty_token) and lineage(map.StateToken) != lineage(before.get(&quot;sourceToken&quot;, &quot;&quot;)) and junction_matches(map, center, 5, 4)</code></span>
+<span class="line" id="L46"><a class="number" href="#L46">46</a><code class="code">			deleted = await SAVE.delete_slot(manager, slot)</code></span>
+<span class="line" id="L47"><a class="number" href="#L47">47</a><code class="code">			deleted = deleted and not DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(&quot;user://saves-v4/&quot; + slot))</code></span>
+<span class="line" id="L48"><a class="number" href="#L48">48</a><code class="code">		# A full X has no unused diagonal. Start at a real three-arm center to test a valid new arm.</code></span>
+<span class="line" id="L49"><a class="number" href="#L49">49</a><code class="code">		var partial_created: bool = map.CreateMap(cell)</code></span>
+<span class="line" id="L50"><a class="number" href="#L50">50</a><code class="code">		var diagonal: bool = await build(map, Vector2.ZERO, Vector2(c, c))</code></span>
+<span class="line" id="L51"><a class="number" href="#L51">51</a><code class="code">		var third_arm: bool = await build(map, Vector2(c, 0), center)</code></span>
+<span class="line" id="L52"><a class="number" href="#L52">52</a><code class="code">		var partial: bool = partial_created and diagonal and third_arm and junction_matches(map, center, 4, 3)</code></span>
+<span class="line" id="L53"><a class="number" href="#L53">53</a><code class="code">		var partial_id: int = junction_at(map.GetRoadState(), center).get(&quot;nodeId&quot;, 0)</code></span>
+<span class="line" id="L54"><a class="number" href="#L54">54</a><code class="code">		var token: String = map.StateToken</code></span>
+<span class="line" id="L55"><a class="number" href="#L55">55</a><code class="code">		press(map, center)</code></span>
+<span class="line" id="L56"><a class="number" href="#L56">56</a><code class="code">		motion(map, Vector2(0, c))</code></span>
+<span class="line" id="L57"><a class="number" href="#L57">57</a><code class="code">		var ready: bool = await wait_preview(map)</code></span>
+<span class="line" id="L58"><a class="number" href="#L58">58</a><code class="code">		var preview: Dictionary = map.GetBuildPreview()</code></span>
+<span class="line" id="L59"><a class="number" href="#L59">59</a><code class="code">		var positive_preview: bool = ready and preview.get(&quot;phase&quot;) == &quot;Ready&quot; and preview.get(&quot;sourceToken&quot;) == token and preview.get(&quot;segments&quot;, []).size() &gt; 0 and preview.get(&quot;segments&quot;, []).all(func(segment): return not segment.get(&quot;conflict&quot;, false))</code></span>
+<span class="line" id="L60"><a class="number" href="#L60">60</a><code class="code">		release(map, Vector2(0, c))</code></span>
+<span class="line" id="L61"><a class="number" href="#L61">61</a><code class="code">		var idle: bool = await wait_idle(map)</code></span>
+<span class="line" id="L62"><a class="number" href="#L62">62</a><code class="code">		var fourth_arm: bool = positive_preview and idle and map.StateToken != token and junction_matches(map, center, 5, 4) and junction_at(map.GetRoadState(), center).get(&quot;nodeId&quot;, 0) == partial_id</code></span>
+<span class="line" id="L63"><a class="number" href="#L63">63</a><code class="code">		var horizontal: bool = await rejected_drag(map, center, center + Vector2(c, 0), &quot;对角&quot;, false)</code></span>
+<span class="line" id="L64"><a class="number" href="#L64">64</a><code class="code">		var vertical: bool = await rejected_drag(map, center, center + Vector2(0, c), &quot;对角&quot;, false)</code></span>
+<span class="line" id="L65"><a class="number" href="#L65">65</a><code class="code">		var duplicate: bool = await rejected_drag(map, center, Vector2(0, c), &quot;重叠&quot;, true)</code></span>
+<span class="line" id="L66"><a class="number" href="#L66">66</a><code class="code">		if cell == 100:</code></span>
+<span class="line" id="L67"><a class="number" href="#L67">67</a><code class="code">			await RenderingServer.frame_post_draw</code></span>
+<span class="line" id="L68"><a class="number" href="#L68">68</a><code class="code">			var capture_dir: String = ProjectSettings.globalize_path(&quot;res://.scratch/v4-09-qa&quot;)</code></span>
+<span class="line" id="L69"><a class="number" href="#L69">69</a><code class="code">			var directory_error: int = DirAccess.make_dir_recursive_absolute(capture_dir)</code></span>
+<span class="line" id="L70"><a class="number" href="#L70">70</a><code class="code">			screenshot = (directory_error == OK or directory_error == ERR_ALREADY_EXISTS) and root.get_texture().get_image().save_png(capture_dir.path_join(&quot;cell-center.png&quot;)) == OK</code></span>
+<span class="line" id="L71"><a class="number" href="#L71">71</a><code class="code">		var row_passed: bool = automatic and saved and round_trip and deleted and partial and fourth_arm and horizontal and vertical and duplicate</code></span>
+<span class="line" id="L72"><a class="number" href="#L72">72</a><code class="code">		rows.append({&quot;cell&quot;:cell,&quot;center&quot;:center,&quot;automatic_cross&quot;:automatic,&quot;saved&quot;:saved,&quot;round_trip&quot;:round_trip,&quot;slot_deleted&quot;:deleted,&quot;partial_t&quot;:partial,&quot;fourth_arm&quot;:fourth_arm,&quot;horizontal_rejected&quot;:horizontal,&quot;vertical_rejected&quot;:vertical,&quot;duplicate_conflict&quot;:duplicate,&quot;passed&quot;:row_passed})</code></span>
+<span class="line" id="L73"><a class="number" href="#L73">73</a><code class="code">		passed = row_passed and passed</code></span>
+<span class="line" id="L74"><a class="number" href="#L74">74</a><code class="code">	# A diagonal beginning at the last cell center stops at the map corner; its cap can extend outside.</code></span>
+<span class="line" id="L75"><a class="number" href="#L75">75</a><code class="code">	var boundary_created: bool = map.CreateMap(25)</code></span>
+<span class="line" id="L76"><a class="number" href="#L76">76</a><code class="code">	var boundary_start := Vector2(4000.0 - 25.0 / 2.0, 4000.0 - 25.0 / 2.0)</code></span>
+<span class="line" id="L77"><a class="number" href="#L77">77</a><code class="code">	focus(map, boundary_start, 0.6)</code></span>
+<span class="line" id="L78"><a class="number" href="#L78">78</a><code class="code">	await process_frame</code></span>
+<span class="line" id="L79"><a class="number" href="#L79">79</a><code class="code">	var boundary_built: bool = await build(map, boundary_start, Vector2(4500, 4500))</code></span>
+<span class="line" id="L80"><a class="number" href="#L80">80</a><code class="code">	var boundary_state: Dictionary = map.GetRoadState()</code></span>
+<span class="line" id="L81"><a class="number" href="#L81">81</a><code class="code">	var boundary: bool = boundary_created and boundary_built and boundary_state.get(&quot;start&quot;) == boundary_start and boundary_state.get(&quot;end&quot;) == Vector2(4000, 4000) and boundary_state.get(&quot;nodeCount&quot;, 0) == 2 and boundary_state.get(&quot;edges&quot;, []).size() == 1</code></span>
+<span class="line" id="L82"><a class="number" href="#L82">82</a><code class="code">	var cap_hit: Dictionary = map.PickRoad(Vector2(4001, 4001))</code></span>
+<span class="line" id="L83"><a class="number" href="#L83">83</a><code class="code">	var outside_cap: bool = not cap_hit.is_empty() and cap_hit.get(&quot;surfaceCenter&quot;) == Vector2(4000, 4000) and cap_hit.get(&quot;sourceToken&quot;) == map.StateToken</code></span>
+<span class="line" id="L84"><a class="number" href="#L84">84</a><code class="code">	passed = passed and boundary and outside_cap and screenshot</code></span>
+<span class="line" id="L85"><a class="number" href="#L85">85</a><code class="code">	print(&quot;V4_CELL_CENTER_RESULT &quot;, JSON.stringify({&quot;rows&quot;:rows,&quot;boundary&quot;:boundary,&quot;outside_cap&quot;:outside_cap,&quot;screenshot&quot;:screenshot,&quot;passed&quot;:passed}))</code></span>
+<span class="line" id="L86"><a class="number" href="#L86">86</a><code class="code">	map.queue_free()</code></span>
+<span class="line" id="L87"><a class="number" href="#L87">87</a><code class="code">	await process_frame</code></span>
+<span class="line" id="L88"><a class="number" href="#L88">88</a><code class="code">	if passed:</code></span>
+<span class="line" id="L89"><a class="number" href="#L89">89</a><code class="code">		print(&quot;PASS V4 cell-center runtime contract&quot;)</code></span>
+<span class="line" id="L90"><a class="number" href="#L90">90</a><code class="code">		quit(0)</code></span>
+<span class="line" id="L91"><a class="number" href="#L91">91</a><code class="code">	else:</code></span>
+<span class="line" id="L92"><a class="number" href="#L92">92</a><code class="code">		push_error(&quot;FAIL V4 cell-center runtime contract&quot;)</code></span>
+<span class="line" id="L93"><a class="number" href="#L93">93</a><code class="code">		quit(1)</code></span>
+<span class="line" id="L94"><a class="number" href="#L94">94</a><code class="code"></code></span>
+<span class="line" id="L95"><a class="number" href="#L95">95</a><code class="code">func focus(map: Node, world: Vector2, zoom: float) -&gt; void:</code></span>
+<span class="line" id="L96"><a class="number" href="#L96">96</a><code class="code">	var camera: Camera2D = map.get_node(&quot;Camera2D&quot;)</code></span>
+<span class="line" id="L97"><a class="number" href="#L97">97</a><code class="code">	camera.zoom = Vector2(zoom, zoom)</code></span>
+<span class="line" id="L98"><a class="number" href="#L98">98</a><code class="code">	# Keep all raw mouse gestures clear of the left-hand control panel.</code></span>
+<span class="line" id="L99"><a class="number" href="#L99">99</a><code class="code">	camera.position = world - (Vector2(1000, 450) - root.get_visible_rect().size / 2.0) / zoom</code></span>
+<span class="line" id="L100"><a class="number" href="#L100">100</a><code class="code"></code></span>
+<span class="line" id="L101"><a class="number" href="#L101">101</a><code class="code">func junction_at(state: Dictionary, position: Vector2) -&gt; Dictionary:</code></span>
+<span class="line" id="L102"><a class="number" href="#L102">102</a><code class="code">	var found: Array = state.get(&quot;junctions&quot;, []).filter(func(item): return item.get(&quot;position&quot;) == position)</code></span>
+<span class="line" id="L103"><a class="number" href="#L103">103</a><code class="code">	return found[0] if found.size() == 1 else {}</code></span>
+<span class="line" id="L104"><a class="number" href="#L104">104</a><code class="code"></code></span>
+<span class="line" id="L105"><a class="number" href="#L105">105</a><code class="code">func junction_matches(map: Node, center: Vector2, nodes: int, branches: int) -&gt; bool:</code></span>
+<span class="line" id="L106"><a class="number" href="#L106">106</a><code class="code">	var state: Dictionary = map.GetRoadState()</code></span>
+<span class="line" id="L107"><a class="number" href="#L107">107</a><code class="code">	var junction: Dictionary = junction_at(state, center)</code></span>
+<span class="line" id="L108"><a class="number" href="#L108">108</a><code class="code">	var incidences: Array = junction.get(&quot;incidences&quot;, [])</code></span>
+<span class="line" id="L109"><a class="number" href="#L109">109</a><code class="code">	var turns: Array = junction.get(&quot;turns&quot;, [])</code></span>
+<span class="line" id="L110"><a class="number" href="#L110">110</a><code class="code">	if state.get(&quot;nodeCount&quot;, 0) != nodes or state.get(&quot;edges&quot;, []).size() != branches or state.get(&quot;junctions&quot;, []).size() != 1 or incidences.size() != branches or turns.size() != branches * branches:</code></span>
+<span class="line" id="L111"><a class="number" href="#L111">111</a><code class="code">		return false</code></span>
+<span class="line" id="L112"><a class="number" href="#L112">112</a><code class="code">	var keys: Dictionary = {}</code></span>
+<span class="line" id="L113"><a class="number" href="#L113">113</a><code class="code">	var directions: Array = []</code></span>
+<span class="line" id="L114"><a class="number" href="#L114">114</a><code class="code">	var previous_bearing: float = -1.0</code></span>
+<span class="line" id="L115"><a class="number" href="#L115">115</a><code class="code">	for incidence in incidences:</code></span>
+<span class="line" id="L116"><a class="number" href="#L116">116</a><code class="code">		var edge_id: int = incidence.get(&quot;edgeId&quot;, 0)</code></span>
+<span class="line" id="L117"><a class="number" href="#L117">117</a><code class="code">		var role: String = incidence.get(&quot;role&quot;, &quot;&quot;)</code></span>
+<span class="line" id="L118"><a class="number" href="#L118">118</a><code class="code">		var outward: Vector2 = incidence.get(&quot;outward&quot;, Vector2.ZERO)</code></span>
+<span class="line" id="L119"><a class="number" href="#L119">119</a><code class="code">		var bearing: float = incidence.get(&quot;bearingRadians&quot;, -1.0)</code></span>
+<span class="line" id="L120"><a class="number" href="#L120">120</a><code class="code">		var key: String = &quot;%d:%s&quot; % [edge_id, role]</code></span>
+<span class="line" id="L121"><a class="number" href="#L121">121</a><code class="code">		if edge_id &lt;= 0 or role not in [&quot;Start&quot;, &quot;End&quot;] or keys.has(key) or directions.has(outward) or bearing &lt; previous_bearing or not is_equal_approx(absf(outward.x), sqrt(0.5)) or not is_equal_approx(absf(outward.y), sqrt(0.5)):</code></span>
+<span class="line" id="L122"><a class="number" href="#L122">122</a><code class="code">			return false</code></span>
+<span class="line" id="L123"><a class="number" href="#L123">123</a><code class="code">		keys[key] = true</code></span>
+<span class="line" id="L124"><a class="number" href="#L124">124</a><code class="code">		directions.append(outward)</code></span>
+<span class="line" id="L125"><a class="number" href="#L125">125</a><code class="code">		previous_bearing = bearing</code></span>
+<span class="line" id="L126"><a class="number" href="#L126">126</a><code class="code">	var turn_keys: Dictionary = {}</code></span>
+<span class="line" id="L127"><a class="number" href="#L127">127</a><code class="code">	for turn in turns:</code></span>
+<span class="line" id="L128"><a class="number" href="#L128">128</a><code class="code">		var from_key: String = &quot;%d:%s&quot; % [turn.get(&quot;fromEdgeId&quot;, 0), turn.get(&quot;fromRole&quot;, &quot;&quot;)]</code></span>
+<span class="line" id="L129"><a class="number" href="#L129">129</a><code class="code">		var to_key: String = &quot;%d:%s&quot; % [turn.get(&quot;toEdgeId&quot;, 0), turn.get(&quot;toRole&quot;, &quot;&quot;)]</code></span>
+<span class="line" id="L130"><a class="number" href="#L130">130</a><code class="code">		var pair: String = from_key + &quot;&gt;&quot; + to_key</code></span>
+<span class="line" id="L131"><a class="number" href="#L131">131</a><code class="code">		if not keys.has(from_key) or not keys.has(to_key) or turn_keys.has(pair): return false</code></span>
+<span class="line" id="L132"><a class="number" href="#L132">132</a><code class="code">		turn_keys[pair] = true</code></span>
+<span class="line" id="L133"><a class="number" href="#L133">133</a><code class="code">	var hit: Dictionary = map.PickRoad(center)</code></span>
+<span class="line" id="L134"><a class="number" href="#L134">134</a><code class="code">	var owners: Array = incidences.filter(func(item): return item.get(&quot;edgeId&quot;) == hit.get(&quot;edgeId&quot;))</code></span>
+<span class="line" id="L135"><a class="number" href="#L135">135</a><code class="code">	var node_id: int = junction.get(&quot;nodeId&quot;, 0)</code></span>
+<span class="line" id="L136"><a class="number" href="#L136">136</a><code class="code">	return map.IsPresentationCurrent and state.get(&quot;sourceToken&quot;) == map.StateToken and junction.get(&quot;sourceToken&quot;) == map.StateToken and node_id &gt; 0 and map.GetJunctionState(node_id) == junction and hit.get(&quot;sourceToken&quot;) == map.StateToken and hit.get(&quot;junctionNodeId&quot;, 0) == node_id and hit.get(&quot;surfaceCenter&quot;) == center and owners.size() == 1</code></span>
+<span class="line" id="L137"><a class="number" href="#L137">137</a><code class="code"></code></span>
+<span class="line" id="L138"><a class="number" href="#L138">138</a><code class="code">func rejected_drag(map: Node, start: Vector2, end: Vector2, reason: String, conflict: bool) -&gt; bool:</code></span>
+<span class="line" id="L139"><a class="number" href="#L139">139</a><code class="code">	var before: Dictionary = map.GetRoadState()</code></span>
+<span class="line" id="L140"><a class="number" href="#L140">140</a><code class="code">	var token: String = map.StateToken</code></span>
+<span class="line" id="L141"><a class="number" href="#L141">141</a><code class="code">	press(map, start)</code></span>
+<span class="line" id="L142"><a class="number" href="#L142">142</a><code class="code">	motion(map, end)</code></span>
+<span class="line" id="L143"><a class="number" href="#L143">143</a><code class="code">	var ready: bool = await wait_preview(map)</code></span>
+<span class="line" id="L144"><a class="number" href="#L144">144</a><code class="code">	var preview: Dictionary = map.GetBuildPreview()</code></span>
+<span class="line" id="L145"><a class="number" href="#L145">145</a><code class="code">	var preview_reason: String = preview.get(&quot;reason&quot;, &quot;&quot;)</code></span>
+<span class="line" id="L146"><a class="number" href="#L146">146</a><code class="code">	var segments: Array = preview.get(&quot;segments&quot;, [])</code></span>
+<span class="line" id="L147"><a class="number" href="#L147">147</a><code class="code">	var red: Array = segments.filter(func(segment): return segment.get(&quot;conflict&quot;, false))</code></span>
+<span class="line" id="L148"><a class="number" href="#L148">148</a><code class="code">	var rejected: bool = ready and preview.get(&quot;phase&quot;) == &quot;Rejected&quot; and preview.get(&quot;sourceToken&quot;) == token and preview_reason.contains(reason) and (not conflict or red.size() &gt; 0) and map.StateToken == token</code></span>
+<span class="line" id="L149"><a class="number" href="#L149">149</a><code class="code">	release(map, end)</code></span>
+<span class="line" id="L150"><a class="number" href="#L150">150</a><code class="code">	var idle: bool = await wait_idle(map)</code></span>
+<span class="line" id="L151"><a class="number" href="#L151">151</a><code class="code">	var status: String = map.get_node(CONTROLS + &quot;Status&quot;).text</code></span>
+<span class="line" id="L152"><a class="number" href="#L152">152</a><code class="code">	return rejected and idle and status.contains(reason) and map.StateToken == token and map.GetRoadState() == before and map.IsPresentationCurrent</code></span>
+<span class="line" id="L153"><a class="number" href="#L153">153</a><code class="code"></code></span>
+<span class="line" id="L154"><a class="number" href="#L154">154</a><code class="code">func lineage(token: String) -&gt; String:</code></span>
+<span class="line" id="L155"><a class="number" href="#L155">155</a><code class="code">	return token.get_slice(&quot;Lineage = &quot;, 1).get_slice(&quot;,&quot;, 0).strip_edges()</code></span>
+<span class="line" id="L156"><a class="number" href="#L156">156</a><code class="code"></code></span>
+<span class="line" id="L157"><a class="number" href="#L157">157</a><code class="code">func build(map: Node, start: Vector2, end: Vector2) -&gt; bool:</code></span>
+<span class="line" id="L158"><a class="number" href="#L158">158</a><code class="code">	var token: String = map.StateToken</code></span>
+<span class="line" id="L159"><a class="number" href="#L159">159</a><code class="code">	press(map, start)</code></span>
+<span class="line" id="L160"><a class="number" href="#L160">160</a><code class="code">	motion(map, end)</code></span>
+<span class="line" id="L161"><a class="number" href="#L161">161</a><code class="code">	release(map, end)</code></span>
+<span class="line" id="L162"><a class="number" href="#L162">162</a><code class="code">	var idle: bool = await wait_idle(map)</code></span>
+<span class="line" id="L163"><a class="number" href="#L163">163</a><code class="code">	return idle and map.StateToken != token and map.IsPresentationCurrent</code></span>
+<span class="line" id="L164"><a class="number" href="#L164">164</a><code class="code"></code></span>
+<span class="line" id="L165"><a class="number" href="#L165">165</a><code class="code">func press(map: Node, point: Vector2) -&gt; void:</code></span>
+<span class="line" id="L166"><a class="number" href="#L166">166</a><code class="code">	button(map.get_canvas_transform() * point, true)</code></span>
+<span class="line" id="L167"><a class="number" href="#L167">167</a><code class="code"></code></span>
+<span class="line" id="L168"><a class="number" href="#L168">168</a><code class="code">func release(map: Node, point: Vector2) -&gt; void:</code></span>
+<span class="line" id="L169"><a class="number" href="#L169">169</a><code class="code">	button(map.get_canvas_transform() * point, false)</code></span>
+<span class="line" id="L170"><a class="number" href="#L170">170</a><code class="code"></code></span>
+<span class="line" id="L171"><a class="number" href="#L171">171</a><code class="code">func button(position: Vector2, pressed: bool) -&gt; void:</code></span>
+<span class="line" id="L172"><a class="number" href="#L172">172</a><code class="code">	var event := InputEventMouseButton.new()</code></span>
+<span class="line" id="L173"><a class="number" href="#L173">173</a><code class="code">	event.position = position</code></span>
+<span class="line" id="L174"><a class="number" href="#L174">174</a><code class="code">	event.button_index = MOUSE_BUTTON_LEFT</code></span>
+<span class="line" id="L175"><a class="number" href="#L175">175</a><code class="code">	event.pressed = pressed</code></span>
+<span class="line" id="L176"><a class="number" href="#L176">176</a><code class="code">	Input.parse_input_event(event)</code></span>
+<span class="line" id="L177"><a class="number" href="#L177">177</a><code class="code"></code></span>
+<span class="line" id="L178"><a class="number" href="#L178">178</a><code class="code">func motion(map: Node, point: Vector2) -&gt; void:</code></span>
+<span class="line" id="L179"><a class="number" href="#L179">179</a><code class="code">	var event := InputEventMouseMotion.new()</code></span>
+<span class="line" id="L180"><a class="number" href="#L180">180</a><code class="code">	event.position = map.get_canvas_transform() * point</code></span>
+<span class="line" id="L181"><a class="number" href="#L181">181</a><code class="code">	event.button_mask = MOUSE_BUTTON_MASK_LEFT</code></span>
+<span class="line" id="L182"><a class="number" href="#L182">182</a><code class="code">	Input.parse_input_event(event)</code></span>
+<span class="line" id="L183"><a class="number" href="#L183">183</a><code class="code"></code></span>
+<span class="line" id="L184"><a class="number" href="#L184">184</a><code class="code">func wait_idle(map: Node) -&gt; bool:</code></span>
+<span class="line" id="L185"><a class="number" href="#L185">185</a><code class="code">	var deadline: int = Time.get_ticks_msec() + 5000</code></span>
+<span class="line" id="L186"><a class="number" href="#L186">186</a><code class="code">	while Time.get_ticks_msec() &lt; deadline:</code></span>
+<span class="line" id="L187"><a class="number" href="#L187">187</a><code class="code">		await process_frame</code></span>
+<span class="line" id="L188"><a class="number" href="#L188">188</a><code class="code">		if not map.IsBuildBusy: return true</code></span>
+<span class="line" id="L189"><a class="number" href="#L189">189</a><code class="code">	return false</code></span>
+<span class="line" id="L190"><a class="number" href="#L190">190</a><code class="code"></code></span>
+<span class="line" id="L191"><a class="number" href="#L191">191</a><code class="code">func wait_preview(map: Node) -&gt; bool:</code></span>
+<span class="line" id="L192"><a class="number" href="#L192">192</a><code class="code">	var deadline: int = Time.get_ticks_msec() + 5000</code></span>
+<span class="line" id="L193"><a class="number" href="#L193">193</a><code class="code">	while Time.get_ticks_msec() &lt; deadline:</code></span>
+<span class="line" id="L194"><a class="number" href="#L194">194</a><code class="code">		await process_frame</code></span>
+<span class="line" id="L195"><a class="number" href="#L195">195</a><code class="code">		if map.GetBuildPreview().get(&quot;phase&quot;) != &quot;Pending&quot;: return true</code></span>
+<span class="line" id="L196"><a class="number" href="#L196">196</a><code class="code">	return false</code></span></pre></main></html>

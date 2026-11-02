@@ -1,0 +1,37 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>tests/godot/SaveLoadEarlyFailureProbe.cs · SimpleCities 源码</title><link rel="stylesheet" href="../../../assets/source.css"><header><a href="../../../index.html">← 文档首页</a><h1>tests/godot/SaveLoadEarlyFailureProbe.cs</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">using Godot;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code">using System;</code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">using System.Collections.Generic;</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code"></code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code">/// &lt;summary&gt;通用StartLoad早期边界故障；仅编译进Debug。&lt;/summary&gt;</code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">public partial class SaveLoadEarlyFailureProbe : RefCounted</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">{</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">    private SaveManager? _manager;</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">    public void Arm(SaveManager manager, string stage)</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">    {</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">        if (stage is not (&quot;participant-capture&quot; or &quot;prepare-phase&quot; or &quot;worker-entry&quot;) || manager.IsOperationBusy)</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">            throw new InvalidOperationException(&quot;Arm a known early load stage while idle.&quot;);</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">        _manager = manager;</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">        manager.QaLoadFailureStage = stage;</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code">        manager.QaLoadFailureCount = 0;</code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">    }</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">    public int TriggerCount =&gt; _manager?.QaLoadFailureCount ?? 0;</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code">    public bool IsArmed =&gt; _manager?.QaLoadFailureStage.Length &gt; 0;</code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">    public void Disarm() { if (_manager is not null) _manager.QaLoadFailureStage = &quot;&quot;; _manager = null; }</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code">}</code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code"></code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">public partial class SaveManager</code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code">{</code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">    internal string QaLoadFailureStage = &quot;&quot;;</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code">    internal int QaLoadFailureCount;</code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">    internal void ThrowQaLoadFailure(string stage)</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">    {</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code">        if (QaLoadFailureStage != stage) return;</code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">        QaLoadFailureStage = &quot;&quot;;</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">        QaLoadFailureCount++;</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code">        throw new InvalidOperationException(&quot;Injected generic load early failure: &quot; + stage);</code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">    }</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code">    partial void ProbeAggregateLoadPostParticipantCaptureFailure(IReadOnlyList&lt;CapturedLoadParticipant&gt; loadParticipants) =&gt;</code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code">        ThrowQaLoadFailure(&quot;participant-capture&quot;);</code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code">    partial void ProbeAggregateLoadPostPreparePhaseFailure(SaveOperationPhase phase) =&gt;</code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code">        ThrowQaLoadFailure(&quot;prepare-phase&quot;);</code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code">}</code></span></pre></main></html>

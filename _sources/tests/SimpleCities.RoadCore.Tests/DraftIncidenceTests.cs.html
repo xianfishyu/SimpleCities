@@ -1,0 +1,68 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>tests/SimpleCities.RoadCore.Tests/DraftIncidenceTests.cs · SimpleCities 源码</title><link rel="stylesheet" href="../../../assets/source.css"><header><a href="../../../index.html">← 文档首页</a><h1>tests/SimpleCities.RoadCore.Tests/DraftIncidenceTests.cs</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">using SimpleCities.RoadCore.Performance;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code"></code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">namespace SimpleCities.RoadCore.Tests;</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code"></code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code">public sealed class DraftIncidenceTests(Xunit.Abstractions.ITestOutputHelper output)</code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">{</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">    [Fact]</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">    public void LocalProfileEditKeepsDraftAndSnapshotLookupAllocationBounded()</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">    {</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">        RoadNetwork network = RoadBaselineFixtures.CreateMixed(25);</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">        RoadSnapshot source = network.Snapshot;</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">        RoadGridSpan span = RoadSpanQuery.Pick(source, new(source.Token, source.Edges[0].Id, .5))!;</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">        _ = network.PlanChangeProfile(span, RoadProfileId.Highway);</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">        long before = GC.GetAllocatedBytesForCurrentThread();</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code">        RoadPlan plan = network.PlanChangeProfile(span, RoadProfileId.Highway).Plan!;</code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">        output.WriteLine($&quot;Local profile planning: {allocated} B&quot;);</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code">        Assert.True(allocated &lt; 84 * 1024, $&quot;Local profile planning allocated {allocated} B.&quot;);</code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">        Assert.Same(source, network.Snapshot);</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code">        Assert.Empty(plan.ChangeSet.Nodes);</code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">        Assert.Single(plan.ChangeSet.Edges);</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">    }</code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code"></code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">    [Theory]</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code">    [InlineData(false)]</code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">    [InlineData(true)]</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">    public void BatchProfileContractionKeepsStableIdentityAndOldHistory(bool closed)</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code">    {</code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">        var network = new RoadNetwork();</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">        RoadPoint[] points = closed</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code">            ? [new(0, 0), new(100, 0), new(100, 100), new(0, 100), new(0, 0)]</code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">            : Enumerable.Range(0, 13).Select(i =&gt; new RoadPoint(i * 100, (i % 2) * 100)).ToArray();</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code">        for (int i = 1; i &lt; points.Length; i++)</code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code">            Assert.True(network.TryCommit(network.PlanBuild(new(network.Snapshot.Token, points[i - 1], points[i],</code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code">                i % 2 == 0 ? RoadProfileId.Dirt : RoadProfileId.Street)).Plan!));</code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code">        RoadSnapshot original = network.Snapshot;</code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code">        byte[] saved = Save(original);</code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code"></code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code">        Assert.True(network.TryCommit(network.PlanChangeProfile(RoadBaselineFixtures.Spans(original), RoadProfileId.Highway).Plan!));</code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code"></code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code">        RoadSnapshot changed = network.Snapshot;</code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code">        RoadEdge edge = Assert.Single(changed.Edges);</code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code">        Assert.Equal(new EdgeId(1), edge.Id);</code></span>
+<span class="line" id="L44"><a class="number" href="#L44">44</a><code class="code">        Assert.Equal(new NodeId(1), edge.Start);</code></span>
+<span class="line" id="L45"><a class="number" href="#L45">45</a><code class="code">        Assert.Equal(original.NextNodeId, changed.NextNodeId);</code></span>
+<span class="line" id="L46"><a class="number" href="#L46">46</a><code class="code">        Assert.Equal(original.NextEdgeId, changed.NextEdgeId);</code></span>
+<span class="line" id="L47"><a class="number" href="#L47">47</a><code class="code">        Assert.Equal(closed ? 1 : 2, changed.NodeCount);</code></span>
+<span class="line" id="L48"><a class="number" href="#L48">48</a><code class="code">        Assert.Equal(closed ? new NodeId(1) : new NodeId(13), edge.End);</code></span>
+<span class="line" id="L49"><a class="number" href="#L49">49</a><code class="code">        Assert.Equal(closed ? [points[0], points[3], points[2], points[1], points[0]] : points, edge.Points);</code></span>
+<span class="line" id="L50"><a class="number" href="#L50">50</a><code class="code">        byte[] changedBytes = Save(changed);</code></span>
+<span class="line" id="L51"><a class="number" href="#L51">51</a><code class="code">        Assert.True(network.TryCommit(network.PlanUndo().Plan!));</code></span>
+<span class="line" id="L52"><a class="number" href="#L52">52</a><code class="code">        Assert.Equal(saved, Save(network.Snapshot));</code></span>
+<span class="line" id="L53"><a class="number" href="#L53">53</a><code class="code">        Assert.True(network.TryCommit(network.PlanRedo().Plan!));</code></span>
+<span class="line" id="L54"><a class="number" href="#L54">54</a><code class="code">        Assert.Equal(changedBytes, Save(network.Snapshot));</code></span>
+<span class="line" id="L55"><a class="number" href="#L55">55</a><code class="code">        Assert.True(network.TryCommit(network.PlanRemove(RoadBaselineFixtures.Spans(network.Snapshot)).Plan!));</code></span>
+<span class="line" id="L56"><a class="number" href="#L56">56</a><code class="code">        Assert.Empty(network.Snapshot.Nodes);</code></span>
+<span class="line" id="L57"><a class="number" href="#L57">57</a><code class="code">        Assert.Empty(network.Snapshot.Edges);</code></span>
+<span class="line" id="L58"><a class="number" href="#L58">58</a><code class="code">        Assert.True(network.TryCommit(network.PlanUndo().Plan!));</code></span>
+<span class="line" id="L59"><a class="number" href="#L59">59</a><code class="code">        Assert.Equal(changedBytes, Save(network.Snapshot));</code></span>
+<span class="line" id="L60"><a class="number" href="#L60">60</a><code class="code">    }</code></span>
+<span class="line" id="L61"><a class="number" href="#L61">61</a><code class="code"></code></span>
+<span class="line" id="L62"><a class="number" href="#L62">62</a><code class="code">    private static byte[] Save(RoadSnapshot snapshot)</code></span>
+<span class="line" id="L63"><a class="number" href="#L63">63</a><code class="code">    {</code></span>
+<span class="line" id="L64"><a class="number" href="#L64">64</a><code class="code">        using var bytes = new MemoryStream();</code></span>
+<span class="line" id="L65"><a class="number" href="#L65">65</a><code class="code">        RoadCodec.Write(bytes, snapshot);</code></span>
+<span class="line" id="L66"><a class="number" href="#L66">66</a><code class="code">        return bytes.ToArray();</code></span>
+<span class="line" id="L67"><a class="number" href="#L67">67</a><code class="code">    }</code></span>
+<span class="line" id="L68"><a class="number" href="#L68">68</a><code class="code">}</code></span></pre></main></html>

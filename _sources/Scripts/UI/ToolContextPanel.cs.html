@@ -1,0 +1,499 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Scripts/UI/ToolContextPanel.cs · SimpleCities 源码</title><link rel="stylesheet" href="../../../assets/source.css"><header><a href="../../../index.html">← 文档首页</a><h1>Scripts/UI/ToolContextPanel.cs</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">using Godot;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code">using System;</code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">using System.Collections.Generic;</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code"></code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code">/// &lt;summary&gt;</code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">/// 右侧工具上下文面板。根据当前工具和分类资源显示说明，并在窄屏时折叠为可展开入口。</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">/// &lt;/summary&gt;</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">public partial class ToolContextPanel : PanelContainer</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">{</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">    public event Action? RoadDisplayRetryRequested;</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">    private const float WideWidth = 320f;</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">    private const float CompactWidth = 44f;</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">    private const float RightMargin = 16f;</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">    private const float WideTop = 148f;</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code">    private const float CompactTop = 148f;</code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">    private const int CompactExpandedMargin = 8;</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">    private const int ExpandedMargin = 20;</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code"></code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">    private static readonly RoadType[] RoadTypeOrder =</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code">    [</code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">        RoadType.Dirt,</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">        RoadType.Street,</code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code">        RoadType.Arterial,</code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">        RoadType.Highway,</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code">    ];</code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code"></code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">    private static readonly IReadOnlyDictionary&lt;RoadType, RoadTypePresentation&gt; FallbackRoadTypePresentations =</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code">        new Dictionary&lt;RoadType, RoadTypePresentation&gt;</code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">        {</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">            [RoadType.Dirt] = new(&quot;土路&quot;, new Color(&quot;#8A6652&quot;)),</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code">            [RoadType.Street] = new(&quot;街道&quot;, new Color(&quot;#60727C&quot;)),</code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">            [RoadType.Arterial] = new(&quot;主干道&quot;, new Color(&quot;#D7A928&quot;)),</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code">            [RoadType.Highway] = new(&quot;高速道路&quot;, new Color(&quot;#C84B3A&quot;)),</code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code">        };</code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code"></code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code">    [Export] public RoadConfig? Config { get; set; }</code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code">    [Export] public ConstructionCategoryDefinition? Category { get; set; }</code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code">    [Export] public float ReservedBottomTop { get; set; } = -1f;</code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code"></code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code">    private readonly StyleBoxEmpty _compactPanelStyle = new();</code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code"></code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code">    private MarginContainer _panelMargin = null!;</code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code">    private Button _focusEntryButton = null!;</code></span>
+<span class="line" id="L44"><a class="number" href="#L44">44</a><code class="code">    private ScrollContainer _contentScroll = null!;</code></span>
+<span class="line" id="L45"><a class="number" href="#L45">45</a><code class="code">    private VBoxContainer _content = null!;</code></span>
+<span class="line" id="L46"><a class="number" href="#L46">46</a><code class="code">    private Label _categoryValue = null!;</code></span>
+<span class="line" id="L47"><a class="number" href="#L47">47</a><code class="code">    private Label _toolValue = null!;</code></span>
+<span class="line" id="L48"><a class="number" href="#L48">48</a><code class="code">    private Label _operationValue = null!;</code></span>
+<span class="line" id="L49"><a class="number" href="#L49">49</a><code class="code">    private Label _shortcutValue = null!;</code></span>
+<span class="line" id="L50"><a class="number" href="#L50">50</a><code class="code">    private Label _cellSizeValue = null!;</code></span>
+<span class="line" id="L51"><a class="number" href="#L51">51</a><code class="code">    private VBoxContainer _shortcutRow = null!;</code></span>
+<span class="line" id="L52"><a class="number" href="#L52">52</a><code class="code">    private VBoxContainer _cellSizeRow = null!;</code></span>
+<span class="line" id="L53"><a class="number" href="#L53">53</a><code class="code">    private VBoxContainer _roadTypeRow = null!;</code></span>
+<span class="line" id="L54"><a class="number" href="#L54">54</a><code class="code">    private HBoxContainer _roadTypeSelector = null!;</code></span>
+<span class="line" id="L55"><a class="number" href="#L55">55</a><code class="code">    private Label _roadTypeStatus = null!;</code></span>
+<span class="line" id="L56"><a class="number" href="#L56">56</a><code class="code">    private Label _roadRuntimeStatus = null!;</code></span>
+<span class="line" id="L57"><a class="number" href="#L57">57</a><code class="code">    private Button _roadDisplayRetry = null!;</code></span>
+<span class="line" id="L58"><a class="number" href="#L58">58</a><code class="code">    private string _lastRoadStatus = &quot;&quot;;</code></span>
+<span class="line" id="L59"><a class="number" href="#L59">59</a><code class="code"></code></span>
+<span class="line" id="L60"><a class="number" href="#L60">60</a><code class="code">    private readonly Dictionary&lt;RoadType, Button&gt; _roadTypeButtons = new();</code></span>
+<span class="line" id="L61"><a class="number" href="#L61">61</a><code class="code">    private readonly List&lt;Action&gt; _roadTypeDisconnectActions = [];</code></span>
+<span class="line" id="L62"><a class="number" href="#L62">62</a><code class="code">    private ButtonGroup? _roadTypeButtonGroup;</code></span>
+<span class="line" id="L63"><a class="number" href="#L63">63</a><code class="code">    private Func&lt;RoadType&gt;? _selectedRoadTypeGetter;</code></span>
+<span class="line" id="L64"><a class="number" href="#L64">64</a><code class="code">    private Func&lt;RoadType, bool&gt;? _selectedRoadTypeSetter;</code></span>
+<span class="line" id="L65"><a class="number" href="#L65">65</a><code class="code">    private RoadConfig? _roadTypeStyleConfig;</code></span>
+<span class="line" id="L66"><a class="number" href="#L66">66</a><code class="code">    private bool _roadTypeStylesValid;</code></span>
+<span class="line" id="L67"><a class="number" href="#L67">67</a><code class="code">    private bool _roadTypeSelectorAvailable;</code></span>
+<span class="line" id="L68"><a class="number" href="#L68">68</a><code class="code"></code></span>
+<span class="line" id="L69"><a class="number" href="#L69">69</a><code class="code">    private bool _compact;</code></span>
+<span class="line" id="L70"><a class="number" href="#L70">70</a><code class="code">    private bool _compactExpanded;</code></span>
+<span class="line" id="L71"><a class="number" href="#L71">71</a><code class="code">    private bool _usesCompactViewport;</code></span>
+<span class="line" id="L72"><a class="number" href="#L72">72</a><code class="code"></code></span>
+<span class="line" id="L73"><a class="number" href="#L73">73</a><code class="code">    public override void _Ready()</code></span>
+<span class="line" id="L74"><a class="number" href="#L74">74</a><code class="code">    {</code></span>
+<span class="line" id="L75"><a class="number" href="#L75">75</a><code class="code">        _panelMargin = GetNode&lt;MarginContainer&gt;(&quot;PanelMargin&quot;);</code></span>
+<span class="line" id="L76"><a class="number" href="#L76">76</a><code class="code">        _focusEntryButton = GetNode&lt;Button&gt;(&quot;PanelMargin/Rows/ContextFocusEntryButton&quot;);</code></span>
+<span class="line" id="L77"><a class="number" href="#L77">77</a><code class="code">        _contentScroll = GetNode&lt;ScrollContainer&gt;(&quot;PanelMargin/Rows/ContextContentScroll&quot;);</code></span>
+<span class="line" id="L78"><a class="number" href="#L78">78</a><code class="code">        _content = GetNode&lt;VBoxContainer&gt;(&quot;PanelMargin/Rows/ContextContentScroll/ContextContent&quot;);</code></span>
+<span class="line" id="L79"><a class="number" href="#L79">79</a><code class="code">        _categoryValue = GetNode&lt;Label&gt;(&quot;PanelMargin/Rows/ContextContentScroll/ContextContent/CategoryRow/CategoryValue&quot;);</code></span>
+<span class="line" id="L80"><a class="number" href="#L80">80</a><code class="code">        _toolValue = GetNode&lt;Label&gt;(&quot;PanelMargin/Rows/ContextContentScroll/ContextContent/CurrentToolRow/CurrentToolValue&quot;);</code></span>
+<span class="line" id="L81"><a class="number" href="#L81">81</a><code class="code">        _operationValue = GetNode&lt;Label&gt;(&quot;PanelMargin/Rows/ContextContentScroll/ContextContent/OperationRow/OperationValue&quot;);</code></span>
+<span class="line" id="L82"><a class="number" href="#L82">82</a><code class="code">        _shortcutRow = GetNode&lt;VBoxContainer&gt;(&quot;PanelMargin/Rows/ContextContentScroll/ContextContent/ShortcutRow&quot;);</code></span>
+<span class="line" id="L83"><a class="number" href="#L83">83</a><code class="code">        _shortcutValue = GetNode&lt;Label&gt;(&quot;PanelMargin/Rows/ContextContentScroll/ContextContent/ShortcutRow/ShortcutValue&quot;);</code></span>
+<span class="line" id="L84"><a class="number" href="#L84">84</a><code class="code">        _cellSizeRow = GetNode&lt;VBoxContainer&gt;(&quot;PanelMargin/Rows/ContextContentScroll/ContextContent/CellSizeRow&quot;);</code></span>
+<span class="line" id="L85"><a class="number" href="#L85">85</a><code class="code">        _cellSizeValue = GetNode&lt;Label&gt;(&quot;PanelMargin/Rows/ContextContentScroll/ContextContent/CellSizeRow/CellSizeValue&quot;);</code></span>
+<span class="line" id="L86"><a class="number" href="#L86">86</a><code class="code">        _roadTypeRow = GetNode&lt;VBoxContainer&gt;(&quot;PanelMargin/Rows/ContextContentScroll/ContextContent/RoadTypeRow&quot;);</code></span>
+<span class="line" id="L87"><a class="number" href="#L87">87</a><code class="code">        _roadTypeSelector = GetNode&lt;HBoxContainer&gt;(&quot;PanelMargin/Rows/ContextContentScroll/ContextContent/RoadTypeRow/RoadTypeSelector&quot;);</code></span>
+<span class="line" id="L88"><a class="number" href="#L88">88</a><code class="code">        _roadTypeStatus = GetNode&lt;Label&gt;(&quot;PanelMargin/Rows/ContextContentScroll/ContextContent/RoadTypeRow/RoadTypeStatus&quot;);</code></span>
+<span class="line" id="L89"><a class="number" href="#L89">89</a><code class="code">        _roadRuntimeStatus = GetNode&lt;Label&gt;(&quot;PanelMargin/Rows/RoadRuntimeStatus&quot;);</code></span>
+<span class="line" id="L90"><a class="number" href="#L90">90</a><code class="code">        _roadDisplayRetry = GetNode&lt;Button&gt;(&quot;PanelMargin/Rows/RoadDisplayRetry&quot;);</code></span>
+<span class="line" id="L91"><a class="number" href="#L91">91</a><code class="code">        _roadDisplayRetry.Pressed += OnRoadDisplayRetry;</code></span>
+<span class="line" id="L92"><a class="number" href="#L92">92</a><code class="code">        WireRoadTypeButtons();</code></span>
+<span class="line" id="L93"><a class="number" href="#L93">93</a><code class="code">        _focusEntryButton.FocusMode = FocusModeEnum.All;</code></span>
+<span class="line" id="L94"><a class="number" href="#L94">94</a><code class="code">        _focusEntryButton.Pressed += ToggleCompactExpanded;</code></span>
+<span class="line" id="L95"><a class="number" href="#L95">95</a><code class="code">        UpdateContext(ToolType.Select, Config);</code></span>
+<span class="line" id="L96"><a class="number" href="#L96">96</a><code class="code">        ApplyResponsiveLayout();</code></span>
+<span class="line" id="L97"><a class="number" href="#L97">97</a><code class="code">    }</code></span>
+<span class="line" id="L98"><a class="number" href="#L98">98</a><code class="code"></code></span>
+<span class="line" id="L99"><a class="number" href="#L99">99</a><code class="code">    public override void _Notification(int what)</code></span>
+<span class="line" id="L100"><a class="number" href="#L100">100</a><code class="code">    {</code></span>
+<span class="line" id="L101"><a class="number" href="#L101">101</a><code class="code">        if (what == NotificationResized) ApplyResponsiveLayout();</code></span>
+<span class="line" id="L102"><a class="number" href="#L102">102</a><code class="code">    }</code></span>
+<span class="line" id="L103"><a class="number" href="#L103">103</a><code class="code"></code></span>
+<span class="line" id="L104"><a class="number" href="#L104">104</a><code class="code">    public override void _ExitTree()</code></span>
+<span class="line" id="L105"><a class="number" href="#L105">105</a><code class="code">    {</code></span>
+<span class="line" id="L106"><a class="number" href="#L106">106</a><code class="code">        if (_focusEntryButton != null)</code></span>
+<span class="line" id="L107"><a class="number" href="#L107">107</a><code class="code">            _focusEntryButton.Pressed -= ToggleCompactExpanded;</code></span>
+<span class="line" id="L108"><a class="number" href="#L108">108</a><code class="code">        DisconnectRoadTypeButtons();</code></span>
+<span class="line" id="L109"><a class="number" href="#L109">109</a><code class="code">        if (_roadDisplayRetry != null) _roadDisplayRetry.Pressed -= OnRoadDisplayRetry;</code></span>
+<span class="line" id="L110"><a class="number" href="#L110">110</a><code class="code">        _roadTypeButtonGroup = null;</code></span>
+<span class="line" id="L111"><a class="number" href="#L111">111</a><code class="code">        _selectedRoadTypeGetter = null;</code></span>
+<span class="line" id="L112"><a class="number" href="#L112">112</a><code class="code">        _selectedRoadTypeSetter = null;</code></span>
+<span class="line" id="L113"><a class="number" href="#L113">113</a><code class="code">    }</code></span>
+<span class="line" id="L114"><a class="number" href="#L114">114</a><code class="code"></code></span>
+<span class="line" id="L115"><a class="number" href="#L115">115</a><code class="code">    public NodePath FocusEntryPath =&gt; _focusEntryButton.GetPath();</code></span>
+<span class="line" id="L116"><a class="number" href="#L116">116</a><code class="code"></code></span>
+<span class="line" id="L117"><a class="number" href="#L117">117</a><code class="code">    public void UpdateRoadState(string status, bool canRetry, bool pendingOperation)</code></span>
+<span class="line" id="L118"><a class="number" href="#L118">118</a><code class="code">    {</code></span>
+<span class="line" id="L119"><a class="number" href="#L119">119</a><code class="code">        if (status != _lastRoadStatus)</code></span>
+<span class="line" id="L120"><a class="number" href="#L120">120</a><code class="code">        {</code></span>
+<span class="line" id="L121"><a class="number" href="#L121">121</a><code class="code">            _lastRoadStatus = status;</code></span>
+<span class="line" id="L122"><a class="number" href="#L122">122</a><code class="code">            _roadRuntimeStatus.Text = status;</code></span>
+<span class="line" id="L123"><a class="number" href="#L123">123</a><code class="code">            _roadRuntimeStatus.TooltipText = status;</code></span>
+<span class="line" id="L124"><a class="number" href="#L124">124</a><code class="code">        }</code></span>
+<span class="line" id="L125"><a class="number" href="#L125">125</a><code class="code">        _roadRuntimeStatus.Visible = status.Length &gt; 0 &amp;&amp; !_compact;</code></span>
+<span class="line" id="L126"><a class="number" href="#L126">126</a><code class="code">        _roadDisplayRetry.Visible = canRetry;</code></span>
+<span class="line" id="L127"><a class="number" href="#L127">127</a><code class="code">        if ((canRetry || pendingOperation) &amp;&amp; _compact &amp;&amp; !_compactExpanded)</code></span>
+<span class="line" id="L128"><a class="number" href="#L128">128</a><code class="code">        {</code></span>
+<span class="line" id="L129"><a class="number" href="#L129">129</a><code class="code">            _compactExpanded = true;</code></span>
+<span class="line" id="L130"><a class="number" href="#L130">130</a><code class="code">            ApplyResponsiveLayout();</code></span>
+<span class="line" id="L131"><a class="number" href="#L131">131</a><code class="code">        }</code></span>
+<span class="line" id="L132"><a class="number" href="#L132">132</a><code class="code">    }</code></span>
+<span class="line" id="L133"><a class="number" href="#L133">133</a><code class="code"></code></span>
+<span class="line" id="L134"><a class="number" href="#L134">134</a><code class="code">    private void OnRoadDisplayRetry() =&gt; RoadDisplayRetryRequested?.Invoke();</code></span>
+<span class="line" id="L135"><a class="number" href="#L135">135</a><code class="code"></code></span>
+<span class="line" id="L136"><a class="number" href="#L136">136</a><code class="code">    public void ConfigureFocus(NodePath previousPath, NodePath nextPath)</code></span>
+<span class="line" id="L137"><a class="number" href="#L137">137</a><code class="code">    {</code></span>
+<span class="line" id="L138"><a class="number" href="#L138">138</a><code class="code">        _focusEntryButton.FocusPrevious = previousPath;</code></span>
+<span class="line" id="L139"><a class="number" href="#L139">139</a><code class="code">        _focusEntryButton.FocusNext = nextPath;</code></span>
+<span class="line" id="L140"><a class="number" href="#L140">140</a><code class="code">    }</code></span>
+<span class="line" id="L141"><a class="number" href="#L141">141</a><code class="code"></code></span>
+<span class="line" id="L142"><a class="number" href="#L142">142</a><code class="code">    public void SetCategory(ConstructionCategoryDefinition? category)</code></span>
+<span class="line" id="L143"><a class="number" href="#L143">143</a><code class="code">    {</code></span>
+<span class="line" id="L144"><a class="number" href="#L144">144</a><code class="code">        Category = category;</code></span>
+<span class="line" id="L145"><a class="number" href="#L145">145</a><code class="code">    }</code></span>
+<span class="line" id="L146"><a class="number" href="#L146">146</a><code class="code"></code></span>
+<span class="line" id="L147"><a class="number" href="#L147">147</a><code class="code">    /// &lt;summary&gt;</code></span>
+<span class="line" id="L148"><a class="number" href="#L148">148</a><code class="code">    /// 注入共享道路类型状态的读写委托；面板不持有路网或执行道路命令。</code></span>
+<span class="line" id="L149"><a class="number" href="#L149">149</a><code class="code">    /// &lt;/summary&gt;</code></span>
+<span class="line" id="L150"><a class="number" href="#L150">150</a><code class="code">    public void ConfigureRoadTypeState(</code></span>
+<span class="line" id="L151"><a class="number" href="#L151">151</a><code class="code">        Func&lt;RoadType&gt;? getter,</code></span>
+<span class="line" id="L152"><a class="number" href="#L152">152</a><code class="code">        Func&lt;RoadType, bool&gt;? setter)</code></span>
+<span class="line" id="L153"><a class="number" href="#L153">153</a><code class="code">    {</code></span>
+<span class="line" id="L154"><a class="number" href="#L154">154</a><code class="code">        _selectedRoadTypeGetter = getter;</code></span>
+<span class="line" id="L155"><a class="number" href="#L155">155</a><code class="code">        _selectedRoadTypeSetter = setter;</code></span>
+<span class="line" id="L156"><a class="number" href="#L156">156</a><code class="code">        _roadTypeSelectorAvailable = _roadTypeStylesValid &amp;&amp;</code></span>
+<span class="line" id="L157"><a class="number" href="#L157">157</a><code class="code">            _selectedRoadTypeGetter is not null &amp;&amp;</code></span>
+<span class="line" id="L158"><a class="number" href="#L158">158</a><code class="code">            _selectedRoadTypeSetter is not null;</code></span>
+<span class="line" id="L159"><a class="number" href="#L159">159</a><code class="code">        ApplyRoadTypeAvailability();</code></span>
+<span class="line" id="L160"><a class="number" href="#L160">160</a><code class="code">        SyncSelectedRoadTypeButtons();</code></span>
+<span class="line" id="L161"><a class="number" href="#L161">161</a><code class="code">    }</code></span>
+<span class="line" id="L162"><a class="number" href="#L162">162</a><code class="code"></code></span>
+<span class="line" id="L163"><a class="number" href="#L163">163</a><code class="code">    public bool RoadTypeSelectorAvailable =&gt; _roadTypeSelectorAvailable;</code></span>
+<span class="line" id="L164"><a class="number" href="#L164">164</a><code class="code"></code></span>
+<span class="line" id="L165"><a class="number" href="#L165">165</a><code class="code">    public bool RoadTypeSelectorVisible =&gt; _roadTypeRow?.Visible == true;</code></span>
+<span class="line" id="L166"><a class="number" href="#L166">166</a><code class="code"></code></span>
+<span class="line" id="L167"><a class="number" href="#L167">167</a><code class="code">    public NodePath GetRoadTypeButtonPath(RoadType roadType) =&gt;</code></span>
+<span class="line" id="L168"><a class="number" href="#L168">168</a><code class="code">        _roadTypeButtons.TryGetValue(roadType, out Button? button)</code></span>
+<span class="line" id="L169"><a class="number" href="#L169">169</a><code class="code">            ? button.GetPath()</code></span>
+<span class="line" id="L170"><a class="number" href="#L170">170</a><code class="code">            : new NodePath();</code></span>
+<span class="line" id="L171"><a class="number" href="#L171">171</a><code class="code"></code></span>
+<span class="line" id="L172"><a class="number" href="#L172">172</a><code class="code">    /// &lt;summary&gt;</code></span>
+<span class="line" id="L173"><a class="number" href="#L173">173</a><code class="code">    /// 同步工具说明。优先使用资源化工具定义；选择和拆除等内置工具则使用底栏提供的后备文案。</code></span>
+<span class="line" id="L174"><a class="number" href="#L174">174</a><code class="code">    /// &lt;/summary&gt;</code></span>
+<span class="line" id="L175"><a class="number" href="#L175">175</a><code class="code">    public void UpdateContext(ToolType currentTool, RoadConfig? config)</code></span>
+<span class="line" id="L176"><a class="number" href="#L176">176</a><code class="code">    {</code></span>
+<span class="line" id="L177"><a class="number" href="#L177">177</a><code class="code">        Config = config;</code></span>
+<span class="line" id="L178"><a class="number" href="#L178">178</a><code class="code">        RefreshRoadTypeStylesIfNeeded();</code></span>
+<span class="line" id="L179"><a class="number" href="#L179">179</a><code class="code">        _shortcutRow.Visible = true;</code></span>
+<span class="line" id="L180"><a class="number" href="#L180">180</a><code class="code">        _cellSizeRow.Visible = true;</code></span>
+<span class="line" id="L181"><a class="number" href="#L181">181</a><code class="code">        ConstructionToolDefinition? definition = FindTool(currentTool);</code></span>
+<span class="line" id="L182"><a class="number" href="#L182">182</a><code class="code">        _categoryValue.Text = Category?.DisplayName ?? &quot;道路 unavailable&quot;;</code></span>
+<span class="line" id="L183"><a class="number" href="#L183">183</a><code class="code">        if (definition != null)</code></span>
+<span class="line" id="L184"><a class="number" href="#L184">184</a><code class="code">        {</code></span>
+<span class="line" id="L185"><a class="number" href="#L185">185</a><code class="code">            _toolValue.Text = definition.DisplayName;</code></span>
+<span class="line" id="L186"><a class="number" href="#L186">186</a><code class="code">            _operationValue.Text = definition.Description;</code></span>
+<span class="line" id="L187"><a class="number" href="#L187">187</a><code class="code">            string shortcutHint = ResolveShortcutHint(currentTool, definition.ShortcutHint);</code></span>
+<span class="line" id="L188"><a class="number" href="#L188">188</a><code class="code">            _shortcutValue.Text = shortcutHint;</code></span>
+<span class="line" id="L189"><a class="number" href="#L189">189</a><code class="code">            _shortcutRow.Visible = !string.IsNullOrWhiteSpace(shortcutHint);</code></span>
+<span class="line" id="L190"><a class="number" href="#L190">190</a><code class="code">        }</code></span>
+<span class="line" id="L191"><a class="number" href="#L191">191</a><code class="code">        else if (ConstructionDock.TryGetBuiltInToolPresentation(currentTool, out string displayName, out string description, out string shortcutHint))</code></span>
+<span class="line" id="L192"><a class="number" href="#L192">192</a><code class="code">        {</code></span>
+<span class="line" id="L193"><a class="number" href="#L193">193</a><code class="code">            _toolValue.Text = displayName;</code></span>
+<span class="line" id="L194"><a class="number" href="#L194">194</a><code class="code">            _operationValue.Text = description;</code></span>
+<span class="line" id="L195"><a class="number" href="#L195">195</a><code class="code">            shortcutHint = ResolveShortcutHint(currentTool, shortcutHint);</code></span>
+<span class="line" id="L196"><a class="number" href="#L196">196</a><code class="code">            _shortcutValue.Text = shortcutHint;</code></span>
+<span class="line" id="L197"><a class="number" href="#L197">197</a><code class="code">            _shortcutRow.Visible = !string.IsNullOrWhiteSpace(shortcutHint);</code></span>
+<span class="line" id="L198"><a class="number" href="#L198">198</a><code class="code">        }</code></span>
+<span class="line" id="L199"><a class="number" href="#L199">199</a><code class="code">        else</code></span>
+<span class="line" id="L200"><a class="number" href="#L200">200</a><code class="code">        {</code></span>
+<span class="line" id="L201"><a class="number" href="#L201">201</a><code class="code">            _toolValue.Text = currentTool.ToString();</code></span>
+<span class="line" id="L202"><a class="number" href="#L202">202</a><code class="code">            _operationValue.Text = &quot;工具定义不可用。&quot;;</code></span>
+<span class="line" id="L203"><a class="number" href="#L203">203</a><code class="code">            _shortcutValue.Text = &quot;--&quot;;</code></span>
+<span class="line" id="L204"><a class="number" href="#L204">204</a><code class="code">        }</code></span>
+<span class="line" id="L205"><a class="number" href="#L205">205</a><code class="code">        _cellSizeValue.Text = Config == null ? &quot;CellSize: unavailable&quot; : $&quot;CellSize: {Config.CellSize:F0}&quot;;</code></span>
+<span class="line" id="L206"><a class="number" href="#L206">206</a><code class="code">        _roadTypeRow.Visible = currentTool is ToolType.Road or ToolType.RoadUpgrade;</code></span>
+<span class="line" id="L207"><a class="number" href="#L207">207</a><code class="code">        SyncSelectedRoadTypeButtons();</code></span>
+<span class="line" id="L208"><a class="number" href="#L208">208</a><code class="code">    }</code></span>
+<span class="line" id="L209"><a class="number" href="#L209">209</a><code class="code"></code></span>
+<span class="line" id="L210"><a class="number" href="#L210">210</a><code class="code">    /// &lt;summary&gt;非道路分类目前尚未实现时，显示分类名称和明确的不可用状态。&lt;/summary&gt;</code></span>
+<span class="line" id="L211"><a class="number" href="#L211">211</a><code class="code">    public void ShowUnavailableCategory(string categoryDisplayName)</code></span>
+<span class="line" id="L212"><a class="number" href="#L212">212</a><code class="code">    {</code></span>
+<span class="line" id="L213"><a class="number" href="#L213">213</a><code class="code">        _categoryValue.Text = categoryDisplayName;</code></span>
+<span class="line" id="L214"><a class="number" href="#L214">214</a><code class="code">        _toolValue.Text = &quot;尚未开放&quot;;</code></span>
+<span class="line" id="L215"><a class="number" href="#L215">215</a><code class="code">        _operationValue.Text = &quot;尚未开放&quot;;</code></span>
+<span class="line" id="L216"><a class="number" href="#L216">216</a><code class="code">        _shortcutRow.Visible = false;</code></span>
+<span class="line" id="L217"><a class="number" href="#L217">217</a><code class="code">        _cellSizeRow.Visible = false;</code></span>
+<span class="line" id="L218"><a class="number" href="#L218">218</a><code class="code">        _roadTypeRow.Visible = false;</code></span>
+<span class="line" id="L219"><a class="number" href="#L219">219</a><code class="code">    }</code></span>
+<span class="line" id="L220"><a class="number" href="#L220">220</a><code class="code"></code></span>
+<span class="line" id="L221"><a class="number" href="#L221">221</a><code class="code">    public void ApplyResponsiveLayout()</code></span>
+<span class="line" id="L222"><a class="number" href="#L222">222</a><code class="code">    {</code></span>
+<span class="line" id="L223"><a class="number" href="#L223">223</a><code class="code">        if (_contentScroll == null || _content == null || _focusEntryButton == null) return;</code></span>
+<span class="line" id="L224"><a class="number" href="#L224">224</a><code class="code"></code></span>
+<span class="line" id="L225"><a class="number" href="#L225">225</a><code class="code">        ApplyResponsiveLayoutForViewport(GetViewportRect().Size);</code></span>
+<span class="line" id="L226"><a class="number" href="#L226">226</a><code class="code">    }</code></span>
+<span class="line" id="L227"><a class="number" href="#L227">227</a><code class="code"></code></span>
+<span class="line" id="L228"><a class="number" href="#L228">228</a><code class="code">    /// &lt;summary&gt;</code></span>
+<span class="line" id="L229"><a class="number" href="#L229">229</a><code class="code">    /// 按视口和底边栏顶部位置重新计算面板边界，避免覆盖底栏；760px 以下使用紧凑模式。</code></span>
+<span class="line" id="L230"><a class="number" href="#L230">230</a><code class="code">    /// &lt;/summary&gt;</code></span>
+<span class="line" id="L231"><a class="number" href="#L231">231</a><code class="code">    public void ApplyResponsiveLayoutForViewport(Vector2 viewportSize)</code></span>
+<span class="line" id="L232"><a class="number" href="#L232">232</a><code class="code">    {</code></span>
+<span class="line" id="L233"><a class="number" href="#L233">233</a><code class="code">        if (_contentScroll == null || _content == null || _focusEntryButton == null) return;</code></span>
+<span class="line" id="L234"><a class="number" href="#L234">234</a><code class="code">        if (viewportSize.X &lt;= 0f) return;</code></span>
+<span class="line" id="L235"><a class="number" href="#L235">235</a><code class="code">        float reservedBottomTop = ReservedBottomTop &gt; 0f ? ReservedBottomTop : viewportSize.Y - 16f;</code></span>
+<span class="line" id="L236"><a class="number" href="#L236">236</a><code class="code"></code></span>
+<span class="line" id="L237"><a class="number" href="#L237">237</a><code class="code">        bool shouldCompact = viewportSize.X &lt; 760f;</code></span>
+<span class="line" id="L238"><a class="number" href="#L238">238</a><code class="code">        _usesCompactViewport = shouldCompact;</code></span>
+<span class="line" id="L239"><a class="number" href="#L239">239</a><code class="code">        if (!shouldCompact)</code></span>
+<span class="line" id="L240"><a class="number" href="#L240">240</a><code class="code">            _compactExpanded = false;</code></span>
+<span class="line" id="L241"><a class="number" href="#L241">241</a><code class="code"></code></span>
+<span class="line" id="L242"><a class="number" href="#L242">242</a><code class="code">        _compact = shouldCompact &amp;&amp; !_compactExpanded;</code></span>
+<span class="line" id="L243"><a class="number" href="#L243">243</a><code class="code">        float width = _compact ? CompactWidth : WideWidth;</code></span>
+<span class="line" id="L244"><a class="number" href="#L244">244</a><code class="code">        OffsetLeft = -width - RightMargin;</code></span>
+<span class="line" id="L245"><a class="number" href="#L245">245</a><code class="code">        OffsetRight = -RightMargin;</code></span>
+<span class="line" id="L246"><a class="number" href="#L246">246</a><code class="code">        float top = shouldCompact ? CompactTop : WideTop;</code></span>
+<span class="line" id="L247"><a class="number" href="#L247">247</a><code class="code">        float bottomLimit = Mathf.Max(top + 44f, Mathf.Min(viewportSize.Y - 16f, reservedBottomTop - 16f));</code></span>
+<span class="line" id="L248"><a class="number" href="#L248">248</a><code class="code">        OffsetTop = top;</code></span>
+<span class="line" id="L249"><a class="number" href="#L249">249</a><code class="code">        OffsetBottom = _compact ? top + 44f : bottomLimit;</code></span>
+<span class="line" id="L250"><a class="number" href="#L250">250</a><code class="code">        ApplyMinimumContributionState();</code></span>
+<span class="line" id="L251"><a class="number" href="#L251">251</a><code class="code">    }</code></span>
+<span class="line" id="L252"><a class="number" href="#L252">252</a><code class="code"></code></span>
+<span class="line" id="L253"><a class="number" href="#L253">253</a><code class="code">    private void ApplyMinimumContributionState()</code></span>
+<span class="line" id="L254"><a class="number" href="#L254">254</a><code class="code">    {</code></span>
+<span class="line" id="L255"><a class="number" href="#L255">255</a><code class="code">        bool contentVisible = !_compact;</code></span>
+<span class="line" id="L256"><a class="number" href="#L256">256</a><code class="code">        _contentScroll.Visible = contentVisible;</code></span>
+<span class="line" id="L257"><a class="number" href="#L257">257</a><code class="code">        _roadRuntimeStatus.Visible = contentVisible &amp;&amp; _lastRoadStatus.Length &gt; 0;</code></span>
+<span class="line" id="L258"><a class="number" href="#L258">258</a><code class="code">        _contentScroll.VerticalScrollMode = ScrollContainer.ScrollMode.Auto;</code></span>
+<span class="line" id="L259"><a class="number" href="#L259">259</a><code class="code">        _contentScroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;</code></span>
+<span class="line" id="L260"><a class="number" href="#L260">260</a><code class="code">        _focusEntryButton.Text = _compact ? &quot;工&quot; : &quot;工具上下文&quot;;</code></span>
+<span class="line" id="L261"><a class="number" href="#L261">261</a><code class="code">        if (_compact)</code></span>
+<span class="line" id="L262"><a class="number" href="#L262">262</a><code class="code">        {</code></span>
+<span class="line" id="L263"><a class="number" href="#L263">263</a><code class="code">            CustomMinimumSize = new Vector2(CompactWidth, 44f);</code></span>
+<span class="line" id="L264"><a class="number" href="#L264">264</a><code class="code">            _focusEntryButton.CustomMinimumSize = new Vector2(CompactWidth, 36f);</code></span>
+<span class="line" id="L265"><a class="number" href="#L265">265</a><code class="code">            _contentScroll.CustomMinimumSize = Vector2.Zero;</code></span>
+<span class="line" id="L266"><a class="number" href="#L266">266</a><code class="code">            ApplyPanelMargins(0);</code></span>
+<span class="line" id="L267"><a class="number" href="#L267">267</a><code class="code">            AddThemeStyleboxOverride(&quot;panel&quot;, _compactPanelStyle);</code></span>
+<span class="line" id="L268"><a class="number" href="#L268">268</a><code class="code">            Size = new Vector2(CompactWidth, 44f);</code></span>
+<span class="line" id="L269"><a class="number" href="#L269">269</a><code class="code">            return;</code></span>
+<span class="line" id="L270"><a class="number" href="#L270">270</a><code class="code">        }</code></span>
+<span class="line" id="L271"><a class="number" href="#L271">271</a><code class="code"></code></span>
+<span class="line" id="L272"><a class="number" href="#L272">272</a><code class="code">        CustomMinimumSize = new Vector2(WideWidth, 44f);</code></span>
+<span class="line" id="L273"><a class="number" href="#L273">273</a><code class="code">        _focusEntryButton.CustomMinimumSize = new Vector2(44f, 36f);</code></span>
+<span class="line" id="L274"><a class="number" href="#L274">274</a><code class="code">        _contentScroll.CustomMinimumSize = new Vector2(0f, 40f);</code></span>
+<span class="line" id="L275"><a class="number" href="#L275">275</a><code class="code">        ApplyPanelMargins(_usesCompactViewport ? CompactExpandedMargin : ExpandedMargin);</code></span>
+<span class="line" id="L276"><a class="number" href="#L276">276</a><code class="code">        if (_usesCompactViewport)</code></span>
+<span class="line" id="L277"><a class="number" href="#L277">277</a><code class="code">            AddThemeStyleboxOverride(&quot;panel&quot;, _compactPanelStyle);</code></span>
+<span class="line" id="L278"><a class="number" href="#L278">278</a><code class="code">        else</code></span>
+<span class="line" id="L279"><a class="number" href="#L279">279</a><code class="code">            RemoveThemeStyleboxOverride(&quot;panel&quot;);</code></span>
+<span class="line" id="L280"><a class="number" href="#L280">280</a><code class="code">    }</code></span>
+<span class="line" id="L281"><a class="number" href="#L281">281</a><code class="code"></code></span>
+<span class="line" id="L282"><a class="number" href="#L282">282</a><code class="code">    private void ApplyPanelMargins(int margin)</code></span>
+<span class="line" id="L283"><a class="number" href="#L283">283</a><code class="code">    {</code></span>
+<span class="line" id="L284"><a class="number" href="#L284">284</a><code class="code">        _panelMargin.AddThemeConstantOverride(&quot;margin_left&quot;, margin);</code></span>
+<span class="line" id="L285"><a class="number" href="#L285">285</a><code class="code">        _panelMargin.AddThemeConstantOverride(&quot;margin_top&quot;, margin);</code></span>
+<span class="line" id="L286"><a class="number" href="#L286">286</a><code class="code">        _panelMargin.AddThemeConstantOverride(&quot;margin_right&quot;, margin);</code></span>
+<span class="line" id="L287"><a class="number" href="#L287">287</a><code class="code">        _panelMargin.AddThemeConstantOverride(&quot;margin_bottom&quot;, margin);</code></span>
+<span class="line" id="L288"><a class="number" href="#L288">288</a><code class="code">    }</code></span>
+<span class="line" id="L289"><a class="number" href="#L289">289</a><code class="code"></code></span>
+<span class="line" id="L290"><a class="number" href="#L290">290</a><code class="code">    /// &lt;summary&gt;窄屏下切换折叠入口和完整上下文内容。&lt;/summary&gt;</code></span>
+<span class="line" id="L291"><a class="number" href="#L291">291</a><code class="code">    private void ToggleCompactExpanded()</code></span>
+<span class="line" id="L292"><a class="number" href="#L292">292</a><code class="code">    {</code></span>
+<span class="line" id="L293"><a class="number" href="#L293">293</a><code class="code">        Vector2 viewportSize = GetViewportRect().Size;</code></span>
+<span class="line" id="L294"><a class="number" href="#L294">294</a><code class="code">        if (viewportSize.X &gt;= 760f) return;</code></span>
+<span class="line" id="L295"><a class="number" href="#L295">295</a><code class="code">        _compactExpanded = !_compactExpanded;</code></span>
+<span class="line" id="L296"><a class="number" href="#L296">296</a><code class="code">        ApplyResponsiveLayoutForViewport(viewportSize);</code></span>
+<span class="line" id="L297"><a class="number" href="#L297">297</a><code class="code">    }</code></span>
+<span class="line" id="L298"><a class="number" href="#L298">298</a><code class="code"></code></span>
+<span class="line" id="L299"><a class="number" href="#L299">299</a><code class="code">    public void ToggleCompactExpandedForViewport(Vector2 viewportSize)</code></span>
+<span class="line" id="L300"><a class="number" href="#L300">300</a><code class="code">    {</code></span>
+<span class="line" id="L301"><a class="number" href="#L301">301</a><code class="code">        if (viewportSize.X &gt;= 760f) return;</code></span>
+<span class="line" id="L302"><a class="number" href="#L302">302</a><code class="code">        _compactExpanded = !_compactExpanded;</code></span>
+<span class="line" id="L303"><a class="number" href="#L303">303</a><code class="code">        ApplyResponsiveLayoutForViewport(viewportSize);</code></span>
+<span class="line" id="L304"><a class="number" href="#L304">304</a><code class="code">    }</code></span>
+<span class="line" id="L305"><a class="number" href="#L305">305</a><code class="code"></code></span>
+<span class="line" id="L306"><a class="number" href="#L306">306</a><code class="code">    private ConstructionToolDefinition? FindTool(ToolType currentTool)</code></span>
+<span class="line" id="L307"><a class="number" href="#L307">307</a><code class="code">    {</code></span>
+<span class="line" id="L308"><a class="number" href="#L308">308</a><code class="code">        if (Category?.Tools == null) return null;</code></span>
+<span class="line" id="L309"><a class="number" href="#L309">309</a><code class="code"></code></span>
+<span class="line" id="L310"><a class="number" href="#L310">310</a><code class="code">        foreach (ConstructionToolDefinition? tool in Category.Tools)</code></span>
+<span class="line" id="L311"><a class="number" href="#L311">311</a><code class="code">            if (tool?.ToolType == currentTool)</code></span>
+<span class="line" id="L312"><a class="number" href="#L312">312</a><code class="code">                return tool;</code></span>
+<span class="line" id="L313"><a class="number" href="#L313">313</a><code class="code"></code></span>
+<span class="line" id="L314"><a class="number" href="#L314">314</a><code class="code">        return null;</code></span>
+<span class="line" id="L315"><a class="number" href="#L315">315</a><code class="code">    }</code></span>
+<span class="line" id="L316"><a class="number" href="#L316">316</a><code class="code"></code></span>
+<span class="line" id="L317"><a class="number" href="#L317">317</a><code class="code">    private void WireRoadTypeButtons()</code></span>
+<span class="line" id="L318"><a class="number" href="#L318">318</a><code class="code">    {</code></span>
+<span class="line" id="L319"><a class="number" href="#L319">319</a><code class="code">        DisconnectRoadTypeButtons();</code></span>
+<span class="line" id="L320"><a class="number" href="#L320">320</a><code class="code">        _roadTypeButtons.Clear();</code></span>
+<span class="line" id="L321"><a class="number" href="#L321">321</a><code class="code">        _roadTypeButtonGroup = new ButtonGroup { AllowUnpress = false };</code></span>
+<span class="line" id="L322"><a class="number" href="#L322">322</a><code class="code"></code></span>
+<span class="line" id="L323"><a class="number" href="#L323">323</a><code class="code">        foreach (RoadType roadType in RoadTypeOrder)</code></span>
+<span class="line" id="L324"><a class="number" href="#L324">324</a><code class="code">        {</code></span>
+<span class="line" id="L325"><a class="number" href="#L325">325</a><code class="code">            Button button = _roadTypeSelector.GetNode&lt;Button&gt;(GetRoadTypeButtonName(roadType));</code></span>
+<span class="line" id="L326"><a class="number" href="#L326">326</a><code class="code">            button.ButtonGroup = _roadTypeButtonGroup;</code></span>
+<span class="line" id="L327"><a class="number" href="#L327">327</a><code class="code">            button.ToggleMode = true;</code></span>
+<span class="line" id="L328"><a class="number" href="#L328">328</a><code class="code">            button.FocusMode = FocusModeEnum.All;</code></span>
+<span class="line" id="L329"><a class="number" href="#L329">329</a><code class="code">            button.MouseDefaultCursorShape = CursorShape.PointingHand;</code></span>
+<span class="line" id="L330"><a class="number" href="#L330">330</a><code class="code">            RoadType capturedRoadType = roadType;</code></span>
+<span class="line" id="L331"><a class="number" href="#L331">331</a><code class="code">            Action handler = () =&gt; OnRoadTypePressed(capturedRoadType);</code></span>
+<span class="line" id="L332"><a class="number" href="#L332">332</a><code class="code">            button.Pressed += handler;</code></span>
+<span class="line" id="L333"><a class="number" href="#L333">333</a><code class="code">            _roadTypeDisconnectActions.Add(() =&gt; button.Pressed -= handler);</code></span>
+<span class="line" id="L334"><a class="number" href="#L334">334</a><code class="code">            _roadTypeButtons[roadType] = button;</code></span>
+<span class="line" id="L335"><a class="number" href="#L335">335</a><code class="code">        }</code></span>
+<span class="line" id="L336"><a class="number" href="#L336">336</a><code class="code"></code></span>
+<span class="line" id="L337"><a class="number" href="#L337">337</a><code class="code">        ConfigureRoadTypeFocusNeighbors();</code></span>
+<span class="line" id="L338"><a class="number" href="#L338">338</a><code class="code">    }</code></span>
+<span class="line" id="L339"><a class="number" href="#L339">339</a><code class="code"></code></span>
+<span class="line" id="L340"><a class="number" href="#L340">340</a><code class="code">    private void DisconnectRoadTypeButtons()</code></span>
+<span class="line" id="L341"><a class="number" href="#L341">341</a><code class="code">    {</code></span>
+<span class="line" id="L342"><a class="number" href="#L342">342</a><code class="code">        foreach (Action disconnect in _roadTypeDisconnectActions)</code></span>
+<span class="line" id="L343"><a class="number" href="#L343">343</a><code class="code">            disconnect();</code></span>
+<span class="line" id="L344"><a class="number" href="#L344">344</a><code class="code">        _roadTypeDisconnectActions.Clear();</code></span>
+<span class="line" id="L345"><a class="number" href="#L345">345</a><code class="code">    }</code></span>
+<span class="line" id="L346"><a class="number" href="#L346">346</a><code class="code"></code></span>
+<span class="line" id="L347"><a class="number" href="#L347">347</a><code class="code">    private void ConfigureRoadTypeFocusNeighbors()</code></span>
+<span class="line" id="L348"><a class="number" href="#L348">348</a><code class="code">    {</code></span>
+<span class="line" id="L349"><a class="number" href="#L349">349</a><code class="code">        for (int index = 0; index &lt; RoadTypeOrder.Length; index++)</code></span>
+<span class="line" id="L350"><a class="number" href="#L350">350</a><code class="code">        {</code></span>
+<span class="line" id="L351"><a class="number" href="#L351">351</a><code class="code">            Button button = _roadTypeButtons[RoadTypeOrder[index]];</code></span>
+<span class="line" id="L352"><a class="number" href="#L352">352</a><code class="code">            if (index &gt; 0)</code></span>
+<span class="line" id="L353"><a class="number" href="#L353">353</a><code class="code">            {</code></span>
+<span class="line" id="L354"><a class="number" href="#L354">354</a><code class="code">                button.FocusNeighborLeft = _roadTypeButtons[RoadTypeOrder[index - 1]].GetPath();</code></span>
+<span class="line" id="L355"><a class="number" href="#L355">355</a><code class="code">                button.FocusPrevious = _roadTypeButtons[RoadTypeOrder[index - 1]].GetPath();</code></span>
+<span class="line" id="L356"><a class="number" href="#L356">356</a><code class="code">            }</code></span>
+<span class="line" id="L357"><a class="number" href="#L357">357</a><code class="code">            if (index + 1 &lt; RoadTypeOrder.Length)</code></span>
+<span class="line" id="L358"><a class="number" href="#L358">358</a><code class="code">            {</code></span>
+<span class="line" id="L359"><a class="number" href="#L359">359</a><code class="code">                button.FocusNeighborRight = _roadTypeButtons[RoadTypeOrder[index + 1]].GetPath();</code></span>
+<span class="line" id="L360"><a class="number" href="#L360">360</a><code class="code">                button.FocusNext = _roadTypeButtons[RoadTypeOrder[index + 1]].GetPath();</code></span>
+<span class="line" id="L361"><a class="number" href="#L361">361</a><code class="code">            }</code></span>
+<span class="line" id="L362"><a class="number" href="#L362">362</a><code class="code">        }</code></span>
+<span class="line" id="L363"><a class="number" href="#L363">363</a><code class="code">    }</code></span>
+<span class="line" id="L364"><a class="number" href="#L364">364</a><code class="code"></code></span>
+<span class="line" id="L365"><a class="number" href="#L365">365</a><code class="code">    private void RefreshRoadTypeStylesIfNeeded()</code></span>
+<span class="line" id="L366"><a class="number" href="#L366">366</a><code class="code">    {</code></span>
+<span class="line" id="L367"><a class="number" href="#L367">367</a><code class="code">        if (ReferenceEquals(_roadTypeStyleConfig, Config))</code></span>
+<span class="line" id="L368"><a class="number" href="#L368">368</a><code class="code">            return;</code></span>
+<span class="line" id="L369"><a class="number" href="#L369">369</a><code class="code"></code></span>
+<span class="line" id="L370"><a class="number" href="#L370">370</a><code class="code">        _roadTypeStyleConfig = Config;</code></span>
+<span class="line" id="L371"><a class="number" href="#L371">371</a><code class="code">        _roadTypeStylesValid = Config != null &amp;&amp; Config.TryValidateRoadTypeStyles(out _);</code></span>
+<span class="line" id="L372"><a class="number" href="#L372">372</a><code class="code">        _roadTypeSelectorAvailable = _roadTypeStylesValid &amp;&amp;</code></span>
+<span class="line" id="L373"><a class="number" href="#L373">373</a><code class="code">            _selectedRoadTypeGetter is not null &amp;&amp;</code></span>
+<span class="line" id="L374"><a class="number" href="#L374">374</a><code class="code">            _selectedRoadTypeSetter is not null;</code></span>
+<span class="line" id="L375"><a class="number" href="#L375">375</a><code class="code"></code></span>
+<span class="line" id="L376"><a class="number" href="#L376">376</a><code class="code">        foreach (RoadType roadType in RoadTypeOrder)</code></span>
+<span class="line" id="L377"><a class="number" href="#L377">377</a><code class="code">        {</code></span>
+<span class="line" id="L378"><a class="number" href="#L378">378</a><code class="code">            if (!_roadTypeButtons.TryGetValue(roadType, out Button? button))</code></span>
+<span class="line" id="L379"><a class="number" href="#L379">379</a><code class="code">                continue;</code></span>
+<span class="line" id="L380"><a class="number" href="#L380">380</a><code class="code"></code></span>
+<span class="line" id="L381"><a class="number" href="#L381">381</a><code class="code">            RoadTypePresentation presentation = ResolveRoadTypePresentation(roadType);</code></span>
+<span class="line" id="L382"><a class="number" href="#L382">382</a><code class="code">            button.TooltipText = presentation.DisplayName;</code></span>
+<span class="line" id="L383"><a class="number" href="#L383">383</a><code class="code">            ColorRect swatch = button.GetNode&lt;ColorRect&gt;(&quot;Swatch&quot;);</code></span>
+<span class="line" id="L384"><a class="number" href="#L384">384</a><code class="code">            swatch.Color = presentation.Color;</code></span>
+<span class="line" id="L385"><a class="number" href="#L385">385</a><code class="code">            Label label = button.GetNode&lt;Label&gt;(&quot;Label&quot;);</code></span>
+<span class="line" id="L386"><a class="number" href="#L386">386</a><code class="code">            label.Text = presentation.DisplayName;</code></span>
+<span class="line" id="L387"><a class="number" href="#L387">387</a><code class="code">        }</code></span>
+<span class="line" id="L388"><a class="number" href="#L388">388</a><code class="code"></code></span>
+<span class="line" id="L389"><a class="number" href="#L389">389</a><code class="code">        ApplyRoadTypeAvailability();</code></span>
+<span class="line" id="L390"><a class="number" href="#L390">390</a><code class="code">    }</code></span>
+<span class="line" id="L391"><a class="number" href="#L391">391</a><code class="code"></code></span>
+<span class="line" id="L392"><a class="number" href="#L392">392</a><code class="code">    private void ApplyRoadTypeAvailability()</code></span>
+<span class="line" id="L393"><a class="number" href="#L393">393</a><code class="code">    {</code></span>
+<span class="line" id="L394"><a class="number" href="#L394">394</a><code class="code">        if (_roadTypeSelector == null || _roadTypeStatus == null)</code></span>
+<span class="line" id="L395"><a class="number" href="#L395">395</a><code class="code">            return;</code></span>
+<span class="line" id="L396"><a class="number" href="#L396">396</a><code class="code"></code></span>
+<span class="line" id="L397"><a class="number" href="#L397">397</a><code class="code">        foreach (Button button in _roadTypeButtons.Values)</code></span>
+<span class="line" id="L398"><a class="number" href="#L398">398</a><code class="code">            button.Disabled = !_roadTypeSelectorAvailable;</code></span>
+<span class="line" id="L399"><a class="number" href="#L399">399</a><code class="code"></code></span>
+<span class="line" id="L400"><a class="number" href="#L400">400</a><code class="code">        _roadTypeStatus.Visible = !_roadTypeStylesValid || !_roadTypeSelectorAvailable;</code></span>
+<span class="line" id="L401"><a class="number" href="#L401">401</a><code class="code">        _roadTypeStatus.Text = !_roadTypeStylesValid</code></span>
+<span class="line" id="L402"><a class="number" href="#L402">402</a><code class="code">            ? &quot;道路类型样式不可用，选择已禁用。&quot;</code></span>
+<span class="line" id="L403"><a class="number" href="#L403">403</a><code class="code">            : &quot;道路类型控制器不可用，选择已禁用。&quot;;</code></span>
+<span class="line" id="L404"><a class="number" href="#L404">404</a><code class="code">    }</code></span>
+<span class="line" id="L405"><a class="number" href="#L405">405</a><code class="code"></code></span>
+<span class="line" id="L406"><a class="number" href="#L406">406</a><code class="code">    private RoadTypePresentation ResolveRoadTypePresentation(RoadType roadType)</code></span>
+<span class="line" id="L407"><a class="number" href="#L407">407</a><code class="code">    {</code></span>
+<span class="line" id="L408"><a class="number" href="#L408">408</a><code class="code">        if (_roadTypeStylesValid &amp;&amp; Config?.RoadTypeStyles is not null)</code></span>
+<span class="line" id="L409"><a class="number" href="#L409">409</a><code class="code">        {</code></span>
+<span class="line" id="L410"><a class="number" href="#L410">410</a><code class="code">            foreach (RoadTypeStyle? style in Config.RoadTypeStyles)</code></span>
+<span class="line" id="L411"><a class="number" href="#L411">411</a><code class="code">            {</code></span>
+<span class="line" id="L412"><a class="number" href="#L412">412</a><code class="code">                if (style?.RoadType != roadType)</code></span>
+<span class="line" id="L413"><a class="number" href="#L413">413</a><code class="code">                    continue;</code></span>
+<span class="line" id="L414"><a class="number" href="#L414">414</a><code class="code"></code></span>
+<span class="line" id="L415"><a class="number" href="#L415">415</a><code class="code">                string displayName = string.IsNullOrWhiteSpace(style.DisplayName)</code></span>
+<span class="line" id="L416"><a class="number" href="#L416">416</a><code class="code">                    ? FallbackRoadTypePresentations[roadType].DisplayName</code></span>
+<span class="line" id="L417"><a class="number" href="#L417">417</a><code class="code">                    : style.DisplayName;</code></span>
+<span class="line" id="L418"><a class="number" href="#L418">418</a><code class="code">                return new RoadTypePresentation(displayName, style.Color);</code></span>
+<span class="line" id="L419"><a class="number" href="#L419">419</a><code class="code">            }</code></span>
+<span class="line" id="L420"><a class="number" href="#L420">420</a><code class="code">        }</code></span>
+<span class="line" id="L421"><a class="number" href="#L421">421</a><code class="code"></code></span>
+<span class="line" id="L422"><a class="number" href="#L422">422</a><code class="code">        return FallbackRoadTypePresentations[roadType];</code></span>
+<span class="line" id="L423"><a class="number" href="#L423">423</a><code class="code">    }</code></span>
+<span class="line" id="L424"><a class="number" href="#L424">424</a><code class="code"></code></span>
+<span class="line" id="L425"><a class="number" href="#L425">425</a><code class="code">    private void OnRoadTypePressed(RoadType roadType)</code></span>
+<span class="line" id="L426"><a class="number" href="#L426">426</a><code class="code">    {</code></span>
+<span class="line" id="L427"><a class="number" href="#L427">427</a><code class="code">        if (!_roadTypeSelectorAvailable ||</code></span>
+<span class="line" id="L428"><a class="number" href="#L428">428</a><code class="code">            _selectedRoadTypeSetter is null ||</code></span>
+<span class="line" id="L429"><a class="number" href="#L429">429</a><code class="code">            !RoadTypeContract.IsDefined(roadType) ||</code></span>
+<span class="line" id="L430"><a class="number" href="#L430">430</a><code class="code">            !TrySetSelectedRoadType(roadType))</code></span>
+<span class="line" id="L431"><a class="number" href="#L431">431</a><code class="code">        {</code></span>
+<span class="line" id="L432"><a class="number" href="#L432">432</a><code class="code">            SyncSelectedRoadTypeButtons();</code></span>
+<span class="line" id="L433"><a class="number" href="#L433">433</a><code class="code">            return;</code></span>
+<span class="line" id="L434"><a class="number" href="#L434">434</a><code class="code">        }</code></span>
+<span class="line" id="L435"><a class="number" href="#L435">435</a><code class="code"></code></span>
+<span class="line" id="L436"><a class="number" href="#L436">436</a><code class="code">        SyncSelectedRoadTypeButtons();</code></span>
+<span class="line" id="L437"><a class="number" href="#L437">437</a><code class="code">    }</code></span>
+<span class="line" id="L438"><a class="number" href="#L438">438</a><code class="code"></code></span>
+<span class="line" id="L439"><a class="number" href="#L439">439</a><code class="code">    private bool TrySetSelectedRoadType(RoadType roadType)</code></span>
+<span class="line" id="L440"><a class="number" href="#L440">440</a><code class="code">    {</code></span>
+<span class="line" id="L441"><a class="number" href="#L441">441</a><code class="code">        if (_selectedRoadTypeSetter is null)</code></span>
+<span class="line" id="L442"><a class="number" href="#L442">442</a><code class="code">            return false;</code></span>
+<span class="line" id="L443"><a class="number" href="#L443">443</a><code class="code"></code></span>
+<span class="line" id="L444"><a class="number" href="#L444">444</a><code class="code">        try</code></span>
+<span class="line" id="L445"><a class="number" href="#L445">445</a><code class="code">        {</code></span>
+<span class="line" id="L446"><a class="number" href="#L446">446</a><code class="code">            return _selectedRoadTypeSetter(roadType);</code></span>
+<span class="line" id="L447"><a class="number" href="#L447">447</a><code class="code">        }</code></span>
+<span class="line" id="L448"><a class="number" href="#L448">448</a><code class="code">        catch (ObjectDisposedException)</code></span>
+<span class="line" id="L449"><a class="number" href="#L449">449</a><code class="code">        {</code></span>
+<span class="line" id="L450"><a class="number" href="#L450">450</a><code class="code">            _roadTypeSelectorAvailable = false;</code></span>
+<span class="line" id="L451"><a class="number" href="#L451">451</a><code class="code">            ApplyRoadTypeAvailability();</code></span>
+<span class="line" id="L452"><a class="number" href="#L452">452</a><code class="code">            return false;</code></span>
+<span class="line" id="L453"><a class="number" href="#L453">453</a><code class="code">        }</code></span>
+<span class="line" id="L454"><a class="number" href="#L454">454</a><code class="code">    }</code></span>
+<span class="line" id="L455"><a class="number" href="#L455">455</a><code class="code"></code></span>
+<span class="line" id="L456"><a class="number" href="#L456">456</a><code class="code">    private void SyncSelectedRoadTypeButtons()</code></span>
+<span class="line" id="L457"><a class="number" href="#L457">457</a><code class="code">    {</code></span>
+<span class="line" id="L458"><a class="number" href="#L458">458</a><code class="code">        if (_roadTypeButtons.Count == 0)</code></span>
+<span class="line" id="L459"><a class="number" href="#L459">459</a><code class="code">            return;</code></span>
+<span class="line" id="L460"><a class="number" href="#L460">460</a><code class="code"></code></span>
+<span class="line" id="L461"><a class="number" href="#L461">461</a><code class="code">        RoadType selectedRoadType = RoadType.Street;</code></span>
+<span class="line" id="L462"><a class="number" href="#L462">462</a><code class="code">        if (_selectedRoadTypeGetter is not null)</code></span>
+<span class="line" id="L463"><a class="number" href="#L463">463</a><code class="code">        {</code></span>
+<span class="line" id="L464"><a class="number" href="#L464">464</a><code class="code">            try</code></span>
+<span class="line" id="L465"><a class="number" href="#L465">465</a><code class="code">            {</code></span>
+<span class="line" id="L466"><a class="number" href="#L466">466</a><code class="code">                RoadType candidate = _selectedRoadTypeGetter();</code></span>
+<span class="line" id="L467"><a class="number" href="#L467">467</a><code class="code">                if (RoadTypeContract.IsDefined(candidate))</code></span>
+<span class="line" id="L468"><a class="number" href="#L468">468</a><code class="code">                    selectedRoadType = candidate;</code></span>
+<span class="line" id="L469"><a class="number" href="#L469">469</a><code class="code">            }</code></span>
+<span class="line" id="L470"><a class="number" href="#L470">470</a><code class="code">            catch (ObjectDisposedException)</code></span>
+<span class="line" id="L471"><a class="number" href="#L471">471</a><code class="code">            {</code></span>
+<span class="line" id="L472"><a class="number" href="#L472">472</a><code class="code">                _roadTypeSelectorAvailable = false;</code></span>
+<span class="line" id="L473"><a class="number" href="#L473">473</a><code class="code">            }</code></span>
+<span class="line" id="L474"><a class="number" href="#L474">474</a><code class="code">        }</code></span>
+<span class="line" id="L475"><a class="number" href="#L475">475</a><code class="code"></code></span>
+<span class="line" id="L476"><a class="number" href="#L476">476</a><code class="code">        foreach (RoadType roadType in RoadTypeOrder)</code></span>
+<span class="line" id="L477"><a class="number" href="#L477">477</a><code class="code">            _roadTypeButtons[roadType].ButtonPressed = roadType == selectedRoadType;</code></span>
+<span class="line" id="L478"><a class="number" href="#L478">478</a><code class="code">    }</code></span>
+<span class="line" id="L479"><a class="number" href="#L479">479</a><code class="code"></code></span>
+<span class="line" id="L480"><a class="number" href="#L480">480</a><code class="code">    private static string GetRoadTypeButtonName(RoadType roadType) =&gt; roadType switch</code></span>
+<span class="line" id="L481"><a class="number" href="#L481">481</a><code class="code">    {</code></span>
+<span class="line" id="L482"><a class="number" href="#L482">482</a><code class="code">        RoadType.Dirt =&gt; &quot;DirtButton&quot;,</code></span>
+<span class="line" id="L483"><a class="number" href="#L483">483</a><code class="code">        RoadType.Street =&gt; &quot;StreetButton&quot;,</code></span>
+<span class="line" id="L484"><a class="number" href="#L484">484</a><code class="code">        RoadType.Arterial =&gt; &quot;ArterialButton&quot;,</code></span>
+<span class="line" id="L485"><a class="number" href="#L485">485</a><code class="code">        RoadType.Highway =&gt; &quot;HighwayButton&quot;,</code></span>
+<span class="line" id="L486"><a class="number" href="#L486">486</a><code class="code">        _ =&gt; throw new ArgumentOutOfRangeException(nameof(roadType), roadType, &quot;RoadType is not defined.&quot;),</code></span>
+<span class="line" id="L487"><a class="number" href="#L487">487</a><code class="code">    };</code></span>
+<span class="line" id="L488"><a class="number" href="#L488">488</a><code class="code"></code></span>
+<span class="line" id="L489"><a class="number" href="#L489">489</a><code class="code">    private readonly record struct RoadTypePresentation(string DisplayName, Color Color);</code></span>
+<span class="line" id="L490"><a class="number" href="#L490">490</a><code class="code"></code></span>
+<span class="line" id="L491"><a class="number" href="#L491">491</a><code class="code">    private static string ResolveShortcutHint(ToolType toolType, string fallback)</code></span>
+<span class="line" id="L492"><a class="number" href="#L492">492</a><code class="code">    {</code></span>
+<span class="line" id="L493"><a class="number" href="#L493">493</a><code class="code">        if (GodotObject.IsInstanceValid(InputBindingManager.Instance) &amp;&amp;</code></span>
+<span class="line" id="L494"><a class="number" href="#L494">494</a><code class="code">            InputBindingManager.TryGetToolAction(toolType, out string actionName))</code></span>
+<span class="line" id="L495"><a class="number" href="#L495">495</a><code class="code">            return InputBindingManager.Instance.GetBindingText(actionName);</code></span>
+<span class="line" id="L496"><a class="number" href="#L496">496</a><code class="code"></code></span>
+<span class="line" id="L497"><a class="number" href="#L497">497</a><code class="code">        return fallback;</code></span>
+<span class="line" id="L498"><a class="number" href="#L498">498</a><code class="code">    }</code></span>
+<span class="line" id="L499"><a class="number" href="#L499">499</a><code class="code">}</code></span></pre></main></html>

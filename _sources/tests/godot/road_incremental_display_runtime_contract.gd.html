@@ -1,0 +1,50 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>tests/godot/road_incremental_display_runtime_contract.gd · SimpleCities 源码</title><link rel="stylesheet" href="../../../assets/source.css"><header><a href="../../../index.html">← 文档首页</a><h1>tests/godot/road_incremental_display_runtime_contract.gd</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">extends &quot;res://tests/godot/road_display_retry_runtime_contract.gd&quot;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code"></code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">func run() -&gt; void:</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code">	var probe = load(&quot;res://tests/godot/RoadIncrementalDisplayProbe.cs&quot;).new()</code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code">	var fixture: String = OS.get_environment(&quot;V4_ALLOCATION_FIXTURE&quot;)</code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">	if fixture.is_empty(): fixture = &quot;res://.scratch/v4-24-20260930/datasets/target-25.json&quot;</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">	var result: Dictionary = probe.Run(fixture)</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">	check(&quot;incremental_probe_completed&quot;, result.get(&quot;passed&quot;, false), result.get(&quot;error&quot;, &quot;&quot;))</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">	for row in result.get(&quot;rows&quot;, []):</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">		check(str(row.get(&quot;name&quot;)), row.get(&quot;passed&quot;, false), row.get(&quot;detail&quot;, {}))</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">	print(&quot;V4_INCREMENTAL_DISPLAY_RESULT &quot;, JSON.stringify(result))</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">	var paging: Dictionary = probe.RunPaging(fixture)</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">	check(&quot;paging_probe_completed&quot;, paging.get(&quot;passed&quot;, false), paging.get(&quot;error&quot;, &quot;&quot;))</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">	for row in paging.get(&quot;rows&quot;, []):</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code">		check(str(row.get(&quot;name&quot;)), row.get(&quot;passed&quot;, false))</code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">	print(&quot;V4_PAGING_RESULT &quot;, JSON.stringify(paging))</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">	probe = null</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code">	if not _passed:</code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">		quit(1)</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code">		return</code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">	await partial_draw_rollback()</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">	await super.run()</code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code"></code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">func partial_draw_rollback() -&gt; void:</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code">	var map = load(&quot;res://Scenes/RoadMap.tscn&quot;).instantiate()</code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">	root.add_child(map)</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">	current_scene = map</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code">	await process_frame</code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">	check(&quot;partial_draw_map_created&quot;, map.CreateMap(100))</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">	focus(map, Vector2(250, 0), 1.2)</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code">	await process_frame</code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">	check(&quot;partial_draw_baseline_built&quot;, await build(map, Vector2.ZERO, Vector2(500, 0)))</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code">	await RenderingServer.frame_post_draw</code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code">	var before: Dictionary = map.GetRoadState()</code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code">	var pixels: PackedByteArray = road_pixels(map)</code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code">	var faults = DISPLAY_PROBE.new()</code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code">	faults.InstallPartialDraw(map)</code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code">	await request_build(map, Vector2(200, -200), Vector2(200, 200))</code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code">	var state: Dictionary = map.GetPresentationState()</code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code">	check(&quot;second_draw_failure_keeps_committed_core&quot;, faults.FaultCalls == 1 and state.get(&quot;phase&quot;) == &quot;Failed&quot; and map.StateToken != before.get(&quot;sourceToken&quot;) and history_counts(map, 2, 0), state)</code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code">	await RenderingServer.frame_post_draw</code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code">	check(&quot;second_draw_failure_clears_partial_new_picture&quot;, not pixels.is_empty() and road_pixels(map) == pixels and state.get(&quot;presentedToken&quot;) == before.get(&quot;sourceToken&quot;))</code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code">	faults.Cleanup()</code></span>
+<span class="line" id="L44"><a class="number" href="#L44">44</a><code class="code">	check(&quot;partial_draw_retry_started&quot;, map.RetryRoadDisplay())</code></span>
+<span class="line" id="L45"><a class="number" href="#L45">45</a><code class="code">	var deadline: int = Time.get_ticks_msec() + 5000</code></span>
+<span class="line" id="L46"><a class="number" href="#L46">46</a><code class="code">	while Time.get_ticks_msec() &lt; deadline and (map.IsDisplayRetryBusy or not map.IsPresentationCurrent):</code></span>
+<span class="line" id="L47"><a class="number" href="#L47">47</a><code class="code">		await process_frame</code></span>
+<span class="line" id="L48"><a class="number" href="#L48">48</a><code class="code">	check(&quot;partial_draw_retry_restores_all_pages&quot;, map.IsPresentationCurrent and history_counts(map, 2, 0) and map.PickRoad(Vector2(200, 100)).get(&quot;sourceToken&quot;) == map.StateToken)</code></span>
+<span class="line" id="L49"><a class="number" href="#L49">49</a><code class="code">	map.queue_free()</code></span>
+<span class="line" id="L50"><a class="number" href="#L50">50</a><code class="code">	await process_frame</code></span></pre></main></html>

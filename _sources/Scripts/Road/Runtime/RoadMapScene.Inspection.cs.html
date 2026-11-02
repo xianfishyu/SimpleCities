@@ -1,0 +1,43 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Scripts/Road/Runtime/RoadMapScene.Inspection.cs · SimpleCities 源码</title><link rel="stylesheet" href="../../../../assets/source.css"><header><a href="../../../../index.html">← 文档首页</a><h1>Scripts/Road/Runtime/RoadMapScene.Inspection.cs</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">using System;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code">using System.IO;</code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">using System.Security.Cryptography;</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code">using SimpleCities.RoadCore;</code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code"></code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">public partial class RoadMapScene</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">{</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">    /// &lt;summary&gt;Exact geometry/entity digest for large-map inspection without exporting native Variant trees.</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">    /// Includes map, nodes, edge identities, profiles and binary64 points; excludes tokens and allocation watermarks.&lt;/summary&gt;</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">    public string GetRoadContentFingerprint()</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">    {</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">        if (_roads is null) return &quot;&quot;;</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">        RoadSnapshot snapshot = _roads.Network.Snapshot;</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">        using var bytes = new MemoryStream();</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code">        using var writer = new BinaryWriter(bytes);</code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">        writer.Write(&quot;v4-core-content-v1&quot;);</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">        writer.Write(snapshot.Map.CellSizeMetres);</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code">        writer.Write(snapshot.NodeCount);</code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">        foreach (RoadNode node in snapshot.Nodes)</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code">        {</code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">            writer.Write(node.Id.Value);</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">            Point(node.Position);</code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code">        }</code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">        writer.Write(snapshot.EdgeCount);</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code">        foreach (RoadEdge edge in snapshot.Edges)</code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">        {</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">            writer.Write(edge.Id.Value);</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code">            writer.Write(edge.Start.Value);</code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">            writer.Write(edge.End.Value);</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">            writer.Write(edge.Profile.Value);</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code">            writer.Write(edge.Points.Count);</code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">            foreach (RoadPoint point in edge.Points) Point(point);</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code">        }</code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code">        writer.Flush();</code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code">        return Convert.ToHexStringLower(SHA256.HashData(bytes.GetBuffer().AsSpan(0, checked((int)bytes.Length))));</code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code"></code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code">        void Point(RoadPoint point)</code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code">        {</code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code">            writer.Write(point.X);</code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code">            writer.Write(point.Y);</code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code">        }</code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code">    }</code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code">}</code></span></pre></main></html>

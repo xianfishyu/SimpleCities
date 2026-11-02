@@ -1,0 +1,333 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>tests/SimpleCities.RoadCore.Performance/HistoryPolicyRunner.cs · SimpleCities 源码</title><link rel="stylesheet" href="../../../assets/source.css"><header><a href="../../../index.html">← 文档首页</a><h1>tests/SimpleCities.RoadCore.Performance/HistoryPolicyRunner.cs</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">using System.Collections;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code">using System.Diagnostics;</code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">using System.Runtime.CompilerServices;</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code">using System.Runtime.InteropServices;</code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code">using System.Security.Cryptography;</code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">using System.Text.Json;</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">using System.Text.Json.Nodes;</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code"></code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">namespace SimpleCities.RoadCore.Performance;</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code"></code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">/// &lt;summary&gt;Independent #26 resource audit. Forced collections belong only to this diagnostic process.&lt;/summary&gt;</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">internal static class HistoryPolicyRunner</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">{</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">    private static readonly JsonSerializerOptions Json = new() { WriteIndented = true };</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code">    private sealed record Sharing(long NodeSlots, long EdgeSlots, int UniqueNodes, int UniqueEdges,</code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">        int NodesAlsoInCurrentSnapshot, int EdgesAlsoInCurrentSnapshot);</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">    private sealed record HistoryMeasurement(long EstimatedBytes, long MaximumEntryBytes, long LiveBefore, long LiveAfter,</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code">        long MarginalLiveBytes, double ReleaseReferenceMs, double CollectionBeforeMs, double CollectionAfterMs,</code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">        bool HistoryCollected, int RetainedCount, int CurrentEdges, Sharing Sharing);</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code">    private sealed record CancellationMeasurement(int DelayAfterInputCopiedMs, double ObservedDelayMs,</code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">        string Outcome, bool CancellationObserved, double TokenToWorkerExitMs, bool WorkerWarningExceeded,</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">        long WorkerAllocatedBytes, bool StateUnchanged);</code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code">    private sealed record ReleaseMeasurement(long MarginalLiveBytes, double ReleaseReferenceMs, double CollectionMs,</code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">        bool PlanCollected, bool SnapshotCollected, bool ChangeSetCollected, bool StateUnchanged);</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code"></code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">    public static void Run(string datasetDirectory, string outputDirectory)</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">    {</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code">#if DEBUG</code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">        throw new InvalidOperationException(&quot;Use the Release diagnostic build.&quot;);</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">#else</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code">        if (Environment.GetEnvironmentVariable(&quot;DOTNET_TieredCompilation&quot;) != &quot;0&quot;)</code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">            throw new InvalidOperationException(&quot;Set DOTNET_TieredCompilation=0 for stable diagnostic variable lifetimes.&quot;);</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code">        string output = Path.GetFullPath(outputDirectory);</code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code">        if (Directory.Exists(output)) throw new IOException(&quot;Use a new evidence directory.&quot;);</code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code">        Directory.CreateDirectory(Path.Combine(output, &quot;datasets&quot;));</code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code">        var datasets = new List&lt;object&gt;();</code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code">        var histories = new List&lt;object&gt;();</code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code">        var cancellations = new List&lt;object&gt;();</code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code">        var releases = new List&lt;object&gt;();</code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code">        string reportPath = Path.Combine(output, &quot;history-policy.json&quot;);</code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code">        void Save(string status) =&gt; File.WriteAllText(reportPath, JsonSerializer.Serialize(new</code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code">        {</code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code">            status, measuredUtc = DateTimeOffset.UtcNow, runtime = RuntimeInformation.FrameworkDescription,</code></span>
+<span class="line" id="L44"><a class="number" href="#L44">44</a><code class="code">            os = RuntimeInformation.OSDescription, tieredCompilation = &quot;0&quot;, historyCapacity = RoadEditHistory.Capacity,</code></span>
+<span class="line" id="L45"><a class="number" href="#L45">45</a><code class="code">            historyByteAdmission = &quot;none&quot;, workerWarningMs = 10,</code></span>
+<span class="line" id="L46"><a class="number" href="#L46">46</a><code class="code">            method = &quot;Retain the identical current snapshot; release only its owning network/history. Shared-entity sets are discarded before live-heap measurements. Signed heap deltas and forced GC times are separate from reference release. Input-copy progress and timed cancellation do not identify a particular internal topology phase. No UI/GPU latency assertion.&quot;,</code></span>
+<span class="line" id="L47"><a class="number" href="#L47">47</a><code class="code">            datasets, histories, cancellations, releases,</code></span>
+<span class="line" id="L48"><a class="number" href="#L48">48</a><code class="code">        }, Json));</code></span>
+<span class="line" id="L49"><a class="number" href="#L49">49</a><code class="code">        try</code></span>
+<span class="line" id="L50"><a class="number" href="#L50">50</a><code class="code">        {</code></span>
+<span class="line" id="L51"><a class="number" href="#L51">51</a><code class="code">            foreach (string name in new[] { &quot;target-25&quot;, &quot;target-50&quot;, &quot;target-100&quot;, &quot;target-200&quot;, &quot;polylines-200&quot;, &quot;high-chain-25&quot;, &quot;limit-25&quot; })</code></span>
+<span class="line" id="L52"><a class="number" href="#L52">52</a><code class="code">            {</code></span>
+<span class="line" id="L53"><a class="number" href="#L53">53</a><code class="code">                byte[] payload = name switch</code></span>
+<span class="line" id="L54"><a class="number" href="#L54">54</a><code class="code">                {</code></span>
+<span class="line" id="L55"><a class="number" href="#L55">55</a><code class="code">                    &quot;high-chain-25&quot; =&gt; HighChainPayload(),</code></span>
+<span class="line" id="L56"><a class="number" href="#L56">56</a><code class="code">                    &quot;limit-25&quot; =&gt; Encode(CreateLimitLattice().Snapshot),</code></span>
+<span class="line" id="L57"><a class="number" href="#L57">57</a><code class="code">                    _ =&gt; File.ReadAllBytes(Path.Combine(datasetDirectory, name + &quot;.json&quot;)),</code></span>
+<span class="line" id="L58"><a class="number" href="#L58">58</a><code class="code">                };</code></span>
+<span class="line" id="L59"><a class="number" href="#L59">59</a><code class="code">                RoadSnapshot validated = Decode(payload).Snapshot;</code></span>
+<span class="line" id="L60"><a class="number" href="#L60">60</a><code class="code">                Require(payload.SequenceEqual(Encode(validated)), &quot;Strict Codec roundtrip changed the dataset.&quot;);</code></span>
+<span class="line" id="L61"><a class="number" href="#L61">61</a><code class="code">                File.WriteAllBytes(Path.Combine(output, &quot;datasets&quot;, name + &quot;.json&quot;), payload);</code></span>
+<span class="line" id="L62"><a class="number" href="#L62">62</a><code class="code">                datasets.Add(new { name, validated.EdgeCount, validated.NodeCount,</code></span>
+<span class="line" id="L63"><a class="number" href="#L63">63</a><code class="code">                    chainPoints = validated.Edges.Sum(edge =&gt; edge.Points.Count),</code></span>
+<span class="line" id="L64"><a class="number" href="#L64">64</a><code class="code">                    maximumEdgePoints = validated.Edges.Select(edge =&gt; edge.Points.Count).DefaultIfEmpty().Max(),</code></span>
+<span class="line" id="L65"><a class="number" href="#L65">65</a><code class="code">                    bytes = payload.Length, sha256 = Convert.ToHexString(SHA256.HashData(payload)) });</code></span>
+<span class="line" id="L66"><a class="number" href="#L66">66</a><code class="code">                Save(&quot;running&quot;);</code></span>
+<span class="line" id="L67"><a class="number" href="#L67">67</a><code class="code">                string[] scenarios = name == &quot;limit-25&quot; ? [&quot;all&quot;] : name is &quot;target-200&quot; or &quot;high-chain-25&quot;</code></span>
+<span class="line" id="L68"><a class="number" href="#L68">68</a><code class="code">                    ? [&quot;single&quot;, &quot;batch128&quot;, &quot;delete3&quot;, &quot;all&quot;] : [&quot;single&quot;, &quot;batch128&quot;, &quot;delete3&quot;, &quot;all&quot;, &quot;build&quot;];</code></span>
+<span class="line" id="L69"><a class="number" href="#L69">69</a><code class="code">                foreach (string scenario in scenarios)</code></span>
+<span class="line" id="L70"><a class="number" href="#L70">70</a><code class="code">                {</code></span>
+<span class="line" id="L71"><a class="number" href="#L71">71</a><code class="code">                    _ = MeasureHistory(payload, scenario, name);</code></span>
+<span class="line" id="L72"><a class="number" href="#L72">72</a><code class="code">                    for (int repeat = 0; repeat &lt; 3; repeat++)</code></span>
+<span class="line" id="L73"><a class="number" href="#L73">73</a><code class="code">                    {</code></span>
+<span class="line" id="L74"><a class="number" href="#L74">74</a><code class="code">                        HistoryMeasurement measurement = MeasureHistory(payload, scenario, name);</code></span>
+<span class="line" id="L75"><a class="number" href="#L75">75</a><code class="code">                        if (name == &quot;limit-25&quot;)</code></span>
+<span class="line" id="L76"><a class="number" href="#L76">76</a><code class="code">                            Require(measurement.MaximumEntryBytes &gt; 4L * 1024 * 1024 &amp;&amp; measurement.EstimatedBytes &gt; 256L * 1024 * 1024,</code></span>
+<span class="line" id="L77"><a class="number" href="#L77">77</a><code class="code">                                &quot;Limit fixture must exercise both discarded byte-budget suggestions.&quot;);</code></span>
+<span class="line" id="L78"><a class="number" href="#L78">78</a><code class="code">                        histories.Add(new { name, scenario, repeat, measurement });</code></span>
+<span class="line" id="L79"><a class="number" href="#L79">79</a><code class="code">                        Save(&quot;running&quot;);</code></span>
+<span class="line" id="L80"><a class="number" href="#L80">80</a><code class="code">                        Console.WriteLine($&quot;HISTORY {name} {scenario} {repeat} estimated={measurement.EstimatedBytes} live={measurement.MarginalLiveBytes}&quot;);</code></span>
+<span class="line" id="L81"><a class="number" href="#L81">81</a><code class="code">                    }</code></span>
+<span class="line" id="L82"><a class="number" href="#L82">82</a><code class="code">                }</code></span>
+<span class="line" id="L83"><a class="number" href="#L83">83</a><code class="code">                VerifyEviction(payload);</code></span>
+<span class="line" id="L84"><a class="number" href="#L84">84</a><code class="code">                // Keep one unchanged network alive throughout repeated cancellation and abandoned plans.</code></span>
+<span class="line" id="L85"><a class="number" href="#L85">85</a><code class="code">                RoadNetwork network = Decode(payload);</code></span>
+<span class="line" id="L86"><a class="number" href="#L86">86</a><code class="code">                RoadGridSpan[] spans = RoadBaselineFixtures.Spans(network.Snapshot);</code></span>
+<span class="line" id="L87"><a class="number" href="#L87">87</a><code class="code">                foreach (int delay in new[] { 0, 1, 5, 15 })</code></span>
+<span class="line" id="L88"><a class="number" href="#L88">88</a><code class="code">                    for (int repeat = 0; repeat &lt; 10; repeat++)</code></span>
+<span class="line" id="L89"><a class="number" href="#L89">89</a><code class="code">                    {</code></span>
+<span class="line" id="L90"><a class="number" href="#L90">90</a><code class="code">                        CancellationMeasurement measurement = MeasureCancellation(network, spans, delay);</code></span>
+<span class="line" id="L91"><a class="number" href="#L91">91</a><code class="code">                        cancellations.Add(new { name, repeat, measurement });</code></span>
+<span class="line" id="L92"><a class="number" href="#L92">92</a><code class="code">                    }</code></span>
+<span class="line" id="L93"><a class="number" href="#L93">93</a><code class="code">                for (int repeat = 0; repeat &lt; 10; repeat++)</code></span>
+<span class="line" id="L94"><a class="number" href="#L94">94</a><code class="code">                    releases.Add(new { name, repeat, measurement = MeasureRelease(network, spans) });</code></span>
+<span class="line" id="L95"><a class="number" href="#L95">95</a><code class="code">                Save(&quot;running&quot;);</code></span>
+<span class="line" id="L96"><a class="number" href="#L96">96</a><code class="code">                Console.WriteLine($&quot;LIFETIME {name} 40 cancellation attempts, 10 abandoned candidates, eviction verified&quot;);</code></span>
+<span class="line" id="L97"><a class="number" href="#L97">97</a><code class="code">            }</code></span>
+<span class="line" id="L98"><a class="number" href="#L98">98</a><code class="code">            Save(&quot;complete&quot;);</code></span>
+<span class="line" id="L99"><a class="number" href="#L99">99</a><code class="code">        }</code></span>
+<span class="line" id="L100"><a class="number" href="#L100">100</a><code class="code">        catch { Save(&quot;failed&quot;); throw; }</code></span>
+<span class="line" id="L101"><a class="number" href="#L101">101</a><code class="code">#endif</code></span>
+<span class="line" id="L102"><a class="number" href="#L102">102</a><code class="code">    }</code></span>
+<span class="line" id="L103"><a class="number" href="#L103">103</a><code class="code"></code></span>
+<span class="line" id="L104"><a class="number" href="#L104">104</a><code class="code">    [MethodImpl(MethodImplOptions.NoInlining)]</code></span>
+<span class="line" id="L105"><a class="number" href="#L105">105</a><code class="code">    private static HistoryHolder Populate(byte[] payload, string scenario, string name)</code></span>
+<span class="line" id="L106"><a class="number" href="#L106">106</a><code class="code">    {</code></span>
+<span class="line" id="L107"><a class="number" href="#L107">107</a><code class="code">        RoadNetwork network = Decode(payload);</code></span>
+<span class="line" id="L108"><a class="number" href="#L108">108</a><code class="code">        var changes = new List&lt;RoadChangeSet&gt;();</code></span>
+<span class="line" id="L109"><a class="number" href="#L109">109</a><code class="code">        long maximum = 0;</code></span>
+<span class="line" id="L110"><a class="number" href="#L110">110</a><code class="code">        for (int i = 0; i &lt; 64; i++)</code></span>
+<span class="line" id="L111"><a class="number" href="#L111">111</a><code class="code">        {</code></span>
+<span class="line" id="L112"><a class="number" href="#L112">112</a><code class="code">            RoadPlan plan;</code></span>
+<span class="line" id="L113"><a class="number" href="#L113">113</a><code class="code">            if (scenario == &quot;build&quot;)</code></span>
+<span class="line" id="L114"><a class="number" href="#L114">114</a><code class="code">            {</code></span>
+<span class="line" id="L115"><a class="number" href="#L115">115</a><code class="code">                int cell = network.Snapshot.Map.CellSizeMetres;</code></span>
+<span class="line" id="L116"><a class="number" href="#L116">116</a><code class="code">                var start = name == &quot;polylines-200&quot;</code></span>
+<span class="line" id="L117"><a class="number" href="#L117">117</a><code class="code">                    ? new RoadPoint(2400 + 400 * (i % 4), -4000 + 400 * (i / 4))</code></span>
+<span class="line" id="L118"><a class="number" href="#L118">118</a><code class="code">                    : new RoadPoint(-4000 + 2 * cell * (i % 4), cell + 2 * cell * (i / 4));</code></span>
+<span class="line" id="L119"><a class="number" href="#L119">119</a><code class="code">                plan = network.PlanBuild(new(network.Snapshot.Token, start, new(start.X + cell, start.Y), RoadProfileId.Street)).Plan</code></span>
+<span class="line" id="L120"><a class="number" href="#L120">120</a><code class="code">                    ?? throw new InvalidOperationException(&quot;Build fixture was rejected.&quot;);</code></span>
+<span class="line" id="L121"><a class="number" href="#L121">121</a><code class="code">            }</code></span>
+<span class="line" id="L122"><a class="number" href="#L122">122</a><code class="code">            else</code></span>
+<span class="line" id="L123"><a class="number" href="#L123">123</a><code class="code">            {</code></span>
+<span class="line" id="L124"><a class="number" href="#L124">124</a><code class="code">                RoadGridSpan[] spans = RoadBaselineFixtures.Spans(network.Snapshot);</code></span>
+<span class="line" id="L125"><a class="number" href="#L125">125</a><code class="code">                spans = scenario switch { &quot;single&quot; =&gt; [spans[0]], &quot;batch128&quot; =&gt; spans.Take(128).ToArray(), &quot;delete3&quot; =&gt; spans.Take(3).ToArray(), _ =&gt; spans };</code></span>
+<span class="line" id="L126"><a class="number" href="#L126">126</a><code class="code">                RoadEditResult edit = scenario == &quot;delete3&quot; ? network.PlanRemove(spans) :</code></span>
+<span class="line" id="L127"><a class="number" href="#L127">127</a><code class="code">                    network.PlanChangeProfile(spans, i % 2 == 0 ? RoadProfileId.Highway : RoadProfileId.Dirt);</code></span>
+<span class="line" id="L128"><a class="number" href="#L128">128</a><code class="code">                plan = edit.Plan ?? throw new InvalidOperationException(edit.Reason);</code></span>
+<span class="line" id="L129"><a class="number" href="#L129">129</a><code class="code">            }</code></span>
+<span class="line" id="L130"><a class="number" href="#L130">130</a><code class="code">            long before = network.History.EstimatedBytes;</code></span>
+<span class="line" id="L131"><a class="number" href="#L131">131</a><code class="code">            Require(network.TryCommit(plan), &quot;Prepared history edit failed to commit.&quot;);</code></span>
+<span class="line" id="L132"><a class="number" href="#L132">132</a><code class="code">            maximum = Math.Max(maximum, network.History.EstimatedBytes - before);</code></span>
+<span class="line" id="L133"><a class="number" href="#L133">133</a><code class="code">            changes.Add(plan.ChangeSet);</code></span>
+<span class="line" id="L134"><a class="number" href="#L134">134</a><code class="code">        }</code></span>
+<span class="line" id="L135"><a class="number" href="#L135">135</a><code class="code">        Require(network.History.RetainedCount == 64, &quot;History did not retain 64 entries.&quot;);</code></span>
+<span class="line" id="L136"><a class="number" href="#L136">136</a><code class="code">        return new(network, maximum, CountSharing(changes, network.Snapshot));</code></span>
+<span class="line" id="L137"><a class="number" href="#L137">137</a><code class="code">    }</code></span>
+<span class="line" id="L138"><a class="number" href="#L138">138</a><code class="code"></code></span>
+<span class="line" id="L139"><a class="number" href="#L139">139</a><code class="code">    private static Sharing CountSharing(IReadOnlyList&lt;RoadChangeSet&gt; changes, RoadSnapshot current)</code></span>
+<span class="line" id="L140"><a class="number" href="#L140">140</a><code class="code">    {</code></span>
+<span class="line" id="L141"><a class="number" href="#L141">141</a><code class="code">        var nodes = new HashSet&lt;RoadNode&gt;(ReferenceEqualityComparer.Instance);</code></span>
+<span class="line" id="L142"><a class="number" href="#L142">142</a><code class="code">        var edges = new HashSet&lt;RoadEdge&gt;(ReferenceEqualityComparer.Instance);</code></span>
+<span class="line" id="L143"><a class="number" href="#L143">143</a><code class="code">        long nodeSlots = 0, edgeSlots = 0;</code></span>
+<span class="line" id="L144"><a class="number" href="#L144">144</a><code class="code">        foreach (RoadChangeSet change in changes)</code></span>
+<span class="line" id="L145"><a class="number" href="#L145">145</a><code class="code">        {</code></span>
+<span class="line" id="L146"><a class="number" href="#L146">146</a><code class="code">            foreach (RoadNodeChange item in change.Nodes)</code></span>
+<span class="line" id="L147"><a class="number" href="#L147">147</a><code class="code">            {</code></span>
+<span class="line" id="L148"><a class="number" href="#L148">148</a><code class="code">                if (item.Before is not null) { nodeSlots++; nodes.Add(item.Before); }</code></span>
+<span class="line" id="L149"><a class="number" href="#L149">149</a><code class="code">                if (item.After is not null) { nodeSlots++; nodes.Add(item.After); }</code></span>
+<span class="line" id="L150"><a class="number" href="#L150">150</a><code class="code">            }</code></span>
+<span class="line" id="L151"><a class="number" href="#L151">151</a><code class="code">            foreach (RoadEdgeChange item in change.Edges)</code></span>
+<span class="line" id="L152"><a class="number" href="#L152">152</a><code class="code">            {</code></span>
+<span class="line" id="L153"><a class="number" href="#L153">153</a><code class="code">                if (item.Before is not null) { edgeSlots++; edges.Add(item.Before); }</code></span>
+<span class="line" id="L154"><a class="number" href="#L154">154</a><code class="code">                if (item.After is not null) { edgeSlots++; edges.Add(item.After); }</code></span>
+<span class="line" id="L155"><a class="number" href="#L155">155</a><code class="code">            }</code></span>
+<span class="line" id="L156"><a class="number" href="#L156">156</a><code class="code">        }</code></span>
+<span class="line" id="L157"><a class="number" href="#L157">157</a><code class="code">        return new(nodeSlots, edgeSlots, nodes.Count, edges.Count,</code></span>
+<span class="line" id="L158"><a class="number" href="#L158">158</a><code class="code">            current.Nodes.Count(nodes.Contains), current.Edges.Count(edges.Contains));</code></span>
+<span class="line" id="L159"><a class="number" href="#L159">159</a><code class="code">    }</code></span>
+<span class="line" id="L160"><a class="number" href="#L160">160</a><code class="code"></code></span>
+<span class="line" id="L161"><a class="number" href="#L161">161</a><code class="code">    [MethodImpl(MethodImplOptions.NoInlining)]</code></span>
+<span class="line" id="L162"><a class="number" href="#L162">162</a><code class="code">    private static HistoryMeasurement MeasureHistory(byte[] payload, string scenario, string name)</code></span>
+<span class="line" id="L163"><a class="number" href="#L163">163</a><code class="code">    {</code></span>
+<span class="line" id="L164"><a class="number" href="#L164">164</a><code class="code">        HistoryHolder holder = Populate(payload, scenario, name);</code></span>
+<span class="line" id="L165"><a class="number" href="#L165">165</a><code class="code">        long estimated = holder.Network!.History.EstimatedBytes;</code></span>
+<span class="line" id="L166"><a class="number" href="#L166">166</a><code class="code">        int retained = holder.Network.History.RetainedCount;</code></span>
+<span class="line" id="L167"><a class="number" href="#L167">167</a><code class="code">        var weak = new WeakReference(holder.Network.History);</code></span>
+<span class="line" id="L168"><a class="number" href="#L168">168</a><code class="code">        long stamp = Stopwatch.GetTimestamp(), before = Collect();</code></span>
+<span class="line" id="L169"><a class="number" href="#L169">169</a><code class="code">        double beforeGc = Stopwatch.GetElapsedTime(stamp).TotalMilliseconds;</code></span>
+<span class="line" id="L170"><a class="number" href="#L170">170</a><code class="code">        stamp = Stopwatch.GetTimestamp();</code></span>
+<span class="line" id="L171"><a class="number" href="#L171">171</a><code class="code">        holder.Release();</code></span>
+<span class="line" id="L172"><a class="number" href="#L172">172</a><code class="code">        double release = Stopwatch.GetElapsedTime(stamp).TotalMilliseconds;</code></span>
+<span class="line" id="L173"><a class="number" href="#L173">173</a><code class="code">        stamp = Stopwatch.GetTimestamp();</code></span>
+<span class="line" id="L174"><a class="number" href="#L174">174</a><code class="code">        long after = Collect();</code></span>
+<span class="line" id="L175"><a class="number" href="#L175">175</a><code class="code">        double afterGc = Stopwatch.GetElapsedTime(stamp).TotalMilliseconds;</code></span>
+<span class="line" id="L176"><a class="number" href="#L176">176</a><code class="code">        Require(!weak.IsAlive, &quot;Released history remains rooted.&quot;);</code></span>
+<span class="line" id="L177"><a class="number" href="#L177">177</a><code class="code">        GC.KeepAlive(holder.Current);</code></span>
+<span class="line" id="L178"><a class="number" href="#L178">178</a><code class="code">        return new(estimated, holder.Maximum, before, after, before - after, release, beforeGc, afterGc,</code></span>
+<span class="line" id="L179"><a class="number" href="#L179">179</a><code class="code">            !weak.IsAlive, retained, holder.Current.EdgeCount, holder.Sharing);</code></span>
+<span class="line" id="L180"><a class="number" href="#L180">180</a><code class="code">    }</code></span>
+<span class="line" id="L181"><a class="number" href="#L181">181</a><code class="code"></code></span>
+<span class="line" id="L182"><a class="number" href="#L182">182</a><code class="code">    [MethodImpl(MethodImplOptions.NoInlining)]</code></span>
+<span class="line" id="L183"><a class="number" href="#L183">183</a><code class="code">    private static CancellationMeasurement MeasureCancellation(RoadNetwork network, RoadGridSpan[] spans, int delay)</code></span>
+<span class="line" id="L184"><a class="number" href="#L184">184</a><code class="code">    {</code></span>
+<span class="line" id="L185"><a class="number" href="#L185">185</a><code class="code">        RoadSnapshot before = network.Snapshot;</code></span>
+<span class="line" id="L186"><a class="number" href="#L186">186</a><code class="code">        RoadEditHistory history = network.History;</code></span>
+<span class="line" id="L187"><a class="number" href="#L187">187</a><code class="code">        using var copied = new ManualResetEventSlim();</code></span>
+<span class="line" id="L188"><a class="number" href="#L188">188</a><code class="code">        using var cancellation = new CancellationTokenSource();</code></span>
+<span class="line" id="L189"><a class="number" href="#L189">189</a><code class="code">        long copiedAt = 0, exitedAt = 0, allocated = 0;</code></span>
+<span class="line" id="L190"><a class="number" href="#L190">190</a><code class="code">        bool observed = false;</code></span>
+<span class="line" id="L191"><a class="number" href="#L191">191</a><code class="code">        var input = new ObservedSpans(spans, () =&gt; { Volatile.Write(ref copiedAt, Stopwatch.GetTimestamp()); copied.Set(); });</code></span>
+<span class="line" id="L192"><a class="number" href="#L192">192</a><code class="code">        Task task = Task.Run(() =&gt;</code></span>
+<span class="line" id="L193"><a class="number" href="#L193">193</a><code class="code">        {</code></span>
+<span class="line" id="L194"><a class="number" href="#L194">194</a><code class="code">            long allocationStart = GC.GetAllocatedBytesForCurrentThread();</code></span>
+<span class="line" id="L195"><a class="number" href="#L195">195</a><code class="code">            try { _ = network.PlanChangeProfile(input, RoadProfileId.Highway, cancellation.Token); }</code></span>
+<span class="line" id="L196"><a class="number" href="#L196">196</a><code class="code">            catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { observed = true; }</code></span>
+<span class="line" id="L197"><a class="number" href="#L197">197</a><code class="code">            finally</code></span>
+<span class="line" id="L198"><a class="number" href="#L198">198</a><code class="code">            {</code></span>
+<span class="line" id="L199"><a class="number" href="#L199">199</a><code class="code">                allocated = GC.GetAllocatedBytesForCurrentThread() - allocationStart;</code></span>
+<span class="line" id="L200"><a class="number" href="#L200">200</a><code class="code">                Volatile.Write(ref exitedAt, Stopwatch.GetTimestamp());</code></span>
+<span class="line" id="L201"><a class="number" href="#L201">201</a><code class="code">            }</code></span>
+<span class="line" id="L202"><a class="number" href="#L202">202</a><code class="code">        });</code></span>
+<span class="line" id="L203"><a class="number" href="#L203">203</a><code class="code">        Require(copied.Wait(TimeSpan.FromSeconds(10)), &quot;Worker did not finish copying the selection.&quot;);</code></span>
+<span class="line" id="L204"><a class="number" href="#L204">204</a><code class="code">        if (delay &gt; 0) Thread.Sleep(delay);</code></span>
+<span class="line" id="L205"><a class="number" href="#L205">205</a><code class="code">        long requestedAt = Stopwatch.GetTimestamp();</code></span>
+<span class="line" id="L206"><a class="number" href="#L206">206</a><code class="code">        cancellation.Cancel();</code></span>
+<span class="line" id="L207"><a class="number" href="#L207">207</a><code class="code">        task.GetAwaiter().GetResult();</code></span>
+<span class="line" id="L208"><a class="number" href="#L208">208</a><code class="code">        bool early = exitedAt &lt;= requestedAt;</code></span>
+<span class="line" id="L209"><a class="number" href="#L209">209</a><code class="code">        double elapsed = early ? 0 : Stopwatch.GetElapsedTime(requestedAt, exitedAt).TotalMilliseconds;</code></span>
+<span class="line" id="L210"><a class="number" href="#L210">210</a><code class="code">        Require(ReferenceEquals(before, network.Snapshot) &amp;&amp; ReferenceEquals(history, network.History), &quot;Cancellation changed active state.&quot;);</code></span>
+<span class="line" id="L211"><a class="number" href="#L211">211</a><code class="code">        return new(delay, Stopwatch.GetElapsedTime(copiedAt, requestedAt).TotalMilliseconds,</code></span>
+<span class="line" id="L212"><a class="number" href="#L212">212</a><code class="code">            early ? &quot;ExitedBeforeRequest&quot; : observed ? &quot;ObservedCancellation&quot; : &quot;CompletedAfterRequest&quot;,</code></span>
+<span class="line" id="L213"><a class="number" href="#L213">213</a><code class="code">            observed, elapsed, elapsed &gt; 10, allocated, true);</code></span>
+<span class="line" id="L214"><a class="number" href="#L214">214</a><code class="code">    }</code></span>
+<span class="line" id="L215"><a class="number" href="#L215">215</a><code class="code"></code></span>
+<span class="line" id="L216"><a class="number" href="#L216">216</a><code class="code">    [MethodImpl(MethodImplOptions.NoInlining)]</code></span>
+<span class="line" id="L217"><a class="number" href="#L217">217</a><code class="code">    private static CandidateHolder PrepareCandidate(RoadNetwork network, RoadGridSpan[] spans) =&gt;</code></span>
+<span class="line" id="L218"><a class="number" href="#L218">218</a><code class="code">        new(network.PlanChangeProfile(spans, RoadProfileId.Highway).Plan ?? throw new InvalidOperationException(&quot;Candidate rejected.&quot;));</code></span>
+<span class="line" id="L219"><a class="number" href="#L219">219</a><code class="code"></code></span>
+<span class="line" id="L220"><a class="number" href="#L220">220</a><code class="code">    [MethodImpl(MethodImplOptions.NoInlining)]</code></span>
+<span class="line" id="L221"><a class="number" href="#L221">221</a><code class="code">    private static ReleaseMeasurement MeasureRelease(RoadNetwork network, RoadGridSpan[] spans)</code></span>
+<span class="line" id="L222"><a class="number" href="#L222">222</a><code class="code">    {</code></span>
+<span class="line" id="L223"><a class="number" href="#L223">223</a><code class="code">        RoadSnapshot before = network.Snapshot;</code></span>
+<span class="line" id="L224"><a class="number" href="#L224">224</a><code class="code">        RoadEditHistory history = network.History;</code></span>
+<span class="line" id="L225"><a class="number" href="#L225">225</a><code class="code">        CandidateHolder holder = PrepareCandidate(network, spans);</code></span>
+<span class="line" id="L226"><a class="number" href="#L226">226</a><code class="code">        var plan = new WeakReference(holder.Plan);</code></span>
+<span class="line" id="L227"><a class="number" href="#L227">227</a><code class="code">        var snapshot = new WeakReference(holder.Plan!.Target);</code></span>
+<span class="line" id="L228"><a class="number" href="#L228">228</a><code class="code">        var change = new WeakReference(holder.Plan.ChangeSet);</code></span>
+<span class="line" id="L229"><a class="number" href="#L229">229</a><code class="code">        long liveBefore = Collect(), started = Stopwatch.GetTimestamp();</code></span>
+<span class="line" id="L230"><a class="number" href="#L230">230</a><code class="code">        holder.Release();</code></span>
+<span class="line" id="L231"><a class="number" href="#L231">231</a><code class="code">        double referenceMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds;</code></span>
+<span class="line" id="L232"><a class="number" href="#L232">232</a><code class="code">        started = Stopwatch.GetTimestamp();</code></span>
+<span class="line" id="L233"><a class="number" href="#L233">233</a><code class="code">        long liveAfter = Collect();</code></span>
+<span class="line" id="L234"><a class="number" href="#L234">234</a><code class="code">        double collectionMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds;</code></span>
+<span class="line" id="L235"><a class="number" href="#L235">235</a><code class="code">        Require(!plan.IsAlive &amp;&amp; !snapshot.IsAlive &amp;&amp; !change.IsAlive, &quot;An abandoned plan, target or change set is still rooted.&quot;);</code></span>
+<span class="line" id="L236"><a class="number" href="#L236">236</a><code class="code">        Require(ReferenceEquals(before, network.Snapshot) &amp;&amp; ReferenceEquals(history, network.History), &quot;Candidate release changed state.&quot;);</code></span>
+<span class="line" id="L237"><a class="number" href="#L237">237</a><code class="code">        GC.KeepAlive(network);</code></span>
+<span class="line" id="L238"><a class="number" href="#L238">238</a><code class="code">        return new(liveBefore - liveAfter, referenceMs, collectionMs, true, true, true, true);</code></span>
+<span class="line" id="L239"><a class="number" href="#L239">239</a><code class="code">    }</code></span>
+<span class="line" id="L240"><a class="number" href="#L240">240</a><code class="code"></code></span>
+<span class="line" id="L241"><a class="number" href="#L241">241</a><code class="code">    private static void VerifyEviction(byte[] payload)</code></span>
+<span class="line" id="L242"><a class="number" href="#L242">242</a><code class="code">    {</code></span>
+<span class="line" id="L243"><a class="number" href="#L243">243</a><code class="code">        RoadNetwork network = Decode(payload);</code></span>
+<span class="line" id="L244"><a class="number" href="#L244">244</a><code class="code">        long oldestRevision = 0;</code></span>
+<span class="line" id="L245"><a class="number" href="#L245">245</a><code class="code">        for (int i = 0; i &lt; 65; i++)</code></span>
+<span class="line" id="L246"><a class="number" href="#L246">246</a><code class="code">        {</code></span>
+<span class="line" id="L247"><a class="number" href="#L247">247</a><code class="code">            Require(network.TryCommit(network.PlanChangeProfile(RoadBaselineFixtures.Spans(network.Snapshot),</code></span>
+<span class="line" id="L248"><a class="number" href="#L248">248</a><code class="code">                i % 2 == 0 ? RoadProfileId.Highway : RoadProfileId.Dirt).Plan!), &quot;Eviction edit failed.&quot;);</code></span>
+<span class="line" id="L249"><a class="number" href="#L249">249</a><code class="code">            if (i == 0) oldestRevision = network.Snapshot.Token.ContentRevision;</code></span>
+<span class="line" id="L250"><a class="number" href="#L250">250</a><code class="code">        }</code></span>
+<span class="line" id="L251"><a class="number" href="#L251">251</a><code class="code">        long finalRevision = network.Snapshot.Token.ContentRevision;</code></span>
+<span class="line" id="L252"><a class="number" href="#L252">252</a><code class="code">        Require(network.History.RetainedCount == 64, &quot;Entry 65 did not evict only the oldest entry.&quot;);</code></span>
+<span class="line" id="L253"><a class="number" href="#L253">253</a><code class="code">        for (int i = 0; i &lt; 64; i++) Require(network.TryCommit(network.PlanUndo().Plan!), &quot;Undo failed.&quot;);</code></span>
+<span class="line" id="L254"><a class="number" href="#L254">254</a><code class="code">        Require(network.Snapshot.Token.ContentRevision == oldestRevision &amp;&amp; network.PlanUndo().Status == RoadEditStatus.NoChange,</code></span>
+<span class="line" id="L255"><a class="number" href="#L255">255</a><code class="code">            &quot;Oldest reachable content does not match count-only eviction.&quot;);</code></span>
+<span class="line" id="L256"><a class="number" href="#L256">256</a><code class="code">        for (int i = 0; i &lt; 64; i++) Require(network.TryCommit(network.PlanRedo().Plan!), &quot;Redo failed.&quot;);</code></span>
+<span class="line" id="L257"><a class="number" href="#L257">257</a><code class="code">        Require(network.Snapshot.Token.ContentRevision == finalRevision &amp;&amp; network.History.UndoCount == 64, &quot;Redo lost retained history.&quot;);</code></span>
+<span class="line" id="L258"><a class="number" href="#L258">258</a><code class="code">    }</code></span>
+<span class="line" id="L259"><a class="number" href="#L259">259</a><code class="code"></code></span>
+<span class="line" id="L260"><a class="number" href="#L260">260</a><code class="code">    private static RoadNetwork CreateLimitLattice()</code></span>
+<span class="line" id="L261"><a class="number" href="#L261">261</a><code class="code">    {</code></span>
+<span class="line" id="L262"><a class="number" href="#L262">262</a><code class="code">        var network = new RoadNetwork(new MapDefinition(25));</code></span>
+<span class="line" id="L263"><a class="number" href="#L263">263</a><code class="code">        const int size = 52;</code></span>
+<span class="line" id="L264"><a class="number" href="#L264">264</a><code class="code">        void Line(int ax, int ay, int bx, int by) =&gt; RoadBaselineFixtures.Build(network,</code></span>
+<span class="line" id="L265"><a class="number" href="#L265">265</a><code class="code">            new(-4000 + ax * 25, -4000 + ay * 25), new(-4000 + bx * 25, -4000 + by * 25));</code></span>
+<span class="line" id="L266"><a class="number" href="#L266">266</a><code class="code">        for (int i = 0; i &lt;= size; i++) { Line(0, i, size, i); Line(i, 0, i, size); }</code></span>
+<span class="line" id="L267"><a class="number" href="#L267">267</a><code class="code">        for (int offset = 1 - size; offset &lt; size; offset++)</code></span>
+<span class="line" id="L268"><a class="number" href="#L268">268</a><code class="code">        {</code></span>
+<span class="line" id="L269"><a class="number" href="#L269">269</a><code class="code">            int x = Math.Max(0, -offset), y = Math.Max(0, offset), length = size - Math.Abs(offset);</code></span>
+<span class="line" id="L270"><a class="number" href="#L270">270</a><code class="code">            Line(x, y, x + length, y + length);</code></span>
+<span class="line" id="L271"><a class="number" href="#L271">271</a><code class="code">        }</code></span>
+<span class="line" id="L272"><a class="number" href="#L272">272</a><code class="code">        for (int sum = 1; sum &lt; 2 * size; sum++)</code></span>
+<span class="line" id="L273"><a class="number" href="#L273">273</a><code class="code">            Line(Math.Max(0, sum - size), Math.Min(size, sum), Math.Min(size, sum), Math.Max(0, sum - size));</code></span>
+<span class="line" id="L274"><a class="number" href="#L274">274</a><code class="code">        for (int i = 0; i &lt; 56; i++)</code></span>
+<span class="line" id="L275"><a class="number" href="#L275">275</a><code class="code">            RoadBaselineFixtures.Build(network, new(-4000 + 50 * (i % 8), 25 + 50 * (i / 8)), new(-3975 + 50 * (i % 8), 25 + 50 * (i / 8)));</code></span>
+<span class="line" id="L276"><a class="number" href="#L276">276</a><code class="code">        Require(network.Snapshot.EdgeCount == 16384, &quot;Limit lattice must have exactly 16,384 canonical edges.&quot;);</code></span>
+<span class="line" id="L277"><a class="number" href="#L277">277</a><code class="code">        return network;</code></span>
+<span class="line" id="L278"><a class="number" href="#L278">278</a><code class="code">    }</code></span>
+<span class="line" id="L279"><a class="number" href="#L279">279</a><code class="code"></code></span>
+<span class="line" id="L280"><a class="number" href="#L280">280</a><code class="code">    private static byte[] HighChainPayload()</code></span>
+<span class="line" id="L281"><a class="number" href="#L281">281</a><code class="code">    {</code></span>
+<span class="line" id="L282"><a class="number" href="#L282">282</a><code class="code">        JsonObject document = JsonNode.Parse(Encode(new RoadNetwork(new MapDefinition(25)).Snapshot))!.AsObject();</code></span>
+<span class="line" id="L283"><a class="number" href="#L283">283</a><code class="code">        var points = new List&lt;RoadPoint&gt; { new(-4000, -4000) };</code></span>
+<span class="line" id="L284"><a class="number" href="#L284">284</a><code class="code">        for (int row = 0; row &lt; 32; row++)</code></span>
+<span class="line" id="L285"><a class="number" href="#L285">285</a><code class="code">        {</code></span>
+<span class="line" id="L286"><a class="number" href="#L286">286</a><code class="code">            int startX = row % 2 == 0 ? -4000 : 4000, direction = row % 2 == 0 ? 1 : -1, y = -4000 + row * 50;</code></span>
+<span class="line" id="L287"><a class="number" href="#L287">287</a><code class="code">            if (row &gt; 0) points.Add(new(startX, y));</code></span>
+<span class="line" id="L288"><a class="number" href="#L288">288</a><code class="code">            for (int step = 1; step &lt;= 320; step++) points.Add(new(startX + direction * step * 25, y + step % 2 * 25));</code></span>
+<span class="line" id="L289"><a class="number" href="#L289">289</a><code class="code">        }</code></span>
+<span class="line" id="L290"><a class="number" href="#L290">290</a><code class="code">        document[&quot;nextNodeId&quot;] = 3;</code></span>
+<span class="line" id="L291"><a class="number" href="#L291">291</a><code class="code">        document[&quot;nextEdgeId&quot;] = 2;</code></span>
+<span class="line" id="L292"><a class="number" href="#L292">292</a><code class="code">        document[&quot;nodes&quot;] = new JsonArray(new JsonObject { [&quot;id&quot;] = 1, [&quot;x&quot;] = points[0].X, [&quot;y&quot;] = points[0].Y },</code></span>
+<span class="line" id="L293"><a class="number" href="#L293">293</a><code class="code">            new JsonObject { [&quot;id&quot;] = 2, [&quot;x&quot;] = points[^1].X, [&quot;y&quot;] = points[^1].Y });</code></span>
+<span class="line" id="L294"><a class="number" href="#L294">294</a><code class="code">        document[&quot;edges&quot;] = new JsonArray(new JsonObject</code></span>
+<span class="line" id="L295"><a class="number" href="#L295">295</a><code class="code">        {</code></span>
+<span class="line" id="L296"><a class="number" href="#L296">296</a><code class="code">            [&quot;id&quot;] = 1, [&quot;startNodeId&quot;] = 1, [&quot;endNodeId&quot;] = 2, [&quot;profile&quot;] = RoadProfileId.Street.Value,</code></span>
+<span class="line" id="L297"><a class="number" href="#L297">297</a><code class="code">            [&quot;points&quot;] = new JsonArray(points.Select(point =&gt; (JsonNode)new JsonObject { [&quot;x&quot;] = point.X, [&quot;y&quot;] = point.Y }).ToArray()),</code></span>
+<span class="line" id="L298"><a class="number" href="#L298">298</a><code class="code">        });</code></span>
+<span class="line" id="L299"><a class="number" href="#L299">299</a><code class="code">        byte[] payload = System.Text.Encoding.UTF8.GetBytes(document.ToJsonString());</code></span>
+<span class="line" id="L300"><a class="number" href="#L300">300</a><code class="code">        return Encode(Decode(payload).Snapshot);</code></span>
+<span class="line" id="L301"><a class="number" href="#L301">301</a><code class="code">    }</code></span>
+<span class="line" id="L302"><a class="number" href="#L302">302</a><code class="code"></code></span>
+<span class="line" id="L303"><a class="number" href="#L303">303</a><code class="code">    private static RoadNetwork Decode(byte[] payload)</code></span>
+<span class="line" id="L304"><a class="number" href="#L304">304</a><code class="code">    {</code></span>
+<span class="line" id="L305"><a class="number" href="#L305">305</a><code class="code">        using var input = new MemoryStream(payload, false);</code></span>
+<span class="line" id="L306"><a class="number" href="#L306">306</a><code class="code">        var network = new RoadNetwork();</code></span>
+<span class="line" id="L307"><a class="number" href="#L307">307</a><code class="code">        Require(network.TryCommit(network.PlanLoad(RoadCodec.Read(input))), &quot;Normal load failed.&quot;);</code></span>
+<span class="line" id="L308"><a class="number" href="#L308">308</a><code class="code">        return network;</code></span>
+<span class="line" id="L309"><a class="number" href="#L309">309</a><code class="code">    }</code></span>
+<span class="line" id="L310"><a class="number" href="#L310">310</a><code class="code">    private static byte[] Encode(RoadSnapshot snapshot) { using var stream = new MemoryStream(); RoadCodec.Write(stream, snapshot); return stream.ToArray(); }</code></span>
+<span class="line" id="L311"><a class="number" href="#L311">311</a><code class="code">    private static long Collect() { GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, true, true); GC.WaitForPendingFinalizers(); return GC.GetTotalMemory(true); }</code></span>
+<span class="line" id="L312"><a class="number" href="#L312">312</a><code class="code">    private static void Require(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }</code></span>
+<span class="line" id="L313"><a class="number" href="#L313">313</a><code class="code">    private sealed class HistoryHolder(RoadNetwork network, long maximum, Sharing sharing)</code></span>
+<span class="line" id="L314"><a class="number" href="#L314">314</a><code class="code">    {</code></span>
+<span class="line" id="L315"><a class="number" href="#L315">315</a><code class="code">        internal RoadNetwork? Network { get; private set; } = network;</code></span>
+<span class="line" id="L316"><a class="number" href="#L316">316</a><code class="code">        internal RoadSnapshot Current { get; } = network.Snapshot;</code></span>
+<span class="line" id="L317"><a class="number" href="#L317">317</a><code class="code">        internal long Maximum { get; } = maximum;</code></span>
+<span class="line" id="L318"><a class="number" href="#L318">318</a><code class="code">        internal Sharing Sharing { get; } = sharing;</code></span>
+<span class="line" id="L319"><a class="number" href="#L319">319</a><code class="code">        [MethodImpl(MethodImplOptions.NoInlining)] internal void Release() =&gt; Network = null;</code></span>
+<span class="line" id="L320"><a class="number" href="#L320">320</a><code class="code">    }</code></span>
+<span class="line" id="L321"><a class="number" href="#L321">321</a><code class="code">    private sealed class CandidateHolder(RoadPlan plan)</code></span>
+<span class="line" id="L322"><a class="number" href="#L322">322</a><code class="code">    {</code></span>
+<span class="line" id="L323"><a class="number" href="#L323">323</a><code class="code">        internal RoadPlan? Plan { get; private set; } = plan;</code></span>
+<span class="line" id="L324"><a class="number" href="#L324">324</a><code class="code">        [MethodImpl(MethodImplOptions.NoInlining)] internal void Release() =&gt; Plan = null;</code></span>
+<span class="line" id="L325"><a class="number" href="#L325">325</a><code class="code">    }</code></span>
+<span class="line" id="L326"><a class="number" href="#L326">326</a><code class="code">    private sealed class ObservedSpans(RoadGridSpan[] spans, Action copied) : IReadOnlyList&lt;RoadGridSpan&gt;</code></span>
+<span class="line" id="L327"><a class="number" href="#L327">327</a><code class="code">    {</code></span>
+<span class="line" id="L328"><a class="number" href="#L328">328</a><code class="code">        public int Count =&gt; spans.Length;</code></span>
+<span class="line" id="L329"><a class="number" href="#L329">329</a><code class="code">        public RoadGridSpan this[int index] =&gt; spans[index];</code></span>
+<span class="line" id="L330"><a class="number" href="#L330">330</a><code class="code">        public IEnumerator&lt;RoadGridSpan&gt; GetEnumerator() { foreach (RoadGridSpan span in spans) yield return span; copied(); }</code></span>
+<span class="line" id="L331"><a class="number" href="#L331">331</a><code class="code">        IEnumerator IEnumerable.GetEnumerator() =&gt; GetEnumerator();</code></span>
+<span class="line" id="L332"><a class="number" href="#L332">332</a><code class="code">    }</code></span>
+<span class="line" id="L333"><a class="number" href="#L333">333</a><code class="code">}</code></span></pre></main></html>

@@ -1,0 +1,311 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>SimpleCities.RoadCore/RoadPresentation.cs · SimpleCities 源码</title><link rel="stylesheet" href="../../assets/source.css"><header><a href="../../index.html">← 文档首页</a><h1>SimpleCities.RoadCore/RoadPresentation.cs</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">namespace SimpleCities.RoadCore;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code"></code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">public sealed record RoadProfile(RoadProfileId Id, double NominalWidth, byte Red, byte Green, byte Blue)</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code">{</code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code">    /// &lt;summary&gt;地图符号宽度（世界坐标单位），不代表道路的实际占地宽度。&lt;/summary&gt;</code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">    public double DisplayWidth =&gt; NominalWidth * RoadProfiles.DisplayWidthScale;</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">}</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code"></code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">/// &lt;summary&gt;目录版本1的显示属性，不表达车道数或通行容量。&lt;/summary&gt;</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">public static class RoadProfiles</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">{</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">    // Preserve the 8:12:24:32 visual hierarchy without drawing nominal metres at 1:1 scale.</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">    public const double DisplayWidthScale = 0.25;</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code"></code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code">    public static IReadOnlyList&lt;RoadProfile&gt; All { get; } = Array.AsReadOnly(new[]</code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">    {</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">        new RoadProfile(RoadProfileId.Dirt, 8, 159, 118, 82),</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code">        new RoadProfile(RoadProfileId.Street, 12, 112, 136, 150),</code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">        new RoadProfile(RoadProfileId.Arterial, 24, 84, 139, 155),</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code">        new RoadProfile(RoadProfileId.Highway, 32, 182, 153, 93),</code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">    });</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code"></code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code">    public static RoadProfile Get(RoadProfileId id)</code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">    {</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code">        // The fixed, read-only catalog contains one entry per valid ID.</code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">        // Indexing avoids a captured predicate and interface enumerator per lookup.</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">        for (int i = 0; i &lt; All.Count; i++)</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code">        {</code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">            RoadProfile profile = All[i];</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">            if (profile.Id == id) return profile;</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code">        }</code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">        // Preserve the existing no-match exception (including its runtime message).</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code">        return All.Single(static _ =&gt; false);</code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code">    }</code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code">}</code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code"></code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code">/// &lt;summary&gt;一个凸表面片及其在规范道路边上的弧长来源；端帽投影截断，连接片使用零长区间。&lt;/summary&gt;</code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code">public sealed class RoadSurfacePiece</code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code">{</code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code">    internal RoadSurfacePiece(RoadEdge edge, RoadPoint start, RoadPoint end,</code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code">        double startParameter, double endParameter, RoadPoint[] corners, NodeId? junctionNode = null)</code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code">    {</code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code">        Edge = edge;</code></span>
+<span class="line" id="L44"><a class="number" href="#L44">44</a><code class="code">        Start = start;</code></span>
+<span class="line" id="L45"><a class="number" href="#L45">45</a><code class="code">        End = end;</code></span>
+<span class="line" id="L46"><a class="number" href="#L46">46</a><code class="code">        StartParameter = startParameter;</code></span>
+<span class="line" id="L47"><a class="number" href="#L47">47</a><code class="code">        EndParameter = endParameter;</code></span>
+<span class="line" id="L48"><a class="number" href="#L48">48</a><code class="code">        Corners = Array.AsReadOnly(corners);</code></span>
+<span class="line" id="L49"><a class="number" href="#L49">49</a><code class="code">        JunctionNode = junctionNode;</code></span>
+<span class="line" id="L50"><a class="number" href="#L50">50</a><code class="code">    }</code></span>
+<span class="line" id="L51"><a class="number" href="#L51">51</a><code class="code">    public RoadEdge Edge { get; }</code></span>
+<span class="line" id="L52"><a class="number" href="#L52">52</a><code class="code">    public RoadPoint Start { get; }</code></span>
+<span class="line" id="L53"><a class="number" href="#L53">53</a><code class="code">    public RoadPoint End { get; }</code></span>
+<span class="line" id="L54"><a class="number" href="#L54">54</a><code class="code">    public double StartParameter { get; }</code></span>
+<span class="line" id="L55"><a class="number" href="#L55">55</a><code class="code">    public double EndParameter { get; }</code></span>
+<span class="line" id="L56"><a class="number" href="#L56">56</a><code class="code">    public IReadOnlyList&lt;RoadPoint&gt; Corners { get; }</code></span>
+<span class="line" id="L57"><a class="number" href="#L57">57</a><code class="code">    public NodeId? JunctionNode { get; }</code></span>
+<span class="line" id="L58"><a class="number" href="#L58">58</a><code class="code">}</code></span>
+<span class="line" id="L59"><a class="number" href="#L59">59</a><code class="code"></code></span>
+<span class="line" id="L60"><a class="number" href="#L60">60</a><code class="code">/// &lt;summary&gt;后台生成的纯数值表面；Godot显式转换一次，绘制和命中共享转换结果。&lt;/summary&gt;</code></span>
+<span class="line" id="L61"><a class="number" href="#L61">61</a><code class="code">public sealed class RoadSurfaceData</code></span>
+<span class="line" id="L62"><a class="number" href="#L62">62</a><code class="code">{</code></span>
+<span class="line" id="L63"><a class="number" href="#L63">63</a><code class="code">    internal RoadSurfaceData(IReadOnlyList&lt;RoadNode&gt; nodes, IReadOnlyList&lt;RoadEdge&gt; edges, IEnumerable&lt;RoadSurfacePiece&gt; pieces)</code></span>
+<span class="line" id="L64"><a class="number" href="#L64">64</a><code class="code">    {</code></span>
+<span class="line" id="L65"><a class="number" href="#L65">65</a><code class="code">        Nodes = Array.AsReadOnly(nodes.ToArray());</code></span>
+<span class="line" id="L66"><a class="number" href="#L66">66</a><code class="code">        Edges = Array.AsReadOnly(edges.ToArray());</code></span>
+<span class="line" id="L67"><a class="number" href="#L67">67</a><code class="code">        Pieces = Array.AsReadOnly(pieces.ToArray());</code></span>
+<span class="line" id="L68"><a class="number" href="#L68">68</a><code class="code">    }</code></span>
+<span class="line" id="L69"><a class="number" href="#L69">69</a><code class="code">    public IReadOnlyList&lt;RoadNode&gt; Nodes { get; }</code></span>
+<span class="line" id="L70"><a class="number" href="#L70">70</a><code class="code">    public IReadOnlyList&lt;RoadEdge&gt; Edges { get; }</code></span>
+<span class="line" id="L71"><a class="number" href="#L71">71</a><code class="code">    public IReadOnlyList&lt;RoadSurfacePiece&gt; Pieces { get; }</code></span>
+<span class="line" id="L72"><a class="number" href="#L72">72</a><code class="code">}</code></span>
+<span class="line" id="L73"><a class="number" href="#L73">73</a><code class="code"></code></span>
+<span class="line" id="L74"><a class="number" href="#L74">74</a><code class="code">public static class RoadPresentation</code></span>
+<span class="line" id="L75"><a class="number" href="#L75">75</a><code class="code">{</code></span>
+<span class="line" id="L76"><a class="number" href="#L76">76</a><code class="code">    private sealed record EndConnection(RoadEdge Edge, RoadEndRole Role)</code></span>
+<span class="line" id="L77"><a class="number" href="#L77">77</a><code class="code">    {</code></span>
+<span class="line" id="L78"><a class="number" href="#L78">78</a><code class="code">        public RoadPoint Next =&gt; Role == RoadEndRole.Start ? Edge.Points[1] : Edge.Points[^2];</code></span>
+<span class="line" id="L79"><a class="number" href="#L79">79</a><code class="code">        public double Parameter =&gt; Role == RoadEndRole.Start ? 0 : 1;</code></span>
+<span class="line" id="L80"><a class="number" href="#L80">80</a><code class="code">    }</code></span>
+<span class="line" id="L81"><a class="number" href="#L81">81</a><code class="code"></code></span>
+<span class="line" id="L82"><a class="number" href="#L82">82</a><code class="code">    public static RoadSurfaceData? Prepare(IReadOnlyList&lt;RoadNode&gt; nodes, IReadOnlyList&lt;RoadEdge&gt; edges, CancellationToken cancellationToken = default)</code></span>
+<span class="line" id="L83"><a class="number" href="#L83">83</a><code class="code">    {</code></span>
+<span class="line" id="L84"><a class="number" href="#L84">84</a><code class="code">        cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L85"><a class="number" href="#L85">85</a><code class="code">        if (edges.Count == 0) return null;</code></span>
+<span class="line" id="L86"><a class="number" href="#L86">86</a><code class="code">        var incident = nodes.ToDictionary(node =&gt; node.Id, _ =&gt; new List&lt;EndConnection&gt;());</code></span>
+<span class="line" id="L87"><a class="number" href="#L87">87</a><code class="code">        foreach (RoadEdge edge in edges)</code></span>
+<span class="line" id="L88"><a class="number" href="#L88">88</a><code class="code">        {</code></span>
+<span class="line" id="L89"><a class="number" href="#L89">89</a><code class="code">            incident[edge.Start].Add(new EndConnection(edge, RoadEndRole.Start));</code></span>
+<span class="line" id="L90"><a class="number" href="#L90">90</a><code class="code">            incident[edge.End].Add(new EndConnection(edge, RoadEndRole.End));</code></span>
+<span class="line" id="L91"><a class="number" href="#L91">91</a><code class="code">        }</code></span>
+<span class="line" id="L92"><a class="number" href="#L92">92</a><code class="code">        var pieces = new List&lt;RoadSurfacePiece&gt;();</code></span>
+<span class="line" id="L93"><a class="number" href="#L93">93</a><code class="code">        var joins = new List&lt;RoadSurfacePiece&gt;();</code></span>
+<span class="line" id="L94"><a class="number" href="#L94">94</a><code class="code">        foreach (RoadEdge edge in edges)</code></span>
+<span class="line" id="L95"><a class="number" href="#L95">95</a><code class="code">            PrepareEdge(edge, incident[edge.Start].Count, incident[edge.End].Count, pieces, joins, cancellationToken);</code></span>
+<span class="line" id="L96"><a class="number" href="#L96">96</a><code class="code">        foreach (RoadNode node in nodes)</code></span>
+<span class="line" id="L97"><a class="number" href="#L97">97</a><code class="code">        {</code></span>
+<span class="line" id="L98"><a class="number" href="#L98">98</a><code class="code">            cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L99"><a class="number" href="#L99">99</a><code class="code">            PrepareNode(node, incident[node.Id], joins);</code></span>
+<span class="line" id="L100"><a class="number" href="#L100">100</a><code class="code">        }</code></span>
+<span class="line" id="L101"><a class="number" href="#L101">101</a><code class="code">        pieces.AddRange(joins);</code></span>
+<span class="line" id="L102"><a class="number" href="#L102">102</a><code class="code">        return new RoadSurfaceData(nodes, edges, pieces);</code></span>
+<span class="line" id="L103"><a class="number" href="#L103">103</a><code class="code">    }</code></span>
+<span class="line" id="L104"><a class="number" href="#L104">104</a><code class="code"></code></span>
+<span class="line" id="L105"><a class="number" href="#L105">105</a><code class="code">    internal static void PrepareEdge(RoadEdge edge, int startDegree, int endDegree,</code></span>
+<span class="line" id="L106"><a class="number" href="#L106">106</a><code class="code">        List&lt;RoadSurfacePiece&gt; pieces, List&lt;RoadSurfacePiece&gt; joins, CancellationToken cancellationToken)</code></span>
+<span class="line" id="L107"><a class="number" href="#L107">107</a><code class="code">    {</code></span>
+<span class="line" id="L108"><a class="number" href="#L108">108</a><code class="code">        double total = edge.Length;</code></span>
+<span class="line" id="L109"><a class="number" href="#L109">109</a><code class="code">        if (!double.IsFinite(total) || total &lt;= 0)</code></span>
+<span class="line" id="L110"><a class="number" href="#L110">110</a><code class="code">            throw new InvalidOperationException(&quot;Cannot prepare a zero-length or non-finite road surface.&quot;);</code></span>
+<span class="line" id="L111"><a class="number" href="#L111">111</a><code class="code">        double half = RoadProfiles.Get(edge.Profile).DisplayWidth / 2;</code></span>
+<span class="line" id="L112"><a class="number" href="#L112">112</a><code class="code">        double distance = 0;</code></span>
+<span class="line" id="L113"><a class="number" href="#L113">113</a><code class="code">        for (int i = 1; i &lt; edge.Points.Count; i++)</code></span>
+<span class="line" id="L114"><a class="number" href="#L114">114</a><code class="code">        {</code></span>
+<span class="line" id="L115"><a class="number" href="#L115">115</a><code class="code">            cancellationToken.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L116"><a class="number" href="#L116">116</a><code class="code">            RoadPoint a = edge.Points[i - 1], b = edge.Points[i];</code></span>
+<span class="line" id="L117"><a class="number" href="#L117">117</a><code class="code">            double length = a.DistanceTo(b);</code></span>
+<span class="line" id="L118"><a class="number" href="#L118">118</a><code class="code">            if (!double.IsFinite(length) || length &lt;= 0)</code></span>
+<span class="line" id="L119"><a class="number" href="#L119">119</a><code class="code">                throw new InvalidOperationException(&quot;Cannot prepare a zero-length or non-finite road segment.&quot;);</code></span>
+<span class="line" id="L120"><a class="number" href="#L120">120</a><code class="code">            double tx = (b.X - a.X) / length, ty = (b.Y - a.Y) / length;</code></span>
+<span class="line" id="L121"><a class="number" href="#L121">121</a><code class="code">            RoadPoint normal = new(-ty * half, tx * half);</code></span>
+<span class="line" id="L122"><a class="number" href="#L122">122</a><code class="code">            RoadPoint capStart = i == 1 &amp;&amp; startDegree == 1 ? new(a.X - tx * half, a.Y - ty * half) : a;</code></span>
+<span class="line" id="L123"><a class="number" href="#L123">123</a><code class="code">            RoadPoint capEnd = i == edge.Points.Count - 1 &amp;&amp; endDegree == 1 ? new(b.X + tx * half, b.Y + ty * half) : b;</code></span>
+<span class="line" id="L124"><a class="number" href="#L124">124</a><code class="code">            double startParameter = distance / total;</code></span>
+<span class="line" id="L125"><a class="number" href="#L125">125</a><code class="code">            distance += length;</code></span>
+<span class="line" id="L126"><a class="number" href="#L126">126</a><code class="code">            double endParameter = i == edge.Points.Count - 1 ? 1 : distance / total;</code></span>
+<span class="line" id="L127"><a class="number" href="#L127">127</a><code class="code">            pieces.Add(new RoadSurfacePiece(edge, a, b, startParameter, endParameter,</code></span>
+<span class="line" id="L128"><a class="number" href="#L128">128</a><code class="code">                [Add(capStart, normal), Add(capEnd, normal), Subtract(capEnd, normal), Subtract(capStart, normal)]));</code></span>
+<span class="line" id="L129"><a class="number" href="#L129">129</a><code class="code">            if (i &lt; edge.Points.Count - 1)</code></span>
+<span class="line" id="L130"><a class="number" href="#L130">130</a><code class="code">                AddJoin(joins, b, a, edge.Points[i + 1], edge, edge, endParameter, endParameter);</code></span>
+<span class="line" id="L131"><a class="number" href="#L131">131</a><code class="code">        }</code></span>
+<span class="line" id="L132"><a class="number" href="#L132">132</a><code class="code">    }</code></span>
+<span class="line" id="L133"><a class="number" href="#L133">133</a><code class="code"></code></span>
+<span class="line" id="L134"><a class="number" href="#L134">134</a><code class="code">    internal static void PrepareNode(RoadSnapshot snapshot, NodeId id, List&lt;RoadSurfacePiece&gt; pieces)</code></span>
+<span class="line" id="L135"><a class="number" href="#L135">135</a><code class="code">    {</code></span>
+<span class="line" id="L136"><a class="number" href="#L136">136</a><code class="code">        RoadNode? node = snapshot.QueryData.FindNode(id);</code></span>
+<span class="line" id="L137"><a class="number" href="#L137">137</a><code class="code">        if (node is null) return;</code></span>
+<span class="line" id="L138"><a class="number" href="#L138">138</a><code class="code">        var connected = new List&lt;EndConnection&gt;();</code></span>
+<span class="line" id="L139"><a class="number" href="#L139">139</a><code class="code">        foreach (RoadEdge edge in snapshot.QueryData.Incident(id))</code></span>
+<span class="line" id="L140"><a class="number" href="#L140">140</a><code class="code">        {</code></span>
+<span class="line" id="L141"><a class="number" href="#L141">141</a><code class="code">            if (edge.Start == id) connected.Add(new(edge, RoadEndRole.Start));</code></span>
+<span class="line" id="L142"><a class="number" href="#L142">142</a><code class="code">            if (edge.End == id) connected.Add(new(edge, RoadEndRole.End));</code></span>
+<span class="line" id="L143"><a class="number" href="#L143">143</a><code class="code">        }</code></span>
+<span class="line" id="L144"><a class="number" href="#L144">144</a><code class="code">        PrepareNode(node, connected, pieces);</code></span>
+<span class="line" id="L145"><a class="number" href="#L145">145</a><code class="code">    }</code></span>
+<span class="line" id="L146"><a class="number" href="#L146">146</a><code class="code"></code></span>
+<span class="line" id="L147"><a class="number" href="#L147">147</a><code class="code">    private static void PrepareNode(RoadNode node, IReadOnlyList&lt;EndConnection&gt; connected, List&lt;RoadSurfacePiece&gt; pieces)</code></span>
+<span class="line" id="L148"><a class="number" href="#L148">148</a><code class="code">    {</code></span>
+<span class="line" id="L149"><a class="number" href="#L149">149</a><code class="code">        if (connected.Count &gt;= 3) { AddJunction(pieces, node, connected); return; }</code></span>
+<span class="line" id="L150"><a class="number" href="#L150">150</a><code class="code">        if (connected.Count != 2) return;</code></span>
+<span class="line" id="L151"><a class="number" href="#L151">151</a><code class="code">        EndConnection a = connected[0], b = connected[1];</code></span>
+<span class="line" id="L152"><a class="number" href="#L152">152</a><code class="code">        AddJoin(pieces, node.Position, a.Next, b.Next, a.Edge, b.Edge, a.Parameter, b.Parameter);</code></span>
+<span class="line" id="L153"><a class="number" href="#L153">153</a><code class="code">    }</code></span>
+<span class="line" id="L154"><a class="number" href="#L154">154</a><code class="code"></code></span>
+<span class="line" id="L155"><a class="number" href="#L155">155</a><code class="code">    private readonly record struct JunctionCorner(RoadPoint Point, EdgeId Edge, double Parameter) : IComparable&lt;JunctionCorner&gt;</code></span>
+<span class="line" id="L156"><a class="number" href="#L156">156</a><code class="code">    {</code></span>
+<span class="line" id="L157"><a class="number" href="#L157">157</a><code class="code">        public int CompareTo(JunctionCorner other)</code></span>
+<span class="line" id="L158"><a class="number" href="#L158">158</a><code class="code">        {</code></span>
+<span class="line" id="L159"><a class="number" href="#L159">159</a><code class="code">            int order = Point.X.CompareTo(other.Point.X);</code></span>
+<span class="line" id="L160"><a class="number" href="#L160">160</a><code class="code">            if (order == 0) order = Point.Y.CompareTo(other.Point.Y);</code></span>
+<span class="line" id="L161"><a class="number" href="#L161">161</a><code class="code">            if (order == 0) order = Edge.Value.CompareTo(other.Edge.Value);</code></span>
+<span class="line" id="L162"><a class="number" href="#L162">162</a><code class="code">            return order == 0 ? Parameter.CompareTo(other.Parameter) : order;</code></span>
+<span class="line" id="L163"><a class="number" href="#L163">163</a><code class="code">        }</code></span>
+<span class="line" id="L164"><a class="number" href="#L164">164</a><code class="code">    }</code></span>
+<span class="line" id="L165"><a class="number" href="#L165">165</a><code class="code"></code></span>
+<span class="line" id="L166"><a class="number" href="#L166">166</a><code class="code">    private static void AddJunction(List&lt;RoadSurfacePiece&gt; pieces, RoadNode node, IReadOnlyList&lt;EndConnection&gt; connections)</code></span>
+<span class="line" id="L167"><a class="number" href="#L167">167</a><code class="code">    {</code></span>
+<span class="line" id="L168"><a class="number" href="#L168">168</a><code class="code">        RoadPoint center = node.Position;</code></span>
+<span class="line" id="L169"><a class="number" href="#L169">169</a><code class="code">        double reach = connections.Max(connection =&gt; RoadProfiles.Get(connection.Edge.Profile).DisplayWidth / 2);</code></span>
+<span class="line" id="L170"><a class="number" href="#L170">170</a><code class="code">        int capacity = checked(connections.Count * 4);</code></span>
+<span class="line" id="L171"><a class="number" href="#L171">171</a><code class="code">        // Eight-direction junctions fit in bounded stack scratch. Larger</code></span>
+<span class="line" id="L172"><a class="number" href="#L172">172</a><code class="code">        // presentation inputs keep the same algorithm through a heap fallback.</code></span>
+<span class="line" id="L173"><a class="number" href="#L173">173</a><code class="code">        Span&lt;JunctionCorner&gt; corners = capacity &lt;= 64 ? stackalloc JunctionCorner[capacity] : new JunctionCorner[capacity];</code></span>
+<span class="line" id="L174"><a class="number" href="#L174">174</a><code class="code">        int cornerCount = 0;</code></span>
+<span class="line" id="L175"><a class="number" href="#L175">175</a><code class="code">        foreach (EndConnection connection in connections)</code></span>
+<span class="line" id="L176"><a class="number" href="#L176">176</a><code class="code">        {</code></span>
+<span class="line" id="L177"><a class="number" href="#L177">177</a><code class="code">            RoadEdge edge = connection.Edge;</code></span>
+<span class="line" id="L178"><a class="number" href="#L178">178</a><code class="code">            RoadPoint next = connection.Next;</code></span>
+<span class="line" id="L179"><a class="number" href="#L179">179</a><code class="code">            double length = center.DistanceTo(next);</code></span>
+<span class="line" id="L180"><a class="number" href="#L180">180</a><code class="code">            double distance = Math.Min(reach, length / 2);</code></span>
+<span class="line" id="L181"><a class="number" href="#L181">181</a><code class="code">            // Build the junction in center-relative coordinates. Adding the world offset</code></span>
+<span class="line" id="L182"><a class="number" href="#L182">182</a><code class="code">            // before mouth +/- normal can turn identical corners into one-ULP slivers</code></span>
+<span class="line" id="L183"><a class="number" href="#L183">183</a><code class="code">            // which collapse when the renderer converts them to binary32.</code></span>
+<span class="line" id="L184"><a class="number" href="#L184">184</a><code class="code">            RoadPoint mouth = new((next.X - center.X) / length * distance,</code></span>
+<span class="line" id="L185"><a class="number" href="#L185">185</a><code class="code">                (next.Y - center.Y) / length * distance);</code></span>
+<span class="line" id="L186"><a class="number" href="#L186">186</a><code class="code">            RoadPoint normal = Normal(center, next, RoadProfiles.Get(edge.Profile).DisplayWidth / 2);</code></span>
+<span class="line" id="L187"><a class="number" href="#L187">187</a><code class="code">            double parameter = connection.Parameter;</code></span>
+<span class="line" id="L188"><a class="number" href="#L188">188</a><code class="code">            corners[cornerCount++] = new(normal, edge.Id, parameter);</code></span>
+<span class="line" id="L189"><a class="number" href="#L189">189</a><code class="code">            corners[cornerCount++] = new(new(-normal.X, -normal.Y), edge.Id, parameter);</code></span>
+<span class="line" id="L190"><a class="number" href="#L190">190</a><code class="code">            corners[cornerCount++] = new(Add(mouth, normal), edge.Id, parameter);</code></span>
+<span class="line" id="L191"><a class="number" href="#L191">191</a><code class="code">            corners[cornerCount++] = new(Subtract(mouth, normal), edge.Id, parameter);</code></span>
+<span class="line" id="L192"><a class="number" href="#L192">192</a><code class="code">        }</code></span>
+<span class="line" id="L193"><a class="number" href="#L193">193</a><code class="code"></code></span>
+<span class="line" id="L194"><a class="number" href="#L194">194</a><code class="code">        // The convex envelope joins unequal-width mouths without unbounded miters.</code></span>
+<span class="line" id="L195"><a class="number" href="#L195">195</a><code class="code">        // Including both sides at the node also encloses its center for one-sided forks.</code></span>
+<span class="line" id="L196"><a class="number" href="#L196">196</a><code class="code">        corners.Sort();</code></span>
+<span class="line" id="L197"><a class="number" href="#L197">197</a><code class="code">        int uniqueCount = 0;</code></span>
+<span class="line" id="L198"><a class="number" href="#L198">198</a><code class="code">        for (int i = 0; i &lt; cornerCount; i++)</code></span>
+<span class="line" id="L199"><a class="number" href="#L199">199</a><code class="code">            if (uniqueCount == 0 || corners[i].Point != corners[uniqueCount - 1].Point)</code></span>
+<span class="line" id="L200"><a class="number" href="#L200">200</a><code class="code">                corners[uniqueCount++] = corners[i];</code></span>
+<span class="line" id="L201"><a class="number" href="#L201">201</a><code class="code">        Span&lt;RoadPoint&gt; hull = capacity &lt;= 64 ? stackalloc RoadPoint[capacity * 2] : new RoadPoint[checked(capacity * 2)];</code></span>
+<span class="line" id="L202"><a class="number" href="#L202">202</a><code class="code">        Span&lt;RoadPoint&gt; upper = hull[capacity..];</code></span>
+<span class="line" id="L203"><a class="number" href="#L203">203</a><code class="code">        int lowerCount = 0, upperCount = 0;</code></span>
+<span class="line" id="L204"><a class="number" href="#L204">204</a><code class="code">        for (int i = 0; i &lt; uniqueCount; i++) Append(hull, ref lowerCount, corners[i].Point);</code></span>
+<span class="line" id="L205"><a class="number" href="#L205">205</a><code class="code">        for (int i = uniqueCount - 1; i &gt;= 0; i--) Append(upper, ref upperCount, corners[i].Point);</code></span>
+<span class="line" id="L206"><a class="number" href="#L206">206</a><code class="code">        lowerCount--;</code></span>
+<span class="line" id="L207"><a class="number" href="#L207">207</a><code class="code">        upperCount--;</code></span>
+<span class="line" id="L208"><a class="number" href="#L208">208</a><code class="code">        upper[..upperCount].CopyTo(hull[lowerCount..]);</code></span>
+<span class="line" id="L209"><a class="number" href="#L209">209</a><code class="code">        int hullCount = lowerCount + upperCount;</code></span>
+<span class="line" id="L210"><a class="number" href="#L210">210</a><code class="code">        // Partition the existing envelope by angular end-role ownership. Several</code></span>
+<span class="line" id="L211"><a class="number" href="#L211">211</a><code class="code">        // mouths can contribute the same hull corner; choosing its first EdgeId</code></span>
+<span class="line" id="L212"><a class="number" href="#L212">212</a><code class="code">        // would erase another incidence (including the other end of a self-loop).</code></span>
+<span class="line" id="L213"><a class="number" href="#L213">213</a><code class="code">        var owners = connections.Select(connection =&gt;</code></span>
+<span class="line" id="L214"><a class="number" href="#L214">214</a><code class="code">        {</code></span>
+<span class="line" id="L215"><a class="number" href="#L215">215</a><code class="code">            double length = center.DistanceTo(connection.Next);</code></span>
+<span class="line" id="L216"><a class="number" href="#L216">216</a><code class="code">            var outward = new RoadPoint((connection.Next.X - center.X) / length,</code></span>
+<span class="line" id="L217"><a class="number" href="#L217">217</a><code class="code">                (connection.Next.Y - center.Y) / length);</code></span>
+<span class="line" id="L218"><a class="number" href="#L218">218</a><code class="code">            double angle = Math.Atan2(outward.Y, outward.X);</code></span>
+<span class="line" id="L219"><a class="number" href="#L219">219</a><code class="code">            if (angle &lt; 0) angle += Math.Tau;</code></span>
+<span class="line" id="L220"><a class="number" href="#L220">220</a><code class="code">            return (Connection: connection, Outward: outward, Angle: angle);</code></span>
+<span class="line" id="L221"><a class="number" href="#L221">221</a><code class="code">        }).OrderBy(owner =&gt; owner.Angle).ThenBy(owner =&gt; owner.Connection.Edge.Id.Value)</code></span>
+<span class="line" id="L222"><a class="number" href="#L222">222</a><code class="code">            .ThenBy(owner =&gt; owner.Connection.Role).ToArray();</code></span>
+<span class="line" id="L223"><a class="number" href="#L223">223</a><code class="code">        var boundaries = new List&lt;RoadPoint&gt;();</code></span>
+<span class="line" id="L224"><a class="number" href="#L224">224</a><code class="code">        for (int i = 0; i &lt; owners.Length; i++)</code></span>
+<span class="line" id="L225"><a class="number" href="#L225">225</a><code class="code">        {</code></span>
+<span class="line" id="L226"><a class="number" href="#L226">226</a><code class="code">            double nextAngle = i + 1 == owners.Length ? owners[0].Angle + Math.Tau : owners[i + 1].Angle;</code></span>
+<span class="line" id="L227"><a class="number" href="#L227">227</a><code class="code">            double middleAngle = (owners[i].Angle + nextAngle) / 2;</code></span>
+<span class="line" id="L228"><a class="number" href="#L228">228</a><code class="code">            boundaries.Add(new RoadPoint(Math.Cos(middleAngle), Math.Sin(middleAngle)));</code></span>
+<span class="line" id="L229"><a class="number" href="#L229">229</a><code class="code">        }</code></span>
+<span class="line" id="L230"><a class="number" href="#L230">230</a><code class="code">        for (int i = 0; i &lt; hullCount; i++)</code></span>
+<span class="line" id="L231"><a class="number" href="#L231">231</a><code class="code">        {</code></span>
+<span class="line" id="L232"><a class="number" href="#L232">232</a><code class="code">            RoadPoint a = hull[i], b = hull[(i + 1) % hullCount];</code></span>
+<span class="line" id="L233"><a class="number" href="#L233">233</a><code class="code">            if (Cross(default, a, b) == 0) continue;</code></span>
+<span class="line" id="L234"><a class="number" href="#L234">234</a><code class="code">            var cuts = new List&lt;double&gt; { 0, 1 };</code></span>
+<span class="line" id="L235"><a class="number" href="#L235">235</a><code class="code">            RoadPoint relative = a, direction = Subtract(b, a);</code></span>
+<span class="line" id="L236"><a class="number" href="#L236">236</a><code class="code">            foreach (RoadPoint ray in boundaries)</code></span>
+<span class="line" id="L237"><a class="number" href="#L237">237</a><code class="code">            {</code></span>
+<span class="line" id="L238"><a class="number" href="#L238">238</a><code class="code">                double denominator = direction.X * ray.Y - direction.Y * ray.X;</code></span>
+<span class="line" id="L239"><a class="number" href="#L239">239</a><code class="code">                if (Math.Abs(denominator) &lt; 1e-12) continue;</code></span>
+<span class="line" id="L240"><a class="number" href="#L240">240</a><code class="code">                double t = (relative.Y * ray.X - relative.X * ray.Y) / denominator;</code></span>
+<span class="line" id="L241"><a class="number" href="#L241">241</a><code class="code">                if (t &lt;= 1e-12 || t &gt;= 1 - 1e-12) continue;</code></span>
+<span class="line" id="L242"><a class="number" href="#L242">242</a><code class="code">                RoadPoint hit = new(relative.X + direction.X * t, relative.Y + direction.Y * t);</code></span>
+<span class="line" id="L243"><a class="number" href="#L243">243</a><code class="code">                if (hit.X * ray.X + hit.Y * ray.Y &gt; 0) cuts.Add(t);</code></span>
+<span class="line" id="L244"><a class="number" href="#L244">244</a><code class="code">            }</code></span>
+<span class="line" id="L245"><a class="number" href="#L245">245</a><code class="code">            cuts.Sort();</code></span>
+<span class="line" id="L246"><a class="number" href="#L246">246</a><code class="code">            for (int j = 1; j &lt; cuts.Count; j++)</code></span>
+<span class="line" id="L247"><a class="number" href="#L247">247</a><code class="code">            {</code></span>
+<span class="line" id="L248"><a class="number" href="#L248">248</a><code class="code">                RoadPoint start = new(a.X + direction.X * cuts[j - 1], a.Y + direction.Y * cuts[j - 1]);</code></span>
+<span class="line" id="L249"><a class="number" href="#L249">249</a><code class="code">                RoadPoint end = new(a.X + direction.X * cuts[j], a.Y + direction.Y * cuts[j]);</code></span>
+<span class="line" id="L250"><a class="number" href="#L250">250</a><code class="code">                if (Cross(default, start, end) == 0) continue;</code></span>
+<span class="line" id="L251"><a class="number" href="#L251">251</a><code class="code">                RoadPoint middle = new((start.X + end.X) / 2, (start.Y + end.Y) / 2);</code></span>
+<span class="line" id="L252"><a class="number" href="#L252">252</a><code class="code">                // Select the same lexicographic first owner without allocating a</code></span>
+<span class="line" id="L253"><a class="number" href="#L253">253</a><code class="code">                // sorting pipeline for every emitted triangle. Keep exact ties stable.</code></span>
+<span class="line" id="L254"><a class="number" href="#L254">254</a><code class="code">                var selected = owners[0];</code></span>
+<span class="line" id="L255"><a class="number" href="#L255">255</a><code class="code">                double selectedScore = middle.X * selected.Outward.X + middle.Y * selected.Outward.Y;</code></span>
+<span class="line" id="L256"><a class="number" href="#L256">256</a><code class="code">                for (int candidateIndex = 1; candidateIndex &lt; owners.Length; candidateIndex++)</code></span>
+<span class="line" id="L257"><a class="number" href="#L257">257</a><code class="code">                {</code></span>
+<span class="line" id="L258"><a class="number" href="#L258">258</a><code class="code">                    var candidate = owners[candidateIndex];</code></span>
+<span class="line" id="L259"><a class="number" href="#L259">259</a><code class="code">                    double score = middle.X * candidate.Outward.X + middle.Y * candidate.Outward.Y;</code></span>
+<span class="line" id="L260"><a class="number" href="#L260">260</a><code class="code">                    int order = score.CompareTo(selectedScore);</code></span>
+<span class="line" id="L261"><a class="number" href="#L261">261</a><code class="code">                    if (order &gt; 0 || (order == 0 &amp;&amp;</code></span>
+<span class="line" id="L262"><a class="number" href="#L262">262</a><code class="code">                        (candidate.Connection.Edge.Id.Value &lt; selected.Connection.Edge.Id.Value ||</code></span>
+<span class="line" id="L263"><a class="number" href="#L263">263</a><code class="code">                         (candidate.Connection.Edge.Id == selected.Connection.Edge.Id &amp;&amp;</code></span>
+<span class="line" id="L264"><a class="number" href="#L264">264</a><code class="code">                          (int)candidate.Connection.Role &lt; (int)selected.Connection.Role))))</code></span>
+<span class="line" id="L265"><a class="number" href="#L265">265</a><code class="code">                    {</code></span>
+<span class="line" id="L266"><a class="number" href="#L266">266</a><code class="code">                        selected = candidate;</code></span>
+<span class="line" id="L267"><a class="number" href="#L267">267</a><code class="code">                        selectedScore = score;</code></span>
+<span class="line" id="L268"><a class="number" href="#L268">268</a><code class="code">                    }</code></span>
+<span class="line" id="L269"><a class="number" href="#L269">269</a><code class="code">                }</code></span>
+<span class="line" id="L270"><a class="number" href="#L270">270</a><code class="code">                EndConnection owner = selected.Connection;</code></span>
+<span class="line" id="L271"><a class="number" href="#L271">271</a><code class="code">                pieces.Add(new RoadSurfacePiece(owner.Edge, center, center, owner.Parameter, owner.Parameter,</code></span>
+<span class="line" id="L272"><a class="number" href="#L272">272</a><code class="code">                    [center, Add(center, start), Add(center, end)], node.Id));</code></span>
+<span class="line" id="L273"><a class="number" href="#L273">273</a><code class="code">            }</code></span>
+<span class="line" id="L274"><a class="number" href="#L274">274</a><code class="code">        }</code></span>
+<span class="line" id="L275"><a class="number" href="#L275">275</a><code class="code"></code></span>
+<span class="line" id="L276"><a class="number" href="#L276">276</a><code class="code">        static void Append(Span&lt;RoadPoint&gt; chain, ref int count, RoadPoint point)</code></span>
+<span class="line" id="L277"><a class="number" href="#L277">277</a><code class="code">        {</code></span>
+<span class="line" id="L278"><a class="number" href="#L278">278</a><code class="code">            while (count &gt;= 2 &amp;&amp; Cross(chain[count - 2], chain[count - 1], point) &lt;= 0) count--;</code></span>
+<span class="line" id="L279"><a class="number" href="#L279">279</a><code class="code">            chain[count++] = point;</code></span>
+<span class="line" id="L280"><a class="number" href="#L280">280</a><code class="code">        }</code></span>
+<span class="line" id="L281"><a class="number" href="#L281">281</a><code class="code">    }</code></span>
+<span class="line" id="L282"><a class="number" href="#L282">282</a><code class="code"></code></span>
+<span class="line" id="L283"><a class="number" href="#L283">283</a><code class="code">    private static double Cross(RoadPoint a, RoadPoint b, RoadPoint c) =&gt;</code></span>
+<span class="line" id="L284"><a class="number" href="#L284">284</a><code class="code">        (b.X - a.X) * (c.Y - a.Y) - (b.Y - a.Y) * (c.X - a.X);</code></span>
+<span class="line" id="L285"><a class="number" href="#L285">285</a><code class="code"></code></span>
+<span class="line" id="L286"><a class="number" href="#L286">286</a><code class="code">    private static void AddJoin(List&lt;RoadSurfacePiece&gt; pieces, RoadPoint center, RoadPoint aNext, RoadPoint bNext,</code></span>
+<span class="line" id="L287"><a class="number" href="#L287">287</a><code class="code">        RoadEdge a, RoadEdge b, double aParameter, double bParameter)</code></span>
+<span class="line" id="L288"><a class="number" href="#L288">288</a><code class="code">    {</code></span>
+<span class="line" id="L289"><a class="number" href="#L289">289</a><code class="code">        RoadPoint aNormal = Normal(center, aNext, RoadProfiles.Get(a.Profile).DisplayWidth / 2);</code></span>
+<span class="line" id="L290"><a class="number" href="#L290">290</a><code class="code">        RoadPoint bNormal = Normal(center, bNext, RoadProfiles.Get(b.Profile).DisplayWidth / 2);</code></span>
+<span class="line" id="L291"><a class="number" href="#L291">291</a><code class="code">        AddSide(Add(center, aNormal), Subtract(center, bNormal));</code></span>
+<span class="line" id="L292"><a class="number" href="#L292">292</a><code class="code">        AddSide(Subtract(center, aNormal), Add(center, bNormal));</code></span>
+<span class="line" id="L293"><a class="number" href="#L293">293</a><code class="code"></code></span>
+<span class="line" id="L294"><a class="number" href="#L294">294</a><code class="code">        void AddSide(RoadPoint aCorner, RoadPoint bCorner)</code></span>
+<span class="line" id="L295"><a class="number" href="#L295">295</a><code class="code">        {</code></span>
+<span class="line" id="L296"><a class="number" href="#L296">296</a><code class="code">            double cross = (aCorner.X - center.X) * (bCorner.Y - center.Y) - (aCorner.Y - center.Y) * (bCorner.X - center.X);</code></span>
+<span class="line" id="L297"><a class="number" href="#L297">297</a><code class="code">            if (cross == 0) return;</code></span>
+<span class="line" id="L298"><a class="number" href="#L298">298</a><code class="code">            RoadPoint middle = new((aCorner.X + bCorner.X) / 2, (aCorner.Y + bCorner.Y) / 2);</code></span>
+<span class="line" id="L299"><a class="number" href="#L299">299</a><code class="code">            pieces.Add(new RoadSurfacePiece(a, center, center, aParameter, aParameter, [center, aCorner, middle]));</code></span>
+<span class="line" id="L300"><a class="number" href="#L300">300</a><code class="code">            pieces.Add(new RoadSurfacePiece(b, center, center, bParameter, bParameter, [center, middle, bCorner]));</code></span>
+<span class="line" id="L301"><a class="number" href="#L301">301</a><code class="code">        }</code></span>
+<span class="line" id="L302"><a class="number" href="#L302">302</a><code class="code">    }</code></span>
+<span class="line" id="L303"><a class="number" href="#L303">303</a><code class="code"></code></span>
+<span class="line" id="L304"><a class="number" href="#L304">304</a><code class="code">    private static RoadPoint Normal(RoadPoint start, RoadPoint end, double half)</code></span>
+<span class="line" id="L305"><a class="number" href="#L305">305</a><code class="code">    {</code></span>
+<span class="line" id="L306"><a class="number" href="#L306">306</a><code class="code">        double length = start.DistanceTo(end);</code></span>
+<span class="line" id="L307"><a class="number" href="#L307">307</a><code class="code">        return new(-(end.Y - start.Y) / length * half, (end.X - start.X) / length * half);</code></span>
+<span class="line" id="L308"><a class="number" href="#L308">308</a><code class="code">    }</code></span>
+<span class="line" id="L309"><a class="number" href="#L309">309</a><code class="code">    private static RoadPoint Add(RoadPoint a, RoadPoint b) =&gt; new(a.X + b.X, a.Y + b.Y);</code></span>
+<span class="line" id="L310"><a class="number" href="#L310">310</a><code class="code">    private static RoadPoint Subtract(RoadPoint a, RoadPoint b) =&gt; new(a.X - b.X, a.Y - b.Y);</code></span>
+<span class="line" id="L311"><a class="number" href="#L311">311</a><code class="code">}</code></span></pre></main></html>

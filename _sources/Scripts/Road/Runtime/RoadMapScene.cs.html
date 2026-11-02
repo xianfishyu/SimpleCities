@@ -1,0 +1,707 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Scripts/Road/Runtime/RoadMapScene.cs · SimpleCities 源码</title><link rel="stylesheet" href="../../../../assets/source.css"><header><a href="../../../../index.html">← 文档首页</a><h1>Scripts/Road/Runtime/RoadMapScene.cs</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">using Godot;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code">using System;</code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">using System.Collections.Generic;</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code">using System.Diagnostics;</code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code">using System.Threading;</code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">using System.Threading.Tasks;</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">using SimpleCities.RoadCore;</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">using CoreRoadBuildRequest = SimpleCities.RoadCore.RoadBuildRequest;</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">using CoreRoadBuildResult = SimpleCities.RoadCore.RoadBuildResult;</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code"></code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">/// &lt;summary&gt;道路路网、工具、显示和存档装配；可由隔离控件或正式 HUD 驱动。&lt;/summary&gt;</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">public partial class RoadMapScene : Node2D, ISceneToolLoadParticipant</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">{</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">    [Export] public bool UseProductControls { get; set; }</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code">    internal Func&lt;Vector2, bool&gt;? ProductUiContains { get; set; }</code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">    private const string Controls = &quot;HUD/Panel/Margin/Controls/&quot;;</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">    private static readonly StringName MinorGridSizeParameter = &quot;minor_grid_size&quot;;</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code">    private static readonly StringName MajorGridSizeParameter = &quot;major_grid_size&quot;;</code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">    private static readonly StringName CameraPositionParameter = &quot;camera_pos&quot;;</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code">    private static readonly StringName CameraZoomParameter = &quot;camera_zoom&quot;;</code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">    private static readonly StringName ViewportSizeParameter = &quot;viewport_size&quot;;</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">    private RoadSaveParticipant? _roads;</code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code">    private RoadMapView _view = null!;</code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">    private Camera2D _camera = null!;</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code">    private ShaderMaterial _backgroundMaterial = null!;</code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">    private OptionButton _cellChoice = null!;</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">    private OptionButton _slots = null!;</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code">    private Label _status = null!;</code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">    private Label _mapInfo = null!;</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">    private Button _createMapButton = null!;</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code">    private Button _saveMapButton = null!;</code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">    private Button _loadMapButton = null!;</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code">    private SaveManager _saveManager = null!;</code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code">    private Control _hudPanel = null!;</code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code">    private string _pendingOperation = &quot;&quot;;</code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code">    private ToolAdmission? _toolAdmission;</code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code">    private readonly List&lt;string&gt; _slotIDs = [];</code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code">    private OptionButton _profileChoice = null!;</code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code">    private RoadPoint? _draftStart;</code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code">    private RoadStateToken _draftSource;</code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code">    private RoadProfileId _draftProfile;</code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code">    private CoreRoadBuildRequest? _previewRequest;</code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code">    private CoreRoadBuildRequest? _queuedPreview;</code></span>
+<span class="line" id="L44"><a class="number" href="#L44">44</a><code class="code">    private CoreRoadBuildResult? _previewResult;</code></span>
+<span class="line" id="L45"><a class="number" href="#L45">45</a><code class="code">    private sealed record CompletedPreview(CoreRoadBuildRequest Request, CoreRoadBuildResult Result, string Status);</code></span>
+<span class="line" id="L46"><a class="number" href="#L46">46</a><code class="code">    private CompletedPreview? _completedPreview;</code></span>
+<span class="line" id="L47"><a class="number" href="#L47">47</a><code class="code">    private CancellationTokenSource? _previewCancellation;</code></span>
+<span class="line" id="L48"><a class="number" href="#L48">48</a><code class="code">    private bool _previewWorkerRunning;</code></span>
+<span class="line" id="L49"><a class="number" href="#L49">49</a><code class="code">    private readonly RoadOperation _buildOperation = new();</code></span>
+<span class="line" id="L50"><a class="number" href="#L50">50</a><code class="code">    private CancellationTokenSource? _buildCancellation;</code></span>
+<span class="line" id="L51"><a class="number" href="#L51">51</a><code class="code">    private string _buildSourceToken = &quot;&quot;;</code></span>
+<span class="line" id="L52"><a class="number" href="#L52">52</a><code class="code">    private string _buildPresentedToken = &quot;&quot;;</code></span>
+<span class="line" id="L53"><a class="number" href="#L53">53</a><code class="code">    private string _operationCompletedText = &quot;道路已建造&quot;;</code></span>
+<span class="line" id="L54"><a class="number" href="#L54">54</a><code class="code">#if DEBUG</code></span>
+<span class="line" id="L55"><a class="number" href="#L55">55</a><code class="code">    internal Action? BeforeBuildWork { get; set; }</code></span>
+<span class="line" id="L56"><a class="number" href="#L56">56</a><code class="code">    internal Action? BeforePreviewWork { get; set; }</code></span>
+<span class="line" id="L57"><a class="number" href="#L57">57</a><code class="code">    internal Action? BeforeDisplayRetryWork { get; set; }</code></span>
+<span class="line" id="L58"><a class="number" href="#L58">58</a><code class="code">#endif</code></span>
+<span class="line" id="L59"><a class="number" href="#L59">59</a><code class="code">    public bool HasBuildPreview =&gt; _draftStart.HasValue;</code></span>
+<span class="line" id="L60"><a class="number" href="#L60">60</a><code class="code">    public bool IsBuildBusy =&gt; _buildOperation.IsBusy;</code></span>
+<span class="line" id="L61"><a class="number" href="#L61">61</a><code class="code">    public int RoadCount =&gt; _roads?.Network.Snapshot.EdgeCount ?? 0;</code></span>
+<span class="line" id="L62"><a class="number" href="#L62">62</a><code class="code">    public string LastOperationToken { get; private set; } = &quot;&quot;;</code></span>
+<span class="line" id="L63"><a class="number" href="#L63">63</a><code class="code">    public int CellSizeMetres =&gt; _roads?.Network.Snapshot.Map.CellSizeMetres ?? 0;</code></span>
+<span class="line" id="L64"><a class="number" href="#L64">64</a><code class="code">    public int PresentedCellSizeMetres =&gt; _view?.Presented?.Map.CellSizeMetres ?? 0;</code></span>
+<span class="line" id="L65"><a class="number" href="#L65">65</a><code class="code">    public bool IsPresentationCurrent =&gt; _roads is not null &amp;&amp; _view.Presented?.Token == _roads.Network.Snapshot.Token;</code></span>
+<span class="line" id="L66"><a class="number" href="#L66">66</a><code class="code">    public string StateToken =&gt; _roads?.Network.Snapshot.Token.ToString() ?? &quot;&quot;;</code></span>
+<span class="line" id="L67"><a class="number" href="#L67">67</a><code class="code">    public string BuildPhase =&gt; _buildOperation.Phase;</code></span>
+<span class="line" id="L68"><a class="number" href="#L68">68</a><code class="code">    public double BuildElapsedMilliseconds =&gt; _buildOperation.ElapsedMilliseconds;</code></span>
+<span class="line" id="L69"><a class="number" href="#L69">69</a><code class="code">    public double BuildDrawnElapsedMilliseconds =&gt; _buildOperation.DrawnElapsedMilliseconds;</code></span>
+<span class="line" id="L70"><a class="number" href="#L70">70</a><code class="code">    public string BuildSourceToken =&gt; _buildSourceToken;</code></span>
+<span class="line" id="L71"><a class="number" href="#L71">71</a><code class="code">    public string BuildPresentedToken =&gt; _buildPresentedToken;</code></span>
+<span class="line" id="L72"><a class="number" href="#L72">72</a><code class="code"></code></span>
+<span class="line" id="L73"><a class="number" href="#L73">73</a><code class="code">    public override void _Ready()</code></span>
+<span class="line" id="L74"><a class="number" href="#L74">74</a><code class="code">    {</code></span>
+<span class="line" id="L75"><a class="number" href="#L75">75</a><code class="code">        _saveManager = GetNode&lt;SaveManager&gt;(&quot;/root/SaveManager&quot;);</code></span>
+<span class="line" id="L76"><a class="number" href="#L76">76</a><code class="code">        _hudPanel = GetNode&lt;Control&gt;(&quot;HUD/Panel&quot;);</code></span>
+<span class="line" id="L77"><a class="number" href="#L77">77</a><code class="code">        _view = GetNode&lt;RoadMapView&gt;(&quot;View&quot;);</code></span>
+<span class="line" id="L78"><a class="number" href="#L78">78</a><code class="code">        _camera = GetNode&lt;Camera2D&gt;(&quot;Camera2D&quot;);</code></span>
+<span class="line" id="L79"><a class="number" href="#L79">79</a><code class="code">        _backgroundMaterial = (ShaderMaterial)GetNode&lt;ColorRect&gt;(&quot;Background/ColorRect&quot;).Material;</code></span>
+<span class="line" id="L80"><a class="number" href="#L80">80</a><code class="code">        _cellChoice = GetNode&lt;OptionButton&gt;(Controls + &quot;CellSize&quot;);</code></span>
+<span class="line" id="L81"><a class="number" href="#L81">81</a><code class="code">        _slots = GetNode&lt;OptionButton&gt;(Controls + &quot;Slots&quot;);</code></span>
+<span class="line" id="L82"><a class="number" href="#L82">82</a><code class="code">        _status = GetNode&lt;Label&gt;(Controls + &quot;Status&quot;);</code></span>
+<span class="line" id="L83"><a class="number" href="#L83">83</a><code class="code">        InitializeHudFont();</code></span>
+<span class="line" id="L84"><a class="number" href="#L84">84</a><code class="code">        _mapInfo = GetNode&lt;Label&gt;(Controls + &quot;MapInfo&quot;);</code></span>
+<span class="line" id="L85"><a class="number" href="#L85">85</a><code class="code">        _createMapButton = GetNode&lt;Button&gt;(Controls + &quot;Create&quot;);</code></span>
+<span class="line" id="L86"><a class="number" href="#L86">86</a><code class="code">        _saveMapButton = GetNode&lt;Button&gt;(Controls + &quot;Save&quot;);</code></span>
+<span class="line" id="L87"><a class="number" href="#L87">87</a><code class="code">        _loadMapButton = GetNode&lt;Button&gt;(Controls + &quot;Load&quot;);</code></span>
+<span class="line" id="L88"><a class="number" href="#L88">88</a><code class="code">        InitializeSelection();</code></span>
+<span class="line" id="L89"><a class="number" href="#L89">89</a><code class="code">        InitializeHistory();</code></span>
+<span class="line" id="L90"><a class="number" href="#L90">90</a><code class="code">        InitializeDisplayRecovery();</code></span>
+<span class="line" id="L91"><a class="number" href="#L91">91</a><code class="code">        _profileChoice = GetNode&lt;OptionButton&gt;(Controls + &quot;Profile&quot;);</code></span>
+<span class="line" id="L92"><a class="number" href="#L92">92</a><code class="code">        foreach (string label in new[] { &quot;土路&quot;, &quot;街道&quot;, &quot;干道&quot;, &quot;公路&quot; })</code></span>
+<span class="line" id="L93"><a class="number" href="#L93">93</a><code class="code">            _profileChoice.AddItem(label);</code></span>
+<span class="line" id="L94"><a class="number" href="#L94">94</a><code class="code">        _profileChoice.Select(1);</code></span>
+<span class="line" id="L95"><a class="number" href="#L95">95</a><code class="code">        foreach (int cell in new[] { 25, 50, 100, 200 })</code></span>
+<span class="line" id="L96"><a class="number" href="#L96">96</a><code class="code">            _cellChoice.AddItem($&quot;{cell} 米&quot;, cell);</code></span>
+<span class="line" id="L97"><a class="number" href="#L97">97</a><code class="code">        _cellChoice.Select(2);</code></span>
+<span class="line" id="L98"><a class="number" href="#L98">98</a><code class="code">        _createMapButton.Pressed += () =&gt; CreateMap(_cellChoice.GetSelectedId());</code></span>
+<span class="line" id="L99"><a class="number" href="#L99">99</a><code class="code">        _saveMapButton.Pressed += () =&gt; StartOperation(</code></span>
+<span class="line" id="L100"><a class="number" href="#L100">100</a><code class="code">            () =&gt; _saveManager.StartSaveAs($&quot;城市地图 · {CellSizeMetres} 米&quot;));</code></span>
+<span class="line" id="L101"><a class="number" href="#L101">101</a><code class="code">        _loadMapButton.Pressed += () =&gt;</code></span>
+<span class="line" id="L102"><a class="number" href="#L102">102</a><code class="code">        {</code></span>
+<span class="line" id="L103"><a class="number" href="#L103">103</a><code class="code">            if (_slots.Selected &gt;= 0 &amp;&amp; _slots.Selected &lt; _slotIDs.Count)</code></span>
+<span class="line" id="L104"><a class="number" href="#L104">104</a><code class="code">                LoadSlot(_slotIDs[_slots.Selected]);</code></span>
+<span class="line" id="L105"><a class="number" href="#L105">105</a><code class="code">        };</code></span>
+<span class="line" id="L106"><a class="number" href="#L106">106</a><code class="code">        CreateMap(100);</code></span>
+<span class="line" id="L107"><a class="number" href="#L107">107</a><code class="code">        RefreshSlots();</code></span>
+<span class="line" id="L108"><a class="number" href="#L108">108</a><code class="code">        RenderingServer.FramePostDraw += OnFramePostDraw;</code></span>
+<span class="line" id="L109"><a class="number" href="#L109">109</a><code class="code">    }</code></span>
+<span class="line" id="L110"><a class="number" href="#L110">110</a><code class="code"></code></span>
+<span class="line" id="L111"><a class="number" href="#L111">111</a><code class="code">    private void InitializeHudFont()</code></span>
+<span class="line" id="L112"><a class="number" href="#L112">112</a><code class="code">    {</code></span>
+<span class="line" id="L113"><a class="number" href="#L113">113</a><code class="code">        // This HUD stays at screen pixel size. Generating MSDF glyphs on the</code></span>
+<span class="line" id="L114"><a class="number" href="#L114">114</a><code class="code">        // first tool switch stalls the main thread; keep the global font intact.</code></span>
+<span class="line" id="L115"><a class="number" href="#L115">115</a><code class="code">        if (_status.GetThemeFont(&quot;font&quot;) is not FontFile { MultichannelSignedDistanceField: true } inherited)</code></span>
+<span class="line" id="L116"><a class="number" href="#L116">116</a><code class="code">            return;</code></span>
+<span class="line" id="L117"><a class="number" href="#L117">117</a><code class="code">        var font = (FontFile)inherited.Duplicate();</code></span>
+<span class="line" id="L118"><a class="number" href="#L118">118</a><code class="code">        font.MultichannelSignedDistanceField = false;</code></span>
+<span class="line" id="L119"><a class="number" href="#L119">119</a><code class="code">        _hudPanel.Theme = new Theme { DefaultFont = font };</code></span>
+<span class="line" id="L120"><a class="number" href="#L120">120</a><code class="code">    }</code></span>
+<span class="line" id="L121"><a class="number" href="#L121">121</a><code class="code"></code></span>
+<span class="line" id="L122"><a class="number" href="#L122">122</a><code class="code">    public bool CreateMap(int cellSizeMetres)</code></span>
+<span class="line" id="L123"><a class="number" href="#L123">123</a><code class="code">    {</code></span>
+<span class="line" id="L124"><a class="number" href="#L124">124</a><code class="code">        if (_saveManager.IsOperationBusy || _pendingOperation.Length != 0 || _toolAdmission is not null || _buildOperation.IsBusy ||</code></span>
+<span class="line" id="L125"><a class="number" href="#L125">125</a><code class="code">            _displayPhase == DisplayPhase.AwaitingDraw)</code></span>
+<span class="line" id="L126"><a class="number" href="#L126">126</a><code class="code">            return false;</code></span>
+<span class="line" id="L127"><a class="number" href="#L127">127</a><code class="code">        // Validate before unregistering the current scene or replacing its immutable map.</code></span>
+<span class="line" id="L128"><a class="number" href="#L128">128</a><code class="code">        var replacement = new RoadSaveParticipant(new RoadNetwork(new MapDefinition(cellSizeMetres)));</code></span>
+<span class="line" id="L129"><a class="number" href="#L129">129</a><code class="code">        CancelDraft();</code></span>
+<span class="line" id="L130"><a class="number" href="#L130">130</a><code class="code">        ClearRoadSelection();</code></span>
+<span class="line" id="L131"><a class="number" href="#L131">131</a><code class="code">        if (_roads is not null)</code></span>
+<span class="line" id="L132"><a class="number" href="#L132">132</a><code class="code">        {</code></span>
+<span class="line" id="L133"><a class="number" href="#L133">133</a><code class="code">            _saveManager.UnregisterSceneLoad(this);</code></span>
+<span class="line" id="L134"><a class="number" href="#L134">134</a><code class="code">            _saveManager.Unregister(_roads);</code></span>
+<span class="line" id="L135"><a class="number" href="#L135">135</a><code class="code">        }</code></span>
+<span class="line" id="L136"><a class="number" href="#L136">136</a><code class="code">        _roads = replacement;</code></span>
+<span class="line" id="L137"><a class="number" href="#L137">137</a><code class="code">        if (!_saveManager.Register(_roads) || !_saveManager.RegisterSceneLoad(</code></span>
+<span class="line" id="L138"><a class="number" href="#L138">138</a><code class="code">                new SceneLoadParticipants(_roads, this, _view, RoadSaveParticipant.Storage)))</code></span>
+<span class="line" id="L139"><a class="number" href="#L139">139</a><code class="code">            throw new InvalidOperationException(&quot;Cannot register the V4 scene.&quot;);</code></span>
+<span class="line" id="L140"><a class="number" href="#L140">140</a><code class="code">        _view.ShowNewMap(_roads.Network.Snapshot);</code></span>
+<span class="line" id="L141"><a class="number" href="#L141">141</a><code class="code">        ResetDisplayRecoveryReferences();</code></span>
+<span class="line" id="L142"><a class="number" href="#L142">142</a><code class="code">        _displayRetryCancellation?.Cancel();</code></span>
+<span class="line" id="L143"><a class="number" href="#L143">143</a><code class="code">        StatusText = &quot;已创建空地图&quot;;</code></span>
+<span class="line" id="L144"><a class="number" href="#L144">144</a><code class="code">        UpdateMapInfo();</code></span>
+<span class="line" id="L145"><a class="number" href="#L145">145</a><code class="code">        UpdateHistoryControls();</code></span>
+<span class="line" id="L146"><a class="number" href="#L146">146</a><code class="code">        return true;</code></span>
+<span class="line" id="L147"><a class="number" href="#L147">147</a><code class="code">    }</code></span>
+<span class="line" id="L148"><a class="number" href="#L148">148</a><code class="code"></code></span>
+<span class="line" id="L149"><a class="number" href="#L149">149</a><code class="code">    public string LoadSlot(string slotID) =&gt; _displayPhase == DisplayPhase.AwaitingDraw ? &quot;&quot; :</code></span>
+<span class="line" id="L150"><a class="number" href="#L150">150</a><code class="code">        StartOperation(() =&gt; _saveManager.StartLoad(slotID));</code></span>
+<span class="line" id="L151"><a class="number" href="#L151">151</a><code class="code"></code></span>
+<span class="line" id="L152"><a class="number" href="#L152">152</a><code class="code">    private string StartOperation(Func&lt;string&gt; start)</code></span>
+<span class="line" id="L153"><a class="number" href="#L153">153</a><code class="code">    {</code></span>
+<span class="line" id="L154"><a class="number" href="#L154">154</a><code class="code">        if (_saveManager.IsOperationBusy || _pendingOperation.Length != 0 || _buildOperation.IsBusy)</code></span>
+<span class="line" id="L155"><a class="number" href="#L155">155</a><code class="code">            return &quot;&quot;;</code></span>
+<span class="line" id="L156"><a class="number" href="#L156">156</a><code class="code">        LastOperationToken = start();</code></span>
+<span class="line" id="L157"><a class="number" href="#L157">157</a><code class="code">        _pendingOperation = LastOperationToken;</code></span>
+<span class="line" id="L158"><a class="number" href="#L158">158</a><code class="code">        StatusText = &quot;正在处理…&quot;;</code></span>
+<span class="line" id="L159"><a class="number" href="#L159">159</a><code class="code">        return LastOperationToken;</code></span>
+<span class="line" id="L160"><a class="number" href="#L160">160</a><code class="code">    }</code></span>
+<span class="line" id="L161"><a class="number" href="#L161">161</a><code class="code"></code></span>
+<span class="line" id="L162"><a class="number" href="#L162">162</a><code class="code">    public override void _Process(double delta)</code></span>
+<span class="line" id="L163"><a class="number" href="#L163">163</a><code class="code">    {</code></span>
+<span class="line" id="L164"><a class="number" href="#L164">164</a><code class="code">        // Share the established grid style, driven by the V4 presented map and camera.</code></span>
+<span class="line" id="L165"><a class="number" href="#L165">165</a><code class="code">        int cellSize = PresentedCellSizeMetres;</code></span>
+<span class="line" id="L166"><a class="number" href="#L166">166</a><code class="code">        _backgroundMaterial.SetShaderParameter(MinorGridSizeParameter, cellSize);</code></span>
+<span class="line" id="L167"><a class="number" href="#L167">167</a><code class="code">        _backgroundMaterial.SetShaderParameter(MajorGridSizeParameter, cellSize * 10);</code></span>
+<span class="line" id="L168"><a class="number" href="#L168">168</a><code class="code">        _backgroundMaterial.SetShaderParameter(CameraPositionParameter, _camera.GetScreenCenterPosition());</code></span>
+<span class="line" id="L169"><a class="number" href="#L169">169</a><code class="code">        _backgroundMaterial.SetShaderParameter(CameraZoomParameter, _camera.Zoom.X);</code></span>
+<span class="line" id="L170"><a class="number" href="#L170">170</a><code class="code">        _backgroundMaterial.SetShaderParameter(ViewportSizeParameter, GetViewport().GetVisibleRect().Size);</code></span>
+<span class="line" id="L171"><a class="number" href="#L171">171</a><code class="code">        if (_pendingOperation.Length != 0 &amp;&amp; _saveManager.HasOperationResult(_pendingOperation))</code></span>
+<span class="line" id="L172"><a class="number" href="#L172">172</a><code class="code">        {</code></span>
+<span class="line" id="L173"><a class="number" href="#L173">173</a><code class="code">            Godot.Collections.Dictionary result = _saveManager.GetOperationResult(_pendingOperation);</code></span>
+<span class="line" id="L174"><a class="number" href="#L174">174</a><code class="code">            bool success = result[&quot;committed&quot;].AsBool();</code></span>
+<span class="line" id="L175"><a class="number" href="#L175">175</a><code class="code">            StatusText = success ? &quot;已完成&quot; : $&quot;操作未完成：{result[&quot;error&quot;].AsString()}&quot;;</code></span>
+<span class="line" id="L176"><a class="number" href="#L176">176</a><code class="code">            _pendingOperation = &quot;&quot;;</code></span>
+<span class="line" id="L177"><a class="number" href="#L177">177</a><code class="code">            RefreshSlots();</code></span>
+<span class="line" id="L178"><a class="number" href="#L178">178</a><code class="code">            UpdateMapInfo();</code></span>
+<span class="line" id="L179"><a class="number" href="#L179">179</a><code class="code">        }</code></span>
+<span class="line" id="L180"><a class="number" href="#L180">180</a><code class="code">        PublishCompletedPreview(updateStatus: false);</code></span>
+<span class="line" id="L181"><a class="number" href="#L181">181</a><code class="code">        if (_selectionSession.Source is RoadStateToken selectionSource &amp;&amp; _roads is not null &amp;&amp; selectionSource != _roads.Network.Snapshot.Token)</code></span>
+<span class="line" id="L182"><a class="number" href="#L182">182</a><code class="code">            ClearRoadSelection();</code></span>
+<span class="line" id="L183"><a class="number" href="#L183">183</a><code class="code">        UpdateOperationControls();</code></span>
+<span class="line" id="L184"><a class="number" href="#L184">184</a><code class="code">        if (_buildOperation.IsWaiting)</code></span>
+<span class="line" id="L185"><a class="number" href="#L185">185</a><code class="code">            StatusText = &quot;道路计算仍在进行，请继续等待… Esc 取消&quot;;</code></span>
+<span class="line" id="L186"><a class="number" href="#L186">186</a><code class="code">    }</code></span>
+<span class="line" id="L187"><a class="number" href="#L187">187</a><code class="code"></code></span>
+<span class="line" id="L188"><a class="number" href="#L188">188</a><code class="code">    private void UpdateOperationControls()</code></span>
+<span class="line" id="L189"><a class="number" href="#L189">189</a><code class="code">    {</code></span>
+<span class="line" id="L190"><a class="number" href="#L190">190</a><code class="code">        bool busy = _saveManager.IsOperationBusy || _pendingOperation.Length != 0 || _buildOperation.IsBusy;</code></span>
+<span class="line" id="L191"><a class="number" href="#L191">191</a><code class="code">        _toolMode.Disabled = !CanEdit;</code></span>
+<span class="line" id="L192"><a class="number" href="#L192">192</a><code class="code">        _createMapButton.Disabled = busy || _displayPhase == DisplayPhase.AwaitingDraw;</code></span>
+<span class="line" id="L193"><a class="number" href="#L193">193</a><code class="code">        _saveMapButton.Disabled = busy;</code></span>
+<span class="line" id="L194"><a class="number" href="#L194">194</a><code class="code">        _loadMapButton.Disabled = busy || _slotIDs.Count == 0 || _displayPhase == DisplayPhase.AwaitingDraw;</code></span>
+<span class="line" id="L195"><a class="number" href="#L195">195</a><code class="code">        _profileChoice.Disabled = !CanEdit || _draftStart.HasValue || _selectionSession.IsSelecting;</code></span>
+<span class="line" id="L196"><a class="number" href="#L196">196</a><code class="code">        UpdateHistoryControls();</code></span>
+<span class="line" id="L197"><a class="number" href="#L197">197</a><code class="code">        UpdateDisplayRecoveryControls();</code></span>
+<span class="line" id="L198"><a class="number" href="#L198">198</a><code class="code">    }</code></span>
+<span class="line" id="L199"><a class="number" href="#L199">199</a><code class="code"></code></span>
+<span class="line" id="L200"><a class="number" href="#L200">200</a><code class="code">    private void RefreshSlots()</code></span>
+<span class="line" id="L201"><a class="number" href="#L201">201</a><code class="code">    {</code></span>
+<span class="line" id="L202"><a class="number" href="#L202">202</a><code class="code">        _slotIDs.Clear();</code></span>
+<span class="line" id="L203"><a class="number" href="#L203">203</a><code class="code">        _slots.Clear();</code></span>
+<span class="line" id="L204"><a class="number" href="#L204">204</a><code class="code">        foreach (SaveSlotSummary slot in _saveManager.ListSlots())</code></span>
+<span class="line" id="L205"><a class="number" href="#L205">205</a><code class="code">        {</code></span>
+<span class="line" id="L206"><a class="number" href="#L206">206</a><code class="code">            _slotIDs.Add(slot.SlotID);</code></span>
+<span class="line" id="L207"><a class="number" href="#L207">207</a><code class="code">            _slots.AddItem(slot.DisplayName + (slot.IsValid ? &quot;&quot; : &quot;（损坏）&quot;));</code></span>
+<span class="line" id="L208"><a class="number" href="#L208">208</a><code class="code">        }</code></span>
+<span class="line" id="L209"><a class="number" href="#L209">209</a><code class="code">        int selected = _slotIDs.IndexOf(_saveManager.CurrentSlotID);</code></span>
+<span class="line" id="L210"><a class="number" href="#L210">210</a><code class="code">        if (selected &gt;= 0)</code></span>
+<span class="line" id="L211"><a class="number" href="#L211">211</a><code class="code">            _slots.Select(selected);</code></span>
+<span class="line" id="L212"><a class="number" href="#L212">212</a><code class="code">    }</code></span>
+<span class="line" id="L213"><a class="number" href="#L213">213</a><code class="code"></code></span>
+<span class="line" id="L214"><a class="number" href="#L214">214</a><code class="code">    private void UpdateMapInfo() =&gt; _mapInfo.Text =</code></span>
+<span class="line" id="L215"><a class="number" href="#L215">215</a><code class="code">        $&quot;8 × 8 km  ·  中心原点\n当前格长：{CellSizeMetres} 米\n每边 {8000 / CellSizeMetres} 格  ·  {RoadCount} 条道路\n道路宽度按比例示意&quot;;</code></span>
+<span class="line" id="L216"><a class="number" href="#L216">216</a><code class="code"></code></span>
+<span class="line" id="L217"><a class="number" href="#L217">217</a><code class="code">    private bool CanEdit =&gt; _roads is not null &amp;&amp; !_buildOperation.IsBusy &amp;&amp; !_saveManager.IsOperationBusy &amp;&amp;</code></span>
+<span class="line" id="L218"><a class="number" href="#L218">218</a><code class="code">        _pendingOperation.Length == 0 &amp;&amp; _toolAdmission is null &amp;&amp; CanReadDisplay;</code></span>
+<span class="line" id="L219"><a class="number" href="#L219">219</a><code class="code"></code></span>
+<span class="line" id="L220"><a class="number" href="#L220">220</a><code class="code">    private RoadPoint WorldPoint(Vector2 screen)</code></span>
+<span class="line" id="L221"><a class="number" href="#L221">221</a><code class="code">    {</code></span>
+<span class="line" id="L222"><a class="number" href="#L222">222</a><code class="code">        Vector2 world = GetCanvasTransform().AffineInverse() * screen;</code></span>
+<span class="line" id="L223"><a class="number" href="#L223">223</a><code class="code">        return new RoadPoint(world.X, world.Y);</code></span>
+<span class="line" id="L224"><a class="number" href="#L224">224</a><code class="code">    }</code></span>
+<span class="line" id="L225"><a class="number" href="#L225">225</a><code class="code"></code></span>
+<span class="line" id="L226"><a class="number" href="#L226">226</a><code class="code">    private void CancelDraft()</code></span>
+<span class="line" id="L227"><a class="number" href="#L227">227</a><code class="code">    {</code></span>
+<span class="line" id="L228"><a class="number" href="#L228">228</a><code class="code">        _draftStart = null;</code></span>
+<span class="line" id="L229"><a class="number" href="#L229">229</a><code class="code">        _previewRequest = null;</code></span>
+<span class="line" id="L230"><a class="number" href="#L230">230</a><code class="code">        _queuedPreview = null;</code></span>
+<span class="line" id="L231"><a class="number" href="#L231">231</a><code class="code">        _previewResult = null;</code></span>
+<span class="line" id="L232"><a class="number" href="#L232">232</a><code class="code">        _completedPreview = null;</code></span>
+<span class="line" id="L233"><a class="number" href="#L233">233</a><code class="code">        _previewCancellation?.Cancel();</code></span>
+<span class="line" id="L234"><a class="number" href="#L234">234</a><code class="code">        _view.ShowPreview(null, null, null, _draftProfile);</code></span>
+<span class="line" id="L235"><a class="number" href="#L235">235</a><code class="code">    }</code></span>
+<span class="line" id="L236"><a class="number" href="#L236">236</a><code class="code"></code></span>
+<span class="line" id="L237"><a class="number" href="#L237">237</a><code class="code">    public Godot.Collections.Dictionary GetBuildPreview() =&gt; new()</code></span>
+<span class="line" id="L238"><a class="number" href="#L238">238</a><code class="code">    {</code></span>
+<span class="line" id="L239"><a class="number" href="#L239">239</a><code class="code">        [&quot;phase&quot;] = _draftStart is null ? &quot;None&quot; : _previewResult?.Status.ToString() ?? &quot;Pending&quot;,</code></span>
+<span class="line" id="L240"><a class="number" href="#L240">240</a><code class="code">        [&quot;sourceToken&quot;] = _previewRequest?.Source.ToString() ?? &quot;&quot;,</code></span>
+<span class="line" id="L241"><a class="number" href="#L241">241</a><code class="code">        [&quot;reason&quot;] = _previewResult?.Reason ?? &quot;&quot;,</code></span>
+<span class="line" id="L242"><a class="number" href="#L242">242</a><code class="code">        [&quot;segments&quot;] = _view.DescribePreview(),</code></span>
+<span class="line" id="L243"><a class="number" href="#L243">243</a><code class="code">    };</code></span>
+<span class="line" id="L244"><a class="number" href="#L244">244</a><code class="code"></code></span>
+<span class="line" id="L245"><a class="number" href="#L245">245</a><code class="code">    private void UpdateDraftPreview(RoadPoint start, RoadPoint end)</code></span>
+<span class="line" id="L246"><a class="number" href="#L246">246</a><code class="code">    {</code></span>
+<span class="line" id="L247"><a class="number" href="#L247">247</a><code class="code">        var request = new CoreRoadBuildRequest(_draftSource, start, end, _draftProfile);</code></span>
+<span class="line" id="L248"><a class="number" href="#L248">248</a><code class="code">        if (request == _previewRequest) return;</code></span>
+<span class="line" id="L249"><a class="number" href="#L249">249</a><code class="code">        _previewCancellation?.Cancel();</code></span>
+<span class="line" id="L250"><a class="number" href="#L250">250</a><code class="code">        _previewRequest = request;</code></span>
+<span class="line" id="L251"><a class="number" href="#L251">251</a><code class="code">        _previewResult = null;</code></span>
+<span class="line" id="L252"><a class="number" href="#L252">252</a><code class="code">        _completedPreview = null;</code></span>
+<span class="line" id="L253"><a class="number" href="#L253">253</a><code class="code">        _queuedPreview = request;</code></span>
+<span class="line" id="L254"><a class="number" href="#L254">254</a><code class="code">        _view.ShowPreview(start, end, null, _draftProfile);</code></span>
+<span class="line" id="L255"><a class="number" href="#L255">255</a><code class="code">        StatusText = &quot;正在检查建造范围…&quot;;</code></span>
+<span class="line" id="L256"><a class="number" href="#L256">256</a><code class="code">        RunPreviewWorker();</code></span>
+<span class="line" id="L257"><a class="number" href="#L257">257</a><code class="code">    }</code></span>
+<span class="line" id="L258"><a class="number" href="#L258">258</a><code class="code"></code></span>
+<span class="line" id="L259"><a class="number" href="#L259">259</a><code class="code">    // At most one preview worker plus one replaceable latest request. Superseded work cannot publish.</code></span>
+<span class="line" id="L260"><a class="number" href="#L260">260</a><code class="code">    private async void RunPreviewWorker()</code></span>
+<span class="line" id="L261"><a class="number" href="#L261">261</a><code class="code">    {</code></span>
+<span class="line" id="L262"><a class="number" href="#L262">262</a><code class="code">        if (_previewWorkerRunning) return;</code></span>
+<span class="line" id="L263"><a class="number" href="#L263">263</a><code class="code">        _previewWorkerRunning = true;</code></span>
+<span class="line" id="L264"><a class="number" href="#L264">264</a><code class="code">        try</code></span>
+<span class="line" id="L265"><a class="number" href="#L265">265</a><code class="code">        {</code></span>
+<span class="line" id="L266"><a class="number" href="#L266">266</a><code class="code">            while (IsSceneAlive &amp;&amp; _queuedPreview is CoreRoadBuildRequest request)</code></span>
+<span class="line" id="L267"><a class="number" href="#L267">267</a><code class="code">            {</code></span>
+<span class="line" id="L268"><a class="number" href="#L268">268</a><code class="code">                _queuedPreview = null;</code></span>
+<span class="line" id="L269"><a class="number" href="#L269">269</a><code class="code">                RoadNetwork network = _roads!.Network;</code></span>
+<span class="line" id="L270"><a class="number" href="#L270">270</a><code class="code">                using var cancellation = new CancellationTokenSource();</code></span>
+<span class="line" id="L271"><a class="number" href="#L271">271</a><code class="code">                _previewCancellation = cancellation;</code></span>
+<span class="line" id="L272"><a class="number" href="#L272">272</a><code class="code">                CancellationToken token = cancellation.Token;</code></span>
+<span class="line" id="L273"><a class="number" href="#L273">273</a><code class="code">#if DEBUG</code></span>
+<span class="line" id="L274"><a class="number" href="#L274">274</a><code class="code">                Action? beforeWork = BeforePreviewWork;</code></span>
+<span class="line" id="L275"><a class="number" href="#L275">275</a><code class="code">#endif</code></span>
+<span class="line" id="L276"><a class="number" href="#L276">276</a><code class="code">                try</code></span>
+<span class="line" id="L277"><a class="number" href="#L277">277</a><code class="code">                {</code></span>
+<span class="line" id="L278"><a class="number" href="#L278">278</a><code class="code">                    CoreRoadBuildResult result = await Task.Run(() =&gt;</code></span>
+<span class="line" id="L279"><a class="number" href="#L279">279</a><code class="code">                    {</code></span>
+<span class="line" id="L280"><a class="number" href="#L280">280</a><code class="code">#if DEBUG</code></span>
+<span class="line" id="L281"><a class="number" href="#L281">281</a><code class="code">                        beforeWork?.Invoke();</code></span>
+<span class="line" id="L282"><a class="number" href="#L282">282</a><code class="code">#endif</code></span>
+<span class="line" id="L283"><a class="number" href="#L283">283</a><code class="code">                        return network.PlanBuild(request, token);</code></span>
+<span class="line" id="L284"><a class="number" href="#L284">284</a><code class="code">                    });</code></span>
+<span class="line" id="L285"><a class="number" href="#L285">285</a><code class="code">                    if (token.IsCancellationRequested) continue;</code></span>
+<span class="line" id="L286"><a class="number" href="#L286">286</a><code class="code">                    CompletePreview(request, result, result.Status switch</code></span>
+<span class="line" id="L287"><a class="number" href="#L287">287</a><code class="code">                    {</code></span>
+<span class="line" id="L288"><a class="number" href="#L288">288</a><code class="code">                        RoadBuildStatus.Ready =&gt; &quot;松开以建造道路&quot;,</code></span>
+<span class="line" id="L289"><a class="number" href="#L289">289</a><code class="code">                        RoadBuildStatus.NoChange =&gt; &quot;拖动以预览道路&quot;,</code></span>
+<span class="line" id="L290"><a class="number" href="#L290">290</a><code class="code">                        _ =&gt; result.Reason,</code></span>
+<span class="line" id="L291"><a class="number" href="#L291">291</a><code class="code">                    });</code></span>
+<span class="line" id="L292"><a class="number" href="#L292">292</a><code class="code">                }</code></span>
+<span class="line" id="L293"><a class="number" href="#L293">293</a><code class="code">                catch (OperationCanceledException) when (token.IsCancellationRequested) { }</code></span>
+<span class="line" id="L294"><a class="number" href="#L294">294</a><code class="code">                catch (Exception exception)</code></span>
+<span class="line" id="L295"><a class="number" href="#L295">295</a><code class="code">                {</code></span>
+<span class="line" id="L296"><a class="number" href="#L296">296</a><code class="code">                    CompletePreview(request, new CoreRoadBuildResult(RoadBuildStatus.Rejected, null, &quot;建造预览检查失败&quot;),</code></span>
+<span class="line" id="L297"><a class="number" href="#L297">297</a><code class="code">                        $&quot;建造预览检查失败：{exception.Message}&quot;);</code></span>
+<span class="line" id="L298"><a class="number" href="#L298">298</a><code class="code">                }</code></span>
+<span class="line" id="L299"><a class="number" href="#L299">299</a><code class="code">                finally</code></span>
+<span class="line" id="L300"><a class="number" href="#L300">300</a><code class="code">                {</code></span>
+<span class="line" id="L301"><a class="number" href="#L301">301</a><code class="code">                    if (ReferenceEquals(_previewCancellation, cancellation)) _previewCancellation = null;</code></span>
+<span class="line" id="L302"><a class="number" href="#L302">302</a><code class="code">                }</code></span>
+<span class="line" id="L303"><a class="number" href="#L303">303</a><code class="code">            }</code></span>
+<span class="line" id="L304"><a class="number" href="#L304">304</a><code class="code">        }</code></span>
+<span class="line" id="L305"><a class="number" href="#L305">305</a><code class="code">        finally { _previewWorkerRunning = false; }</code></span>
+<span class="line" id="L306"><a class="number" href="#L306">306</a><code class="code">    }</code></span>
+<span class="line" id="L307"><a class="number" href="#L307">307</a><code class="code"></code></span>
+<span class="line" id="L308"><a class="number" href="#L308">308</a><code class="code">    private void CompletePreview(CoreRoadBuildRequest request, CoreRoadBuildResult result, string status)</code></span>
+<span class="line" id="L309"><a class="number" href="#L309">309</a><code class="code">    {</code></span>
+<span class="line" id="L310"><a class="number" href="#L310">310</a><code class="code">        if (!IsSceneAlive || request != _previewRequest || !_draftStart.HasValue ||</code></span>
+<span class="line" id="L311"><a class="number" href="#L311">311</a><code class="code">            request.Source != _roads!.Network.Snapshot.Token) return;</code></span>
+<span class="line" id="L312"><a class="number" href="#L312">312</a><code class="code">        // Load holds the visible tool state. Keep only the current request&#x27;s completion until it releases admission.</code></span>
+<span class="line" id="L313"><a class="number" href="#L313">313</a><code class="code">        _completedPreview = new(request, result, status);</code></span>
+<span class="line" id="L314"><a class="number" href="#L314">314</a><code class="code">        PublishCompletedPreview();</code></span>
+<span class="line" id="L315"><a class="number" href="#L315">315</a><code class="code">    }</code></span>
+<span class="line" id="L316"><a class="number" href="#L316">316</a><code class="code"></code></span>
+<span class="line" id="L317"><a class="number" href="#L317">317</a><code class="code">    private void PublishCompletedPreview(bool updateStatus = true)</code></span>
+<span class="line" id="L318"><a class="number" href="#L318">318</a><code class="code">    {</code></span>
+<span class="line" id="L319"><a class="number" href="#L319">319</a><code class="code">        if (_completedPreview is not CompletedPreview completed || !CanEdit) return;</code></span>
+<span class="line" id="L320"><a class="number" href="#L320">320</a><code class="code">        _completedPreview = null;</code></span>
+<span class="line" id="L321"><a class="number" href="#L321">321</a><code class="code">        if (completed.Request != _previewRequest || !_draftStart.HasValue ||</code></span>
+<span class="line" id="L322"><a class="number" href="#L322">322</a><code class="code">            completed.Request.Source != _roads!.Network.Snapshot.Token) return;</code></span>
+<span class="line" id="L323"><a class="number" href="#L323">323</a><code class="code">        _previewResult = completed.Result;</code></span>
+<span class="line" id="L324"><a class="number" href="#L324">324</a><code class="code">        _view.ShowPreview(completed.Request.Start, completed.Request.End, completed.Result, _draftProfile);</code></span>
+<span class="line" id="L325"><a class="number" href="#L325">325</a><code class="code">        if (updateStatus) StatusText = completed.Status;</code></span>
+<span class="line" id="L326"><a class="number" href="#L326">326</a><code class="code">    }</code></span>
+<span class="line" id="L327"><a class="number" href="#L327">327</a><code class="code"></code></span>
+<span class="line" id="L328"><a class="number" href="#L328">328</a><code class="code">    public override void _Input(InputEvent @event)</code></span>
+<span class="line" id="L329"><a class="number" href="#L329">329</a><code class="code">    {</code></span>
+<span class="line" id="L330"><a class="number" href="#L330">330</a><code class="code">        // Load admission preserves the captured tool state until the aggregate commits or abandons it.</code></span>
+<span class="line" id="L331"><a class="number" href="#L331">331</a><code class="code">        // Camera input still flows through _UnhandledInput while these road gestures are suspended.</code></span>
+<span class="line" id="L332"><a class="number" href="#L332">332</a><code class="code">        if (_toolAdmission is not null) return;</code></span>
+<span class="line" id="L333"><a class="number" href="#L333">333</a><code class="code">        if (!UseProductControls &amp;&amp; @event is InputEventKey { Pressed: true, Keycode: Key.Escape })</code></span>
+<span class="line" id="L334"><a class="number" href="#L334">334</a><code class="code">        {</code></span>
+<span class="line" id="L335"><a class="number" href="#L335">335</a><code class="code">            CancelRoadInteraction();</code></span>
+<span class="line" id="L336"><a class="number" href="#L336">336</a><code class="code">        }</code></span>
+<span class="line" id="L337"><a class="number" href="#L337">337</a><code class="code">        if (HandleSelectionInput(@event)) return;</code></span>
+<span class="line" id="L338"><a class="number" href="#L338">338</a><code class="code">        if (@event is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: false } release &amp;&amp; _draftStart is RoadPoint start)</code></span>
+<span class="line" id="L339"><a class="number" href="#L339">339</a><code class="code">        {</code></span>
+<span class="line" id="L340"><a class="number" href="#L340">340</a><code class="code">            long inputTimestamp = Stopwatch.GetTimestamp();</code></span>
+<span class="line" id="L341"><a class="number" href="#L341">341</a><code class="code">            RoadPoint end = _roads!.Network.Snapshot.Map.SnapDragEnd(start, WorldPoint(release.Position));</code></span>
+<span class="line" id="L342"><a class="number" href="#L342">342</a><code class="code">            var request = new CoreRoadBuildRequest(_draftSource, start, end, _draftProfile);</code></span>
+<span class="line" id="L343"><a class="number" href="#L343">343</a><code class="code">            CancelDraft();</code></span>
+<span class="line" id="L344"><a class="number" href="#L344">344</a><code class="code">            // Release over UI ends the captured gesture without constructing behind a control.</code></span>
+<span class="line" id="L345"><a class="number" href="#L345">345</a><code class="code">            if (CanEdit &amp;&amp; !IsPointerOverUi(release.Position))</code></span>
+<span class="line" id="L346"><a class="number" href="#L346">346</a><code class="code">                SubmitBuild(request, inputTimestamp);</code></span>
+<span class="line" id="L347"><a class="number" href="#L347">347</a><code class="code">        }</code></span>
+<span class="line" id="L348"><a class="number" href="#L348">348</a><code class="code">    }</code></span>
+<span class="line" id="L349"><a class="number" href="#L349">349</a><code class="code"></code></span>
+<span class="line" id="L350"><a class="number" href="#L350">350</a><code class="code">    public override void _UnhandledInput(InputEvent @event)</code></span>
+<span class="line" id="L351"><a class="number" href="#L351">351</a><code class="code">    {</code></span>
+<span class="line" id="L352"><a class="number" href="#L352">352</a><code class="code">        if (!UseProductControls &amp;&amp; HandleHistoryInput(@event)) return;</code></span>
+<span class="line" id="L353"><a class="number" href="#L353">353</a><code class="code">        if (HandleSelectionPointerEvent(@event)) return;</code></span>
+<span class="line" id="L354"><a class="number" href="#L354">354</a><code class="code">        if (@event is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true } press &amp;&amp; CanEdit &amp;&amp; !IsSelectionTool)</code></span>
+<span class="line" id="L355"><a class="number" href="#L355">355</a><code class="code">        {</code></span>
+<span class="line" id="L356"><a class="number" href="#L356">356</a><code class="code">            MapDefinition map = _roads!.Network.Snapshot.Map;</code></span>
+<span class="line" id="L357"><a class="number" href="#L357">357</a><code class="code">            RoadPoint cursor = WorldPoint(press.Position);</code></span>
+<span class="line" id="L358"><a class="number" href="#L358">358</a><code class="code">            if (cursor.X &lt; -4000 || cursor.X &gt; 4000 || cursor.Y &lt; -4000 || cursor.Y &gt; 4000) return;</code></span>
+<span class="line" id="L359"><a class="number" href="#L359">359</a><code class="code">            _draftStart = map.SnapBuildPoint(cursor);</code></span>
+<span class="line" id="L360"><a class="number" href="#L360">360</a><code class="code">            _draftSource = _roads.Network.Snapshot.Token;</code></span>
+<span class="line" id="L361"><a class="number" href="#L361">361</a><code class="code">            _draftProfile = RoadProfiles.All[_profileChoice.Selected].Id;</code></span>
+<span class="line" id="L362"><a class="number" href="#L362">362</a><code class="code">            ClearRoadSelection();</code></span>
+<span class="line" id="L363"><a class="number" href="#L363">363</a><code class="code">            UpdateDraftPreview(_draftStart.Value, _draftStart.Value);</code></span>
+<span class="line" id="L364"><a class="number" href="#L364">364</a><code class="code">        }</code></span>
+<span class="line" id="L365"><a class="number" href="#L365">365</a><code class="code">        if (@event is InputEventMouseMotion move &amp;&amp; _draftStart is RoadPoint draft &amp;&amp; CanEdit)</code></span>
+<span class="line" id="L366"><a class="number" href="#L366">366</a><code class="code">        {</code></span>
+<span class="line" id="L367"><a class="number" href="#L367">367</a><code class="code">            RoadPoint end = _roads!.Network.Snapshot.Map.SnapDragEnd(draft, WorldPoint(move.Position));</code></span>
+<span class="line" id="L368"><a class="number" href="#L368">368</a><code class="code">            UpdateDraftPreview(draft, end);</code></span>
+<span class="line" id="L369"><a class="number" href="#L369">369</a><code class="code">        }</code></span>
+<span class="line" id="L370"><a class="number" href="#L370">370</a><code class="code">        else if (@event is InputEventMouseMotion hover &amp;&amp; CanEdit &amp;&amp; !IsSelectionTool)</code></span>
+<span class="line" id="L371"><a class="number" href="#L371">371</a><code class="code">        {</code></span>
+<span class="line" id="L372"><a class="number" href="#L372">372</a><code class="code">            RoadPoint point = WorldPoint(hover.Position);</code></span>
+<span class="line" id="L373"><a class="number" href="#L373">373</a><code class="code">            var hits = _view.QueryHit(new Vector2((float)point.X, (float)point.Y), null);</code></span>
+<span class="line" id="L374"><a class="number" href="#L374">374</a><code class="code">            UpdateSelectionPointer(hover.Position);</code></span>
+<span class="line" id="L375"><a class="number" href="#L375">375</a><code class="code">            if (hits.Status == SpatialQueryStatus.Ready &amp;&amp; hits.Results.Count != 0)</code></span>
+<span class="line" id="L376"><a class="number" href="#L376">376</a><code class="code">            {</code></span>
+<span class="line" id="L377"><a class="number" href="#L377">377</a><code class="code">                RoadDisplay.HitResult hit = hits.Results[0];</code></span>
+<span class="line" id="L378"><a class="number" href="#L378">378</a><code class="code">                if (hit.JunctionNode is NodeId junctionId &amp;&amp; junctionId.Value &gt; 0 &amp;&amp;</code></span>
+<span class="line" id="L379"><a class="number" href="#L379">379</a><code class="code">                    RoadJunctionQuery.Read(_roads!.Network.Snapshot, junctionId) is RoadJunctionReadModel junction)</code></span>
+<span class="line" id="L380"><a class="number" href="#L380">380</a><code class="code">                    StatusText = $&quot;{(_roads.Network.Snapshot.Map.IsCellCenter(junction.Node.Position) ? &quot;格心路口&quot; : &quot;路口&quot;)} · {junction.Incidences.Count} 个方向&quot;;</code></span>
+<span class="line" id="L381"><a class="number" href="#L381">381</a><code class="code">                else StatusText = $&quot;道路位置：{hit.Location.Parameter:P0}&quot;;</code></span>
+<span class="line" id="L382"><a class="number" href="#L382">382</a><code class="code">            }</code></span>
+<span class="line" id="L383"><a class="number" href="#L383">383</a><code class="code">        }</code></span>
+<span class="line" id="L384"><a class="number" href="#L384">384</a><code class="code">        if (UseProductControls) return; // MainCamera owns the product&#x27;s camera input.</code></span>
+<span class="line" id="L385"><a class="number" href="#L385">385</a><code class="code">        if (@event is InputEventMouseButton { Pressed: true } button &amp;&amp;</code></span>
+<span class="line" id="L386"><a class="number" href="#L386">386</a><code class="code">            button.ButtonIndex is MouseButton.WheelUp or MouseButton.WheelDown)</code></span>
+<span class="line" id="L387"><a class="number" href="#L387">387</a><code class="code">        {</code></span>
+<span class="line" id="L388"><a class="number" href="#L388">388</a><code class="code">            float zoom = Mathf.Clamp(_camera.Zoom.X * (button.ButtonIndex == MouseButton.WheelUp ? 1.15f : 1 / 1.15f), 0.04f, 2f);</code></span>
+<span class="line" id="L389"><a class="number" href="#L389">389</a><code class="code">            _camera.Zoom = new Vector2(zoom, zoom);</code></span>
+<span class="line" id="L390"><a class="number" href="#L390">390</a><code class="code">        }</code></span>
+<span class="line" id="L391"><a class="number" href="#L391">391</a><code class="code">        if (@event is InputEventMouseMotion motion &amp;&amp; motion.ButtonMask.HasFlag(MouseButtonMask.Middle))</code></span>
+<span class="line" id="L392"><a class="number" href="#L392">392</a><code class="code">            _camera.Position -= motion.Relative / _camera.Zoom;</code></span>
+<span class="line" id="L393"><a class="number" href="#L393">393</a><code class="code">    }</code></span>
+<span class="line" id="L394"><a class="number" href="#L394">394</a><code class="code"></code></span>
+<span class="line" id="L395"><a class="number" href="#L395">395</a><code class="code">    public override void _ExitTree()</code></span>
+<span class="line" id="L396"><a class="number" href="#L396">396</a><code class="code">    {</code></span>
+<span class="line" id="L397"><a class="number" href="#L397">397</a><code class="code">        _displayRetryCancellation?.Cancel();</code></span>
+<span class="line" id="L398"><a class="number" href="#L398">398</a><code class="code">        _queuedPreview = null;</code></span>
+<span class="line" id="L399"><a class="number" href="#L399">399</a><code class="code">        _previewRequest = null;</code></span>
+<span class="line" id="L400"><a class="number" href="#L400">400</a><code class="code">        _previewCancellation?.Cancel();</code></span>
+<span class="line" id="L401"><a class="number" href="#L401">401</a><code class="code">        RenderingServer.FramePostDraw -= OnFramePostDraw;</code></span>
+<span class="line" id="L402"><a class="number" href="#L402">402</a><code class="code">        if (_buildOperation.TryCancel()) _buildCancellation?.Cancel();</code></span>
+<span class="line" id="L403"><a class="number" href="#L403">403</a><code class="code">        if (_buildOperation.Phase == &quot;Committed&quot;) _buildOperation.Finish(&quot;SceneClosed&quot;);</code></span>
+<span class="line" id="L404"><a class="number" href="#L404">404</a><code class="code">        if (_roads is not null &amp;&amp; GodotObject.IsInstanceValid(_saveManager))</code></span>
+<span class="line" id="L405"><a class="number" href="#L405">405</a><code class="code">        {</code></span>
+<span class="line" id="L406"><a class="number" href="#L406">406</a><code class="code">            _saveManager.UnregisterSceneLoad(this);</code></span>
+<span class="line" id="L407"><a class="number" href="#L407">407</a><code class="code">            _saveManager.Unregister(_roads);</code></span>
+<span class="line" id="L408"><a class="number" href="#L408">408</a><code class="code">        }</code></span>
+<span class="line" id="L409"><a class="number" href="#L409">409</a><code class="code">    }</code></span>
+<span class="line" id="L410"><a class="number" href="#L410">410</a><code class="code"></code></span>
+<span class="line" id="L411"><a class="number" href="#L411">411</a><code class="code">    ISceneToolLoadAdmission ISceneToolLoadParticipant.BeginSceneLoadAdmission()</code></span>
+<span class="line" id="L412"><a class="number" href="#L412">412</a><code class="code">    {</code></span>
+<span class="line" id="L413"><a class="number" href="#L413">413</a><code class="code">        if (_toolAdmission is not null || _buildOperation.IsBusy || _displayPhase == DisplayPhase.AwaitingDraw)</code></span>
+<span class="line" id="L414"><a class="number" href="#L414">414</a><code class="code">            throw new InvalidOperationException(&quot;V4 tools are already loading.&quot;);</code></span>
+<span class="line" id="L415"><a class="number" href="#L415">415</a><code class="code">        return _toolAdmission = new ToolAdmission(this, _saveManager.SceneGeneration);</code></span>
+<span class="line" id="L416"><a class="number" href="#L416">416</a><code class="code">    }</code></span>
+<span class="line" id="L417"><a class="number" href="#L417">417</a><code class="code"></code></span>
+<span class="line" id="L418"><a class="number" href="#L418">418</a><code class="code">    public Godot.Collections.Dictionary PickRoad(Vector2 world) =&gt;</code></span>
+<span class="line" id="L419"><a class="number" href="#L419">419</a><code class="code">        CanReadDisplay ? _view.PickRoad(world) : new();</code></span>
+<span class="line" id="L420"><a class="number" href="#L420">420</a><code class="code"></code></span>
+<span class="line" id="L421"><a class="number" href="#L421">421</a><code class="code">    public Godot.Collections.Dictionary GetQueryState() =&gt; _view.DescribeQuery();</code></span>
+<span class="line" id="L422"><a class="number" href="#L422">422</a><code class="code"></code></span>
+<span class="line" id="L423"><a class="number" href="#L423">423</a><code class="code">    public Godot.Collections.Dictionary QueryRoad(Vector2 world, int maxBuckets = 4096, int maxCandidates = 4096, int maxExactTests = 16384) =&gt;</code></span>
+<span class="line" id="L424"><a class="number" href="#L424">424</a><code class="code">        CanReadDisplay ? _view.QueryRoad(world, new SpatialQueryBudget(maxBuckets, maxCandidates, maxExactTests)) : DisplayQueryUnavailable();</code></span>
+<span class="line" id="L425"><a class="number" href="#L425">425</a><code class="code"></code></span>
+<span class="line" id="L426"><a class="number" href="#L426">426</a><code class="code">    public Godot.Collections.Dictionary TraceRoadSpans(Vector2 from, Vector2 to, int maxBuckets = 4096, int maxCandidates = 4096, int maxExactTests = 16384) =&gt;</code></span>
+<span class="line" id="L427"><a class="number" href="#L427">427</a><code class="code">        CanReadDisplay ? _view.TraceRoadSpans(from, to, new SpatialQueryBudget(maxBuckets, maxCandidates, maxExactTests)) : DisplayQueryUnavailable();</code></span>
+<span class="line" id="L428"><a class="number" href="#L428">428</a><code class="code"></code></span>
+<span class="line" id="L429"><a class="number" href="#L429">429</a><code class="code">    private static Godot.Collections.Dictionary DisplayQueryUnavailable() =&gt; new()</code></span>
+<span class="line" id="L430"><a class="number" href="#L430">430</a><code class="code">    {</code></span>
+<span class="line" id="L431"><a class="number" href="#L431">431</a><code class="code">        [&quot;status&quot;] = SpatialQueryStatus.InvalidParameters.ToString(), [&quot;reason&quot;] = &quot;道路显示尚未就绪&quot;,</code></span>
+<span class="line" id="L432"><a class="number" href="#L432">432</a><code class="code">        [&quot;hit&quot;] = new Godot.Collections.Dictionary(), [&quot;spanCount&quot;] = 0,</code></span>
+<span class="line" id="L433"><a class="number" href="#L433">433</a><code class="code">    };</code></span>
+<span class="line" id="L434"><a class="number" href="#L434">434</a><code class="code"></code></span>
+<span class="line" id="L435"><a class="number" href="#L435">435</a><code class="code">    public Godot.Collections.Dictionary GetRoadState()</code></span>
+<span class="line" id="L436"><a class="number" href="#L436">436</a><code class="code">    {</code></span>
+<span class="line" id="L437"><a class="number" href="#L437">437</a><code class="code">        if (_roads is null || RoadCount == 0) return new();</code></span>
+<span class="line" id="L438"><a class="number" href="#L438">438</a><code class="code">        RoadSnapshot snapshot = _roads.Network.Snapshot;</code></span>
+<span class="line" id="L439"><a class="number" href="#L439">439</a><code class="code">        RoadEdge edge = snapshot.Edges[0];</code></span>
+<span class="line" id="L440"><a class="number" href="#L440">440</a><code class="code">        return new()</code></span>
+<span class="line" id="L441"><a class="number" href="#L441">441</a><code class="code">        {</code></span>
+<span class="line" id="L442"><a class="number" href="#L442">442</a><code class="code">            [&quot;start&quot;] = new Vector2((float)edge.Points[0].X, (float)edge.Points[0].Y),</code></span>
+<span class="line" id="L443"><a class="number" href="#L443">443</a><code class="code">            [&quot;end&quot;] = new Vector2((float)edge.Points[^1].X, (float)edge.Points[^1].Y),</code></span>
+<span class="line" id="L444"><a class="number" href="#L444">444</a><code class="code">            [&quot;profile&quot;] = edge.Profile.Value,</code></span>
+<span class="line" id="L445"><a class="number" href="#L445">445</a><code class="code">            [&quot;edgeId&quot;] = edge.Id.Value,</code></span>
+<span class="line" id="L446"><a class="number" href="#L446">446</a><code class="code">            [&quot;sourceToken&quot;] = snapshot.Token.ToString(),</code></span>
+<span class="line" id="L447"><a class="number" href="#L447">447</a><code class="code">            [&quot;meshSurfaces&quot;] = _view.MeshSurfaceCount,</code></span>
+<span class="line" id="L448"><a class="number" href="#L448">448</a><code class="code">            [&quot;nodeCount&quot;] = snapshot.NodeCount,</code></span>
+<span class="line" id="L449"><a class="number" href="#L449">449</a><code class="code">            [&quot;edges&quot;] = DescribeEdges(snapshot),</code></span>
+<span class="line" id="L450"><a class="number" href="#L450">450</a><code class="code">            [&quot;junctions&quot;] = DescribeJunctions(snapshot),</code></span>
+<span class="line" id="L451"><a class="number" href="#L451">451</a><code class="code">        };</code></span>
+<span class="line" id="L452"><a class="number" href="#L452">452</a><code class="code">    }</code></span>
+<span class="line" id="L453"><a class="number" href="#L453">453</a><code class="code"></code></span>
+<span class="line" id="L454"><a class="number" href="#L454">454</a><code class="code">    public Godot.Collections.Dictionary GetJunctionState(long nodeId)</code></span>
+<span class="line" id="L455"><a class="number" href="#L455">455</a><code class="code">    {</code></span>
+<span class="line" id="L456"><a class="number" href="#L456">456</a><code class="code">        if (_roads is null || nodeId &lt;= 0) return new();</code></span>
+<span class="line" id="L457"><a class="number" href="#L457">457</a><code class="code">        RoadJunctionReadModel? junction = RoadJunctionQuery.Read(_roads.Network.Snapshot, new NodeId(nodeId));</code></span>
+<span class="line" id="L458"><a class="number" href="#L458">458</a><code class="code">        return junction is null ? new() : DescribeJunction(junction);</code></span>
+<span class="line" id="L459"><a class="number" href="#L459">459</a><code class="code">    }</code></span>
+<span class="line" id="L460"><a class="number" href="#L460">460</a><code class="code"></code></span>
+<span class="line" id="L461"><a class="number" href="#L461">461</a><code class="code">    private static Godot.Collections.Array&lt;Godot.Collections.Dictionary&gt; DescribeJunctions(RoadSnapshot snapshot)</code></span>
+<span class="line" id="L462"><a class="number" href="#L462">462</a><code class="code">    {</code></span>
+<span class="line" id="L463"><a class="number" href="#L463">463</a><code class="code">        var junctions = new Godot.Collections.Array&lt;Godot.Collections.Dictionary&gt;();</code></span>
+<span class="line" id="L464"><a class="number" href="#L464">464</a><code class="code">        foreach (RoadNode node in snapshot.Nodes)</code></span>
+<span class="line" id="L465"><a class="number" href="#L465">465</a><code class="code">        {</code></span>
+<span class="line" id="L466"><a class="number" href="#L466">466</a><code class="code">            RoadJunctionReadModel? junction = RoadJunctionQuery.Read(snapshot, node.Id);</code></span>
+<span class="line" id="L467"><a class="number" href="#L467">467</a><code class="code">            if (junction is not null &amp;&amp; junction.Incidences.Count &gt;= 3) junctions.Add(DescribeJunction(junction));</code></span>
+<span class="line" id="L468"><a class="number" href="#L468">468</a><code class="code">        }</code></span>
+<span class="line" id="L469"><a class="number" href="#L469">469</a><code class="code">        return junctions;</code></span>
+<span class="line" id="L470"><a class="number" href="#L470">470</a><code class="code">    }</code></span>
+<span class="line" id="L471"><a class="number" href="#L471">471</a><code class="code"></code></span>
+<span class="line" id="L472"><a class="number" href="#L472">472</a><code class="code">    private static Godot.Collections.Dictionary DescribeJunction(RoadJunctionReadModel junction)</code></span>
+<span class="line" id="L473"><a class="number" href="#L473">473</a><code class="code">    {</code></span>
+<span class="line" id="L474"><a class="number" href="#L474">474</a><code class="code">        var incidences = new Godot.Collections.Array&lt;Godot.Collections.Dictionary&gt;();</code></span>
+<span class="line" id="L475"><a class="number" href="#L475">475</a><code class="code">        foreach (RoadIncidence incidence in junction.Incidences)</code></span>
+<span class="line" id="L476"><a class="number" href="#L476">476</a><code class="code">            incidences.Add(new()</code></span>
+<span class="line" id="L477"><a class="number" href="#L477">477</a><code class="code">            {</code></span>
+<span class="line" id="L478"><a class="number" href="#L478">478</a><code class="code">                [&quot;edgeId&quot;] = incidence.Key.Edge.Value, [&quot;role&quot;] = incidence.Key.Role.ToString(),</code></span>
+<span class="line" id="L479"><a class="number" href="#L479">479</a><code class="code">                [&quot;profile&quot;] = incidence.Profile.Value,</code></span>
+<span class="line" id="L480"><a class="number" href="#L480">480</a><code class="code">                [&quot;outward&quot;] = new Vector2((float)incidence.Outward.X, (float)incidence.Outward.Y),</code></span>
+<span class="line" id="L481"><a class="number" href="#L481">481</a><code class="code">                [&quot;bearingRadians&quot;] = incidence.BearingRadians,</code></span>
+<span class="line" id="L482"><a class="number" href="#L482">482</a><code class="code">            });</code></span>
+<span class="line" id="L483"><a class="number" href="#L483">483</a><code class="code">        var turns = new Godot.Collections.Array&lt;Godot.Collections.Dictionary&gt;();</code></span>
+<span class="line" id="L484"><a class="number" href="#L484">484</a><code class="code">        foreach (RoadTurnMovement turn in junction.Turns)</code></span>
+<span class="line" id="L485"><a class="number" href="#L485">485</a><code class="code">            turns.Add(new()</code></span>
+<span class="line" id="L486"><a class="number" href="#L486">486</a><code class="code">            {</code></span>
+<span class="line" id="L487"><a class="number" href="#L487">487</a><code class="code">                [&quot;fromEdgeId&quot;] = turn.From.Edge.Value, [&quot;fromRole&quot;] = turn.From.Role.ToString(),</code></span>
+<span class="line" id="L488"><a class="number" href="#L488">488</a><code class="code">                [&quot;toEdgeId&quot;] = turn.To.Edge.Value, [&quot;toRole&quot;] = turn.To.Role.ToString(),</code></span>
+<span class="line" id="L489"><a class="number" href="#L489">489</a><code class="code">                [&quot;signedAngleRadians&quot;] = turn.SignedAngleRadians,</code></span>
+<span class="line" id="L490"><a class="number" href="#L490">490</a><code class="code">            });</code></span>
+<span class="line" id="L491"><a class="number" href="#L491">491</a><code class="code">        return new()</code></span>
+<span class="line" id="L492"><a class="number" href="#L492">492</a><code class="code">        {</code></span>
+<span class="line" id="L493"><a class="number" href="#L493">493</a><code class="code">            [&quot;nodeId&quot;] = junction.Node.Id.Value,</code></span>
+<span class="line" id="L494"><a class="number" href="#L494">494</a><code class="code">            [&quot;position&quot;] = new Vector2((float)junction.Node.Position.X, (float)junction.Node.Position.Y),</code></span>
+<span class="line" id="L495"><a class="number" href="#L495">495</a><code class="code">            [&quot;sourceToken&quot;] = junction.Source.ToString(), [&quot;incidences&quot;] = incidences, [&quot;turns&quot;] = turns,</code></span>
+<span class="line" id="L496"><a class="number" href="#L496">496</a><code class="code">        };</code></span>
+<span class="line" id="L497"><a class="number" href="#L497">497</a><code class="code">    }</code></span>
+<span class="line" id="L498"><a class="number" href="#L498">498</a><code class="code"></code></span>
+<span class="line" id="L499"><a class="number" href="#L499">499</a><code class="code">    private static Godot.Collections.Array&lt;Godot.Collections.Dictionary&gt; DescribeEdges(RoadSnapshot snapshot)</code></span>
+<span class="line" id="L500"><a class="number" href="#L500">500</a><code class="code">    {</code></span>
+<span class="line" id="L501"><a class="number" href="#L501">501</a><code class="code">        var edges = new Godot.Collections.Array&lt;Godot.Collections.Dictionary&gt;();</code></span>
+<span class="line" id="L502"><a class="number" href="#L502">502</a><code class="code">        foreach (RoadEdge edge in snapshot.Edges)</code></span>
+<span class="line" id="L503"><a class="number" href="#L503">503</a><code class="code">        {</code></span>
+<span class="line" id="L504"><a class="number" href="#L504">504</a><code class="code">            var points = new Godot.Collections.Array&lt;Vector2&gt;();</code></span>
+<span class="line" id="L505"><a class="number" href="#L505">505</a><code class="code">            foreach (RoadPoint point in edge.Points)</code></span>
+<span class="line" id="L506"><a class="number" href="#L506">506</a><code class="code">                points.Add(new Vector2((float)point.X, (float)point.Y));</code></span>
+<span class="line" id="L507"><a class="number" href="#L507">507</a><code class="code">            edges.Add(new()</code></span>
+<span class="line" id="L508"><a class="number" href="#L508">508</a><code class="code">            {</code></span>
+<span class="line" id="L509"><a class="number" href="#L509">509</a><code class="code">                [&quot;edgeId&quot;] = edge.Id.Value,</code></span>
+<span class="line" id="L510"><a class="number" href="#L510">510</a><code class="code">                [&quot;startNodeId&quot;] = edge.Start.Value,</code></span>
+<span class="line" id="L511"><a class="number" href="#L511">511</a><code class="code">                [&quot;endNodeId&quot;] = edge.End.Value,</code></span>
+<span class="line" id="L512"><a class="number" href="#L512">512</a><code class="code">                [&quot;profile&quot;] = edge.Profile.Value,</code></span>
+<span class="line" id="L513"><a class="number" href="#L513">513</a><code class="code">                [&quot;points&quot;] = points,</code></span>
+<span class="line" id="L514"><a class="number" href="#L514">514</a><code class="code">            });</code></span>
+<span class="line" id="L515"><a class="number" href="#L515">515</a><code class="code">        }</code></span>
+<span class="line" id="L516"><a class="number" href="#L516">516</a><code class="code">        return edges;</code></span>
+<span class="line" id="L517"><a class="number" href="#L517">517</a><code class="code">    }</code></span>
+<span class="line" id="L518"><a class="number" href="#L518">518</a><code class="code"></code></span>
+<span class="line" id="L519"><a class="number" href="#L519">519</a><code class="code">    private sealed record PlannedRoadOperation(RoadPlan? Plan, bool NoChange, string Reason);</code></span>
+<span class="line" id="L520"><a class="number" href="#L520">520</a><code class="code"></code></span>
+<span class="line" id="L521"><a class="number" href="#L521">521</a><code class="code">    private void SubmitBuild(CoreRoadBuildRequest request, long inputTimestamp) =&gt;</code></span>
+<span class="line" id="L522"><a class="number" href="#L522">522</a><code class="code">        SubmitRoadOperation((network, token) =&gt;</code></span>
+<span class="line" id="L523"><a class="number" href="#L523">523</a><code class="code">        {</code></span>
+<span class="line" id="L524"><a class="number" href="#L524">524</a><code class="code">            CoreRoadBuildResult result = network.PlanBuild(request, token);</code></span>
+<span class="line" id="L525"><a class="number" href="#L525">525</a><code class="code">            return new PlannedRoadOperation(result.Plan, result.Status == RoadBuildStatus.NoChange, result.Reason);</code></span>
+<span class="line" id="L526"><a class="number" href="#L526">526</a><code class="code">        }, inputTimestamp, &quot;道路已建造&quot;, &quot;未形成有效道路&quot;);</code></span>
+<span class="line" id="L527"><a class="number" href="#L527">527</a><code class="code"></code></span>
+<span class="line" id="L528"><a class="number" href="#L528">528</a><code class="code">    private async void SubmitRoadOperation(Func&lt;RoadNetwork, CancellationToken, PlannedRoadOperation&gt; prepare,</code></span>
+<span class="line" id="L529"><a class="number" href="#L529">529</a><code class="code">        long inputTimestamp, string completedText, string noChangeText)</code></span>
+<span class="line" id="L530"><a class="number" href="#L530">530</a><code class="code">    {</code></span>
+<span class="line" id="L531"><a class="number" href="#L531">531</a><code class="code">        RoadNetwork network = _roads!.Network;</code></span>
+<span class="line" id="L532"><a class="number" href="#L532">532</a><code class="code">        if (!_buildOperation.TryBegin(inputTimestamp)) return;</code></span>
+<span class="line" id="L533"><a class="number" href="#L533">533</a><code class="code">        ResetOperationMetrics();</code></span>
+<span class="line" id="L534"><a class="number" href="#L534">534</a><code class="code">        using var cancellation = new CancellationTokenSource();</code></span>
+<span class="line" id="L535"><a class="number" href="#L535">535</a><code class="code">        _buildCancellation = cancellation;</code></span>
+<span class="line" id="L536"><a class="number" href="#L536">536</a><code class="code">        CancellationToken token = cancellation.Token;</code></span>
+<span class="line" id="L537"><a class="number" href="#L537">537</a><code class="code">        _buildSourceToken = network.Snapshot.Token.ToString();</code></span>
+<span class="line" id="L538"><a class="number" href="#L538">538</a><code class="code">        _buildPresentedToken = &quot;&quot;;</code></span>
+<span class="line" id="L539"><a class="number" href="#L539">539</a><code class="code">        _operationCompletedText = completedText;</code></span>
+<span class="line" id="L540"><a class="number" href="#L540">540</a><code class="code">        StatusText = &quot;正在准备道路… Esc 取消&quot;;</code></span>
+<span class="line" id="L541"><a class="number" href="#L541">541</a><code class="code">        bool committed = false;</code></span>
+<span class="line" id="L542"><a class="number" href="#L542">542</a><code class="code">        RoadDisplay? display = null;</code></span>
+<span class="line" id="L543"><a class="number" href="#L543">543</a><code class="code">        RoadDisplay? reusable = _view.ReusableDisplay;</code></span>
+<span class="line" id="L544"><a class="number" href="#L544">544</a><code class="code">        RoadDisplay? basis = _view.CurrentDisplay;</code></span>
+<span class="line" id="L545"><a class="number" href="#L545">545</a><code class="code">#if DEBUG</code></span>
+<span class="line" id="L546"><a class="number" href="#L546">546</a><code class="code">        Action? beforeWork = BeforeBuildWork;</code></span>
+<span class="line" id="L547"><a class="number" href="#L547">547</a><code class="code">#endif</code></span>
+<span class="line" id="L548"><a class="number" href="#L548">548</a><code class="code">        try</code></span>
+<span class="line" id="L549"><a class="number" href="#L549">549</a><code class="code">        {</code></span>
+<span class="line" id="L550"><a class="number" href="#L550">550</a><code class="code">            (PlannedRoadOperation Result, RoadDisplay.PreparedGeometry? Geometry) prepared = await Task.Run(() =&gt;</code></span>
+<span class="line" id="L551"><a class="number" href="#L551">551</a><code class="code">            {</code></span>
+<span class="line" id="L552"><a class="number" href="#L552">552</a><code class="code">                long workerStarted = Stopwatch.GetTimestamp();</code></span>
+<span class="line" id="L553"><a class="number" href="#L553">553</a><code class="code">                _workerQueueMilliseconds = Stopwatch.GetElapsedTime(inputTimestamp, workerStarted).TotalMilliseconds;</code></span>
+<span class="line" id="L554"><a class="number" href="#L554">554</a><code class="code">                try</code></span>
+<span class="line" id="L555"><a class="number" href="#L555">555</a><code class="code">                {</code></span>
+<span class="line" id="L556"><a class="number" href="#L556">556</a><code class="code">#if DEBUG</code></span>
+<span class="line" id="L557"><a class="number" href="#L557">557</a><code class="code">                    beforeWork?.Invoke();</code></span>
+<span class="line" id="L558"><a class="number" href="#L558">558</a><code class="code">#endif</code></span>
+<span class="line" id="L559"><a class="number" href="#L559">559</a><code class="code">                    token.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L560"><a class="number" href="#L560">560</a><code class="code">                    long domainStarted = Stopwatch.GetTimestamp();</code></span>
+<span class="line" id="L561"><a class="number" href="#L561">561</a><code class="code">                    PlannedRoadOperation result = prepare(network, token);</code></span>
+<span class="line" id="L562"><a class="number" href="#L562">562</a><code class="code">                    _domainMilliseconds = Stopwatch.GetElapsedTime(domainStarted).TotalMilliseconds;</code></span>
+<span class="line" id="L563"><a class="number" href="#L563">563</a><code class="code">                    long geometryStarted = Stopwatch.GetTimestamp();</code></span>
+<span class="line" id="L564"><a class="number" href="#L564">564</a><code class="code">                    RoadDisplay.PreparedGeometry? geometry = result.Plan is RoadPlan reusePlan</code></span>
+<span class="line" id="L565"><a class="number" href="#L565">565</a><code class="code">                        ? reusable?.TryPrepareReuse(reusePlan.Target, token) : null;</code></span>
+<span class="line" id="L566"><a class="number" href="#L566">566</a><code class="code">                    _reusedDisplayContent = geometry is not null;</code></span>
+<span class="line" id="L567"><a class="number" href="#L567">567</a><code class="code">                    geometry ??= result.Plan is RoadPlan displayPlan</code></span>
+<span class="line" id="L568"><a class="number" href="#L568">568</a><code class="code">                        ? RoadDisplay.PrepareChange(basis ?? throw new InvalidOperationException(&quot;Missing V4 source display.&quot;), displayPlan, token) : null;</code></span>
+<span class="line" id="L569"><a class="number" href="#L569">569</a><code class="code">                    _surfaceMilliseconds = geometry?.SurfacePreparationMilliseconds ?? 0;</code></span>
+<span class="line" id="L570"><a class="number" href="#L570">570</a><code class="code">                    _geometryMilliseconds = Stopwatch.GetElapsedTime(geometryStarted).TotalMilliseconds - _surfaceMilliseconds;</code></span>
+<span class="line" id="L571"><a class="number" href="#L571">571</a><code class="code">                    _changedDisplayPages = geometry?.ChangedPageCount ?? 0;</code></span>
+<span class="line" id="L572"><a class="number" href="#L572">572</a><code class="code">                    _displayUploadBytes = geometry?.UploadBytes ?? 0;</code></span>
+<span class="line" id="L573"><a class="number" href="#L573">573</a><code class="code">                    token.ThrowIfCancellationRequested();</code></span>
+<span class="line" id="L574"><a class="number" href="#L574">574</a><code class="code">                    return (result, geometry);</code></span>
+<span class="line" id="L575"><a class="number" href="#L575">575</a><code class="code">                }</code></span>
+<span class="line" id="L576"><a class="number" href="#L576">576</a><code class="code">                finally { Volatile.Write(ref _workerExitedAt, Stopwatch.GetTimestamp()); }</code></span>
+<span class="line" id="L577"><a class="number" href="#L577">577</a><code class="code">            });</code></span>
+<span class="line" id="L578"><a class="number" href="#L578">578</a><code class="code">            _resumeMilliseconds = Stopwatch.GetElapsedTime(_workerExitedAt).TotalMilliseconds;</code></span>
+<span class="line" id="L579"><a class="number" href="#L579">579</a><code class="code">            if (!IsSceneAlive || !_buildOperation.CanPublish)</code></span>
+<span class="line" id="L580"><a class="number" href="#L580">580</a><code class="code">            {</code></span>
+<span class="line" id="L581"><a class="number" href="#L581">581</a><code class="code">                if (IsSceneAlive) StatusText = &quot;已取消&quot;;</code></span>
+<span class="line" id="L582"><a class="number" href="#L582">582</a><code class="code">                return;</code></span>
+<span class="line" id="L583"><a class="number" href="#L583">583</a><code class="code">            }</code></span>
+<span class="line" id="L584"><a class="number" href="#L584">584</a><code class="code">            if (prepared.Result.Plan is not RoadPlan plan)</code></span>
+<span class="line" id="L585"><a class="number" href="#L585">585</a><code class="code">            {</code></span>
+<span class="line" id="L586"><a class="number" href="#L586">586</a><code class="code">                StatusText = prepared.Result.NoChange ? noChangeText : prepared.Result.Reason;</code></span>
+<span class="line" id="L587"><a class="number" href="#L587">587</a><code class="code">                return;</code></span>
+<span class="line" id="L588"><a class="number" href="#L588">588</a><code class="code">            }</code></span>
+<span class="line" id="L589"><a class="number" href="#L589">589</a><code class="code">            long preflightStarted = Stopwatch.GetTimestamp();</code></span>
+<span class="line" id="L590"><a class="number" href="#L590">590</a><code class="code">            try { display = _view.PrepareDisplay(prepared.Geometry ?? throw new InvalidOperationException(&quot;Missing prepared display geometry.&quot;)); }</code></span>
+<span class="line" id="L591"><a class="number" href="#L591">591</a><code class="code">            finally { _preflightMilliseconds = Stopwatch.GetElapsedTime(preflightStarted).TotalMilliseconds; }</code></span>
+<span class="line" id="L592"><a class="number" href="#L592">592</a><code class="code">            if (!network.CanCommit(plan) || !_buildOperation.CanPublish) return;</code></span>
+<span class="line" id="L593"><a class="number" href="#L593">593</a><code class="code">            // No await or callbacks between the validated reference publications.</code></span>
+<span class="line" id="L594"><a class="number" href="#L594">594</a><code class="code">            long referenceStarted = Stopwatch.GetTimestamp();</code></span>
+<span class="line" id="L595"><a class="number" href="#L595">595</a><code class="code">            committed = _buildOperation.TryCommit(() =&gt; network.TryCommit(plan));</code></span>
+<span class="line" id="L596"><a class="number" href="#L596">596</a><code class="code">            _referenceMilliseconds = Stopwatch.GetElapsedTime(referenceStarted).TotalMilliseconds;</code></span>
+<span class="line" id="L597"><a class="number" href="#L597">597</a><code class="code">            if (!committed) return;</code></span>
+<span class="line" id="L598"><a class="number" href="#L598">598</a><code class="code">            long publishStarted = Stopwatch.GetTimestamp();</code></span>
+<span class="line" id="L599"><a class="number" href="#L599">599</a><code class="code">            try { _view.PublishDisplay(display); }</code></span>
+<span class="line" id="L600"><a class="number" href="#L600">600</a><code class="code">            finally { _publicationMilliseconds = Stopwatch.GetElapsedTime(publishStarted).TotalMilliseconds; }</code></span>
+<span class="line" id="L601"><a class="number" href="#L601">601</a><code class="code">            display = null;</code></span>
+<span class="line" id="L602"><a class="number" href="#L602">602</a><code class="code">            _buildPresentedToken = plan.Target.Token.ToString();</code></span>
+<span class="line" id="L603"><a class="number" href="#L603">603</a><code class="code">            _displayPhase = DisplayPhase.AwaitingDraw;</code></span>
+<span class="line" id="L604"><a class="number" href="#L604">604</a><code class="code">            StatusText = &quot;道路已提交，正在更新显示…&quot;;</code></span>
+<span class="line" id="L605"><a class="number" href="#L605">605</a><code class="code">            UpdateMapInfo();</code></span>
+<span class="line" id="L606"><a class="number" href="#L606">606</a><code class="code">        }</code></span>
+<span class="line" id="L607"><a class="number" href="#L607">607</a><code class="code">        catch (OperationCanceledException) when (token.IsCancellationRequested)</code></span>
+<span class="line" id="L608"><a class="number" href="#L608">608</a><code class="code">        {</code></span>
+<span class="line" id="L609"><a class="number" href="#L609">609</a><code class="code">            if (IsSceneAlive) StatusText = &quot;已取消&quot;;</code></span>
+<span class="line" id="L610"><a class="number" href="#L610">610</a><code class="code">        }</code></span>
+<span class="line" id="L611"><a class="number" href="#L611">611</a><code class="code">        catch (Exception exception)</code></span>
+<span class="line" id="L612"><a class="number" href="#L612">612</a><code class="code">        {</code></span>
+<span class="line" id="L613"><a class="number" href="#L613">613</a><code class="code">            if (IsSceneAlive)</code></span>
+<span class="line" id="L614"><a class="number" href="#L614">614</a><code class="code">            {</code></span>
+<span class="line" id="L615"><a class="number" href="#L615">615</a><code class="code">                if (committed) FailRoadDisplay(exception.Message);</code></span>
+<span class="line" id="L616"><a class="number" href="#L616">616</a><code class="code">                else StatusText = $&quot;道路操作未完成：{exception.Message}&quot;;</code></span>
+<span class="line" id="L617"><a class="number" href="#L617">617</a><code class="code">            }</code></span>
+<span class="line" id="L618"><a class="number" href="#L618">618</a><code class="code">        }</code></span>
+<span class="line" id="L619"><a class="number" href="#L619">619</a><code class="code">        finally</code></span>
+<span class="line" id="L620"><a class="number" href="#L620">620</a><code class="code">        {</code></span>
+<span class="line" id="L621"><a class="number" href="#L621">621</a><code class="code">            display?.Dispose();</code></span>
+<span class="line" id="L622"><a class="number" href="#L622">622</a><code class="code">            if (IsSceneAlive) ClearRoadSelection();</code></span>
+<span class="line" id="L623"><a class="number" href="#L623">623</a><code class="code">            if (ReferenceEquals(_buildCancellation, cancellation)) _buildCancellation = null;</code></span>
+<span class="line" id="L624"><a class="number" href="#L624">624</a><code class="code">            if (!committed || !IsSceneAlive || _buildPresentedToken.Length == 0)</code></span>
+<span class="line" id="L625"><a class="number" href="#L625">625</a><code class="code">                _buildOperation.Finish(committed ? &quot;DisplayFailed&quot; : &quot;Finished&quot;);</code></span>
+<span class="line" id="L626"><a class="number" href="#L626">626</a><code class="code">            if (IsSceneAlive) UpdateOperationControls();</code></span>
+<span class="line" id="L627"><a class="number" href="#L627">627</a><code class="code">            CompleteCancellationMetrics();</code></span>
+<span class="line" id="L628"><a class="number" href="#L628">628</a><code class="code">        }</code></span>
+<span class="line" id="L629"><a class="number" href="#L629">629</a><code class="code">    }</code></span>
+<span class="line" id="L630"><a class="number" href="#L630">630</a><code class="code"></code></span>
+<span class="line" id="L631"><a class="number" href="#L631">631</a><code class="code">    private void OnFramePostDraw()</code></span>
+<span class="line" id="L632"><a class="number" href="#L632">632</a><code class="code">    {</code></span>
+<span class="line" id="L633"><a class="number" href="#L633">633</a><code class="code">        if (!CompleteRoadDisplayFrame()) return;</code></span>
+<span class="line" id="L634"><a class="number" href="#L634">634</a><code class="code">        // This is the first completed render after the committed display was published.</code></span>
+<span class="line" id="L635"><a class="number" href="#L635">635</a><code class="code">        // Input remains gated until this point; no new write can replace the measured target.</code></span>
+<span class="line" id="L636"><a class="number" href="#L636">636</a><code class="code">        if (_buildOperation.Phase != &quot;Committed&quot; || !IsPresentationCurrent ||</code></span>
+<span class="line" id="L637"><a class="number" href="#L637">637</a><code class="code">            _view.Presented?.Token.ToString() != _buildPresentedToken ||</code></span>
+<span class="line" id="L638"><a class="number" href="#L638">638</a><code class="code">            _view.DrawSubmittedToken != _buildPresentedToken)</code></span>
+<span class="line" id="L639"><a class="number" href="#L639">639</a><code class="code">            return;</code></span>
+<span class="line" id="L640"><a class="number" href="#L640">640</a><code class="code">        if (_buildOperation.RecordFirstDraw())</code></span>
+<span class="line" id="L641"><a class="number" href="#L641">641</a><code class="code">        {</code></span>
+<span class="line" id="L642"><a class="number" href="#L642">642</a><code class="code">            StatusText = $&quot;{_operationCompletedText} · {_buildOperation.DrawnElapsedMilliseconds:F1} ms&quot;;</code></span>
+<span class="line" id="L643"><a class="number" href="#L643">643</a><code class="code">            UpdateHistoryControls();</code></span>
+<span class="line" id="L644"><a class="number" href="#L644">644</a><code class="code">        }</code></span>
+<span class="line" id="L645"><a class="number" href="#L645">645</a><code class="code">    }</code></span>
+<span class="line" id="L646"><a class="number" href="#L646">646</a><code class="code"></code></span>
+<span class="line" id="L647"><a class="number" href="#L647">647</a><code class="code">    private bool IsSceneAlive =&gt; GodotObject.IsInstanceValid(this) &amp;&amp; IsInsideTree();</code></span>
+<span class="line" id="L648"><a class="number" href="#L648">648</a><code class="code"></code></span>
+<span class="line" id="L649"><a class="number" href="#L649">649</a><code class="code">    private sealed class ToolAdmission(RoadMapScene owner, long generation) : ISceneToolLoadAdmission, INonThrowingLoadCommitPlan</code></span>
+<span class="line" id="L650"><a class="number" href="#L650">650</a><code class="code">    {</code></span>
+<span class="line" id="L651"><a class="number" href="#L651">651</a><code class="code">        private readonly RoadSpanSelectionSession _emptySelection = new();</code></span>
+<span class="line" id="L652"><a class="number" href="#L652">652</a><code class="code">        private CancellationTokenSource? _previewToCancel;</code></span>
+<span class="line" id="L653"><a class="number" href="#L653">653</a><code class="code">        private CancellationTokenSource? _retryToCancel;</code></span>
+<span class="line" id="L654"><a class="number" href="#L654">654</a><code class="code">        public string ParticipantID =&gt; &quot;v4-tools&quot;;</code></span>
+<span class="line" id="L655"><a class="number" href="#L655">655</a><code class="code">        public bool IsGenerationCurrent =&gt; ReferenceEquals(owner._toolAdmission, this) &amp;&amp;</code></span>
+<span class="line" id="L656"><a class="number" href="#L656">656</a><code class="code">            owner._saveManager.SceneGeneration == generation;</code></span>
+<span class="line" id="L657"><a class="number" href="#L657">657</a><code class="code">        public INonThrowingLoadCommitPlan PreflightFullReset()</code></span>
+<span class="line" id="L658"><a class="number" href="#L658">658</a><code class="code">        {</code></span>
+<span class="line" id="L659"><a class="number" href="#L659">659</a><code class="code">            if (!IsGenerationCurrent)</code></span>
+<span class="line" id="L660"><a class="number" href="#L660">660</a><code class="code">                throw new LoadPreflightInvalidException(&quot;V4 tool admission is stale.&quot;);</code></span>
+<span class="line" id="L661"><a class="number" href="#L661">661</a><code class="code">            return this;</code></span>
+<span class="line" id="L662"><a class="number" href="#L662">662</a><code class="code">        }</code></span>
+<span class="line" id="L663"><a class="number" href="#L663">663</a><code class="code">        public void CommitReferences()</code></span>
+<span class="line" id="L664"><a class="number" href="#L664">664</a><code class="code">        {</code></span>
+<span class="line" id="L665"><a class="number" href="#L665">665</a><code class="code">            owner.ResetDisplayRecoveryReferences();</code></span>
+<span class="line" id="L666"><a class="number" href="#L666">666</a><code class="code">            owner._displayPhase = DisplayPhase.AwaitingDraw;</code></span>
+<span class="line" id="L667"><a class="number" href="#L667">667</a><code class="code">            _retryToCancel = owner._displayRetryCancellation;</code></span>
+<span class="line" id="L668"><a class="number" href="#L668">668</a><code class="code">            owner._draftStart = null;</code></span>
+<span class="line" id="L669"><a class="number" href="#L669">669</a><code class="code">            owner._draftSource = default;</code></span>
+<span class="line" id="L670"><a class="number" href="#L670">670</a><code class="code">            owner._draftProfile = default;</code></span>
+<span class="line" id="L671"><a class="number" href="#L671">671</a><code class="code">            owner._previewRequest = null;</code></span>
+<span class="line" id="L672"><a class="number" href="#L672">672</a><code class="code">            owner._queuedPreview = null;</code></span>
+<span class="line" id="L673"><a class="number" href="#L673">673</a><code class="code">            owner._previewResult = null;</code></span>
+<span class="line" id="L674"><a class="number" href="#L674">674</a><code class="code">            owner._completedPreview = null;</code></span>
+<span class="line" id="L675"><a class="number" href="#L675">675</a><code class="code">            _previewToCancel = owner._previewCancellation;</code></span>
+<span class="line" id="L676"><a class="number" href="#L676">676</a><code class="code">            owner._previewCancellation = null;</code></span>
+<span class="line" id="L677"><a class="number" href="#L677">677</a><code class="code">            owner._selectionSession = _emptySelection;</code></span>
+<span class="line" id="L678"><a class="number" href="#L678">678</a><code class="code">            owner._selectionLastWorld = null;</code></span>
+<span class="line" id="L679"><a class="number" href="#L679">679</a><code class="code">            owner._selectionProfile = default;</code></span>
+<span class="line" id="L680"><a class="number" href="#L680">680</a><code class="code">        }</code></span>
+<span class="line" id="L681"><a class="number" href="#L681">681</a><code class="code">        public IReadOnlyList&lt;string&gt; PublishNotifications()</code></span>
+<span class="line" id="L682"><a class="number" href="#L682">682</a><code class="code">        {</code></span>
+<span class="line" id="L683"><a class="number" href="#L683">683</a><code class="code">            owner._view.QueueRedraw();</code></span>
+<span class="line" id="L684"><a class="number" href="#L684">684</a><code class="code">            return Array.Empty&lt;string&gt;();</code></span>
+<span class="line" id="L685"><a class="number" href="#L685">685</a><code class="code">        }</code></span>
+<span class="line" id="L686"><a class="number" href="#L686">686</a><code class="code">        public void CompleteCommit()</code></span>
+<span class="line" id="L687"><a class="number" href="#L687">687</a><code class="code">        {</code></span>
+<span class="line" id="L688"><a class="number" href="#L688">688</a><code class="code">            // Callback-capable cancellation runs after all reference swaps; stale results are already detached.</code></span>
+<span class="line" id="L689"><a class="number" href="#L689">689</a><code class="code">            try</code></span>
+<span class="line" id="L690"><a class="number" href="#L690">690</a><code class="code">            {</code></span>
+<span class="line" id="L691"><a class="number" href="#L691">691</a><code class="code">                _previewToCancel?.Cancel();</code></span>
+<span class="line" id="L692"><a class="number" href="#L692">692</a><code class="code">                _retryToCancel?.Cancel();</code></span>
+<span class="line" id="L693"><a class="number" href="#L693">693</a><code class="code">            }</code></span>
+<span class="line" id="L694"><a class="number" href="#L694">694</a><code class="code">            finally</code></span>
+<span class="line" id="L695"><a class="number" href="#L695">695</a><code class="code">            {</code></span>
+<span class="line" id="L696"><a class="number" href="#L696">696</a><code class="code">                _previewToCancel = null;</code></span>
+<span class="line" id="L697"><a class="number" href="#L697">697</a><code class="code">                _retryToCancel = null;</code></span>
+<span class="line" id="L698"><a class="number" href="#L698">698</a><code class="code">                Dispose();</code></span>
+<span class="line" id="L699"><a class="number" href="#L699">699</a><code class="code">            }</code></span>
+<span class="line" id="L700"><a class="number" href="#L700">700</a><code class="code">        }</code></span>
+<span class="line" id="L701"><a class="number" href="#L701">701</a><code class="code">        public void Dispose()</code></span>
+<span class="line" id="L702"><a class="number" href="#L702">702</a><code class="code">        {</code></span>
+<span class="line" id="L703"><a class="number" href="#L703">703</a><code class="code">            if (ReferenceEquals(owner._toolAdmission, this))</code></span>
+<span class="line" id="L704"><a class="number" href="#L704">704</a><code class="code">                owner._toolAdmission = null;</code></span>
+<span class="line" id="L705"><a class="number" href="#L705">705</a><code class="code">        }</code></span>
+<span class="line" id="L706"><a class="number" href="#L706">706</a><code class="code">    }</code></span>
+<span class="line" id="L707"><a class="number" href="#L707">707</a><code class="code">}</code></span></pre></main></html>

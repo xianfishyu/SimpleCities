@@ -1,0 +1,38 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Scripts/UI/ConstructionToolDefinition.cs · SimpleCities 源码</title><link rel="stylesheet" href="../../../assets/source.css"><header><a href="../../../index.html">← 文档首页</a><h1>Scripts/UI/ConstructionToolDefinition.cs</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">using Godot;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code"></code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">[GlobalClass]</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code">/// &lt;summary&gt;</code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code">/// 单个建造工具的资源定义。ConstructionDock 用它生成按钮，ToolContextPanel 用它显示说明。</code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">/// &lt;/summary&gt;</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">public partial class ConstructionToolDefinition : Resource</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">{</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">    /// &lt;summary&gt;用于资源校验和去重的稳定工具 ID。&lt;/summary&gt;</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">    [Export] public string Id { get; set; } = string.Empty;</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">    /// &lt;summary&gt;显示在建造栏和工具上下文面板中的名称。&lt;/summary&gt;</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">    [Export] public string DisplayName { get; set; } = string.Empty;</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">    [Export] public string ShortcutHint { get; set; } = string.Empty;</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">    [Export] public ToolType ToolType { get; set; }</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code">    [Export] public Texture2D? Icon { get; set; }</code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">    [Export] public int SortOrder { get; set; }</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">    [Export(PropertyHint.MultilineText)] public string Description { get; set; } = string.Empty;</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code"></code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">    public bool TryValidate(out string error) =&gt; TryValidate(Id, DisplayName, out error);</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code"></code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">    public static bool TryValidate(string id, string displayName, out string error)</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">    {</code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code">        if (string.IsNullOrWhiteSpace(id))</code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">        {</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code">            error = &quot;Tool ID cannot be empty.&quot;;</code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">            return false;</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">        }</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code"></code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">        if (string.IsNullOrWhiteSpace(displayName))</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">        {</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code">            error = $&quot;Tool &#x27;{id}&#x27; display name cannot be empty.&quot;;</code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">            return false;</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code">        }</code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code"></code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code">        error = string.Empty;</code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code">        return true;</code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code">    }</code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code">}</code></span></pre></main></html>

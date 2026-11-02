@@ -1,0 +1,56 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>tests/SimpleCities.RoadCore.Tests/RoadEdgeLengthTests.cs · SimpleCities 源码</title><link rel="stylesheet" href="../../../assets/source.css"><header><a href="../../../index.html">← 文档首页</a><h1>tests/SimpleCities.RoadCore.Tests/RoadEdgeLengthTests.cs</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">namespace SimpleCities.RoadCore.Tests;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code"></code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">public sealed class RoadEdgeLengthTests(Xunit.Abstractions.ITestOutputHelper output)</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code">{</code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code">    [Fact]</code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">    public void RepeatedLengthAndPointReadsDoNotAllocate()</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">    {</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">        RoadEdge edge = Create([new(0, 0), new(300, 0), new(300, 400)]);</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">        for (int i = 0; i &lt; 4; i++) { _ = edge.Length; _ = edge.PointAt(0.5); }</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">        double total = 0;</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">        long before = GC.GetAllocatedBytesForCurrentThread();</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">        for (int i = 0; i &lt; 4096; i++) total += edge.Length + edge.PointAt(0.5).Y;</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">        output.WriteLine($&quot;Length/PointAt allocated bytes: {allocated}&quot;);</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code">        Assert.Equal(4096 * 750d, total);</code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">        Assert.Equal(0, allocated);</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">    }</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code"></code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">    [Fact]</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code">    public void LengthPreservesOriginalAccumulationBitsIncludingInvalidModelInputs()</code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">    {</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">        RoadPoint[][] paths = [[], [new(0, 0)], [new(0, 0), new(0, 0)],</code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code">            [new(-4000, -4000), new(-3975, -3975), new(-3950, -3975), new(-3950, -3950)],</code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">            [new(0, 0), new(100, 0), new(100, 100), new(0, 100), new(0, 0)],</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code">            [new(double.NaN, 0), new(1, 1)], [new(0, 0), new(double.PositiveInfinity, 0)],</code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">            Enumerable.Range(0, 821).Select(i =&gt; new RoadPoint(i * 0.125, i % 3 * 0.25)).ToArray()];</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">        foreach (RoadPoint[] points in paths)</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code">        {</code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">            // This is the prior public getter, retained as a numeric oracle.</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">            double expected = points.Zip(points.Skip(1), (a, b) =&gt; a.DistanceTo(b)).Sum();</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code">            Assert.Equal(BitConverter.DoubleToInt64Bits(expected), BitConverter.DoubleToInt64Bits(Create(points).Length));</code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">        }</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code">    }</code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code"></code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code">    [Fact]</code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code">    public void OwnedPointsAndRecordCopyKeepLengthAndLocationsStable()</code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code">    {</code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code">        RoadPoint[] points = [new(0, 0), new(300, 0), new(300, 400)];</code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code">        RoadEdge edge = Create(points);</code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code">        points[1] = new(999, 999);</code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code">        Assert.Throws&lt;NotSupportedException&gt;(() =&gt; { ((IList&lt;RoadPoint&gt;)edge.Points)[1] = new(888, 888); });</code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code">        RoadEdge clone = edge with { };</code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code">        Assert.Equal(edge, clone);</code></span>
+<span class="line" id="L44"><a class="number" href="#L44">44</a><code class="code">        Assert.Same(edge.Points, clone.Points);</code></span>
+<span class="line" id="L45"><a class="number" href="#L45">45</a><code class="code">        foreach (RoadEdge current in new[] { edge, clone })</code></span>
+<span class="line" id="L46"><a class="number" href="#L46">46</a><code class="code">        {</code></span>
+<span class="line" id="L47"><a class="number" href="#L47">47</a><code class="code">            Assert.Equal(700, current.Length);</code></span>
+<span class="line" id="L48"><a class="number" href="#L48">48</a><code class="code">            Assert.Equal(new RoadPoint(0, 0), current.PointAt(0));</code></span>
+<span class="line" id="L49"><a class="number" href="#L49">49</a><code class="code">            Assert.Equal(new RoadPoint(175, 0), current.PointAt(0.25));</code></span>
+<span class="line" id="L50"><a class="number" href="#L50">50</a><code class="code">            Assert.Equal(new RoadPoint(300, 50), current.PointAt(0.5));</code></span>
+<span class="line" id="L51"><a class="number" href="#L51">51</a><code class="code">            Assert.Equal(new RoadPoint(300, 400), current.PointAt(1));</code></span>
+<span class="line" id="L52"><a class="number" href="#L52">52</a><code class="code">        }</code></span>
+<span class="line" id="L53"><a class="number" href="#L53">53</a><code class="code">    }</code></span>
+<span class="line" id="L54"><a class="number" href="#L54">54</a><code class="code"></code></span>
+<span class="line" id="L55"><a class="number" href="#L55">55</a><code class="code">    private static RoadEdge Create(RoadPoint[] points) =&gt; new(new(1), new(1), new(2), RoadProfileId.Street, points);</code></span>
+<span class="line" id="L56"><a class="number" href="#L56">56</a><code class="code">}</code></span></pre></main></html>

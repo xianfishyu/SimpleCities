@@ -1,0 +1,82 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Scripts/Road/Runtime/RoadSelectionDisplay.cs · SimpleCities 源码</title><link rel="stylesheet" href="../../../../assets/source.css"><header><a href="../../../../index.html">← 文档首页</a><h1>Scripts/Road/Runtime/RoadSelectionDisplay.cs</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">using Godot;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code">using System;</code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">using System.Collections.Generic;</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code">using System.Linq;</code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code">using SimpleCities.RoadCore;</code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code"></code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">/// &lt;summary&gt;按实际道路格段缓存显示坐标；选择改变时转换，绘制时复用。&lt;/summary&gt;</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">internal sealed class RoadSelectionDisplay</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">{</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">    private sealed record Stroke(RoadGridSpan Span, Vector2[] Points, Color Color, float Width, bool Selected);</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">    private Stroke[] _strokes = [];</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">    private RoadStateToken? _source;</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">    private RoadGridSpan? _hover;</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">    private RoadGridSpan[] _selected = [];</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code"></code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">    internal void Set(RoadSnapshot snapshot, RoadGridSpan? hover, IReadOnlyList&lt;RoadGridSpan&gt; selected)</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">    {</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code">        if (_source == snapshot.Token &amp;&amp; SameOptional(_hover, hover) &amp;&amp; _selected.Length == selected.Count &amp;&amp;</code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">            _selected.Where((span, index) =&gt; !RoadDisplay.SameSpan(span, selected[index])).Any() == false)</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code">            return;</code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">        var strokes = new List&lt;Stroke&gt;();</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">        foreach (RoadGridSpan span in selected) Add(span, true);</code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code">        if (hover is not null &amp;&amp; !selected.Any(span =&gt; RoadDisplay.SameSpan(span, hover))) Add(hover, false);</code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">        _strokes = strokes.ToArray();</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code">        _source = snapshot.Token;</code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">        _hover = hover;</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">        _selected = selected.ToArray();</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code"></code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">        void Add(RoadGridSpan span, bool isSelected)</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">        {</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code">            if (span.Source != snapshot.Token) return;</code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">            RoadEdge? edge = snapshot.FindEdge(span.Edge);</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code">            if (edge is null) return;</code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code">            Vector2[] points = span.Points.Select(point =&gt; new Vector2((float)point.X, (float)point.Y)).ToArray();</code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code">            if (points.Length &lt; 2 || points.Any(point =&gt; !point.IsFinite()))</code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code">                throw new InvalidOperationException(&quot;V4 selection display coordinates are invalid.&quot;);</code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code">            float width = (float)RoadProfiles.Get(edge.Profile).DisplayWidth;</code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code">            strokes.Add(new Stroke(span, points,</code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code">                isSelected ? new Color(1f, 0.78f, 0.25f, 0.68f) : new Color(0.35f, 0.93f, 1f, 0.58f),</code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code">                width * (isSelected ? 0.8f : 0.45f), isSelected));</code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code">        }</code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code">    }</code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code"></code></span>
+<span class="line" id="L44"><a class="number" href="#L44">44</a><code class="code">    private static bool SameOptional(RoadGridSpan? left, RoadGridSpan? right) =&gt;</code></span>
+<span class="line" id="L45"><a class="number" href="#L45">45</a><code class="code">        left is null ? right is null : right is not null &amp;&amp; RoadDisplay.SameSpan(left, right);</code></span>
+<span class="line" id="L46"><a class="number" href="#L46">46</a><code class="code"></code></span>
+<span class="line" id="L47"><a class="number" href="#L47">47</a><code class="code">    internal void Clear()</code></span>
+<span class="line" id="L48"><a class="number" href="#L48">48</a><code class="code">    {</code></span>
+<span class="line" id="L49"><a class="number" href="#L49">49</a><code class="code">        _strokes = [];</code></span>
+<span class="line" id="L50"><a class="number" href="#L50">50</a><code class="code">        _source = null;</code></span>
+<span class="line" id="L51"><a class="number" href="#L51">51</a><code class="code">        _hover = null;</code></span>
+<span class="line" id="L52"><a class="number" href="#L52">52</a><code class="code">        _selected = [];</code></span>
+<span class="line" id="L53"><a class="number" href="#L53">53</a><code class="code">    }</code></span>
+<span class="line" id="L54"><a class="number" href="#L54">54</a><code class="code"></code></span>
+<span class="line" id="L55"><a class="number" href="#L55">55</a><code class="code">    internal void Draw(Node2D canvas)</code></span>
+<span class="line" id="L56"><a class="number" href="#L56">56</a><code class="code">    {</code></span>
+<span class="line" id="L57"><a class="number" href="#L57">57</a><code class="code">        foreach (Stroke stroke in _strokes)</code></span>
+<span class="line" id="L58"><a class="number" href="#L58">58</a><code class="code">            canvas.DrawPolyline(stroke.Points, stroke.Color, stroke.Width, antialiased: true);</code></span>
+<span class="line" id="L59"><a class="number" href="#L59">59</a><code class="code">    }</code></span>
+<span class="line" id="L60"><a class="number" href="#L60">60</a><code class="code"></code></span>
+<span class="line" id="L61"><a class="number" href="#L61">61</a><code class="code">    internal Godot.Collections.Array&lt;Godot.Collections.Dictionary&gt; Describe()</code></span>
+<span class="line" id="L62"><a class="number" href="#L62">62</a><code class="code">    {</code></span>
+<span class="line" id="L63"><a class="number" href="#L63">63</a><code class="code">        var strokes = new Godot.Collections.Array&lt;Godot.Collections.Dictionary&gt;();</code></span>
+<span class="line" id="L64"><a class="number" href="#L64">64</a><code class="code">        foreach (Stroke stroke in _strokes)</code></span>
+<span class="line" id="L65"><a class="number" href="#L65">65</a><code class="code">        {</code></span>
+<span class="line" id="L66"><a class="number" href="#L66">66</a><code class="code">            var ranges = new Godot.Collections.Array&lt;Godot.Collections.Dictionary&gt;();</code></span>
+<span class="line" id="L67"><a class="number" href="#L67">67</a><code class="code">            foreach (var range in stroke.Span.Ranges)</code></span>
+<span class="line" id="L68"><a class="number" href="#L68">68</a><code class="code">                ranges.Add(new() { [&quot;startParameter&quot;] = range.StartParameter, [&quot;endParameter&quot;] = range.EndParameter });</code></span>
+<span class="line" id="L69"><a class="number" href="#L69">69</a><code class="code">            strokes.Add(new()</code></span>
+<span class="line" id="L70"><a class="number" href="#L70">70</a><code class="code">            {</code></span>
+<span class="line" id="L71"><a class="number" href="#L71">71</a><code class="code">                [&quot;sourceToken&quot;] = stroke.Span.Source.ToString(),</code></span>
+<span class="line" id="L72"><a class="number" href="#L72">72</a><code class="code">                [&quot;edgeId&quot;] = stroke.Span.Edge.Value,</code></span>
+<span class="line" id="L73"><a class="number" href="#L73">73</a><code class="code">                [&quot;ranges&quot;] = ranges,</code></span>
+<span class="line" id="L74"><a class="number" href="#L74">74</a><code class="code">                [&quot;points&quot;] = stroke.Points,</code></span>
+<span class="line" id="L75"><a class="number" href="#L75">75</a><code class="code">                [&quot;color&quot;] = stroke.Color,</code></span>
+<span class="line" id="L76"><a class="number" href="#L76">76</a><code class="code">                [&quot;width&quot;] = stroke.Width,</code></span>
+<span class="line" id="L77"><a class="number" href="#L77">77</a><code class="code">                [&quot;selected&quot;] = stroke.Selected,</code></span>
+<span class="line" id="L78"><a class="number" href="#L78">78</a><code class="code">            });</code></span>
+<span class="line" id="L79"><a class="number" href="#L79">79</a><code class="code">        }</code></span>
+<span class="line" id="L80"><a class="number" href="#L80">80</a><code class="code">        return strokes;</code></span>
+<span class="line" id="L81"><a class="number" href="#L81">81</a><code class="code">    }</code></span>
+<span class="line" id="L82"><a class="number" href="#L82">82</a><code class="code">}</code></span></pre></main></html>

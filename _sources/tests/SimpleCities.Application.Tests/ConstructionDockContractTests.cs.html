@@ -1,0 +1,309 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>tests/SimpleCities.Application.Tests/ConstructionDockContractTests.cs · SimpleCities 源码</title><link rel="stylesheet" href="../../../assets/source.css"><header><a href="../../../index.html">← 文档首页</a><h1>tests/SimpleCities.Application.Tests/ConstructionDockContractTests.cs</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">using System.IO;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code"></code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">namespace SimpleCities.Application.Tests;</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code"></code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code">public sealed class ConstructionDockContractTests</code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">{</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">    private static readonly (string NodeName, string Text, string IconPath)[] CategoryButtons =</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">    [</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">        (&quot;RoadsCategoryButton&quot;, &quot;道路&quot;, &quot;res://Assets/UI/Icons/construction-road.svg&quot;),</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">        (&quot;ZoningCategoryButton&quot;, &quot;区域&quot;, &quot;res://Assets/UI/Icons/construction-zoning.svg&quot;),</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">        (&quot;FacilitiesCategoryButton&quot;, &quot;公共设施&quot;, &quot;res://Assets/UI/Icons/construction-facilities.svg&quot;),</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">        (&quot;TransitCategoryButton&quot;, &quot;交通&quot;, &quot;res://Assets/UI/Icons/construction-transit.svg&quot;),</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">        (&quot;LandscapingCategoryButton&quot;, &quot;景观&quot;, &quot;res://Assets/UI/Icons/construction-landscaping.svg&quot;),</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">    ];</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code"></code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">    private static readonly string ProjectRoot = Path.GetFullPath(Path.Combine(</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">        AppContext.BaseDirectory,</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code">        &quot;..&quot;,</code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">        &quot;..&quot;,</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code">        &quot;..&quot;,</code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">        &quot;..&quot;,</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">        &quot;..&quot;));</code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code">    private static readonly string DockScenePath = Path.Combine(ProjectRoot, &quot;Scenes&quot;, &quot;UI&quot;, &quot;ConstructionDock.tscn&quot;);</code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">    private static readonly string DockScriptPath = Path.Combine(ProjectRoot, &quot;Scripts&quot;, &quot;UI&quot;, &quot;ConstructionDock.cs&quot;);</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code">    private static readonly string RoadsCategoryPath = Path.Combine(ProjectRoot, &quot;Scenes&quot;, &quot;UI&quot;, &quot;RoadsConstructionCategory.tres&quot;);</code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">    private static readonly string DockButtonScenePath = Path.Combine(ProjectRoot, &quot;Scenes&quot;, &quot;UI&quot;, &quot;ConstructionDockButton.tscn&quot;);</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code"></code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code">    [Fact]</code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">    public void ConstructionDockScene_LoadsStandaloneControlWithRequiredResources()</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">    {</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code">        Assert.True(File.Exists(DockScenePath), $&quot;Missing scene: {DockScenePath}&quot;);</code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">        Assert.True(File.Exists(DockScriptPath), $&quot;Missing script: {DockScriptPath}&quot;);</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code">        Assert.True(typeof(ConstructionDock).IsSubclassOf(typeof(Godot.Control)));</code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code"></code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code">        string scene = File.ReadAllText(DockScenePath);</code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code">        Assert.Contains(&quot;res://Scripts/UI/ConstructionDock.cs&quot;, scene, StringComparison.Ordinal);</code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code">        Assert.Contains(&quot;res://Scenes/UI/Themes/ConstructionDockTheme.tres&quot;, scene, StringComparison.Ordinal);</code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code">        Assert.DoesNotContain(&quot;res://Scenes/UI/Themes/CommandCenterTheme.tres&quot;, scene, StringComparison.Ordinal);</code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code">        Assert.Contains(&quot;res://Scenes/UI/RoadsConstructionCategory.tres&quot;, scene, StringComparison.Ordinal);</code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code">        Assert.Contains(&quot;res://Scenes/UI/ConstructionDockButton.tscn&quot;, scene, StringComparison.Ordinal);</code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code">        Assert.Contains(&quot;Category = ExtResource&quot;, scene, StringComparison.Ordinal);</code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code">    }</code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code"></code></span>
+<span class="line" id="L44"><a class="number" href="#L44">44</a><code class="code">    [Fact]</code></span>
+<span class="line" id="L45"><a class="number" href="#L45">45</a><code class="code">    public void ConstructionDockScene_ContainsFiveEnabledFocusableCategoriesAndPreservedCatalogBehavior()</code></span>
+<span class="line" id="L46"><a class="number" href="#L46">46</a><code class="code">    {</code></span>
+<span class="line" id="L47"><a class="number" href="#L47">47</a><code class="code">        string scene = File.ReadAllText(DockScenePath);</code></span>
+<span class="line" id="L48"><a class="number" href="#L48">48</a><code class="code">        string script = File.ReadAllText(DockScriptPath);</code></span>
+<span class="line" id="L49"><a class="number" href="#L49">49</a><code class="code"></code></span>
+<span class="line" id="L50"><a class="number" href="#L50">50</a><code class="code">        Assert.Contains(&quot;name=\&quot;ToolTray\&quot;&quot;, scene, StringComparison.Ordinal);</code></span>
+<span class="line" id="L51"><a class="number" href="#L51">51</a><code class="code">        Assert.Contains(&quot;RoadToolButton&quot;, script, StringComparison.Ordinal);</code></span>
+<span class="line" id="L52"><a class="number" href="#L52">52</a><code class="code">        Assert.Contains(&quot;RoadUpgradeToolButton&quot;, script, StringComparison.Ordinal);</code></span>
+<span class="line" id="L53"><a class="number" href="#L53">53</a><code class="code">        Assert.DoesNotContain(&quot;SelectToolButton&quot;, script, StringComparison.Ordinal);</code></span>
+<span class="line" id="L54"><a class="number" href="#L54">54</a><code class="code">        Assert.DoesNotContain(&quot;RoadRemoveToolButton&quot;, script, StringComparison.Ordinal);</code></span>
+<span class="line" id="L55"><a class="number" href="#L55">55</a><code class="code">        Assert.Contains(&quot;[ToolType.Select] = new(\&quot;选择\&quot;, \&quot;查看当前状态。\&quot;, string.Empty)&quot;, script, StringComparison.Ordinal);</code></span>
+<span class="line" id="L56"><a class="number" href="#L56">56</a><code class="code">        Assert.Contains(&quot;[ToolType.RoadRemove] = new(\&quot;拆路\&quot;, \&quot;点击已有道路进行拆除。\&quot;, string.Empty)&quot;, script, StringComparison.Ordinal);</code></span>
+<span class="line" id="L57"><a class="number" href="#L57">57</a><code class="code">        Assert.Contains(&quot;_shortcutRow.Visible = !string.IsNullOrWhiteSpace&quot;, File.ReadAllText(Path.Combine(ProjectRoot, &quot;Scripts&quot;, &quot;UI&quot;, &quot;ToolContextPanel.cs&quot;)), StringComparison.Ordinal);</code></span>
+<span class="line" id="L58"><a class="number" href="#L58">58</a><code class="code"></code></span>
+<span class="line" id="L59"><a class="number" href="#L59">59</a><code class="code">        foreach ((string nodeName, string text, _) in CategoryButtons)</code></span>
+<span class="line" id="L60"><a class="number" href="#L60">60</a><code class="code">        {</code></span>
+<span class="line" id="L61"><a class="number" href="#L61">61</a><code class="code">            string block = ExtractNodeBlock(scene, nodeName);</code></span>
+<span class="line" id="L62"><a class="number" href="#L62">62</a><code class="code">            Assert.DoesNotContain(&quot;disabled = true&quot;, block, StringComparison.Ordinal);</code></span>
+<span class="line" id="L63"><a class="number" href="#L63">63</a><code class="code">            Assert.DoesNotContain(&quot;focus_mode = 0&quot;, block, StringComparison.Ordinal);</code></span>
+<span class="line" id="L64"><a class="number" href="#L64">64</a><code class="code">            Assert.True(</code></span>
+<span class="line" id="L65"><a class="number" href="#L65">65</a><code class="code">                block.Contains($&quot;text = \&quot;{text}\&quot;&quot;, StringComparison.Ordinal) ||</code></span>
+<span class="line" id="L66"><a class="number" href="#L66">66</a><code class="code">                block.Contains($&quot;DisplayText = \&quot;{text}\&quot;&quot;, StringComparison.Ordinal),</code></span>
+<span class="line" id="L67"><a class="number" href="#L67">67</a><code class="code">                $&quot;Category {nodeName} must preserve the exact label &#x27;{text}&#x27;.&quot;);</code></span>
+<span class="line" id="L68"><a class="number" href="#L68">68</a><code class="code">        }</code></span>
+<span class="line" id="L69"><a class="number" href="#L69">69</a><code class="code"></code></span>
+<span class="line" id="L70"><a class="number" href="#L70">70</a><code class="code">        Assert.Contains(&quot;ResidentialZonePlaceholder&quot;, script, StringComparison.Ordinal);</code></span>
+<span class="line" id="L71"><a class="number" href="#L71">71</a><code class="code">        Assert.Contains(&quot;CommercialZonePlaceholder&quot;, script, StringComparison.Ordinal);</code></span>
+<span class="line" id="L72"><a class="number" href="#L72">72</a><code class="code">        Assert.Contains(&quot;SchoolPlaceholder&quot;, script, StringComparison.Ordinal);</code></span>
+<span class="line" id="L73"><a class="number" href="#L73">73</a><code class="code">        Assert.Contains(&quot;ClinicPlaceholder&quot;, script, StringComparison.Ordinal);</code></span>
+<span class="line" id="L74"><a class="number" href="#L74">74</a><code class="code">        Assert.Contains(&quot;BusStopPlaceholder&quot;, script, StringComparison.Ordinal);</code></span>
+<span class="line" id="L75"><a class="number" href="#L75">75</a><code class="code">        Assert.Contains(&quot;MetroStationPlaceholder&quot;, script, StringComparison.Ordinal);</code></span>
+<span class="line" id="L76"><a class="number" href="#L76">76</a><code class="code">        Assert.Contains(&quot;ParkPlaceholder&quot;, script, StringComparison.Ordinal);</code></span>
+<span class="line" id="L77"><a class="number" href="#L77">77</a><code class="code">        Assert.Contains(&quot;PlazaPlaceholder&quot;, script, StringComparison.Ordinal);</code></span>
+<span class="line" id="L78"><a class="number" href="#L78">78</a><code class="code">        Assert.Contains(&quot;Disabled = true&quot;, script, StringComparison.Ordinal);</code></span>
+<span class="line" id="L79"><a class="number" href="#L79">79</a><code class="code">        Assert.Contains(&quot;FocusMode = FocusModeEnum.None&quot;, script, StringComparison.Ordinal);</code></span>
+<span class="line" id="L80"><a class="number" href="#L80">80</a><code class="code">        Assert.Contains(&quot;TooltipText = \&quot;尚未开放\&quot;&quot;, script, StringComparison.Ordinal);</code></span>
+<span class="line" id="L81"><a class="number" href="#L81">81</a><code class="code"></code></span>
+<span class="line" id="L82"><a class="number" href="#L82">82</a><code class="code">        Assert.DoesNotContain(&quot;ZoningConstructionCategory&quot;, scene, StringComparison.OrdinalIgnoreCase);</code></span>
+<span class="line" id="L83"><a class="number" href="#L83">83</a><code class="code">        Assert.DoesNotContain(&quot;FacilitiesConstructionCategory&quot;, scene, StringComparison.OrdinalIgnoreCase);</code></span>
+<span class="line" id="L84"><a class="number" href="#L84">84</a><code class="code">        Assert.DoesNotContain(&quot;TransitConstructionCategory&quot;, scene, StringComparison.OrdinalIgnoreCase);</code></span>
+<span class="line" id="L85"><a class="number" href="#L85">85</a><code class="code">        Assert.DoesNotContain(&quot;LandscapingConstructionCategory&quot;, scene, StringComparison.OrdinalIgnoreCase);</code></span>
+<span class="line" id="L86"><a class="number" href="#L86">86</a><code class="code">    }</code></span>
+<span class="line" id="L87"><a class="number" href="#L87">87</a><code class="code"></code></span>
+<span class="line" id="L88"><a class="number" href="#L88">88</a><code class="code">    [Fact]</code></span>
+<span class="line" id="L89"><a class="number" href="#L89">89</a><code class="code">    public void ConstructionDockButtonScene_DefaultsToEnabledAndFocusable()</code></span>
+<span class="line" id="L90"><a class="number" href="#L90">90</a><code class="code">    {</code></span>
+<span class="line" id="L91"><a class="number" href="#L91">91</a><code class="code">        Assert.True(File.Exists(DockButtonScenePath), $&quot;Missing reusable category button scene: {DockButtonScenePath}&quot;);</code></span>
+<span class="line" id="L92"><a class="number" href="#L92">92</a><code class="code">        string button = ExtractNodeBlock(File.ReadAllText(DockButtonScenePath), &quot;ConstructionDockButton&quot;);</code></span>
+<span class="line" id="L93"><a class="number" href="#L93">93</a><code class="code"></code></span>
+<span class="line" id="L94"><a class="number" href="#L94">94</a><code class="code">        Assert.DoesNotContain(&quot;disabled = true&quot;, button, StringComparison.Ordinal);</code></span>
+<span class="line" id="L95"><a class="number" href="#L95">95</a><code class="code">        Assert.Contains(&quot;focus_mode = 2&quot;, button, StringComparison.Ordinal);</code></span>
+<span class="line" id="L96"><a class="number" href="#L96">96</a><code class="code">    }</code></span>
+<span class="line" id="L97"><a class="number" href="#L97">97</a><code class="code"></code></span>
+<span class="line" id="L98"><a class="number" href="#L98">98</a><code class="code">    [Fact]</code></span>
+<span class="line" id="L99"><a class="number" href="#L99">99</a><code class="code">    public void ConstructionDockScene_UsesKResourcesWithoutRuntimeConceptCoupling()</code></span>
+<span class="line" id="L100"><a class="number" href="#L100">100</a><code class="code">    {</code></span>
+<span class="line" id="L101"><a class="number" href="#L101">101</a><code class="code">        string scene = File.ReadAllText(DockScenePath);</code></span>
+<span class="line" id="L102"><a class="number" href="#L102">102</a><code class="code">        string script = File.ReadAllText(DockScriptPath);</code></span>
+<span class="line" id="L103"><a class="number" href="#L103">103</a><code class="code">        string category = File.ReadAllText(RoadsCategoryPath);</code></span>
+<span class="line" id="L104"><a class="number" href="#L104">104</a><code class="code"></code></span>
+<span class="line" id="L105"><a class="number" href="#L105">105</a><code class="code">        foreach ((_, _, string iconPath) in CategoryButtons)</code></span>
+<span class="line" id="L106"><a class="number" href="#L106">106</a><code class="code">        {</code></span>
+<span class="line" id="L107"><a class="number" href="#L107">107</a><code class="code">            string diskPath = Path.Combine(ProjectRoot, iconPath[6..].Replace(&#x27;/&#x27;, Path.DirectorySeparatorChar));</code></span>
+<span class="line" id="L108"><a class="number" href="#L108">108</a><code class="code">            Assert.True(File.Exists(diskPath), $&quot;Missing K icon resource: {iconPath}&quot;);</code></span>
+<span class="line" id="L109"><a class="number" href="#L109">109</a><code class="code">            Assert.Contains($&quot;path=\&quot;{iconPath}\&quot;&quot;, scene, StringComparison.Ordinal);</code></span>
+<span class="line" id="L110"><a class="number" href="#L110">110</a><code class="code">        }</code></span>
+<span class="line" id="L111"><a class="number" href="#L111">111</a><code class="code"></code></span>
+<span class="line" id="L112"><a class="number" href="#L112">112</a><code class="code">        Assert.DoesNotContain(&quot;res://docs/ui/concepts/&quot;, scene, StringComparison.OrdinalIgnoreCase);</code></span>
+<span class="line" id="L113"><a class="number" href="#L113">113</a><code class="code">        Assert.DoesNotContain(&quot;res://docs/ui/concepts/&quot;, category, StringComparison.OrdinalIgnoreCase);</code></span>
+<span class="line" id="L114"><a class="number" href="#L114">114</a><code class="code">        Assert.DoesNotContain(&quot;res://docs/ui/concepts/&quot;, script, StringComparison.OrdinalIgnoreCase);</code></span>
+<span class="line" id="L115"><a class="number" href="#L115">115</a><code class="code">        Assert.DoesNotContain(&quot;res://Assets/UI/Icons/&quot;, script, StringComparison.Ordinal);</code></span>
+<span class="line" id="L116"><a class="number" href="#L116">116</a><code class="code">        Assert.Contains(&quot;res://Assets/UI/Icons/construction-road-upgrade.svg&quot;, category, StringComparison.Ordinal);</code></span>
+<span class="line" id="L117"><a class="number" href="#L117">117</a><code class="code">        Assert.True(File.Exists(Path.Combine(ProjectRoot, &quot;Assets&quot;, &quot;UI&quot;, &quot;Icons&quot;, &quot;construction-road-upgrade.svg&quot;)));</code></span>
+<span class="line" id="L118"><a class="number" href="#L118">118</a><code class="code">    }</code></span>
+<span class="line" id="L119"><a class="number" href="#L119">119</a><code class="code"></code></span>
+<span class="line" id="L120"><a class="number" href="#L120">120</a><code class="code">    [Fact]</code></span>
+<span class="line" id="L121"><a class="number" href="#L121">121</a><code class="code">    public void ConstructionDockScene_IsFullWidthBottomFlushWithExactKGeometry()</code></span>
+<span class="line" id="L122"><a class="number" href="#L122">122</a><code class="code">    {</code></span>
+<span class="line" id="L123"><a class="number" href="#L123">123</a><code class="code">        string scene = File.ReadAllText(DockScenePath);</code></span>
+<span class="line" id="L124"><a class="number" href="#L124">124</a><code class="code">        string script = File.ReadAllText(DockScriptPath);</code></span>
+<span class="line" id="L125"><a class="number" href="#L125">125</a><code class="code">        string dock = ExtractNodeBlock(scene, &quot;ConstructionDock&quot;);</code></span>
+<span class="line" id="L126"><a class="number" href="#L126">126</a><code class="code"></code></span>
+<span class="line" id="L127"><a class="number" href="#L127">127</a><code class="code">        Assert.Contains(&quot;anchor_left = 0.0&quot;, dock, StringComparison.Ordinal);</code></span>
+<span class="line" id="L128"><a class="number" href="#L128">128</a><code class="code">        Assert.Contains(&quot;anchor_right = 1.0&quot;, dock, StringComparison.Ordinal);</code></span>
+<span class="line" id="L129"><a class="number" href="#L129">129</a><code class="code">        Assert.Contains(&quot;anchor_bottom = 1.0&quot;, dock, StringComparison.Ordinal);</code></span>
+<span class="line" id="L130"><a class="number" href="#L130">130</a><code class="code">        Assert.Contains(&quot;offset_left = 0.0&quot;, dock, StringComparison.Ordinal);</code></span>
+<span class="line" id="L131"><a class="number" href="#L131">131</a><code class="code">        Assert.Contains(&quot;offset_right = 0.0&quot;, dock, StringComparison.Ordinal);</code></span>
+<span class="line" id="L132"><a class="number" href="#L132">132</a><code class="code">        Assert.Contains(&quot;offset_bottom = 0.0&quot;, dock, StringComparison.Ordinal);</code></span>
+<span class="line" id="L133"><a class="number" href="#L133">133</a><code class="code">        Assert.DoesNotContain(&quot;MaximumWidth&quot;, script, StringComparison.Ordinal);</code></span>
+<span class="line" id="L134"><a class="number" href="#L134">134</a><code class="code">        Assert.Contains(&quot;CollapsedHeight = 76&quot;, script, StringComparison.Ordinal);</code></span>
+<span class="line" id="L135"><a class="number" href="#L135">135</a><code class="code">        Assert.Contains(&quot;ExpandedHeight = 140&quot;, script, StringComparison.Ordinal);</code></span>
+<span class="line" id="L136"><a class="number" href="#L136">136</a><code class="code"></code></span>
+<span class="line" id="L137"><a class="number" href="#L137">137</a><code class="code">        string categoryScroll = ExtractNodeBlock(scene, &quot;CategoryScroll&quot;);</code></span>
+<span class="line" id="L138"><a class="number" href="#L138">138</a><code class="code">        string categoryBar = ExtractNodeBlock(scene, &quot;CategoryBar&quot;);</code></span>
+<span class="line" id="L139"><a class="number" href="#L139">139</a><code class="code">        Assert.Contains(&quot;custom_minimum_size = Vector2(0, 76)&quot;, categoryScroll, StringComparison.Ordinal);</code></span>
+<span class="line" id="L140"><a class="number" href="#L140">140</a><code class="code">        Assert.Contains(&quot;horizontal_scroll_mode = 3&quot;, categoryScroll, StringComparison.Ordinal);</code></span>
+<span class="line" id="L141"><a class="number" href="#L141">141</a><code class="code">        Assert.Contains(&quot;vertical_scroll_mode = 0&quot;, categoryScroll, StringComparison.Ordinal);</code></span>
+<span class="line" id="L142"><a class="number" href="#L142">142</a><code class="code">        Assert.Contains(&quot;custom_minimum_size = Vector2(552, 76)&quot;, categoryBar, StringComparison.Ordinal);</code></span>
+<span class="line" id="L143"><a class="number" href="#L143">143</a><code class="code">        Assert.Contains(&quot;custom_minimum_size = Vector2(0, 64)&quot;, ExtractNodeBlock(scene, &quot;ToolTray&quot;), StringComparison.Ordinal);</code></span>
+<span class="line" id="L144"><a class="number" href="#L144">144</a><code class="code">        Assert.Contains(&quot;custom_minimum_size = Vector2(0, 64)&quot;, ExtractNodeBlock(scene, &quot;ToolScroll&quot;), StringComparison.Ordinal);</code></span>
+<span class="line" id="L145"><a class="number" href="#L145">145</a><code class="code">    }</code></span>
+<span class="line" id="L146"><a class="number" href="#L146">146</a><code class="code"></code></span>
+<span class="line" id="L147"><a class="number" href="#L147">147</a><code class="code">    [Fact]</code></span>
+<span class="line" id="L148"><a class="number" href="#L148">148</a><code class="code">    public void ConstructionDockScene_UsesHorizontalToolTrayAndReusableTexturedCategoryButtons()</code></span>
+<span class="line" id="L149"><a class="number" href="#L149">149</a><code class="code">    {</code></span>
+<span class="line" id="L150"><a class="number" href="#L150">150</a><code class="code">        string scene = File.ReadAllText(DockScenePath);</code></span>
+<span class="line" id="L151"><a class="number" href="#L151">151</a><code class="code"></code></span>
+<span class="line" id="L152"><a class="number" href="#L152">152</a><code class="code">        string scroll = ExtractNodeBlock(scene, &quot;ToolScroll&quot;);</code></span>
+<span class="line" id="L153"><a class="number" href="#L153">153</a><code class="code">        Assert.Contains(ReadScrollMode(scroll, &quot;horizontal_scroll_mode&quot;), new[] { 1, 2, 3, 4 });</code></span>
+<span class="line" id="L154"><a class="number" href="#L154">154</a><code class="code">        Assert.Equal(0, ReadScrollMode(scroll, &quot;vertical_scroll_mode&quot;));</code></span>
+<span class="line" id="L155"><a class="number" href="#L155">155</a><code class="code">        Assert.Contains(&quot;name=\&quot;ToolList\&quot; type=\&quot;HBoxContainer\&quot;&quot;, scene, StringComparison.Ordinal);</code></span>
+<span class="line" id="L156"><a class="number" href="#L156">156</a><code class="code">        Assert.Contains(&quot;alignment = 1&quot;, ExtractNodeBlock(scene, &quot;ToolList&quot;), StringComparison.Ordinal);</code></span>
+<span class="line" id="L157"><a class="number" href="#L157">157</a><code class="code">        Assert.True(File.Exists(DockButtonScenePath), $&quot;Missing reusable category button scene: {DockButtonScenePath}&quot;);</code></span>
+<span class="line" id="L158"><a class="number" href="#L158">158</a><code class="code"></code></span>
+<span class="line" id="L159"><a class="number" href="#L159">159</a><code class="code">        string buttonSceneId = ExtractUniqueExtResourceId(scene, &quot;res://Scenes/UI/ConstructionDockButton.tscn&quot;);</code></span>
+<span class="line" id="L160"><a class="number" href="#L160">160</a><code class="code"></code></span>
+<span class="line" id="L161"><a class="number" href="#L161">161</a><code class="code">        foreach ((string nodeName, string text, string iconPath) in CategoryButtons)</code></span>
+<span class="line" id="L162"><a class="number" href="#L162">162</a><code class="code">        {</code></span>
+<span class="line" id="L163"><a class="number" href="#L163">163</a><code class="code">            string block = ExtractNodeBlock(scene, nodeName);</code></span>
+<span class="line" id="L164"><a class="number" href="#L164">164</a><code class="code">            string iconId = ExtractUniqueExtResourceId(scene, iconPath);</code></span>
+<span class="line" id="L165"><a class="number" href="#L165">165</a><code class="code">            Assert.Contains($&quot;instance=ExtResource(\&quot;{buttonSceneId}\&quot;)&quot;, block, StringComparison.Ordinal);</code></span>
+<span class="line" id="L166"><a class="number" href="#L166">166</a><code class="code">            Assert.DoesNotContain($&quot;text = \&quot;{text}\&quot;&quot;, block, StringComparison.Ordinal);</code></span>
+<span class="line" id="L167"><a class="number" href="#L167">167</a><code class="code">            Assert.Contains($&quot;DisplayText = \&quot;{text}\&quot;&quot;, block, StringComparison.Ordinal);</code></span>
+<span class="line" id="L168"><a class="number" href="#L168">168</a><code class="code">            Assert.Contains($&quot;IconTexture = ExtResource(\&quot;{iconId}\&quot;)&quot;, block, StringComparison.Ordinal);</code></span>
+<span class="line" id="L169"><a class="number" href="#L169">169</a><code class="code">            Assert.DoesNotContain(&quot;disabled = true&quot;, block, StringComparison.Ordinal);</code></span>
+<span class="line" id="L170"><a class="number" href="#L170">170</a><code class="code">            Assert.DoesNotContain(&quot;focus_mode = 0&quot;, block, StringComparison.Ordinal);</code></span>
+<span class="line" id="L171"><a class="number" href="#L171">171</a><code class="code">            Assert.DoesNotContain(&quot;focus_mode = 1&quot;, block, StringComparison.Ordinal);</code></span>
+<span class="line" id="L172"><a class="number" href="#L172">172</a><code class="code">            string[] focusOverrides = ReadPropertyLines(block, &quot;focus_mode&quot;);</code></span>
+<span class="line" id="L173"><a class="number" href="#L173">173</a><code class="code">            if (focusOverrides.Length == 1)</code></span>
+<span class="line" id="L174"><a class="number" href="#L174">174</a><code class="code">                Assert.Equal(&quot;focus_mode = 2&quot;, focusOverrides[0]);</code></span>
+<span class="line" id="L175"><a class="number" href="#L175">175</a><code class="code">            else</code></span>
+<span class="line" id="L176"><a class="number" href="#L176">176</a><code class="code">                Assert.Empty(focusOverrides);</code></span>
+<span class="line" id="L177"><a class="number" href="#L177">177</a><code class="code">        }</code></span>
+<span class="line" id="L178"><a class="number" href="#L178">178</a><code class="code"></code></span>
+<span class="line" id="L179"><a class="number" href="#L179">179</a><code class="code">        Assert.DoesNotContain(&quot;name=\&quot;CurrentToolLabel\&quot;&quot;, scene, StringComparison.Ordinal);</code></span>
+<span class="line" id="L180"><a class="number" href="#L180">180</a><code class="code">        Assert.DoesNotContain(&quot;name=\&quot;SelectToolButton\&quot;&quot;, scene, StringComparison.Ordinal);</code></span>
+<span class="line" id="L181"><a class="number" href="#L181">181</a><code class="code">        Assert.DoesNotContain(&quot;name=\&quot;RoadRemoveToolButton\&quot;&quot;, scene, StringComparison.Ordinal);</code></span>
+<span class="line" id="L182"><a class="number" href="#L182">182</a><code class="code">    }</code></span>
+<span class="line" id="L183"><a class="number" href="#L183">183</a><code class="code"></code></span>
+<span class="line" id="L184"><a class="number" href="#L184">184</a><code class="code">    [Fact]</code></span>
+<span class="line" id="L185"><a class="number" href="#L185">185</a><code class="code">    public void ConstructionDockButtonScene_AnchorsPrimaryIndicatorAtDockBottom()</code></span>
+<span class="line" id="L186"><a class="number" href="#L186">186</a><code class="code">    {</code></span>
+<span class="line" id="L187"><a class="number" href="#L187">187</a><code class="code">        string scene = File.ReadAllText(DockButtonScenePath);</code></span>
+<span class="line" id="L188"><a class="number" href="#L188">188</a><code class="code">        string indicator = ExtractNodeBlock(scene, &quot;PrimarySelectionIndicator&quot;);</code></span>
+<span class="line" id="L189"><a class="number" href="#L189">189</a><code class="code"></code></span>
+<span class="line" id="L190"><a class="number" href="#L190">190</a><code class="code">        Assert.Contains(&quot;parent=\&quot;.\&quot;&quot;, indicator, StringComparison.Ordinal);</code></span>
+<span class="line" id="L191"><a class="number" href="#L191">191</a><code class="code">        Assert.Contains(&quot;anchor_top = 1.0&quot;, indicator, StringComparison.Ordinal);</code></span>
+<span class="line" id="L192"><a class="number" href="#L192">192</a><code class="code">        Assert.Contains(&quot;anchor_right = 1.0&quot;, indicator, StringComparison.Ordinal);</code></span>
+<span class="line" id="L193"><a class="number" href="#L193">193</a><code class="code">        Assert.Contains(&quot;anchor_bottom = 1.0&quot;, indicator, StringComparison.Ordinal);</code></span>
+<span class="line" id="L194"><a class="number" href="#L194">194</a><code class="code">        Assert.Contains(&quot;offset_top = -4.0&quot;, indicator, StringComparison.Ordinal);</code></span>
+<span class="line" id="L195"><a class="number" href="#L195">195</a><code class="code">        Assert.Contains(&quot;offset_bottom = 0.0&quot;, indicator, StringComparison.Ordinal);</code></span>
+<span class="line" id="L196"><a class="number" href="#L196">196</a><code class="code">        Assert.DoesNotContain(&quot;SelectedUnderline&quot;, scene, StringComparison.Ordinal);</code></span>
+<span class="line" id="L197"><a class="number" href="#L197">197</a><code class="code">    }</code></span>
+<span class="line" id="L198"><a class="number" href="#L198">198</a><code class="code"></code></span>
+<span class="line" id="L199"><a class="number" href="#L199">199</a><code class="code">    [Fact]</code></span>
+<span class="line" id="L200"><a class="number" href="#L200">200</a><code class="code">    public void ConstructionDockScript_KeepsNativeButtonTextEmptyForCustomDockButtons()</code></span>
+<span class="line" id="L201"><a class="number" href="#L201">201</a><code class="code">    {</code></span>
+<span class="line" id="L202"><a class="number" href="#L202">202</a><code class="code">        string script = File.ReadAllText(DockScriptPath);</code></span>
+<span class="line" id="L203"><a class="number" href="#L203">203</a><code class="code"></code></span>
+<span class="line" id="L204"><a class="number" href="#L204">204</a><code class="code">        Assert.DoesNotContain(&quot;button.Text = category.DisplayName&quot;, script, StringComparison.Ordinal);</code></span>
+<span class="line" id="L205"><a class="number" href="#L205">205</a><code class="code">        Assert.DoesNotContain(&quot;\n                Text = placeholder.DisplayName&quot;, script, StringComparison.Ordinal);</code></span>
+<span class="line" id="L206"><a class="number" href="#L206">206</a><code class="code">        Assert.DoesNotContain(&quot;\n                Text = ToolButtonText(tool)&quot;, script, StringComparison.Ordinal);</code></span>
+<span class="line" id="L207"><a class="number" href="#L207">207</a><code class="code">        Assert.Contains(&quot;dockButton.DisplayText = category.DisplayName&quot;, script, StringComparison.Ordinal);</code></span>
+<span class="line" id="L208"><a class="number" href="#L208">208</a><code class="code">        Assert.Contains(&quot;DisplayText = placeholder.DisplayName&quot;, script, StringComparison.Ordinal);</code></span>
+<span class="line" id="L209"><a class="number" href="#L209">209</a><code class="code">        Assert.Contains(&quot;DisplayText = tool.DisplayName&quot;, script, StringComparison.Ordinal);</code></span>
+<span class="line" id="L210"><a class="number" href="#L210">210</a><code class="code">    }</code></span>
+<span class="line" id="L211"><a class="number" href="#L211">211</a><code class="code"></code></span>
+<span class="line" id="L212"><a class="number" href="#L212">212</a><code class="code">    [Fact]</code></span>
+<span class="line" id="L213"><a class="number" href="#L213">213</a><code class="code">    public void RoadsCatalog_ContainsOrderedRoadAndUpgradeTools()</code></span>
+<span class="line" id="L214"><a class="number" href="#L214">214</a><code class="code">    {</code></span>
+<span class="line" id="L215"><a class="number" href="#L215">215</a><code class="code">        string category = File.ReadAllText(RoadsCategoryPath);</code></span>
+<span class="line" id="L216"><a class="number" href="#L216">216</a><code class="code">        string toolScriptId = ExtractUniqueExtResourceId(category, &quot;res://Scripts/UI/ConstructionToolDefinition.cs&quot;);</code></span>
+<span class="line" id="L217"><a class="number" href="#L217">217</a><code class="code">        string[] toolBlocks = ExtractSubResourceBlocks(category)</code></span>
+<span class="line" id="L218"><a class="number" href="#L218">218</a><code class="code">            .Where(block =&gt; block.Contains($&quot;script = ExtResource(\&quot;{toolScriptId}\&quot;)&quot;, StringComparison.Ordinal))</code></span>
+<span class="line" id="L219"><a class="number" href="#L219">219</a><code class="code">            .ToArray();</code></span>
+<span class="line" id="L220"><a class="number" href="#L220">220</a><code class="code">        Assert.Equal(2, toolBlocks.Length);</code></span>
+<span class="line" id="L221"><a class="number" href="#L221">221</a><code class="code">        string roadBlock = Assert.Single(toolBlocks, block =&gt; block.Contains(&quot;Id = \&quot;city-road\&quot;&quot;, StringComparison.Ordinal));</code></span>
+<span class="line" id="L222"><a class="number" href="#L222">222</a><code class="code">        string upgradeBlock = Assert.Single(toolBlocks, block =&gt; block.Contains(&quot;Id = \&quot;road-upgrade\&quot;&quot;, StringComparison.Ordinal));</code></span>
+<span class="line" id="L223"><a class="number" href="#L223">223</a><code class="code">        string roadResourceId = ExtractHeaderAttribute(roadBlock, &quot;id&quot;);</code></span>
+<span class="line" id="L224"><a class="number" href="#L224">224</a><code class="code">        string upgradeResourceId = ExtractHeaderAttribute(upgradeBlock, &quot;id&quot;);</code></span>
+<span class="line" id="L225"><a class="number" href="#L225">225</a><code class="code">        string toolsLine = Assert.Single(ReadPropertyLines(category, &quot;Tools&quot;));</code></span>
+<span class="line" id="L226"><a class="number" href="#L226">226</a><code class="code">        string roadIconId = ExtractUniqueExtResourceId(category, &quot;res://Assets/UI/Icons/construction-road.svg&quot;);</code></span>
+<span class="line" id="L227"><a class="number" href="#L227">227</a><code class="code">        string upgradeIconId = ExtractUniqueExtResourceId(category, &quot;res://Assets/UI/Icons/construction-road-upgrade.svg&quot;);</code></span>
+<span class="line" id="L228"><a class="number" href="#L228">228</a><code class="code"></code></span>
+<span class="line" id="L229"><a class="number" href="#L229">229</a><code class="code">        Assert.Contains(&quot;DisplayName = \&quot;城市道路\&quot;&quot;, roadBlock, StringComparison.Ordinal);</code></span>
+<span class="line" id="L230"><a class="number" href="#L230">230</a><code class="code">        Assert.DoesNotContain(&quot;ShortcutHint =&quot;, roadBlock, StringComparison.Ordinal);</code></span>
+<span class="line" id="L231"><a class="number" href="#L231">231</a><code class="code">        Assert.Contains(&quot;ToolType = 1&quot;, roadBlock, StringComparison.Ordinal);</code></span>
+<span class="line" id="L232"><a class="number" href="#L232">232</a><code class="code">        Assert.Contains(&quot;SortOrder = 10&quot;, roadBlock, StringComparison.Ordinal);</code></span>
+<span class="line" id="L233"><a class="number" href="#L233">233</a><code class="code">        Assert.Contains($&quot;Icon = ExtResource(\&quot;{roadIconId}\&quot;)&quot;, roadBlock, StringComparison.Ordinal);</code></span>
+<span class="line" id="L234"><a class="number" href="#L234">234</a><code class="code"></code></span>
+<span class="line" id="L235"><a class="number" href="#L235">235</a><code class="code">        Assert.Contains(&quot;DisplayName = \&quot;道路改造\&quot;&quot;, upgradeBlock, StringComparison.Ordinal);</code></span>
+<span class="line" id="L236"><a class="number" href="#L236">236</a><code class="code">        Assert.Contains(&quot;ShortcutHint = \&quot;T\&quot;&quot;, upgradeBlock, StringComparison.Ordinal);</code></span>
+<span class="line" id="L237"><a class="number" href="#L237">237</a><code class="code">        Assert.Contains(&quot;ToolType = 3&quot;, upgradeBlock, StringComparison.Ordinal);</code></span>
+<span class="line" id="L238"><a class="number" href="#L238">238</a><code class="code">        Assert.Contains(&quot;SortOrder = 20&quot;, upgradeBlock, StringComparison.Ordinal);</code></span>
+<span class="line" id="L239"><a class="number" href="#L239">239</a><code class="code">        Assert.Contains($&quot;Icon = ExtResource(\&quot;{upgradeIconId}\&quot;)&quot;, upgradeBlock, StringComparison.Ordinal);</code></span>
+<span class="line" id="L240"><a class="number" href="#L240">240</a><code class="code"></code></span>
+<span class="line" id="L241"><a class="number" href="#L241">241</a><code class="code">        Assert.Equal(</code></span>
+<span class="line" id="L242"><a class="number" href="#L242">242</a><code class="code">            $&quot;Tools = Array[ExtResource(\&quot;{toolScriptId}\&quot;)]([SubResource(\&quot;{roadResourceId}\&quot;), SubResource(\&quot;{upgradeResourceId}\&quot;)])&quot;,</code></span>
+<span class="line" id="L243"><a class="number" href="#L243">243</a><code class="code">            toolsLine);</code></span>
+<span class="line" id="L244"><a class="number" href="#L244">244</a><code class="code">        Assert.Equal([roadResourceId, upgradeResourceId], ExtractSubResourceReferences(toolsLine));</code></span>
+<span class="line" id="L245"><a class="number" href="#L245">245</a><code class="code">        Assert.DoesNotContain(&quot;Id = \&quot;select\&quot;&quot;, category, StringComparison.Ordinal);</code></span>
+<span class="line" id="L246"><a class="number" href="#L246">246</a><code class="code">        Assert.DoesNotContain(&quot;Id = \&quot;road-remove\&quot;&quot;, category, StringComparison.Ordinal);</code></span>
+<span class="line" id="L247"><a class="number" href="#L247">247</a><code class="code">        Assert.DoesNotContain(&quot;ToolType = 0&quot;, category, StringComparison.Ordinal);</code></span>
+<span class="line" id="L248"><a class="number" href="#L248">248</a><code class="code">        Assert.DoesNotContain(&quot;ToolType = 2&quot;, category, StringComparison.Ordinal);</code></span>
+<span class="line" id="L249"><a class="number" href="#L249">249</a><code class="code">    }</code></span>
+<span class="line" id="L250"><a class="number" href="#L250">250</a><code class="code"></code></span>
+<span class="line" id="L251"><a class="number" href="#L251">251</a><code class="code">    private static string ExtractNodeBlock(string scene, string nodeName)</code></span>
+<span class="line" id="L252"><a class="number" href="#L252">252</a><code class="code">    {</code></span>
+<span class="line" id="L253"><a class="number" href="#L253">253</a><code class="code">        string header = $&quot;[node name=\&quot;{nodeName}\&quot;&quot;;</code></span>
+<span class="line" id="L254"><a class="number" href="#L254">254</a><code class="code">        int start = scene.IndexOf(header, StringComparison.Ordinal);</code></span>
+<span class="line" id="L255"><a class="number" href="#L255">255</a><code class="code">        Assert.True(start &gt;= 0, $&quot;Missing node block for {nodeName}&quot;);</code></span>
+<span class="line" id="L256"><a class="number" href="#L256">256</a><code class="code"></code></span>
+<span class="line" id="L257"><a class="number" href="#L257">257</a><code class="code">        int next = scene.IndexOf(&quot;\n[node &quot;, start + header.Length, StringComparison.Ordinal);</code></span>
+<span class="line" id="L258"><a class="number" href="#L258">258</a><code class="code">        return next &lt; 0 ? scene[start..] : scene[start..next];</code></span>
+<span class="line" id="L259"><a class="number" href="#L259">259</a><code class="code">    }</code></span>
+<span class="line" id="L260"><a class="number" href="#L260">260</a><code class="code"></code></span>
+<span class="line" id="L261"><a class="number" href="#L261">261</a><code class="code">    private static string ExtractUniqueExtResourceId(string source, string path)</code></span>
+<span class="line" id="L262"><a class="number" href="#L262">262</a><code class="code">    {</code></span>
+<span class="line" id="L263"><a class="number" href="#L263">263</a><code class="code">        string marker = $&quot;path=\&quot;{path}\&quot;&quot;;</code></span>
+<span class="line" id="L264"><a class="number" href="#L264">264</a><code class="code">        string declaration = Assert.Single(</code></span>
+<span class="line" id="L265"><a class="number" href="#L265">265</a><code class="code">            source.Split(&#x27;\n&#x27;),</code></span>
+<span class="line" id="L266"><a class="number" href="#L266">266</a><code class="code">            line =&gt; line.StartsWith(&quot;[ext_resource &quot;, StringComparison.Ordinal) &amp;&amp; line.Contains(marker, StringComparison.Ordinal));</code></span>
+<span class="line" id="L267"><a class="number" href="#L267">267</a><code class="code">        return ExtractHeaderAttribute(declaration, &quot;id&quot;);</code></span>
+<span class="line" id="L268"><a class="number" href="#L268">268</a><code class="code">    }</code></span>
+<span class="line" id="L269"><a class="number" href="#L269">269</a><code class="code"></code></span>
+<span class="line" id="L270"><a class="number" href="#L270">270</a><code class="code">    private static string ExtractHeaderAttribute(string header, string attribute)</code></span>
+<span class="line" id="L271"><a class="number" href="#L271">271</a><code class="code">    {</code></span>
+<span class="line" id="L272"><a class="number" href="#L272">272</a><code class="code">        string marker = $&quot; {attribute}=\&quot;&quot;;</code></span>
+<span class="line" id="L273"><a class="number" href="#L273">273</a><code class="code">        int valueStart = header.IndexOf(marker, StringComparison.Ordinal);</code></span>
+<span class="line" id="L274"><a class="number" href="#L274">274</a><code class="code">        Assert.True(valueStart &gt;= 0, $&quot;Missing {attribute} attribute in: {header}&quot;);</code></span>
+<span class="line" id="L275"><a class="number" href="#L275">275</a><code class="code">        valueStart += marker.Length;</code></span>
+<span class="line" id="L276"><a class="number" href="#L276">276</a><code class="code">        int valueEnd = header.IndexOf(&#x27;&quot;&#x27;, valueStart);</code></span>
+<span class="line" id="L277"><a class="number" href="#L277">277</a><code class="code">        Assert.True(valueEnd &gt; valueStart, $&quot;Malformed {attribute} attribute in: {header}&quot;);</code></span>
+<span class="line" id="L278"><a class="number" href="#L278">278</a><code class="code">        return header[valueStart..valueEnd];</code></span>
+<span class="line" id="L279"><a class="number" href="#L279">279</a><code class="code">    }</code></span>
+<span class="line" id="L280"><a class="number" href="#L280">280</a><code class="code"></code></span>
+<span class="line" id="L281"><a class="number" href="#L281">281</a><code class="code">    private static string[] ExtractSubResourceBlocks(string source)</code></span>
+<span class="line" id="L282"><a class="number" href="#L282">282</a><code class="code">    {</code></span>
+<span class="line" id="L283"><a class="number" href="#L283">283</a><code class="code">        return source.Split(&quot;\n[sub_resource &quot;, StringSplitOptions.None)</code></span>
+<span class="line" id="L284"><a class="number" href="#L284">284</a><code class="code">            .Skip(1)</code></span>
+<span class="line" id="L285"><a class="number" href="#L285">285</a><code class="code">            .Select(block =&gt; &quot;[sub_resource &quot; + block.Split(&quot;\n[&quot;, 2, StringSplitOptions.None)[0])</code></span>
+<span class="line" id="L286"><a class="number" href="#L286">286</a><code class="code">            .ToArray();</code></span>
+<span class="line" id="L287"><a class="number" href="#L287">287</a><code class="code">    }</code></span>
+<span class="line" id="L288"><a class="number" href="#L288">288</a><code class="code"></code></span>
+<span class="line" id="L289"><a class="number" href="#L289">289</a><code class="code">    private static string[] ReadPropertyLines(string source, string propertyName)</code></span>
+<span class="line" id="L290"><a class="number" href="#L290">290</a><code class="code">    {</code></span>
+<span class="line" id="L291"><a class="number" href="#L291">291</a><code class="code">        string prefix = propertyName + &quot; = &quot;;</code></span>
+<span class="line" id="L292"><a class="number" href="#L292">292</a><code class="code">        return source.Split(&#x27;\n&#x27;).Select(line =&gt; line.TrimEnd(&#x27;\r&#x27;)).Where(line =&gt; line.StartsWith(prefix, StringComparison.Ordinal)).ToArray();</code></span>
+<span class="line" id="L293"><a class="number" href="#L293">293</a><code class="code">    }</code></span>
+<span class="line" id="L294"><a class="number" href="#L294">294</a><code class="code"></code></span>
+<span class="line" id="L295"><a class="number" href="#L295">295</a><code class="code">    private static string[] ExtractSubResourceReferences(string propertyLine)</code></span>
+<span class="line" id="L296"><a class="number" href="#L296">296</a><code class="code">    {</code></span>
+<span class="line" id="L297"><a class="number" href="#L297">297</a><code class="code">        return propertyLine.Split(&quot;SubResource(\&quot;&quot;, StringSplitOptions.None).Skip(1).Select(part =&gt; part.Split(&#x27;\&quot;&#x27;)[0]).ToArray();</code></span>
+<span class="line" id="L298"><a class="number" href="#L298">298</a><code class="code">    }</code></span>
+<span class="line" id="L299"><a class="number" href="#L299">299</a><code class="code"></code></span>
+<span class="line" id="L300"><a class="number" href="#L300">300</a><code class="code">    private static int ReadScrollMode(string nodeBlock, string propertyName)</code></span>
+<span class="line" id="L301"><a class="number" href="#L301">301</a><code class="code">    {</code></span>
+<span class="line" id="L302"><a class="number" href="#L302">302</a><code class="code">        string line = Assert.Single(ReadPropertyLines(nodeBlock, propertyName));</code></span>
+<span class="line" id="L303"><a class="number" href="#L303">303</a><code class="code">        string serializedValue = line[(propertyName.Length + 3)..];</code></span>
+<span class="line" id="L304"><a class="number" href="#L304">304</a><code class="code">        Assert.True(int.TryParse(serializedValue, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int value),</code></span>
+<span class="line" id="L305"><a class="number" href="#L305">305</a><code class="code">            $&quot;{propertyName} must be one exact serialized Godot ScrollMode integer, but was &#x27;{serializedValue}&#x27;.&quot;);</code></span>
+<span class="line" id="L306"><a class="number" href="#L306">306</a><code class="code">        return value;</code></span>
+<span class="line" id="L307"><a class="number" href="#L307">307</a><code class="code">    }</code></span>
+<span class="line" id="L308"><a class="number" href="#L308">308</a><code class="code"></code></span>
+<span class="line" id="L309"><a class="number" href="#L309">309</a><code class="code">}</code></span></pre></main></html>

@@ -1,0 +1,362 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>tests/SimpleCities.RoadCore.Tests/RoadEditHistoryTests.cs · SimpleCities 源码</title><link rel="stylesheet" href="../../../assets/source.css"><header><a href="../../../index.html">← 文档首页</a><h1>tests/SimpleCities.RoadCore.Tests/RoadEditHistoryTests.cs</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">using System.Text;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code">using System.Text.Json.Nodes;</code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code"></code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code">namespace SimpleCities.RoadCore.Tests;</code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code"></code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">public sealed class RoadEditHistoryTests</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">{</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">    [Fact]</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">    public void RetainedEstimateDropsAbandonedRedoWhenBranchHasADifferentCost()</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">    {</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">        var network = new RoadNetwork();</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">        Build(network, new(0, 0), new(100, 0));</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">        Build(network, new(0, 100), new(100, 100));</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">        Assert.Equal(992, network.History.EstimatedBytes);</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code">        var span = Pick(network.Snapshot, network.Snapshot.Edges[0]);</code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">        Assert.True(network.TryCommit(network.PlanChangeProfile(span, RoadProfileId.Highway).Plan!));</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">        Assert.Equal(1440, network.History.EstimatedBytes);</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code">        Assert.True(network.TryCommit(network.PlanUndo().Plan!));</code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">        Assert.Equal(1440, network.History.EstimatedBytes);</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code"></code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">        Build(network, new(0, 200), new(100, 200));</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code"></code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code">        Assert.Equal(1488, network.History.EstimatedBytes);</code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">        Assert.Equal(3, network.History.UndoCount);</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code">        Assert.Equal(0, network.History.RedoCount);</code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">        Assert.Equal(RoadEditStatus.NoChange, network.PlanRedo().Status);</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">    }</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code"></code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">    [Fact]</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">    public void LoadStartsFreshLineageWithPersistedWatermarksAndNoSessionHistory()</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code">    {</code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">        var network = new RoadNetwork();</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code">        Build(network, new(0, 0), new(100, 0));</code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code">        Build(network, new(0, 100), new(100, 100));</code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code">        Assert.True(network.TryCommit(network.PlanUndo().Plan!));</code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code">        RoadSnapshot before = network.Snapshot;</code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code">        RoadGridSpan oldSpan = Pick(before, Assert.Single(before.Edges));</code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code">        RoadPlan staleUndo = network.PlanUndo().Plan!, staleRedo = network.PlanRedo().Plan!;</code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code">        var emptyMap = new RoadNetwork(new MapDefinition(25));</code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code">        byte[] bytes = Save(emptyMap.Snapshot);</code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code">        using var stream = new MemoryStream(bytes);</code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code"></code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code">        RoadPlan load = network.PlanLoad(RoadCodec.Read(stream));</code></span>
+<span class="line" id="L44"><a class="number" href="#L44">44</a><code class="code">        Assert.Equal(2, network.History.RetainedCount);</code></span>
+<span class="line" id="L45"><a class="number" href="#L45">45</a><code class="code">        Assert.Same(before, network.Snapshot);</code></span>
+<span class="line" id="L46"><a class="number" href="#L46">46</a><code class="code">        Assert.True(network.TryCommit(load));</code></span>
+<span class="line" id="L47"><a class="number" href="#L47">47</a><code class="code"></code></span>
+<span class="line" id="L48"><a class="number" href="#L48">48</a><code class="code">        Assert.Equal(0, network.History.RetainedCount);</code></span>
+<span class="line" id="L49"><a class="number" href="#L49">49</a><code class="code">        Assert.Equal(0, network.History.EstimatedBytes);</code></span>
+<span class="line" id="L50"><a class="number" href="#L50">50</a><code class="code">        Assert.Equal(before.Token.NetworkInstance, network.Snapshot.Token.NetworkInstance);</code></span>
+<span class="line" id="L51"><a class="number" href="#L51">51</a><code class="code">        Assert.NotEqual(before.Token.Lineage, network.Snapshot.Token.Lineage);</code></span>
+<span class="line" id="L52"><a class="number" href="#L52">52</a><code class="code">        Assert.Equal(before.Token.ChangeSequence + 1, network.Snapshot.Token.ChangeSequence);</code></span>
+<span class="line" id="L53"><a class="number" href="#L53">53</a><code class="code">        Assert.Equal(25, network.Snapshot.Map.CellSizeMetres);</code></span>
+<span class="line" id="L54"><a class="number" href="#L54">54</a><code class="code">        Assert.Equal(1, network.Snapshot.NextNodeId);</code></span>
+<span class="line" id="L55"><a class="number" href="#L55">55</a><code class="code">        Assert.Equal(1, network.Snapshot.NextEdgeId);</code></span>
+<span class="line" id="L56"><a class="number" href="#L56">56</a><code class="code">        Assert.Equal(bytes, Save(network.Snapshot));</code></span>
+<span class="line" id="L57"><a class="number" href="#L57">57</a><code class="code">        Assert.False(network.TryCommit(staleUndo));</code></span>
+<span class="line" id="L58"><a class="number" href="#L58">58</a><code class="code">        Assert.False(network.TryCommit(staleRedo));</code></span>
+<span class="line" id="L59"><a class="number" href="#L59">59</a><code class="code">        Assert.Equal(RoadEditStatus.Rejected, network.PlanRemove(oldSpan).Status);</code></span>
+<span class="line" id="L60"><a class="number" href="#L60">60</a><code class="code">        Assert.Equal(RoadEditStatus.NoChange, network.PlanUndo().Status);</code></span>
+<span class="line" id="L61"><a class="number" href="#L61">61</a><code class="code">        Assert.Equal(RoadEditStatus.NoChange, network.PlanRedo().Status);</code></span>
+<span class="line" id="L62"><a class="number" href="#L62">62</a><code class="code">        Build(network, new(0, 0), new(25, 0));</code></span>
+<span class="line" id="L63"><a class="number" href="#L63">63</a><code class="code">        Assert.Equal(2, network.Snapshot.Token.ContentRevision);</code></span>
+<span class="line" id="L64"><a class="number" href="#L64">64</a><code class="code">        Assert.Equal(1, network.History.UndoCount);</code></span>
+<span class="line" id="L65"><a class="number" href="#L65">65</a><code class="code">    }</code></span>
+<span class="line" id="L66"><a class="number" href="#L66">66</a><code class="code"></code></span>
+<span class="line" id="L67"><a class="number" href="#L67">67</a><code class="code">    [Theory]</code></span>
+<span class="line" id="L68"><a class="number" href="#L68">68</a><code class="code">    [InlineData(false)]</code></span>
+<span class="line" id="L69"><a class="number" href="#L69">69</a><code class="code">    [InlineData(true)]</code></span>
+<span class="line" id="L70"><a class="number" href="#L70">70</a><code class="code">    public void UndoAndRedoRestoreSyntheticLoopSeamAfterLocalRemovalOrTypeChange(bool changeProfile)</code></span>
+<span class="line" id="L71"><a class="number" href="#L71">71</a><code class="code">    {</code></span>
+<span class="line" id="L72"><a class="number" href="#L72">72</a><code class="code">        var network = new RoadNetwork();</code></span>
+<span class="line" id="L73"><a class="number" href="#L73">73</a><code class="code">        Build(network, new(50, 50), new(0, 0));</code></span>
+<span class="line" id="L74"><a class="number" href="#L74">74</a><code class="code">        Build(network, new(0, 0), new(100, 0));</code></span>
+<span class="line" id="L75"><a class="number" href="#L75">75</a><code class="code">        RoadSnapshot open = network.Snapshot;</code></span>
+<span class="line" id="L76"><a class="number" href="#L76">76</a><code class="code">        Build(network, new(100, 0), new(50, 50));</code></span>
+<span class="line" id="L77"><a class="number" href="#L77">77</a><code class="code">        RoadSnapshot loop = network.Snapshot;</code></span>
+<span class="line" id="L78"><a class="number" href="#L78">78</a><code class="code">        Assert.True(network.TryCommit(network.PlanUndo().Plan!));</code></span>
+<span class="line" id="L79"><a class="number" href="#L79">79</a><code class="code">        AssertRestoredContent(open, network.Snapshot);</code></span>
+<span class="line" id="L80"><a class="number" href="#L80">80</a><code class="code">        Assert.True(network.TryCommit(network.PlanRedo().Plan!));</code></span>
+<span class="line" id="L81"><a class="number" href="#L81">81</a><code class="code">        AssertRestoredContent(loop, network.Snapshot);</code></span>
+<span class="line" id="L82"><a class="number" href="#L82">82</a><code class="code">        RoadGridSpan wrap = Pick(network.Snapshot, Assert.Single(network.Snapshot.Edges), 0.01);</code></span>
+<span class="line" id="L83"><a class="number" href="#L83">83</a><code class="code">        Assert.Equal(2, wrap.Ranges.Count);</code></span>
+<span class="line" id="L84"><a class="number" href="#L84">84</a><code class="code"></code></span>
+<span class="line" id="L85"><a class="number" href="#L85">85</a><code class="code">        RoadEditResult edit = changeProfile ? network.PlanChangeProfile(wrap, RoadProfileId.Highway) : network.PlanRemove(wrap);</code></span>
+<span class="line" id="L86"><a class="number" href="#L86">86</a><code class="code">        Assert.True(network.TryCommit(edit.Plan!));</code></span>
+<span class="line" id="L87"><a class="number" href="#L87">87</a><code class="code">        RoadSnapshot edited = network.Snapshot;</code></span>
+<span class="line" id="L88"><a class="number" href="#L88">88</a><code class="code">        Assert.Equal(4, network.History.UndoCount);</code></span>
+<span class="line" id="L89"><a class="number" href="#L89">89</a><code class="code">        Assert.DoesNotContain(edited.Nodes, node =&gt; node.Position == new RoadPoint(50, 50));</code></span>
+<span class="line" id="L90"><a class="number" href="#L90">90</a><code class="code">        Assert.True(network.TryCommit(network.PlanUndo().Plan!));</code></span>
+<span class="line" id="L91"><a class="number" href="#L91">91</a><code class="code"></code></span>
+<span class="line" id="L92"><a class="number" href="#L92">92</a><code class="code">        AssertRestoredContent(loop, network.Snapshot);</code></span>
+<span class="line" id="L93"><a class="number" href="#L93">93</a><code class="code">        RoadNode seam = Assert.Single(network.Snapshot.Nodes);</code></span>
+<span class="line" id="L94"><a class="number" href="#L94">94</a><code class="code">        Assert.Equal(new RoadPoint(50, 50), seam.Position);</code></span>
+<span class="line" id="L95"><a class="number" href="#L95">95</a><code class="code">        Assert.Equal(2, RoadJunctionQuery.Read(network.Snapshot, seam.Id)!.Incidences.Count);</code></span>
+<span class="line" id="L96"><a class="number" href="#L96">96</a><code class="code">        Assert.NotNull(RoadPresentation.Prepare(network.Snapshot.Nodes, network.Snapshot.Edges));</code></span>
+<span class="line" id="L97"><a class="number" href="#L97">97</a><code class="code">        Assert.Null(RoadSpanQuery.Pick(network.Snapshot, new(wrap.Source, wrap.Edge, 0.01)));</code></span>
+<span class="line" id="L98"><a class="number" href="#L98">98</a><code class="code">        Assert.True(network.TryCommit(network.PlanRedo().Plan!));</code></span>
+<span class="line" id="L99"><a class="number" href="#L99">99</a><code class="code">        Assert.Equal(Save(edited), Save(network.Snapshot));</code></span>
+<span class="line" id="L100"><a class="number" href="#L100">100</a><code class="code">        AssertRoundTrip(network.Snapshot);</code></span>
+<span class="line" id="L101"><a class="number" href="#L101">101</a><code class="code">    }</code></span>
+<span class="line" id="L102"><a class="number" href="#L102">102</a><code class="code"></code></span>
+<span class="line" id="L103"><a class="number" href="#L103">103</a><code class="code">    [Theory]</code></span>
+<span class="line" id="L104"><a class="number" href="#L104">104</a><code class="code">    [InlineData(false)]</code></span>
+<span class="line" id="L105"><a class="number" href="#L105">105</a><code class="code">    [InlineData(true)]</code></span>
+<span class="line" id="L106"><a class="number" href="#L106">106</a><code class="code">    public void BatchEditsAcrossJunctionSidesUndoAsOneRecordAndRestoreUnselectedBranches(bool changeProfile)</code></span>
+<span class="line" id="L107"><a class="number" href="#L107">107</a><code class="code">    {</code></span>
+<span class="line" id="L108"><a class="number" href="#L108">108</a><code class="code">        var network = new RoadNetwork();</code></span>
+<span class="line" id="L109"><a class="number" href="#L109">109</a><code class="code">        Build(network, new(0, 0), new(1000, 0));</code></span>
+<span class="line" id="L110"><a class="number" href="#L110">110</a><code class="code">        Build(network, new(500, -100), new(500, 100));</code></span>
+<span class="line" id="L111"><a class="number" href="#L111">111</a><code class="code">        using (var saved = new MemoryStream(Save(network.Snapshot)))</code></span>
+<span class="line" id="L112"><a class="number" href="#L112">112</a><code class="code">            Assert.True(network.TryCommit(network.PlanLoad(RoadCodec.Read(saved))));</code></span>
+<span class="line" id="L113"><a class="number" href="#L113">113</a><code class="code">        RoadSnapshot before = network.Snapshot;</code></span>
+<span class="line" id="L114"><a class="number" href="#L114">114</a><code class="code">        RoadEdge left = Assert.Single(before.Edges, edge =&gt; edge.Points.Min(point =&gt; point.X) == 0);</code></span>
+<span class="line" id="L115"><a class="number" href="#L115">115</a><code class="code">        RoadEdge right = Assert.Single(before.Edges, edge =&gt; edge.Points.Max(point =&gt; point.X) == 1000);</code></span>
+<span class="line" id="L116"><a class="number" href="#L116">116</a><code class="code">        RoadGridSpan a = Pick(before, left, 0.3), b = Pick(before, right, 0.7);</code></span>
+<span class="line" id="L117"><a class="number" href="#L117">117</a><code class="code"></code></span>
+<span class="line" id="L118"><a class="number" href="#L118">118</a><code class="code">        RoadEditResult edit = changeProfile</code></span>
+<span class="line" id="L119"><a class="number" href="#L119">119</a><code class="code">            ? network.PlanChangeProfile(new[] { a, b, a }, RoadProfileId.Highway)</code></span>
+<span class="line" id="L120"><a class="number" href="#L120">120</a><code class="code">            : network.PlanRemove(new[] { a, b, a });</code></span>
+<span class="line" id="L121"><a class="number" href="#L121">121</a><code class="code">        Assert.True(network.TryCommit(edit.Plan!));</code></span>
+<span class="line" id="L122"><a class="number" href="#L122">122</a><code class="code">        RoadSnapshot edited = network.Snapshot;</code></span>
+<span class="line" id="L123"><a class="number" href="#L123">123</a><code class="code">        Assert.Equal(1, network.History.UndoCount);</code></span>
+<span class="line" id="L124"><a class="number" href="#L124">124</a><code class="code">        Assert.Equal(changeProfile ? 1200 : 1000, edited.Edges.Sum(edge =&gt; edge.Length));</code></span>
+<span class="line" id="L125"><a class="number" href="#L125">125</a><code class="code">        Assert.True(network.TryCommit(network.PlanUndo().Plan!));</code></span>
+<span class="line" id="L126"><a class="number" href="#L126">126</a><code class="code"></code></span>
+<span class="line" id="L127"><a class="number" href="#L127">127</a><code class="code">        AssertRestoredContent(before, network.Snapshot);</code></span>
+<span class="line" id="L128"><a class="number" href="#L128">128</a><code class="code">        Assert.Equal(0, network.History.UndoCount);</code></span>
+<span class="line" id="L129"><a class="number" href="#L129">129</a><code class="code">        Assert.Equal(1, network.History.RedoCount);</code></span>
+<span class="line" id="L130"><a class="number" href="#L130">130</a><code class="code">        RoadNode junction = Assert.Single(network.Snapshot.Nodes, node =&gt; node.Position == new RoadPoint(500, 0));</code></span>
+<span class="line" id="L131"><a class="number" href="#L131">131</a><code class="code">        Assert.Equal(4, RoadJunctionQuery.Read(network.Snapshot, junction.Id)!.Incidences.Count);</code></span>
+<span class="line" id="L132"><a class="number" href="#L132">132</a><code class="code">        Assert.True(network.TryCommit(network.PlanRedo().Plan!));</code></span>
+<span class="line" id="L133"><a class="number" href="#L133">133</a><code class="code">        Assert.Equal(Save(edited), Save(network.Snapshot));</code></span>
+<span class="line" id="L134"><a class="number" href="#L134">134</a><code class="code">        Assert.Equal(1, network.History.RetainedCount);</code></span>
+<span class="line" id="L135"><a class="number" href="#L135">135</a><code class="code">        AssertRoundTrip(network.Snapshot);</code></span>
+<span class="line" id="L136"><a class="number" href="#L136">136</a><code class="code">    }</code></span>
+<span class="line" id="L137"><a class="number" href="#L137">137</a><code class="code"></code></span>
+<span class="line" id="L138"><a class="number" href="#L138">138</a><code class="code">    [Fact]</code></span>
+<span class="line" id="L139"><a class="number" href="#L139">139</a><code class="code">    public void UndoCannotMakeAnExhaustedContentRevisionAvailableForAnotherBranch()</code></span>
+<span class="line" id="L140"><a class="number" href="#L140">140</a><code class="code">    {</code></span>
+<span class="line" id="L141"><a class="number" href="#L141">141</a><code class="code">        var network = new RoadNetwork();</code></span>
+<span class="line" id="L142"><a class="number" href="#L142">142</a><code class="code">        JsonObject document = JsonNode.Parse(Save(network.Snapshot))!.AsObject();</code></span>
+<span class="line" id="L143"><a class="number" href="#L143">143</a><code class="code">        document[&quot;contentRevision&quot;] = long.MaxValue - 2;</code></span>
+<span class="line" id="L144"><a class="number" href="#L144">144</a><code class="code">        using (var saved = new MemoryStream(Encoding.UTF8.GetBytes(document.ToJsonString())))</code></span>
+<span class="line" id="L145"><a class="number" href="#L145">145</a><code class="code">            Assert.True(network.TryCommit(network.PlanLoad(RoadCodec.Read(saved))));</code></span>
+<span class="line" id="L146"><a class="number" href="#L146">146</a><code class="code">        Build(network, new(0, 0), new(100, 0));</code></span>
+<span class="line" id="L147"><a class="number" href="#L147">147</a><code class="code">        Assert.Equal(long.MaxValue - 1, network.Snapshot.Token.ContentRevision);</code></span>
+<span class="line" id="L148"><a class="number" href="#L148">148</a><code class="code">        Assert.True(network.TryCommit(network.PlanUndo().Plan!));</code></span>
+<span class="line" id="L149"><a class="number" href="#L149">149</a><code class="code">        RoadSnapshot before = network.Snapshot;</code></span>
+<span class="line" id="L150"><a class="number" href="#L150">150</a><code class="code">        RoadEditHistory history = network.History;</code></span>
+<span class="line" id="L151"><a class="number" href="#L151">151</a><code class="code"></code></span>
+<span class="line" id="L152"><a class="number" href="#L152">152</a><code class="code">        RoadBuildResult attempt = network.PlanBuild(new(before.Token, new(0, 100), new(100, 100), RoadProfileId.Street));</code></span>
+<span class="line" id="L153"><a class="number" href="#L153">153</a><code class="code"></code></span>
+<span class="line" id="L154"><a class="number" href="#L154">154</a><code class="code">        Assert.Equal(RoadBuildStatus.Rejected, attempt.Status);</code></span>
+<span class="line" id="L155"><a class="number" href="#L155">155</a><code class="code">        Assert.Same(before, network.Snapshot);</code></span>
+<span class="line" id="L156"><a class="number" href="#L156">156</a><code class="code">        Assert.Same(history, network.History);</code></span>
+<span class="line" id="L157"><a class="number" href="#L157">157</a><code class="code">        Assert.Equal(1, network.History.RedoCount);</code></span>
+<span class="line" id="L158"><a class="number" href="#L158">158</a><code class="code">        Assert.True(network.TryCommit(network.PlanRedo().Plan!));</code></span>
+<span class="line" id="L159"><a class="number" href="#L159">159</a><code class="code">    }</code></span>
+<span class="line" id="L160"><a class="number" href="#L160">160</a><code class="code"></code></span>
+<span class="line" id="L161"><a class="number" href="#L161">161</a><code class="code">    [Fact]</code></span>
+<span class="line" id="L162"><a class="number" href="#L162">162</a><code class="code">    public void EditingAfterUndoDiscardsRedoAndAllocatesFreshRevisionAndIdentities()</code></span>
+<span class="line" id="L163"><a class="number" href="#L163">163</a><code class="code">    {</code></span>
+<span class="line" id="L164"><a class="number" href="#L164">164</a><code class="code">        var network = new RoadNetwork();</code></span>
+<span class="line" id="L165"><a class="number" href="#L165">165</a><code class="code">        Build(network, new(0, 0), new(100, 0));</code></span>
+<span class="line" id="L166"><a class="number" href="#L166">166</a><code class="code">        Build(network, new(0, 100), new(100, 100));</code></span>
+<span class="line" id="L167"><a class="number" href="#L167">167</a><code class="code">        RoadSnapshot abandoned = network.Snapshot;</code></span>
+<span class="line" id="L168"><a class="number" href="#L168">168</a><code class="code">        Assert.True(network.TryCommit(network.PlanUndo().Plan!));</code></span>
+<span class="line" id="L169"><a class="number" href="#L169">169</a><code class="code">        RoadPlan staleRedo = network.PlanRedo().Plan!;</code></span>
+<span class="line" id="L170"><a class="number" href="#L170">170</a><code class="code"></code></span>
+<span class="line" id="L171"><a class="number" href="#L171">171</a><code class="code">        RoadBuildResult fork = network.PlanBuild(new(network.Snapshot.Token, new(0, 200), new(100, 200), RoadProfileId.Street));</code></span>
+<span class="line" id="L172"><a class="number" href="#L172">172</a><code class="code">        Assert.Equal(RoadBuildStatus.Ready, fork.Status);</code></span>
+<span class="line" id="L173"><a class="number" href="#L173">173</a><code class="code">        Assert.Equal(1, network.History.RedoCount);</code></span>
+<span class="line" id="L174"><a class="number" href="#L174">174</a><code class="code">        Assert.True(network.TryCommit(fork.Plan!));</code></span>
+<span class="line" id="L175"><a class="number" href="#L175">175</a><code class="code"></code></span>
+<span class="line" id="L176"><a class="number" href="#L176">176</a><code class="code">        Assert.Equal(abandoned.Token.ContentRevision + 1, network.Snapshot.Token.ContentRevision);</code></span>
+<span class="line" id="L177"><a class="number" href="#L177">177</a><code class="code">        RoadEdge branch = Assert.Single(network.Snapshot.Edges, edge =&gt; edge.Points[0].Y == 200);</code></span>
+<span class="line" id="L178"><a class="number" href="#L178">178</a><code class="code">        Assert.True(branch.Id.Value &gt;= abandoned.NextEdgeId);</code></span>
+<span class="line" id="L179"><a class="number" href="#L179">179</a><code class="code">        Assert.True(branch.Start.Value &gt;= abandoned.NextNodeId);</code></span>
+<span class="line" id="L180"><a class="number" href="#L180">180</a><code class="code">        Assert.True(branch.End.Value &gt;= abandoned.NextNodeId);</code></span>
+<span class="line" id="L181"><a class="number" href="#L181">181</a><code class="code">        Assert.Equal(2, network.History.RetainedCount);</code></span>
+<span class="line" id="L182"><a class="number" href="#L182">182</a><code class="code">        Assert.Equal(2, network.History.UndoCount);</code></span>
+<span class="line" id="L183"><a class="number" href="#L183">183</a><code class="code">        Assert.Equal(0, network.History.RedoCount);</code></span>
+<span class="line" id="L184"><a class="number" href="#L184">184</a><code class="code">        Assert.False(network.TryCommit(staleRedo));</code></span>
+<span class="line" id="L185"><a class="number" href="#L185">185</a><code class="code">        Assert.Equal(RoadEditStatus.NoChange, network.PlanRedo().Status);</code></span>
+<span class="line" id="L186"><a class="number" href="#L186">186</a><code class="code">        Assert.True(network.TryCommit(network.PlanUndo().Plan!));</code></span>
+<span class="line" id="L187"><a class="number" href="#L187">187</a><code class="code">        Assert.Single(network.Snapshot.Edges);</code></span>
+<span class="line" id="L188"><a class="number" href="#L188">188</a><code class="code">        Assert.True(network.TryCommit(network.PlanRedo().Plan!));</code></span>
+<span class="line" id="L189"><a class="number" href="#L189">189</a><code class="code">        Assert.Contains(network.Snapshot.Edges, edge =&gt; edge.Id == branch.Id);</code></span>
+<span class="line" id="L190"><a class="number" href="#L190">190</a><code class="code">        Assert.DoesNotContain(network.Snapshot.Edges, edge =&gt; edge.Points[0].Y == 100);</code></span>
+<span class="line" id="L191"><a class="number" href="#L191">191</a><code class="code">    }</code></span>
+<span class="line" id="L192"><a class="number" href="#L192">192</a><code class="code"></code></span>
+<span class="line" id="L193"><a class="number" href="#L193">193</a><code class="code">    [Fact]</code></span>
+<span class="line" id="L194"><a class="number" href="#L194">194</a><code class="code">    public void FailedCancelledUncommittedAndNoChangeOperationsLeaveBothHistoryDirectionsUntouched()</code></span>
+<span class="line" id="L195"><a class="number" href="#L195">195</a><code class="code">    {</code></span>
+<span class="line" id="L196"><a class="number" href="#L196">196</a><code class="code">        var network = new RoadNetwork();</code></span>
+<span class="line" id="L197"><a class="number" href="#L197">197</a><code class="code">        Build(network, new(0, 0), new(100, 0));</code></span>
+<span class="line" id="L198"><a class="number" href="#L198">198</a><code class="code">        Build(network, new(0, 100), new(100, 100));</code></span>
+<span class="line" id="L199"><a class="number" href="#L199">199</a><code class="code">        Assert.True(network.TryCommit(network.PlanUndo().Plan!));</code></span>
+<span class="line" id="L200"><a class="number" href="#L200">200</a><code class="code">        RoadSnapshot before = network.Snapshot;</code></span>
+<span class="line" id="L201"><a class="number" href="#L201">201</a><code class="code">        RoadEditHistory history = network.History;</code></span>
+<span class="line" id="L202"><a class="number" href="#L202">202</a><code class="code">        RoadGridSpan span = Pick(before, Assert.Single(before.Edges));</code></span>
+<span class="line" id="L203"><a class="number" href="#L203">203</a><code class="code">        var cancellation = new CancellationToken(true);</code></span>
+<span class="line" id="L204"><a class="number" href="#L204">204</a><code class="code"></code></span>
+<span class="line" id="L205"><a class="number" href="#L205">205</a><code class="code">        Assert.Equal(RoadEditStatus.NoChange, network.PlanChangeProfile(span, RoadProfileId.Street).Status);</code></span>
+<span class="line" id="L206"><a class="number" href="#L206">206</a><code class="code">        Assert.Equal(RoadEditStatus.NoChange, network.PlanRemove(Array.Empty&lt;RoadGridSpan&gt;()).Status);</code></span>
+<span class="line" id="L207"><a class="number" href="#L207">207</a><code class="code">        Assert.Equal(RoadBuildStatus.NoChange, network.PlanBuild(new(before.Token, new(0, 0), new(0, 0), RoadProfileId.Street)).Status);</code></span>
+<span class="line" id="L208"><a class="number" href="#L208">208</a><code class="code">        Assert.Equal(RoadBuildStatus.Rejected, network.PlanBuild(new(before.Token, new(0, 0), new(100, 0), RoadProfileId.Street)).Status);</code></span>
+<span class="line" id="L209"><a class="number" href="#L209">209</a><code class="code">        Assert.Throws&lt;OperationCanceledException&gt;(() =&gt; network.PlanUndo(cancellation));</code></span>
+<span class="line" id="L210"><a class="number" href="#L210">210</a><code class="code">        Assert.Throws&lt;OperationCanceledException&gt;(() =&gt; network.PlanRedo(cancellation));</code></span>
+<span class="line" id="L211"><a class="number" href="#L211">211</a><code class="code">        Assert.Throws&lt;OperationCanceledException&gt;(() =&gt; network.PlanRemove(span, cancellation));</code></span>
+<span class="line" id="L212"><a class="number" href="#L212">212</a><code class="code">        Assert.Throws&lt;OperationCanceledException&gt;(() =&gt; network.PlanBuild(new(before.Token, new(0, 200), new(100, 200), RoadProfileId.Street), cancellation));</code></span>
+<span class="line" id="L213"><a class="number" href="#L213">213</a><code class="code">        Assert.Equal(RoadEditStatus.Ready, network.PlanUndo().Status);</code></span>
+<span class="line" id="L214"><a class="number" href="#L214">214</a><code class="code">        Assert.Equal(RoadEditStatus.Ready, network.PlanRedo().Status);</code></span>
+<span class="line" id="L215"><a class="number" href="#L215">215</a><code class="code">        Assert.Equal(RoadEditStatus.Ready, network.PlanRemove(span).Status);</code></span>
+<span class="line" id="L216"><a class="number" href="#L216">216</a><code class="code"></code></span>
+<span class="line" id="L217"><a class="number" href="#L217">217</a><code class="code">        Assert.Same(before, network.Snapshot);</code></span>
+<span class="line" id="L218"><a class="number" href="#L218">218</a><code class="code">        Assert.Same(history, network.History);</code></span>
+<span class="line" id="L219"><a class="number" href="#L219">219</a><code class="code">        Assert.Equal(1, network.History.UndoCount);</code></span>
+<span class="line" id="L220"><a class="number" href="#L220">220</a><code class="code">        Assert.Equal(1, network.History.RedoCount);</code></span>
+<span class="line" id="L221"><a class="number" href="#L221">221</a><code class="code">    }</code></span>
+<span class="line" id="L222"><a class="number" href="#L222">222</a><code class="code"></code></span>
+<span class="line" id="L223"><a class="number" href="#L223">223</a><code class="code">    [Fact]</code></span>
+<span class="line" id="L224"><a class="number" href="#L224">224</a><code class="code">    public void PreparedHistoryPlansCannotCommitToAnotherNetworkOrAfterAnotherPublication()</code></span>
+<span class="line" id="L225"><a class="number" href="#L225">225</a><code class="code">    {</code></span>
+<span class="line" id="L226"><a class="number" href="#L226">226</a><code class="code">        var network = new RoadNetwork();</code></span>
+<span class="line" id="L227"><a class="number" href="#L227">227</a><code class="code">        Build(network, new(0, 0), new(100, 0));</code></span>
+<span class="line" id="L228"><a class="number" href="#L228">228</a><code class="code">        RoadPlan undo = network.PlanUndo().Plan!;</code></span>
+<span class="line" id="L229"><a class="number" href="#L229">229</a><code class="code">        var foreign = new RoadNetwork();</code></span>
+<span class="line" id="L230"><a class="number" href="#L230">230</a><code class="code">        Assert.False(foreign.TryCommit(undo));</code></span>
+<span class="line" id="L231"><a class="number" href="#L231">231</a><code class="code">        Assert.Equal(0, foreign.History.RetainedCount);</code></span>
+<span class="line" id="L232"><a class="number" href="#L232">232</a><code class="code">        RoadPlan competingUndo = network.PlanUndo().Plan!;</code></span>
+<span class="line" id="L233"><a class="number" href="#L233">233</a><code class="code">        Assert.True(network.TryCommit(undo));</code></span>
+<span class="line" id="L234"><a class="number" href="#L234">234</a><code class="code">        Assert.False(network.TryCommit(undo));</code></span>
+<span class="line" id="L235"><a class="number" href="#L235">235</a><code class="code">        Assert.False(network.TryCommit(competingUndo));</code></span>
+<span class="line" id="L236"><a class="number" href="#L236">236</a><code class="code">        Assert.True(network.TryCommit(network.PlanRedo().Plan!));</code></span>
+<span class="line" id="L237"><a class="number" href="#L237">237</a><code class="code">        Assert.False(network.TryCommit(undo));</code></span>
+<span class="line" id="L238"><a class="number" href="#L238">238</a><code class="code">        Assert.False(network.TryCommit(competingUndo));</code></span>
+<span class="line" id="L239"><a class="number" href="#L239">239</a><code class="code">        Assert.Equal(1, network.History.UndoCount);</code></span>
+<span class="line" id="L240"><a class="number" href="#L240">240</a><code class="code">    }</code></span>
+<span class="line" id="L241"><a class="number" href="#L241">241</a><code class="code"></code></span>
+<span class="line" id="L242"><a class="number" href="#L242">242</a><code class="code">    [Theory]</code></span>
+<span class="line" id="L243"><a class="number" href="#L243">243</a><code class="code">    [InlineData(64)]</code></span>
+<span class="line" id="L244"><a class="number" href="#L244">244</a><code class="code">    [InlineData(65)]</code></span>
+<span class="line" id="L245"><a class="number" href="#L245">245</a><code class="code">    public void OldestEffectiveEditsAreEvictedWhileUndoAndRedoShareSixtyFourRecords(int count)</code></span>
+<span class="line" id="L246"><a class="number" href="#L246">246</a><code class="code">    {</code></span>
+<span class="line" id="L247"><a class="number" href="#L247">247</a><code class="code">        var network = new RoadNetwork();</code></span>
+<span class="line" id="L248"><a class="number" href="#L248">248</a><code class="code">        for (int i = 0; i &lt; count; i++) Build(network, new(0, -3200 + i * 100), new(100, -3200 + i * 100));</code></span>
+<span class="line" id="L249"><a class="number" href="#L249">249</a><code class="code">        RoadSnapshot built = network.Snapshot;</code></span>
+<span class="line" id="L250"><a class="number" href="#L250">250</a><code class="code">        RoadEditHistory completeHistory = network.History;</code></span>
+<span class="line" id="L251"><a class="number" href="#L251">251</a><code class="code">        long bytes = completeHistory.EstimatedBytes;</code></span>
+<span class="line" id="L252"><a class="number" href="#L252">252</a><code class="code">        Assert.Equal(64, completeHistory.RetainedCount);</code></span>
+<span class="line" id="L253"><a class="number" href="#L253">253</a><code class="code">        Assert.True(bytes &gt; 0);</code></span>
+<span class="line" id="L254"><a class="number" href="#L254">254</a><code class="code"></code></span>
+<span class="line" id="L255"><a class="number" href="#L255">255</a><code class="code">        for (int i = 0; i &lt; 64; i++)</code></span>
+<span class="line" id="L256"><a class="number" href="#L256">256</a><code class="code">        {</code></span>
+<span class="line" id="L257"><a class="number" href="#L257">257</a><code class="code">            Assert.True(network.TryCommit(network.PlanUndo().Plan!));</code></span>
+<span class="line" id="L258"><a class="number" href="#L258">258</a><code class="code">            Assert.Equal(63 - i, network.History.UndoCount);</code></span>
+<span class="line" id="L259"><a class="number" href="#L259">259</a><code class="code">            Assert.Equal(i + 1, network.History.RedoCount);</code></span>
+<span class="line" id="L260"><a class="number" href="#L260">260</a><code class="code">            Assert.Equal(64, network.History.RetainedCount);</code></span>
+<span class="line" id="L261"><a class="number" href="#L261">261</a><code class="code">            Assert.Equal(bytes, network.History.EstimatedBytes);</code></span>
+<span class="line" id="L262"><a class="number" href="#L262">262</a><code class="code">        }</code></span>
+<span class="line" id="L263"><a class="number" href="#L263">263</a><code class="code">        Assert.Equal(count - 64, network.Snapshot.EdgeCount);</code></span>
+<span class="line" id="L264"><a class="number" href="#L264">264</a><code class="code">        if (count == 65)</code></span>
+<span class="line" id="L265"><a class="number" href="#L265">265</a><code class="code">            Assert.Equal(new[] { new RoadPoint(0, -3200), new RoadPoint(100, -3200) }, Assert.Single(network.Snapshot.Edges).Points);</code></span>
+<span class="line" id="L266"><a class="number" href="#L266">266</a><code class="code">        RoadSnapshot oldest = network.Snapshot;</code></span>
+<span class="line" id="L267"><a class="number" href="#L267">267</a><code class="code">        Assert.Equal(RoadEditStatus.NoChange, network.PlanUndo().Status);</code></span>
+<span class="line" id="L268"><a class="number" href="#L268">268</a><code class="code">        Assert.Same(oldest, network.Snapshot);</code></span>
+<span class="line" id="L269"><a class="number" href="#L269">269</a><code class="code">        Assert.Equal(64, completeHistory.UndoCount);</code></span>
+<span class="line" id="L270"><a class="number" href="#L270">270</a><code class="code"></code></span>
+<span class="line" id="L271"><a class="number" href="#L271">271</a><code class="code">        for (int i = 0; i &lt; 64; i++) Assert.True(network.TryCommit(network.PlanRedo().Plan!));</code></span>
+<span class="line" id="L272"><a class="number" href="#L272">272</a><code class="code">        Assert.Equal(Save(built), Save(network.Snapshot));</code></span>
+<span class="line" id="L273"><a class="number" href="#L273">273</a><code class="code">        Assert.Equal(64, network.History.UndoCount);</code></span>
+<span class="line" id="L274"><a class="number" href="#L274">274</a><code class="code">        Assert.Equal(0, network.History.RedoCount);</code></span>
+<span class="line" id="L275"><a class="number" href="#L275">275</a><code class="code">        Assert.Equal(RoadEditStatus.NoChange, network.PlanRedo().Status);</code></span>
+<span class="line" id="L276"><a class="number" href="#L276">276</a><code class="code">    }</code></span>
+<span class="line" id="L277"><a class="number" href="#L277">277</a><code class="code"></code></span>
+<span class="line" id="L278"><a class="number" href="#L278">278</a><code class="code">    [Fact]</code></span>
+<span class="line" id="L279"><a class="number" href="#L279">279</a><code class="code">    public void CompletedBuildCanUndoAndRedoWithoutReusingVersionsOrIdentityWatermarks()</code></span>
+<span class="line" id="L280"><a class="number" href="#L280">280</a><code class="code">    {</code></span>
+<span class="line" id="L281"><a class="number" href="#L281">281</a><code class="code">        var network = new RoadNetwork();</code></span>
+<span class="line" id="L282"><a class="number" href="#L282">282</a><code class="code">        RoadSnapshot empty = network.Snapshot;</code></span>
+<span class="line" id="L283"><a class="number" href="#L283">283</a><code class="code">        RoadBuildResult build = network.PlanBuild(new(empty.Token, new(0, 0), new(100, 0), RoadProfileId.Street));</code></span>
+<span class="line" id="L284"><a class="number" href="#L284">284</a><code class="code">        Assert.True(network.TryCommit(build.Plan!));</code></span>
+<span class="line" id="L285"><a class="number" href="#L285">285</a><code class="code">        RoadSnapshot built = network.Snapshot;</code></span>
+<span class="line" id="L286"><a class="number" href="#L286">286</a><code class="code">        Assert.Equal(1, network.History.UndoCount);</code></span>
+<span class="line" id="L287"><a class="number" href="#L287">287</a><code class="code">        Assert.Equal(0, network.History.RedoCount);</code></span>
+<span class="line" id="L288"><a class="number" href="#L288">288</a><code class="code">        var location = new RoadLocation(built.Token, Assert.Single(built.Edges).Id, 0.5);</code></span>
+<span class="line" id="L289"><a class="number" href="#L289">289</a><code class="code"></code></span>
+<span class="line" id="L290"><a class="number" href="#L290">290</a><code class="code">        RoadEditResult undo = network.PlanUndo();</code></span>
+<span class="line" id="L291"><a class="number" href="#L291">291</a><code class="code">        Assert.Equal(RoadEditStatus.Ready, undo.Status);</code></span>
+<span class="line" id="L292"><a class="number" href="#L292">292</a><code class="code">        Assert.Same(built, network.Snapshot);</code></span>
+<span class="line" id="L293"><a class="number" href="#L293">293</a><code class="code">        Assert.Equal(1, network.History.UndoCount);</code></span>
+<span class="line" id="L294"><a class="number" href="#L294">294</a><code class="code">        Assert.True(network.TryCommit(undo.Plan!));</code></span>
+<span class="line" id="L295"><a class="number" href="#L295">295</a><code class="code">        Assert.Empty(network.Snapshot.Edges);</code></span>
+<span class="line" id="L296"><a class="number" href="#L296">296</a><code class="code">        Assert.Equal(empty.Token.ContentRevision, network.Snapshot.Token.ContentRevision);</code></span>
+<span class="line" id="L297"><a class="number" href="#L297">297</a><code class="code">        Assert.Equal(built.Token.ChangeSequence + 1, network.Snapshot.Token.ChangeSequence);</code></span>
+<span class="line" id="L298"><a class="number" href="#L298">298</a><code class="code">        Assert.Equal(built.NextNodeId, network.Snapshot.NextNodeId);</code></span>
+<span class="line" id="L299"><a class="number" href="#L299">299</a><code class="code">        Assert.Equal(built.NextEdgeId, network.Snapshot.NextEdgeId);</code></span>
+<span class="line" id="L300"><a class="number" href="#L300">300</a><code class="code">        Assert.Equal(0, network.History.UndoCount);</code></span>
+<span class="line" id="L301"><a class="number" href="#L301">301</a><code class="code">        Assert.Equal(1, network.History.RedoCount);</code></span>
+<span class="line" id="L302"><a class="number" href="#L302">302</a><code class="code">        Assert.Null(network.Snapshot.Resolve(location));</code></span>
+<span class="line" id="L303"><a class="number" href="#L303">303</a><code class="code"></code></span>
+<span class="line" id="L304"><a class="number" href="#L304">304</a><code class="code">        Assert.True(network.TryCommit(network.PlanRedo().Plan!));</code></span>
+<span class="line" id="L305"><a class="number" href="#L305">305</a><code class="code">        RoadSnapshot redone = network.Snapshot;</code></span>
+<span class="line" id="L306"><a class="number" href="#L306">306</a><code class="code">        Assert.Equal(built.Nodes, redone.Nodes);</code></span>
+<span class="line" id="L307"><a class="number" href="#L307">307</a><code class="code">        Assert.Equal(Assert.Single(built.Edges).Id, Assert.Single(redone.Edges).Id);</code></span>
+<span class="line" id="L308"><a class="number" href="#L308">308</a><code class="code">        Assert.Equal(Assert.Single(built.Edges).Points, Assert.Single(redone.Edges).Points);</code></span>
+<span class="line" id="L309"><a class="number" href="#L309">309</a><code class="code">        Assert.Equal(built.Token.ContentRevision, redone.Token.ContentRevision);</code></span>
+<span class="line" id="L310"><a class="number" href="#L310">310</a><code class="code">        Assert.Equal(built.Token.ChangeSequence + 2, redone.Token.ChangeSequence);</code></span>
+<span class="line" id="L311"><a class="number" href="#L311">311</a><code class="code">        Assert.Equal(1, network.History.RetainedCount);</code></span>
+<span class="line" id="L312"><a class="number" href="#L312">312</a><code class="code">        Assert.Equal(1, network.History.UndoCount);</code></span>
+<span class="line" id="L313"><a class="number" href="#L313">313</a><code class="code">        Assert.Equal(0, network.History.RedoCount);</code></span>
+<span class="line" id="L314"><a class="number" href="#L314">314</a><code class="code">        Assert.Null(redone.Resolve(location));</code></span>
+<span class="line" id="L315"><a class="number" href="#L315">315</a><code class="code">    }</code></span>
+<span class="line" id="L316"><a class="number" href="#L316">316</a><code class="code"></code></span>
+<span class="line" id="L317"><a class="number" href="#L317">317</a><code class="code">    private static void Build(RoadNetwork network, RoadPoint start, RoadPoint end)</code></span>
+<span class="line" id="L318"><a class="number" href="#L318">318</a><code class="code">    {</code></span>
+<span class="line" id="L319"><a class="number" href="#L319">319</a><code class="code">        RoadBuildResult result = network.PlanBuild(new(network.Snapshot.Token, start, end, RoadProfileId.Street));</code></span>
+<span class="line" id="L320"><a class="number" href="#L320">320</a><code class="code">        Assert.Equal(RoadBuildStatus.Ready, result.Status);</code></span>
+<span class="line" id="L321"><a class="number" href="#L321">321</a><code class="code">        Assert.True(network.TryCommit(result.Plan!));</code></span>
+<span class="line" id="L322"><a class="number" href="#L322">322</a><code class="code">    }</code></span>
+<span class="line" id="L323"><a class="number" href="#L323">323</a><code class="code"></code></span>
+<span class="line" id="L324"><a class="number" href="#L324">324</a><code class="code">    private static RoadGridSpan Pick(RoadSnapshot snapshot, RoadEdge edge, double parameter = 0.5) =&gt;</code></span>
+<span class="line" id="L325"><a class="number" href="#L325">325</a><code class="code">        RoadSpanQuery.Pick(snapshot, new(snapshot.Token, edge.Id, parameter))!;</code></span>
+<span class="line" id="L326"><a class="number" href="#L326">326</a><code class="code"></code></span>
+<span class="line" id="L327"><a class="number" href="#L327">327</a><code class="code">    private static byte[] Save(RoadSnapshot snapshot)</code></span>
+<span class="line" id="L328"><a class="number" href="#L328">328</a><code class="code">    {</code></span>
+<span class="line" id="L329"><a class="number" href="#L329">329</a><code class="code">        using var stream = new MemoryStream();</code></span>
+<span class="line" id="L330"><a class="number" href="#L330">330</a><code class="code">        RoadCodec.Write(stream, snapshot);</code></span>
+<span class="line" id="L331"><a class="number" href="#L331">331</a><code class="code">        return stream.ToArray();</code></span>
+<span class="line" id="L332"><a class="number" href="#L332">332</a><code class="code">    }</code></span>
+<span class="line" id="L333"><a class="number" href="#L333">333</a><code class="code"></code></span>
+<span class="line" id="L334"><a class="number" href="#L334">334</a><code class="code">    private static void AssertRestoredContent(RoadSnapshot expected, RoadSnapshot actual)</code></span>
+<span class="line" id="L335"><a class="number" href="#L335">335</a><code class="code">    {</code></span>
+<span class="line" id="L336"><a class="number" href="#L336">336</a><code class="code">        Assert.Equal(expected.Map, actual.Map);</code></span>
+<span class="line" id="L337"><a class="number" href="#L337">337</a><code class="code">        Assert.Equal(expected.Token.ContentRevision, actual.Token.ContentRevision);</code></span>
+<span class="line" id="L338"><a class="number" href="#L338">338</a><code class="code">        Assert.Equal(expected.Nodes, actual.Nodes);</code></span>
+<span class="line" id="L339"><a class="number" href="#L339">339</a><code class="code">        Assert.Equal(expected.EdgeCount, actual.EdgeCount);</code></span>
+<span class="line" id="L340"><a class="number" href="#L340">340</a><code class="code">        foreach (RoadEdge edge in expected.Edges)</code></span>
+<span class="line" id="L341"><a class="number" href="#L341">341</a><code class="code">        {</code></span>
+<span class="line" id="L342"><a class="number" href="#L342">342</a><code class="code">            RoadEdge restored = Assert.Single(actual.Edges, candidate =&gt; candidate.Id == edge.Id);</code></span>
+<span class="line" id="L343"><a class="number" href="#L343">343</a><code class="code">            Assert.Equal(edge.Start, restored.Start);</code></span>
+<span class="line" id="L344"><a class="number" href="#L344">344</a><code class="code">            Assert.Equal(edge.End, restored.End);</code></span>
+<span class="line" id="L345"><a class="number" href="#L345">345</a><code class="code">            Assert.Equal(edge.Profile, restored.Profile);</code></span>
+<span class="line" id="L346"><a class="number" href="#L346">346</a><code class="code">            Assert.Equal(edge.Points, restored.Points);</code></span>
+<span class="line" id="L347"><a class="number" href="#L347">347</a><code class="code">        }</code></span>
+<span class="line" id="L348"><a class="number" href="#L348">348</a><code class="code">        Assert.True(actual.NextNodeId &gt;= expected.NextNodeId);</code></span>
+<span class="line" id="L349"><a class="number" href="#L349">349</a><code class="code">        Assert.True(actual.NextEdgeId &gt;= expected.NextEdgeId);</code></span>
+<span class="line" id="L350"><a class="number" href="#L350">350</a><code class="code">        AssertRoundTrip(actual);</code></span>
+<span class="line" id="L351"><a class="number" href="#L351">351</a><code class="code">    }</code></span>
+<span class="line" id="L352"><a class="number" href="#L352">352</a><code class="code"></code></span>
+<span class="line" id="L353"><a class="number" href="#L353">353</a><code class="code">    private static void AssertRoundTrip(RoadSnapshot snapshot)</code></span>
+<span class="line" id="L354"><a class="number" href="#L354">354</a><code class="code">    {</code></span>
+<span class="line" id="L355"><a class="number" href="#L355">355</a><code class="code">        byte[] bytes = Save(snapshot);</code></span>
+<span class="line" id="L356"><a class="number" href="#L356">356</a><code class="code">        using var stream = new MemoryStream(bytes);</code></span>
+<span class="line" id="L357"><a class="number" href="#L357">357</a><code class="code">        var restored = new RoadNetwork();</code></span>
+<span class="line" id="L358"><a class="number" href="#L358">358</a><code class="code">        Assert.True(restored.TryCommit(restored.PlanLoad(RoadCodec.Read(stream))));</code></span>
+<span class="line" id="L359"><a class="number" href="#L359">359</a><code class="code">        Assert.Equal(bytes, Save(restored.Snapshot));</code></span>
+<span class="line" id="L360"><a class="number" href="#L360">360</a><code class="code">        Assert.Equal(0, restored.History.RetainedCount);</code></span>
+<span class="line" id="L361"><a class="number" href="#L361">361</a><code class="code">    }</code></span>
+<span class="line" id="L362"><a class="number" href="#L362">362</a><code class="code">}</code></span></pre></main></html>

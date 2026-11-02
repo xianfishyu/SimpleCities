@@ -1,0 +1,98 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>tests/godot/RoadFrameAllocationProbe.cs · SimpleCities 源码</title><link rel="stylesheet" href="../../../assets/source.css"><header><a href="../../../index.html">← 文档首页</a><h1>tests/godot/RoadFrameAllocationProbe.cs</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">using Godot;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code">using System;</code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">using System.Collections.Generic;</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code">using System.Diagnostics;</code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code">using System.Linq;</code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">using System.Text.Json;</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code"></code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">/// &lt;summary&gt;Debug-only bounded frame sampler. No dictionary/token polling or per-frame managed containers.&lt;/summary&gt;</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">public partial class RoadFrameAllocationProbe : Node</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">{</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">    private readonly record struct Sample(double AtMs, double FrameMs, long MainBytes, int Gen0, int Gen1, int Gen2, bool Focused);</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">    private sealed record Window(string Name, int Start, int Count, double MeanMainBytes, int Gen0, int Gen1, int Gen2,</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">        double P95Ms, double P99Ms, double MaxMs, int OverBudget, int OverBudgetWithGc, int FocusedFrames);</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">    private readonly Sample[] _samples = new Sample[262144];</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code">    private readonly List&lt;Window&gt; _windows = new(8);</code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">    private bool _capturing;</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">    private bool _overflow;</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code">    private bool _wrongThread;</code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">    private int _count, _start, _thread, _lastGen0, _lastGen1, _lastGen2;</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code">    private long _lastTicks, _lastBytes, _origin;</code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">    private string _name = &quot;&quot;;</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code"></code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code">    public override void _Ready() =&gt; RenderingServer.FramePostDraw += Capture;</code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">    public override void _ExitTree() =&gt; RenderingServer.FramePostDraw -= Capture;</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code"></code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">    public void BeginWindow(string name)</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">    {</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code">        if (_capturing) throw new InvalidOperationException(&quot;A probe window is already active.&quot;);</code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">        _name = name;</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">        _start = _count;</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code">        _thread = System.Environment.CurrentManagedThreadId;</code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">        _origin = _lastTicks = Stopwatch.GetTimestamp();</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code">        _lastGen0 = GC.CollectionCount(0);</code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code">        _lastGen1 = GC.CollectionCount(1);</code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code">        _lastGen2 = GC.CollectionCount(2);</code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code">        _lastBytes = GC.GetAllocatedBytesForCurrentThread();</code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code">        _capturing = true;</code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code">    }</code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code"></code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code">    private void Capture()</code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code">    {</code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code">        if (!_capturing) return;</code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code">        if (_count == _samples.Length) { _overflow = true; _capturing = false; return; }</code></span>
+<span class="line" id="L44"><a class="number" href="#L44">44</a><code class="code">        long now = Stopwatch.GetTimestamp();</code></span>
+<span class="line" id="L45"><a class="number" href="#L45">45</a><code class="code">        long allocated = GC.GetAllocatedBytesForCurrentThread();</code></span>
+<span class="line" id="L46"><a class="number" href="#L46">46</a><code class="code">        int gen0 = GC.CollectionCount(0), gen1 = GC.CollectionCount(1), gen2 = GC.CollectionCount(2);</code></span>
+<span class="line" id="L47"><a class="number" href="#L47">47</a><code class="code">        _wrongThread |= System.Environment.CurrentManagedThreadId != _thread;</code></span>
+<span class="line" id="L48"><a class="number" href="#L48">48</a><code class="code">        _samples[_count++] = new Sample(Stopwatch.GetElapsedTime(_origin, now).TotalMilliseconds,</code></span>
+<span class="line" id="L49"><a class="number" href="#L49">49</a><code class="code">            Stopwatch.GetElapsedTime(_lastTicks, now).TotalMilliseconds, allocated - _lastBytes,</code></span>
+<span class="line" id="L50"><a class="number" href="#L50">50</a><code class="code">            gen0 - _lastGen0, gen1 - _lastGen1, gen2 - _lastGen2, DisplayServer.WindowIsFocused());</code></span>
+<span class="line" id="L51"><a class="number" href="#L51">51</a><code class="code">        _lastTicks = now;</code></span>
+<span class="line" id="L52"><a class="number" href="#L52">52</a><code class="code">        _lastBytes = allocated;</code></span>
+<span class="line" id="L53"><a class="number" href="#L53">53</a><code class="code">        _lastGen0 = gen0;</code></span>
+<span class="line" id="L54"><a class="number" href="#L54">54</a><code class="code">        _lastGen1 = gen1;</code></span>
+<span class="line" id="L55"><a class="number" href="#L55">55</a><code class="code">        _lastGen2 = gen2;</code></span>
+<span class="line" id="L56"><a class="number" href="#L56">56</a><code class="code">    }</code></span>
+<span class="line" id="L57"><a class="number" href="#L57">57</a><code class="code"></code></span>
+<span class="line" id="L58"><a class="number" href="#L58">58</a><code class="code">    public double EndWindow()</code></span>
+<span class="line" id="L59"><a class="number" href="#L59">59</a><code class="code">    {</code></span>
+<span class="line" id="L60"><a class="number" href="#L60">60</a><code class="code">        _capturing = false;</code></span>
+<span class="line" id="L61"><a class="number" href="#L61">61</a><code class="code">        int count = _count - _start;</code></span>
+<span class="line" id="L62"><a class="number" href="#L62">62</a><code class="code">        if (count == 0) throw new InvalidOperationException(&quot;No rendered frames were sampled.&quot;);</code></span>
+<span class="line" id="L63"><a class="number" href="#L63">63</a><code class="code">        long bytes = 0;</code></span>
+<span class="line" id="L64"><a class="number" href="#L64">64</a><code class="code">        int gen0 = 0, gen1 = 0, gen2 = 0, over = 0, overWithGc = 0, focused = 0;</code></span>
+<span class="line" id="L65"><a class="number" href="#L65">65</a><code class="code">        var times = new double[count];</code></span>
+<span class="line" id="L66"><a class="number" href="#L66">66</a><code class="code">        for (int i = 0; i &lt; count; i++)</code></span>
+<span class="line" id="L67"><a class="number" href="#L67">67</a><code class="code">        {</code></span>
+<span class="line" id="L68"><a class="number" href="#L68">68</a><code class="code">            Sample sample = _samples[_start + i];</code></span>
+<span class="line" id="L69"><a class="number" href="#L69">69</a><code class="code">            times[i] = sample.FrameMs;</code></span>
+<span class="line" id="L70"><a class="number" href="#L70">70</a><code class="code">            bytes += sample.MainBytes;</code></span>
+<span class="line" id="L71"><a class="number" href="#L71">71</a><code class="code">            gen0 += sample.Gen0; gen1 += sample.Gen1; gen2 += sample.Gen2;</code></span>
+<span class="line" id="L72"><a class="number" href="#L72">72</a><code class="code">            if (sample.Focused) focused++;</code></span>
+<span class="line" id="L73"><a class="number" href="#L73">73</a><code class="code">            if (sample.FrameMs &gt; 1000d / 144)</code></span>
+<span class="line" id="L74"><a class="number" href="#L74">74</a><code class="code">            {</code></span>
+<span class="line" id="L75"><a class="number" href="#L75">75</a><code class="code">                over++;</code></span>
+<span class="line" id="L76"><a class="number" href="#L76">76</a><code class="code">                if (sample.Gen0 + sample.Gen1 + sample.Gen2 &gt; 0) overWithGc++;</code></span>
+<span class="line" id="L77"><a class="number" href="#L77">77</a><code class="code">            }</code></span>
+<span class="line" id="L78"><a class="number" href="#L78">78</a><code class="code">        }</code></span>
+<span class="line" id="L79"><a class="number" href="#L79">79</a><code class="code">        Array.Sort(times);</code></span>
+<span class="line" id="L80"><a class="number" href="#L80">80</a><code class="code">        double mean = (double)bytes / count;</code></span>
+<span class="line" id="L81"><a class="number" href="#L81">81</a><code class="code">        _windows.Add(new Window(_name, _start, count, mean, gen0, gen1, gen2,</code></span>
+<span class="line" id="L82"><a class="number" href="#L82">82</a><code class="code">            times[(int)Math.Ceiling(count * .95) - 1], times[(int)Math.Ceiling(count * .99) - 1], times[^1], over, overWithGc, focused));</code></span>
+<span class="line" id="L83"><a class="number" href="#L83">83</a><code class="code">        return mean;</code></span>
+<span class="line" id="L84"><a class="number" href="#L84">84</a><code class="code">    }</code></span>
+<span class="line" id="L85"><a class="number" href="#L85">85</a><code class="code"></code></span>
+<span class="line" id="L86"><a class="number" href="#L86">86</a><code class="code">    public bool Save(string path)</code></span>
+<span class="line" id="L87"><a class="number" href="#L87">87</a><code class="code">    {</code></span>
+<span class="line" id="L88"><a class="number" href="#L88">88</a><code class="code">        if (_capturing) throw new InvalidOperationException(&quot;Stop sampling before writing its report.&quot;);</code></span>
+<span class="line" id="L89"><a class="number" href="#L89">89</a><code class="code">        bool valid = !_overflow &amp;&amp; !_wrongThread &amp;&amp; _windows.TrueForAll(window =&gt; window.FocusedFrames == window.Count);</code></span>
+<span class="line" id="L90"><a class="number" href="#L90">90</a><code class="code">        System.IO.File.WriteAllText(ProjectSettings.GlobalizePath(path), JsonSerializer.Serialize(new</code></span>
+<span class="line" id="L91"><a class="number" href="#L91">91</a><code class="code">        {</code></span>
+<span class="line" id="L92"><a class="number" href="#L92">92</a><code class="code">            valid, overflow = _overflow, wrongThread = _wrongThread, windows = _windows,</code></span>
+<span class="line" id="L93"><a class="number" href="#L93">93</a><code class="code">            samples = _samples.Take(_count).ToArray(),</code></span>
+<span class="line" id="L94"><a class="number" href="#L94">94</a><code class="code">            method = &quot;Main-thread allocated bytes and GC collection-count deltas between actual post-draw samples. Fixed preallocated sample buffer. GC coincidence is not proof for every long frame.&quot;,</code></span>
+<span class="line" id="L95"><a class="number" href="#L95">95</a><code class="code">        }));</code></span>
+<span class="line" id="L96"><a class="number" href="#L96">96</a><code class="code">        return valid;</code></span>
+<span class="line" id="L97"><a class="number" href="#L97">97</a><code class="code">    }</code></span>
+<span class="line" id="L98"><a class="number" href="#L98">98</a><code class="code">}</code></span></pre></main></html>

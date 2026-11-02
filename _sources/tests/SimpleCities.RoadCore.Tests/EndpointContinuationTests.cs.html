@@ -1,0 +1,162 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>tests/SimpleCities.RoadCore.Tests/EndpointContinuationTests.cs · SimpleCities 源码</title><link rel="stylesheet" href="../../../assets/source.css"><header><a href="../../../index.html">← 文档首页</a><h1>tests/SimpleCities.RoadCore.Tests/EndpointContinuationTests.cs</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">namespace SimpleCities.RoadCore.Tests;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code"></code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">public sealed class EndpointContinuationTests</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code">{</code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code">    [Theory]</code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">    [InlineData(25)]</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">    [InlineData(50)]</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">    [InlineData(100)]</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">    [InlineData(200)]</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">    public void StraightContinuation_RemovesTheOrdinaryConnectionPoint(int cellSize)</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">    {</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">        var network = new RoadNetwork(new MapDefinition(cellSize));</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">        Build(network, new(0, 0), new(cellSize, 0));</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">        Build(network, new(cellSize, 0), new(3 * cellSize, 0));</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code"></code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">        Assert.Equal(2, network.Snapshot.NodeCount);</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">        RoadEdge edge = Assert.Single(network.Snapshot.Edges);</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code">        Assert.Equal(new[] { new RoadPoint(0, 0), new RoadPoint(3 * cellSize, 0) }, edge.Points);</code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">        Assert.DoesNotContain(network.Snapshot.Nodes, node =&gt; node.Position == new RoadPoint(cellSize, 0));</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code">        Assert.Equal(3, network.Snapshot.Token.ContentRevision);</code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">        Assert.Equal(2, network.Snapshot.Token.ChangeSequence);</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">    }</code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code"></code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">    [Fact]</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code">    public void SameProfileTurn_IsOneCanonicalEdgeWithoutAForceCreatedStructuralNode()</code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">    {</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">        var network = new RoadNetwork();</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code">        Build(network, new(0, 0), new(300, 0));</code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">        Build(network, new(300, 0), new(300, 400));</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code"></code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code">        Assert.Equal(2, network.Snapshot.NodeCount);</code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">        RoadEdge edge = Assert.Single(network.Snapshot.Edges);</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code">        Assert.Equal(new[] { new RoadPoint(0, 0), new RoadPoint(300, 0), new RoadPoint(300, 400) }, edge.Points);</code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code">        Assert.Equal(RoadProfileId.Street, edge.Profile);</code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code">        Assert.DoesNotContain(network.Snapshot.Nodes, node =&gt; node.Position == new RoadPoint(300, 0));</code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code">    }</code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code"></code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code">    [Theory]</code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code">    [InlineData(false, &quot;street&quot;)]</code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code">    [InlineData(true, &quot;street&quot;)]</code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code">    [InlineData(false, &quot;dirt&quot;)]</code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code">    [InlineData(true, &quot;dirt&quot;)]</code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code">    public void DrawingTowardTheExistingEndpoint_ProducesTheSameCanonicalContent(bool atInitialStart, string profile)</code></span>
+<span class="line" id="L44"><a class="number" href="#L44">44</a><code class="code">    {</code></span>
+<span class="line" id="L45"><a class="number" href="#L45">45</a><code class="code">        var outward = new RoadNetwork();</code></span>
+<span class="line" id="L46"><a class="number" href="#L46">46</a><code class="code">        var inward = new RoadNetwork();</code></span>
+<span class="line" id="L47"><a class="number" href="#L47">47</a><code class="code">        Build(outward, new(0, 0), new(300, 0));</code></span>
+<span class="line" id="L48"><a class="number" href="#L48">48</a><code class="code">        Build(inward, new(0, 0), new(300, 0));</code></span>
+<span class="line" id="L49"><a class="number" href="#L49">49</a><code class="code">        RoadPoint existing = atInitialStart ? new(0, 0) : new(300, 0);</code></span>
+<span class="line" id="L50"><a class="number" href="#L50">50</a><code class="code">        RoadPoint free = atInitialStart ? new(-200, 200) : new(300, 200);</code></span>
+<span class="line" id="L51"><a class="number" href="#L51">51</a><code class="code"></code></span>
+<span class="line" id="L52"><a class="number" href="#L52">52</a><code class="code">        Build(outward, existing, free, new RoadProfileId(profile));</code></span>
+<span class="line" id="L53"><a class="number" href="#L53">53</a><code class="code">        Build(inward, free, existing, new RoadProfileId(profile));</code></span>
+<span class="line" id="L54"><a class="number" href="#L54">54</a><code class="code"></code></span>
+<span class="line" id="L55"><a class="number" href="#L55">55</a><code class="code">        Assert.Equal(Save(outward), Save(inward));</code></span>
+<span class="line" id="L56"><a class="number" href="#L56">56</a><code class="code">        Assert.Contains(inward.Snapshot.Nodes, node =&gt; node.Position == free);</code></span>
+<span class="line" id="L57"><a class="number" href="#L57">57</a><code class="code">        Assert.Equal(profile == &quot;street&quot; ? 1 : 2, inward.Snapshot.EdgeCount);</code></span>
+<span class="line" id="L58"><a class="number" href="#L58">58</a><code class="code">    }</code></span>
+<span class="line" id="L59"><a class="number" href="#L59">59</a><code class="code"></code></span>
+<span class="line" id="L60"><a class="number" href="#L60">60</a><code class="code">    [Fact]</code></span>
+<span class="line" id="L61"><a class="number" href="#L61">61</a><code class="code">    public void DifferentProfileConnection_KeepsTheStructuralBoundary()</code></span>
+<span class="line" id="L62"><a class="number" href="#L62">62</a><code class="code">    {</code></span>
+<span class="line" id="L63"><a class="number" href="#L63">63</a><code class="code">        var network = new RoadNetwork();</code></span>
+<span class="line" id="L64"><a class="number" href="#L64">64</a><code class="code">        Build(network, new(0, 0), new(300, 0));</code></span>
+<span class="line" id="L65"><a class="number" href="#L65">65</a><code class="code">        Build(network, new(300, 0), new(300, 400), RoadProfileId.Arterial);</code></span>
+<span class="line" id="L66"><a class="number" href="#L66">66</a><code class="code"></code></span>
+<span class="line" id="L67"><a class="number" href="#L67">67</a><code class="code">        Assert.Equal(3, network.Snapshot.NodeCount);</code></span>
+<span class="line" id="L68"><a class="number" href="#L68">68</a><code class="code">        Assert.Equal(2, network.Snapshot.EdgeCount);</code></span>
+<span class="line" id="L69"><a class="number" href="#L69">69</a><code class="code">        RoadNode boundary = Assert.Single(network.Snapshot.Nodes, node =&gt; node.Position == new RoadPoint(300, 0));</code></span>
+<span class="line" id="L70"><a class="number" href="#L70">70</a><code class="code">        Assert.All(network.Snapshot.Edges, edge =&gt; Assert.True(edge.Start == boundary.Id || edge.End == boundary.Id));</code></span>
+<span class="line" id="L71"><a class="number" href="#L71">71</a><code class="code">        Assert.Single(network.Snapshot.Edges, edge =&gt; edge.Profile == RoadProfileId.Street);</code></span>
+<span class="line" id="L72"><a class="number" href="#L72">72</a><code class="code">        Assert.Single(network.Snapshot.Edges, edge =&gt; edge.Profile == RoadProfileId.Arterial);</code></span>
+<span class="line" id="L73"><a class="number" href="#L73">73</a><code class="code">    }</code></span>
+<span class="line" id="L74"><a class="number" href="#L74">74</a><code class="code"></code></span>
+<span class="line" id="L75"><a class="number" href="#L75">75</a><code class="code">    [Fact]</code></span>
+<span class="line" id="L76"><a class="number" href="#L76">76</a><code class="code">    public void LocationsMeasureTheWholePolylineArcLengthAndExpireAfterContinuation()</code></span>
+<span class="line" id="L77"><a class="number" href="#L77">77</a><code class="code">    {</code></span>
+<span class="line" id="L78"><a class="number" href="#L78">78</a><code class="code">        var network = new RoadNetwork();</code></span>
+<span class="line" id="L79"><a class="number" href="#L79">79</a><code class="code">        Build(network, new(0, 0), new(300, 0));</code></span>
+<span class="line" id="L80"><a class="number" href="#L80">80</a><code class="code">        RoadSnapshot straight = network.Snapshot;</code></span>
+<span class="line" id="L81"><a class="number" href="#L81">81</a><code class="code">        var previous = new RoadLocation(straight.Token, Assert.Single(straight.Edges).Id, 0.5);</code></span>
+<span class="line" id="L82"><a class="number" href="#L82">82</a><code class="code">        Assert.Equal(new RoadPoint(150, 0), straight.Resolve(previous));</code></span>
+<span class="line" id="L83"><a class="number" href="#L83">83</a><code class="code">        Build(network, new(300, 0), new(300, 400));</code></span>
+<span class="line" id="L84"><a class="number" href="#L84">84</a><code class="code">        RoadSnapshot turn = network.Snapshot;</code></span>
+<span class="line" id="L85"><a class="number" href="#L85">85</a><code class="code">        EdgeId id = Assert.Single(turn.Edges).Id;</code></span>
+<span class="line" id="L86"><a class="number" href="#L86">86</a><code class="code"></code></span>
+<span class="line" id="L87"><a class="number" href="#L87">87</a><code class="code">        Assert.Null(turn.Resolve(previous));</code></span>
+<span class="line" id="L88"><a class="number" href="#L88">88</a><code class="code">        Assert.Equal(new RoadPoint(0, 0), turn.Resolve(new(turn.Token, id, 0)));</code></span>
+<span class="line" id="L89"><a class="number" href="#L89">89</a><code class="code">        Assert.Equal(new RoadPoint(175, 0), turn.Resolve(new(turn.Token, id, 0.25)));</code></span>
+<span class="line" id="L90"><a class="number" href="#L90">90</a><code class="code">        Assert.Equal(new RoadPoint(300, 50), turn.Resolve(new(turn.Token, id, 0.5)));</code></span>
+<span class="line" id="L91"><a class="number" href="#L91">91</a><code class="code">        Assert.Equal(new RoadPoint(300, 225), turn.Resolve(new(turn.Token, id, 0.75)));</code></span>
+<span class="line" id="L92"><a class="number" href="#L92">92</a><code class="code">        Assert.Equal(new RoadPoint(300, 400), turn.Resolve(new(turn.Token, id, 1)));</code></span>
+<span class="line" id="L93"><a class="number" href="#L93">93</a><code class="code">        var selected = new RoadLocation(turn.Token, id, 0.5);</code></span>
+<span class="line" id="L94"><a class="number" href="#L94">94</a><code class="code">        Build(network, new(300, 400), new(500, 600));</code></span>
+<span class="line" id="L95"><a class="number" href="#L95">95</a><code class="code">        Assert.Null(network.Snapshot.Resolve(selected));</code></span>
+<span class="line" id="L96"><a class="number" href="#L96">96</a><code class="code">        Assert.Equal(new RoadPoint(300, 50), turn.Resolve(selected));</code></span>
+<span class="line" id="L97"><a class="number" href="#L97">97</a><code class="code">    }</code></span>
+<span class="line" id="L98"><a class="number" href="#L98">98</a><code class="code"></code></span>
+<span class="line" id="L99"><a class="number" href="#L99">99</a><code class="code">    [Theory]</code></span>
+<span class="line" id="L100"><a class="number" href="#L100">100</a><code class="code">    [InlineData(200, 0, true)] // Touch the interior of the first span.</code></span>
+<span class="line" id="L101"><a class="number" href="#L101">101</a><code class="code">    [InlineData(200, -100, true)] // Cross the first span.</code></span>
+<span class="line" id="L102"><a class="number" href="#L102">102</a><code class="code">    [InlineData(0, 0, true)] // Close onto the other open endpoint.</code></span>
+<span class="line" id="L103"><a class="number" href="#L103">103</a><code class="code">    [InlineData(400, 400, true)] // Touch an existing internal turn.</code></span>
+<span class="line" id="L104"><a class="number" href="#L104">104</a><code class="code">    [InlineData(200, 500, false)] // Overlap the last span in reverse.</code></span>
+<span class="line" id="L105"><a class="number" href="#L105">105</a><code class="code">    [InlineData(4100, 200, false)] // Leave the map on a legal direction.</code></span>
+<span class="line" id="L106"><a class="number" href="#L106">106</a><code class="code">    public void Continuation_PublishesLegalLoopsAndRejectsInvalidCoverage(double x, double y, bool allowed)</code></span>
+<span class="line" id="L107"><a class="number" href="#L107">107</a><code class="code">    {</code></span>
+<span class="line" id="L108"><a class="number" href="#L108">108</a><code class="code">        var network = new RoadNetwork();</code></span>
+<span class="line" id="L109"><a class="number" href="#L109">109</a><code class="code">        Build(network, new(0, 0), new(400, 0));</code></span>
+<span class="line" id="L110"><a class="number" href="#L110">110</a><code class="code">        Build(network, new(400, 0), new(400, 400));</code></span>
+<span class="line" id="L111"><a class="number" href="#L111">111</a><code class="code">        Build(network, new(400, 400), new(200, 400));</code></span>
+<span class="line" id="L112"><a class="number" href="#L112">112</a><code class="code">        Build(network, new(200, 400), new(200, 200));</code></span>
+<span class="line" id="L113"><a class="number" href="#L113">113</a><code class="code">        RoadSnapshot before = network.Snapshot;</code></span>
+<span class="line" id="L114"><a class="number" href="#L114">114</a><code class="code">        byte[] content = Save(network);</code></span>
+<span class="line" id="L115"><a class="number" href="#L115">115</a><code class="code"></code></span>
+<span class="line" id="L116"><a class="number" href="#L116">116</a><code class="code">        RoadBuildResult result = network.PlanBuild(new(before.Token, new(200, 200), new(x, y), RoadProfileId.Street));</code></span>
+<span class="line" id="L117"><a class="number" href="#L117">117</a><code class="code"></code></span>
+<span class="line" id="L118"><a class="number" href="#L118">118</a><code class="code">        Assert.Equal(allowed ? RoadBuildStatus.Ready : RoadBuildStatus.Rejected, result.Status);</code></span>
+<span class="line" id="L119"><a class="number" href="#L119">119</a><code class="code">        Assert.Equal(before.Token, network.Snapshot.Token);</code></span>
+<span class="line" id="L120"><a class="number" href="#L120">120</a><code class="code">        Assert.Equal(before.NextNodeId, network.Snapshot.NextNodeId);</code></span>
+<span class="line" id="L121"><a class="number" href="#L121">121</a><code class="code">        Assert.Equal(before.NextEdgeId, network.Snapshot.NextEdgeId);</code></span>
+<span class="line" id="L122"><a class="number" href="#L122">122</a><code class="code">        Assert.Equal(content, Save(network));</code></span>
+<span class="line" id="L123"><a class="number" href="#L123">123</a><code class="code">        if (allowed)</code></span>
+<span class="line" id="L124"><a class="number" href="#L124">124</a><code class="code">        {</code></span>
+<span class="line" id="L125"><a class="number" href="#L125">125</a><code class="code">            Assert.True(network.TryCommit(result.Plan!));</code></span>
+<span class="line" id="L126"><a class="number" href="#L126">126</a><code class="code">            Assert.Equal(before.Token.ChangeSequence + 1, network.Snapshot.Token.ChangeSequence);</code></span>
+<span class="line" id="L127"><a class="number" href="#L127">127</a><code class="code">        }</code></span>
+<span class="line" id="L128"><a class="number" href="#L128">128</a><code class="code">        else Assert.Null(result.Plan);</code></span>
+<span class="line" id="L129"><a class="number" href="#L129">129</a><code class="code">    }</code></span>
+<span class="line" id="L130"><a class="number" href="#L130">130</a><code class="code"></code></span>
+<span class="line" id="L131"><a class="number" href="#L131">131</a><code class="code">    [Fact]</code></span>
+<span class="line" id="L132"><a class="number" href="#L132">132</a><code class="code">    public void BuildingFromAProfileBoundary_PreservesItAsAThreeWayJunction()</code></span>
+<span class="line" id="L133"><a class="number" href="#L133">133</a><code class="code">    {</code></span>
+<span class="line" id="L134"><a class="number" href="#L134">134</a><code class="code">        var network = new RoadNetwork();</code></span>
+<span class="line" id="L135"><a class="number" href="#L135">135</a><code class="code">        Build(network, new(0, 0), new(300, 0));</code></span>
+<span class="line" id="L136"><a class="number" href="#L136">136</a><code class="code">        Build(network, new(300, 0), new(300, 400), RoadProfileId.Dirt);</code></span>
+<span class="line" id="L137"><a class="number" href="#L137">137</a><code class="code">        RoadStateToken before = network.Snapshot.Token;</code></span>
+<span class="line" id="L138"><a class="number" href="#L138">138</a><code class="code">        RoadBuildResult result = network.PlanBuild(new(before, new(300, 0), new(500, 0), RoadProfileId.Street));</code></span>
+<span class="line" id="L139"><a class="number" href="#L139">139</a><code class="code"></code></span>
+<span class="line" id="L140"><a class="number" href="#L140">140</a><code class="code">        Assert.Equal(RoadBuildStatus.Ready, result.Status);</code></span>
+<span class="line" id="L141"><a class="number" href="#L141">141</a><code class="code">        Assert.Equal(before, network.Snapshot.Token);</code></span>
+<span class="line" id="L142"><a class="number" href="#L142">142</a><code class="code">        Assert.True(network.TryCommit(result.Plan!));</code></span>
+<span class="line" id="L143"><a class="number" href="#L143">143</a><code class="code">        Assert.Equal(4, network.Snapshot.NodeCount);</code></span>
+<span class="line" id="L144"><a class="number" href="#L144">144</a><code class="code">        Assert.Equal(3, network.Snapshot.EdgeCount);</code></span>
+<span class="line" id="L145"><a class="number" href="#L145">145</a><code class="code">        RoadNode junction = Assert.Single(network.Snapshot.Nodes, node =&gt; node.Position == new RoadPoint(300, 0));</code></span>
+<span class="line" id="L146"><a class="number" href="#L146">146</a><code class="code">        Assert.Equal(3, RoadJunctionQuery.Read(network.Snapshot, junction.Id)!.Incidences.Count);</code></span>
+<span class="line" id="L147"><a class="number" href="#L147">147</a><code class="code">    }</code></span>
+<span class="line" id="L148"><a class="number" href="#L148">148</a><code class="code"></code></span>
+<span class="line" id="L149"><a class="number" href="#L149">149</a><code class="code">    private static void Build(RoadNetwork network, RoadPoint start, RoadPoint end, RoadProfileId? profile = null)</code></span>
+<span class="line" id="L150"><a class="number" href="#L150">150</a><code class="code">    {</code></span>
+<span class="line" id="L151"><a class="number" href="#L151">151</a><code class="code">        RoadBuildResult result = network.PlanBuild(new(network.Snapshot.Token, start, end, profile ?? RoadProfileId.Street));</code></span>
+<span class="line" id="L152"><a class="number" href="#L152">152</a><code class="code">        Assert.Equal(RoadBuildStatus.Ready, result.Status);</code></span>
+<span class="line" id="L153"><a class="number" href="#L153">153</a><code class="code">        Assert.True(network.TryCommit(result.Plan!));</code></span>
+<span class="line" id="L154"><a class="number" href="#L154">154</a><code class="code">    }</code></span>
+<span class="line" id="L155"><a class="number" href="#L155">155</a><code class="code"></code></span>
+<span class="line" id="L156"><a class="number" href="#L156">156</a><code class="code">    private static byte[] Save(RoadNetwork network)</code></span>
+<span class="line" id="L157"><a class="number" href="#L157">157</a><code class="code">    {</code></span>
+<span class="line" id="L158"><a class="number" href="#L158">158</a><code class="code">        using var stream = new MemoryStream();</code></span>
+<span class="line" id="L159"><a class="number" href="#L159">159</a><code class="code">        RoadCodec.Write(stream, network.Snapshot);</code></span>
+<span class="line" id="L160"><a class="number" href="#L160">160</a><code class="code">        return stream.ToArray();</code></span>
+<span class="line" id="L161"><a class="number" href="#L161">161</a><code class="code">    }</code></span>
+<span class="line" id="L162"><a class="number" href="#L162">162</a><code class="code">}</code></span></pre></main></html>

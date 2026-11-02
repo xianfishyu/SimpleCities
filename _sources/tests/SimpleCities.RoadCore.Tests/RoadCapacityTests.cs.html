@@ -1,0 +1,211 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>tests/SimpleCities.RoadCore.Tests/RoadCapacityTests.cs · SimpleCities 源码</title><link rel="stylesheet" href="../../../assets/source.css"><header><a href="../../../index.html">← 文档首页</a><h1>tests/SimpleCities.RoadCore.Tests/RoadCapacityTests.cs</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">using System.Text.Json;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code"></code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">namespace SimpleCities.RoadCore.Tests;</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code"></code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code">public sealed class RoadCapacityTests</code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">{</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">    [Theory]</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">    [InlineData(131072, true)]</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">    [InlineData(131073, false)]</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">    public void ChainPointBudgetIsIndependentOfEdgeAndNodeCounts(int count, bool accepted)</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">    {</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">        var points = new List&lt;RoadPoint&gt; { new(-4000, -4000) };</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">        for (int row = 0; points.Count &lt; count; row++)</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">        {</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code">            int direction = row % 2 == 0 ? 1 : -1;</code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">            int x = direction &gt; 0 ? -4000 : 4000, y = -4000 + row * 25;</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">            if (row &gt; 0) points.Add(new(x, y));</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code">            for (int column = 0; column &lt; 320 &amp;&amp; points.Count &lt; count; column++)</code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">            {</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code">                points.Add(new(x + direction * 12.5, y + 12.5));</code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">                if (points.Count &lt; count) points.Add(new(x + direction * 25, y));</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">                x += direction * 25;</code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code">            }</code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">        }</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code">        byte[] payload = Payload([points.ToArray()]);</code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">        using var source = new MemoryStream(payload);</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">        if (accepted) Assert.Equal(count, Assert.Single(RoadCodec.Read(source).Edges).Points.Count);</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code">        else Assert.Throws&lt;InvalidDataException&gt;(() =&gt; RoadCodec.Read(source));</code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">    }</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code"></code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code">    [Theory]</code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">    [InlineData(33554432, true)]</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code">    [InlineData(33554433, false)]</code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code">    [InlineData(67108864, false)]</code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code">    public void NonSeekablePayloadHasAnExactBoundAndReadsOnlyOneSentinelByte(int length, bool accepted)</code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code">    {</code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code">        using var encoded = new MemoryStream();</code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code">        RoadCodec.Write(encoded, new RoadNetwork().Snapshot);</code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code">        using var input = new PaddedStream(encoded.ToArray(), length);</code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code">        if (accepted) Assert.Empty(RoadCodec.Read(input).Edges);</code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code">        else Assert.Throws&lt;InvalidDataException&gt;(() =&gt; RoadCodec.Read(input));</code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code">        Assert.Equal(Math.Min(length, 33554433), input.TotalRead);</code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code">    }</code></span>
+<span class="line" id="L44"><a class="number" href="#L44">44</a><code class="code"></code></span>
+<span class="line" id="L45"><a class="number" href="#L45">45</a><code class="code">    [Fact]</code></span>
+<span class="line" id="L46"><a class="number" href="#L46">46</a><code class="code">    public void SmallPayloadReadDoesNotAllocateTheEntireAdmissionBudget()</code></span>
+<span class="line" id="L47"><a class="number" href="#L47">47</a><code class="code">    {</code></span>
+<span class="line" id="L48"><a class="number" href="#L48">48</a><code class="code">        using var encoded = new MemoryStream();</code></span>
+<span class="line" id="L49"><a class="number" href="#L49">49</a><code class="code">        RoadCodec.Write(encoded, new RoadNetwork().Snapshot);</code></span>
+<span class="line" id="L50"><a class="number" href="#L50">50</a><code class="code">        byte[] bytes = encoded.ToArray();</code></span>
+<span class="line" id="L51"><a class="number" href="#L51">51</a><code class="code">        using (var warmup = new MemoryStream(bytes)) _ = RoadCodec.Read(warmup);</code></span>
+<span class="line" id="L52"><a class="number" href="#L52">52</a><code class="code">        using var input = new MemoryStream(bytes);</code></span>
+<span class="line" id="L53"><a class="number" href="#L53">53</a><code class="code">        long before = GC.GetAllocatedBytesForCurrentThread();</code></span>
+<span class="line" id="L54"><a class="number" href="#L54">54</a><code class="code">        _ = RoadCodec.Read(input);</code></span>
+<span class="line" id="L55"><a class="number" href="#L55">55</a><code class="code">        Assert.InRange(GC.GetAllocatedBytesForCurrentThread() - before, 0, 1048575);</code></span>
+<span class="line" id="L56"><a class="number" href="#L56">56</a><code class="code">    }</code></span>
+<span class="line" id="L57"><a class="number" href="#L57">57</a><code class="code"></code></span>
+<span class="line" id="L58"><a class="number" href="#L58">58</a><code class="code">    [Fact]</code></span>
+<span class="line" id="L59"><a class="number" href="#L59">59</a><code class="code">    public void PublicConstructionBeyondBaselineCapacitySurvivesStrictReload()</code></span>
+<span class="line" id="L60"><a class="number" href="#L60">60</a><code class="code">    {</code></span>
+<span class="line" id="L61"><a class="number" href="#L61">61</a><code class="code">        var network = new RoadNetwork(new MapDefinition(25));</code></span>
+<span class="line" id="L62"><a class="number" href="#L62">62</a><code class="code">        for (int i = 0; i &lt; 300; i++)</code></span>
+<span class="line" id="L63"><a class="number" href="#L63">63</a><code class="code">        {</code></span>
+<span class="line" id="L64"><a class="number" href="#L64">64</a><code class="code">            int x = -4000 + i % 160 * 50, y = -4000 + i / 160 * 50;</code></span>
+<span class="line" id="L65"><a class="number" href="#L65">65</a><code class="code">            RoadBuildResult result = network.PlanBuild(new(network.Snapshot.Token, new(x, y), new(x + 25, y), RoadProfileId.Street));</code></span>
+<span class="line" id="L66"><a class="number" href="#L66">66</a><code class="code">            Assert.Equal(RoadBuildStatus.Ready, result.Status);</code></span>
+<span class="line" id="L67"><a class="number" href="#L67">67</a><code class="code">            Assert.True(network.TryCommit(result.Plan!));</code></span>
+<span class="line" id="L68"><a class="number" href="#L68">68</a><code class="code">        }</code></span>
+<span class="line" id="L69"><a class="number" href="#L69">69</a><code class="code">        Assert.Equal(300, network.Snapshot.EdgeCount);</code></span>
+<span class="line" id="L70"><a class="number" href="#L70">70</a><code class="code">        Assert.Equal(600, network.Snapshot.NodeCount);</code></span>
+<span class="line" id="L71"><a class="number" href="#L71">71</a><code class="code">        using var bytes = new MemoryStream();</code></span>
+<span class="line" id="L72"><a class="number" href="#L72">72</a><code class="code">        RoadCodec.Write(bytes, network.Snapshot);</code></span>
+<span class="line" id="L73"><a class="number" href="#L73">73</a><code class="code">        bytes.Position = 0;</code></span>
+<span class="line" id="L74"><a class="number" href="#L74">74</a><code class="code">        var loaded = new RoadNetwork();</code></span>
+<span class="line" id="L75"><a class="number" href="#L75">75</a><code class="code">        Assert.True(loaded.TryCommit(loaded.PlanLoad(RoadCodec.Read(bytes))));</code></span>
+<span class="line" id="L76"><a class="number" href="#L76">76</a><code class="code">        Assert.Equal(300, loaded.Snapshot.EdgeCount);</code></span>
+<span class="line" id="L77"><a class="number" href="#L77">77</a><code class="code">        Assert.Equal(600, loaded.Snapshot.NodeCount);</code></span>
+<span class="line" id="L78"><a class="number" href="#L78">78</a><code class="code">    }</code></span>
+<span class="line" id="L79"><a class="number" href="#L79">79</a><code class="code"></code></span>
+<span class="line" id="L80"><a class="number" href="#L80">80</a><code class="code">    private sealed class PaddedStream(byte[] prefix, long length) : Stream</code></span>
+<span class="line" id="L81"><a class="number" href="#L81">81</a><code class="code">    {</code></span>
+<span class="line" id="L82"><a class="number" href="#L82">82</a><code class="code">        public long TotalRead { get; private set; }</code></span>
+<span class="line" id="L83"><a class="number" href="#L83">83</a><code class="code">        public override int Read(byte[] buffer, int offset, int count)</code></span>
+<span class="line" id="L84"><a class="number" href="#L84">84</a><code class="code">        {</code></span>
+<span class="line" id="L85"><a class="number" href="#L85">85</a><code class="code">            int amount = (int)Math.Min(count, length - TotalRead);</code></span>
+<span class="line" id="L86"><a class="number" href="#L86">86</a><code class="code">            buffer.AsSpan(offset, amount).Fill((byte)&#x27; &#x27;);</code></span>
+<span class="line" id="L87"><a class="number" href="#L87">87</a><code class="code">            if (TotalRead &lt; prefix.Length)</code></span>
+<span class="line" id="L88"><a class="number" href="#L88">88</a><code class="code">                prefix.AsSpan((int)TotalRead, Math.Min(amount, prefix.Length - (int)TotalRead)).CopyTo(buffer.AsSpan(offset));</code></span>
+<span class="line" id="L89"><a class="number" href="#L89">89</a><code class="code">            TotalRead += amount;</code></span>
+<span class="line" id="L90"><a class="number" href="#L90">90</a><code class="code">            return amount;</code></span>
+<span class="line" id="L91"><a class="number" href="#L91">91</a><code class="code">        }</code></span>
+<span class="line" id="L92"><a class="number" href="#L92">92</a><code class="code">        public override bool CanRead =&gt; true;</code></span>
+<span class="line" id="L93"><a class="number" href="#L93">93</a><code class="code">        public override bool CanSeek =&gt; false;</code></span>
+<span class="line" id="L94"><a class="number" href="#L94">94</a><code class="code">        public override bool CanWrite =&gt; false;</code></span>
+<span class="line" id="L95"><a class="number" href="#L95">95</a><code class="code">        public override long Length =&gt; throw new NotSupportedException();</code></span>
+<span class="line" id="L96"><a class="number" href="#L96">96</a><code class="code">        public override long Position { get =&gt; throw new NotSupportedException(); set =&gt; throw new NotSupportedException(); }</code></span>
+<span class="line" id="L97"><a class="number" href="#L97">97</a><code class="code">        public override void Flush() =&gt; throw new NotSupportedException();</code></span>
+<span class="line" id="L98"><a class="number" href="#L98">98</a><code class="code">        public override long Seek(long offset, SeekOrigin origin) =&gt; throw new NotSupportedException();</code></span>
+<span class="line" id="L99"><a class="number" href="#L99">99</a><code class="code">        public override void SetLength(long value) =&gt; throw new NotSupportedException();</code></span>
+<span class="line" id="L100"><a class="number" href="#L100">100</a><code class="code">        public override void Write(byte[] buffer, int offset, int count) =&gt; throw new NotSupportedException();</code></span>
+<span class="line" id="L101"><a class="number" href="#L101">101</a><code class="code">    }</code></span>
+<span class="line" id="L102"><a class="number" href="#L102">102</a><code class="code"></code></span>
+<span class="line" id="L103"><a class="number" href="#L103">103</a><code class="code">    [Theory]</code></span>
+<span class="line" id="L104"><a class="number" href="#L104">104</a><code class="code">    [InlineData(0, true)]</code></span>
+<span class="line" id="L105"><a class="number" href="#L105">105</a><code class="code">    [InlineData(1, false)]</code></span>
+<span class="line" id="L106"><a class="number" href="#L106">106</a><code class="code">    public void NodeBudgetRejectsOnlyTheExcessNodeBeforeTopologyValidation(int extraNodes, bool accepted)</code></span>
+<span class="line" id="L107"><a class="number" href="#L107">107</a><code class="code">    {</code></span>
+<span class="line" id="L108"><a class="number" href="#L108">108</a><code class="code">        RoadPoint[][] chains = Enumerable.Range(0, 16384).Select(i =&gt;</code></span>
+<span class="line" id="L109"><a class="number" href="#L109">109</a><code class="code">        {</code></span>
+<span class="line" id="L110"><a class="number" href="#L110">110</a><code class="code">            int x = -4000 + i % 160 * 50, y = -4000 + i / 160 * 50;</code></span>
+<span class="line" id="L111"><a class="number" href="#L111">111</a><code class="code">            return new RoadPoint[] { new(x, y), new(x + 25, y) };</code></span>
+<span class="line" id="L112"><a class="number" href="#L112">112</a><code class="code">        }).ToArray();</code></span>
+<span class="line" id="L113"><a class="number" href="#L113">113</a><code class="code">        using var source = new MemoryStream(Payload(chains, extraNodes));</code></span>
+<span class="line" id="L114"><a class="number" href="#L114">114</a><code class="code">        if (accepted) Assert.Equal(32768, RoadCodec.Read(source).Nodes.Count);</code></span>
+<span class="line" id="L115"><a class="number" href="#L115">115</a><code class="code">        else Assert.Contains(&quot;nodes or edges&quot;, Assert.Throws&lt;InvalidDataException&gt;(() =&gt; RoadCodec.Read(source)).Message);</code></span>
+<span class="line" id="L116"><a class="number" href="#L116">116</a><code class="code">    }</code></span>
+<span class="line" id="L117"><a class="number" href="#L117">117</a><code class="code"></code></span>
+<span class="line" id="L118"><a class="number" href="#L118">118</a><code class="code">    [Theory]</code></span>
+<span class="line" id="L119"><a class="number" href="#L119">119</a><code class="code">    [InlineData(16384, true)]</code></span>
+<span class="line" id="L120"><a class="number" href="#L120">120</a><code class="code">    [InlineData(16385, false)]</code></span>
+<span class="line" id="L121"><a class="number" href="#L121">121</a><code class="code">    public void EdgeBudgetIsIndependentOfTheNodeBudget(int count, bool accepted)</code></span>
+<span class="line" id="L122"><a class="number" href="#L122">122</a><code class="code">    {</code></span>
+<span class="line" id="L123"><a class="number" href="#L123">123</a><code class="code">        var chains = new List&lt;RoadPoint[]&gt;();</code></span>
+<span class="line" id="L124"><a class="number" href="#L124">124</a><code class="code">        for (int i = 0; chains.Count &lt; count; i++)</code></span>
+<span class="line" id="L125"><a class="number" href="#L125">125</a><code class="code">        {</code></span>
+<span class="line" id="L126"><a class="number" href="#L126">126</a><code class="code">            int x = -4000 + i % 160 * 50, y = -4000 + i / 160 * 50;</code></span>
+<span class="line" id="L127"><a class="number" href="#L127">127</a><code class="code">            chains.Add([new(x, y), new(x + 25, y), new(x + 25, y + 25)]);</code></span>
+<span class="line" id="L128"><a class="number" href="#L128">128</a><code class="code">            if (chains.Count &lt; count) chains.Add([new(x, y), new(x, y + 25), new(x + 25, y + 25)]);</code></span>
+<span class="line" id="L129"><a class="number" href="#L129">129</a><code class="code">        }</code></span>
+<span class="line" id="L130"><a class="number" href="#L130">130</a><code class="code">        using var source = new MemoryStream(Payload(chains, alternateProfiles: true));</code></span>
+<span class="line" id="L131"><a class="number" href="#L131">131</a><code class="code">        if (accepted)</code></span>
+<span class="line" id="L132"><a class="number" href="#L132">132</a><code class="code">        {</code></span>
+<span class="line" id="L133"><a class="number" href="#L133">133</a><code class="code">            PreparedRoadState state = RoadCodec.Read(source);</code></span>
+<span class="line" id="L134"><a class="number" href="#L134">134</a><code class="code">            Assert.Equal(16384, state.Edges.Count);</code></span>
+<span class="line" id="L135"><a class="number" href="#L135">135</a><code class="code">            Assert.Equal(16384, state.Nodes.Count);</code></span>
+<span class="line" id="L136"><a class="number" href="#L136">136</a><code class="code">        }</code></span>
+<span class="line" id="L137"><a class="number" href="#L137">137</a><code class="code">        else Assert.Contains(&quot;nodes or edges&quot;, Assert.Throws&lt;InvalidDataException&gt;(() =&gt; RoadCodec.Read(source)).Message);</code></span>
+<span class="line" id="L138"><a class="number" href="#L138">138</a><code class="code">    }</code></span>
+<span class="line" id="L139"><a class="number" href="#L139">139</a><code class="code"></code></span>
+<span class="line" id="L140"><a class="number" href="#L140">140</a><code class="code">    [Theory]</code></span>
+<span class="line" id="L141"><a class="number" href="#L141">141</a><code class="code">    [InlineData(0, 0, 100, 0, 50, -50, 50, 50)]</code></span>
+<span class="line" id="L142"><a class="number" href="#L142">142</a><code class="code">    [InlineData(0, 0, 25, 25, 25, 0, 0, 25)]</code></span>
+<span class="line" id="L143"><a class="number" href="#L143">143</a><code class="code">    [InlineData(-200, -200, 0, 0, -200, 0, 0, -200)]</code></span>
+<span class="line" id="L144"><a class="number" href="#L144">144</a><code class="code">    [InlineData(0, 0, 100, 0, 50, 0, 50, 25)]</code></span>
+<span class="line" id="L145"><a class="number" href="#L145">145</a><code class="code">    [InlineData(0, 0, 100, 0, 25, 0, 125, 0)]</code></span>
+<span class="line" id="L146"><a class="number" href="#L146">146</a><code class="code">    [InlineData(-4000, -4000, 4000, 4000, -4000, 4000, 4000, -4000)]</code></span>
+<span class="line" id="L147"><a class="number" href="#L147">147</a><code class="code">    public void StrictLoadStillRejectsUnnodedCrossingsTouchesAndOverlaps(int ax, int ay, int bx, int by, int cx, int cy, int dx, int dy)</code></span>
+<span class="line" id="L148"><a class="number" href="#L148">148</a><code class="code">    {</code></span>
+<span class="line" id="L149"><a class="number" href="#L149">149</a><code class="code">        using var source = new MemoryStream(Payload([[new(ax, ay), new(bx, by)], [new(cx, cy), new(dx, dy)]]));</code></span>
+<span class="line" id="L150"><a class="number" href="#L150">150</a><code class="code">        Assert.Throws&lt;InvalidDataException&gt;(() =&gt; RoadCodec.Read(source));</code></span>
+<span class="line" id="L151"><a class="number" href="#L151">151</a><code class="code">    }</code></span>
+<span class="line" id="L152"><a class="number" href="#L152">152</a><code class="code"></code></span>
+<span class="line" id="L153"><a class="number" href="#L153">153</a><code class="code">    [Fact]</code></span>
+<span class="line" id="L154"><a class="number" href="#L154">154</a><code class="code">    public void ExcessPublicBuildPreservesTheFullSnapshotAndBothHistoryDirections()</code></span>
+<span class="line" id="L155"><a class="number" href="#L155">155</a><code class="code">    {</code></span>
+<span class="line" id="L156"><a class="number" href="#L156">156</a><code class="code">        RoadPoint[][] chains = Enumerable.Range(0, 16384).Select(i =&gt;</code></span>
+<span class="line" id="L157"><a class="number" href="#L157">157</a><code class="code">        {</code></span>
+<span class="line" id="L158"><a class="number" href="#L158">158</a><code class="code">            int x = -4000 + i % 160 * 50, y = -4000 + i / 160 * 50;</code></span>
+<span class="line" id="L159"><a class="number" href="#L159">159</a><code class="code">            return new RoadPoint[] { new(x, y), new(x + 25, y) };</code></span>
+<span class="line" id="L160"><a class="number" href="#L160">160</a><code class="code">        }).ToArray();</code></span>
+<span class="line" id="L161"><a class="number" href="#L161">161</a><code class="code">        var network = new RoadNetwork();</code></span>
+<span class="line" id="L162"><a class="number" href="#L162">162</a><code class="code">        using var source = new MemoryStream(Payload(chains));</code></span>
+<span class="line" id="L163"><a class="number" href="#L163">163</a><code class="code">        Assert.True(network.TryCommit(network.PlanLoad(RoadCodec.Read(source))));</code></span>
+<span class="line" id="L164"><a class="number" href="#L164">164</a><code class="code">        foreach (RoadProfileId profile in new[] { RoadProfileId.Dirt, RoadProfileId.Highway })</code></span>
+<span class="line" id="L165"><a class="number" href="#L165">165</a><code class="code">        {</code></span>
+<span class="line" id="L166"><a class="number" href="#L166">166</a><code class="code">            RoadEdge edge = network.Snapshot.Edges[0];</code></span>
+<span class="line" id="L167"><a class="number" href="#L167">167</a><code class="code">            RoadGridSpan span = RoadSpanQuery.Pick(network.Snapshot, new(network.Snapshot.Token, edge.Id, .5))!;</code></span>
+<span class="line" id="L168"><a class="number" href="#L168">168</a><code class="code">            Assert.True(network.TryCommit(network.PlanChangeProfile(span, profile).Plan!));</code></span>
+<span class="line" id="L169"><a class="number" href="#L169">169</a><code class="code">        }</code></span>
+<span class="line" id="L170"><a class="number" href="#L170">170</a><code class="code">        Assert.True(network.TryCommit(network.PlanUndo().Plan!));</code></span>
+<span class="line" id="L171"><a class="number" href="#L171">171</a><code class="code">        RoadSnapshot before = network.Snapshot;</code></span>
+<span class="line" id="L172"><a class="number" href="#L172">172</a><code class="code">        RoadEditHistory history = network.History;</code></span>
+<span class="line" id="L173"><a class="number" href="#L173">173</a><code class="code">        Assert.Equal(1, history.UndoCount);</code></span>
+<span class="line" id="L174"><a class="number" href="#L174">174</a><code class="code">        Assert.Equal(1, history.RedoCount);</code></span>
+<span class="line" id="L175"><a class="number" href="#L175">175</a><code class="code">        RoadBuildResult result = network.PlanBuild(new(before.Token, new(-4000, 3975), new(-3975, 3975), RoadProfileId.Street));</code></span>
+<span class="line" id="L176"><a class="number" href="#L176">176</a><code class="code">        Assert.Equal(RoadBuildStatus.Rejected, result.Status);</code></span>
+<span class="line" id="L177"><a class="number" href="#L177">177</a><code class="code">        Assert.Null(result.Plan);</code></span>
+<span class="line" id="L178"><a class="number" href="#L178">178</a><code class="code">        Assert.NotEmpty(result.Reason);</code></span>
+<span class="line" id="L179"><a class="number" href="#L179">179</a><code class="code">        Assert.Same(before, network.Snapshot);</code></span>
+<span class="line" id="L180"><a class="number" href="#L180">180</a><code class="code">        Assert.Same(history, network.History);</code></span>
+<span class="line" id="L181"><a class="number" href="#L181">181</a><code class="code">    }</code></span>
+<span class="line" id="L182"><a class="number" href="#L182">182</a><code class="code"></code></span>
+<span class="line" id="L183"><a class="number" href="#L183">183</a><code class="code">    private static byte[] Payload(IReadOnlyList&lt;RoadPoint[]&gt; chains, int extraNodes = 0, bool alternateProfiles = false)</code></span>
+<span class="line" id="L184"><a class="number" href="#L184">184</a><code class="code">    {</code></span>
+<span class="line" id="L185"><a class="number" href="#L185">185</a><code class="code">        var nodes = new List&lt;object&gt;();</code></span>
+<span class="line" id="L186"><a class="number" href="#L186">186</a><code class="code">        var edges = new List&lt;object&gt;();</code></span>
+<span class="line" id="L187"><a class="number" href="#L187">187</a><code class="code">        var identities = new Dictionary&lt;RoadPoint, int&gt;();</code></span>
+<span class="line" id="L188"><a class="number" href="#L188">188</a><code class="code">        int Node(RoadPoint point)</code></span>
+<span class="line" id="L189"><a class="number" href="#L189">189</a><code class="code">        {</code></span>
+<span class="line" id="L190"><a class="number" href="#L190">190</a><code class="code">            if (identities.TryGetValue(point, out int found)) return found;</code></span>
+<span class="line" id="L191"><a class="number" href="#L191">191</a><code class="code">            int id = nodes.Count + 1;</code></span>
+<span class="line" id="L192"><a class="number" href="#L192">192</a><code class="code">            nodes.Add(new { id, x = point.X, y = point.Y });</code></span>
+<span class="line" id="L193"><a class="number" href="#L193">193</a><code class="code">            identities.Add(point, id);</code></span>
+<span class="line" id="L194"><a class="number" href="#L194">194</a><code class="code">            return id;</code></span>
+<span class="line" id="L195"><a class="number" href="#L195">195</a><code class="code">        }</code></span>
+<span class="line" id="L196"><a class="number" href="#L196">196</a><code class="code">        for (int i = 0; i &lt; chains.Count; i++)</code></span>
+<span class="line" id="L197"><a class="number" href="#L197">197</a><code class="code">        {</code></span>
+<span class="line" id="L198"><a class="number" href="#L198">198</a><code class="code">            RoadPoint[] chain = chains[i];</code></span>
+<span class="line" id="L199"><a class="number" href="#L199">199</a><code class="code">            int start = Node(chain[0]), end = Node(chain[^1]);</code></span>
+<span class="line" id="L200"><a class="number" href="#L200">200</a><code class="code">            IEnumerable&lt;RoadPoint&gt; ordered = start &lt; end ? chain : chain.Reverse();</code></span>
+<span class="line" id="L201"><a class="number" href="#L201">201</a><code class="code">            edges.Add(new { id = i + 1, startNodeId = Math.Min(start, end), endNodeId = Math.Max(start, end),</code></span>
+<span class="line" id="L202"><a class="number" href="#L202">202</a><code class="code">                profile = alternateProfiles &amp;&amp; i % 2 == 1 ? &quot;dirt&quot; : &quot;street&quot;,</code></span>
+<span class="line" id="L203"><a class="number" href="#L203">203</a><code class="code">                points = ordered.Select(p =&gt; new { x = p.X, y = p.Y }) });</code></span>
+<span class="line" id="L204"><a class="number" href="#L204">204</a><code class="code">        }</code></span>
+<span class="line" id="L205"><a class="number" href="#L205">205</a><code class="code">        for (int i = 0; i &lt; extraNodes; i++) nodes.Add(new { id = nodes.Count + 1, x = 4000d, y = 4000d });</code></span>
+<span class="line" id="L206"><a class="number" href="#L206">206</a><code class="code">        return JsonSerializer.SerializeToUtf8Bytes(new { formatFamily = &quot;simple-cities-v4&quot;, payloadType = &quot;road-network&quot;,</code></span>
+<span class="line" id="L207"><a class="number" href="#L207">207</a><code class="code">            schemaVersion = 6, contentRevision = 1, nextNodeId = nodes.Count + 1, nextEdgeId = edges.Count + 1, profileCatalogVersion = 1,</code></span>
+<span class="line" id="L208"><a class="number" href="#L208">208</a><code class="code">            map = new { widthMetres = 8000, heightMetres = 8000, origin = &quot;center&quot;, metresPerUnit = 1, grid = &quot;square-eight&quot;, cellSizeMetres = 25 },</code></span>
+<span class="line" id="L209"><a class="number" href="#L209">209</a><code class="code">            nodes, edges });</code></span>
+<span class="line" id="L210"><a class="number" href="#L210">210</a><code class="code">    }</code></span>
+<span class="line" id="L211"><a class="number" href="#L211">211</a><code class="code">}</code></span></pre></main></html>

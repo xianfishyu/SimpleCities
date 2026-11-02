@@ -1,0 +1,56 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Scripts/Core/SceneStoragePolicy.cs · SimpleCities 源码</title><link rel="stylesheet" href="../../../assets/source.css"><header><a href="../../../index.html">← 文档首页</a><h1>Scripts/Core/SceneStoragePolicy.cs</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">using System;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code">using System.Collections.Generic;</code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">using System.Linq;</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code"></code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code">/// &lt;summary&gt;由场景装配提供的保存根和必需载荷，创建后保持不变。&lt;/summary&gt;</code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">internal sealed class SceneStoragePolicy</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">{</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">    internal SceneStoragePolicy(string saveBasePath, IEnumerable&lt;string&gt; requiredSaveFileNames)</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">    {</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">        if (string.IsNullOrWhiteSpace(saveBasePath))</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">            throw new ArgumentException(&quot;A scene save root is required.&quot;, nameof(saveBasePath));</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">        ArgumentNullException.ThrowIfNull(requiredSaveFileNames);</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">        string[] names = requiredSaveFileNames.ToArray();</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">        if (names.Length == 0 || names.Any(string.IsNullOrWhiteSpace) ||</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code">            names.Distinct(StringComparer.OrdinalIgnoreCase).Count() != names.Length)</code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">        {</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">            throw new ArgumentException(&quot;Scene payload names must be nonempty and unique.&quot;, nameof(requiredSaveFileNames));</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code">        }</code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code"></code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code">        SaveBasePath = saveBasePath;</code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">        RequiredSaveFileNames = Array.AsReadOnly(names);</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">    }</code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code"></code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">    internal string SaveBasePath { get; }</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code">    internal IReadOnlyList&lt;string&gt; RequiredSaveFileNames { get; }</code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code"></code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">    internal string ResolveSaveBaseDir(Func&lt;string, string&gt; globalizePath)</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code">    {</code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">        ArgumentNullException.ThrowIfNull(globalizePath);</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">        string resolved = globalizePath(SaveBasePath);</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code">        if (string.IsNullOrWhiteSpace(resolved))</code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">            throw new InvalidOperationException(&quot;The scene save root could not be resolved.&quot;);</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code">        return resolved;</code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code">    }</code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code"></code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code">    internal IReadOnlyList&lt;IStreamingSaveable&gt; SelectParticipants(IReadOnlyList&lt;IStreamingSaveable&gt; saveables)</code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code">    {</code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code">        ArgumentNullException.ThrowIfNull(saveables);</code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code">        var selected = new List&lt;IStreamingSaveable&gt;(RequiredSaveFileNames.Count);</code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code">        foreach (string fileName in RequiredSaveFileNames)</code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code">        {</code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code">            IStreamingSaveable? match = null;</code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code">            foreach (IStreamingSaveable candidate in saveables)</code></span>
+<span class="line" id="L44"><a class="number" href="#L44">44</a><code class="code">            {</code></span>
+<span class="line" id="L45"><a class="number" href="#L45">45</a><code class="code">                if (!string.Equals(candidate.SaveFileName, fileName, StringComparison.Ordinal))</code></span>
+<span class="line" id="L46"><a class="number" href="#L46">46</a><code class="code">                    continue;</code></span>
+<span class="line" id="L47"><a class="number" href="#L47">47</a><code class="code">                if (match is not null)</code></span>
+<span class="line" id="L48"><a class="number" href="#L48">48</a><code class="code">                    throw new InvalidOperationException($&quot;Multiple saveables provide &#x27;{fileName}&#x27;.&quot;);</code></span>
+<span class="line" id="L49"><a class="number" href="#L49">49</a><code class="code">                match = candidate;</code></span>
+<span class="line" id="L50"><a class="number" href="#L50">50</a><code class="code">            }</code></span>
+<span class="line" id="L51"><a class="number" href="#L51">51</a><code class="code">            selected.Add(match ?? throw new InvalidOperationException(</code></span>
+<span class="line" id="L52"><a class="number" href="#L52">52</a><code class="code">                $&quot;Required saveable &#x27;{fileName}&#x27; is not registered.&quot;));</code></span>
+<span class="line" id="L53"><a class="number" href="#L53">53</a><code class="code">        }</code></span>
+<span class="line" id="L54"><a class="number" href="#L54">54</a><code class="code">        return selected;</code></span>
+<span class="line" id="L55"><a class="number" href="#L55">55</a><code class="code">    }</code></span>
+<span class="line" id="L56"><a class="number" href="#L56">56</a><code class="code">}</code></span></pre></main></html>

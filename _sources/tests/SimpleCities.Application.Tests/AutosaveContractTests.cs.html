@@ -1,0 +1,48 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>tests/SimpleCities.Application.Tests/AutosaveContractTests.cs · SimpleCities 源码</title><link rel="stylesheet" href="../../../assets/source.css"><header><a href="../../../index.html">← 文档首页</a><h1>tests/SimpleCities.Application.Tests/AutosaveContractTests.cs</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">using System.IO;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code"></code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">namespace SimpleCities.Application.Tests;</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code"></code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code">public sealed class AutosaveContractTests</code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">{</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">    private static readonly string ProjectRoot = Path.GetFullPath(Path.Combine(</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">        AppContext.BaseDirectory,</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">        &quot;..&quot;,</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">        &quot;..&quot;,</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">        &quot;..&quot;,</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">        &quot;..&quot;,</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">        &quot;..&quot;));</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code"></code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code">    [Fact]</code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">    public void MapScene_ComposesConfigurableAutosaveController()</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">    {</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code">        string scene = File.ReadAllText(Path.Combine(ProjectRoot, &quot;Scenes&quot;, &quot;CityMap.tscn&quot;));</code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">        string controller = File.ReadAllText(Path.Combine(ProjectRoot, &quot;Scripts&quot;, &quot;Core&quot;, &quot;AutosaveController.cs&quot;));</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code"></code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">        Assert.Contains(&quot;name=\&quot;AutosaveController\&quot;&quot;, scene, StringComparison.Ordinal);</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">        Assert.Contains(&quot;res://Scripts/Core/AutosaveController.cs&quot;, scene, StringComparison.Ordinal);</code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code">        Assert.Contains(&quot;[Export(PropertyHint.Range&quot;, controller, StringComparison.Ordinal);</code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">        Assert.Contains(&quot;IntervalSeconds { get; set; } = 300d&quot;, controller, StringComparison.Ordinal);</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code">        Assert.Contains(&quot;new Timer&quot;, controller, StringComparison.Ordinal);</code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">        Assert.Contains(&quot;_timer.Timeout += OnAutosaveTimeout&quot;, controller, StringComparison.Ordinal);</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">        Assert.Contains(&quot;saveManager.StartAutosave()&quot;, controller, StringComparison.Ordinal);</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code">        Assert.Contains(&quot;_saveManager.OperationCompleted += OnSaveOperationCompleted&quot;, controller, StringComparison.Ordinal);</code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">        Assert.Contains(&quot;SaveOperationResultKind.SkippedBusy&quot;, controller, StringComparison.Ordinal);</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">        Assert.DoesNotContain(&quot;SaveAutosave()&quot;, controller, StringComparison.Ordinal);</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code">    }</code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code"></code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code">    [Fact]</code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code">    public void AutosaveProfile_UsesReservedSlotWithoutSelectingItAndLabelsListRows()</code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code">    {</code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code">        string manager = File.ReadAllText(Path.Combine(ProjectRoot, &quot;Scripts&quot;, &quot;Core&quot;, &quot;SaveManager.cs&quot;));</code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code">        string summary = File.ReadAllText(Path.Combine(ProjectRoot, &quot;Scripts&quot;, &quot;Core&quot;, &quot;SaveData.cs&quot;));</code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code">        string pauseMenu = File.ReadAllText(Path.Combine(ProjectRoot, &quot;Scripts&quot;, &quot;UI&quot;, &quot;PauseMenu.cs&quot;));</code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code"></code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code">        Assert.Contains(&quot;public string StartAutosave()&quot;, manager, StringComparison.Ordinal);</code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code">        Assert.Contains(&quot;RunAdmittedPublishAsync(&quot;, manager, StringComparison.Ordinal);</code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code">        Assert.Contains(&quot;AutosaveDisplayName&quot;, manager, StringComparison.Ordinal);</code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code">        Assert.Contains(&quot;StartPendingAutosaveIfReady&quot;, manager, StringComparison.Ordinal);</code></span>
+<span class="line" id="L44"><a class="number" href="#L44">44</a><code class="code">        Assert.DoesNotContain(&quot;public bool SaveAutosave()&quot;, manager, StringComparison.Ordinal);</code></span>
+<span class="line" id="L45"><a class="number" href="#L45">45</a><code class="code">        Assert.Contains(&quot;public bool IsAutosave&quot;, summary, StringComparison.Ordinal);</code></span>
+<span class="line" id="L46"><a class="number" href="#L46">46</a><code class="code">        Assert.Contains(&quot;summary.IsAutosave ? \&quot;自动\&quot; : \&quot;手动\&quot;&quot;, pauseMenu, StringComparison.Ordinal);</code></span>
+<span class="line" id="L47"><a class="number" href="#L47">47</a><code class="code">    }</code></span>
+<span class="line" id="L48"><a class="number" href="#L48">48</a><code class="code">}</code></span></pre></main></html>

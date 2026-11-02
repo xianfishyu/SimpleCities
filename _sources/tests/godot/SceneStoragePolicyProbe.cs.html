@@ -1,0 +1,63 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>tests/godot/SceneStoragePolicyProbe.cs · SimpleCities 源码</title><link rel="stylesheet" href="../../../assets/source.css"><header><a href="../../../index.html">← 文档首页</a><h1>tests/godot/SceneStoragePolicyProbe.cs</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">using Godot;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code">using System;</code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">using System.IO;</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code">using System.Linq;</code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code"></code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">/// &lt;summary&gt;跨保存根删除授权回归的测试装配，仅编译进Debug。&lt;/summary&gt;</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">public partial class SceneStoragePolicyProbe : RefCounted</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">{</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">    private readonly string _root = Path.Combine(</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">        Path.GetTempPath(), $&quot;simple-cities-root-auth-{Guid.NewGuid():N}&quot;);</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">    private SaveSlotSummary? _captured;</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">    public string SlotID =&gt; &quot;manual-shared&quot;;</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code">    public string RootA =&gt; Path.Combine(_root, &quot;a&quot;);</code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">    public string RootB =&gt; Path.Combine(_root, &quot;b&quot;);</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code"></code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">    public void CreateMatchingSlots(RoadMapScene map)</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code">    {</code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code">        new SaveSlotStore(RootA).Save(SlotID, &quot;Root authorization fixture&quot;, [map.QaRoadParticipant]);</code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">        string source = Path.Combine(RootA, SlotID);</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code">        string destination = Path.Combine(RootB, SlotID);</code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code">        Directory.CreateDirectory(destination);</code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">        foreach (string file in Directory.GetFiles(source))</code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code">            File.Copy(file, Path.Combine(destination, Path.GetFileName(file)));</code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code">    }</code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code"></code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">    public bool BindRoot(SaveManager manager, RoadMapScene map, string root) =&gt;</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">        map.BindQaStorage(manager, new SceneStoragePolicy(root, [map.QaRoadParticipant.SaveFileName]));</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code"></code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">    public string CaptureAndAuthorize(SaveManager manager)</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">    {</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code">        _captured = manager.ListSlots().Single(slot =&gt; slot.SlotID == SlotID);</code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">        return manager.ArmDeletion(_captured);</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code">    }</code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code"></code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code">    public string RearmCapturedSummary(SaveManager manager) =&gt;</code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code">        manager.ArmDeletion(_captured ?? throw new InvalidOperationException(&quot;No slot summary was captured.&quot;));</code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code"></code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code">    public bool BothSlotsExist() =&gt; Directory.Exists(Path.Combine(RootA, SlotID)) &amp;&amp;</code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code">        Directory.Exists(Path.Combine(RootB, SlotID));</code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code"></code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code">    public void Cleanup(SaveManager manager, RoadMapScene map)</code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code">    {</code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code">        if (!map.BindQaStorage(manager, RoadSaveParticipant.Storage))</code></span>
+<span class="line" id="L44"><a class="number" href="#L44">44</a><code class="code">            throw new InvalidOperationException(&quot;Could not restore the V4 scene storage.&quot;);</code></span>
+<span class="line" id="L45"><a class="number" href="#L45">45</a><code class="code">        string directory = Path.GetFullPath(_root);</code></span>
+<span class="line" id="L46"><a class="number" href="#L46">46</a><code class="code">        string prefix = Path.Combine(Path.GetFullPath(Path.GetTempPath()), &quot;simple-cities-root-auth-&quot;);</code></span>
+<span class="line" id="L47"><a class="number" href="#L47">47</a><code class="code">        if (!directory.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))</code></span>
+<span class="line" id="L48"><a class="number" href="#L48">48</a><code class="code">            throw new InvalidOperationException(&quot;Unexpected temporary storage root.&quot;);</code></span>
+<span class="line" id="L49"><a class="number" href="#L49">49</a><code class="code">        if (Directory.Exists(directory))</code></span>
+<span class="line" id="L50"><a class="number" href="#L50">50</a><code class="code">            Directory.Delete(directory, recursive: true);</code></span>
+<span class="line" id="L51"><a class="number" href="#L51">51</a><code class="code">    }</code></span>
+<span class="line" id="L52"><a class="number" href="#L52">52</a><code class="code">}</code></span>
+<span class="line" id="L53"><a class="number" href="#L53">53</a><code class="code"></code></span>
+<span class="line" id="L54"><a class="number" href="#L54">54</a><code class="code">public partial class RoadMapScene</code></span>
+<span class="line" id="L55"><a class="number" href="#L55">55</a><code class="code">{</code></span>
+<span class="line" id="L56"><a class="number" href="#L56">56</a><code class="code">    internal RoadSaveParticipant QaRoadParticipant =&gt; _roads ??</code></span>
+<span class="line" id="L57"><a class="number" href="#L57">57</a><code class="code">        throw new InvalidOperationException(&quot;The V4 scene is not ready.&quot;);</code></span>
+<span class="line" id="L58"><a class="number" href="#L58">58</a><code class="code">    internal bool BindQaStorage(SaveManager manager, SceneStoragePolicy policy)</code></span>
+<span class="line" id="L59"><a class="number" href="#L59">59</a><code class="code">    {</code></span>
+<span class="line" id="L60"><a class="number" href="#L60">60</a><code class="code">        manager.UnregisterSceneLoad(this);</code></span>
+<span class="line" id="L61"><a class="number" href="#L61">61</a><code class="code">        return manager.RegisterSceneLoad(new SceneLoadParticipants(QaRoadParticipant, this, _view, policy));</code></span>
+<span class="line" id="L62"><a class="number" href="#L62">62</a><code class="code">    }</code></span>
+<span class="line" id="L63"><a class="number" href="#L63">63</a><code class="code">}</code></span></pre></main></html>

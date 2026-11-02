@@ -1,0 +1,142 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Scripts/Grid/MapBackground.cs · SimpleCities 源码</title><link rel="stylesheet" href="../../../assets/source.css"><header><a href="../../../index.html">← 文档首页</a><h1>Scripts/Grid/MapBackground.cs</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">using Godot;</code></span>
+<span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code"></code></span>
+<span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">/// &lt;summary&gt;</code></span>
+<span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code">/// 地图背景渲染器 — 暗色底 + 网格线（对齐原点）</code></span>
+<span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code">/// &lt;/summary&gt;</code></span>
+<span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">public partial class MapBackground : CanvasLayer</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">{</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">    public static MapBackground Instance { get; private set; } = null!;</code></span>
+<span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code"></code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">    // ═══════════════════════════════════════════</code></span>
+<span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">    // RoadConfig 引用</code></span>
+<span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">    // ═══════════════════════════════════════════</code></span>
+<span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code"></code></span>
+<span class="line" id="L14"><a class="number" href="#L14">14</a><code class="code">    [ExportGroup(&quot;配置引用&quot;)]</code></span>
+<span class="line" id="L15"><a class="number" href="#L15">15</a><code class="code">    /// &lt;summary&gt;道路配置资源，网格大小和偏移从 CellSize 自动推导&lt;/summary&gt;</code></span>
+<span class="line" id="L16"><a class="number" href="#L16">16</a><code class="code">    [Export] public RoadConfig Config { get; set; } = null!;</code></span>
+<span class="line" id="L17"><a class="number" href="#L17">17</a><code class="code"></code></span>
+<span class="line" id="L18"><a class="number" href="#L18">18</a><code class="code">    // ═══════════════════════════════════════════</code></span>
+<span class="line" id="L19"><a class="number" href="#L19">19</a><code class="code">    // 背景设置</code></span>
+<span class="line" id="L20"><a class="number" href="#L20">20</a><code class="code">    // ═══════════════════════════════════════════</code></span>
+<span class="line" id="L21"><a class="number" href="#L21">21</a><code class="code"></code></span>
+<span class="line" id="L22"><a class="number" href="#L22">22</a><code class="code">    [ExportGroup(&quot;背景设置&quot;)]</code></span>
+<span class="line" id="L23"><a class="number" href="#L23">23</a><code class="code">    [Export] public Color BackgroundColor = new(0.118f, 0.118f, 0.118f);</code></span>
+<span class="line" id="L24"><a class="number" href="#L24">24</a><code class="code"></code></span>
+<span class="line" id="L25"><a class="number" href="#L25">25</a><code class="code">    // ═══════════════════════════════════════════</code></span>
+<span class="line" id="L26"><a class="number" href="#L26">26</a><code class="code">    // 网格设置</code></span>
+<span class="line" id="L27"><a class="number" href="#L27">27</a><code class="code">    // ═══════════════════════════════════════════</code></span>
+<span class="line" id="L28"><a class="number" href="#L28">28</a><code class="code"></code></span>
+<span class="line" id="L29"><a class="number" href="#L29">29</a><code class="code">    [ExportGroup(&quot;网格设置&quot;)]</code></span>
+<span class="line" id="L30"><a class="number" href="#L30">30</a><code class="code">    /// &lt;summary&gt;主网格 = CellSize × 此倍数&lt;/summary&gt;</code></span>
+<span class="line" id="L31"><a class="number" href="#L31">31</a><code class="code">    [Export(PropertyHint.Range, &quot;1,20,1&quot;)] public int MajorGridCells = 5;</code></span>
+<span class="line" id="L32"><a class="number" href="#L32">32</a><code class="code">    [Export] public float MainLineWidth = 1.5f;</code></span>
+<span class="line" id="L33"><a class="number" href="#L33">33</a><code class="code">    [Export] public Color MajorGridColor = new(0.25f, 0.25f, 0.25f);</code></span>
+<span class="line" id="L34"><a class="number" href="#L34">34</a><code class="code"></code></span>
+<span class="line" id="L35"><a class="number" href="#L35">35</a><code class="code">    /// &lt;summary&gt;次网格 = CellSize × 此倍数&lt;/summary&gt;</code></span>
+<span class="line" id="L36"><a class="number" href="#L36">36</a><code class="code">    [Export(PropertyHint.Range, &quot;1,10,1&quot;)] public int MinorGridCells = 1;</code></span>
+<span class="line" id="L37"><a class="number" href="#L37">37</a><code class="code">    [Export] public float LineWidth = 0.5f;</code></span>
+<span class="line" id="L38"><a class="number" href="#L38">38</a><code class="code">    [Export] public Color MinorGridColor = new(0.18f, 0.18f, 0.18f);</code></span>
+<span class="line" id="L39"><a class="number" href="#L39">39</a><code class="code"></code></span>
+<span class="line" id="L40"><a class="number" href="#L40">40</a><code class="code">    [Export] public float DotGridSize = 10f;</code></span>
+<span class="line" id="L41"><a class="number" href="#L41">41</a><code class="code">    [Export] public float DotRadius = 0.5f;</code></span>
+<span class="line" id="L42"><a class="number" href="#L42">42</a><code class="code">    [Export] public Color DotColor = new(0.20f, 0.20f, 0.20f);</code></span>
+<span class="line" id="L43"><a class="number" href="#L43">43</a><code class="code"></code></span>
+<span class="line" id="L44"><a class="number" href="#L44">44</a><code class="code">    // ═══════════════════════════════════════════</code></span>
+<span class="line" id="L45"><a class="number" href="#L45">45</a><code class="code">    // 显示设置</code></span>
+<span class="line" id="L46"><a class="number" href="#L46">46</a><code class="code">    // ═══════════════════════════════════════════</code></span>
+<span class="line" id="L47"><a class="number" href="#L47">47</a><code class="code"></code></span>
+<span class="line" id="L48"><a class="number" href="#L48">48</a><code class="code">    [ExportGroup(&quot;显示设置&quot;)]</code></span>
+<span class="line" id="L49"><a class="number" href="#L49">49</a><code class="code">    [Export] public bool ShowGrid = true;</code></span>
+<span class="line" id="L50"><a class="number" href="#L50">50</a><code class="code">    [Export] public bool ShowMainGrid = true;</code></span>
+<span class="line" id="L51"><a class="number" href="#L51">51</a><code class="code">    [Export] public bool ShowMinorGrid = true;</code></span>
+<span class="line" id="L52"><a class="number" href="#L52">52</a><code class="code">    [Export] public bool ShowDotGrid = true;</code></span>
+<span class="line" id="L53"><a class="number" href="#L53">53</a><code class="code"></code></span>
+<span class="line" id="L54"><a class="number" href="#L54">54</a><code class="code">    // ═══════════════════════════════════════════</code></span>
+<span class="line" id="L55"><a class="number" href="#L55">55</a><code class="code">    // 节点引用</code></span>
+<span class="line" id="L56"><a class="number" href="#L56">56</a><code class="code">    // ═══════════════════════════════════════════</code></span>
+<span class="line" id="L57"><a class="number" href="#L57">57</a><code class="code"></code></span>
+<span class="line" id="L58"><a class="number" href="#L58">58</a><code class="code">    [ExportGroup(&quot;节点引用&quot;)]</code></span>
+<span class="line" id="L59"><a class="number" href="#L59">59</a><code class="code">    [Export] public ColorRect Display = null!;</code></span>
+<span class="line" id="L60"><a class="number" href="#L60">60</a><code class="code"></code></span>
+<span class="line" id="L61"><a class="number" href="#L61">61</a><code class="code">    private ShaderMaterial? _shaderMaterial;</code></span>
+<span class="line" id="L62"><a class="number" href="#L62">62</a><code class="code">    private Vector2 _gridOffset;</code></span>
+<span class="line" id="L63"><a class="number" href="#L63">63</a><code class="code"></code></span>
+<span class="line" id="L64"><a class="number" href="#L64">64</a><code class="code">    public override void _Ready()</code></span>
+<span class="line" id="L65"><a class="number" href="#L65">65</a><code class="code">    {</code></span>
+<span class="line" id="L66"><a class="number" href="#L66">66</a><code class="code">		Instance = this;</code></span>
+<span class="line" id="L67"><a class="number" href="#L67">67</a><code class="code"></code></span>
+<span class="line" id="L68"><a class="number" href="#L68">68</a><code class="code">        // 回退到默认 RoadConfig</code></span>
+<span class="line" id="L69"><a class="number" href="#L69">69</a><code class="code">        if (Config == null)</code></span>
+<span class="line" id="L70"><a class="number" href="#L70">70</a><code class="code">        {</code></span>
+<span class="line" id="L71"><a class="number" href="#L71">71</a><code class="code">            GD.PushError(&quot;MapBackground: Config (RoadConfig resource) is not assigned in the scene.&quot;);</code></span>
+<span class="line" id="L72"><a class="number" href="#L72">72</a><code class="code">            Config = new RoadConfig();</code></span>
+<span class="line" id="L73"><a class="number" href="#L73">73</a><code class="code">        }</code></span>
+<span class="line" id="L74"><a class="number" href="#L74">74</a><code class="code"></code></span>
+<span class="line" id="L75"><a class="number" href="#L75">75</a><code class="code">        _gridOffset = Vector2.Zero;</code></span>
+<span class="line" id="L76"><a class="number" href="#L76">76</a><code class="code"></code></span>
+<span class="line" id="L77"><a class="number" href="#L77">77</a><code class="code">        Display.Visible = true;</code></span>
+<span class="line" id="L78"><a class="number" href="#L78">78</a><code class="code">        Display.AnchorLeft = 0;</code></span>
+<span class="line" id="L79"><a class="number" href="#L79">79</a><code class="code">        Display.AnchorTop = 0;</code></span>
+<span class="line" id="L80"><a class="number" href="#L80">80</a><code class="code">        Display.AnchorRight = 1;</code></span>
+<span class="line" id="L81"><a class="number" href="#L81">81</a><code class="code">        Display.AnchorBottom = 1;</code></span>
+<span class="line" id="L82"><a class="number" href="#L82">82</a><code class="code">        Display.OffsetLeft = 0;</code></span>
+<span class="line" id="L83"><a class="number" href="#L83">83</a><code class="code">        Display.OffsetTop = 0;</code></span>
+<span class="line" id="L84"><a class="number" href="#L84">84</a><code class="code">        Display.OffsetRight = 0;</code></span>
+<span class="line" id="L85"><a class="number" href="#L85">85</a><code class="code">        Display.OffsetBottom = 0;</code></span>
+<span class="line" id="L86"><a class="number" href="#L86">86</a><code class="code"></code></span>
+<span class="line" id="L87"><a class="number" href="#L87">87</a><code class="code">        _shaderMaterial = Display.Material as ShaderMaterial;</code></span>
+<span class="line" id="L88"><a class="number" href="#L88">88</a><code class="code">    }</code></span>
+<span class="line" id="L89"><a class="number" href="#L89">89</a><code class="code"></code></span>
+<span class="line" id="L90"><a class="number" href="#L90">90</a><code class="code">	public override void _ExitTree()</code></span>
+<span class="line" id="L91"><a class="number" href="#L91">91</a><code class="code">	{</code></span>
+<span class="line" id="L92"><a class="number" href="#L92">92</a><code class="code">		if (ReferenceEquals(Instance, this))</code></span>
+<span class="line" id="L93"><a class="number" href="#L93">93</a><code class="code">			Instance = null!;</code></span>
+<span class="line" id="L94"><a class="number" href="#L94">94</a><code class="code">		_shaderMaterial = null;</code></span>
+<span class="line" id="L95"><a class="number" href="#L95">95</a><code class="code">	}</code></span>
+<span class="line" id="L96"><a class="number" href="#L96">96</a><code class="code"></code></span>
+<span class="line" id="L97"><a class="number" href="#L97">97</a><code class="code">    public override void _Process(double delta)</code></span>
+<span class="line" id="L98"><a class="number" href="#L98">98</a><code class="code">    {</code></span>
+<span class="line" id="L99"><a class="number" href="#L99">99</a><code class="code">        if (_shaderMaterial == null)</code></span>
+<span class="line" id="L100"><a class="number" href="#L100">100</a><code class="code">            return;</code></span>
+<span class="line" id="L101"><a class="number" href="#L101">101</a><code class="code"></code></span>
+<span class="line" id="L102"><a class="number" href="#L102">102</a><code class="code">        MainCamera camera = MainCamera.Instance;</code></span>
+<span class="line" id="L103"><a class="number" href="#L103">103</a><code class="code">        Vector2 cameraPos = camera?.GlobalPosition ?? Vector2.Zero;</code></span>
+<span class="line" id="L104"><a class="number" href="#L104">104</a><code class="code">        float cameraZoom = camera?.Zoom.X ?? 1.0f;</code></span>
+<span class="line" id="L105"><a class="number" href="#L105">105</a><code class="code">        Vector2 viewportSize = GetViewport().GetVisibleRect().Size;</code></span>
+<span class="line" id="L106"><a class="number" href="#L106">106</a><code class="code"></code></span>
+<span class="line" id="L107"><a class="number" href="#L107">107</a><code class="code">        // 背景</code></span>
+<span class="line" id="L108"><a class="number" href="#L108">108</a><code class="code">        _shaderMaterial.SetShaderParameter(&quot;background_color&quot;,</code></span>
+<span class="line" id="L109"><a class="number" href="#L109">109</a><code class="code">            new Vector3(BackgroundColor.R, BackgroundColor.G, BackgroundColor.B));</code></span>
+<span class="line" id="L110"><a class="number" href="#L110">110</a><code class="code"></code></span>
+<span class="line" id="L111"><a class="number" href="#L111">111</a><code class="code">        // 网格偏移（从 Config.CellSize 推导）</code></span>
+<span class="line" id="L112"><a class="number" href="#L112">112</a><code class="code">        _shaderMaterial.SetShaderParameter(&quot;grid_offset&quot;, _gridOffset);</code></span>
+<span class="line" id="L113"><a class="number" href="#L113">113</a><code class="code"></code></span>
+<span class="line" id="L114"><a class="number" href="#L114">114</a><code class="code">        // 网格（尺寸 = CellSize × 倍数，Inspector 设倍数不会被覆盖）</code></span>
+<span class="line" id="L115"><a class="number" href="#L115">115</a><code class="code">        float cellSize = Config.CellSize;</code></span>
+<span class="line" id="L116"><a class="number" href="#L116">116</a><code class="code">        _shaderMaterial.SetShaderParameter(&quot;major_grid_size&quot;, cellSize * MajorGridCells);</code></span>
+<span class="line" id="L117"><a class="number" href="#L117">117</a><code class="code">        _shaderMaterial.SetShaderParameter(&quot;major_line_width&quot;, MainLineWidth);</code></span>
+<span class="line" id="L118"><a class="number" href="#L118">118</a><code class="code">        _shaderMaterial.SetShaderParameter(&quot;major_grid_color&quot;,</code></span>
+<span class="line" id="L119"><a class="number" href="#L119">119</a><code class="code">            new Vector3(MajorGridColor.R, MajorGridColor.G, MajorGridColor.B));</code></span>
+<span class="line" id="L120"><a class="number" href="#L120">120</a><code class="code">        _shaderMaterial.SetShaderParameter(&quot;minor_grid_size&quot;, cellSize * MinorGridCells);</code></span>
+<span class="line" id="L121"><a class="number" href="#L121">121</a><code class="code">        _shaderMaterial.SetShaderParameter(&quot;minor_line_width&quot;, LineWidth);</code></span>
+<span class="line" id="L122"><a class="number" href="#L122">122</a><code class="code">        _shaderMaterial.SetShaderParameter(&quot;minor_grid_color&quot;,</code></span>
+<span class="line" id="L123"><a class="number" href="#L123">123</a><code class="code">            new Vector3(MinorGridColor.R, MinorGridColor.G, MinorGridColor.B));</code></span>
+<span class="line" id="L124"><a class="number" href="#L124">124</a><code class="code">        _shaderMaterial.SetShaderParameter(&quot;show_major_grid&quot;, ShowMainGrid &amp;&amp; ShowGrid);</code></span>
+<span class="line" id="L125"><a class="number" href="#L125">125</a><code class="code">        _shaderMaterial.SetShaderParameter(&quot;show_minor_grid&quot;, ShowMinorGrid &amp;&amp; ShowGrid);</code></span>
+<span class="line" id="L126"><a class="number" href="#L126">126</a><code class="code">        _shaderMaterial.SetShaderParameter(&quot;show_dot_grid&quot;, ShowDotGrid &amp;&amp; ShowGrid);</code></span>
+<span class="line" id="L127"><a class="number" href="#L127">127</a><code class="code">        _shaderMaterial.SetShaderParameter(&quot;dot_grid_size&quot;, DotGridSize);</code></span>
+<span class="line" id="L128"><a class="number" href="#L128">128</a><code class="code">        _shaderMaterial.SetShaderParameter(&quot;dot_radius&quot;, DotRadius);</code></span>
+<span class="line" id="L129"><a class="number" href="#L129">129</a><code class="code">        _shaderMaterial.SetShaderParameter(&quot;dot_color&quot;,</code></span>
+<span class="line" id="L130"><a class="number" href="#L130">130</a><code class="code">            new Vector3(DotColor.R, DotColor.G, DotColor.B));</code></span>
+<span class="line" id="L131"><a class="number" href="#L131">131</a><code class="code"></code></span>
+<span class="line" id="L132"><a class="number" href="#L132">132</a><code class="code">        // 相机</code></span>
+<span class="line" id="L133"><a class="number" href="#L133">133</a><code class="code">        _shaderMaterial.SetShaderParameter(&quot;camera_pos&quot;, cameraPos);</code></span>
+<span class="line" id="L134"><a class="number" href="#L134">134</a><code class="code">        _shaderMaterial.SetShaderParameter(&quot;camera_zoom&quot;, cameraZoom);</code></span>
+<span class="line" id="L135"><a class="number" href="#L135">135</a><code class="code">        _shaderMaterial.SetShaderParameter(&quot;viewport_size&quot;, viewportSize);</code></span>
+<span class="line" id="L136"><a class="number" href="#L136">136</a><code class="code">    }</code></span>
+<span class="line" id="L137"><a class="number" href="#L137">137</a><code class="code"></code></span>
+<span class="line" id="L138"><a class="number" href="#L138">138</a><code class="code">    public void ToggleGrid()</code></span>
+<span class="line" id="L139"><a class="number" href="#L139">139</a><code class="code">    {</code></span>
+<span class="line" id="L140"><a class="number" href="#L140">140</a><code class="code">        ShowGrid = !ShowGrid;</code></span>
+<span class="line" id="L141"><a class="number" href="#L141">141</a><code class="code">    }</code></span>
+<span class="line" id="L142"><a class="number" href="#L142">142</a><code class="code">}</code></span></pre></main></html>
