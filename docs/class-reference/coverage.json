@@ -1601,7 +1601,7 @@
     {
       "path": "Scripts/Docs/render_class_reference.py",
       "language": "Python",
-      "sha256": "f755f31aebbf739b7cd9a3e5d7a2163143d3a41b4887f1b71adec6a3214bf5f5",
+      "sha256": "57d366db8ee52e04e37b51ff4f3a67c8783fedc67cc79a87065d50203a9e7177",
       "pages": [
         "docs/class-reference/other-languages/ClassReferenceRenderer.md"
       ],
@@ -101600,5 +101600,6 @@
         "SceneStoragePolicyProbe"
       ]
     }
-  ]
+  ],
+  "authoringMode": "markdown"
 }

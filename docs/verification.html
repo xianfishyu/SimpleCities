@@ -10678,6 +10678,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#文档网站" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        文档网站
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#按改动选择验证" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -10775,6 +10786,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#文档网站" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        文档网站
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#按改动选择验证" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -10840,14 +10862,36 @@
 <h2 id="从仓库根运行">从仓库根运行<a class="headerlink" href="#从仓库根运行" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><span class="n">python</span> <span class="n">Scripts</span><span class="p">/</span><span class="n">Docs</span><span class="p">/</span><span class="n">check_docs</span><span class="p">.</span><span class="n">py</span>
 <span class="n">python</span> <span class="n">Scripts</span><span class="p">/</span><span class="n">Docs</span><span class="p">/</span><span class="n">check_class_reference</span><span class="p">.</span><span class="n">py</span>
-<span class="n">python</span> <span class="n">Scripts</span><span class="p">/</span><span class="n">Docs</span><span class="p">/</span><span class="n">render_class_reference</span><span class="p">.</span><span class="n">py</span> <span class="p">-</span><span class="n">-check</span>
 
 <span class="c"># 已安装文档站依赖时，核对最近一次静态构建</span>
-<span class="c"># github-pages/.local/venv/Scripts/python.exe -B github-pages/docs_site.py check</span>
+<span class="c"># .scratch/docs-site/venv/Scripts/python.exe -B Scripts/Docs/docs_site.py check</span>
 <span class="n">dotnet</span> <span class="n">build</span> <span class="n">SimpleCities</span><span class="p">.</span><span class="n">sln</span>
 <span class="n">dotnet</span> <span class="n">test</span> <span class="n">tests</span><span class="p">/</span><span class="n">SimpleCities</span><span class="p">.</span><span class="n">RoadCore</span><span class="p">.</span><span class="n">Tests</span><span class="p">/</span><span class="n">SimpleCities</span><span class="p">.</span><span class="n">RoadCore</span><span class="p">.</span><span class="n">Tests</span><span class="p">.</span><span class="n">csproj</span>
 </code></pre></div>
-<p>前三个命令用于文档，类参考渲染检查只核对生成页面是否同步；后两个用于适用的代码改动，执行前确认本机 .NET SDK 和项目依赖。Godot 图形、应用测试和 Release 采集命令集中在<a href="../Scripts/QA/overview.html">QA 入口</a>，避免多处复制参数。</p>
+<p>前两个命令用于文档，只检查声明事实和链接，正文直接在 Markdown 中维护；后两个用于适用的代码改动，执行前确认本机 .NET SDK 和项目依赖。Godot 图形、应用测试和 Release 采集命令集中在<a href="../Scripts/QA/overview.html">QA 入口</a>，避免多处复制参数。</p>
+<h2 id="文档网站">文档网站<a class="headerlink" href="#文档网站" title="Permanent link">&para;</a></h2>
+<p>在当前工程直接编辑 <code>docs/</code> 中的 Markdown，构建后发布到 <a href="https://xianfishyu.github.io/SimpleCities/">GitHub Pages</a>。类参考正文也直接编辑 <code>.md</code>；构建不会按 JSON 模板覆盖已有页面。</p>
+<p>网页工具复用现有 <code>Scripts/Docs/</code>：<code>docs_site.py</code> 构建网页与源码查看页，<code>serve_docs.ps1</code> 管理依赖和本机预览，<code>publish_docs.ps1</code> 发布网站；<code>docs_site.css</code>、<code>docs_site.js</code>、<code>docs_source.css</code> 是网页样式和脚本，<code>site-requirements.txt</code> 固定依赖版本。</p>
+<p>在仓库根运行：</p>
+<div class="highlight"><pre><span></span><code><span class="c"># 首次运行自动安装独立依赖，构建后在本机预览</span>
+<span class="p">./</span><span class="n">Scripts</span><span class="p">/</span><span class="n">Docs</span><span class="p">/</span><span class="n">serve_docs</span><span class="p">.</span><span class="n">ps1</span>
+
+<span class="c"># 只生成静态网站和 zip</span>
+<span class="p">./</span><span class="n">Scripts</span><span class="p">/</span><span class="n">Docs</span><span class="p">/</span><span class="n">serve_docs</span><span class="p">.</span><span class="n">ps1</span> <span class="n">-BuildOnly</span>
+
+<span class="c"># 预览最近一次成功构建，按 Ctrl+C 停止</span>
+<span class="p">./</span><span class="n">Scripts</span><span class="p">/</span><span class="n">Docs</span><span class="p">/</span><span class="n">serve_docs</span><span class="p">.</span><span class="n">ps1</span> <span class="n">-NoBuild</span> <span class="n">-Port</span> <span class="n">8765</span>
+
+<span class="c"># 得到发布授权后构建并发布；已验证构建可加 -SkipBuild</span>
+<span class="p">./</span><span class="n">Scripts</span><span class="p">/</span><span class="n">Docs</span><span class="p">/</span><span class="n">publish_docs</span><span class="p">.</span><span class="n">ps1</span>
+
+<span class="c"># 只读取远程 HEAD 检查连接，不写入发布分支或 Pages 配置</span>
+<span class="p">./</span><span class="n">Scripts</span><span class="p">/</span><span class="n">Docs</span><span class="p">/</span><span class="n">publish_docs</span><span class="p">.</span><span class="n">ps1</span> <span class="n">-SkipBuild</span> <span class="n">-CheckConnection</span>
+</code></pre></div>
+<p>默认预览地址为 <code>http://127.0.0.1:8765/SimpleCities/</code>。独立环境、缓存、构建、zip 和隔离发布工作区放在已忽略的 <code>.scratch/docs-site/</code>，最新路径记在其 <code>current.json</code> 中；每次构建使用新目录。</p>
+<p>发布工具只更新专门的 <code>github-pages</code> 分支，保留其提交历史和 <code>.nojekyll</code>，并核对站点归属。源码工作分支的提交与推送分别按实际授权处理。Git 沿用当前环境或 Windows 已配置的代理，仅传入当次调用，不修改全局 Git 或系统设置。</p>
+<p>构建使用 MkDocs Material，提供分类导航、中英文搜索、页内目录、代码复制、明暗主题、Mermaid 流程图和源码行查看。发布前检查 Markdown、声明覆盖及生成 HTML 的本地链接与锚点，发布后确认 Pages 构建成功并实际打开公网页面。大型运行证据和忽略文件只保留引用说明。</p>
+<p>部署目录是 <code>current.json</code> 中 <code>site</code> 指向的静态文件，不依赖常驻 Python 服务；本机生成文件不进入源码 Git 跟踪。</p>
 <h2 id="按改动选择验证">按改动选择验证<a class="headerlink" href="#按改动选择验证" title="Permanent link">&para;</a></h2>
 <p>按<a href="agents/opencode-mcp-lsp.html#选择验证范围">验证范围表</a>确定需要的证据，再使用下面的行为入口。该表区分文档、C#、场景、运行行为与性能，不用一个检查结果替代全部门禁。</p>
 <h2 id="行为覆盖入口">行为覆盖入口<a class="headerlink" href="#行为覆盖入口" title="Permanent link">&para;</a></h2>

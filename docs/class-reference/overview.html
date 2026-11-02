@@ -10984,20 +10984,20 @@
 </table>
 <p>不重复列出 Godot/.NET/第三方库的继承成员，不收录 addons 与构建生成文件。匿名类型、lambda、局部函数、编译器生成的顶层 Program、未声明命名类的 GDScript 脚本及 Python 模块函数不作为独立命名类型；程序集属性与 C# 顶层程序文件仍在源文件清单中。</p>
 <h2 id="维护与检查">维护与检查<a class="headerlink" href="#维护与检查" title="Permanent link">&para;</a></h2>
-<p><code>coverage.json</code> version 2 同时保存已审核的声明结构、来源摘要及人工说明。类型的 <code>description</code> / <code>remarks</code> 和成员的 <code>description</code> 是正文编辑入口；<code>render_class_reference.py</code> 生成类型和导航页。首页及 <code>usage.md</code> 继续手工维护。</p>
-<div class="highlight"><pre><span></span><code><span class="c"># 修改已审核的结构或说明后生成页面</span>
+<p>直接编辑本目录的 <code>.md</code> 文件来维护正文、示例和页面组织。网页构建读取这些 Markdown，不会重新生成或覆盖正文。</p>
+<p><code>coverage.json</code> version 2 用于保存 API 声明、来源摘要和稳定锚点。它保留的 <code>description</code> / <code>remarks</code> 仅作为缺页初稿的种子；修改已有 Markdown 的文字不需要回写这些字段。签名和锚点仍接受覆盖检查，签名可以合理换行。</p>
+<div class="highlight"><pre><span></span><code><span class="c"># 可选：为新增类型补齐缺少的初稿；已有 Markdown 不会被覆盖</span>
 <span class="n">python</span> <span class="n">Scripts</span><span class="p">/</span><span class="n">Docs</span><span class="p">/</span><span class="n">render_class_reference</span><span class="p">.</span><span class="n">py</span>
 
-<span class="c"># 只检查，不改文件</span>
-<span class="n">python</span> <span class="n">Scripts</span><span class="p">/</span><span class="n">Docs</span><span class="p">/</span><span class="n">render_class_reference</span><span class="p">.</span><span class="n">py</span> <span class="p">-</span><span class="n">-check</span>
+<span class="c"># 检查声明事实与文档链接，不比较正文是否等于生成模板</span>
 <span class="n">python</span> <span class="n">Scripts</span><span class="p">/</span><span class="n">Docs</span><span class="p">/</span><span class="n">check_class_reference</span><span class="p">.</span><span class="n">py</span>
 <span class="n">python</span> <span class="n">Scripts</span><span class="p">/</span><span class="n">Docs</span><span class="p">/</span><span class="n">check_docs</span><span class="p">.</span><span class="n">py</span>
 <span class="n">git</span> <span class="nb">diff </span><span class="p">-</span><span class="n">-check</span>
 </code></pre></div>
-<p>源码改动后先通过 Roslyn 语法树或语言服务更新相关类型的声明、参数、访问器、默认值和行号，再人工核对行为说明与示例，最后更新对应源摘要并生成页面。渲染工具不会提取新源码、批准行为或自动修改摘要，不能只换摘要使检查通过。摘要使用去 BOM、CRLF 规范化为 LF 的 UTF-8 字节。</p>
-<p>覆盖检查核对当前源码、独立类型页、稳定声明锚点、签名和生成页面同步；链接检查核对本地文件与支持的 Markdown 锚点。这些检查不证明逐方法行为、Godot 图形或性能通过，运行验证仍按<a href="../verification.html">验证手册</a>执行。</p>
+<p>源码接口改动后，通过 Roslyn 语法树或语言服务更新相关声明、参数、访问器、默认值和行号，再在 Markdown 中核对行为说明、示例、索引和链接，最后更新对应源摘要。初稿工具不会提取新源码、批准行为或自动修改摘要，不能只换摘要使检查通过。摘要使用去 BOM、CRLF 规范化为 LF 的 UTF-8 字节。</p>
+<p>覆盖检查核对当前源码、独立类型页、稳定声明锚点和签名，保留手写正文；链接检查核对本地文件与支持的 Markdown 锚点。这些检查不证明逐方法行为、Godot 图形或性能通过，运行验证仍按<a href="../verification.html">验证手册</a>执行。</p>
 <h2 id="网页浏览与部署">网页浏览与部署<a class="headerlink" href="#网页浏览与部署" title="Permanent link">&para;</a></h2>
-<p>在线入口为 <a href="https://xianfishyu.github.io/SimpleCities/">GitHub Pages</a>。网页脚本、样式、依赖、本机环境、构建产物和发布工作区统一位于 <a href="../../github-pages/overview.html">github-pages/</a>，预览、构建、发布与连接诊断命令在该目录首页维护。</p>
+<p>在线入口为 <a href="https://xianfishyu.github.io/SimpleCities/">GitHub Pages</a>。直接在当前工程编辑 Markdown，使用现有 <code>Scripts/Docs/</code> 中的工具构建并发布；操作命令见<a href="../verification.html#文档网站">文档网站</a>。本地没有额外的 <code>github-pages/</code> 目录，同名远程分支只保存发布后的静态网页。</p>
 
 
 
