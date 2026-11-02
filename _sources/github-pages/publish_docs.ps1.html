@@ -1,13 +1,13 @@
-<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Scripts/Docs/publish_docs.ps1 · SimpleCities 源码</title><link rel="stylesheet" href="../../../assets/source.css"><header><a href="../../../index.html">← 文档首页</a><h1>Scripts/Docs/publish_docs.ps1</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">param(</code></span>
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>github-pages/publish_docs.ps1 · SimpleCities 源码</title><link rel="stylesheet" href="../../assets/source.css"><header><a href="../../index.html">← 文档首页</a><h1>github-pages/publish_docs.ps1</h1></header><main><pre class="source"><span class="line" id="L1"><a class="number" href="#L1">1</a><code class="code">param(</code></span>
 <span class="line" id="L2"><a class="number" href="#L2">2</a><code class="code">    [switch]$SkipBuild,</code></span>
 <span class="line" id="L3"><a class="number" href="#L3">3</a><code class="code">    [switch]$CheckConnection</code></span>
 <span class="line" id="L4"><a class="number" href="#L4">4</a><code class="code">)</code></span>
 <span class="line" id="L5"><a class="number" href="#L5">5</a><code class="code"></code></span>
 <span class="line" id="L6"><a class="number" href="#L6">6</a><code class="code">$ErrorActionPreference = &#x27;Stop&#x27;</code></span>
-<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">$docsPublishRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot &#x27;../..&#x27;))</code></span>
-<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">$docsPublishWork = [System.IO.Path]::GetFullPath((Join-Path $docsPublishRoot &#x27;.scratch/docs-site&#x27;))</code></span>
+<span class="line" id="L7"><a class="number" href="#L7">7</a><code class="code">$docsPublishRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot &#x27;..&#x27;))</code></span>
+<span class="line" id="L8"><a class="number" href="#L8">8</a><code class="code">$docsPublishWork = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot &#x27;.local&#x27;))</code></span>
 <span class="line" id="L9"><a class="number" href="#L9">9</a><code class="code">$docsPublishRepository = &#x27;xianfishyu/SimpleCities&#x27;</code></span>
-<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">$docsPublishBranch = &#x27;codex/gh-pages&#x27;</code></span>
+<span class="line" id="L10"><a class="number" href="#L10">10</a><code class="code">$docsPublishBranch = &#x27;github-pages&#x27;</code></span>
 <span class="line" id="L11"><a class="number" href="#L11">11</a><code class="code">$docsPublishRemote = &quot;https://github.com/$docsPublishRepository.git&quot;</code></span>
 <span class="line" id="L12"><a class="number" href="#L12">12</a><code class="code">$docsGitAuth = @(&#x27;-c&#x27;, &#x27;core.autocrlf=false&#x27;, &#x27;-c&#x27;, &#x27;credential.helper=&#x27;, &#x27;-c&#x27;, &#x27;credential.helper=!gh auth git-credential&#x27;)</code></span>
 <span class="line" id="L13"><a class="number" href="#L13">13</a><code class="code"></code></span>

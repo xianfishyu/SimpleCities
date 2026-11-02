@@ -1,7 +1,7 @@
 {
-  "generator": "SimpleCities docs_site.py",
-  "htmlPages": 674,
   "sourceCommit": "7499f7e0e75694f661ae4e1b7c9b737bcfdc3a78",
-  "sourceDirty": false,
-  "builtAtUtc": "2026-11-03T03:19:31.826636+08:00"
+  "generator": "SimpleCities docs_site.py",
+  "sourceDirty": true,
+  "builtAtUtc": "2026-11-03T04:50:00.634348+08:00",
+  "htmlPages": 678
 }

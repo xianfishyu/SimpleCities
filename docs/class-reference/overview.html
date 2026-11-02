@@ -10997,21 +10997,7 @@
 <p>源码改动后先通过 Roslyn 语法树或语言服务更新相关类型的声明、参数、访问器、默认值和行号，再人工核对行为说明与示例，最后更新对应源摘要并生成页面。渲染工具不会提取新源码、批准行为或自动修改摘要，不能只换摘要使检查通过。摘要使用去 BOM、CRLF 规范化为 LF 的 UTF-8 字节。</p>
 <p>覆盖检查核对当前源码、独立类型页、稳定声明锚点、签名和生成页面同步；链接检查核对本地文件与支持的 Markdown 锚点。这些检查不证明逐方法行为、Godot 图形或性能通过，运行验证仍按<a href="../verification.html">验证手册</a>执行。</p>
 <h2 id="网页浏览与部署">网页浏览与部署<a class="headerlink" href="#网页浏览与部署" title="Permanent link">&para;</a></h2>
-<p>站点使用同一批 Markdown，提供分类导航、中英文搜索、页内目录、代码复制、明暗主题与源码行查看。在线入口为 <a href="https://xianfishyu.github.io/SimpleCities/">GitHub Pages</a>。</p>
-<p>在仓库根运行：</p>
-<div class="highlight"><pre><span></span><code><span class="c"># 首次运行会创建独立环境并安装固定版本依赖，之后构建并启动本机预览</span>
-<span class="p">./</span><span class="n">Scripts</span><span class="p">/</span><span class="n">Docs</span><span class="p">/</span><span class="n">serve_docs</span><span class="p">.</span><span class="n">ps1</span>
-
-<span class="c"># 只生成静态站点和可独立部署的 zip</span>
-<span class="p">./</span><span class="n">Scripts</span><span class="p">/</span><span class="n">Docs</span><span class="p">/</span><span class="n">serve_docs</span><span class="p">.</span><span class="n">ps1</span> <span class="n">-BuildOnly</span>
-
-<span class="c"># 预览最近一次成功构建，按 Ctrl+C 停止</span>
-<span class="p">./</span><span class="n">Scripts</span><span class="p">/</span><span class="n">Docs</span><span class="p">/</span><span class="n">serve_docs</span><span class="p">.</span><span class="n">ps1</span> <span class="n">-NoBuild</span> <span class="n">-Port</span> <span class="n">8765</span>
-</code></pre></div>
-<p>构建结果及 zip 路径记录在 <code>.scratch/docs-site/current.json</code>。每次构建使用新的输出目录；部署只需记录中 <code>site</code> 指向目录的静态文件，不需要 Python 服务端。脚本绑定 <code>127.0.0.1</code>，默认本机地址为 <code>http://127.0.0.1:8765/SimpleCities/</code>。</p>
-<p>GitHub Pages 使用专门的 <code>codex/gh-pages</code> 发布分支，并保留 <code>.nojekyll</code>。发布该分支与提交源码分支是分别授权的 Git 操作。构建会检查声明与页面同步，并核对生成 HTML 的本地链接和锚点；原始大型运行证据、忽略文件和未打包资料只生成引用说明，不随站点发布。</p>
-<p>得到发布授权后，运行 <code>./Scripts/Docs/publish_docs.ps1</code> 构建并发布，或用 <code>-SkipBuild</code> 发布最近一次已通过检查的构建。发布工具只更新独立发布分支，保留它的提交历史，不推送当前源码分支；遇到其他工具管理的站点会停止以保留其内容。</p>
-<p>发布工具沿用当前环境或 Windows 已配置的 HTTP/HTTPS 代理，仅通过当次 Git 命令参数传入，不写入全局 Git 或系统设置。连接异常时可先运行 <code>./Scripts/Docs/publish_docs.ps1 -SkipBuild -CheckConnection</code>，此模式只读取远程 HEAD，不发布内容。</p>
+<p>在线入口为 <a href="https://xianfishyu.github.io/SimpleCities/">GitHub Pages</a>。网页脚本、样式、依赖、本机环境、构建产物和发布工作区统一位于 <a href="../../github-pages/overview.html">github-pages/</a>，预览、构建、发布与连接诊断命令在该目录首页维护。</p>
 
 
 
